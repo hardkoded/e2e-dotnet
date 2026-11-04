@@ -34,6 +34,8 @@ internal sealed class Colors(bool enabled)
 
     public string Black(string text) => Wrap(text, 30, 39);
 
+    public string White(string text) => Wrap(text, 37, 39);
+
     public string BgRed(string text) => Wrap(text, 41, 49);
 
     /// <summary>Bright yellow, cyan, green, and magenta backgrounds, by the target's declaration order (upstream's <c>BADGE_COLORS</c>); GitHub Actions renders plain yellow as dark brown.</summary>
@@ -213,19 +215,151 @@ internal static partial class Format
         return (new string(LongDash, before), new string(LongDash, after));
     }
 
-    /// <summary>Printed width of a line in text elements, ANSI sequences excluded. Wide East Asian characters count as one.</summary>
-    public static int VisibleWidth(string text) => new StringInfo(Ansi().Replace(text, string.Empty)).LengthInTextElements;
+    /// <summary>Printed width of a line in terminal columns, ANSI sequences excluded (upstream's <c>visibleWidth</c>).</summary>
+    public static int VisibleWidth(string text) => Graphemes(Ansi().Replace(text, string.Empty)).Sum(cluster => cluster.Columns);
 
-    /// <summary>Clips plain text to <paramref name="columns"/> text elements with the ellipsis inside the budget; untouched when it fits.</summary>
+    /// <summary>
+    /// Clips terminal text to <paramref name="columns"/> with the ellipsis inside the budget, whole grapheme clusters only; untouched when it
+    /// fits (upstream's <c>fitColumns</c>).
+    /// </summary>
     public static string FitColumns(string text, int columns)
     {
-        var info = new StringInfo(text);
-        return info.LengthInTextElements <= columns ? text : info.SubstringByTextElements(0, Math.Max(0, columns - 1)) + "…";
+        var clusters = Graphemes(text);
+        if (clusters.Sum(cluster => cluster.Columns) <= columns)
+        {
+            return text;
+        }
+
+        var limit = Math.Max(0, columns - 1);
+        var width = 0;
+        var clipped = new StringBuilder();
+        foreach (var (cluster, clusterColumns) in clusters)
+        {
+            if (width + clusterColumns > limit)
+            {
+                break;
+            }
+
+            clipped.Append(cluster);
+            width += clusterColumns;
+        }
+
+        return clipped.Append('…').ToString();
+    }
+
+    /// <summary>
+    /// Code point ranges a terminal paints two columns wide: East Asian wide and fullwidth forms, and the symbols with default emoji
+    /// presentation (upstream's <c>WIDE_RANGES</c>).
+    /// </summary>
+    private static readonly (int Start, int End)[] WideRanges =
+    [
+        (0x1100, 0x115f), (0x231a, 0x231b), (0x2329, 0x232a), (0x23e9, 0x23ec), (0x23f0, 0x23f0), (0x23f3, 0x23f3), (0x25fd, 0x25fe),
+        (0x2614, 0x2615), (0x2648, 0x2653), (0x267f, 0x267f), (0x2693, 0x2693), (0x26a1, 0x26a1), (0x26aa, 0x26ab), (0x26bd, 0x26be),
+        (0x26c4, 0x26c5), (0x26ce, 0x26ce), (0x26d4, 0x26d4), (0x26ea, 0x26ea), (0x26f2, 0x26f3), (0x26f5, 0x26f5), (0x26fa, 0x26fa),
+        (0x26fd, 0x26fd), (0x2705, 0x2705), (0x270a, 0x270b), (0x2728, 0x2728), (0x274c, 0x274c), (0x274e, 0x274e), (0x2753, 0x2755),
+        (0x2757, 0x2757), (0x2795, 0x2797), (0x27b0, 0x27b0), (0x27bf, 0x27bf), (0x2b1b, 0x2b1c), (0x2b50, 0x2b50), (0x2b55, 0x2b55),
+        (0x2e80, 0x303e), (0x3041, 0x33ff), (0x3400, 0x4dbf), (0x4e00, 0x9fff), (0xa000, 0xa4cf), (0xa960, 0xa97f), (0xac00, 0xd7a3),
+        (0xf900, 0xfaff), (0xfe10, 0xfe19), (0xfe30, 0xfe6f), (0xff00, 0xff60), (0xffe0, 0xffe6), (0x16fe0, 0x16fe4), (0x17000, 0x18cff),
+        (0x1b000, 0x1b2ff), (0x1f004, 0x1f004), (0x1f0cf, 0x1f0cf), (0x1f18e, 0x1f18e), (0x1f191, 0x1f19a), (0x1f200, 0x1f251),
+        (0x1f300, 0x1f64f), (0x1f680, 0x1f6ff), (0x1f7e0, 0x1f7eb), (0x1f7f0, 0x1f7f0), (0x1f90c, 0x1f9ff), (0x1fa70, 0x1faff),
+        (0x20000, 0x2fffd), (0x30000, 0x3fffd),
+    ];
+
+    private const int ZeroWidthJoiner = 0x200d;
+
+    private const int VariationSelectorText = 0xfe0e;
+
+    private const int VariationSelectorEmoji = 0xfe0f;
+
+    private const int CombiningKeycap = 0x20e3;
+
+    /// <summary>
+    /// Terminal columns one code point paints on its own: 0 for a combining mark, a format character, a Hangul medial or final jamo, or an
+    /// emoji skin tone modifier; 2 for East Asian wide and fullwidth forms and default emoji presentation; else 1 (upstream's <c>codePointColumns</c>).
+    /// </summary>
+    private static int CodePointColumns(Rune rune)
+    {
+        var codePoint = rune.Value;
+        if (codePoint < 0x300)
+        {
+            return 1;
+        }
+
+        var category = Rune.GetUnicodeCategory(rune);
+        if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark or UnicodeCategory.Format
+            || codePoint is >= 0x1160 and <= 0x11ff
+            || codePoint is >= 0x1f3fb and <= 0x1f3ff)
+        {
+            return 0;
+        }
+
+        return WideRanges.Any(range => codePoint >= range.Start && codePoint <= range.End) ? 2 : 1;
+    }
+
+    /// <summary>
+    /// Terminal columns one grapheme cluster paints. An emoji sequence is two whatever its length: a ZWJ sequence, a base with the emoji
+    /// variation selector, a keycap, or a regional indicator pair; the text variation selector makes a symbol one. Anything else is the sum
+    /// of its code points (upstream's <c>graphemeColumns</c>).
+    /// </summary>
+    private static int GraphemeColumns(string cluster)
+    {
+        var runes = cluster.EnumerateRunes().ToList();
+        if (runes.Any(rune => rune.Value == VariationSelectorText))
+        {
+            return 1;
+        }
+
+        if (runes.Any(rune => rune.Value is ZeroWidthJoiner or VariationSelectorEmoji or CombiningKeycap))
+        {
+            return 2;
+        }
+
+        if (runes.Count == 2 && runes.All(rune => rune.Value is >= 0x1f1e6 and <= 0x1f1ff))
+        {
+            return 2;
+        }
+
+        return runes.Sum(CodePointColumns);
+    }
+
+    /// <summary>The grapheme clusters of <paramref name="text"/>, each with the columns it paints; ANSI sequences count as text, so strip them first (upstream's <c>graphemes</c>).</summary>
+    public static IReadOnlyList<(string Text, int Columns)> Graphemes(string text)
+    {
+        var clusters = new List<(string Text, int Columns)>();
+        var enumerator = StringInfo.GetTextElementEnumerator(text);
+        while (enumerator.MoveNext())
+        {
+            var cluster = (string)enumerator.Current;
+            clusters.Add((cluster, GraphemeColumns(cluster)));
+        }
+
+        return clusters;
+    }
+
+    /// <summary>The size a test sets for the terminal, in place of the console's (.NET-only: a console's size cannot be set from a test).</summary>
+    private static readonly AsyncLocal<(int? Rows, int? Columns)?> TerminalOverride = new();
+
+    /// <summary>.NET-only, for tests: reports this terminal size (80 columns and 40 rows for one left out, as upstream's defaults) until the returned scope is disposed, in the current async flow.</summary>
+    public static IDisposable WithTerminalSize(int? rows = null, int? columns = null)
+    {
+        var saved = TerminalOverride.Value;
+        TerminalOverride.Value = (rows, columns);
+        return new Restore(() => TerminalOverride.Value = saved);
+    }
+
+    private sealed class Restore(Action action) : IDisposable
+    {
+        public void Dispose() => action();
     }
 
     /// <summary>The terminal width; a terminal without a size (or none) gives 80 (upstream's <c>terminalColumns</c>).</summary>
     public static int TerminalColumns()
     {
+        if (TerminalOverride.Value is { } size)
+        {
+            return size.Columns ?? 80;
+        }
+
         try
         {
             return Console.IsOutputRedirected ? 80 : Console.WindowWidth is var width and > 0 ? width : 80;
@@ -233,6 +367,24 @@ internal static partial class Format
         catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {
             return 80;
+        }
+    }
+
+    /// <summary>The terminal height; a terminal without a size (or none) gives 40 (upstream's <c>terminalRows</c>).</summary>
+    public static int TerminalRows()
+    {
+        if (TerminalOverride.Value is { } size)
+        {
+            return size.Rows ?? 40;
+        }
+
+        try
+        {
+            return Console.IsOutputRedirected ? 40 : Console.WindowHeight is var height and > 0 ? height : 40;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
+        {
+            return 40;
         }
     }
 

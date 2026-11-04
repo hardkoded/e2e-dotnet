@@ -5,14 +5,14 @@
 using E2E.Cli.Report;
 using E2E.Reports;
 using static E2E.Cli.Tests.ReportList.ListReporterKit;
+using AttemptStatus = E2E.Internal.AttemptStatus;
 
 namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
-/// Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('file blocks'). Not ported: the three <c>it</c> that run a live
-/// window (<c>with a live window, prints one line per file ...</c>, <c>lists every test under the run's only file</c>, <c>sums durations across
-/// attempts and marks flaky results</c>), and <c>clips the first error line to the terminal width; the failure section keeps it whole</c>,
-/// because <c>Format.TerminalColumns</c> reads the console and the port has no way to set the width.
+/// Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('file blocks'). All 9 <c>it</c> are ported. The terminal width of
+/// <c>clips the first error line to the terminal width; the failure section keeps it whole</c> is set with <c>Format.WithTerminalSize</c> (.NET-only),
+/// since a console's size cannot be set from a test.
 /// </summary>
 public sealed class FileBlocksTests
 {
@@ -33,6 +33,35 @@ public sealed class FileBlocksTests
                 "   × |chromium| tests/auth.e2e.ts > auth > signs out 120ms",
                 "     → still signed in",
                 " ❯ |chromium| tests/auth.e2e.ts (2 tests | 1 failed) 200ms",
+            ],
+            output.Lines);
+    }
+
+    [Fact]
+    public void With_a_live_window_prints_one_line_per_file_with_its_badge_counts_and_total_duration_once_the_file_completes()
+    {
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/auth.e2e.ts", 2), ("tests/home.e2e.ts", 1)));
+        output.Lines.Clear();
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "a", file: "tests/auth.e2e.ts", title: ["auth", "signs in"], attempts: [Attempt() with { DurationMs = 80 }])));
+        Assert.Empty(output.Lines);
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "b", file: "tests/auth.e2e.ts", title: ["auth", "signs out"], attempts: [Attempt() with { DurationMs = 70 }])));
+        Assert.Equal([" ✓ |chromium| tests/auth.e2e.ts (2 tests) 150ms"], output.Lines);
+    }
+
+    [Fact]
+    public void Lists_every_test_under_the_runs_only_file()
+    {
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(Plan(("tests/auth.e2e.ts", 1)));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/auth.e2e.ts", title: ["auth", "signs in"], attempts: [Attempt() with { DurationMs = 80 }])));
+        Assert.Equal(
+            [
+                " ✓ |chromium| tests/auth.e2e.ts (1 test) 80ms",
+                "   ✓ auth > signs in 80ms",
             ],
             output.Lines);
     }
@@ -65,6 +94,24 @@ public sealed class FileBlocksTests
                 "   ✓ |chromium| tests/checkout.e2e.ts > checkout > pays [buyer] 80ms",
                 "   ✓ |chromium| tests/checkout.e2e.ts > checkout > pays [admin] 80ms",
                 " ✓ |chromium| tests/checkout.e2e.ts (3 tests) 240ms",
+            ],
+            output.Lines);
+    }
+
+    [Fact]
+    public void Sums_durations_across_attempts_and_marks_flaky_results()
+    {
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1), ("tests/b.e2e.ts", 1)));
+        reporter.Handle(Finished(Result(
+            ResultStatus.Flaky,
+            file: "tests/a.e2e.ts",
+            attempts: [Attempt(status: AttemptStatus.Failed) with { DurationMs = 100 }, Attempt(id: "attempt-2") with { DurationMs = 50 }])));
+        Assert.Equal(
+            [
+                " ✓ |chromium| tests/a.e2e.ts (1 test | 1 flaky) 150ms",
+                "   ✓ suite > case (flaky) 150ms",
             ],
             output.Lines);
     }
@@ -108,6 +155,21 @@ public sealed class FileBlocksTests
         Assert.Contains(" chromium ", blocks[1], StringComparison.Ordinal);
         Assert.Contains("\u001b[103m", blocks[1], StringComparison.Ordinal);
         Assert.Contains("\u001b[106m", blocks[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Clips_the_first_error_line_to_the_terminal_width_the_failure_section_keeps_it_whole()
+    {
+        using var terminal = Format.WithTerminalSize(columns: 40);
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        reporter.Handle(Finished(Result(ResultStatus.Failed, file: "tests/a.e2e.ts", title: ["long"], attempts: [FailedAttempt(new string('e', 200))])));
+        var glance = output.Lines.First(line => line.Contains('→', StringComparison.Ordinal));
+        Assert.True(glance.Length <= 40);
+        Assert.EndsWith("…", glance, StringComparison.Ordinal);
+        reporter.Handle(RunFinished(ReportRunStatus.Failed, 1));
+        Assert.Contains($"ASSERTION_FAILED: {new string('e', 200)}", output.Lines);
     }
 
     private sealed class Recorder(List<string> lines) : IListReporterOutput

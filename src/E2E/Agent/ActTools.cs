@@ -257,16 +257,16 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         var label = new ActionLabel(attempt, attempt);
         try
         {
-            var lead = tool switch
+            var outcome = tool switch
             {
-                "tap_at" => (await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary,
-                "hover_at" => (await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary,
-                "drag_at" => (await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary,
-                "select_at" => await SelectAtAsync(point, text, actions, token).ConfigureAwait(false),
+                "tap_at" => new ActionOutcome((await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary, label.ExpectChange),
+                "hover_at" => new ActionOutcome((await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary, label.ExpectChange),
+                "drag_at" => new ActionOutcome((await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary, label.ExpectChange),
+                "select_at" => new ActionOutcome(await SelectAtAsync(point, text, actions, token).ConfigureAwait(false), label.ExpectChange),
                 "type_at" => await TypeAtAsync(point, At(px, py), text, Args.Bool(arguments, "replace") == true, actions, token).ConfigureAwait(false),
-                _ => await PressAtAsync(point, At(px, py), text, actions, token).ConfigureAwait(false),
+                _ => new ActionOutcome(await PressAtAsync(point, At(px, py), text, actions, token).ConfigureAwait(false), label.ExpectChange),
             };
-            return await DescribeOutcomeAsync(lead, token).ConfigureAwait(false);
+            return await DescribeOutcomeAsync(outcome.Lead, token, outcome.ExpectChange).ConfigureAwait(false);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -311,7 +311,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return (null, "the field at " + at + " (tapped to focus it; " + hit.Summary + ")");
     }
 
-    private async Task<string> TypeAtAsync(Point point, string at, string value, bool replace, IExecutorActions actions, CancellationToken token)
+    private async Task<ActionOutcome> TypeAtAsync(Point point, string at, string value, bool replace, IExecutorActions actions, CancellationToken token)
     {
         var (control, summary) = await FocusAtAsync(point, at, "type_at", actions, token).ConfigureAwait(false);
         if (control is null)
@@ -320,10 +320,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
         else if (await TypeIntoNodeAsync(actions, control, value, summary, token).ConfigureAwait(false) is { } note)
         {
-            return note.Lead;
+            return note;
         }
 
-        return "Typed into " + summary + ".";
+        return new ActionOutcome("Typed into " + summary + ".", true);
     }
 
     private async Task<string> PressAtAsync(Point point, string at, string key, IExecutorActions actions, CancellationToken token)
@@ -786,12 +786,21 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token).ConfigureAwait(false);
         if (view.Pixels is { } shot)
         {
-            _pixels?.Shown(shot, _feed.Latest?.Viewport);
+            var evidence = _pixels?.Shown(shot, _feed.Latest?.Viewport) ?? PixelEvidence.None;
+            var before = _pixels?.Listed(view.Text, view.Revision);
 
-            return new ScreenText(action + "\n" + view.Text + "\n\n" + PixelMode.Note(shot), shot);
+            // A listing that stood still under a screenshot that moved is a repaint the tree cannot list, and the control is blamed only
+            // when the image stood still too. With no tree to describe the screen, no control is blamed.
+            var expected = expectChange && AgentObservation.InteractiveNodeCount(view.Text) > 0;
+            var stood = before is not null && !view.Truncated && AgentObservation.Shape(view.Text) == before.Value.Shape;
+            var note = stood && (evidence == PixelEvidence.Changed || (evidence == PixelEvidence.Unchanged && expected))
+                ? ScreenPresenter.RenderUnchanged(before!.Value.Revision ?? "", view, expected, evidence) + "\n"
+                : "";
+            return new ScreenText(action + "\n" + note + view.Text + "\n\n" + PixelMode.Note(shot), shot);
         }
 
-        // The pixels the step asked for did not come: say why once and keep working from the tree.
+        // The pixels the step asked for did not come: say why once and keep working from the tree. The model holds this listing now.
+        _pixels?.Listed(view.Text, view.Revision);
         return new ScreenText(action + "\n" + view.Text + (view.PixelsWithheld is { } withheld ? "\n\nNo screenshot: " + PixelMode.WithheldAdvice(withheld) : ""), null);
     }
 

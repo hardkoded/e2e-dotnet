@@ -32,7 +32,8 @@ public sealed class PixelToolsTests : E2ETest
     public async Task Enters_a_code_on_the_drawn_keypad_through_points()
     {
         await Browser.GotoAsync("/canvas-flow");
-        await Agent.ActAsync("on the drawn keypad enter the code 31415 digit by digit, check the display shows it, then press OK");
+        // Nine model turns, each with a screenshot, take 28 to 30 s: the step's default timeout is too short for the port's providers.
+        await Agent.ActAsync("on the drawn keypad enter the code 31415 digit by digit, check the display shows it, then press OK", new ActOptions { Timeout = TimeSpan.FromMinutes(2) });
         await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("code accepted: 31415");
     }
 

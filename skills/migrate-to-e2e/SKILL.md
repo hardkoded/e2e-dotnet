@@ -15,7 +15,7 @@ agent's, starts from it instead of from scratch. The user decides when an old te
 This is the .NET port's version of upstream's `migrate-to-e2e`. The e2e
 tests are NUnit or xUnit v3 tests that derive from `E2ETest`, run with
 `dotnet test`. The port has no `e2e run`, `e2e list`, or
-`e2e feedback`, and its `e2e init` does not create a test project.
+`e2e feedback`, and its `e2e init` creates the test project (`--framework xunit` for xUnit v3).
 
 One reference does most of the work. Read it; do not restate it.
 

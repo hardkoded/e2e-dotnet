@@ -9,8 +9,9 @@ namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
 /// Upstream: packages/e2e/tests/unit/report-list.test.ts, describe('recording model mismatch'). Each <c>it.each</c> upstream runs with and without a
-/// live window; the port has no live window, so each test here is the <c>live=false</c> case, hence the <c>Partial_</c> prefix. Not ported:
-/// <c>keeps serial retry notices in their file block among multiple files</c>, since the port has no serial groups. The port's step records the
+/// live window, and so does each test here. Not ported: <c>keeps serial retry notices in their file block among multiple files</c>, since the port
+/// has no serial groups. The cases of <c>keeps distinct recordings with the same label</c> that upstream names <c>entry=%s</c> are kept as the
+/// pair of <c>hasEntry</c> and <c>live</c>. The port's step records the
 /// recording model as one label (<see cref="CacheInfo.RecordedBy"/>), where upstream's has a provider and a model.
 /// </summary>
 public sealed class RecordingModelMismatchTests
@@ -21,12 +22,14 @@ public sealed class RecordingModelMismatchTests
     private static List<string> Notices(Capture output) => [.. output.Lines.Where(line => line.Contains("recorded with", StringComparison.Ordinal))];
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void Partial_Keeps_distinct_recordings_with_the_same_label(bool hasEntry)
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void Keeps_distinct_recordings_with_the_same_label(bool live, bool hasEntry)
     {
-        var output = new Capture();
-        var reporter = PlainReporter(output);
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: live);
         reporter.Handle(RunStarted(model: "example/B"));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         var steps = new[] { 0, 1 }.Select(index => AgentStepRecord("pay", Replayed("example/A", hasEntry ? $"recording-{index}" : null), index: index)).ToList();
@@ -34,11 +37,13 @@ public sealed class RecordingModelMismatchTests
         Assert.Equal(2, Notices(output).Count);
     }
 
-    [Fact]
-    public void Partial_Stays_quiet_for_a_per_call_pinned_agent()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Stays_quiet_for_a_per_call_pinned_agent(bool live)
     {
-        var output = new Capture();
-        var reporter = PlainReporter(output);
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: live);
         reporter.Handle(RunStarted(model: "example/B"));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         var cached = AgentStepRecord("pay", Replayed("example/A"), agent: "buyer");
@@ -46,11 +51,13 @@ public sealed class RecordingModelMismatchTests
         Assert.Empty(Notices(output));
     }
 
-    [Fact]
-    public void Partial_Deduplicates_retries_inside_the_file_block()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Deduplicates_retries_inside_the_file_block(bool live)
     {
-        var output = new Capture();
-        var reporter = PlainReporter(output);
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: live);
         reporter.Handle(RunStarted(model: "example/B"));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         var cached = AgentStepRecord("pay", Replayed("example/A"));
@@ -62,16 +69,22 @@ public sealed class RecordingModelMismatchTests
     }
 
     [Theory]
-    [InlineData("example/B", "example/A", "default", true)]
-    [InlineData("example/A", "example/A", "default", false)]
-    [InlineData("example/B", null, "default", false)]
-    [InlineData(null, "example/A", "default", false)]
-    [InlineData("example/B", "example/A", "pinned", false)]
-    [InlineData("example/B", "example/A\n\u001b[31m", "default", true)]
-    public void Partial_Prints_only_known_mismatches_and_preserves_the_header(string? configured, string? recorded, string agent, bool expected)
+    [InlineData(false, "example/B", "example/A", "default", true)]
+    [InlineData(false, "example/A", "example/A", "default", false)]
+    [InlineData(false, "example/B", null, "default", false)]
+    [InlineData(false, null, "example/A", "default", false)]
+    [InlineData(false, "example/B", "example/A", "pinned", false)]
+    [InlineData(false, "example/B", "example/A\n\u001b[31m", "default", true)]
+    [InlineData(true, "example/B", "example/A", "default", true)]
+    [InlineData(true, "example/A", "example/A", "default", false)]
+    [InlineData(true, "example/B", null, "default", false)]
+    [InlineData(true, null, "example/A", "default", false)]
+    [InlineData(true, "example/B", "example/A", "pinned", false)]
+    [InlineData(true, "example/B", "example/A\n\u001b[31m", "default", true)]
+    public void Prints_only_known_mismatches_and_preserves_the_header(bool live, string? configured, string? recorded, string agent, bool expected)
     {
-        var output = new Capture();
-        var reporter = PlainReporter(output);
+        var output = new Capture { Raw = _ => { } };
+        var reporter = PlainReporter(output, live: live);
         reporter.Handle(RunStarted(model: configured));
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         var cached = AgentStepRecord("pay", Replayed(recorded));

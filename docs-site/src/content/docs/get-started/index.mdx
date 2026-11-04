@@ -38,6 +38,8 @@ await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!")
    For an API key, set `provider` and `model` under `agents.default` in `e2e.config.json`, and export the key the provider reads, for example `OPENAI_API_KEY`. See [Signing in](/features/signing-in/) for ChatGPT, OpenCode Console, and SuperGrok.
 3. Tests that never call the agent need no model, so you can start with locators only. A model request that fails on the network or with a 408, 409, 429, or 5xx answer is sent again up to 5 times before the step fails with `MODEL_PROVIDER_FAILED`. A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does not end in `RequestExpired`.
 
+To scaffold the project, the config, and an example test in one step, run `e2e init <directory>`. It needs the `E2E.Cli` tool from step 2, and `e2e init --example E2E.Sample <directory>` starts from a sample instead. See [Coding agents](/coding-agents/#scaffold-with-e2e-init).
+
 ## The config file
 
 Each test project has an `e2e.config.json` next to its `.csproj`. It names the app under test (`targets`), the agent, and the replay cache:

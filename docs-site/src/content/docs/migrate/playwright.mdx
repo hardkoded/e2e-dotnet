@@ -13,7 +13,7 @@ This guide ports upstream's `docs/migrate/playwright.mdx` (tester-army/e2e at `7
 Migrate this project's Playwright .NET tests to e2e, one test class at a time. Docs: the "From Playwright .NET" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/playwright.mdx).
 
 1. Read the migration guide. It maps every Playwright .NET context option, Page call, and test attribute to e2e and marks what e2e does not have yet.
-2. If the solution has no e2e test project, create one beside the Playwright project (dotnet new nunit, or xunit3) and run `e2e init --yes`. It writes e2e.config.json and installs the skill. It creates no test project and edits no .csproj.
+2. If the solution has no e2e test project, run `e2e init <directory> --yes` beside the Playwright project (add `--framework xunit` for xUnit v3). It creates the test project and example test, writes e2e.config.json, and installs the skill. In an existing test project it adds the missing package references to the .csproj.
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps: a ChatGPT, GitHub Copilot, OpenCode Console, or SuperGrok subscription, an API key, or a local model. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port the context options and the base URL into e2e.config.json and the WebEngineOptions with the guide's config tables. Keep Microsoft.Playwright installed in the old project.

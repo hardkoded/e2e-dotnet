@@ -46,8 +46,12 @@ Text downloads are redacted only when they are UTF-8 without NUL bytes; other fi
 
 ## Scaffold with `e2e init`
 
-`e2e init [directory]` writes `e2e.config.json`, installs this skill, registers
-the `e2e mcp` server, and updates `.gitignore`, skipping files that exist. In a
+`e2e init [directory]` writes `e2e.config.json`, a test project (a `.csproj` and
+an `ExampleTests.cs`; or only the missing package references in an existing
+`.csproj`), installs this skill, registers the `e2e mcp` server, and updates
+`.gitignore`, skipping files that exist. `--framework nunit|xunit` picks the
+framework, `--install` runs `dotnet restore`, and `--example <name>` copies a
+sample. In a
 terminal it asks the questions no flag answered (engines, model gateway and
 endpoint, skill locations, MCP locations), lists the changes, and asks to apply
 them. It asks before replacing a symlinked skill directory with a copy or a link,
@@ -55,8 +59,8 @@ and declines by default. A rerun never touches an existing `e2e.config.json`,
 but refreshes stale skill copies and updates the e2e entry of existing MCP
 files. Leaving a question or declining the final plan writes nothing and exits
 0; declining a symlink replacement skips only that replacement. You have no terminal, so pass `--yes`: it asks nothing and takes the default
-of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--skills`,
-`--mcp`) did not answer, and it never replaces a symlink. A run with no
+of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--framework`,
+`--install`, `--skills`, `--mcp`) did not answer, and it never replaces a symlink. A run with no
 terminal and no `--yes` exits 2. `setup` has the details.
 
 ## Quick start
@@ -251,7 +255,11 @@ lines you changed:
   `ListReporter` renders it, but no command prints a run summary yet (#799), so
   a test run does not show it. Read `ActResult.Cache` for a step instead.
   The same renderer quotes the app's first 3 errors in a failed test's block,
-  under its `app N errors logged` row; that is not shown today either.
+  under its `app N errors logged` row; that is not shown today either. On a
+  terminal it also paints a live window (the running files and tests with a
+  ticking clock, each agent step's model turns and tool calls, and the
+  summary), and it prints a test's console output (`OutputEvent`) above it;
+  nothing shows these today, and nothing emits `OutputEvent`.
   A `navigate` to a full URL on the app records as its path, query, and
   fragment and replays on the origin the app runs on then, so a recording
   follows the app to another port or host; re-record older entries to pick
@@ -393,7 +401,11 @@ lines you changed:
   `select_at` needs a listed control. On a device engine `dismiss_keyboard`
   hides the on-screen keyboard when it covers a control. Tell the agent to prefer ids (topic
   `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
-  five failed calls in a row leave the agent only `done` (topic `agent`).
+  five failed calls in a row leave the agent only `done` (topic `agent`). Once
+  the step shows pixels, an action that leaves the listing as it was but moves
+  the screenshot is reported as `listed nodes unchanged; the screenshot
+  changed` (a drawn effect, such as a canvas repaint), and the control is
+  blamed (`had no visible effect`) only when the image stood still too.
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),
   never to drive the app. It is awaited and counts toward `Timeout`. A throw

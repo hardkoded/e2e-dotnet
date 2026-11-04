@@ -16,10 +16,14 @@ internal static class InitFlags
     private static readonly string[] McpFiles = [.. McpConfig.McpLocations.Select(location => location.File)];
 
     public const string Usage = """
-        e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
+        e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
 
-        Scaffolds e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
+        Scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
           --yes             accept the defaults for every question a flag does not answer, and ask nothing
+          --example <name>  start from a sample downloaded from GitHub: E2E.Sample, E2E.XUnit.V3.Sample, TodoMvc
+          --framework <id>  test framework of a new project: nunit (the default) or xunit; an existing project keeps its own
+          --install         restore the packages with dotnet restore after scaffolding
+          --no-install      do not restore the packages
           --engine <ids>    engine for a new config: web, mobile, or none
           --gateway <id>    model gateway for agent steps in a new config: vercel, openrouter, openai-compatible, chatgpt, copilot, opencode-console, grok, or none
           --endpoint <url>  base URL of the API for --gateway openai-compatible, which it implies
@@ -32,6 +36,7 @@ internal static class InitFlags
     {
         ArgumentNullException.ThrowIfNull(args);
         var yes = false;
+        bool? install = null;
         string? directory = null;
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         using var e = args.GetEnumerator();
@@ -41,6 +46,10 @@ internal static class InitFlags
             if (arg is "--yes" or "-y")
             {
                 yes = true;
+            }
+            else if (arg is "--install" or "--no-install")
+            {
+                install = arg == "--install";
             }
             else if (arg.StartsWith('-') && !arg.StartsWith("--", StringComparison.Ordinal))
             {
@@ -56,7 +65,7 @@ internal static class InitFlags
                     (name, value) = (name[..eq], name[(eq + 1)..]);
                 }
 
-                if (name is not ("engine" or "gateway" or "endpoint" or "skills" or "mcp"))
+                if (name is not ("engine" or "gateway" or "endpoint" or "skills" or "mcp" or "example" or "framework"))
                 {
                     return (null, "error: unknown option '--" + name + "'");
                 }
@@ -98,6 +107,32 @@ internal static class InitFlags
             else
             {
                 return (null, "error: unexpected argument '" + arg + "'");
+            }
+        }
+
+        string? example = null;
+        if (values.TryGetValue("example", out var exampleName))
+        {
+            example = Examples.FindExample(exampleName.Trim())?.Id;
+            if (example is null)
+            {
+                return (null, "error: option '--example' argument '" + exampleName + "' is invalid. unknown example \"" + exampleName + "\"; expected " + string.Join(", ", Examples.All.Select(preset => preset.Id)));
+            }
+
+            var conflicts = new[] { "engine", "gateway", "endpoint", "framework" }.Where(values.ContainsKey).ToList();
+            if (conflicts.Count > 0)
+            {
+                return (null, "error: --example " + example + " brings its own " + E2EConfig.FileName + " and project; drop " + string.Join(", ", conflicts.Select(flag => "--" + flag)));
+            }
+        }
+
+        string? framework = null;
+        if (values.TryGetValue("framework", out var frameworkName))
+        {
+            framework = Frameworks.All.FirstOrDefault(preset => preset.Id == frameworkName)?.Id;
+            if (framework is null)
+            {
+                return (null, "error: option '--framework' argument '" + frameworkName + "' is invalid. Allowed choices are " + string.Join(", ", Frameworks.All.Select(preset => preset.Id)) + ".");
             }
         }
 
@@ -159,6 +194,9 @@ internal static class InitFlags
                 Endpoint = endpoint,
                 Skills = skills,
                 Mcp = mcp,
+                Example = example,
+                Install = install,
+                Framework = framework,
             },
             null);
     }

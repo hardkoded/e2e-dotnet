@@ -13,7 +13,7 @@ e2e tests a React Native app on a simulator or emulator with your normal debug o
 Migrate this project's Detox tests to e2e, one spec at a time. Docs: the "From Detox" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/detox.mdx).
 
 1. Read the migration guide. It maps Detox config and calls to e2e.
-2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Create it, add E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3), and run `e2e init --yes --engine mobile` there.
+2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Run `e2e init <directory> --yes --engine mobile` (add `--framework xunit` for xUnit v3). It creates the project with E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3) and an example test.
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port .detoxrc.js into e2e.config.json with the guide's config table: one target per platform, with app.bundleId and app.appPath.

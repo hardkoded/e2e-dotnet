@@ -47,8 +47,14 @@ config only. Init leaves an existing config alone, refreshes the skill and MCP
 entries on a re-run, and never writes through a symlink. A subscription
 gateway needs its sign-in before the first run (`e2e login <provider>`).
 
-Init does not create the test project or edit a `.csproj`. Create one and add
-the packages:
+Init also creates the test project: a `.csproj` named after the directory with
+the packages of the test framework and of e2e at the tool's version, and an
+`ExampleTests.cs`. `--framework xunit` picks xUnit v3 (NUnit is the default).
+In a directory with a `.csproj` it adds only the package references that project
+lacks, keeping its framework. `--install` runs `dotnet restore`; without it,
+`dotnet test` restores. `--example <name>` (`E2E.Sample`, `E2E.XUnit.V3.Sample`, `TodoMvc`)
+copies a sample into a new or empty directory instead. To add the packages by
+hand:
 
 ```bash
 dotnet new nunit -n MyApp.E2E

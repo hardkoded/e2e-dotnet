@@ -22,7 +22,7 @@ public sealed record RunEvent : IEquatable<RunEvent>
 Structured run events: the run's single event spine (upstream's `run/events.ts`), as a [Reporter](/api/E2E.Reports/Reporter/) sees it through
 [OnEvent(RunEvent)](/api/E2E.Reports/Reporter/#E2E_Reports_Reporter_OnEvent_E2E_Reports_RunEvent_). The list reporter consumes the same stream (`ListReporter.Handle`), so no two consumers can drift. The
 port's test run fixtures and sessions emit them: the run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors,
-interrupts, and end. Not ported: `output` (the test framework captures stdout), `serial-group` (the port has no serial groups), and
+interrupts, and end. `output` is defined and the list reporter prints it, but nothing emits it (the test framework captures stdout). Not ported: `serial-group` (the port has no serial groups), and
 `explore`, which feeds the live window the port has no use for yet. A new event type may be added, so a reporter handles the ones it
 knows and ignores the rest.
 
@@ -48,7 +48,7 @@ public RunEvent(long Seq, DateTimeOffset At, RunEventFact Fact)
 Structured run events: the run's single event spine (upstream's `run/events.ts`), as a [Reporter](/api/E2E.Reports/Reporter/) sees it through
 [OnEvent(RunEvent)](/api/E2E.Reports/Reporter/#E2E_Reports_Reporter_OnEvent_E2E_Reports_RunEvent_). The list reporter consumes the same stream (`ListReporter.Handle`), so no two consumers can drift. The
 port's test run fixtures and sessions emit them: the run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors,
-interrupts, and end. Not ported: `output` (the test framework captures stdout), `serial-group` (the port has no serial groups), and
+interrupts, and end. `output` is defined and the list reporter prints it, but nothing emits it (the test framework captures stdout). Not ported: `serial-group` (the port has no serial groups), and
 `explore`, which feeds the live window the port has no use for yet. A new event type may be added, so a reporter handles the ones it
 knows and ignores the rest.
 

@@ -134,7 +134,9 @@ public static class DefaultAgent
         builder.Append('\n').Append(screen.Text);
         if (screen.Pixels is { } pixels)
         {
-            PixelMode.For(context).Shown(pixels, context.Host?.Feed.Latest?.Viewport);
+            var mode = PixelMode.For(context);
+            mode.Shown(pixels, context.Host?.Feed.Latest?.Viewport);
+            mode.Listed(screen.Text, screen.Revision);
             builder.Append("\n\n").Append(PixelMode.Note(pixels));
         }
         else if (screen.PixelsWithheld is { } withheld)
