@@ -54,4 +54,32 @@ public sealed class PlanInstructionTests
         Assert.DoesNotContain("starts signed in", text, StringComparison.Ordinal);
         Assert.Contains("sign in with the accounts listed above", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Keeps_the_summaries_of_the_latest_eight_steps_only_so_a_long_run_stays_within_the_model_input()
+    {
+        var state = new State("Explore checkout", new ExploreBudgets(100, TimeSpan.FromMilliseconds(7_200_000)));
+        for (var index = 1; index <= 100; index++)
+        {
+            state.BeginStep("Area " + index, "Look around");
+            state.EndStep(ReportExploreStepStatus.Passed, "summary-" + index + " " + new string('x', 4_000));
+        }
+
+        var text = Plan.PlanInstruction(state, new PlanRequest(false, TimeSpan.FromMilliseconds(600_000), TimeSpan.FromMilliseconds(60_000)));
+        Assert.Contains("1. [passed] Area 1\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("summary-92 ", text, StringComparison.Ordinal);
+        Assert.Contains("summary-93 ", text, StringComparison.Ordinal);
+        Assert.Contains("summary-100 ", text, StringComparison.Ordinal);
+        Assert.True(text.Length < 40_000);
+    }
+
+    // Upstream also checks that a restored session removes the lens. The port has no saved sessions.
+    [Fact]
+    public void Partial_Offers_the_other_account_lens_only_with_several_accounts_and_no_restored_session()
+    {
+        PlanAccount[] accounts = [new("ada", "ada@example.test"), new("bob", "bob@example.test")];
+        string PlanFor(IReadOnlyList<PlanAccount> list) => Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), list));
+        Assert.Contains("another account or role", PlanFor(accounts), StringComparison.Ordinal);
+        Assert.DoesNotContain("another account or role", PlanFor(accounts[..1]), StringComparison.Ordinal);
+    }
 }

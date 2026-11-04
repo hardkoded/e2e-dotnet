@@ -390,7 +390,7 @@ foreach (var finding in outcome.Explore.Findings)
 }
 ```
 
-`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 100 steps and 3 minutes to 2 hours. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
 
 ## Checking your setup
 

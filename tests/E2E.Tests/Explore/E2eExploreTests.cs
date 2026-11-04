@@ -455,9 +455,15 @@ public sealed class E2eExploreTests
         // A config that resolves, so only the option can be what rejects.
         var goal = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], goal: new string('x', 2_001))));
         Assert.Equal("INVALID_CONFIG", goal.Code);
-        var steps = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 13)));
+        var steps = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 101)));
         Assert.Equal("INVALID_CONFIG", steps.Code);
-        Assert.Equal("maxSteps must be an integer from 1 through 12, got 13", steps.Message);
+        Assert.Equal("maxSteps must be an integer from 1 through 100, got 101", steps.Message);
+        var timeout = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], timeout: TimeSpan.FromMilliseconds(7_200_001))));
+        Assert.Equal("INVALID_CONFIG", timeout.Code);
+
+        // The largest budgets get past the options, to the missing model.
+        var largest = await Assert.ThrowsAsync<AgentException>(() => Explorer.ExploreAsync(Options(root, null, [], maxSteps: 100, timeout: TimeSpan.FromMilliseconds(7_200_000))));
+        Assert.Equal("MODEL_UNAVAILABLE", largest.Code);
 
         var credentials = Enumerable.Range(0, 400).ToDictionary(
             index => "account-" + index,
