@@ -64,4 +64,16 @@ public sealed class SerializeLedgerTests
 
         Assert.Contains("replayed 2 recorded", Ledger.SerializeLedger(Ledger.ProjectPriorSteps([ran]), 65_536).Text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Labels_a_replayed_step_as_recorded_in_an_earlier_run_instead_of_observed()
+    {
+        const string explanation = "replayed 2 recorded action(s) zero-turn from the trace cache; recorded verdict: opened the customers page";
+        var replayed = Step("agent.act", "open customers", explanation: explanation, cache: new CacheInfo { Mode = "self-finalized", ReplayedActions = 2, TotalActions = 2 });
+
+        var text = Ledger.SerializeLedger(Ledger.ProjectPriorSteps([replayed]), 65_536).Text;
+
+        Assert.Contains("recorded in an earlier run: opened the customers page", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("observed:", text, StringComparison.Ordinal);
+    }
 }

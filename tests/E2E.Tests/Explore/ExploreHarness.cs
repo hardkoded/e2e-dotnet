@@ -100,7 +100,8 @@ internal static class ExploreHarness
         string? target = null,
         RecordingMode? trace = null,
         RecordingMode? video = null,
-        bool aiTrace = false) =>
+        bool aiTrace = false,
+        TimeSpan? timeout = null) =>
         new()
         {
             Cwd = root,
@@ -109,7 +110,7 @@ internal static class ExploreHarness
             Engine = engine ?? Engine(),
             Goal = goal,
             MaxSteps = maxSteps,
-            Timeout = TimeSpan.FromMinutes(3),
+            Timeout = timeout ?? TimeSpan.FromMinutes(3),
             Notice = notices.Add,
             Credentials = credentials,
             Agent = agentName,

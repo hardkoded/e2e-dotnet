@@ -98,8 +98,8 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--config <path>` | the nearest `e2e.config.json` | The config file. |
 | `--target <id>` | the config's target | The target to explore. |
 | `--agent <name>` | `default` | Build the explorer from another configured agent (`agents.<name>`). |
-| `--max-steps <n>` | 8 (1 to 12) | Exploration steps at most. |
-| `--timeout <ms>` | 600000 (180000 to 900000) | Wall clock; the last minute is for the assessment. |
+| `--max-steps <n>` | 8 (1 to 100) | Exploration steps at most. |
+| `--timeout <ms>` | 600000 (180000 to 7200000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
 | `--output <dir>` | `output` in the config, else `.e2e` | The output directory: finding screenshots and trace pages are kept in `results/` under it. It follows the config's `output` rules (inside the project, not the root, apart from the cache). |
 | `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
@@ -142,13 +142,16 @@ the `screenshot` artifact of the attempt that holds its evidence.
 
 | Budget | Default | Range | Option |
 | --- | --- | --- | --- |
-| Exploration steps | 8 | 1 to 12 | `MaxSteps` |
-| Wall clock | 10 minutes | 3 to 15 minutes | `Timeout` |
+| Exploration steps | 8 | 1 to 100 | `MaxSteps` |
+| Wall clock | 10 minutes | 3 minutes to 2 hours | `Timeout` |
 | Actions and model calls per step | 40 each, unless the agent sets `maxSteps` or `maxModelCalls` (a 25 it sets is kept) | 1 to 100 | config |
 
 Start with the defaults. Increase the step or time budget when the result
 shows the run stopped before the part of the flow you need. The last minute
-is kept for the closing assessment. The replay cache is off for the
+is kept for the closing assessment. A run with time left after the main flows
+returns to them with edge-case inputs, combined filters, reloads, and, with
+more than one account configured, another account. It finishes early only when
+nothing new is reachable. The replay cache is off for the
 exploration, and so are retries.
 
 ## The verdict

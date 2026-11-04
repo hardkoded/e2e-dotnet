@@ -172,6 +172,9 @@ internal static class ExplorePlan
     /// <summary>A title derived from an instruction stops at the first clause or here.</summary>
     private const int DerivedTitleChars = 80;
 
+    /// <summary>The latest steps the planner reads with their summaries; earlier ones list only their title and outcome, so a long run's prompt stays bounded.</summary>
+    private const int SummarizedSteps = 8;
+
     /// <summary>
     /// What the closing assessment is for. The findings and the steps print above it, so it carries what neither list can: the
     /// verdict, the gaps, and what to script next.
@@ -235,7 +238,9 @@ internal static class ExplorePlan
         var minutesLeft = Math.Max(0, Math.Round(request.Remaining.TotalMinutes, MidpointRounding.AwayFromZero));
         var stepLines = steps.Count == 0
             ? "(none yet: this is the first step)"
-            : string.Join('\n', steps.Select(step => step.Index.ToString(CultureInfo.InvariantCulture) + ". [" + StatusMark(step.Status) + "] " + step.Title + (step.Summary is null ? "" : " — " + step.Summary)));
+            : string.Join('\n', steps.Select((step, position) =>
+                step.Index.ToString(CultureInfo.InvariantCulture) + ". [" + StatusMark(step.Status) + "] " + step.Title
+                + (step.Summary is null || position < steps.Count - SummarizedSteps ? "" : " — " + step.Summary)));
         var findingLines = findings.Count == 0
             ? "(none yet)"
             : string.Join('\n', findings.Select(finding => "- [" + KindName(finding.Kind) + ", severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "] " + finding.Title));
@@ -271,19 +276,31 @@ internal static class ExplorePlan
             return string.Join('\n', header);
         }
 
+        var lenses = string.Join("; ",
+        [
+            "edge-case inputs",
+            "filters, sorting, and search combined",
+            "state after reload or across screens that show the same data",
+            .. request.Accounts is { Count: > 1 } ? ["another account or role"] : Array.Empty<string>(),
+        ]);
         header.AddRange(
         [
             "Decide from the goal, the steps so far, and the current screen:",
-            "- \"step\": the next exploration charter. \"title\" names the area or flow in a few words. \"instruction\" is a concrete,",
-            "  self-contained charter for an agent that sees only the screen and that text: which flow to exercise, what inputs",
-            "  to try, what to check. One flow or screen per step, sized for five to fifteen actions; split anything bigger.",
+            "- \"step\": the next exploration charter. \"title\" names the area or flow, and the lens once one applies, in a few",
+            "  words. \"instruction\" is a concrete, self-contained charter for an agent that sees only the screen and that text:",
+            "  which flow to exercise, what inputs to try, what to check. One flow or screen per step, sized for five to fifteen",
+            "  actions; split anything bigger.",
             "  Ask the agent to interact, not only to look: submit forms with made-up test data, save and revisit,",
             "  sign in with the accounts listed above (or made-up credentials when none are configured), act on a non-first item of a list. Prefer breadth: touch the main",
-            "  flows the goal names before drilling deeper into one. Do not re-test an area a passed step already covered, and",
+            "  flows the goal names before drilling deeper into one. Once each flow has a step, return to them with a new lens",
+            "  per step: " + lenses + ". Do not repeat a lens a passed step already used on that flow, and",
             "  never plan a step to re-confirm a finding already recorded above. When a step ended at its limit, continue where",
             "  it stopped or move on. When a step summary mentions something odd that is not among the findings, spend the next",
-            "  step confirming it.",
-            "- \"finish\": the goal is covered, or nothing new is reachable. \"summary\" is the closing assessment.",
+            "  step confirming it. When a finding names a control or behavior that other screens offer too (the same sort,",
+            "  filter, form, or count elsewhere), plan a step that checks those screens for it.",
+            "- \"finish\": nothing new is reachable, or every flow the goal names has been through every lens above that applies",
+            "  to it. While time is left, a flow that passed without findings is worth another lens, not a finish. \"summary\" is",
+            "  the closing assessment.",
         ]);
         header.AddRange(AssessmentRules.Select(line => "  " + line));
         header.Add("Respond with every field present: {\"decision\": \"step\", \"title\": \"...\", \"instruction\": \"...\", \"summary\": \"\"} or {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}.");

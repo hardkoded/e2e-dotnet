@@ -13,7 +13,8 @@ namespace E2E;
 /// <param name="Label">The step's label.</param>
 /// <param name="Status">How the step ended.</param>
 /// <param name="Explanation">The step's handoff: an agent verdict summary or judgment explanation.</param>
-internal sealed record PriorStep(string Api, string Label, StepStatus Status, string? Explanation = null);
+/// <param name="Replayed">Whether the cache replayed the step whole, so its handoff came from an earlier run.</param>
+internal sealed record PriorStep(string Api, string Label, StepStatus Status, string? Explanation, bool Replayed);
 
 /// <summary>The serialized ledger and its size in bytes.</summary>
 internal sealed record LedgerContext(string Text, int Bytes);
@@ -41,7 +42,11 @@ internal static class Ledger
     /// input, and carrying nothing that names runner internals.
     /// </summary>
     public static IReadOnlyList<PriorStep> ProjectPriorSteps(IEnumerable<StepRecord> records) =>
-        [.. records.Select(step => new PriorStep(step.Api, BoundedText(step.Label), step.Status, step.Explanation is null ? null : BoundedText(HandoffOf(step))))];
+        [.. records.Select(step =>
+        {
+            var replayed = step.Cache is { Mode: "self-finalized" };
+            return new PriorStep(step.Api, BoundedText(step.Label), step.Status, step.Explanation is null ? null : BoundedText(HandoffOf(step, replayed)), replayed);
+        })];
 
     /// <summary>
     /// Serializes prior steps as prompt context: newest entries first until the byte budget is reached, then emitted chronologically
@@ -77,10 +82,10 @@ internal static class Ledger
     }
 
     // A replayed step's handoff is the verdict its recording run wrote; the replay notice in front of it describes the cache, which the model has no use for.
-    private static string HandoffOf(StepRecord step)
+    private static string HandoffOf(StepRecord step, bool replayed)
     {
         var explanation = step.Explanation ?? "";
-        return step.Cache is { Mode: "self-finalized" } ? StepTraceSession.RecordedVerdictOf(explanation) : explanation;
+        return replayed ? StepTraceSession.RecordedVerdictOf(explanation) : explanation;
     }
 
     private static string BoundedText(string text) => TextRules.TruncateUtf8(TextRules.SanitizeText(text), MaxPriorStepFieldBytes);
@@ -89,6 +94,6 @@ internal static class Ledger
     {
         var label = TextRules.TruncateUtf8(step.Label, MaxLabelBytes);
         var head = position.ToString(CultureInfo.InvariantCulture) + ". " + step.Api + " " + StepNames.Of(step.Status) + (label.Length == 0 ? "" : " :: " + label);
-        return step.Explanation is null ? head : head + "\n   observed: " + TextRules.TruncateUtf8(step.Explanation, MaxHandoffBytes);
+        return step.Explanation is null ? head : head + "\n   " + (step.Replayed ? "recorded in an earlier run" : "observed") + ": " + TextRules.TruncateUtf8(step.Explanation, MaxHandoffBytes);
     }
 }

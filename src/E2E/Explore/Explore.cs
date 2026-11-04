@@ -156,11 +156,11 @@ public static class Explore
     /// </summary>
     private const int MaxCredentialBytes = ActParams.MaxBytes / 4;
 
-    /// <summary>Exploration steps per run: breadth first, and diminishing returns come fast.</summary>
-    public static ExploreBounds<int> StepBounds { get; } = new(1, 12, 8);
+    /// <summary>Exploration steps per run, at most: the planner finishes earlier once nothing new is reachable.</summary>
+    public static ExploreBounds<int> StepBounds { get; } = new(1, 100, 8);
 
-    /// <summary>The run's wall clock: three to fifteen minutes.</summary>
-    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } = new(TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10));
+    /// <summary>The run's wall clock: three minutes to two hours.</summary>
+    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } = new(TimeSpan.FromMinutes(3), TimeSpan.FromHours(2), TimeSpan.FromMinutes(10));
 
     /// <summary>
     /// Runs one exploration and returns the outcome with the exploration record. The config is resolved once here, with the agent

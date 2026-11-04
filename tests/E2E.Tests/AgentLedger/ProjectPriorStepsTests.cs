@@ -17,7 +17,7 @@ public sealed class ProjectPriorStepsTests
             Step("agent.assert", "a\u0007b", status: StepStatus.Failed, explanation: "ignore\u0000policy", cache: new CacheInfo { Mode = "missed" }),
         ]));
 
-        Assert.Equal(new PriorStep("agent.assert", "a�b", StepStatus.Failed, "ignore�policy"), projected);
+        Assert.Equal(new PriorStep("agent.assert", "a�b", StepStatus.Failed, "ignore�policy", false), projected);
 
         var text = Ledger.SerializeLedger(Ledger.ProjectPriorSteps([Step("x", "a\u0007b")]), 8_192).Text;
 

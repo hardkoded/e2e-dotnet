@@ -70,7 +70,7 @@ public static ExploreBounds<int> StepBounds { get; }
 ```
 
 
-Exploration steps per run: breadth first, and diminishing returns come fast.
+Exploration steps per run, at most: the planner finishes earlier once nothing new is reachable.
 
 **Value:** `ExploreBounds&lt;int&gt;`
 
@@ -85,7 +85,7 @@ public static ExploreBounds<TimeSpan> TimeoutBounds { get; }
 ```
 
 
-The run's wall clock: three to fifteen minutes.
+The run's wall clock: three minutes to two hours.
 
 **Value:** `ExploreBounds&lt;TimeSpan&gt;`
 
