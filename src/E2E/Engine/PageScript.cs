@@ -869,13 +869,14 @@ internal static class PageScript
           // The inline elements read in the element's line that have no node of
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
+          // They carry their attributes, so a read of the match finds its id.
           // They stay out of the tree the agent reads.
           const inlineNodesOf = (parent, isHidden) => {
             const out = [];
             for (const child of renderedChildrenOf(parent)) {
               if (child.nodeType !== Node.ELEMENT_NODE || !flowsInLine(child) || listed(child, roleOf(child))) continue;
               const text = cut(lineRunOf(child), Infinity);
-              if (text) out.push({ ref: stamp(child), text, hidden: isHidden, rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
+              if (text) out.push({ ref: stamp(child), text, hidden: isHidden, attributes: attributesOf(child, false), rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
             }
             return out;
           };
