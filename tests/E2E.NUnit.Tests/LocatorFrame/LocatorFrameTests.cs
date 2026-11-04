@@ -189,47 +189,42 @@ public sealed class LocatorFrameTests : PlaywrightTest
         Assert.That(error!.Message, Does.Contain("no frame matches iframe1"));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1067: an element inside a `visibility: hidden` iframe is not found, instead of hidden.
     [Test]
     public async Task Should_treat_elements_inside_hidden_iframe_as_hidden()
     {
-        await ExpectedToFailAsync("observed no node", async () =>
+        await Browser.GotoAsync(Content("""
+            <iframe name="hidden" style="visibility: hidden" srcdoc="<button>Hidden</button>"></iframe>
+            <div style="visibility: hidden">
+              <iframe name="hidden-parent" srcdoc="<button>Hidden parent</button>"></iframe>
+              <iframe name="visible-override" style="visibility: visible" srcdoc="<button>Visible override</button>"></iframe>
+            </div>
+            <iframe name="outer" style="visibility: hidden" srcdoc="<iframe name='inner' srcdoc='<button>Nested</button>'></iframe>"></iframe>
+            """));
+
+        foreach (var button in new[]
         {
-            await Browser.GotoAsync(Content("""
-                <iframe name="hidden" style="visibility: hidden" srcdoc="<button>Hidden</button>"></iframe>
-                <div style="visibility: hidden">
-                  <iframe name="hidden-parent" srcdoc="<button>Hidden parent</button>"></iframe>
-                  <iframe name="visible-override" style="visibility: visible" srcdoc="<button>Visible override</button>"></iframe>
-                </div>
-                <iframe name="outer" style="visibility: hidden" srcdoc="<iframe name='inner' srcdoc='<button>Nested</button>'></iframe>"></iframe>
-                """));
+            Browser.FrameLocator("[name=hidden]").Locator("button"),
+            Browser.FrameLocator("[name=hidden-parent]").Locator("button"),
+            Browser.FrameLocator("[name=outer]").FrameLocator("[name=inner]").Locator("button"),
+        })
+        {
+            await Expect.That(button).ToBeAttachedAsync();
+            Assert.That(await button.IsVisibleAsync(), Is.False);
+            Assert.That(await button.IsHiddenAsync(), Is.True);
+            await Expect.That(button).ToBeHiddenAsync();
+            await Expect.That(button).ToBeVisibleAsync(false);
+            await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        }
 
-            foreach (var button in new[]
-            {
-                Browser.FrameLocator("[name=hidden]").Locator("button"),
-                Browser.FrameLocator("[name=hidden-parent]").Locator("button"),
-                Browser.FrameLocator("[name=outer]").FrameLocator("[name=inner]").Locator("button"),
-            })
-            {
-                await Expect.That(button).ToBeAttachedAsync();
-                Equal(false, await button.IsVisibleAsync());
-                Equal(true, await button.IsHiddenAsync());
-                await Expect.That(button).ToBeHiddenAsync();
-                await Expect.That(button).ToBeVisibleAsync(false);
-                await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
-            }
-
-            var visible = Browser.FrameLocator("[name=visible-override]").Locator("button");
-            Equal(true, await visible.IsVisibleAsync());
-            await Expect.That(visible).ToBeVisibleAsync();
-            await visible.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
-        });
+        var visible = Browser.FrameLocator("[name=visible-override]").Locator("button");
+        Assert.That(await visible.IsVisibleAsync(), Is.True);
+        await Expect.That(visible).ToBeVisibleAsync();
+        await visible.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
     }
 
     [Test]
     public async Task Should_wait_for_hidden_iframe_to_become_visible()
     {
-        // Upstream marks this test `fail`; it passes in the port.
         await Browser.GotoAsync(Content("""<iframe name="frame" style="visibility: hidden" srcdoc="<button onclick='window.__clicked = true'>Button</button>"></iframe>"""));
         var button = Browser.FrameLocator("[name=frame]").Locator("button");
         await Expect.That(button).ToBeHiddenAsync();
@@ -249,7 +244,6 @@ public sealed class LocatorFrameTests : PlaywrightTest
         Assert.That(await button.IsVisibleAsync(), Is.False);
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1067: see above.
     [Test]
     public async Task Should_treat_elements_inside_hidden_cross_origin_iframe_as_hidden()
     {
@@ -258,18 +252,15 @@ public sealed class LocatorFrameTests : PlaywrightTest
             Assert.Ignore("The testbed could not bind localhost, the second origin of this test (CROSS).");
         }
 
-        await ExpectedToFailAsync("is not in the observation", async () =>
-        {
-            await Browser.GotoAsync("/empty.html");
-            await Browser.GotoAsync(Content($"""<iframe style="visibility: hidden" src="{CROSS}/frames/frame.html"></iframe>"""));
-            var div = Browser.FrameLocator("iframe").Locator("div");
-            await Expect.That(div).ToHaveTextAsync("Hi, I'm frame");
-            Equal(false, await div.IsVisibleAsync());
-            await Expect.That(div).ToBeHiddenAsync();
+        await Browser.GotoAsync("/empty.html");
+        await Browser.GotoAsync(Content($"""<iframe style="visibility: hidden" src="{CROSS}/frames/frame.html"></iframe>"""));
+        var div = Browser.FrameLocator("iframe").Locator("div");
+        await Expect.That(div).ToHaveTextAsync("Hi, I'm frame");
+        Assert.That(await div.IsVisibleAsync(), Is.False);
+        await Expect.That(div).ToBeHiddenAsync();
 
-            await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').style.visibility = 'visible'; }");
-            await Expect.That(div).ToBeVisibleAsync();
-            Equal(true, await div.IsVisibleAsync());
-        });
+        await Browser.EvaluateAsync<object>("() => { document.querySelector('iframe').style.visibility = 'visible'; }");
+        await Expect.That(div).ToBeVisibleAsync();
+        Assert.That(await div.IsVisibleAsync(), Is.True);
     }
 }
