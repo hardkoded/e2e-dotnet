@@ -11,7 +11,7 @@ namespace E2E.Playground;
 /// The routes of the tests ported from Playwright, a port of upstream's <c>apps/testbed/app/playwright/routes.mjs</c>:
 /// its test assets (copied from microsoft/playwright <c>tests/assets</c> at v1.64.1, Apache-2.0, under
 /// <c>Testbed/playwright/assets</c> next to the test assembly) and the dynamic routes its test server sets per test.
-/// The playground serves them for any path it has no page for. This port has <c>/content</c> and the assets so far.
+/// The playground serves them for any path it has no page for. This port has <c>/content</c>, <c>/download</c>, <c>/respond</c>, <c>/binary</c> and the assets so far.
 /// </summary>
 internal static class PlaywrightRoutes
 {
@@ -39,6 +39,50 @@ internal static class PlaywrightRoutes
             var html = context.Request.QueryString["html"] ?? "";
             response.ContentType = "text/html; charset=utf-8";
             await WriteAsync(response, FromBase64Url(html)).ConfigureAwait(false);
+            return;
+        }
+
+        // Download routes (group: dialog and download).
+        var query = context.Request.QueryString;
+        if (path == "/download")
+        {
+            response.ContentType = "application/octet-stream";
+            response.AddHeader("Content-Disposition", "attachment" + (query["name"] is { } name ? "; filename=" + name : ""));
+            await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "Hello world")).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/respond")
+        {
+            response.StatusCode = int.TryParse(query["status"], out var status) ? status : 200;
+            var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
+            foreach (var (header, value) in headers)
+            {
+                if (header.Equals("content-type", StringComparison.OrdinalIgnoreCase))
+                {
+                    response.ContentType = value;
+                }
+                else
+                {
+                    response.AddHeader(header, value);
+                }
+            }
+
+            await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "")).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/binary")
+        {
+            var length = Math.Clamp(int.TryParse(query["bytes"], out var bytes) ? bytes : 1 << 20, 0, 16 << 20);
+            var data = new byte[length];
+            for (var i = 0; i < data.Length; i++)
+            {
+                data[i] = (byte)(((uint)(i + 1) * 2654435761u) >> 24);
+            }
+
+            response.ContentType = "application/zip";
+            await WriteAsync(response, data).ConfigureAwait(false);
             return;
         }
 
