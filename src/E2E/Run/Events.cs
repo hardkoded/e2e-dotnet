@@ -8,7 +8,7 @@ namespace E2E.Reports;
 /// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>), as a <see cref="Reporter"/> sees it through
 /// <see cref="Reporter.OnEvent"/>. The list reporter consumes the same stream (<c>ListReporter.Handle</c>), so no two consumers can drift. The
 /// port's test run fixtures and sessions emit them: the run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors,
-/// interrupts, and end. Not ported: <c>output</c> (the test framework captures stdout), <c>serial-group</c> (the port has no serial groups), and
+/// interrupts, and end. <c>output</c> is defined and the list reporter prints it, but nothing emits it (the test framework captures stdout). Not ported: <c>serial-group</c> (the port has no serial groups), and
 /// <c>explore</c>, which feeds the live window the port has no use for yet. A new event type may be added, so a reporter handles the ones it
 /// knows and ignores the rest.
 /// </summary>
@@ -59,6 +59,23 @@ public sealed record PlanEvent(int Total, IReadOnlyList<(string File, string Tar
 
 /// <summary>Upstream's <c>notice</c> fact: one line of run-level progress outside any test.</summary>
 public sealed record NoticeEvent(string Target, string Message) : RunEventFact;
+
+/// <summary>Which stream a test wrote to (upstream's <c>stream</c> of the <c>output</c> fact).</summary>
+public enum OutputStream
+{
+    Stdout,
+    Stderr,
+}
+
+/// <summary>The test executing when output was written (upstream's inline <c>pair</c> of the <c>output</c> fact): its id, agent, and repeat.</summary>
+public sealed record OutputPair(string TestId, string Agent, int Repeat);
+
+/// <summary>
+/// Upstream's <c>output</c> fact: text a test wrote to stdout or stderr, as one write on <paramref name="Target"/>. <paramref name="Pair"/> is the
+/// test executing at the time, or null for output between tests. The list reporter prints it above its live window. The port's test framework
+/// captures stdout, so nothing in the port emits it yet.
+/// </summary>
+public sealed record OutputEvent(string Target, OutputPair? Pair, OutputStream Stream, string Text) : RunEventFact;
 
 /// <summary>
 /// What one setup step is about (upstream's <c>SetupStep</c>, <c>run/events.ts</c>). <c>collect</c> loads the test files; <c>filter</c> is one test

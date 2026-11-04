@@ -7,10 +7,8 @@ using E2E.Cli.Report;
 namespace E2E.Cli.Tests.CodeFrameWidth;
 
 /// <summary>
-/// <c>describe('code-frame terminal columns')</c> of <c>tests/unit/code-frame-width.test.ts</c>. Each <c>it</c> is <c>Partial_</c>: upstream
-/// sets <c>process.stdout.columns</c> and lets <c>codeFrame</c> read it; the port reads the console, which a test cannot set, so these pass
-/// the budget the terminal would give (<c>columns - 10</c>) as <c>maxChars</c>. The CJK and emoji rows of the caret <c>it.each</c> are not ported:
-/// <c>Format.VisibleWidth</c> counts a wide glyph as one column, where upstream's <c>visibleWidth</c> counts two.
+/// <c>describe('code-frame terminal columns')</c> of <c>tests/unit/code-frame-width.test.ts</c>. All 7 cases are ported. Upstream sets
+/// <c>process.stdout.columns</c>; here <c>Format.WithTerminalSize</c> (.NET-only) sets the width the frame measures against.
 /// </summary>
 public sealed class CodeFrameTerminalColumnsTests : IDisposable
 {
@@ -22,9 +20,11 @@ public sealed class CodeFrameTerminalColumnsTests : IDisposable
 
     [Theory]
     [InlineData("const x = 1; ", 13)]
+    [InlineData("const 界 = 1; ", 14)]
     [InlineData("const é = 1; ", 13)]
+    [InlineData("const value = \"\U0001F469\u200d\U0001F4BB\"; ", 20)]
     [InlineData("\tconst x = 1; ", 14)]
-    public void Partial_Aligns_the_caret_after_a_prefix(string prefix, int prefixColumns)
+    public void Aligns_the_caret_after_a_prefix(string prefix, int prefixColumns)
     {
         var rows = Render(prefix + "throw new Error();", prefix.Length + 1);
 
@@ -32,7 +32,7 @@ public sealed class CodeFrameTerminalColumnsTests : IDisposable
     }
 
     [Fact]
-    public void Partial_Clips_wide_source_text_to_the_terminal_budget_without_splitting_glyphs()
+    public void Clips_wide_source_text_to_the_terminal_budget_without_splitting_glyphs()
     {
         var rows = Render("const x = \"" + new string('界', 50) + "\";", 1, 40);
 
@@ -42,7 +42,7 @@ public sealed class CodeFrameTerminalColumnsTests : IDisposable
     }
 
     [Fact]
-    public void Partial_Omits_a_caret_when_the_failing_column_is_outside_the_clipped_source()
+    public void Omits_a_caret_when_the_failing_column_is_outside_the_clipped_source()
     {
         var prefix = new string('界', 30);
         var rows = Render(prefix + "throw new Error();", prefix.Length + 1, 40);
@@ -53,7 +53,8 @@ public sealed class CodeFrameTerminalColumnsTests : IDisposable
 
     private IReadOnlyList<string> Render(string line, int column, int columns = 80)
     {
+        using var terminal = Format.WithTerminalSize(columns: columns);
         File.WriteAllText(_file, line);
-        return CodeFrame.Render(_file, 1, column, Plain, columns - 10);
+        return CodeFrame.Render(_file, 1, column, Plain);
     }
 }

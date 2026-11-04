@@ -8,8 +8,7 @@ namespace E2E.Cli.Report;
 
 /// <summary>
 /// Renders one agent step and its replay notices for the list reporter (upstream's <c>report/list-steps.ts</c>): the same finished step prints
-/// in a CI log, in a file block, and in the live window, each at its own indent, so nothing here knows where the line lands. Not ported:
-/// <c>eventLine</c>, which only the live window prints.
+/// in a CI log, in a file block, and in the live window, each at its own indent, so nothing here knows where the line lands.
 /// </summary>
 internal static class ListSteps
 {
@@ -24,6 +23,25 @@ internal static class ListSteps
 
     /// <summary>Columns a step line spends around its label: the quotes and the space before the tail.</summary>
     private const int LabelChrome = 3;
+
+    /// <summary>A finished model turn.</summary>
+    private const string FModel = "•";
+
+    /// <summary>A tool call the model made.</summary>
+    private const string FTool = "›";
+
+    private const string FInput = "↑";
+
+    private const string FOutput = "↓";
+
+    /// <summary>Columns the <c> · </c> between a turn's timing and its reasoning excerpt takes.</summary>
+    private const int ReasoningSeparatorWidth = 3;
+
+    /// <summary>A narrower clip than this hides more than it says; the excerpt is dropped instead.</summary>
+    private const int MinReasoningColumns = 24;
+
+    /// <summary>Longest tool call act the live window names, in bytes.</summary>
+    private const int MaxActBytes = 60;
 
     /// <summary>One-line, quoted step label; <paramref name="maxColumns"/> clips it further to fit a row (upstream's <c>quotedLabel</c>).</summary>
     public static string QuotedLabel(string label, int maxColumns = MaxStepLabelColumns)
@@ -86,4 +104,50 @@ internal static class ListSteps
     /// <summary>A recording mismatch under its test in the file block (upstream's <c>replayLine</c>).</summary>
     public static string ReplayLine(Colors pc, ReplayNotice notice) =>
         $"{pc.Dim(notice.Api)} {QuotedLabel(notice.Label)} {pc.Dim($"replayed · recorded with {Format.FitColumns(TextRules.Collapse(notice.Source), MaxRecordedModelColumns)}")}";
+
+    /// <summary>
+    /// <c>(↑in ↓out)</c> for one model call, the total when only that is known, or nothing when the provider reported no usage (upstream's <c>tokenSplit</c>).
+    /// </summary>
+    private static string TokenSplit(Reports.StepEvent stepEvent)
+    {
+        if (stepEvent.InputTokens is { } input && stepEvent.OutputTokens is { } output)
+        {
+            return $" ({FInput}{Format.FormatTokens(input)} {FOutput}{Format.FormatTokens(output)})";
+        }
+
+        return stepEvent.Count is > 0 and var count ? $" ({Format.FormatTokens(count)} tokens)" : string.Empty;
+    }
+
+    /// <summary>
+    /// One model turn or tool call under the current step (upstream's <c>eventLine</c>). A tool call reads as the act it performed when the
+    /// engine described it, else as the tool name (<c>tool:</c> prefixes come from executor tool accounting). A model turn the model reasoned its
+    /// way through appends an excerpt of that reasoning, clipped to the row: why it acted, not just that it did.
+    /// </summary>
+    public static string EventLine(Colors pc, Reports.StepEvent stepEvent, int? maxWidth = null)
+    {
+        if (stepEvent.Kind == Reports.StepEventKind.Model)
+        {
+            var head = $"{FModel} Thinking ({Format.FormatTime(TimeSpan.FromMilliseconds(stepEvent.DurationMs))}){TokenSplit(stepEvent)}";
+            var reasoning = ReasoningExcerpt(stepEvent.Reasoning, Format.VisibleWidth(head), maxWidth);
+            return pc.Dim(reasoning is null ? head : $"{head} · {reasoning}");
+        }
+
+        var name = TextRules.SanitizeText(stepEvent.Name ?? "engine");
+        name = name.StartsWith("tool:", StringComparison.Ordinal) ? name["tool:".Length..] : name;
+        var act = stepEvent.Detail is null ? name : TextRules.SanitizeText(TextRules.Collapse(stepEvent.Detail));
+        var failed = stepEvent.Status == Reports.StepEventStatus.Passed ? string.Empty : $" {pc.Red(Format.Cross)}";
+        return $"{pc.Dim($"{FTool} {TextRules.TruncateUtf8(act, MaxActBytes)} ({Format.FormatTime(TimeSpan.FromMilliseconds(stepEvent.DurationMs))})")}{failed}";
+    }
+
+    /// <summary>The one-line form of a turn's reasoning for its Thinking row, or null when the row has no room worth reading at (upstream's <c>reasoningExcerpt</c>).</summary>
+    private static string? ReasoningExcerpt(string? reasoning, int headWidth, int? maxWidth)
+    {
+        if (reasoning is null)
+        {
+            return null;
+        }
+
+        var room = (maxWidth ?? Format.TerminalColumns()) - headWidth - ReasoningSeparatorWidth;
+        return room < MinReasoningColumns ? null : Format.FitColumns(TextRules.Collapse(reasoning), room);
+    }
 }

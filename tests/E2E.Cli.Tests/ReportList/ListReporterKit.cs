@@ -18,15 +18,44 @@ internal static partial class ListReporterKit
     {
         public List<string> Lines { get; } = [];
 
-        public void Write(string line) => Lines.Add(Ansi().Replace(line, string.Empty));
+        /// <summary>The raw control channel; null for a sink without one, as upstream's <c>output</c> without <c>raw</c>.</summary>
+        public Action<string>? Raw { get; init; }
+
+        public void Write(string line) => Lines.Add(StripAnsi(line));
+
+        public static string StripAnsi(string text) => Ansi().Replace(text, string.Empty);
 
         [GeneratedRegex("\u001b\\[[0-9;?]*[a-zA-Z]")]
         private static partial Regex Ansi();
     }
 
+    /// <summary>
+    /// Upstream's <c>liveCapture()</c> of <c>describe('live window')</c>: the lines written, and every chunk (a line with its newline, or a raw
+    /// control write) in the order it was written.
+    /// </summary>
+    public sealed class LiveCapture : IListReporterOutput
+    {
+        public LiveCapture() => Raw = Chunks.Add;
+
+        public List<string> Chunks { get; } = [];
+
+        public List<string> Lines { get; } = [];
+
+        public Action<string>? Raw { get; }
+
+        public void Write(string line)
+        {
+            Lines.Add(Capture.StripAnsi(line));
+            Chunks.Add(line + "\n");
+        }
+    }
+
+    /// <summary>The text of a chunk with its ANSI sequences stripped.</summary>
+    public static string StripAnsi(string text) => Capture.StripAnsi(text);
+
     /// <summary>Upstream's <c>plainReporter()</c>: a reporter with colors off, so assertions read the plain text.</summary>
-    public static ListReporter PlainReporter(IListReporterOutput output, TimeProvider? time = null) =>
-        new(output, new ListReporterOptions { Colors = false }, time);
+    public static ListReporter PlainReporter(IListReporterOutput output, TimeProvider? time = null, bool live = false) =>
+        new(output, new ListReporterOptions { Colors = false, Live = live }, time ?? (live ? new FakeTime(DateTimeOffset.UnixEpoch) : null));
 
     /// <summary>Upstream's <c>attempt()</c>.</summary>
     public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1") =>
@@ -58,7 +87,7 @@ internal static partial class ListReporterKit
             : new StepProgress { Phase = phase, Kind = StepKind.Agent, Api = "agent.act", Label = label, Status = status, DurationMs = 4_200, ModelCalls = 3 };
 
     /// <summary>Upstream's <c>agentStepRecord()</c>: a finished <c>agent.act</c> step record that carries <paramref name="cache"/>.</summary>
-    public static StepRecord AgentStepRecord(string label, CacheInfo? cache = null, string? agent = null, int index = 0) =>
+    public static StepRecord AgentStepRecord(string label, CacheInfo? cache = null, string? agent = null, int index = 0, StepModelInfo? model = null) =>
         new()
         {
             Id = label,
@@ -70,6 +99,7 @@ internal static partial class ListReporterKit
             DurationMs = 10,
             Cache = cache,
             Agent = agent,
+            Model = model,
         };
 
     /// <summary>Upstream's <c>result()</c>.</summary>
@@ -144,5 +174,19 @@ internal static partial class ListReporterKit
         public override DateTimeOffset GetUtcNow() => _now;
 
         public void Advance(TimeSpan span) => _now += span;
+
+        /// <summary>A timer that never fires: upstream's tests are synchronous, so the live window's repaint timer never ticks in them.</summary>
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) => new IdleTimer();
+
+        private sealed class IdleTimer : ITimer
+        {
+            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
+
+            public void Dispose()
+            {
+            }
+
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
     }
 }
