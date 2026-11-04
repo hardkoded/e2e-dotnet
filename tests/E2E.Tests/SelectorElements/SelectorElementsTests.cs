@@ -25,6 +25,7 @@ public sealed class SelectorElementsTests
     [InlineData("section.card", 1)]
     [InlineData("a", 1)]
     [InlineData("main#empty", 1)]
+    [InlineData("button i.glyph", 1)]
     [InlineData("#absent", 0)]
     public async Task Counts_every_element_a_selector_names(string selector, int expected)
     {

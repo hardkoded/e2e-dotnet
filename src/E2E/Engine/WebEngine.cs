@@ -1201,7 +1201,7 @@ public sealed partial class WebEngine : IEngine
                     // Upstream reads whatever the selector matches; here the observation lists those elements first, then the expression is
                     // projected onto it again, so every match is a node of the observation the caller acts on.
                     observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
-                    projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, new Forcing())).ConfigureAwait(false);
+                    projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false })).ConfigureAwait(false);
                 }
             }
 
@@ -1349,7 +1349,7 @@ public sealed partial class WebEngine : IEngine
 
             var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
             // One round trip for every match.
-            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce)).ConfigureAwait(false);
+            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false);
             forcing.Marked |= found.Any(id => id is null);
             return found.OfType<string>().ToList();
         }
@@ -2605,7 +2605,7 @@ public sealed partial class WebEngine : IEngine
                     {
                         // The twin check keeps the page's elements as the located node's observation set them, forced ones included.
                         roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
-                        projected = await ProjectAsync(expression, budget, new Forcing()).ConfigureAwait(false);
+                        projected = await ProjectAsync(expression, budget, new Forcing { Mark = false }).ConfigureAwait(false);
                     }
                 }
 
@@ -3703,6 +3703,9 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     private sealed class Forcing
     {
+        /// <summary>False for the projection after the observation that listed the marked elements: what it still misses is not marked again.</summary>
+        public bool Mark { get; init; } = true;
+
         public bool Marked { get; set; }
     }
 

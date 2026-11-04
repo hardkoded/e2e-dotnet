@@ -40,6 +40,8 @@ internal static class PageScript
           const forced = publish ? globalThis[forcedKey] ?? null : null;
           if (publish) delete globalThis[forcedKey];
           const isForced = (el) => forced !== null && forced.has(el);
+          // A leaf lists no children, unless a selector named one of them.
+          const holdsForced = (el) => forced !== null && [...forced].some((named) => named !== el && el.contains(named));
           const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "NEXT-ROUTE-ANNOUNCER"]);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
@@ -907,7 +909,7 @@ internal static class PageScript
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role)) return n;
+              if (isLeaf(el, role) && !holdsForced(el)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -944,7 +946,7 @@ internal static class PageScript
               }
               if (!named && !textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
-                  if (isLeaf(el, role) || el.tagName === "SELECT") return;
+                  if ((isLeaf(el, role) && !holdsForced(el)) || el.tagName === "SELECT") return;
                   walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
@@ -1019,7 +1021,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role)) return;
+              if (isLeaf(el, role) && !holdsForced(el)) return;
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
@@ -1129,12 +1131,13 @@ internal static class PageScript
     // What a locator's selector names, in one frame: per element, its ref when the last observation lists it, else null. Those are marked,
     // so the observation that follows lists them as nodes (the page-side half of upstream's e2e-read engine).
     public const string RefsOrForce = """
-        (els) => {
+        (els, mark) => {
           const listed = window[Symbol.for("e2e.observation.elements")];
           const key = Symbol.for("e2e.observation.forced");
           return els.map((el) => {
             const id = el[Symbol.for("e2e.observation.ref")];
             if (id !== undefined && listed?.get(id) === el && el.isConnected) return id;
+            if (!mark) return null;
             const forced = globalThis[key] ?? new Set();
             forced.add(el);
             globalThis[key] = forced;
