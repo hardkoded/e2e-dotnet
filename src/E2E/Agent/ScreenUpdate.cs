@@ -221,8 +221,8 @@ internal sealed partial class ScreenPresenter
     /// <summary>Why pixels did not reach the model, and what to do instead (upstream's <c>withheldAdvice</c>).</summary>
     internal static string WithheldAdvice(VisionDegradation code) => code switch
     {
-        VisionDegradation.MaskingUnproven => "the engine could not prove every secure field on screen masked (MASKING_UNPROVEN). Work from the tree and act on the nodes it lists.",
-        _ => "this engine captures no pixels (UNSUPPORTED_CAPABILITY). Work from the tree and act on the nodes it lists.",
+        VisionDegradation.MaskingUnproven => "the engine could not prove every secure field on screen masked (MASKING_UNPROVEN). Work from the tree and tap listed nodes by id.",
+        _ => "this engine captures no pixels (UNSUPPORTED_CAPABILITY). Work from the tree and tap listed nodes by id.",
     };
 
     // `2 added, 1 changed, 5 removed`, omitting the kinds that did not happen.

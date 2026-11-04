@@ -280,7 +280,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     }
 
     // The listed look as the model reads it, booked like the text of `View`: its size, and whether the byte budget cut it.
-    private ExecutorObservation Listed(Observation observation, AttemptScope scope, bool pixels)
+    internal ExecutorObservation Listed(Observation observation, AttemptScope scope, bool pixels)
     {
         var view = ListedView(observation, scope, pixels);
         MaxObservationBytes = Math.Max(MaxObservationBytes, System.Text.Encoding.UTF8.GetByteCount(view.Text));

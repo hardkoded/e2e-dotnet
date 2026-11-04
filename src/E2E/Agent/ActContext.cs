@@ -88,7 +88,7 @@ internal sealed partial class ActContext : StepExecutorContext
         Actions = dispatcher;
         Host = new ActHost(scope, feed, budget, spec.Params);
         Start = start is null ? null : feed.View(start, scope);
-        ListedStart = start is null ? null : feed.ListedView(start, scope);
+        ListedStart = start is null ? null : feed.Listed(start, scope, false);
     }
 
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
