@@ -61,6 +61,7 @@ what renders: `display: none`, a `visibility` other than
 `visible`, and content under `content-visibility: hidden` or a
 closed `details`; a child that sets `visibility: visible` under a
 hidden parent is visible, and an `aria-hidden` node that paints is visible.
+Everything inside a hidden `iframe` is hidden, cross-origin frames included.
 Role queries never match hidden or `aria-hidden` nodes, whatever this says.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)

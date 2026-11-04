@@ -1162,21 +1162,54 @@ public sealed partial class WebEngine : IEngine
         private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
         {
             var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
-            var walk = new FrameWalk();
-            List<WebNode> roots;
-            try
+            return await ObserveInTurnAsync(budget, async () =>
             {
-                roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                var walk = new FrameWalk();
+                List<WebNode> roots;
+                try
+                {
+                    roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    throw WebErrors.NavigationStaleOr(ex, "observe");
+                }
+
+                _frames = walk.Frames;
+                _observed = true;
+                return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+            }).ConfigureAwait(false);
+        });
+
+        // Settles when the latest observation in line has finished; never faults.
+        private Task _observing = Task.CompletedTask;
+        private readonly object _observingLock = new();
+
+        /// <summary>
+        /// Runs one observation after every earlier one has finished, so each publishes its refs in turn instead of the later one
+        /// superseding a capture still in flight (upstream's <c>observeInTurn</c> in <c>attempt-session.ts</c>). Time spent waiting comes
+        /// out of the operation's budget, which was started before the wait.
+        /// </summary>
+        private async Task<T> ObserveInTurnAsync<T>(OperationBudget budget, Func<Task<T>> capture)
+        {
+            var mine = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task before;
+            lock (_observingLock)
             {
-                throw WebErrors.NavigationStaleOr(ex, "observe");
+                before = _observing;
+                _observing = Task.WhenAll(before, mine.Task);
             }
 
-            _frames = walk.Frames;
-            _observed = true;
-            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
-        });
+            try
+            {
+                await budget.WithinAsync(before).ConfigureAwait(false);
+                return await capture().ConfigureAwait(false);
+            }
+            finally
+            {
+                mine.SetResult();
+            }
+        }
 
         public bool CanLocate => true;
 
@@ -1267,7 +1300,7 @@ public sealed partial class WebEngine : IEngine
                             leaf = leaf.Source!;
                         }
 
-                        var frame = await FrameAsync(frames, budget).ConfigureAwait(false);
+                        var frame = await FrameAsync(frames, budget, forcing).ConfigureAwait(false);
                         return leaf.Kind switch
                         {
                             "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget, forcing).ConfigureAwait(false)),
@@ -1302,12 +1335,14 @@ public sealed partial class WebEngine : IEngine
         /// Checks that every frame selector along <paramref name="frames"/> matches exactly one element, each counted inside the frame
         /// before it (upstream's <c>frameBox</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
         /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns the ref the innermost iframe node has in the observation. An iframe the
-        /// tree does not list, because it is hidden, is no frame either.
+        /// observation does not list, because it is hidden, is marked in <paramref name="forcing"/> like any element a selector names: the
+        /// observation that follows lists it, hidden, with every node of its document hidden too (upstream's <c>frameOf</c>).
         /// </summary>
-        private async Task<string> FrameAsync(IReadOnlyList<string> frames, OperationBudget budget)
+        private async Task<string> FrameAsync(IReadOnlyList<string> frames, OperationBudget budget, Forcing forcing)
         {
             ILocator? element = null;
             IFrameLocator? scope = null;
+            var refs = new List<string?>();
             foreach (var selector in frames)
             {
                 element = scope is null ? Page.Locator(selector) : scope.Locator(selector);
@@ -1322,6 +1357,7 @@ public sealed partial class WebEngine : IEngine
                     throw new EngineException(EngineErrorCodes.FrameAmbiguous, $"{count} frames match {selector}", retryable: false);
                 }
 
+                refs.Add((await budget.WithinAsync(element.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false))[0]);
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
@@ -1331,8 +1367,19 @@ public sealed partial class WebEngine : IEngine
                 throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
             }
 
-            var node = await budget.WithinAsync(element.EvaluateAsync<string?>(PageScript.RefOf, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
-            return node ?? throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: it is hidden, or the page changed after it", retryable: true);
+            if (refs.Contains(null))
+            {
+                if (!forcing.Mark)
+                {
+                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: the page changed after it", retryable: true);
+                }
+
+                // The caller observes again and projects once more, so this projection is discarded and its ref is a placeholder.
+                forcing.Marked = true;
+                return "";
+            }
+
+            return refs[^1]!;
         }
 
         /// <summary>
@@ -2359,7 +2406,7 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var page = Page;
-                var masks = SecureFieldMasks(page);
+                var masks = await budget.WithinAsync(SecureFieldMasksAsync(page)).ConfigureAwait(false);
                 var masked = await CountMasksAsync(masks, budget).ConfigureAwait(false);
 
                 // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
@@ -2382,9 +2429,11 @@ public sealed partial class WebEngine : IEngine
         });
 
         // Every secure field of every frame is covered before the image leaves the engine: two locators per
-        // frame, one through light DOM and open shadow roots, one through the closed roots.
-        private static List<ILocator> SecureFieldMasks(IPage page) =>
-            page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
+        // frame, one through light DOM and open shadow roots, one through the closed roots. A frame with no readable document shows
+        // nothing to mask, and probing it would wait for its navigation to commit.
+        private static async Task<List<ILocator>> SecureFieldMasksAsync(IPage page) =>
+            (await FrameDocument.ReadableFramesAsync(page.Frames).ConfigureAwait(false))
+                .SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
 
         // How many regions the masks cover, which a caller proves the image is at least as redacted as the tree with.
         private static async Task<int> CountMasksAsync(List<ILocator> masks, OperationBudget budget)
@@ -2417,7 +2466,7 @@ public sealed partial class WebEngine : IEngine
                 var page = Page;
                 var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
                 // As upstream's artifact capture, the locators go straight to the screenshot call: no count to spend the budget on.
-                var masks = SecureFieldMasks(page);
+                var masks = await budget.WithinAsync(SecureFieldMasksAsync(page)).ConfigureAwait(false);
                 var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
@@ -2566,8 +2615,19 @@ public sealed partial class WebEngine : IEngine
                 var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
                 if (owner is not null && owners.TryGetValue(owner, out var node))
                 {
+                    // A frame whose navigation has not committed shows nothing yet.
+                    if (!await budget.WithinAsync(FrameDocument.HasReadableDocumentAsync(child)).ConfigureAwait(false))
+                    {
+                        continue;
+                    }
+
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
                     node.Children = PlaceInFrame(await CollectAsync(child, walk, budget).ConfigureAwait(false), node.Rect, inset);
+                    if (node.Hidden)
+                    {
+                        // The frame element's own hidden state, read in the document around it, counts for every node in its document.
+                        HideAll(node.Children);
+                    }
                 }
             }
 
@@ -2747,6 +2807,17 @@ public sealed partial class WebEngine : IEngine
                 : new WebRect { X = border.X + inset.X, Y = border.Y + inset.Y, Width = inset.Width, Height = inset.Height };
             Place(nodes, content);
             return nodes;
+        }
+
+        /// <summary>Reads every node of a hidden frame's document as hidden, the frames nested in it included.</summary>
+        private static void HideAll(List<WebNode>? nodes)
+        {
+            foreach (var node in nodes ?? [])
+            {
+                node.Hidden = true;
+                HideAll(node.Children);
+                HideAll(node.Inline);
+            }
         }
 
         private static void Place(List<WebNode>? nodes, WebRect? content)

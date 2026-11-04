@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using E2E.Cli.Report;
 using E2E.Internal;
 using E2E.Mobile;
+using E2E.Reports;
 
 namespace E2E.Cli;
 
@@ -128,54 +129,22 @@ internal static partial class ExploreCommand
             return 2;
         }
 
-        // The record is the model's and the app's text. Upstream redacts it at its report boundary, which here is this printer, so
-        // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
+        // The record is the model's and the app's text, redacted where the run writes it to its events, as upstream's emitter does. The
+        // errors this command prints itself are redacted here, for the config's secrets and the accounts' passwords.
         var redactor = Redactor.For(
             (config?.AllSecrets ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
-        var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
-        var target = parsed.Target ?? config?.Targets[0].Name;
-        var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");
-        var gate = new object();
-        ExploreView? view = null;
-        var startedAt = DateTimeOffset.Now;
 
-        void Print(string line)
+        // The list reporter renders the run's events: the header, each finding and step as they happen, the record, and the summary.
+        var reporter = new ListReporter(
+            new StdoutOutput(stdout),
+            new ListReporterOptions { Live = false, Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) });
+        using var run = HostRun.Begin([]);
+        var started = false;
+        using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent =>
         {
-            stdout.WriteLine(line);
-        }
-
-        void OnProgress(ExploreProgress moment)
-        {
-            lock (gate)
-            {
-                var progress = Redact(moment, redactor);
-                if (progress is ExploreProgress.Started started)
-                {
-                    view = new ExploreView(pc, started);
-                    Print("");
-                    Print(view.Header(badge));
-                    return;
-                }
-
-                if (view is null)
-                {
-                    return;
-                }
-
-                view.Progress(progress);
-                if (progress is ExploreProgress.StepFinished && view.LastStep is { } last)
-                {
-                    foreach (var line in view.StepLines(last))
-                    {
-                        Print(line);
-                    }
-                }
-                else if (progress is ExploreProgress.FindingReported reported)
-                {
-                    Print(view.FindingLine(reported.Finding));
-                }
-            }
-        }
+            started |= runEvent.Fact is RunStartedEvent;
+            reporter.Handle(runEvent.Fact);
+        }));
 
         var options = new ExploreOptions
         {
@@ -196,7 +165,6 @@ internal static partial class ExploreCommand
             Video = parsed.Video,
             Credentials = accounts.ToDictionary(account => account.Name, account => account.Credential, StringComparer.Ordinal),
             Notice = message => stderr.WriteLine(Notice(message)),
-            OnProgress = OnProgress,
         };
 
         ExploreOutcome outcome;
@@ -212,51 +180,31 @@ internal static partial class ExploreCommand
         catch (E2EException ex)
         {
             await stderr.WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message))).ConfigureAwait(false);
-            return Runner.ExitCodeOf(ex);
+            var exitCode = Runner.ExitCodeOf(ex);
+            if (started)
+            {
+                // The run the header opened ends with its error and summary, as a run that failed to start does.
+                if (config is not null)
+                {
+                    HostRun.Failed(config, ex);
+                }
+
+                RunEvents.Emit(new RunFinishedEvent { Status = ReportRunStatus.Error, ExitCode = exitCode });
+                reporter.Rows([]);
+            }
+
+            return exitCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return 130;
         }
 
-        lock (gate)
-        {
-            if (view is not null)
-            {
-                var root = cwd ?? Directory.GetCurrentDirectory();
-                view.Result(outcome.Artifacts.Select(artifact => (artifact.Id, artifact.Path)));
-                foreach (var line in view.Record(badge, withSteps: false).Concat(view.FindingsSection(target => DisplayPath(root, target), outcome.ArtifactsRoot)).Concat(view.Assessment()))
-                {
-                    Print(line);
-                }
-            }
-
-            // The verdict is the findings; any other error is a failure of its own.
-            if (outcome.Error is { } error && view?.IsVerdict(error.Code) != true)
-            {
-                Print("");
-                Print(" " + pc.Bold(pc.Red(error.Code)) + ": " + Format.Bounded(redactor.Redact(error.Message)));
-            }
-
-            Print("");
-            foreach (var row in (view ?? new ExploreView(pc, new ExploreProgress.Started(outcome.Explore.Goal, outcome.Explore.Budgets))).SummaryRows())
-            {
-                Print(row);
-            }
-
-            Print(Format.PadTitle(pc, "Start at") + Format.FormatClock(startedAt));
-            Print(Format.PadTitle(pc, "Duration") + Format.FormatTime(DateTimeOffset.Now - startedAt));
-            Print("");
-        }
+        // The run's end reaches the reporter as `run-finished`, then the rows that close the output.
+        await run.FinishAsync().ConfigureAwait(false);
+        reporter.Rows([]);
 
         return outcome.ExitCode;
-    }
-
-    /// <summary>A path relative to <paramref name="root"/> when inside it, else as given.</summary>
-    private static string DisplayPath(string root, string target)
-    {
-        var relative = Path.GetRelativePath(root, target);
-        return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? target : relative;
     }
 
     /// <summary>
@@ -302,30 +250,10 @@ internal static partial class ExploreCommand
         }
     }
 
-    /// <summary>The moment with every text field of the record redacted.</summary>
-    private static ExploreProgress Redact(ExploreProgress progress, Redactor redactor)
+    /// <summary>Where the list reporter writes: the command's standard output, with no live window.</summary>
+    private sealed class StdoutOutput(TextWriter stdout) : IListReporterOutput
     {
-        string? R(string? text) => text is null ? null : redactor.Redact(text);
-        ReportExploreStep Step(ReportExploreStep step) => step with { Title = R(step.Title)!, Instruction = R(step.Instruction)!, Summary = R(step.Summary) };
-        return progress switch
-        {
-            ExploreProgress.Started started => started with { Goal = R(started.Goal)! },
-            ExploreProgress.StepStarted opened => opened with { Step = opened.Step with { Title = R(opened.Step.Title)!, Instruction = R(opened.Step.Instruction)! } },
-            ExploreProgress.StepFinished finished => finished with { Step = Step(finished.Step) },
-            ExploreProgress.FindingReported reported => reported with
-            {
-                Finding = reported.Finding with
-                {
-                    Title = R(reported.Finding.Title)!,
-                    Expected = R(reported.Finding.Expected)!,
-                    Actual = R(reported.Finding.Actual)!,
-                    Reproduction = [.. reported.Finding.Reproduction.Select(action => R(action)!)],
-                    Path = R(reported.Finding.Path),
-                },
-            },
-            ExploreProgress.Finished finished => finished with { Summary = R(finished.Summary) },
-            _ => progress,
-        };
+        public void Write(string line) => stdout.WriteLine(line);
     }
 
     private static ExploreArgs Parse(IEnumerable<string> args)

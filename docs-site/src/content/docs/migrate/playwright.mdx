@@ -3,7 +3,7 @@ title: From Playwright .NET
 description: Run e2e beside Playwright .NET and migrate tests one class at a time, with NUnit or xUnit.
 ---
 
-This guide ports upstream's `docs/migrate/playwright.mdx` (tester-army/e2e at `7b1b8b27`, with `a60310f9`, tester-army/e2e#1508). Upstream maps Node Playwright. This guide maps Playwright for .NET (`Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright`) and keeps upstream's order. Playwright .NET has no `playwright.config.ts`, so the config tables map `BrowserNewContextOptions`, the runner settings, and `.runsettings` instead.
+This guide ports upstream's `docs/migrate/playwright.mdx` (tester-army/e2e at `7b1b8b27`, with `a60310f9`, tester-army/e2e#1508, and `0852e61`, tester-army/e2e#1545). Upstream maps Node Playwright. This guide maps Playwright for .NET (`Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright`) and keeps upstream's order. Playwright .NET has no `playwright.config.ts`, so the config tables map `BrowserNewContextOptions`, the runner settings, and `.runsettings` instead.
 
 `E2E` drives Chromium through `Microsoft.Playwright`, so both suites can share one browser install. The e2e tests live in their own test project, so `dotnet test` on the solution runs both suites and neither collects the other's tests.
 
@@ -59,8 +59,8 @@ Playwright .NET has no config file: a test class overrides `ContextOptions()`, a
 | `BrowserType.ConnectAsync(wsEndpoint)` | `Connect` attaches over CDP only | missing |
 | `StorageState`, a setup test that saves it | `[E2ESetup("title", Saves = ["admin"])]` with `SaveSessionAsync("admin")`, then `[E2ESession("admin")]` on a test; no file | by design |
 | `StorageState` with fixed cookies | `Browser.SetCookiesAsync(cookies)` in a `[SetUp]` | renamed |
-| `Tracing.StartAsync` and `StopAsync` | `trace`: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`, in the config, per target, or `E2E_TRACE`. A trace is a markdown page, `trace.md`, not a zip. The default differs, see [below](#defaults-that-differ) | same |
-| `RecordVideoDir` | `video`, with the modes of `trace` and `E2E_VIDEO` | same |
+| `Tracing.StartAsync` and `StopAsync` | `trace`: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`, in the config, per target, or `E2E_TRACE`. A trace is a markdown page, `trace.md`, not a zip, with no viewer. No `retain-on-first-failure`, `retain-on-failure-and-retries`, or object form. The default differs, see [below](#defaults-that-differ) | renamed |
+| `RecordVideoDir` | `video`, with the modes of `trace` and `E2E_VIDEO`; no `RecordVideoSize` | renamed |
 | `Headless = false`, `HEADED=1` | `E2E_HEADLESS=0`, or `new WebEngineOptions { Headless = false }` | renamed |
 | `Locale`, `TimezoneId` | `WebEngineOptions.Locale`, `TimezoneId` | renamed |
 | `ColorScheme`, `ReducedMotion` | `WebEngineOptions.ColorScheme`, `ReducedMotion` | renamed |
@@ -159,21 +159,22 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `DblClickAsync()` | `DoubleTapAsync()`; `DblClickAsync()` is an alias | same |
 | `ClickAsync(new() { Position })` | the tap `position` is not ported yet | missing |
 | `ClickAsync(new() { Force })` | not yet | missing |
-| `ClickAsync(new() { Modifiers })`, `DblClickAsync(new() { Modifiers })` | `TapAsync(new ClickOptions { Modifiers = [...] })`, `DoubleTapAsync`, `SecondaryTapAsync`; web only | same |
+| `ClickAsync(new() { Modifiers })`, `DblClickAsync(new() { Modifiers })` | `TapAsync(new ClickOptions { Modifiers = [...] })`, `DoubleTapAsync`, `SecondaryTapAsync`; web only | renamed |
 | `ClickAsync(new() { ClickCount, Delay, Trial })` | not yet | missing |
 | `Trial`, `Force`, `NoWaitAfter` on `CheckAsync`, `FillAsync`, and the other actions | no such option: the options type has no member for them | missing |
 | `FillAsync(value)` | the same; also takes a `Secret` | same |
 | `PressSequentiallyAsync(text, new() { Delay })` | `PressSequentiallyAsync(text)`; keystrokes through the platform keyboard, a `Secret` is refused | same |
 | `PressAsync(key)` | the same; modifiers join with `+` | same |
-| `ClearAsync()`, `FocusAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same; `SetInputFilesAsync([])` clears the input | same |
-| `CheckAsync()`, `UncheckAsync()` | the same, except when the state updates late or the click removes the control, see [What differs on purpose](#what-differs-on-purpose) | by design |
+| `ClearAsync()`, `FocusAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same verbs, each with `Timeout` as the only option (`ActionOptions`): no `Force`, `Trial`, `Position`, `Modifiers`, or `SourcePosition`. `SetInputFilesAsync([])` clears the input | renamed |
+| `CheckAsync()`, `UncheckAsync()` | the same, except when the state updates late or the click removes the control, see [What differs on purpose](#what-differs-on-purpose). `UncheckAsync()` on a checked radio, `role=radio` included, is `NOT_ACTIONABLE` | by design |
 | `SelectOptionAsync("pro")` | `SelectOptionAsync("Pro")` selects the option whose value or label is the string | same |
 | `SelectOptionAsync(new[] { "a", "b" })`, `SelectOptionAsync(new SelectOptionValue { Index })` | one value or label per call | missing |
-| `SetInputFilesAsync(new FilePayload { ... })` | paths only, resolved from the project root | missing |
+| `SetInputFilesAsync(new FilePayload { ... })`, `SetInputFilesAsync(Array.Empty<string>())` | paths only, resolved from the project root; an empty list throws `ArgumentException`, so there is no clear | missing |
 | `ScrollIntoViewIfNeededAsync()` | `ScrollIntoViewAsync()` | renamed |
 | `InnerTextAsync()` | `TextContentAsync()`, whitespace collapsed to single spaces | renamed |
 | `TextContentAsync()` | the rendered text, what `InnerTextAsync()` reads, see [What differs on purpose](#what-differs-on-purpose) | by design |
-| `InputValueAsync()`, `GetAttributeAsync()`, `IsVisibleAsync()`, `IsHiddenAsync()`, `IsEnabledAsync()`, `IsDisabledAsync()`, `BoundingBoxAsync()` | the same | same |
+| `InputValueAsync()` | the same on an input, textarea, or select; `""` on any other node, where Playwright throws. A checkbox or radio reads its value attribute, `on` when it has none | by design |
+| `GetAttributeAsync()`, `IsVisibleAsync()`, `IsHiddenAsync()`, `IsEnabledAsync()`, `IsDisabledAsync()`, `BoundingBoxAsync()` | the same | same |
 | `IsCheckedAsync()` | the same on a checkbox, radio, or `aria-checked` node; `false` on any other, see [What differs on purpose](#what-differs-on-purpose) | by design |
 | `IsEditableAsync()` | not yet | missing |
 | `WaitForAsync(new() { State = WaitForSelectorState.Visible })`, `Hidden`, `Attached`, `Detached` | `WaitForAsync` takes the same four states | same |
@@ -204,6 +205,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `ToBeCheckedAsync(new() { Indeterminate })`, `UseInnerText` | not yet | missing |
 | `ToHaveAttributeAsync("aria-selected", "true")`, `"aria-expanded"` | `ToBeSelectedAsync()`, `ToBeExpandedAsync()` | renamed |
 | a positive matcher on several matches | `LOCATOR_AMBIGUOUS` at once, see [What differs on purpose](#what-differs-on-purpose) | by design |
+| `.Not.ToBeVisibleAsync()`, `.Not.ToBeCheckedAsync()`, `.Not.ToBeEnabledAsync()` | `ToBeHiddenAsync()`, `ToBeCheckedAsync(false)`, `ToBeDisabledAsync()`, which needs a match, so a control that is gone fails where `.Not.ToBeEnabledAsync()` passes in Playwright. A `.Not` locator matcher holds for up to 1 s before it passes, see [What differs on purpose](#what-differs-on-purpose) | by design |
 | `ToBeAttachedAsync()` | the same; passes on a hidden match too | same |
 | `ToBeEmptyAsync()`, `ToBeInViewportAsync()`, `ToBeEditableAsync()`, `ToHaveRoleAsync()`, `ToHaveAccessibleDescriptionAsync()` | not yet | missing |
 | `Expect(locator).ToHaveClassAsync(cls)` | `Expect.That(Browser).ToHaveClassAsync(locator, cls)`; a DOM fact is asserted through `Browser`; `class=""` matches an empty list and a missing attribute does not | web only |
@@ -213,7 +215,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `ToHaveScreenshotAsync(new() { FullPage, Clip, Animations, Caret, Scale, StylePath })` | always the viewport, at CSS scale, animations stopped and the caret hidden | missing |
 | `ToMatchAriaSnapshotAsync()` | not yet | missing |
 | `Assert.That(value, ...)`, `Assert.AreEqual` | the framework's asserts, unchanged | same |
-| `Expect(async () => { ... }).ToPassAsync()` | `Expect.Poll(read).ToBeAsync(...)` or `ToSatisfyAsync(predicate)` | renamed |
+| `Expect(async () => { ... }).ToPassAsync()` | `Expect.Poll(read).ToBeAsync(...)` or `ToSatisfyAsync(predicate)` retries a read, not a block. Its timeout is 5 s (`PollOptions.Timeout`), not the test timeout, with one fixed `PollOptions.Interval`, default 100 ms | renamed |
 | `Expect.Soft` | `Expect.Soft(locator)` and `Expect.Soft(screen)`; kept failures fail the test at its end | renamed |
 | `Expect(locator, new() { Message = "..." })` | `Expect.That(locator)`; a locator failure already names the locator, the matcher, and what was observed | by design |
 | a custom matcher | not yet | missing |
@@ -223,6 +225,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | Playwright .NET | e2e | Status |
 | --- | --- | --- |
 | `Page.GotoAsync(path)` | `App.OpenAsync(path)`; `Browser.GotoAsync(url, new GotoOptions { WaitUntil, Timeout })` for the browser options | renamed |
+| `Page.GotoAsync("data:text/html,...")` | `POLICY_DENIED`, see [What differs on purpose](#what-differs-on-purpose). Serve the HTML from a `Browser.RouteAsync` with `route.FulfillAsync(new RouteFulfillResponse { Body = html, ContentType = "text/html" })` on an app URL | by design |
 | `var response = await Page.GotoAsync()` | `App.OpenAsync` and `Browser.GotoAsync` return nothing; take the response from `Browser.WaitForResponseAsync` | by design |
 | `Page.GoBackAsync()` | `App.BackAsync()`, or `Browser.BackAsync()` | renamed |
 | `Page.GoForwardAsync()`, `Page.ReloadAsync()` | `Browser.ForwardAsync()`, `Browser.ReloadAsync()` | web only |
@@ -234,21 +237,22 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `Page.SetViewportSizeAsync()` | `Browser.SetViewportAsync()`, before or after the first navigation | web only |
 | `Page.ViewportSize` | `Browser.EvaluateAsync<T>("() => ({ width: innerWidth, height: innerHeight })")` | missing |
 | `Page.ScreenshotAsync()` | `App.ScreenshotAsync(label)`: the viewport, redacted, attached to the report; no `FullPage` | renamed |
-| a fresh `IBrowserContext` per test | every test starts in a fresh context; `App.RestartAsync()` recreates it, `App.ClearStateAsync()` also clears storage | same |
+| a fresh `IBrowserContext` per test | every test starts in a fresh context; `App.RestartAsync()` recreates it, `App.ClearStateAsync()` also clears storage. No page opens before the first `App.OpenAsync` or `Browser.GotoAsync`, where Playwright starts on `about:blank` | same |
 | `Page.PauseAsync()` | `E2E_HEADLESS=0` to watch, `e2e mcp` to drive the app from a coding agent | missing |
 
 ### Network and browser
 
 | Playwright .NET | e2e | Status |
 | --- | --- | --- |
-| `Page.RouteAsync(pattern, handler)` | `Browser.RouteAsync(pattern, handler)`; a string or `Regex` pattern, no predicate function; the handler decides exactly once | web only |
+| `Page.RouteAsync(pattern, handler)` | `Browser.RouteAsync(pattern, handler)`; a string or `Regex` pattern, no predicate function; the handler decides exactly once. A string is a glob on the full URL, never resolved against `app.url`. `?` matches any one character, where Playwright reads it literally; `{a,b}` is literal | web only |
 | `route.FulfillAsync(new() { Json, Body, Path, Status, Headers, ContentType })` | `route.FulfillAsync(new RouteFulfillResponse { ... })`; one of `Json`, `Body`, or `Path`, and `Path` is relative to the project root. `Body` is text and bytes are `BodyBytes`; a `\n`-joined `set-cookie` sets each cookie | web only |
-| `route.ContinueAsync(new() { Url, Method, Headers, PostData })`, `route.FallbackAsync()` | `ContinueAsync(new RouteContinueOverrides { ... })`, `FallbackAsync()`; a header Playwright sets to `undefined` is named in `DropHeaders` | web only |
+| `route.ContinueAsync(new() { Url, Method, Headers, PostData })`, `route.FallbackAsync()` | `ContinueAsync(new RouteContinueOverrides { ... })`, `FallbackAsync()`; a `Url` resolves against `app.url` and keeps the request's `http` or `https` scheme. A header Playwright sets to `undefined` is named in `DropHeaders` | web only |
 | `route.FetchAsync()` | argument-free: no options, and redirects return unfollowed; returns `{ Url, Status, Headers, BodyAsync(), TextAsync(), JsonAsync<T>() }` without deciding the route | web only |
 | `route.AbortAsync(errorCode)` | `AbortAsync()` takes no error code | missing |
 | `Page.UnrouteAsync()` | `Browser.UnrouteAsync(pattern)` | web only |
 | `Page.UnrouteAllAsync()` | `Browser.UnrouteAllAsync()`; configured site headers stay | web only |
-| `Page.WaitForResponseAsync(pattern)`, `RunAndWaitForResponseAsync` | `Browser.WaitForResponseAsync(pattern)`: a string or `Regex`, no predicate; `Url`, `Status`, `Headers`, `BodyAsync()`, `JsonAsync<T>()`, `TextAsync()`. A string is a glob tested against the whole URL, never resolved against `app.url`: Playwright's `"/api/orders"` is the full URL or `"**/api/orders"`. Start it before the step that sends the request, and await it after | web only |
+| `Page.WaitForResponseAsync(pattern)`, `RunAndWaitForResponseAsync` | `Browser.WaitForResponseAsync(pattern)`: a string or `Regex`, no predicate; `Url`, `Status`, `Headers`, `BodyAsync()`, `JsonAsync<T>()`, `TextAsync()`. A string is the glob of `Browser.RouteAsync`, tested against the whole URL, query included: Playwright's `"/api/orders"` is the full URL or `"**/api/orders"`, and `"\\?"` is a literal `?`. Start it before the step that sends the request, and await it after | web only |
+| a `Timeout` of `0` for no timeout | a positive `TimeSpan`. `TimeSpan.Zero` on `Browser.GotoAsync`, `WaitForDownloadAsync`, or `WaitForDownloadsAsync` throws `ArgumentOutOfRangeException`. A locator action takes `Timeout.InfiniteTimeSpan` for no timeout | missing |
 | `response.Ok`, `response.Request` | `Status` | missing |
 | `Page.WaitForRequestAsync()`, `request.PostDataJSON()` | none yet for `WaitForRequestAsync`; `route.Request.PostData` is a string | missing |
 | `RouteFromHARAsync()`, `RouteWebSocketAsync()` | not yet | missing |
@@ -337,7 +341,7 @@ A page object that reads `Browser` makes every test that uses it web only. `ILoc
 
 ## What differs on purpose
 
-- A string name is exact. Playwright's `GetByRole` names, `GetByLabel`, `GetByPlaceholder`, and `GetByText` match a case-insensitive substring, so `Save` also hits `Save as draft`. In e2e a string matches the whole text, case-sensitive. Pass `exact: false` or a .NET `Regex` for a fragment. A query that misses passes a negated assertion, so check it with a positive one first.
+- A string name is exact. Playwright's `GetByRole` names, `GetByLabel`, `GetByPlaceholder`, and `GetByText` match a case-insensitive substring, so `Save` also hits `Save as draft`. In e2e a string matches the whole text, case-sensitive. Pass `exact: false` or a .NET `Regex` for a fragment, and drop Playwright's `Exact = true`, which is the default here. A query that misses passes a negated assertion, so check it with a positive one first.
 
   ```csharp
   // <button>Save changes</button>, <label>Email address <input></label>
@@ -348,8 +352,10 @@ A page object that reads `Browser` makes every test that uses it web only. `ILoc
   ```
 - Text reads are rendered text. On the web, `TextContentAsync()` and `ToHaveTextAsync` read what `innerText` returns, like Playwright's `UseInnerText = true`. Playwright reads the DOM's `textContent` by default. Queries still match the source text: `GetByText("Draft")` finds `<span style="text-transform: uppercase">Draft</span>`, and `ToHaveTextAsync("DRAFT")` passes on it. `Browser.EvaluateAsync` reads the raw DOM text.
 - A node with no checked state is unchecked. `IsCheckedAsync()` is `false` and `.Not.ToBeCheckedAsync()` passes on a button or a heading, where Playwright throws. Query a checkable control by role, so the query fails when the control changes kind.
+- A negated locator matcher passes only after its condition has been false for 1 s in a row, or for its whole timeout when that is shorter. The positive inverse, such as `ToBeHiddenAsync()`, passes on the first read that holds.
 - `CheckAsync()` and `UncheckAsync()` read the state back until the action timeout, so a controlled checkbox that updates late passes. A click that removes the control passes too, where Playwright fails. Assert on what replaced it.
 - One match or `LOCATOR_AMBIGUOUS`, `IsVisibleAsync()` included, where Playwright reads the first match silently. Narrow with `Filter`, `First()`, or `Visible = true`.
+- Navigation opens `http`, `https`, and `about:blank` only. `data:`, `file:`, and every other scheme are `POLICY_DENIED`, whether from `App.OpenAsync`, `Browser.GotoAsync`, or a route's `ContinueAsync` `Url`.
 - `Browser.EvaluateAsync<T>` takes and returns JSON only, so the report can record and redact the result. Pass values in through `arg`.
 - A password is a `Secret` with no string value, and the model never sees it. See [Signing in](/features/signing-in/).
 - Sessions are per run. A `[E2ESetup]` test saves state under a name, and `[E2ESession]` restores it. The file is encrypted, kept under `.e2e/sessions/<run id>`, and deleted at cleanup, so there is no `.auth/user.json` to reuse across runs.

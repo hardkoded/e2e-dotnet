@@ -252,8 +252,8 @@ lines you changed:
   `Cache  4 replayed · 1 handed off · 1 missed · 1 not saved` row (not saved: steps of
   passing and flaky tests whose cache write is `Unconfirmed`, `NoChange`, or
   `NotWritten` in the attempt that passed); the port's internal
-  `ListReporter` renders it, but no command prints a run summary yet (#799), so
-  a test run does not show it. Read `ActResult.Cache` for a step instead.
+  `ListReporter` renders it, but only `e2e explore` prints a run summary (#799),
+  so a test run does not show it. Read `ActResult.Cache` for a step instead.
   The same renderer quotes the app's first 3 errors in a failed test's block,
   under its `app N errors logged` row; that is not shown today either. On a
   terminal it also paints a live window (the running files and tests with a

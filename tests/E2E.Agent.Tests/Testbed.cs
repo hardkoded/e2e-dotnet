@@ -1014,7 +1014,7 @@ internal static class Testbed
             }
             else
             {
-                response.StatusCode = 404;
+                await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
             }
 
             response.Close();
