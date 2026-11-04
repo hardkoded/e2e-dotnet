@@ -195,6 +195,8 @@ public static class DefaultAgent
                 return "type " + UploadPaths.Quote(action.Value ?? "") + " into the focused field" + (action.Replace == true ? ", replacing its value" : "");
             case "pressKey":
                 return "press " + UploadPaths.Quote(action.Key ?? "") + " on the focused field";
+            case "dismissKeyboard":
+                return "dismiss the keyboard";
         }
 
         var builder = new StringBuilder(action.Kind switch { "tapAt" => "tap", "hoverAt" => "hover", "dragAt" => "drag", _ => Prose.GetValueOrDefault(action.Kind, action.Kind) });

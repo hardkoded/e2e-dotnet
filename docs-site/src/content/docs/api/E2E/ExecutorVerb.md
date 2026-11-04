@@ -61,6 +61,20 @@ Clear = 8
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_DismissKeyboard"></a>
+
+### DismissKeyboard
+
+
+```csharp
+DismissKeyboard = 23
+```
+
+
+Upstream's `dismissKeyboard`: [DismissKeyboardAsync(CancellationToken)](/api/E2E/IExecutorActions/#E2E_IExecutorActions_DismissKeyboardAsync_System_Threading_CancellationToken_), with an engine whose [CanDismissKeyboard](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_CanDismissKeyboard) is true.
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_DoubleTap"></a>
 
 ### DoubleTap

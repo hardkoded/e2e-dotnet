@@ -168,7 +168,7 @@ internal static class Replay
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey") && !HasTarget(action) && !host.TryReserve())
+            if ((action.Kind is "back" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !host.TryReserve())
             {
                 return Stop(ReplayHandOffReason.ActionBudget);
             }
@@ -205,6 +205,9 @@ internal static class Replay
                         break;
                     case "pressKey":
                         await host.Actions.PressKeyAsync(action.Key ?? "Enter", token).ConfigureAwait(false);
+                        break;
+                    case "dismissKeyboard":
+                        await host.Actions.DismissKeyboardAsync(token).ConfigureAwait(false);
                         break;
                     case "scroll" or "scrollUntil" when !TryDirection(action.Direction, out _):
                         return Stop(ReplayHandOffReason.InvalidEntry);

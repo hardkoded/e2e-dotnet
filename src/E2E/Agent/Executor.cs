@@ -256,6 +256,9 @@ public enum ExecutorVerb
 
     /// <summary>Upstream's <c>pressKey</c>: <see cref="IExecutorActions.PressKeyAsync"/>, with an engine that declares <see cref="EngineCapabilities.Keyboard"/>.</summary>
     PressKey,
+
+    /// <summary>Upstream's <c>dismissKeyboard</c>: <see cref="IExecutorActions.DismissKeyboardAsync"/>, with an engine whose <see cref="IEngineSession.CanDismissKeyboard"/> is true.</summary>
+    DismissKeyboard,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -450,6 +453,14 @@ public interface IExecutorActions
     /// <see cref="ExecutorTargetInfo.Verbs"/>. Upstream's <c>pressKey</c>.
     /// </summary>
     Task PressKeyAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hides an on-screen keyboard, so a control it covered can be reached. Needs <see cref="ExecutorVerb.DismissKeyboard"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. The default refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an executor
+    /// context written before the member compiling; the harness's own actions override it). Upstream's <c>dismissKeyboard</c>.
+    /// </summary>
+    Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "dismissKeyboard is not supported by this executor context."));
 
     Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 

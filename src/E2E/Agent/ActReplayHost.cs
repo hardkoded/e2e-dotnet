@@ -139,6 +139,12 @@ public sealed partial class Agent
             feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
         }
 
+        public async Task DismissKeyboardAsync(CancellationToken cancellationToken = default)
+        {
+            await scope.Session.DismissKeyboardAsync(cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "dismissKeyboard" });
+        }
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
             PerformAsync(target, new LocatorAction.Select(value), "select", cancellationToken);
 

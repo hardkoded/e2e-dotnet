@@ -206,7 +206,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
-| [ActionName](/api/E2E/ActionName/) | The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's dismissKeyboard is left out: the port has no such action. A clear reads Type. |
+| [ActionName](/api/E2E/ActionName/) | The name ActionEvent reports a committed action under (upstream's ActionName). A clear reads Type. |
 | [ActionSource](/api/E2E/ActionSource/) | Who chose an action an ActionEvent reports. |
 | [AppLogLevel](/api/E2E/AppLogLevel/) | How bad a line the app logged was. |
 | [AppLogSource](/api/E2E/AppLogSource/) | Where a line the app logged came from (upstream's AppLogSource). |
