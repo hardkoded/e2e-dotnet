@@ -44,7 +44,7 @@ internal static class PageScript
           const holders = new Set();
           if (forced !== null) {
             for (const named of forced) {
-              for (let node = named.parentNode ?? named.host ?? null; node; node = node.parentNode ?? node.host ?? null) holders.add(node);
+              for (let node = named.parentNode ?? named.host ?? null; node && !holders.has(node); node = node.parentNode ?? node.host ?? null) holders.add(node);
             }
           }
           const holdsForced = (el) => holders.has(el);
@@ -927,7 +927,7 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || (full && forced === null)) return;
+            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || (full && (forced === null || (!holders.has(el) && !isForced(el))))) return;
             if (gate !== null && !gate(el)) return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
@@ -945,7 +945,7 @@ internal static class PageScript
                 if (!textNode) {
                   full = true;
                   // The walk goes on to the elements a selector named, which are listed past the cut.
-                  if (forced !== null) walkChildren(el, into, childrenHidden, isAriaHidden);
+                  if (holdsForced(el)) walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
                 textCut = true;

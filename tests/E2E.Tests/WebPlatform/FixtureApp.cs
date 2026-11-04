@@ -236,6 +236,14 @@ internal static class FixtureApp
         </body></html>
         """;
 
+    // More listed nodes than the observation holds, then an element no node lists: a selector must still reach it past the cut.
+    private const string Crowded = """
+        <!doctype html><html><head><title>Crowded</title></head><body>
+          <script>document.write('<button>b</button>'.repeat(3100));</script>
+          <div class="tail-wrap"><i class="tail"></i></div>
+        </body></html>
+        """;
+
     // An export that carries what the form was filled with: the link downloads a CSV echoing the key field, the way an app's export
     // includes its data.
     private const string Exports = """
@@ -271,6 +279,7 @@ internal static class FixtureApp
         {
             "/downloads" => TinySite.RespondAsync(context, Downloads),
             "/wrappers" => TinySite.RespondAsync(context, Wrappers),
+            "/crowded" => TinySite.RespondAsync(context, Crowded),
             "/exports" => TinySite.RespondAsync(context, Exports),
             "/echo.csv" => RespondEchoCsvAsync(context),
             "/dialog" => TinySite.RespondAsync(context, Dialog),

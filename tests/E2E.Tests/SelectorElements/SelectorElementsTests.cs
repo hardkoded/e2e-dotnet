@@ -89,7 +89,17 @@ public sealed class SelectorElementsTests
         });
     }
 
-    private static async Task RunAsync(Func<E2ESession, Task> body)
+    [Fact]
+    public async Task Reaches_an_unlisted_element_past_the_node_cap()
+    {
+        await RunAsync(async session =>
+        {
+            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap i.tail").CountAsync());
+            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap").CountAsync());
+        }, "/crowded", "Crowded");
+    }
+
+    private static async Task RunAsync(Func<E2ESession, Task> body, string path = "/wrappers", string? ready = null)
     {
         using var site = await WebPlatform.FixtureApp.StartAsync();
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -102,8 +112,16 @@ public sealed class SelectorElementsTests
             AssertionTimeout = TimeSpan.FromSeconds(4),
             TestTimeout = TimeSpan.FromSeconds(30),
         });
-        await session.App.OpenAsync("/wrappers");
-        await Expect.That(session.Screen.GetByRole("link", "Open about")).ToBeVisibleAsync();
+        await session.App.OpenAsync(path);
+        if (ready is null)
+        {
+            await Expect.That(session.Screen.GetByRole("link", "Open about")).ToBeVisibleAsync();
+        }
+        else
+        {
+            await Expect.That(session.Browser).ToHaveTitleAsync(ready);
+        }
+
         await body(session);
     }
 }
