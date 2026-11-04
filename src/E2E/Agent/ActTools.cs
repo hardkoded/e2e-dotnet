@@ -23,7 +23,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null, PixelMode? pixels = null)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -72,6 +72,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
 
+        // dismiss_keyboard is a tool only where the engine can hide its keyboard.
+        if (call.Name == AgentTools.DismissKeyboardName && !(Keyboard && _scope.Session.CanDismissKeyboard))
+        {
+            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+        }
+
         // Arguments that are no JSON object (text that did not parse, an array, a bare value) run nothing: a missing key would fall back to a default.
         if (call.Arguments.ValueKind is not (JsonValueKind.Object or JsonValueKind.Undefined or JsonValueKind.Null))
         {
@@ -102,6 +108,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         {
             case "back":
                 return await ActingAsync(new ActionLabel("Navigated back.", "back"), () => actions.BackAsync(token), token).ConfigureAwait(false);
+            case "dismiss_keyboard":
+                // The keyboard leaving is the point, so the result does not note it, and an unchanged screen is no sign of a miss.
+                return await ActingAsync(new ActionLabel("Dismissed the keyboard.", "dismiss_keyboard", ExpectChange: false, KeyboardNote: false), () => actions.DismissKeyboardAsync(token), token).ConfigureAwait(false);
             case "scroll":
                 return await ScrollAsync(arguments, actions, token).ConfigureAwait(false);
             case "scroll_to":
@@ -411,7 +420,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return await DescribeOutcomeAsync(outcome?.Lead ?? label.Done, token, outcome?.ExpectChange ?? label.ExpectChange).ConfigureAwait(false);
+        return await DescribeOutcomeAsync(outcome?.Lead ?? label.Done, token, outcome?.ExpectChange ?? label.ExpectChange, label.KeyboardNote).ConfigureAwait(false);
     }
 
     // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.
@@ -738,11 +747,11 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     // An action that ran but whose look failed is a failed tool for the model, as in the targeted paths, not the end of the act.
-    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token, bool expectChange = false)
+    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token, bool expectChange = false, bool keyboardNote = true)
     {
         try
         {
-            return Outcome(await DescribeAsync(action, token, expectChange).ConfigureAwait(false));
+            return Outcome(await DescribeAsync(action, token, expectChange, keyboardNote: keyboardNote).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -756,12 +765,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // `expectChange` says an unchanged screen after this action is worth pointing out.
     // Once the step shows pixels (a screenshot went to the model), every look carries a fresh one (upstream's `showingPixels`).
     // `pixels` asks for one beside a look that would not carry it (the screenshot tool).
-    private async Task<ScreenText> DescribeAsync(string action, CancellationToken token, bool expectChange = false, bool pixels = false)
+    private async Task<ScreenText> DescribeAsync(string action, CancellationToken token, bool expectChange = false, bool pixels = false, bool keyboardNote = true)
     {
         if (_screen is not null)
         {
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange }), null);
+            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange, KeyboardNote = keyboardNote }), null);
         }
 
         if (!pixels && _pixels?.Showing != true)
@@ -811,6 +820,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     // Upstream's ActionLabel: what an action's result opens with, `Done` when it ran, and `Attempt`, the tool and what it was aimed at,
     // for the lead of a failure, so a failed action never reads as done.
-    // `ExpectChange` is whether an unchanged screen after the action is worth pointing out (a session's `expectChange`).
-    private readonly record struct ActionLabel(string Done, string Attempt, bool ExpectChange = true);
+    // `ExpectChange` is whether an unchanged screen after the action is worth pointing out (a session's `expectChange`), and `KeyboardNote`
+    // whether a keyboard leaving with the action is (a session's `keyboardNote`).
+    private readonly record struct ActionLabel(string Done, string Attempt, bool ExpectChange = true, bool KeyboardNote = true);
 }

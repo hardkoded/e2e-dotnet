@@ -205,7 +205,7 @@ public sealed partial class ExploreRunsTests
     private static PlanEvent PlanOn(string target) => new(1, [("explore", target, 1)]);
 
     /// <summary>Upstream's <c>play()</c>: the whole exploration from the run's start to its end, as the run's stream carries it.</summary>
-    private static void PlayThrough(ListReporter reporter)
+    private static void PlayThrough(global::E2E.Cli.Report.ListReporter reporter)
     {
         reporter.Handle(RunStarted(targets: ["web"]));
         reporter.Handle(PlanOn("web"));

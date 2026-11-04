@@ -263,6 +263,21 @@ public interface IEngineSession : IAsyncDisposable
     Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => Unsupported("keyboard input");
 
     /// <summary>
+    /// Whether the engine hides an on-screen keyboard (<see cref="DismissKeyboardAsync"/>). The harness lists <c>dismissKeyboard</c> in the
+    /// target's verbs only for an engine that says true. .NET-only: upstream's <c>keyboard.dismiss</c> is an optional hook, and a hook that is
+    /// defined is what lists the verb; C# has no optional member to test, so this declares it. The default is false, so an engine written
+    /// before the member keeps compiling.
+    /// </summary>
+    bool CanDismissKeyboard => false;
+
+    /// <summary>
+    /// Hides an on-screen keyboard, so a control it covered can be reached. Platforms without one leave <see cref="CanDismissKeyboard"/>
+    /// false. The default refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an engine written before the member compiling).
+    /// Upstream's <c>keyboard.dismiss</c>.
+    /// </summary>
+    Task DismissKeyboardAsync(CancellationToken cancellationToken) => Unsupported("keyboard dismissal");
+
+    /// <summary>
     /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
     /// <see cref="ObserveAsync(CancellationToken)"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
     /// engines do.

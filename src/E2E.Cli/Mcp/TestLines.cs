@@ -79,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back", "dismiss_keyboard"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -304,6 +304,8 @@ internal sealed class SessionTestLines(TestLineOptions options)
                     : LinePlan.None("scrolling to a text has none; a test action brings its node into view");
             case "scroll":
                 return LinePlan.None("a test action brings its node into view itself");
+            case "dismiss_keyboard":
+                return LinePlan.None("a test hides the keyboard only when it covers the next control");
             case "drag":
                 return await DragAsync(target, Field(args, "to"), token).ConfigureAwait(false);
             case "navigate":

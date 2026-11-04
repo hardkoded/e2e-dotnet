@@ -99,6 +99,9 @@ internal sealed record TestLine
 
     public string? SkipReason { get; init; }
 
+    /// <summary>The cleanup failures shown as glance lines under a passed or flaky test.</summary>
+    public IReadOnlyList<ReportError> CleanupErrors { get; init; } = [];
+
     public IReadOnlyList<FinishedStep> Steps { get; init; } = [];
 
     public IReadOnlyList<ReplayNotice> Replays { get; init; } = [];

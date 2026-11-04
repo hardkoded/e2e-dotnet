@@ -126,6 +126,7 @@ config declares `credentials` or a `secrets` entry.
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
+| `dismiss_keyboard` | Hide the on-screen keyboard when it covers what you need to reach (listed when the engine can hide its keyboard, as the mobile engine can). It prints no test line |
 | `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
 | `tap_at {x, y}`, `hover_at {x, y}`, `drag_at {x, y, to_x, to_y}`, `type_at {x, y, value, replace?}`, `press_at {x, y, key}`, `select_at {x, y, value}` | Act at a point of the latest `screenshot`, in that image's pixels, for a target `observe` does not list (a canvas, a map). Before a screenshot they answer with the line that says to take one. Last resort: act on a listed node by id. They print no test line |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |

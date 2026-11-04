@@ -77,8 +77,9 @@ internal sealed class SessionCatalog
     /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
     /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named. <paramref name="pointerKinds"/> is what the engine takes at a bare point
     /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
+    /// <paramref name="canDismissKeyboard"/> is <see cref="IEngineSession.CanDismissKeyboard"/>: <c>dismiss_keyboard</c> is a tool only where it is true.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -155,6 +156,11 @@ internal sealed class SessionCatalog
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
             Add("back", Verb(context, screen, "back", "back", "Go back one entry in the browser history.", Schema([])));
+        }
+
+        if (canDismissKeyboard && capabilities.HasFlag(EngineCapabilities.Keyboard))
+        {
+            Add(AgentTools.DismissKeyboardName, Verb(context, screen, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardDescription, Schema([])));
         }
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
@@ -281,7 +287,7 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =

@@ -123,6 +123,16 @@ public static class AgentTools
         "Go back one step in the browser history. The result shows the screen you return to.",
         Parse("""{ "type": "object", "properties": {} }"""));
 
+    /// <summary>Upstream's <c>dismiss_keyboard</c> tool (<c>agent/primitives.ts</c>), offered where the engine can hide its keyboard.</summary>
+    internal const string DismissKeyboardName = "dismiss_keyboard";
+
+    internal const string DismissKeyboardDescription = "Hide the on-screen keyboard when it covers what you need to reach.";
+
+    private static readonly ModelTool DismissKeyboard = Tool(
+        DismissKeyboardName,
+        DismissKeyboardDescription,
+        Parse("""{ "type": "object", "properties": {} }"""));
+
     /// <summary>
     /// The pixel fallback of the grammar (upstream's <c>screenshot</c> tool, offered while pixels may reach the model): a masked viewport
     /// screenshot, and from then on one with every action result.
@@ -301,7 +311,7 @@ public static class AgentTools
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
         var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
-        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds)
+        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
@@ -326,7 +336,7 @@ public static class AgentTools
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
     /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
     /// </summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false)
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
@@ -356,6 +366,12 @@ public static class AgentTools
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
             tools.Add(Back);
+        }
+
+        // Upstream offers dismiss_keyboard with the dismissKeyboard verb, which an engine with a keyboard that can be hidden lists.
+        if (keyboard && dismissKeyboard)
+        {
+            tools.Add(DismissKeyboard);
         }
 
         tools.Add(Screenshot);
@@ -447,7 +463,7 @@ public static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     internal static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     internal static ModelTool Project(string name, AgentTool tool) =>

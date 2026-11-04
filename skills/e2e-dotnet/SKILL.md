@@ -398,7 +398,8 @@ lines you changed:
   with a keyboard (the web engine), `type_at` and `press_at` on a point on
   nothing listed tap it to focus it and go through the keyboard, and `fill`
   with no target types into the focused field (`replace` clears it first);
-  `select_at` needs a listed control. Tell the agent to prefer ids (topic
+  `select_at` needs a listed control. On a device engine `dismiss_keyboard`
+  hides the on-screen keyboard when it covers a control. Tell the agent to prefer ids (topic
   `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
   five failed calls in a row leave the agent only `done` (topic `agent`). Once
   the step shows pixels, an action that leaves the listing as it was but moves

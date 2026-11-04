@@ -274,6 +274,17 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             cancellationToken);
     }
 
+    // Upstream's dismissKeyboard: hides an on-screen keyboard. No node is resolved, so none is recorded.
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
+        RunAsync(
+            "dismissKeyboard",
+            async token =>
+            {
+                await _scope.Session.DismissKeyboardAsync(token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "dismissKeyboard" }).ConfigureAwait(false);
+            },
+            cancellationToken);
+
     public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(value);

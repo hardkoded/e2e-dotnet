@@ -38,7 +38,7 @@ public sealed class ListReporterTests
     public void Partial_Never_lets_control_characters_through_error_codes_or_paths()
     {
         var raw = new Raw();
-        var reporter = new ListReporter(raw, new ListReporterOptions { Live = false, Colors = false });
+        var reporter = new global::E2E.Cli.Report.ListReporter(raw, new ListReporterOptions { Live = false, Colors = false });
         const string esc = "\u001b[2J";
         reporter.Handle(RunStarted());
         reporter.Handle(Plan(($"tests/{esc}a.e2e.ts", 1)));

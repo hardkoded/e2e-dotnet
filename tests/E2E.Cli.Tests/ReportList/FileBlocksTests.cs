@@ -144,7 +144,7 @@ public sealed class FileBlocksTests
     public void Groups_the_same_file_per_target_colored_by_target_order()
     {
         var chunks = new List<string>();
-        var reporter = new ListReporter(new Recorder(chunks), new ListReporterOptions { Colors = true });
+        var reporter = new global::E2E.Cli.Report.ListReporter(new Recorder(chunks), new ListReporterOptions { Colors = true });
         reporter.Handle(RunStarted(targets: ["chromium", "firefox"]));
         reporter.Handle(new PlanEvent(2, [("tests/a.e2e.ts", "chromium", 1), ("tests/a.e2e.ts", "firefox", 1)]));
         reporter.Handle(Finished(Result(ResultStatus.Passed, target: "firefox", file: "tests/a.e2e.ts")));

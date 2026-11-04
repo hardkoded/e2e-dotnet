@@ -8,13 +8,13 @@ using static E2E.Cli.Tests.ReportList.ListReporterKit;
 namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
-/// .NET-only: no <c>it</c> of upstream's <c>report-list.test.ts</c> reads the <c>Repeats</c> row (upstream's <c>report-markdown.test.ts</c> reads
-/// its Markdown form).
+/// Partial port of upstream's <c>tests/integration/list-reporter.test.ts</c>, <c>tallies a --repeat-each run</c>, which runs a project through the
+/// built runner. The port has no runner, so this feeds the reporter the events such a run emits and checks the <c>Repeats</c> row only.
 /// </summary>
 public sealed class RepeatsRowTests
 {
     [Fact]
-    public void Names_the_tests_that_missed_a_repeat_and_the_runs_that_failed()
+    public void Partial_Names_the_tests_that_missed_a_repeat_and_the_runs_that_failed()
     {
         var output = new Capture();
         var reporter = PlainReporter(output);

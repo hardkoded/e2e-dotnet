@@ -1,6 +1,6 @@
 ---
 title: "ActionName"
-description: "The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's dismissKeyboard is left out: the port has no such action. A clear r..."
+description: "The name ActionEvent reports a committed action under (upstream's ActionName). A clear reads Type."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,7 @@ public enum ActionName
 ```
 
 
-The name [ActionEvent](/api/E2E/ActionEvent/) reports a committed action under (upstream's `ActionName`). Upstream's `dismissKeyboard`
-is left out: the port has no such action. A `clear` reads [Type](#E2E_ActionName_Type).
+The name [ActionEvent](/api/E2E/ActionEvent/) reports a committed action under (upstream's `ActionName`). A `clear` reads [Type](#E2E_ActionName_Type).
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
@@ -47,6 +46,20 @@ Back = 16
 Check = 10
 ```
 
+
+**Value:** [ActionName](./)
+
+<a id="E2E_ActionName_DismissKeyboard"></a>
+
+### DismissKeyboard
+
+
+```csharp
+DismissKeyboard = 22
+```
+
+
+An on-screen keyboard hidden (`dismissKeyboard`).
 
 **Value:** [ActionName](./)
 
@@ -250,7 +263,7 @@ TapAt = 17
 
 
 ```csharp
-Tool = 22
+Tool = 23
 ```
 
 

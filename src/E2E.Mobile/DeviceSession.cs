@@ -32,6 +32,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// <inheritdoc />
     public IReadOnlyCollection<string> PointerActionKinds => DeviceActions.PointerActionKinds;
 
+    /// <inheritdoc />
+    public bool CanDismissKeyboard => true;
+
+    /// <summary>The engine's keyboard hook: the dismissal under the input budget the agent's keyboard inputs get (upstream's <c>'keyboard dismiss'</c>).</summary>
+    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss"));
+
     private readonly MobileEngine _engine;
     private readonly string _name;
     private readonly string _where;

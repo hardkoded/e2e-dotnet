@@ -86,6 +86,7 @@ internal static class SettlePolicy
         ["navigate"] = Moves,
         ["back"] = Moves,
         ["pressKey"] = Moves,
+        ["dismissKeyboard"] = Moves,
         ["fill"] = Types,
         ["typeText"] = Types,
         ["clear"] = Types,
