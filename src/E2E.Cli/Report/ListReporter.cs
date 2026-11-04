@@ -8,15 +8,21 @@ using E2E.Reports;
 
 namespace E2E.Cli.Report;
 
-/// <summary>Where the list reporter writes (upstream's <c>ListReporterOutput</c>). Not ported: <c>raw</c>, the control writes of the live window.</summary>
+/// <summary>Where the list reporter writes (upstream's <c>ListReporterOutput</c>).</summary>
 internal interface IListReporterOutput
 {
     void Write(string line);
+
+    /// <summary>Raw control write for live window rendering (upstream's optional <c>raw</c>); null to disable it.</summary>
+    Action<string>? Raw => null;
 }
 
-/// <summary>Options of a <see cref="ListReporter"/> (upstream's <c>ListReporterOptions</c>). Not ported: <c>live</c>, the port has no live window.</summary>
+/// <summary>Options of a <see cref="ListReporter"/> (upstream's <c>ListReporterOptions</c>).</summary>
 internal sealed record ListReporterOptions
 {
+    /// <summary>Paint the live window; defaults to whether the console is a terminal. Only an output with a <see cref="IListReporterOutput.Raw"/> channel paints.</summary>
+    public bool? Live { get; init; }
+
     /// <summary>Emit ANSI colors; defaults to whether the console is a terminal and <c>NO_COLOR</c> is unset.</summary>
     public bool? Colors { get; init; }
 }
@@ -28,8 +34,10 @@ internal sealed record ListReporterOptions
 /// Ported: the run header, the setup steps (a process prints once it is ready, with its wait), a file block per file with its test lines, the <c>Failed Tests</c> and
 /// <c>Skipped After Failure</c> sections with their evidence rows, the run
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Repeats</c>, <c>Warnings</c>, <c>Errors</c>,
-/// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
-/// test's console output, serial groups, the live half of step streaming, and the exploration view. Each finished agent step prints at once and a test prints as it finishes. A failure also prints its code frame and its video rows.
+/// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>), a test's console output, and the live window
+/// (<see cref="LiveWindow"/> and <see cref="RunningTree"/>). Without a live window each finished agent step prints at once and a test prints as it
+/// finishes; with one, the steps wait under their test in the file block. A failure also prints its code frame and its video rows. Not ported:
+/// serial groups and the live rows of the exploration view.
 /// </para>
 /// </summary>
 internal sealed partial class ListReporter
@@ -54,6 +62,21 @@ internal sealed partial class ListReporter
     private const int ShownScreenshots = 10;
 
     private readonly IListReporterOutput _output;
+
+    /// <summary>.NET-only: held while an event is handled and while the live window's timer repaints, since those are different threads.</summary>
+    private readonly object _gate = new();
+
+    private readonly LiveWindow _window;
+    private readonly RunningTree _tree;
+
+    /// <summary>Whether a live window paints; without one, finished steps stream permanently (upstream's <c>live</c>).</summary>
+    private readonly bool _live;
+
+    /// <summary>The stream and source of the output line printed last, while nothing else printed since (upstream's <c>lastOutput</c>).</summary>
+    private string? _lastOutput;
+
+    /// <summary>Output not yet ended by a newline, by stream and source: a line written in pieces prints once whole (upstream's <c>pendingOutput</c>).</summary>
+    private readonly Dictionary<string, PendingOutput> _pendingOutput = new(StringComparer.Ordinal);
     private readonly Colors _pc;
     private readonly TimeProvider _time;
     private readonly string _separator;
@@ -91,8 +114,8 @@ internal sealed partial class ListReporter
 
     private bool _interrupted;
 
-    /// <summary>The setup step in flight (upstream's <c>inFlight</c>, without its live-window tick).</summary>
-    private InFlightStep? _inFlight;
+    /// <summary>The setup step in flight, ticking in the live window (upstream's <c>inFlight</c>).</summary>
+    private SetupInFlight? _inFlight;
 
     /// <summary>The summed waits of the service and app processes, split out of the summary's <c>Duration</c> (upstream's <c>startupMs</c>).</summary>
     private long _startupMs;
@@ -110,13 +133,24 @@ internal sealed partial class ListReporter
     {
         _output = output ?? DefaultOutput;
         _time = timeProvider ?? TimeProvider.System;
-        _pc = new Colors(options?.Colors ?? (!Console.IsOutputRedirected && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"))));
+        _live = (options?.Live ?? !Console.IsOutputRedirected) && _output.Raw is not null;
+        _pc = new Colors(options?.Colors ?? (_live || (!Console.IsOutputRedirected && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")))));
         _separator = _pc.Dim(" > ");
         _launchedAt = _time.GetLocalNow();
+        _tree = new RunningTree(_pc, Badge);
+        _window = new LiveWindow(_live ? _output.Raw : null, RenderWindow, _time, _gate);
     }
 
     /// <summary>The reporter as an event sink: one dispatch per fact (upstream's <c>handle</c>).</summary>
     public void Handle(RunEventFact fact)
+    {
+        lock (_gate)
+        {
+            Dispatch(fact);
+        }
+    }
+
+    private void Dispatch(RunEventFact fact)
     {
         switch (fact)
         {
@@ -138,6 +172,9 @@ internal sealed partial class ListReporter
                 break;
             case StepProgressEvent step:
                 Step(step);
+                break;
+            case OutputEvent output:
+                TestOutput(output);
                 break;
             case TestFinishedEvent finished:
                 TestFinished(finished.Result);
@@ -161,6 +198,14 @@ internal sealed partial class ListReporter
     /// <summary>Prints the rows reporters resolved with under the summary, in the summary's layout.</summary>
     public void Rows(IReadOnlyList<(string Label, string Text)> rows)
     {
+        lock (_gate)
+        {
+            PrintRows(rows);
+        }
+    }
+
+    private void PrintRows(IReadOnlyList<(string Label, string Text)> rows)
+    {
         if (rows.Count == 0)
         {
             return;
@@ -174,7 +219,126 @@ internal sealed partial class ListReporter
         Print(string.Empty);
     }
 
-    private void Print(string line) => _output.Write(line);
+    /// <summary>Writes one permanent line without disturbing the live window.</summary>
+    private void Print(string line)
+    {
+        _lastOutput = null;
+        _window.Erase();
+        _output.Write(line);
+        _window.Logged(line);
+        _window.Redraw();
+    }
+
+    /// <summary>The clock the running tree ticks by, in milliseconds (upstream's <c>Date.now()</c>).</summary>
+    private long NowMs() => _time.GetUtcNow().ToUnixTimeMilliseconds();
+
+    /// <summary>A text-writing pair's pending output: its heading, the pair that wrote it, and the unfinished fragment.</summary>
+    private sealed class PendingOutput(string heading, string? pair)
+    {
+        public string Heading { get; } = heading;
+
+        public string? Pair { get; } = pair;
+
+        public string Fragment { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Text a test wrote to stdout or stderr, printed above the live window under a <c>stdout | file › title</c> heading, as vitest does.
+    /// Writes that follow one another from the same source share one heading; any other line in between brings it back. A write carries any
+    /// piece of a line, so only lines a newline has ended print; the rest waits for the next write, the test's result, or the end of the run
+    /// (upstream's <c>testOutput</c>).
+    /// </summary>
+    private void TestOutput(OutputEvent output)
+    {
+        var pair = output.Pair is { } writer ? PairKey(writer.TestId, writer.Agent, output.Target, writer.Repeat) : null;
+        var running = pair is null ? null : _pairs.GetValueOrDefault(pair);
+        var source = running is null ? Badge(output.Target) : $"{Badge(running.Group.Target)} {Format.Bounded(running.Group.File)}{_separator}{running.Title}";
+        SourcedOutput(output.Stream, source, pair, output.Text);
+    }
+
+    /// <summary>
+    /// Text user code wrote in the runner's own process, printed like a test's output under a <c>stdout | runner</c> heading (upstream's
+    /// <c>processOutput</c>). The runner hands it here already redacted, only while this reporter shows the run.
+    /// </summary>
+    public void ProcessOutput(OutputStream stream, string text)
+    {
+        lock (_gate)
+        {
+            SourcedOutput(stream, _pc.Dim("runner"), null, text);
+        }
+    }
+
+    /// <summary>Prints what <see cref="ProcessOutput"/> left unfinished: the runner hands nothing more once the run's events are all dispatched (upstream's <c>endProcessOutput</c>).</summary>
+    public void EndProcessOutput()
+    {
+        lock (_gate)
+        {
+            FlushOutput();
+        }
+    }
+
+    /// <summary>Prints the lines <paramref name="text"/> ends under the heading of <paramref name="stream"/> and <paramref name="source"/>, holding the unfinished rest (upstream's <c>sourcedOutput</c>).</summary>
+    private void SourcedOutput(OutputStream stream, string source, string? pair, string text)
+    {
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        var key = $"{stream}\0{source}";
+        if (!_pendingOutput.TryGetValue(key, out var entry))
+        {
+            var name = stream == OutputStream.Stderr ? "stderr" : "stdout";
+            var label = stream == OutputStream.Stderr ? _pc.Yellow(name) : _pc.Dim(name);
+            entry = new PendingOutput($"{label} {_pc.Dim("|")} {source}", pair);
+            _pendingOutput[key] = entry;
+        }
+
+        var lines = (entry.Fragment + text).Split('\n');
+        entry.Fragment = lines[^1];
+        if (entry.Fragment.Length == 0)
+        {
+            _pendingOutput.Remove(key);
+        }
+
+        PrintOutput(key, entry.Heading, lines[..^1]);
+    }
+
+    /// <summary>Prints finished output lines under their heading, unless the heading is the one printed last (upstream's <c>printOutput</c>).</summary>
+    private void PrintOutput(string key, string heading, IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        if (_lastOutput != key)
+        {
+            Print(heading);
+        }
+
+        foreach (var line in lines)
+        {
+            Print(Format.Bounded(line));
+        }
+
+        _lastOutput = key;
+    }
+
+    /// <summary>Prints the unfinished output of <paramref name="pair"/>, or of every source when null (upstream's <c>flushOutput</c>).</summary>
+    private void FlushOutput(string? pair = null)
+    {
+        foreach (var (key, entry) in _pendingOutput.ToList())
+        {
+            if (pair is not null && entry.Pair != pair)
+            {
+                continue;
+            }
+
+            _pendingOutput.Remove(key);
+            PrintOutput(key, entry.Heading, [entry.Fragment]);
+        }
+    }
 
     /// <summary>
     /// The identity of one pair across <c>test-started</c>, <c>step</c>, and <c>test-finished</c>: a test runs once per agent it is pinned to, on
@@ -267,6 +431,7 @@ internal sealed partial class ListReporter
         }
 
         Print(string.Empty);
+        _window.Start();
     }
 
     /// <summary>
@@ -280,6 +445,8 @@ internal sealed partial class ListReporter
         {
             Group(planned.File, planned.Target).Planned = planned.Tests;
         }
+
+        _window.Redraw();
     }
 
     /// <summary>Acknowledged immediately, so a bounded teardown is not mistaken for a hang.</summary>
@@ -296,7 +463,7 @@ internal sealed partial class ListReporter
     }
 
     /// <summary>
-    /// The setup stretch before any test: a finished process prints once with its wait, a finished collection, provisioning, or filter only when
+    /// The setup stretch before any test: the step in flight ticks in the live window; a finished process prints once with its wait, a finished collection, provisioning, or filter only when
     /// it narrated, and a filter that failed or timed out in yellow and never checked off. The process waits sum into the summary's startup split.
     /// </summary>
     private void Setup(SetupEvent setup)
@@ -304,7 +471,8 @@ internal sealed partial class ListReporter
         var (verb, subject, done) = SetupWording(setup.Step);
         if (setup.State == SetupState.Started)
         {
-            _inFlight = new InFlightStep(verb, subject);
+            _inFlight = new SetupInFlight(verb, subject, NowMs());
+            _window.Redraw();
             return;
         }
 
@@ -318,6 +486,7 @@ internal sealed partial class ListReporter
 
         if (!process && !narrated)
         {
+            _window.Redraw();
             return;
         }
 
@@ -341,11 +510,6 @@ internal sealed partial class ListReporter
         AppSetupStep app => ("starting", app.Url is null ? Format.Bounded(app.Label) : $"{Format.Bounded(app.Label)} at {Format.Bounded(app.Url)}", "ready"),
         _ => throw new ArgumentOutOfRangeException(nameof(step)),
     };
-
-    private sealed record InFlightStep(string Verb, string Subject)
-    {
-        public bool Narrated { get; set; }
-    }
 
     /// <summary>
     /// Upstream's <c>passingRunSteps</c>: the steps a passed or flaky result counts as not saved, its latest passing run's, since a retry
@@ -428,15 +592,19 @@ internal sealed partial class ListReporter
         return parts.Count == 0 ? null : new AppLogSummary(string.Join(", ", parts), appErrors);
     }
 
-    /// <summary>A pair began executing. Its title is kept so its steps can name it; a later start of the same pair keeps what it had.</summary>
+    /// <summary>A pair began executing: show it in the live window. A later start of the same pair keeps the steps it had (upstream's <c>testStarted</c>).</summary>
     private void TestStarted(TestStartedEvent started)
     {
-        _pairs[PairKey(started.TestId, started.Agent, started.Target, started.Repeat)] = new RunningTest(Group(started.File, started.Target), TitledAs(started.Title, started.Agent, started.Repeat));
+        var key = PairKey(started.TestId, started.Agent, started.Target, started.Repeat);
+        _pairs[key] = new RunningTest(Group(started.File, started.Target), TitledAs(started.Title, started.Agent, started.Repeat), NowMs(), _pairs.GetValueOrDefault(key)?.Steps ?? []);
+        _window.Redraw();
     }
 
     /// <summary>
-    /// Streams the finished agent steps of a running pair. Nothing is transient without a live window (CI logs), so each finished agent step
-    /// prints at once, prefixed with its test. Deterministic steps are fast and many, so they never reach the permanent log.
+    /// Tracks step progress of a running pair. With a live window the pair's finished agent steps accumulate under its row there and print once,
+    /// nested under its line, when the file block prints - so every name appears exactly once in the scrollback. Without a window (CI logs)
+    /// nothing is transient, so each finished agent step prints at once, prefixed with its test. Deterministic steps are fast and many, so they
+    /// only ever show in the live window (upstream's <c>step</c>).
     /// </summary>
     private void Step(StepProgressEvent step)
     {
@@ -446,13 +614,75 @@ internal sealed partial class ListReporter
         }
 
         var progress = step.Progress;
-        if (progress.Phase != Reports.StepProgressPhase.End || progress.Kind != Reports.StepKind.Agent)
+        switch (progress.Phase)
         {
-            return;
-        }
+            case Reports.StepProgressPhase.Start:
+                running.Current = new CurrentStep(progress.Api, progress.Label ?? string.Empty, progress.Kind ?? Reports.StepKind.Agent);
+                _window.Redraw();
+                break;
+            case Reports.StepProgressPhase.Event:
+                {
+                    if (running.Current is not { } current)
+                    {
+                        break;
+                    }
 
-        var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
-        Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
+                    // The event ends whatever was announced; until the next announcement the model has the turn.
+                    var announced = current.Activity is not null;
+                    current.Activity = null;
+                    var shown = progress.Event is { } stepEvent && ListModel.IsShownEvent(stepEvent);
+                    if (shown)
+                    {
+                        current.Events.Add(progress.Event!);
+                    }
+
+                    if (shown || announced)
+                    {
+                        _window.Redraw();
+                    }
+
+                    break;
+                }
+
+            case Reports.StepProgressPhase.Activity:
+                if (running.Current is { } announcing)
+                {
+                    announcing.Activity = progress.Activity;
+                    _window.Redraw();
+                }
+
+                break;
+            case Reports.StepProgressPhase.Replay:
+                if (running.Current is { } replaying)
+                {
+                    replaying.Replaying = progress.Active;
+                    _window.Redraw();
+                }
+
+                break;
+            case Reports.StepProgressPhase.End:
+                {
+                    running.Current = null;
+                    if (progress.Kind != Reports.StepKind.Agent)
+                    {
+                        _window.Redraw();
+                        break;
+                    }
+
+                    var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
+                    if (_live)
+                    {
+                        running.Steps.Add(finished);
+                        _window.Redraw();
+                    }
+                    else
+                    {
+                        Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
+                    }
+
+                    break;
+                }
+        }
     }
 
     /// <summary>The error a <c>run-error</c> event carries, as the banner reads it: the code, the message, the phase, and the category, in the report's spelling.</summary>
@@ -470,7 +700,10 @@ internal sealed partial class ListReporter
         // The list reporter renders from the port's own record, which the producer in this process sets beside the report's public tree.
         var result = Recorded(published);
 
-        _pairs.Remove(PairKey(result.Test.Id, result.Agent, result.Target.Name, result.Repeat));
+        var key = PairKey(result.Test.Id, result.Agent, result.Target.Name, result.Repeat);
+        FlushOutput(key);
+        var steps = _pairs.GetValueOrDefault(key)?.Steps ?? [];
+        _pairs.Remove(key);
         var group = Group(result.Test.File, result.Target.Name);
         var skippedAfter = Records.FailureBeforeSkip(result.Record);
         var configured = _configuredModel?.Agent == result.Agent ? _configuredModel : null;
@@ -489,12 +722,17 @@ internal sealed partial class ListReporter
             Usage = details.Usage,
             FirstErrorLine = details.Error is null ? null : Format.Bounded(details.Error.Message).Split('\n')[0],
             SkipReason = result.Skip is null ? null : Format.Bounded(result.Skip.Reason),
+            Steps = steps,
             Replays = details.Replays,
         };
         group.Lines.Add(line);
 
         // Without a live window each test prints as it finishes, so the file's block is the file line alone.
-        PrintTestRows(line, $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}");
+        if (!_live)
+        {
+            PrintTestRows(line, $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}");
+        }
+
         _runs.Add((
             $"{result.Test.Id}@{result.Agent}@{result.Target.Name}",
             $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}{TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, 0)}",
@@ -515,6 +753,8 @@ internal sealed partial class ListReporter
         {
             PrintGroup(group);
         }
+
+        _window.Redraw();
     }
 
     /// <summary>Counters over every reported result; the total is the plan's once it has arrived.</summary>
@@ -543,7 +783,9 @@ internal sealed partial class ListReporter
 
     /// <summary>
     /// Prints one file's block: the file line with its counts, then, when the file failed, was interrupted, had a flaky pass, or is the
-    /// run's only file, one line per test.
+    /// run's only file, one line per test with its finished agent steps nested, as vitest lists tests for a failed module. With a live window
+    /// the block is also the only permanent record of a file's agent steps, so a file that has any lists its tests too. Without one each test
+    /// already printed as it finished, so the block is the file line alone.
     /// </summary>
     private void PrintGroup(FileGroup group)
     {
@@ -603,14 +845,31 @@ internal sealed partial class ListReporter
         }
 
         Print(string.Join(" ", parts));
+        var verbose = counts.Failed > 0 || counts.Interrupted > 0 || counts.Flaky > 0 || _groups.Count == 1
+            || group.Lines.Any(line => line.Replays.Count > 0)
+            || (_live && group.Lines.Any(line => line.Steps.Count > 0));
+        if (!verbose || !_live)
+        {
+            return;
+        }
+
+        foreach (var line in group.Lines.OrderBy(line => line.DeclarationIndex))
+        {
+            PrintTestRows(line, string.Empty);
+        }
     }
 
-    /// <summary>Prints a test's row, prefixed with <paramref name="context"/>, then its replay notices (upstream's <c>printTestRows</c>, without the live window's finished steps).</summary>
+    /// <summary>Prints a test's row, prefixed with <paramref name="context"/>, then its finished agent steps and replay notices (upstream's <c>printTestRows</c>).</summary>
     private void PrintTestRows(TestLine line, string context)
     {
         foreach (var rendered in TestLineRows(line, context))
         {
             Print(rendered);
+        }
+
+        foreach (var step in line.Steps)
+        {
+            Print(StepIndent + ListSteps.StepLine(_pc, step));
         }
 
         foreach (var replay in line.Replays)
@@ -661,11 +920,11 @@ internal sealed partial class ListReporter
     private static string StatusName(ResultStatus status) => status == ResultStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
 
     /// <summary>
-    /// vitest's padded summary: files, tests, model usage, the trace cache's part, run errors, start time, and
-    /// elapsed time. The final summary of a run that never reached <c>plan</c> (a config or collection failure) counts from the launch,
-    /// so the time it took to fail is still on record.
+    /// vitest's padded summary, shared by the live window and the final report: files, tests, model usage, the trace cache's part, run errors,
+    /// start time, and elapsed time. The clock rows wait for <c>plan</c>; the final summary of a run that never got there (a config or collection
+    /// failure, a failed download) counts from the launch instead, so the time it took to fail is still on record.
     /// </summary>
-    private List<string> SummaryRows()
+    private List<string> SummaryRows(bool final)
     {
         var files = FileCounters();
         var tests = TestCounters();
@@ -685,7 +944,11 @@ internal sealed partial class ListReporter
             rows.Add(Format.PadTitle(_pc, "Cache") + cache);
         }
 
-        rows.AddRange(RepeatRows());
+        if (final)
+        {
+            rows.AddRange(RepeatRows());
+        }
+
         if (_skippedFailures.Count > 0)
         {
             rows.Add(Format.PadTitle(_pc, "Warnings") + _pc.Yellow($"{_skippedFailures.Count} skipped after failure"));
@@ -696,9 +959,13 @@ internal sealed partial class ListReporter
             rows.Add(Format.PadTitle(_pc, "Errors") + _pc.Bold(_pc.Red($"{_errors.Count} error{(_errors.Count == 1 ? string.Empty : "s")}")));
         }
 
-        var startedAt = _startedAt ?? _launchedAt;
-        rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
-        rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs)));
+        DateTimeOffset? clockStart = _startedAt ?? (final ? _launchedAt : null);
+        if (clockStart is { } startedAt)
+        {
+            rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
+            rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs)));
+        }
+
         return rows;
     }
 
@@ -723,6 +990,9 @@ internal sealed partial class ListReporter
             .. missed.Select(group => $"{Format.PadTitle(_pc, string.Empty)}{(group.Unstable ? _pc.Yellow(Format.Cross) : _pc.Dim(_pc.Gray(FDown)))} {group.Label}  {_pc.Dim(Repeats.RepeatLine(group))}"),
         ];
     }
+
+    /// <summary>The block's rows for <paramref name="room"/> screen rows under the permanent log: the running tree, then the summary (upstream's <c>renderWindow</c>).</summary>
+    private List<string> RenderWindow(int room) => _tree.Render([.. _pairs.Values], SummaryRows(false), NowMs(), room, _inFlight);
 
     /// <summary>A zero counter's label: the plain text, or the interrupt when that is why nothing is counted.</summary>
     private string EmptyState(string none, string cut) => _interrupted ? _pc.Yellow($"{cut} (interrupted)") : _pc.Dim(none);
@@ -897,6 +1167,9 @@ internal sealed partial class ListReporter
             _interrupted = true;
         }
 
+        _window.Stop();
+        FlushOutput();
+
         // An interrupted or crashed run leaves files without their full result set; print what they have so nothing that ran goes unreported.
         foreach (var group in _groupOrder.Where(group => !group.Printed && group.Lines.Count > 0).ToList())
         {
@@ -908,7 +1181,7 @@ internal sealed partial class ListReporter
         PrintFailures("Skipped After Failure", _skippedFailures, pages);
         PrintErrors();
         Print(string.Empty);
-        foreach (var row in SummaryRows())
+        foreach (var row in SummaryRows(true))
         {
             Print(row);
         }
@@ -1002,6 +1275,8 @@ internal sealed partial class ListReporter
 
     private sealed class StdoutOutput : IListReporterOutput
     {
+        public Action<string>? Raw { get; } = text => Console.Out.Write(text);
+
         public void Write(string line) => Console.Out.WriteLine(line);
     }
 }
