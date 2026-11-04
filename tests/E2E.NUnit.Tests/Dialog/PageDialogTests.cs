@@ -37,13 +37,17 @@ public sealed class PageDialogTests : PlaywrightTest
     public async Task Should_allow_accepting_prompts()
     {
         await Browser.GotoAsync("/empty.html");
+        DialogType? type = null;
+        string? message = null;
         await Browser.OnDialogAsync(async dialog =>
         {
-            Assert.That(dialog.Type, Is.EqualTo(DialogType.Prompt));
-            Assert.That(dialog.Message, Is.EqualTo("question?"));
+            type = dialog.Type;
+            message = dialog.Message;
             await dialog.AcceptAsync("answer!");
         });
         var result = await Browser.EvaluateAsync<string>("() => prompt('question?', 'yes.')");
+        Assert.That(type, Is.EqualTo(DialogType.Prompt));
+        Assert.That(message, Is.EqualTo("question?"));
         Assert.That(result, Is.EqualTo("answer!"));
     }
 
@@ -83,8 +87,10 @@ public sealed class PageDialogTests : PlaywrightTest
     [Test]
     public async Task Should_handle_multiple_alerts()
     {
+        var seen = 0;
         await Browser.OnDialogAsync(async dialog =>
         {
+            Interlocked.Increment(ref seen);
             try
             {
                 await dialog.AcceptAsync();
@@ -103,13 +109,16 @@ public sealed class PageDialogTests : PlaywrightTest
             </script>
             """));
         Assert.That(await Browser.Locator("p").TextContentAsync(), Is.EqualTo("Hello World"));
+        Assert.That(Volatile.Read(ref seen), Is.EqualTo(3));
     }
 
     [Test]
     public async Task Should_handle_multiple_confirms()
     {
+        var seen = 0;
         await Browser.OnDialogAsync(async dialog =>
         {
+            Interlocked.Increment(ref seen);
             try
             {
                 await dialog.AcceptAsync();
@@ -128,6 +137,7 @@ public sealed class PageDialogTests : PlaywrightTest
             </script>
             """));
         Assert.That(await Browser.Locator("p").TextContentAsync(), Is.EqualTo("Hello World"));
+        Assert.That(Volatile.Read(ref seen), Is.EqualTo(3));
     }
 
     [Test]

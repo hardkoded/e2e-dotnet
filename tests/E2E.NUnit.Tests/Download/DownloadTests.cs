@@ -26,7 +26,7 @@ public sealed class DownloadTests : PlaywrightTest
     [Test]
     public async Task Should_be_able_to_download_a_inline_PDF_file_via_response_interception()
     {
-        await ExpectedToFailAsync("Expected True", async () =>
+        await ExpectedToFailAsync("the downloaded bytes differ from the asset", async () =>
         {
             await Browser.GotoAsync("/empty.html");
             await Browser.RouteAsync("**/empty.pdf", async route =>
@@ -102,10 +102,15 @@ public sealed class DownloadTests : PlaywrightTest
         var data = await File.ReadAllBytesAsync(download.AbsolutePath);
         var expected = await File.ReadAllBytesAsync(filePath);
         var magic = "%PDF"u8.ToArray();
-        var ok = download.SuggestedFilename == Path.GetFileName(filePath) && data.AsSpan().StartsWith(magic) && data.AsSpan().SequenceEqual(expected);
         if (thrown)
         {
-            Equal(true, ok);
+            // The known difference is the bytes only: the name is right and the file is a different size or has other content.
+            Equal(Path.GetFileName(filePath), download.SuggestedFilename);
+            if (!data.AsSpan().StartsWith(magic) || !data.AsSpan().SequenceEqual(expected))
+            {
+                throw new InvalidOperationException($"the downloaded bytes differ from the asset ({data.Length} bytes, expected {expected.Length})");
+            }
+
             return;
         }
 
