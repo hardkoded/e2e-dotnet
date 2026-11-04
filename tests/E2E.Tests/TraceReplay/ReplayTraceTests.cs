@@ -142,11 +142,13 @@ public sealed class ReplayTraceTests
                 new RecordedAction { Kind = "uncheck", Role = target.Role, Name = target.Name },
                 new RecordedAction { Kind = "upload", Role = target.Role, Name = target.Name, Paths = ["fixtures/a.txt"] },
                 new RecordedAction { Kind = "back" },
+                new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) },
             ]);
 
         Assert.True(outcome.Completed);
-        Assert.Equal((8, 8), (outcome.Executed, outcome.Total));
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back"], host.Calls);
+        Assert.Equal((9, 9), (outcome.Executed, outcome.Total));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back", "resize"], host.Calls);
+        Assert.Equal(new TraceViewport(390, 844), details[8]);
         Assert.Equal(("n1", false), details[5]);
         var (uploaded, paths) = ((string, IReadOnlyList<string>))details[6]!;
         Assert.Equal("n1", uploaded);

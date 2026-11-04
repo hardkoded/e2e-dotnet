@@ -189,6 +189,20 @@ Upstream's `pressKey`: `PressKeyAsync`, with an engine that declares [Keyboard](
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_Resize"></a>
+
+### Resize
+
+
+```csharp
+Resize = 24
+```
+
+
+Upstream's `resize`: `ResizeAsync`, with an engine that declares [Resize](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Resize).
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_Scroll"></a>
 
 ### Scroll

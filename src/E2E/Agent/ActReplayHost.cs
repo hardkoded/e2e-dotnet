@@ -206,6 +206,13 @@ public sealed partial class Agent
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
+        public async Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.ResizeAsync(size, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            scope.Steps.AttachViewport(new StepViewport(size.Width, size.Height, 1));
+            feed.ArmAfter(new RecordedAction { Kind = "resize" });
+        }
+
         // A recorded bare point goes to the engine as given and arms the next look; the replay commits the action as recorded. The result's
         // prose is for a model, which a replay has none of.
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)

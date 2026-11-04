@@ -115,6 +115,22 @@ The engine opens no URL: `OpenAsync` relaunches the app the target pins. .NET-on
 
 **Value:** [EngineCapabilities](./)
 
+<a id="E2E_Engine_EngineCapabilities_Resize"></a>
+
+### Resize
+
+
+```csharp
+Resize = 4096
+```
+
+
+`ResizeAsync`: the engine sets the viewport size, which the
+agent's `resize_viewport` tool needs. .NET-only name for upstream's optional `session.resize`, whose being defined lists the
+`resize` verb; C# has no optional member to test, so this declares it.
+
+**Value:** [EngineCapabilities](./)
+
 <a id="E2E_Engine_EngineCapabilities_Screenshot"></a>
 
 ### Screenshot

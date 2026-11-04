@@ -73,6 +73,24 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(AgentTools.MaxPressTimes, times.GetProperty("maximum").GetInt32());
     }
 
+    // Partial of upstream's "offers resize_viewport only with the resize verb, in whole pixels within the bounds": the port declares the bounds
+    // in the schema and does not parse an input against it, so the sides are checked as declared (integer, 200 to 4096, both required).
+    [Fact]
+    public void Partial_Offers_resize_viewport_only_with_the_resize_capability_in_whole_pixels_within_the_bounds()
+    {
+        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.History), tool => tool.Name == "resize_viewport");
+        var resize = AgentTools.GrammarToolDefinitions(EngineCapabilities.Resize).Single(tool => tool.Name == "resize_viewport").Parameters;
+        Assert.Equal(["width", "height"], resize.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
+        foreach (var side in new[] { "width", "height" })
+        {
+            var property = resize.GetProperty("properties").GetProperty(side);
+            Assert.Equal("integer", property.GetProperty("type").GetString());
+            Assert.Equal((200, 4096), (property.GetProperty("minimum").GetInt32(), property.GetProperty("maximum").GetInt32()));
+        }
+
+        Assert.True(AgentTools.IsReserved("resize_viewport"));
+    }
+
     // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the port's tool is
     // fill, not type, its schemas are not closed, and it always offers the node and point verbs beside the keyboard ones, so this checks the
     // shapes the keyboard changes: fill takes replace and needs no target, type_at takes replace, and without a keyboard neither does.

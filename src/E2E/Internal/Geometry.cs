@@ -68,6 +68,29 @@ internal static class Geometry
             Math.Clamp(Math.Floor(point.Y + 0.5), 0, Math.Max(0, viewport.Height - 1)));
     }
 
+    /// <summary>
+    /// Upstream's <c>VIEWPORT_LIMITS</c>: the sides a resized viewport may have, in CSS pixels. Narrower than any phone layout is no layout;
+    /// wider than 4K is no screen.
+    /// </summary>
+    public static class ViewportLimits
+    {
+        public const int Min = 200;
+
+        public const int Max = 4096;
+
+        /// <summary>Whether <paramref name="side"/> is within the limits.</summary>
+        public static bool Fits(int side) => side is >= Min and <= Max;
+    }
+
+    /// <summary>
+    /// Upstream's <c>requireViewportSize</c>: checks a viewport size the agent asked for. Sides are whole CSS pixels within
+    /// <see cref="ViewportLimits"/>, or this is <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    public static TraceViewport RequireViewportSize(TraceViewport? size) =>
+        size is { } viewport && ViewportLimits.Fits(viewport.Width) && ViewportLimits.Fits(viewport.Height)
+            ? viewport
+            : throw new TestException("INVALID_ARGUMENT", $"resize requires {{ width, height }} in whole CSS pixels from {ViewportLimits.Min} to {ViewportLimits.Max}");
+
     /// <summary>Upstream's <c>containsPoint</c>: true when the point lies inside the box, on its top and left edges and short of its bottom and right ones.</summary>
     public static bool ContainsPoint(BoundingBox box, Point point)
     {

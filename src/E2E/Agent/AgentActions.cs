@@ -41,6 +41,7 @@ internal static class AgentActions
             "scrollUntil" => ActionName.ScrollUntil,
             "navigate" => ActionName.Navigate,
             "back" => ActionName.Back,
+            "resize" => ActionName.Resize,
             "tapAt" => ActionName.TapAt,
             "hoverAt" => ActionName.HoverAt,
             "dragAt" => ActionName.DragAt,

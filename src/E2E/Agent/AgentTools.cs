@@ -5,6 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -122,6 +123,24 @@ public static class AgentTools
         "back",
         "Go back one step in the browser history. The result shows the screen you return to.",
         Parse("""{ "type": "object", "properties": {} }"""));
+
+    /// <summary>Upstream's <c>resize_viewport</c> tool (<c>agent/primitives.ts</c>), offered where the engine can resize its viewport.</summary>
+    internal const string ResizeViewportName = "resize_viewport";
+
+    private static readonly ModelTool ResizeViewport = Tool(
+        ResizeViewportName,
+        "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again. The result shows the screen at the new size; take a screenshot to check the layout itself (overflow, overlap, clipped or hidden content).",
+        Parse(
+            $$"""
+            {
+              "type": "object",
+              "properties": {
+                "width": { "type": "integer", "minimum": {{Geometry.ViewportLimits.Min}}, "maximum": {{Geometry.ViewportLimits.Max}}, "description": "Viewport width in CSS pixels." },
+                "height": { "type": "integer", "minimum": {{Geometry.ViewportLimits.Min}}, "maximum": {{Geometry.ViewportLimits.Max}}, "description": "Viewport height in CSS pixels." }
+              },
+              "required": ["width", "height"]
+            }
+            """));
 
     /// <summary>Upstream's <c>dismiss_keyboard</c> tool (<c>agent/primitives.ts</c>), offered where the engine can hide its keyboard.</summary>
     internal const string DismissKeyboardName = "dismiss_keyboard";
@@ -368,6 +387,11 @@ public static class AgentTools
             tools.Add(Back);
         }
 
+        if (capabilities.HasFlag(EngineCapabilities.Resize))
+        {
+            tools.Add(ResizeViewport);
+        }
+
         // Upstream offers dismiss_keyboard with the dismissKeyboard verb, which an engine with a keyboard that can be hidden lists.
         if (keyboard && dismissKeyboard)
         {
@@ -463,7 +487,7 @@ public static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     internal static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     internal static ModelTool Project(string name, AgentTool tool) =>

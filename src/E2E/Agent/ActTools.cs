@@ -24,7 +24,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter screen, bool session = false)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "resize_viewport", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -79,6 +79,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
 
+        // resize_viewport is a tool only where the engine can resize its viewport.
+        if (call.Name == AgentTools.ResizeViewportName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.Resize))
+        {
+            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+        }
+
         // Arguments that are no JSON object (text that did not parse, an array, a bare value) run nothing: a missing key would fall back to a default.
         if (call.Arguments.ValueKind is not (JsonValueKind.Object or JsonValueKind.Undefined or JsonValueKind.Null))
         {
@@ -109,6 +115,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         {
             case "back":
                 return await ActingAsync(new ActionLabel("Navigated back.", "back"), () => actions.BackAsync(token), token).ConfigureAwait(false);
+            case "resize_viewport":
+                return await ResizeViewportAsync(arguments, actions, token).ConfigureAwait(false);
             case "dismiss_keyboard":
                 // The keyboard leaving is the point, so the result does not note it, and an unchanged screen is no sign of a miss.
                 return await ActingAsync(new ActionLabel("Dismissed the keyboard.", "dismiss_keyboard", ExpectChange: false, KeyboardNote: false), () => actions.DismissKeyboardAsync(token), token).ConfigureAwait(false);
@@ -177,6 +185,18 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
             },
             token).ConfigureAwait(false);
+    }
+
+    // Upstream's resize_viewport tool: the screen at the new size is the result, and a layout that did not move is no sign of a miss.
+    private async Task<ToolOutcome> ResizeViewportAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
+    {
+        if (Args.Int(arguments, "width") is not { } width || Args.Int(arguments, "height") is not { } height || !Geometry.ViewportLimits.Fits(width) || !Geometry.ViewportLimits.Fits(height))
+        {
+            return ToolOutcome.Fail("resize_viewport needs a width and a height in whole CSS pixels, " + Geometry.ViewportLimits.Min.ToString(CultureInfo.InvariantCulture) + " to " + Geometry.ViewportLimits.Max.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        var size = width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
+        return await ActingAsync(new ActionLabel("Resized the viewport to " + size + ".", "resize_viewport " + size, ExpectChange: false), () => actions.ResizeAsync(new TraceViewport(width, height), token), token).ConfigureAwait(false);
     }
 
     // Upstream's press tool with `times`: each repeat is one recorded action against the budget, as a scroll repeat is. The first press addresses

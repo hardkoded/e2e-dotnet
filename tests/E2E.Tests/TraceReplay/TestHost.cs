@@ -170,5 +170,7 @@ internal sealed class TestHost : IReplayHost
         public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => host.Act("navigate", url);
 
         public Task BackAsync(CancellationToken cancellationToken = default) => host.Act("back");
+
+        public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) => host.Act("resize", size);
     }
 }

@@ -217,6 +217,12 @@ internal sealed partial class ActContext : StepExecutorContext
             verbs.Add(ExecutorVerb.Back);
         }
 
+        // Upstream lists resize when `session.resize` is defined.
+        if (capabilities.HasFlag(EngineCapabilities.Resize))
+        {
+            verbs.Add(ExecutorVerb.Resize);
+        }
+
         // Keyboard input to the focused field follows the engine's keyboard (upstream's declaredVerbs).
         if (capabilities.HasFlag(EngineCapabilities.Keyboard))
         {

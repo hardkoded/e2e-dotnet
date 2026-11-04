@@ -269,6 +269,9 @@ public enum ExecutorVerb
 
     /// <summary>Upstream's <c>dismissKeyboard</c>: <see cref="IExecutorActions.DismissKeyboardAsync"/>, with an engine whose <see cref="IEngineSession.CanDismissKeyboard"/> is true.</summary>
     DismissKeyboard,
+
+    /// <summary>Upstream's <c>resize</c>: <see cref="IExecutorActions.ResizeAsync"/>, with an engine that declares <see cref="EngineCapabilities.Resize"/>.</summary>
+    Resize,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -509,6 +512,15 @@ public interface IExecutorActions
 
     /// <summary>Navigates back once.</summary>
     Task BackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the viewport to a size in whole CSS pixels, 200 to 4096 on each side, for this page and every page the attempt opens after
+    /// it. A size outside the limits is <c>INVALID_ARGUMENT</c>. Needs <see cref="ExecutorVerb.Resize"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. The default refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an executor
+    /// context written before the member compiling; the harness's own actions override it). Upstream's <c>resize</c>.
+    /// </summary>
+    Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "resize is not supported by this executor context."));
 
     /// <summary>
     /// Taps one viewport point, in the CSS pixels of the newest observation (<see cref="SemanticNode.Rect"/> space; a point read off

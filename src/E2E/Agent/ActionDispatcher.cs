@@ -458,6 +458,21 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             },
             cancellationToken);
 
+    // Upstream's resize: sets the viewport to whole CSS pixels within the limits, for a layout at another width.
+    public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
+    {
+        var viewport = Geometry.RequireViewportSize(size);
+        return RunAsync(
+            "resize",
+            async token =>
+            {
+                await _scope.Session.ResizeAsync(viewport, OperationContext.Agent, token).ConfigureAwait(false);
+                _scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
+                await CommitAsync(new RecordedAction { Kind = "resize", Size = viewport }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
     /// <summary>
     /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.

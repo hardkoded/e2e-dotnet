@@ -16,8 +16,9 @@ public sealed class CreateEngineSessionTests
         [.. ActContext.VerbsOf(capabilities, EngineActionKinds.Locator, pointerKinds, canDismissKeyboard).Select(verb => verb.ToString()).Order(StringComparer.Ordinal)];
 
     // Partial of upstream's "derives the grammar verbs from the declared action kinds and hooks": the port's engines declare capabilities and
-    // an action-kind list, not hooks, and it has no `resize` or `open` verb to derive. This checks the lines of the keyboard and the pointer
-    // kinds; the dismissal is declared by IEngineSession.CanDismissKeyboard where upstream defines keyboard.dismiss.
+    // an action-kind list, not hooks, and it has no `open` verb to derive. This checks the lines of the keyboard, the pointer
+    // kinds, and the resize; the dismissal is declared by IEngineSession.CanDismissKeyboard where upstream defines keyboard.dismiss, and the
+    // resize by EngineCapabilities.Resize where upstream defines session.resize.
     [Fact]
     public void Partial_Derives_the_keyboard_and_pointer_verbs_from_the_declared_hooks()
     {
@@ -36,5 +37,8 @@ public sealed class CreateEngineSessionTests
 
         // A dismissal without a keyboard is no verb: upstream's dismiss is a hook of the keyboard.
         Assert.Equal(node, Verbs(EngineCapabilities.None, true));
+
+        // A resize hook adds the resize verb and nothing else.
+        Assert.Equal(With(node, "Resize"), Verbs(EngineCapabilities.Resize));
     }
 }
