@@ -53,25 +53,62 @@ internal static partial class ListReporterKit
     /// <summary>The text of a chunk with its ANSI sequences stripped.</summary>
     public static string StripAnsi(string text) => Capture.StripAnsi(text);
 
+    /// <summary>Upstream's <c>FROZEN_NOW</c>: the instant the golden tests freeze the clock at.</summary>
+    public static readonly DateTimeOffset FrozenNow = new(2026, 9, 8, 10, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// Upstream's <c>useGoldenTerminal()</c>: an 80x30 terminal. The zone is UTC and the clock frozen by the <see cref="FakeTime"/> the test builds
+    /// its reporter with, so durations, start times, and spinner frames print the same on every machine.
+    /// </summary>
+    public static IDisposable GoldenTerminal() => Format.WithTerminalSize(rows: 30, columns: 80);
+
+    /// <summary>
+    /// Upstream's <c>expectGolden()</c>: compares <paramref name="text"/> with <c>Fixtures/ListReporter/&lt;name&gt;</c>. <c>E2E_GOLDEN_UPDATE=1</c>
+    /// rewrites the file in the source tree instead; review the diff like any other change.
+    /// </summary>
+    public static void ExpectGolden(string name, string text, [System.Runtime.CompilerServices.CallerFilePath] string caller = "")
+    {
+        if (Environment.GetEnvironmentVariable("E2E_GOLDEN_UPDATE") == "1")
+        {
+            var directory = Path.Combine(Path.GetDirectoryName(caller)!, "..", "Fixtures", "ListReporter");
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, name), text);
+        }
+
+        var file = Path.Combine(AppContext.BaseDirectory, "Fixtures", "ListReporter", name);
+        Assert.True(File.Exists(file), $"{file} is missing; run with E2E_GOLDEN_UPDATE=1");
+        Assert.Equal(File.ReadAllText(file).Replace("\r\n", "\n", StringComparison.Ordinal), text);
+    }
+
+    /// <summary>Upstream's <c>stable()</c>: masks what differs between releases and machines, the package version and, when given, a temporary project root.</summary>
+    public static string Stable(string text, string? root = null)
+    {
+        var versioned = Version().Replace(text, " e2e v<version> ");
+        return root is null ? versioned : versioned.Replace(root, "/project", StringComparison.Ordinal);
+    }
+
+    [GeneratedRegex(@" e2e v\S+ ")]
+    private static partial Regex Version();
+
     /// <summary>Upstream's <c>plainReporter()</c>: a reporter with colors off, so assertions read the plain text.</summary>
-    public static ListReporter PlainReporter(IListReporterOutput output, TimeProvider? time = null, bool live = false) =>
+    public static global::E2E.Cli.Report.ListReporter PlainReporter(IListReporterOutput output, TimeProvider? time = null, bool live = false) =>
         new(output, new ListReporterOptions { Colors = false, Live = live }, time ?? (live ? new FakeTime(DateTimeOffset.UnixEpoch) : null));
 
     /// <summary>Upstream's <c>attempt()</c>.</summary>
-    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1") =>
+    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1", long durationMs = 120) =>
         new()
         {
             Id = id,
             StartedAt = DateTimeOffset.UnixEpoch,
-            DurationMs = 120,
+            DurationMs = durationMs,
             Status = status,
             Error = error,
             Steps = steps ?? [],
         };
 
     /// <summary>Upstream's <c>failedAttempt()</c>.</summary>
-    public static ReportAttempt FailedAttempt(string message) =>
-        Attempt(error: new ReportError("ASSERTION_FAILED", message), status: AttemptStatus.Failed);
+    public static ReportAttempt FailedAttempt(string message, SourceLocation? source = null) =>
+        Attempt(error: new ReportError("ASSERTION_FAILED", message, Source: source), status: AttemptStatus.Failed);
 
     /// <summary>Upstream's <c>testStarted()</c>.</summary>
     public static TestStartedEvent TestStarted(string testId, string title, string target, string file = "tests/case.e2e.ts", string agent = "default", string? serialId = null) =>
@@ -114,7 +151,9 @@ internal static partial class ListReporterKit
         IReadOnlyList<ReportAttempt>? attempts = null,
         string? skipReason = null,
         string agent = "default",
-        int repeat = 0) =>
+        int repeat = 0,
+        int? line = null,
+        string? filter = null) =>
         new()
         {
             Test = new TestIdentity(title ?? ["suite", "case"], id, file, declarationIndex),
@@ -124,20 +163,21 @@ internal static partial class ListReporterKit
             Repeat = repeat,
             Status = Enum.Parse<Reports.ResultStatus>(status.ToString()),
             Selected = selected,
-            Skip = skipReason is null ? null : new Reports.SkipInfo { Cause = Reports.SkipCause.Explicit, Reason = skipReason },
+            Skip = skipReason is null ? null : new Reports.SkipInfo { Cause = filter is null ? Reports.SkipCause.Explicit : Reports.SkipCause.Filtered, Reason = skipReason, Filter = filter },
             Recorded = new ReportResult
             {
                 Id = id,
                 File = file,
                 TitlePath = title ?? ["suite", "case"],
                 Status = status,
-                Skip = skipReason is null ? null : new ReportSkip("explicit", skipReason),
+                Skip = skipReason is null ? null : new ReportSkip(filter is null ? "explicit" : "filtered", skipReason, filter),
+                Source = line is { } declared ? new SourceLocation(file, declared, 1) : new SourceLocation("unknown", 0, 0),
                 Attempts = attempts ?? [Attempt()],
             },
         };
 
     /// <summary>Upstream's <c>runStarted()</c>.</summary>
-    public static RunStartedEvent RunStarted(bool ci = false, string[]? targets = null, string projectRoot = "/project", string? model = null, string? judge = null) =>
+    public static RunStartedEvent RunStarted(bool ci = false, string[]? targets = null, string projectRoot = "/project", string? model = null, string? judge = null, string[]? agents = null) =>
         new()
         {
             RunId = "run-1",
@@ -146,6 +186,7 @@ internal static partial class ListReporterKit
             ArtifactsRoot = projectRoot + "/.e2e/artifacts",
             Ci = ci,
             Targets = targets ?? ["chromium"],
+            Agents = agents,
             Model = model,
             Judge = judge,
         };
@@ -161,32 +202,81 @@ internal static partial class ListReporterKit
     public static TestFinishedEvent Finished(RunEventResult result) => new(result);
 
     /// <summary>Upstream's <c>runFinished()</c>.</summary>
-    public static RunFinishedEvent RunFinished(ReportRunStatus status = ReportRunStatus.Passed, int exitCode = 0, string? reportPath = null, string? aiTracePath = null) =>
-        new() { Status = status, ExitCode = exitCode, ReportPath = reportPath, AiTracePath = aiTracePath };
+    public static RunFinishedEvent RunFinished(ReportRunStatus status = ReportRunStatus.Passed, int exitCode = 0, string? reportPath = null, string? aiTracePath = null, IReadOnlyDictionary<string, string>? traces = null) =>
+        new() { Status = status, ExitCode = exitCode, ReportPath = reportPath, AiTracePath = aiTracePath, Traces = traces };
 
-    /// <summary>A <see cref="TimeProvider"/> that stands still until it is advanced, for upstream's <c>vi.useFakeTimers</c>.</summary>
+    /// <summary>
+    /// A <see cref="TimeProvider"/> that stands still until it is advanced, for upstream's <c>vi.useFakeTimers</c>. A timer fires as the clock passes
+    /// each of its ticks, in order, like vitest's <c>advanceTimersByTime</c>.
+    /// </summary>
     public sealed class FakeTime(DateTimeOffset now) : TimeProvider
     {
+        private readonly List<FakeTimer> _timers = [];
         private DateTimeOffset _now = now;
 
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
 
         public override DateTimeOffset GetUtcNow() => _now;
 
-        public void Advance(TimeSpan span) => _now += span;
-
-        /// <summary>A timer that never fires: upstream's tests are synchronous, so the live window's repaint timer never ticks in them.</summary>
-        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) => new IdleTimer();
-
-        private sealed class IdleTimer : ITimer
+        public void Advance(TimeSpan span)
         {
-            public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-
-            public void Dispose()
+            var target = _now + span;
+            while (_timers.Where(timer => timer.Next <= target).MinBy(timer => timer.Next) is { } due)
             {
+                _now = due.Next;
+                due.Fire();
             }
 
-            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+            _now = target;
+        }
+
+        public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+        {
+            var timer = new FakeTimer(this, callback, state);
+            timer.Change(dueTime, period);
+            return timer;
+        }
+
+        private sealed class FakeTimer(FakeTime clock, TimerCallback callback, object? state) : ITimer
+        {
+            private TimeSpan _period;
+
+            public DateTimeOffset Next { get; private set; }
+
+            public bool Change(TimeSpan dueTime, TimeSpan period)
+            {
+                clock._timers.Remove(this);
+                _period = period;
+                if (dueTime != Timeout.InfiniteTimeSpan)
+                {
+                    Next = clock._now + dueTime;
+                    clock._timers.Add(this);
+                }
+
+                return true;
+            }
+
+            public void Fire()
+            {
+                if (_period > TimeSpan.Zero)
+                {
+                    Next += _period;
+                }
+                else
+                {
+                    clock._timers.Remove(this);
+                }
+
+                callback(state);
+            }
+
+            public void Dispose() => clock._timers.Remove(this);
+
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
         }
     }
 }

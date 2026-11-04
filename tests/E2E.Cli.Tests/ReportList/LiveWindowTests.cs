@@ -12,11 +12,11 @@ namespace E2E.Cli.Tests.ReportList;
 /// <summary>
 /// Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('live window'). All 15 <c>it</c> are ported. The terminal size that
 /// upstream's <c>withTerminalSize</c> sets on <c>process.stdout</c> is <c>Format.WithTerminalSize</c> (.NET-only), since a console's size cannot be set
-/// from a test. The reporter's repaint timer comes from a <see cref="TimeProvider"/> whose timers never fire, as upstream's tests are synchronous.
+/// from a test. The reporter's repaint timer comes from a <see cref="TimeProvider"/> whose timers fire only as the test advances the clock, as vitest's fake timers do.
 /// </summary>
 public sealed partial class LiveWindowTests
 {
-    private static ListReporter Live(LiveCapture output) => PlainReporter(output, live: true);
+    private static global::E2E.Cli.Report.ListReporter Live(LiveCapture output) => PlainReporter(output, live: true);
 
     private static string Frame(string chunk) => StripAnsi(chunk);
 
@@ -149,7 +149,7 @@ public sealed partial class LiveWindowTests
     public void Stays_silent_for_output_sinks_without_a_raw_channel()
     {
         var output = new ListReporterKit.Capture();
-        var reporter = new ListReporter(output, new ListReporterOptions { Live = true, Colors = false });
+        var reporter = new global::E2E.Cli.Report.ListReporter(output, new ListReporterOptions { Live = true, Colors = false });
         reporter.Handle(TestStarted("t1", "signs in", "chromium"));
         Assert.Empty(output.Lines);
     }
