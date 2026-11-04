@@ -241,8 +241,8 @@ public sealed class ToHaveScreenshotTests
         await using var open = await late.OpenScreenAsync("late", "home", clock);
         var matching = Home(open.Screen);
         await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
-        var timedOut = await Record.ExceptionAsync(() => matching) as E2EException;
-        Assert.Contains("took 1 screenshot before the timeout", timedOut!.Message, StringComparison.Ordinal);
+        var timedOut = Assert.IsAssignableFrom<E2EException>(await Record.ExceptionAsync(() => matching));
+        Assert.Contains("took 1 screenshot before the timeout", timedOut.Message, StringComparison.Ordinal);
     }
 
     [Fact]
