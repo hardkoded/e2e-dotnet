@@ -324,6 +324,13 @@ public sealed class ControlsTests
     });
 
     [Fact]
+    public Task A_text_match_inside_a_line_reads_its_own_attributes() => RunAsync(async screen =>
+    {
+        // The badge span is read in the item's line, so it has no node of its own; its match still answers for it.
+        Assert.Equal("badge", await screen.GetByText("urgent").First().GetAttributeAsync("class"));
+    });
+
+    [Fact]
     public Task Filters_narrow_a_list_by_text_or_a_nested_match_and_nth_picks_one_row() => RunAsync(async screen =>
     {
         var tickets = screen.GetByRole("list", "Tickets").GetByRole("listitem");
