@@ -23,6 +23,12 @@ public sealed class NodeStates
 
     public bool Expanded { get; init; }
 
+    /// <summary>The node has no <c>aria-expanded</c> of true or false. A role query for <c>Expanded = false</c> skips it. Web only (.NET-only; upstream reads the state as nullable).</summary>
+    public bool ExpandedAbsent { get; init; }
+
+    /// <summary>The node is a checkbox or a button in the mixed state. A role query for <c>Checked</c> or <c>Pressed</c> of either value skips it. Web only (.NET-only; upstream reads the state as nullable).</summary>
+    public bool Mixed { get; init; }
+
     public bool Focused { get; init; }
 
     /// <summary>The node does not render: <c>display: none</c>, <c>visibility</c>, skipped content, a closed <c>details</c>. This is what <c>isVisible</c> reads.</summary>

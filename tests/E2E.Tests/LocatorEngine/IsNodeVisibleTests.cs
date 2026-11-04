@@ -18,4 +18,13 @@ public sealed class IsNodeVisibleTests
         Assert.True(Locators.IsNodeVisible(new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", States = new NodeStates { Hidden = false } }));
         Assert.True(Locators.IsNodeVisible(new SemanticNode { Ref = "node-1", Role = "button" }));
     }
+
+    // .NET-only: upstream's hidden state includes a box with no size; the port keeps that state to the render rules and reads the box here.
+    [Fact]
+    public void Treats_a_node_with_an_empty_box_as_hidden()
+    {
+        Assert.False(Locators.IsNodeVisible(new SemanticNode { Ref = "node-1", Rect = new BoundingBox(0, 0, 0, 20) }));
+        Assert.False(Locators.IsNodeVisible(new SemanticNode { Ref = "node-1", Rect = new BoundingBox(0, 0, 20, 0) }));
+        Assert.True(Locators.IsNodeVisible(new SemanticNode { Ref = "node-1", Rect = new BoundingBox(0, 0, 20, 20) }));
+    }
 }

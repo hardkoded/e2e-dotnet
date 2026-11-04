@@ -263,7 +263,7 @@ public sealed class LocatorExpect
                     return Verdict.Strict(matches.Count);
                 }
 
-                var shown = matches.Count == 1 && !matches[0].States.Hidden;
+                var shown = matches.Count == 1 && LocatorEngine.IsNodeVisible(matches[0]);
                 var observed = matches.Count switch
                 {
                     0 => "absent",

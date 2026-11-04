@@ -81,6 +81,21 @@ public bool Expanded { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_NodeStates_ExpandedAbsent_"></a>
+<a id="E2E_Engine_NodeStates_ExpandedAbsent"></a>
+
+### ExpandedAbsent
+
+
+```csharp
+public bool ExpandedAbsent { get; init; }
+```
+
+
+The node has no `aria-expanded` of true or false. A role query for `Expanded = false` skips it. Web only (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_NodeStates_Focused_"></a>
 <a id="E2E_Engine_NodeStates_Focused"></a>
 
@@ -106,6 +121,21 @@ public bool Hidden { get; init; }
 
 
 The node does not render: `display: none`, `visibility`, skipped content, a closed `details`. This is what `isVisible` reads.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+<a id="E2E_Engine_NodeStates_Mixed_"></a>
+<a id="E2E_Engine_NodeStates_Mixed"></a>
+
+### Mixed
+
+
+```csharp
+public bool Mixed { get; init; }
+```
+
+
+The node is a checkbox or a button in the mixed state. A role query for `Checked` or `Pressed` of either value skips it. Web only (.NET-only; upstream reads the state as nullable).
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
