@@ -664,6 +664,18 @@ internal static class PageScript
             if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
             return el.getAttribute("aria-checked") === "true";
           };
+          // The mixed state of a checkbox (indeterminate, or aria-checked) or a
+          // button (aria-pressed): a role query for either value skips it.
+          const mixedOf = (el) => el instanceof HTMLInputElement && el.type === "checkbox"
+            ? el.indeterminate
+            : el.getAttribute("aria-checked") === "mixed" || el.getAttribute("aria-pressed") === "mixed";
+          // aria-level wins; an h1 to h6 reads its tag; any other heading is level 2 (HTML-AAM).
+          const levelOf = (el, role) => {
+            const tagLevel = /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null;
+            if (role !== "heading") return tagLevel;
+            const ariaLevel = Number.parseInt(el.getAttribute("aria-level") || "", 10);
+            return Number.isInteger(ariaLevel) && ariaLevel > 0 ? ariaLevel : tagLevel ?? 2;
+          };
           // A link target as the model reads it: origin and path, without
           // userinfo, query, or fragment, which routinely carry tokens. A
           // dropped query or fragment leaves "?…" or "#…" behind, so the value
@@ -1005,9 +1017,13 @@ internal static class PageScript
                 testId,
                 placeholder: el.getAttribute("placeholder"),
                 inputPurpose: secure ? "password" : null,
-                level: /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null,
+                level: levelOf(el, role),
                 disabled: disabledOf(el, role),
                 checked: checkedOf(el),
+                mixed: mixedOf(el),
+                // A box with no width or height; an option has none while its select is closed.
+                emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
+                expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || "") && el.tagName !== "DETAILS",
                 expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
                 selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
                 pressed: el.getAttribute("aria-pressed") === "true",
