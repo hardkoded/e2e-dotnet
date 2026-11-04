@@ -234,11 +234,15 @@ public sealed class ToHaveScreenshotTests
         var threshold = await project.RunAsync("edges", "threshold", Threshold, newRun: false);
         Assert.Contains(ButtonPixels + " pixels", threshold!.Message, StringComparison.Ordinal);
 
-        // One capture outlasts the whole 1 s budget.
-        engine.BeforeCapture = () => Task.Delay(1100);
+        // One capture outlasts the whole 1 s budget, on a clock the test moves so a loaded runner cannot shift it.
+        var clock = new SteppingTime();
+        engine.BeforeCapture = () => Task.Delay(TimeSpan.FromMilliseconds(1100), clock);
         using var late = new ScreenProject(engine);
-        var timedOut = await late.RunAsync("late", "home", Home);
-        Assert.Contains("took 1 screenshot before the timeout", timedOut!.Message, StringComparison.Ordinal);
+        await using var open = await late.OpenScreenAsync("late", "home", clock);
+        var matching = Home(open.Screen);
+        await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+        var timedOut = Assert.IsAssignableFrom<E2EException>(await Record.ExceptionAsync(() => matching));
+        Assert.Contains("took 1 screenshot before the timeout", timedOut.Message, StringComparison.Ordinal);
     }
 
     [Fact]
