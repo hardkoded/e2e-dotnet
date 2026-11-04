@@ -20,10 +20,22 @@ public sealed class ToolLoopContextOverflowTests
     /// <summary>A screen whose text is far longer than the overflow clip, as a dense page is.</summary>
     private static DocumentWorld BigScreen() => new DocumentWorld().Map("/big", page =>
     {
+        var rows = new List<DocumentElement>();
         for (var i = 0; i < 600; i++)
         {
-            page.Paragraph("row " + i + " " + new string('x', 40));
+            rows.Add(page.Paragraph("row " + i + " " + new string('x', 40)));
         }
+
+        // Every line changes with each tap, so the screen after it goes out whole (the presenter sends changes otherwise).
+        var variant = 0;
+        page.Button("Flip", () =>
+        {
+            variant++;
+            for (var i = 0; i < rows.Count; i++)
+            {
+                rows[i].Text = "v" + variant + " row " + i + " " + new string('x', 40);
+            }
+        });
     });
 
     private static DocumentWorld EmptyScreen() => new DocumentWorld().Map("/empty", _ => { });
@@ -54,13 +66,12 @@ public sealed class ToolLoopContextOverflowTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
-        // The failed tap answers with the screen again, so the superseded opening screen outgrows the stale budget and the second
-        // request already carries it elided. The retried request clips the newest screen, which rides the tool result, to its head and a notice.
-        Assert.Contains("[earlier screen elided", requests[1][0], StringComparison.Ordinal);
-        Assert.True(requests[1][^1]!.Length > 16_384);
-        Assert.Contains("[earlier screen elided", requests[2][0], StringComparison.Ordinal);
-        Assert.True(requests[2][^1]!.Length < 16_384 + 200);
-        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][^1], StringComparison.Ordinal);
+        // The failed tap answers with the unchanged screen, a short result, so the second request carries the whole opening screen; the
+        // retried request carries its head and a notice, and the tool result it follows is unchanged.
+        Assert.True(requests[1][0]!.Length > 16_384);
+        Assert.True(requests[2][0]!.Length < 16_384 + 200);
+        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][0], StringComparison.Ordinal);
+        Assert.Equal(requests[1][^1], requests[2][^1]);
         // The refused request never answered, so it is not a model call the step paid for.
         Assert.Equal(2, result!.ModelCalls);
     }
@@ -79,7 +90,7 @@ public sealed class ToolLoopContextOverflowTests
             requests.Add(request.Messages.Select(message => message.Content).ToList());
             return requests.Count switch
             {
-                <= 2 => ModelResponses.Call("observe", new { }),
+                <= 2 => ModelResponses.Tap("button", "Flip"),
                 3 => throw Refusal(),
                 _ => ModelResponses.Done("passed", "read the rows"),
             };

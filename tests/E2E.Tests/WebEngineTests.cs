@@ -85,7 +85,7 @@ public sealed class WebEngineTests
                 return ModelResponses.Done("passed", "deleted");
             }
 
-            var target = Regex.Matches(text, @"button ""Delete"" \[ref=(e\d+)\]")[^1].Groups[1].Value;
+            var target = Regex.Matches(text, @"#(e\d+) button ""Delete""")[^1].Groups[1].Value;
             return ModelResponses.Call("tap", new { @ref = target });
         });
         var session = await StartAsync(site, model, cache: null);

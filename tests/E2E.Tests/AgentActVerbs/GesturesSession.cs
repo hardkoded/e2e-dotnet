@@ -352,7 +352,7 @@ internal static class GesturesSession
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>
     public static string RefFor(string prompt, string line)
     {
-        var matches = Regex.Matches(prompt, Regex.Escape(line) + @"(?: (?:text|testid|href|placeholder)=""[^""]*"")* \[ref=(e\d+)\]");
+        var matches = Regex.Matches(prompt, @"^\s*(?:added |changed )?#(e\d+) " + Regex.Escape(line) + @"(?: (?:text|testid|href|placeholder)=""[^""]*"")*(?: value=""[^""]*"")?(?: \[[^\]]*\])*(?: \(was: .*\))?\s*$", RegexOptions.Multiline);
         return matches.Count > 0 ? matches[^1].Groups[1].Value : throw new InvalidOperationException("No line " + line + " in the screen:\n" + prompt);
     }
 

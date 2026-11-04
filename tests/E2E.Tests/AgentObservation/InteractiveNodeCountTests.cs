@@ -4,28 +4,24 @@
 
 namespace E2E.Tests.AgentObservation;
 
-/// <summary>
-/// <c>interactiveNodeCount</c>: how many listed nodes the model could act on, read off the rendered lines. The lines are the port's
-/// (<c>- role "name" [ref=e1]</c>), where upstream's are <c>#n1 role "name"</c>.
-/// </summary>
+/// <summary><c>describe('interactiveNodeCount')</c> of <c>agent-observation.test.ts</c>.</summary>
 public sealed class InteractiveNodeCountTests
 {
     [Fact]
-    public void Counts_the_listed_nodes_the_model_could_act_on()
+    public void Counts_the_listed_nodes_the_model_could_act_on_by_id()
     {
         Assert.Equal(
             3,
             global::E2E.AgentObservation.InteractiveNodeCount(string.Join(
                 '\n',
-                "Screen (/):",
-                "- document \"Home\" [ref=e1]",
-                "  - heading \"Welcome\" [ref=e2]",
-                "  - button \"Increment\" [ref=e3]",
-                "  - status \"Counter\" text=\"0\" [ref=e4]",
-                "  - link \"About\" [ref=e5]",
-                "  - textbox \"Email\" [ref=e6]")));
+                "#n1 document \"Home\"",
+                " #n2 heading \"Welcome\"",
+                " #n3 button \"Increment\"",
+                " #n4 status \"Counter\" text=\"0\"",
+                " #n5 link \"About\"",
+                " #n6 textbox \"Email\"")));
         Assert.Equal(
             0,
-            global::E2E.AgentObservation.InteractiveNodeCount(string.Join('\n', "Screen (/):", "- document \"Canvas\" [ref=e1]", "  - heading \"Map\" [ref=e2]", "  - status \"Picked\" [ref=e3]")));
+            global::E2E.AgentObservation.InteractiveNodeCount(string.Join('\n', "#n1 document \"Canvas\"", " #n2 heading \"Map\"", " #n3 status \"Picked\"")));
     }
 }

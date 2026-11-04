@@ -22,7 +22,7 @@ public static class AgentTools
             "role": { "type": "string", "description": "Accessible role, such as button or textbox." },
             "name": { "type": "string", "description": "Accessible name from the snapshot." },
             "testId": { "type": "string" },
-            "ref": { "type": "string", "description": "ref from the current snapshot. Prefer role and name." }
+            "ref": { "type": "string", "description": "Node id from any screen in this conversation that is still present, e.g. \"n42\". Prefer it to role and name." }
           }
         }
         """);
@@ -310,7 +310,7 @@ public static class AgentTools
             : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
-        var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
+        var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
         return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
             .Select(definition => new ToolLoopTool(
                 definition,

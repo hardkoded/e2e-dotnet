@@ -20,8 +20,11 @@ internal static partial class OverflowShrink
     /// <summary>The newest screens that stay whole. One: a screen replaced by a newer one is dead weight on every later turn.</summary>
     private const int ScreenPreserveCount = 1;
 
-    /// <summary>Every screen the port prints begins a line with this phrase, as upstream's full screens do.</summary>
-    [GeneratedRegex(@"^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    /// <summary>
+    /// Every full screen is introduced by this phrase (upstream's <c>FULL_SCREEN_PATTERN</c>, <c>Current screen (revision </c>). The pattern also
+    /// matches the heading of the <c>[ref=…]</c> screen an executor of its own may print (<c>Screen (</c> at the start of a line).
+    /// </summary>
+    [GeneratedRegex(@"Current screen \(revision |^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     internal static partial Regex FullScreenPattern();
 
     public static List<ModelMessage> ShrinkForOverflow(IReadOnlyList<ModelMessage> messages)
@@ -56,7 +59,9 @@ internal static partial class OverflowShrink
     {
         var at = FullScreenPattern().Match(text).Index;
         var head = at <= 0 ? text.Split('\n', 2)[0] : text[..at].TrimEnd();
-        return head + "\n[earlier screen elided; the newest \"Screen\" describes the screen]";
+        return head + (text[at..].StartsWith("Screen (", StringComparison.Ordinal)
+            ? "\n[earlier screen elided; the newest \"Screen\" describes the screen]"
+            : "\n[earlier screen elided; the newest \"Current screen\" plus the changes after it describe the screen]");
     }
 
     private static string Clip(string text)

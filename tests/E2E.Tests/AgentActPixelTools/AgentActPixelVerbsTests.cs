@@ -7,10 +7,9 @@ using E2E.Engine;
 namespace E2E.Tests.AgentActPixelTools;
 
 /// <summary>
-/// Upstream's <c>describe('agent.act pixel verbs')</c> (<c>agent-act-pixel-tools.test.ts</c>). The built-in agent prints no <c>#id</c>
-/// nodes and no diff results, so the ported <c>it</c>s read the full screen the port prints, and a screenshot rides a user turn after the
-/// tool results. The point its are in <c>AgentActPixelVerbsTests.Points.cs</c>, with "reports a moved screenshot under an unchanged listing",
-/// which is partial: the first miss reads as a whole screen, not a diff line. Not ported: the keyboard its (<c>typeText</c>, <c>pressKey</c>).
+/// Upstream's <c>describe('agent.act pixel verbs')</c> (<c>agent-act-pixel-tools.test.ts</c>). A screenshot rides a user turn after the
+/// tool results in the port, where upstream's rides the result as a file part. The point its are in
+/// <c>AgentActPixelVerbsTests.Points.cs</c>. Not ported: the keyboard its (<c>typeText</c>, <c>pressKey</c>).
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed partial class AgentActPixelVerbsTests

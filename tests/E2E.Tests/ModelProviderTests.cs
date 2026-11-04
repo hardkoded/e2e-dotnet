@@ -842,6 +842,9 @@ internal sealed class RecordingHandler : HttpMessageHandler
 
     public List<RecordedRequest> Requests { get; } = [];
 
+    /// <summary>Told the number of the request (from 1) as it arrives, before the answer goes out.</summary>
+    public Action<int>? OnRequest { get; set; }
+
     public RecordingHandler Then(HttpStatusCode status, string body)
     {
         _answers.Enqueue((status, body, "application/json"));
@@ -858,6 +861,7 @@ internal sealed class RecordingHandler : HttpMessageHandler
 
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
         Requests.Add(new RecordedRequest(request.Method, request.RequestUri!, headers, body, request.Content?.Headers.ContentType?.ToString()));
+        OnRequest?.Invoke(Requests.Count);
         var (status, answer, contentType) = _answers.Count > 1 ? _answers.Dequeue() : _answers.Peek();
         return new HttpResponseMessage(status) { Content = new StringContent(answer, Encoding.UTF8, contentType) };
     }

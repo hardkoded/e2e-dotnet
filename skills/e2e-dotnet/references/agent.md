@@ -710,7 +710,10 @@ To keep the built-in actions beside your own tools, add
 `AgentTools.CreateGrammarTools(context, new GrammarToolsOptions { Guard = body => helpers.GuardAsync(body) })`
 to the list `Tools` returns. It gives the built-in agent's action tools for the
 verbs the target's engine supports, and each result reports what changed on
-screen. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
+screen. The built-in agent lists the screen as `#id role "name"` lines, once at the
+start of the step and on `observe`; a result after an action shows only the
+`added`, `changed`, and `removed` lines since the screen the model last read, and
+the whole screen again when most of it changed. An action takes the id as `ref`. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
 tools: start `System` with it. The loop appends `AgentTools.VerdictRules` itself.
 `Guard` is optional; without it a hard stop of the step leaves the tool and the
 loop ends the step. A result is a `ToolLoopResult`: text, or text with a

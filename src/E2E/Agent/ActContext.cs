@@ -88,12 +88,19 @@ internal sealed partial class ActContext : StepExecutorContext
         Actions = dispatcher;
         Host = new ActHost(scope, feed, budget, spec.Params);
         Start = start is null ? null : feed.View(start, scope);
+        ListedStart = start is null ? null : feed.Listed(start, scope, false);
     }
 
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
     public int LedgerBytes { get; }
 
-    public override async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+    public override Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
+        ObserveAsync(options, false, cancellationToken);
+
+    internal override Task<ExecutorObservation> ObserveListedAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
+        ObserveAsync(options, true, cancellationToken);
+
+    private async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, bool listed, CancellationToken cancellationToken)
     {
         return await _budget.Queue.RunAsync(async () =>
         {
@@ -101,7 +108,7 @@ internal sealed partial class ActContext : StepExecutorContext
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
             try
             {
-                return await _feed.ObserveAsync(options, linked.Token).ConfigureAwait(false);
+                return await _feed.ObserveAsync(options, listed, linked.Token).ConfigureAwait(false);
             }
             catch (Exception) when (CheckStep())
             {

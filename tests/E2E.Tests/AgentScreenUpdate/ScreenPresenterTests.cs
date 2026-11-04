@@ -3,16 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using E2E.Engine;
 
 namespace E2E.Tests.AgentScreenUpdate;
 
-/// <summary>
-/// <c>describe('ScreenPresenter')</c> of <c>agent-screen-update.test.ts</c>. The port has no screenshots on <c>act</c>, so the presenter takes
-/// the tree alone. Not ported: 'keeps the listing as the only evidence, and says to try another way, when the engine captures no screenshot',
-/// 'says the screenshot changed, not that the control had no effect, when the listing stood still under a moved image', and 'treats unproven
-/// masking as one screen's refusal, not the step's'. Each checks how the presenter compares screenshots (<c>open</c>, <c>present</c>,
-/// <c>pixelsWithheld</c>), which the port does not have.
-/// </summary>
+/// <summary><c>describe('ScreenPresenter')</c> of <c>agent-screen-update.test.ts</c>.</summary>
 public sealed class ScreenPresenterTests
 {
     private static readonly string[] Home =
@@ -25,21 +20,34 @@ public sealed class ScreenPresenterTests
         " #n6 textbox \"Email\"",
     ];
 
-    internal static ExecutorObservation Screen(string revision, IEnumerable<string> lines, string? path = null, bool truncated = false, bool treeUnavailable = false) =>
-        new(string.Join('\n', lines)) { Revision = revision, Path = path, Truncated = truncated, TreeUnavailable = treeUnavailable };
+    internal static ExecutorObservation Screen(
+        string revision,
+        IEnumerable<string> lines,
+        string? path = null,
+        bool truncated = false,
+        bool treeUnavailable = false,
+        ExecutorPixels? pixels = null,
+        VisionDegradation? pixelsWithheld = null) =>
+        new(string.Join('\n', lines)) { Revision = revision, Path = path, Truncated = truncated, TreeUnavailable = treeUnavailable, Pixels = pixels, PixelsWithheld = pixelsWithheld, Viewport = new TraceViewport(1280, 720) };
+
+    private static ExecutorPixels Shot(byte value) => new([value], "image/png", 1, 1, 1, 0);
 
     [Fact]
-    public void Partial_Retires_semantic_history_through_repeated_unavailable_captures_and_shows_recovery_whole()
+    public void Retires_semantic_history_through_repeated_unavailable_captures_and_shows_recovery_whole()
     {
         var presenter = new ScreenPresenter();
         presenter.Initial(Screen("b1", ["#root", " #save button \"Save\""]));
+        var pixels = Shot(1);
         foreach (var revision in new[] { "b2", "b3" })
         {
-            var text = presenter.Update(Screen(
+            var output = presenter.Present(Screen(
                 revision,
                 ["[semantic capture unavailable: no nodes were read; previous node ids are no longer valid. Use the screenshot, never infer absence from this listing]"],
                 truncated: true,
-                treeUnavailable: true));
+                treeUnavailable: true,
+                pixels: pixels));
+            Assert.Same(pixels, output.Pixels);
+            var text = output.Text;
             Assert.Contains("semantic capture unavailable", text, StringComparison.Ordinal);
             Assert.Contains("previous node ids are no longer valid", text, StringComparison.Ordinal);
             Assert.DoesNotContain("keeps the id", text, StringComparison.Ordinal);
@@ -107,16 +115,62 @@ public sealed class ScreenPresenterTests
     }
 
     [Fact]
-    public void Partial_Says_no_listed_node_changed_after_an_action_never_that_it_had_no_effect_when_no_screenshot_was_compared()
+    public void Says_no_listed_node_changed_after_an_action_never_that_it_had_no_effect_when_no_screenshot_was_compared()
     {
-        // The first look at a screenshot has none before it to compare, which the port cannot show: only the tree-only half is checked.
         var presenter = new ScreenPresenter();
-        presenter.Initial(Screen("b1", Home));
-        var treeOnly = presenter.Update(Screen("b2", Home), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true });
+        presenter.Open(Screen("b1", Home));
+        // A tap that only fills a drawn dot leaves the tree as it was: the tree cannot tell a drawn effect from none.
+        var treeOnly = presenter.Present(Screen("b2", Home), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
         Assert.Contains("No listed node changed within the wait after this action", treeOnly, StringComparison.Ordinal);
         Assert.Contains("a drawn change needs a screenshot to see", treeOnly, StringComparison.Ordinal);
         Assert.DoesNotContain("had no visible effect", treeOnly, StringComparison.Ordinal);
         Assert.DoesNotContain("look for another way", treeOnly, StringComparison.Ordinal);
+        // The first screenshot has none before it to differ from, so it proves no more than the tree.
+        var first = presenter.Present(Screen("b3", Home, pixels: Shot(1)), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
+        Assert.DoesNotContain("had no visible effect", first, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keeps_the_listing_as_the_only_evidence_and_says_to_try_another_way_when_the_engine_captures_no_screenshot()
+    {
+        // An engine that captures none says so once asked; from then on the listing is all there is.
+        var denied = new ScreenPresenter();
+        denied.Open(Screen("c1", Home));
+        denied.Present(Screen("c2", Home, pixelsWithheld: VisionDegradation.UnsupportedCapability));
+        var after = denied.Present(Screen("c3", Home), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
+        Assert.Contains("No screenshot can be taken in this step", after, StringComparison.Ordinal);
+        Assert.Contains("look for another way rather than repeating it", after, StringComparison.Ordinal);
+        Assert.DoesNotContain("needs a screenshot to see", after, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Says_the_screenshot_changed_not_that_the_control_had_no_effect_when_the_listing_stood_still_under_a_moved_image()
+    {
+        var presenter = new ScreenPresenter();
+        presenter.Open(Screen("b1", Home, pixels: Shot(1)));
+        var moved = presenter.Present(Screen("b2", Home, pixels: Shot(2)), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
+        Assert.Contains("Tapped #n3.", moved, StringComparison.Ordinal);
+        Assert.Contains("listed nodes unchanged; the screenshot changed", moved, StringComparison.Ordinal);
+        Assert.DoesNotContain("had no visible effect", moved, StringComparison.Ordinal);
+        // The same image again: the tree describes this screen, so the control is blamed as before.
+        var still = presenter.Present(Screen("b3", Home, pixels: Shot(2)), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
+        Assert.Contains("had no visible effect", still, StringComparison.Ordinal);
+        Assert.DoesNotContain("the screenshot changed", still, StringComparison.Ordinal);
+        // A moved image is reported whether or not a change was expected.
+        var observed = presenter.Present(Screen("b4", Home, pixels: Shot(3)), new ScreenUpdateOptions { Lead = "Observed.", ExpectChange = false }).Text;
+        Assert.Contains("listed nodes unchanged; the screenshot changed", observed, StringComparison.Ordinal);
+        Assert.DoesNotContain("Screen unchanged since", observed, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Treats_unproven_masking_as_one_screens_refusal_not_the_steps()
+    {
+        var presenter = new ScreenPresenter();
+        presenter.Open(Screen("b1", Home));
+        presenter.Present(Screen("b2", Home, pixelsWithheld: VisionDegradation.MaskingUnproven));
+        var later = presenter.Present(Screen("b3", Home), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true }).Text;
+        Assert.DoesNotContain("No screenshot can be taken in this step", later, StringComparison.Ordinal);
+        Assert.Contains("a drawn change needs a screenshot to see", later, StringComparison.Ordinal);
     }
 
     [Fact]
