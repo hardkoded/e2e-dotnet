@@ -929,6 +929,8 @@ internal static class Testbed
             url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
             listener = new HttpListener();
             listener.Prefixes.Add(url);
+            // The second origin of the cross-origin cases (upstream's CROSS), the same app under another host name.
+            listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
             try
             {
                 listener.Start();
@@ -1021,7 +1023,7 @@ internal static class Testbed
                     {
                         await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException)
+                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
                     {
                         // The client went away.
                     }

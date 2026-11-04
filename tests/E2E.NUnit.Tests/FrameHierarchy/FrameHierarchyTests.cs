@@ -29,7 +29,7 @@ public sealed class FrameHierarchyTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_send_framenavigated_when_navigating_on_anchor_URLs()
+    public async Task Partial_Should_send_framenavigated_when_navigating_on_anchor_URLs()
     {
         await Browser.GotoAsync("/empty.html");
         await Browser.GotoAsync("/empty.html#foo");
@@ -37,7 +37,7 @@ public sealed class FrameHierarchyTests : PlaywrightTest
     }
 
     [Test]
-    public async Task Should_report_frame_from_inside_shadow_DOM()
+    public async Task Partial_Should_report_frame_from_inside_shadow_DOM()
     {
         await Browser.GotoAsync("/shadow.html");
         await Browser.EvaluateAsync<object>("""
