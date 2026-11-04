@@ -44,7 +44,7 @@ internal sealed class SettleOptions<T>
 internal readonly record struct PixelsOutcome(EngineScreenshot? Pixels, VisionDegradation? Withheld);
 
 /// <summary>An observation as the settle loop reads it: its shape, whether it is a screen in transition, and the loop itself.</summary>
-internal static class AgentObservation
+internal static partial class AgentObservation
 {
     /// <summary>Poll interval for shape-stability settling.</summary>
     private static readonly TimeSpan SettlePoll = TimeSpan.FromMilliseconds(75);
@@ -74,22 +74,15 @@ internal static class AgentObservation
         StringComparer.Ordinal);
 
     /// <summary>
-    /// How many listed nodes the model could act on, read off the rendered lines (upstream's <c>interactiveNodeCount</c>). A screen with none
-    /// is one the tree cannot describe (a canvas, a game, a native surface with no semantics), and the model needs pixels from the first turn.
+    /// How many listed nodes the model could act on, read off the rendered <c>#id role</c> lines (upstream's <c>interactiveNodeCount</c>). A screen
+    /// with none is one the tree cannot describe (a canvas, a game, a native surface with no semantics), and the model needs pixels from the first turn.
     /// </summary>
     public static int InteractiveNodeCount(string text)
     {
         var count = 0;
         foreach (var line in text.Split('\n'))
         {
-            var trimmed = line.TrimStart();
-            if (!trimmed.StartsWith("- ", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var end = trimmed.IndexOf(' ', 2);
-            if (InteractiveRoles.Contains(end < 0 ? trimmed[2..] : trimmed[2..end]))
+            if (ListedRole().Match(line) is { Success: true } match && InteractiveRoles.Contains(match.Groups[1].Value))
             {
                 count++;
             }
@@ -97,6 +90,9 @@ internal static class AgentObservation
 
         return count;
     }
+
+    [GeneratedRegex(@"^\s*#\S+ (\S+)", RegexOptions.CultureInvariant)]
+    private static partial Regex ListedRole();
 
     /// <summary>The shape of a screen already rendered as text.</summary>
     public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, ""), ""), "<time>");

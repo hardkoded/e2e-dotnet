@@ -663,21 +663,22 @@ public sealed partial class Agent
     /// it, with no model, no replay cache, and no action budget. A refusal comes back as a failed outcome. With a <paramref name="screen"/>,
     /// the answer is the changes since the screen the coding agent holds, and <c>observe</c> answers the whole screen.
     /// </summary>
-    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token, ScreenPresenter? screen = null, PixelMode? pixels = null)
+    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token, ScreenPresenter screen)
     {
+        ArgumentNullException.ThrowIfNull(screen);
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
-        return _scope.Track(new ActTools(_scope, _feed, screen, pixels).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
+        return _scope.Track(new ActTools(_scope, _feed, screen, session: true).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
     }
 
     /// <summary>
     /// Notes a screenshot a session showed its coding agent, with the viewport the screen has now: a point tool reads its
     /// coordinates against it (upstream's <c>screen.latestScreenshot</c>).
     /// </summary>
-    internal async Task NoteScreenshotAsync(PixelMode pixels, ExecutorPixels shot, CancellationToken token)
+    internal async Task NoteScreenshotAsync(ScreenPresenter screen, ExecutorPixels shot, CancellationToken token)
     {
-        ArgumentNullException.ThrowIfNull(pixels);
+        ArgumentNullException.ThrowIfNull(screen);
         var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        pixels.Shown(shot, observation.Viewport);
+        screen.Attach(shot, observation.Viewport);
     }
 
     internal static bool HasTarget(JsonElement arguments)

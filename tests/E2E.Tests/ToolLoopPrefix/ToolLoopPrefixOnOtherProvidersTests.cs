@@ -21,18 +21,31 @@ public sealed class ToolLoopPrefixOnOtherProvidersTests
     public async Task Replays_every_reasoning_part_after_an_elision_nothing_binds_them_to_the_prefix()
     {
         var requests = new List<IReadOnlyList<ModelMessage>>();
+        var rows = new List<DocumentElement>();
         var reasoning = JsonDocument.Parse("\"thought\"").RootElement.Clone();
         var model = new ScriptedModel(request =>
         {
             requests.Add([.. request.Messages]);
+
+            // The first look is a whole new screen, as a navigation makes it.
+            if (requests.Count == 1)
+            {
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    rows[i].Text = "v2 row " + i + " " + new string('x', 90);
+                }
+            }
+
             var answer = requests.Count <= 2 ? ModelResponses.Call("observe", new { }) : ModelResponses.Done("passed", "done");
             return new ModelResponse { ToolCalls = answer.ToolCalls, ReasoningItems = [reasoning] };
         });
         var big = new DocumentWorld().Map("/start", page =>
         {
+            // A button, so the opening prompt looks once.
+            page.Button("Peek");
             for (var i = 0; i < 600; i++)
             {
-                page.Paragraph("row " + i + " " + new string('x', 90));
+                rows.Add(page.Paragraph("v1 row " + i + " " + new string('x', 90)));
             }
         });
 

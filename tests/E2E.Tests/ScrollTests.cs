@@ -66,8 +66,9 @@ public sealed class ScrollTests
         var first = await RunAsync(Body, world, model, directory);
         Assert.Null(first.Error);
         var results = ToolResults(model);
-        Assert.StartsWith("Observed.\nScreen (/start)", results[0], StringComparison.Ordinal);
-        Assert.StartsWith("Navigated back.\nScreen (/start)", results[2], StringComparison.Ordinal);
+        Assert.StartsWith("Observed.\n\nScreen unchanged since revision", results[0], StringComparison.Ordinal);
+        Assert.StartsWith("Navigated back.", results[2], StringComparison.Ordinal);
+        Assert.Contains("path /start", results[2], StringComparison.Ordinal);
         var entry = ReadEntry(directory);
         Assert.Equal(["tap", "back", "tap"], entry.Actions.Select(action => action.Kind));
 

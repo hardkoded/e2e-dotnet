@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using E2E.Cache;
 
@@ -30,7 +31,14 @@ public static class DefaultAgent
     /// </summary>
     public const string BaseRules =
         "You are an e2e test agent. Act only by calling tools. " +
-        "Target a control by its role and name from the screen snapshot. " +
+        "The screen is a tree of nodes with stable ids like \"n42\", listed one per line as #id role \"name\": a node keeps its id for as long as it exists, across every screen and change in this conversation. " +
+        "Target a node by its id (ref), with or without the #. Never invent ids. " +
+        "The first screen is sent whole. Every action result and every observe then reports what changed since the screen you last received, one line per node: " +
+        "\"added\" (a new node), \"changed\" (with what it read before), or \"removed\" (the node is gone; never target it again). A node not listed as removed is still there under the id you have. " +
+        "When most of the screen changed, the result sends the whole new screen instead, headed \"Current screen\", and it replaces what you had: target only the ids it lists. " +
+        "Every action result already waited for the effect and contains the changes, so do not call observe after an action. Call observe only after waiting for something the last result showed in progress. " +
+        "Conclude passed only when the latest result shows the outcome the step asked for. A result that reports no change, or only the keyboard closing, means the decisive action did not land: act again or conclude failed. " +
+        "A result that says only that no listed node changed has not ruled out a drawn change: take a screenshot, when offered, before deciding. Never describe an unchanged screen as the outcome. " +
         "Never type a secret value. Call fill_secret with the secret name. " +
         "A secret looks like <secret:name>. " +
         "If what you need is not on the screen, scroll to it. " +
@@ -61,6 +69,11 @@ public static class DefaultAgent
             BuildMessages = Opening,
         });
     }
+
+    // One presenter per dispatched step, shared by the opening prompt and the tools that follow it (upstream's presenterFor).
+    private static readonly ConditionalWeakTable<StepExecutorContext, ScreenPresenter> Presenters = [];
+
+    internal static ScreenPresenter PresenterFor(StepExecutorContext context) => Presenters.GetValue(context, static _ => new ScreenPresenter());
 
     // The execution rules, then the configured text.
     private static string SystemFor(string? system) =>
@@ -125,32 +138,21 @@ public static class DefaultAgent
         // The opening look is tree-only, unless no listed interactive node exists at all: then the opening prompt carries a screenshot,
         // because the tree describes a canvas, a game, or a semantics-free native screen too poorly to act on, and the model would only
         // spend a turn asking for one. One listed control is enough to leave the decision to the model; a small page is not a blind one.
-        var screen = context.Start ?? await context.ObserveAsync().ConfigureAwait(false);
+        var screen = context.ListedStart ?? await context.ObserveListedAsync().ConfigureAwait(false);
         if (screen.Pixels is null && AgentObservation.InteractiveNodeCount(screen.Text) == 0)
         {
-            screen = await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false);
+            screen = await context.ObserveListedAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false);
         }
 
-        builder.Append('\n').Append(screen.Text);
-        if (screen.Pixels is { } pixels)
-        {
-            var mode = PixelMode.For(context);
-            mode.Shown(pixels, context.Host?.Feed.Latest?.Viewport);
-            mode.Listed(screen.Text, screen.Revision);
-            builder.Append("\n\n").Append(PixelMode.Note(pixels));
-        }
-        else if (screen.PixelsWithheld is { } withheld)
-        {
-            builder.Append("\n\nNo screenshot: ").Append(PixelMode.WithheldAdvice(withheld));
-        }
-
+        var opening = PresenterFor(context).Open(screen);
+        builder.Append('\n').Append(opening.Text);
         return
         [
             new ModelMessage
             {
                 Role = "user",
                 Content = host.Scope.Redactor.Redact(builder.ToString()),
-                Images = screen.Pixels is { } shot ? [new ModelImage(shot.Data, shot.MediaType, shot.Width, shot.Height)] : null,
+                Images = opening.Pixels is { } shot ? [new ModelImage(shot.Data, shot.MediaType, shot.Width, shot.Height)] : null,
             },
         ];
     }

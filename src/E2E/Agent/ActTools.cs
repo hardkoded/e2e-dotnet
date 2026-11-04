@@ -15,20 +15,21 @@ namespace E2E;
 
 /// <summary>
 /// The act tools as the model calls them: each call is checked, aimed at a control, and run through the step's
-/// <see cref="IExecutorActions"/>, and the answer is the screen after it. A coding agent that drives a live session over
-/// MCP runs the same tools through <see cref="Agent.RunToolAsync"/>, and passes its <see cref="ScreenPresenter"/>: the answer is then the
-/// changes since the screen the coding agent holds, as upstream's session answers. No upstream equivalent: upstream's tool loop holds
+/// <see cref="IExecutorActions"/>, and the answer is the screen after it, rendered by the step's <see cref="ScreenPresenter"/>: the changes
+/// since the screen the model holds, and a fresh screenshot once the step shows pixels. A coding agent that drives a live session over
+/// MCP runs the same tools through <see cref="Agent.RunToolAsync"/> with <c>session</c> set: its <c>observe</c> answers the whole screen,
+/// its <c>screenshot</c> is the session's own, and its action results carry no image. No upstream equivalent: upstream's tool loop holds
 /// these as closures over its <c>ToolLoopHelpers</c>.
 /// </summary>
-internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null, PixelMode? pixels = null)
+internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter screen, bool session = false)
 {
     private static readonly HashSet<string> ActionTools =
         new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
-    private readonly ScreenPresenter? _screen = screen;
-    private readonly PixelMode? _pixels = pixels;
+    private readonly ScreenPresenter _screen = screen;
+    private readonly bool _session = session;
 
     // Whether the engine has a keyboard, which a fill with no node and a point on nothing listed reach focused fields through.
     private bool Keyboard => _scope.EngineCapabilities.HasFlag(EngineCapabilities.Keyboard);
@@ -45,15 +46,15 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return _screen is null ? Outcome(await DescribeAsync("Observed.", token).ConfigureAwait(false)) : ToolOutcome.Ok(await WholeScreenAsync(token).ConfigureAwait(false));
+            return _session ? ToolOutcome.Ok(await WholeScreenAsync(token).ConfigureAwait(false)) : await DescribeOutcomeAsync("Observed.", token, keyboardNote: false).ConfigureAwait(false);
         }
 
         // screenshot looks too: it attaches the viewport's pixels, and from then on every result carries a fresh one.
-        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal) && _screen is null)
+        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal) && !_session)
         {
             try
             {
-                return Outcome(await DescribeAsync("Screenshot taken.", token, pixels: true).ConfigureAwait(false));
+                return Outcome(await DescribeAsync(null, token, pixels: true).ConfigureAwait(false));
             }
             catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
             {
@@ -244,10 +245,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         var px = coordinates[0].Value!.Value;
         var py = coordinates[1].Value!.Value;
-        if (_pixels?.Latest is not var (shot, viewport))
+        if (_screen.LatestScreenshot is not { Pixels: var shot, Viewport: { } viewport })
         {
             budget.RefundPrepaid();
-            return ToolOutcome.Ok(_pixels?.Showing == true
+            return ToolOutcome.Ok(_screen.ShowingPixels
                 ? "The screenshot has no known viewport size, so " + tool + " coordinates cannot be placed. Act on a listed node by id."
                 : "No screenshot has been taken in this step: " + tool + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id.");
         }
@@ -466,7 +467,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // The control a call names before it is found, where upstream's `#id` stands: the ref when the call has one.
     private static string ReferenceOf(JsonElement arguments) =>
         Args.String(arguments, "ref") is { } reference
-            ? "#" + reference
+            ? "#" + reference.TrimStart('#')
             : Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
 
     // A mutating tool takes an action slot and is recorded as a gap: the grammar cannot reproduce it, so a replay ends there
@@ -724,8 +725,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     private SemanticNode ResolveIn(JsonElement arguments, Observation observation)
     {
-        var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"), _scope.Redactor);
-        if (matches.Count == 0 && Args.String(arguments, "ref") is { } reference && _feed.LastSeen(reference) is { } seen && !LocatorResolver.Walk(observation.Roots).Any(node => node.Ref == reference))
+        // The id the listing prefixes with `#`, which a model copies now and then (upstream's `lookup` trims it too).
+        var id = Args.String(arguments, "ref")?.TrimStart('#');
+        var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), id, _scope.Redactor);
+        if (matches.Count == 0 && id is { } reference && _feed.LastSeen(reference) is { } seen && !LocatorResolver.Walk(observation.Roots).Any(node => node.Ref == reference))
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
@@ -751,7 +754,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     {
         try
         {
-            return Outcome(await DescribeAsync(action, token, expectChange, keyboardNote: keyboardNote).ConfigureAwait(false));
+            return Outcome(await DescribeAsync(action, token, expectChange, keyboardNote).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -759,54 +762,29 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
     }
 
-    // The screen after an action, as the model reads it: a held-still look. An action the dispatcher ran armed its own change wait already,
-    // and so did a project tool's gap.
-    // With a presenter (a session over MCP) the screen is the changes since the one the coding agent holds, the action's lead first;
-    // `expectChange` says an unchanged screen after this action is worth pointing out.
-    // Once the step shows pixels (a screenshot went to the model), every look carries a fresh one (upstream's `showingPixels`).
-    // `pixels` asks for one beside a look that would not carry it (the screenshot tool).
-    private async Task<ScreenText> DescribeAsync(string action, CancellationToken token, bool expectChange = false, bool pixels = false, bool keyboardNote = true)
+    // The screen after an action, as the model reads it: a held-still look rendered by the step's presenter (upstream's `present`). An action
+    // the dispatcher ran armed its own change wait already, and so did a project tool's gap.
+    // The screen is the changes since the one the model holds, the action's lead first; `expectChange` says an unchanged screen after this
+    // action is worth pointing out. Once the step shows pixels (a screenshot went to the model), every look carries a fresh one.
+    // `pixels` asks for one beside a look that would not carry it (the screenshot tool). A session over MCP gets the changes alone.
+    private async Task<ScreenText> DescribeAsync(string? action, CancellationToken token, bool expectChange = false, bool keyboardNote = true, bool pixels = false)
     {
-        if (_screen is not null)
+        var options = new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange, KeyboardNote = keyboardNote };
+        if (_session)
         {
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange, KeyboardNote = keyboardNote }), null);
+            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), options), null);
         }
 
-        if (!pixels && _pixels?.Showing != true)
-        {
-            // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
-            var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            if (!observation.TreeUnavailable)
-            {
-                return new ScreenText(action + "\n" + _feed.Text(observation), null);
-            }
-        }
-
-        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token).ConfigureAwait(false);
-        if (view.Pixels is { } shot)
-        {
-            var evidence = _pixels?.Shown(shot, _feed.Latest?.Viewport) ?? PixelEvidence.None;
-            var before = _pixels?.Listed(view.Text, view.Revision);
-
-            // A listing that stood still under a screenshot that moved is a repaint the tree cannot list, and the control is blamed only
-            // when the image stood still too. With no tree to describe the screen, no control is blamed.
-            var expected = expectChange && AgentObservation.InteractiveNodeCount(view.Text) > 0;
-            var stood = before is not null && !view.Truncated && AgentObservation.Shape(view.Text) == before.Value.Shape;
-            var note = stood && (evidence == PixelEvidence.Changed || (evidence == PixelEvidence.Unchanged && expected))
-                ? ScreenPresenter.RenderUnchanged(before!.Value.Revision ?? "", view, expected, evidence) + "\n"
-                : "";
-            return new ScreenText(action + "\n" + note + view.Text + "\n\n" + PixelMode.Note(shot), shot);
-        }
-
-        // The pixels the step asked for did not come: say why once and keep working from the tree. The model holds this listing now.
-        _pixels?.Listed(view.Text, view.Revision);
-        return new ScreenText(action + "\n" + view.Text + (view.PixelsWithheld is { } withheld ? "\n\nNo screenshot: " + PixelMode.WithheldAdvice(withheld) : ""), null);
+        // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
+        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = pixels || _screen.ShowingPixels }, true, token).ConfigureAwait(false);
+        var output = _screen.Present(view, options);
+        return new ScreenText(output.Text, output.Pixels);
     }
 
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
     private async Task<string> WholeScreenAsync(CancellationToken token) =>
-        _screen!.Initial(_feed.ListedView(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
+        _screen.Initial(_feed.ListedView(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
 
     // Keys whose whole effect is where the focus or the caret sits, which the tree does not record: an unchanged screen after one
     // of these is the normal outcome, not a control that did nothing (upstream's `movesFocusOnly`).

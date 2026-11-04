@@ -79,8 +79,8 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Equal(2, result.Actions);
         var toolResults = CounterPage.ToolResults(model);
         Assert.Matches("^Checked #e\\d+\\.", toolResults[0]);
-        Assert.Contains("status \"Gesture state\" text=\"agreed: true\"", toolResults[0], StringComparison.Ordinal);
-        Assert.Contains("status \"Gesture state\" text=\"agreed: true\"", toolResults[1], StringComparison.Ordinal);
+        Assert.Matches("changed #\\S+ status \"Gesture state\" text=\"agreed: true\"", toolResults[0]);
+        Assert.Contains("No listed node changed", toolResults[1], StringComparison.Ordinal);
         Assert.DoesNotContain("failed", toolResults[1], StringComparison.Ordinal);
     }
 

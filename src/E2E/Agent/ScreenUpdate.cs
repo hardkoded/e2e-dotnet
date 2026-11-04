@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Text.RegularExpressions;
+using E2E.Engine;
 
 namespace E2E;
 
@@ -25,6 +26,12 @@ internal sealed record ScreenUpdateOptions
     /// </summary>
     public bool KeyboardNote { get; init; } = true;
 }
+
+/// <summary>The screenshot the model holds newest, and the viewport it was taken of (upstream's <c>ShownScreenshot</c>).</summary>
+internal sealed record ShownScreenshot(ExecutorPixels Pixels, TraceViewport? Viewport);
+
+/// <summary>A rendered screen: the text, and the screenshot the model receives alongside it (upstream's <c>ScreenOutput</c>).</summary>
+internal sealed record ScreenOutput(string Text, ExecutorPixels? Pixels = null);
 
 /// <summary>
 /// What the screenshot going out with an update says against the one the model held (upstream's <c>PixelEvidence</c>): <see cref="None"/> when
@@ -50,9 +57,12 @@ internal enum PixelEvidence
 /// The first look goes out whole. Every look after it is compared with the screen the agent already holds and rendered as the
 /// difference: the lines that appeared, the lines that changed, the lines that went away. Node ids are stable for as long as an
 /// element exists, so a line the agent saw earlier still names the same element, and a diff is a complete update rather than a
-/// hint. A screen that changed mostly goes out whole again. Not ported: the screenshot half (<c>open</c>, <c>present</c>,
-/// <c>latestScreenshot</c>). The built-in agent keeps that state in <see cref="PixelMode"/> and prints whole screens; it reads an unchanged
-/// listing through <see cref="RenderUnchanged"/> too.
+/// hint. A screen that changed mostly goes out whole again.
+/// A screen may carry its pixels too. The presenter is where a screenshot joins the text (<see cref="Open"/>, <see cref="Present"/>): it
+/// notes the image's size and coordinate space under the screen, remembers that the model now holds pixels (from then on the step is in
+/// pixel mode, and an unchanged tree under a screenshot that moved is reported as that rather than as a failed action), and explains once
+/// why pixels the step asked for were withheld. One per step: the built-in agent's opening prompt and its tools share it
+/// (<c>DefaultAgent.PresenterFor</c>, upstream's <c>presenterFor</c>).
 /// </summary>
 internal sealed partial class ScreenPresenter
 {
@@ -70,9 +80,20 @@ internal sealed partial class ScreenPresenter
         "The on-screen keyboard closed with this action. On a touch screen a tap made while the keyboard is up can be spent on closing it: if the control you acted on shows no effect above, act on it again now that the keyboard is down.";
 
     private ShownScreen? _shown;
+    private ShownScreenshot? _screenshot;
+    private string? _screenshotDigest;
+
+    // True once the engine said it captures no screenshots at all.
+    private bool _pixelsDenied;
 
     /// <summary>The screen as the agent last received it, indexed for comparison.</summary>
     private sealed record ShownScreen(string Revision, List<string> Order, Dictionary<string, string> ById, bool Truncated, bool Keyboard);
+
+    /// <summary>True once a screenshot went to the model in this step.</summary>
+    public bool ShowingPixels => _screenshot is not null;
+
+    /// <summary>The newest screenshot the model holds; the coordinate space of <c>tap_at</c> (upstream's <c>latestScreenshot</c>).</summary>
+    public ShownScreenshot? LatestScreenshot => _screenshot;
 
     /// <summary>The first screen, whole.</summary>
     public string Initial(ExecutorObservation observation)
@@ -83,10 +104,12 @@ internal sealed partial class ScreenPresenter
     }
 
     /// <summary>A later screen, as the difference from the one the agent holds: nothing, the changed lines, or the whole screen when most of it changed.</summary>
-    public string Update(ExecutorObservation observation, ScreenUpdateOptions? options = null)
+    public string Update(ExecutorObservation observation, ScreenUpdateOptions? options = null) => Render(observation, options ?? new ScreenUpdateOptions(), PixelEvidence.None);
+
+    // The update, told what the screenshot going out with it says against the one the model held.
+    private string Render(ExecutorObservation observation, ScreenUpdateOptions options, PixelEvidence pixels)
     {
         ArgumentNullException.ThrowIfNull(observation);
-        options ??= new ScreenUpdateOptions();
         var lead = options.Lead is null ? "" : options.Lead + "\n\n";
         if (observation.TreeUnavailable)
         {
@@ -108,7 +131,7 @@ internal sealed partial class ScreenPresenter
         // A truncated screen is never called unchanged: what it left out is unknown.
         if (changes == 0 && !observation.Truncated)
         {
-            return lead + RenderUnchanged(previous.Revision, observation, options.ExpectChange, PixelEvidence.None) + closed;
+            return lead + RenderUnchanged(previous.Revision, observation, options.ExpectChange, pixels) + closed;
         }
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
@@ -123,6 +146,84 @@ internal sealed partial class ScreenPresenter
             + next.ById.Count.ToString(CultureInfo.InvariantCulture) + " nodes): " + DescribeCounts(diff) + ". " + assurance;
         return string.Join('\n', [head, .. diff]) + closed;
     }
+
+    /// <summary>The step's first screen, whole, with its screenshot when the observation carries one.</summary>
+    public ScreenOutput Open(ExecutorObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        (_screenshot, _screenshotDigest, _pixelsDenied) = (null, null, false);
+        Attach(observation);
+        return WithScreenshot(observation, Initial(observation));
+    }
+
+    /// <summary>
+    /// A later screen as the model reads it: the changes since the screen it holds and, once the step is showing pixels, the screenshot too.
+    /// On a screen the tree cannot describe (nothing interactive listed) an unchanged tree is not a failed action: what the action did may
+    /// be drawn, not listed, so the screenshot is the evidence and no action is blamed. On a screen the tree does describe, an unchanged tree
+    /// after an action means the control had no visible effect only when an identical screenshot says so too. A moved screenshot means what
+    /// changed is drawn, not listed, and the model is told to read the image; with no screenshot to compare, the model is told only that no
+    /// listed node changed.
+    /// </summary>
+    public ScreenOutput Present(ExecutorObservation observation, ScreenUpdateOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        options ??= new ScreenUpdateOptions();
+        var compared = Attach(observation);
+        var pixels = compared == PixelEvidence.None && _pixelsDenied ? PixelEvidence.Unavailable : compared;
+        var text = Render(observation, options with { ExpectChange = ShowingPixels && AgentObservation.InteractiveNodeCount(observation.Text) == 0 ? false : options.ExpectChange }, pixels);
+        return WithScreenshot(observation, text);
+    }
+
+    /// <summary>
+    /// Notes a screenshot that went to the model, with the viewport the screen had: from here on the step is in pixel mode, and a point tool
+    /// reads its coordinates against it. Returns what it says against the screenshot the model held, which keeps an unchanged tree from
+    /// being read as no effect. A session over MCP notes the shot its <c>screenshot</c> tool showed; its action results carry none.
+    /// </summary>
+    public PixelEvidence Attach(ExecutorPixels pixels, TraceViewport? viewport)
+    {
+        ArgumentNullException.ThrowIfNull(pixels);
+        var digest = AgentObservation.PixelDigest(pixels.Data);
+        var previous = _screenshotDigest;
+        _screenshot = new ShownScreenshot(pixels, viewport);
+        _screenshotDigest = digest;
+        return previous is null ? PixelEvidence.None : previous == digest ? PixelEvidence.Unchanged : PixelEvidence.Changed;
+    }
+
+    // Masking can be proven again on the next screen; an engine without capture never captures.
+    private PixelEvidence Attach(ExecutorObservation observation)
+    {
+        if (observation.PixelsWithheld == VisionDegradation.UnsupportedCapability)
+        {
+            _pixelsDenied = true;
+        }
+
+        return observation.Pixels is { } pixels ? Attach(pixels, observation.Viewport) : PixelEvidence.None;
+    }
+
+    // The rendered screen with its screenshot and the coordinate note, or with the reason the pixels the step asked for did not come, or as is
+    // when no pixels were asked for.
+    private static ScreenOutput WithScreenshot(ExecutorObservation observation, string text)
+    {
+        if (observation.Pixels is { } pixels)
+        {
+            return new ScreenOutput(text + "\n\n" + ScreenshotNote(pixels), pixels);
+        }
+
+        return observation.PixelsWithheld is { } withheld ? new ScreenOutput(text + "\n\nNo screenshot: " + WithheldAdvice(withheld)) : new ScreenOutput(text);
+    }
+
+    /// <summary>The line under a screenshot: its pixel size, its scale to the viewport's CSS pixels, and the coordinate space the point tools read (upstream's <c>screenshotNote</c>).</summary>
+    internal static string ScreenshotNote(ExecutorPixels pixels) =>
+        "Screenshot attached: " + pixels.Width.ToString(CultureInfo.InvariantCulture) + " by " + pixels.Height.ToString(CultureInfo.InvariantCulture) + " pixels"
+        + (pixels.Scale == 1 ? "" : " (" + pixels.Scale.ToString("R", CultureInfo.InvariantCulture) + " per CSS pixel)")
+        + ". Point coordinates (tap_at and the other _at verbs) are pixels of this image: x from the left edge, y from the top edge.";
+
+    /// <summary>Why pixels did not reach the model, and what to do instead (upstream's <c>withheldAdvice</c>).</summary>
+    internal static string WithheldAdvice(VisionDegradation code) => code switch
+    {
+        VisionDegradation.MaskingUnproven => "the engine could not prove every secure field on screen masked (MASKING_UNPROVEN). Work from the tree and act on the nodes it lists.",
+        _ => "this engine captures no pixels (UNSUPPORTED_CAPABILITY). Work from the tree and act on the nodes it lists.",
+    };
 
     // `2 added, 1 changed, 5 removed`, omitting the kinds that did not happen.
     private static string DescribeCounts(List<string> diff)

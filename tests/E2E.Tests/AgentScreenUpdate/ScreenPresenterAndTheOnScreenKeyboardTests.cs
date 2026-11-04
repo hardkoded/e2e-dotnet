@@ -46,9 +46,8 @@ public sealed class ScreenPresenterAndTheOnScreenKeyboardTests
     }
 
     [Fact]
-    public void Partial_Stays_quiet_on_a_truncated_listing_an_explicit_dismissal_or_a_keyboard_that_stays_or_appears()
+    public void Stays_quiet_on_a_truncated_listing_an_explicit_dismissal_or_a_keyboard_that_stays_or_appears_through_update_and_present()
     {
-        // Upstream checks `update` and `present`; the port has the first only, since `present` carries the screenshot.
         var presenter = new ScreenPresenter();
         presenter.Initial(Screen("b1", [.. Form, .. Keyboard]));
         Assert.DoesNotContain(
@@ -63,5 +62,16 @@ public sealed class ScreenPresenterAndTheOnScreenKeyboardTests
         presenter.Initial(Screen("b3", Form));
         Assert.DoesNotContain("keyboard closed", presenter.Update(Screen("b4", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n2." }), StringComparison.Ordinal);
         Assert.DoesNotContain("keyboard closed", presenter.Update(Screen("b5", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n3." }), StringComparison.Ordinal);
+        var grammar = new ScreenPresenter();
+        grammar.Open(Screen("b1", [.. Form, .. Keyboard]));
+        Assert.DoesNotContain(
+            "keyboard closed",
+            grammar.Present(Screen("b2", Form), new ScreenUpdateOptions { Lead = "Dismissed the keyboard.", ExpectChange = false, KeyboardNote = false }).Text,
+            StringComparison.Ordinal);
+        grammar.Present(Screen("b3", [.. Form, .. Keyboard]), new ScreenUpdateOptions { Lead = "Tapped #n3." });
+        Assert.Contains(
+            "The on-screen keyboard closed with this action.",
+            grammar.Present(Screen("b4", Form), new ScreenUpdateOptions { Lead = "Tapped #n7." }).Text,
+            StringComparison.Ordinal);
     }
 }

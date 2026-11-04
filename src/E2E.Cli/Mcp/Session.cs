@@ -556,7 +556,7 @@ internal sealed class SessionHost : IDisposable
         {
             try
             {
-                var navigated = await agent.RunToolAsync("navigate", Parse(JsonSerializer.Serialize(new { url = target.App.Url })), token).ConfigureAwait(false);
+                var navigated = await agent.RunToolAsync("navigate", Parse(JsonSerializer.Serialize(new { url = target.App.Url })), token, live.Catalog.Screen).ConfigureAwait(false);
                 if (!navigated.Succeeded)
                 {
                     opening = "Opening " + target.App.Url + " failed: " + (navigated.Error is null ? navigated.Content : navigated.Code + ": " + navigated.Error) + "\nUse navigate once the app is reachable.\n";

@@ -32,7 +32,7 @@ public sealed partial class CreateGrammarToolsTests
             Tools = tools,
         });
 
-    [GeneratedRegex("button \"Increment\"[^\\n]*\\[ref=(?<ref>[^\\]]+)\\]")]
+    [GeneratedRegex("#(?<ref>\\S+) button \"Increment\"")]
     private static partial Regex IncrementPattern();
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed partial class CreateGrammarToolsTests
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {
             0 => ModelResponses.Call("observe", new { }),
-            1 => ModelResponses.Call("tap", new { @ref = IncrementPattern().Match(request.Messages.Last(message => message.Role == "tool").Content!).Groups["ref"].Value }),
+            1 => ModelResponses.Call("tap", new { @ref = IncrementPattern().Match(string.Join('\n', request.Messages.Select(message => message.Content))).Groups["ref"].Value }),
             _ => ModelResponses.Done("passed", "tapped Increment"),
         });
         ActResult? act = null;
@@ -75,7 +75,7 @@ public sealed partial class CreateGrammarToolsTests
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {
             0 => ModelResponses.Call("observe", new { }),
-            1 => ModelResponses.Call("tap", new { @ref = IncrementPattern().Match(request.Messages.Last(message => message.Role == "tool").Content!).Groups["ref"].Value }),
+            1 => ModelResponses.Call("tap", new { @ref = IncrementPattern().Match(string.Join('\n', request.Messages.Select(message => message.Content))).Groups["ref"].Value }),
             _ => ModelResponses.Done("failed", "the guard stopped the tap"),
         });
         var options = new GrammarToolsOptions

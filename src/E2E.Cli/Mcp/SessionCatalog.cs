@@ -95,9 +95,8 @@ internal sealed class SessionCatalog
             Fills = fills ?? new TestLineFills([], secrets),
             TestRan = testRan,
         });
+        // The presenter also holds the latest screenshot the session showed its coding agent, which a point tool reads its coordinates against.
         var screen = new ScreenPresenter();
-        // The latest screenshot the session showed its coding agent, which a point tool reads its coordinates against.
-        var pixels = new PixelMode();
         var tools = new List<KeyValuePair<string, CatalogTool>>();
         void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
@@ -165,12 +164,12 @@ internal sealed class SessionCatalog
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
         {
-            Add("screenshot", Screenshot(context, projectRoot, attemptDir, pixels));
+            Add("screenshot", Screenshot(context, projectRoot, attemptDir, screen));
 
             // The point tools come after the screenshot they read their points from, as upstream's grammar lists them.
             foreach (var point in AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Where(tool => tool.Name.EndsWith("_at", StringComparison.Ordinal)))
             {
-                Add(point.Name, Verb(context, screen, point.Name, point.Name, point.Description, point.Parameters, pixels: pixels));
+                Add(point.Name, Verb(context, screen, point.Name, point.Name, point.Description, point.Parameters));
             }
         }
 
@@ -356,7 +355,7 @@ internal sealed class SessionCatalog
     }
 
     /// <summary>A grammar verb: the arguments are renamed to the agent tool's (<c>target</c> is its <c>ref</c>), and the tool runs as in an act.</summary>
-    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null, PixelMode? pixels = null)
+    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
     {
         return new CatalogTool
         {
@@ -378,7 +377,7 @@ internal sealed class SessionCatalog
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }
 
-                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped, pixels).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
@@ -401,7 +400,7 @@ internal sealed class SessionCatalog
         };
     }
 
-    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null, PixelMode? pixels = null)
+    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
     {
         ToolOutcome outcome;
         var target = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("target", out var node) ? node.GetString() : null;
@@ -409,7 +408,7 @@ internal sealed class SessionCatalog
         var label = subject is null ? name : name + " " + subject;
         try
         {
-            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen, pixels).ConfigureAwait(false);
+            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen).ConfigureAwait(false);
         }
         catch (E2EException ex)
         {
@@ -435,7 +434,7 @@ internal sealed class SessionCatalog
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 
-    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir, PixelMode pixels)
+    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir, ScreenPresenter screen)
     {
         return new CatalogTool
         {
@@ -453,7 +452,7 @@ internal sealed class SessionCatalog
                 var (width, height) = PngSize(shot.Png);
                 var text = "Screenshot attached: " + width.ToString(CultureInfo.InvariantCulture) + " by " + height.ToString(CultureInfo.InvariantCulture)
                     + " pixels (" + shot.Scale.ToString("0.##", CultureInfo.InvariantCulture) + " per CSS pixel).";
-                await context.Session.Agent.NoteScreenshotAsync(pixels, new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0), token).ConfigureAwait(false);
+                await context.Session.Agent.NoteScreenshotAsync(screen, new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0), token).ConfigureAwait(false);
                 if (file is not null)
                 {
                     text += "\nSaved to " + context.Session.Redactor.Redact(await SaveScreenshotAsync(context, projectRoot, attemptDir, file, token).ConfigureAwait(false));

@@ -104,6 +104,16 @@ public class StepExecutorContext
     /// <summary>The screen the step began on, settled once for the replay and the recording, which the built-in executor reads instead of a second look. No upstream equivalent.</summary>
     internal ExecutorObservation? Start { get; init; }
 
+    /// <summary><see cref="Start"/> as the presenter lists it (<c>#id</c> lines). No upstream equivalent.</summary>
+    internal ExecutorObservation? ListedStart { get; init; }
+
+    /// <summary>
+    /// <see cref="ObserveAsync"/> as the built-in agent's presenter reads it: the screen as <c>#id</c> lines. .NET-only: upstream's
+    /// <c>observe</c> returns those lines to every executor.
+    /// </summary>
+    internal virtual Task<ExecutorObservation> ObserveListedAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("This context does not observe.");
+
     /// <summary>
     /// Captures one fresh, redacted observation. The text is always present; the tree and the pixels are opt-in, so an
     /// executor that renders its own view of the screen asks for exactly what it uses.
@@ -343,6 +353,9 @@ public sealed record ExecutorObservation(string Text)
 
     /// <summary>Why requested pixels were withheld.</summary>
     public VisionDegradation? PixelsWithheld { get; init; }
+
+    /// <summary>The viewport of the capture, which a point on its screenshot is scaled into (upstream's <c>viewport</c>). Set on the listed view only.</summary>
+    internal TraceViewport? Viewport { get; init; }
 }
 
 /// <summary>
