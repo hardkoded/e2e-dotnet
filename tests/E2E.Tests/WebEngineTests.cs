@@ -318,7 +318,7 @@ public sealed class WebEngineTests
             <div role="tablist"><div role="tab" aria-selected="true">One</div><div role="tab" aria-selected="false">Two</div></div>
             <button type="button" aria-expanded="true">Menu</button>
             <button type="button" aria-pressed="true">Bold</button>
-            <div role="img" aria-label="Logo"></div>
+            <div role="img" aria-label="Logo" style="width: 20px; height: 20px"></div>
             <div style="display: none"><p>Saved</p></div>
             <p>Saved</p>
             </body></html>
