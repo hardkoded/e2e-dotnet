@@ -15,7 +15,10 @@ internal static class Helpers
     /// <summary>The app's origin, Playwright's <c>server.PREFIX</c> in the tests ported from it.</summary>
     public static string PREFIX => E2E.Playground.Testbed.Url;
 
-    /// <summary>The absolute path of one of Playwright's test assets, upstream's <c>asset</c>.</summary>
+    /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c>.</summary>
+    public static string CROSS => PREFIX.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
+
+    /// <summary>The absolute path of one of Playwright's test assets.</summary>
     public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
 
     /// <summary>What <paramref name="act"/> threw, or null when it did not throw (upstream's <c>failure</c>).</summary>

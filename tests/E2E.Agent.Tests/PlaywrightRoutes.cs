@@ -2,8 +2,11 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace E2E.Playground;
 
@@ -56,8 +59,8 @@ internal static class PlaywrightRoutes
         {
             try
             {
-                response.StatusCode = int.TryParse(query["status"], out var status) ? status : 200;
-                var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
+                response.StatusCode = int.TryParse(query["status"], CultureInfo.InvariantCulture, out var status) ? status : 200;
+                var headers = JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
                 foreach (var (header, value) in headers)
                 {
                     if (header.Equals("content-type", StringComparison.OrdinalIgnoreCase))
@@ -70,7 +73,7 @@ internal static class PlaywrightRoutes
                     }
                 }
             }
-            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException or InvalidOperationException or System.Net.ProtocolViolationException)
+            catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException or ProtocolViolationException)
             {
                 response.StatusCode = 400;
                 response.ContentType = "text/plain";
@@ -84,7 +87,7 @@ internal static class PlaywrightRoutes
 
         if (path == "/binary")
         {
-            var length = Math.Clamp(int.TryParse(query["bytes"], out var bytes) ? bytes : 1 << 20, 0, 16 << 20);
+            var length = Math.Clamp(int.TryParse(query["bytes"], CultureInfo.InvariantCulture, out var bytes) ? bytes : 1 << 20, 0, 16 << 20);
             var data = new byte[length];
             for (var i = 0; i < data.Length; i++)
             {
@@ -93,6 +96,12 @@ internal static class PlaywrightRoutes
 
             response.ContentType = "application/zip";
             await WriteAsync(response, data).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/upload")
+        {
+            await UploadAsync(context).ConfigureAwait(false);
             return;
         }
 
@@ -109,6 +118,56 @@ internal static class PlaywrightRoutes
         response.AddHeader("Cache-Control", "no-store");
         await WriteAsync(response, await File.ReadAllBytesAsync(file).ConfigureAwait(false)).ConfigureAwait(false);
     }
+
+    /// <summary>Answers a multipart form with the files it carried as JSON, as upstream's <c>/upload</c>: name, filename, mimetype, size, and the bytes (base64) of a file up to 64 KB.</summary>
+    private static async Task UploadAsync(HttpListenerContext context)
+    {
+        using var received = new MemoryStream();
+        await context.Request.InputStream.CopyToAsync(received).ConfigureAwait(false);
+        var data = received.GetBuffer().AsMemory(0, (int)received.Length);
+        var type = context.Request.ContentType ?? "";
+        var marker = type.IndexOf("boundary=", StringComparison.Ordinal);
+        var boundary = Encoding.UTF8.GetBytes("--" + (marker < 0 ? "" : type[(marker + "boundary=".Length)..]));
+        var files = new List<Dictionary<string, object?>>();
+        var start = data.Span.IndexOf(boundary);
+        while (start >= 0)
+        {
+            var afterStart = start + boundary.Length;
+            var relative = data.Span[afterStart..].IndexOf(boundary);
+            if (relative < 0)
+            {
+                break;
+            }
+
+            var next = afterStart + relative;
+            var part = data[(afterStart + 2)..(next - 2)];
+            var split = part.Span.IndexOf("\r\n\r\n"u8);
+            if (split < 0)
+            {
+                start = next;
+                continue;
+            }
+
+            var head = Encoding.UTF8.GetString(part.Span[..split]);
+            var body = part[(split + 4)..];
+            files.Add(new Dictionary<string, object?>
+            {
+                ["name"] = Capture(head, "name=\"([^\"]*)\""),
+                ["filename"] = Capture(head, "filename=\"([^\"]*)\""),
+                ["mimetype"] = Capture(head, "content-type: ([^\r\n]+)"),
+                ["size"] = body.Length,
+                ["base64"] = body.Length <= 65536 ? Convert.ToBase64String(body.Span) : null,
+            });
+            start = next;
+        }
+
+        context.Response.ContentType = "text/plain";
+        context.Response.AddHeader("Access-Control-Allow-Origin", "*");
+        await WriteAsync(context.Response, JsonSerializer.SerializeToUtf8Bytes(files)).ConfigureAwait(false);
+    }
+
+    private static string? Capture(string text, string pattern) =>
+        Regex.Match(text, pattern, RegexOptions.IgnoreCase) is { Success: true } match ? match.Groups[1].Value : null;
 
     private static byte[] FromBase64Url(string value)
     {
