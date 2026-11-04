@@ -1184,17 +1184,28 @@ public sealed partial class WebEngine : IEngine
         /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
         /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
         /// resolve is the tree's, and only a <c>selector</c> or <c>frame</c> expression asks Playwright which elements it names
-        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken)"/>). <paramref name="timeout"/> is the budget left for the
+        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken, Forcing)"/>). <paramref name="timeout"/> is the budget left for the
         /// wait: the read runs under it, or under the action timeout when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
             var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
+            var projected = expression;
+            if (WebLocators.NeedsPage(expression))
+            {
+                var forcing = new Forcing();
+                projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, forcing)).ConfigureAwait(false);
+                if (forcing.Marked)
+                {
+                    // Upstream reads whatever the selector matches; here the observation lists those elements first, then the expression is
+                    // projected onto it again, so every match is a node of the observation the caller acts on.
+                    observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
+                    projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, new Forcing())).ConfigureAwait(false);
+                }
+            }
+
             _trace?.ShowScreen(observation);
-            var projected = WebLocators.NeedsPage(expression)
-                ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
-                : expression;
             var matches = LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
             // As upstream's locate: a single match keeps the strict locator, so a node that turns ambiguous between locate and perform
             // is stale instead of acted on. A match of several is pinned to its own element, and so is every match of a predicate
@@ -1210,16 +1221,17 @@ public sealed partial class WebEngine : IEngine
         /// <summary>
         /// The expression with every <c>selector</c> and <c>frame</c> in it replaced by the nodes Playwright says it names, as <c>refs</c>:
         /// the elements the page script listed in the observation just taken, which is every element that has a ref. An element the tree
-        /// leaves out (no role, test id, or text of its own) matches nothing, and so does the content of a frame it does not show.
+        /// leaves out (no role, test id, or text of its own) is marked in <paramref name="forcing"/> and has no ref yet: the caller observes
+        /// again, which lists it, and projects once more. The content of a frame the tree does not show matches nothing.
         /// Upstream's <c>project</c> (<c>locators.ts</c>) and <c>frameBox</c> (<c>surface.ts</c>), over the tree.
         /// </summary>
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken, Forcing forcing)
         {
             WebLocators.FrameSelectors(expression);
             var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
             try
             {
-                return await ProjectAsync(expression, budget).ConfigureAwait(false);
+                return await ProjectAsync(expression, budget, forcing).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1227,23 +1239,23 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, OperationBudget budget)
+        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, OperationBudget budget, Forcing forcing)
         {
             switch (expression.Kind)
             {
                 case "union":
-                    return expression with { Left = await ProjectAsync(expression.Left!, budget).ConfigureAwait(false), Right = await ProjectAsync(expression.Right!, budget).ConfigureAwait(false) };
+                    return expression with { Left = await ProjectAsync(expression.Left!, budget, forcing).ConfigureAwait(false), Right = await ProjectAsync(expression.Right!, budget, forcing).ConfigureAwait(false) };
                 case "filter":
                     return expression with
                     {
-                        Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false),
-                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!, "has"), budget).ConfigureAwait(false),
-                        HasNot = expression.HasNot is null ? null : await ProjectAsync(WithinSource(expression.HasNot, expression.Source!, "hasNot"), budget).ConfigureAwait(false),
+                        Source = await ProjectAsync(expression.Source!, budget, forcing).ConfigureAwait(false),
+                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!, "has"), budget, forcing).ConfigureAwait(false),
+                        HasNot = expression.HasNot is null ? null : await ProjectAsync(WithinSource(expression.HasNot, expression.Source!, "hasNot"), budget, forcing).ConfigureAwait(false),
                     };
                 case "index":
-                    return expression with { Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false) };
+                    return expression with { Source = await ProjectAsync(expression.Source!, budget, forcing).ConfigureAwait(false) };
                 case "selector":
-                    return Named(await RefsOfAsync([], expression.Selector!, budget).ConfigureAwait(false));
+                    return Named(await RefsOfAsync([], expression.Selector!, budget, forcing).ConfigureAwait(false));
                 case "frame":
                     {
                         var frames = new List<string>();
@@ -1257,14 +1269,14 @@ public sealed partial class WebEngine : IEngine
                         var frame = await FrameAsync(frames, budget).ConfigureAwait(false);
                         return leaf.Kind switch
                         {
-                            "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget).ConfigureAwait(false)),
+                            "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget, forcing).ConfigureAwait(false)),
                             "role" or "text" or "label" or "testid" or "placeholder" or "displayValue" when leaf.Parent is null => leaf with { Parent = Named([frame]) },
                             _ => throw new EngineException("UNSUPPORTED_CAPABILITY", "a frame scopes a query or a selector, not " + leaf.Kind, retryable: false),
                         };
                     }
 
                 default:
-                    return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget).ConfigureAwait(false) };
+                    return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget, forcing).ConfigureAwait(false) };
             }
         }
 
@@ -1322,8 +1334,11 @@ public sealed partial class WebEngine : IEngine
             return node ?? throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: it is hidden, or the page changed after it", retryable: true);
         }
 
-        /// <summary>The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page.</summary>
-        private async Task<List<string>> RefsOfAsync(IReadOnlyList<string> frames, string selector, OperationBudget budget)
+        /// <summary>
+        /// The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page. An element
+        /// the observation does not list is marked in the page and counted in <paramref name="forcing"/>: the next observation lists it.
+        /// </summary>
+        private async Task<List<string>> RefsOfAsync(IReadOnlyList<string> frames, string selector, OperationBudget budget, Forcing forcing)
         {
             WebLocators.RefuseCapture(selector);
             IFrameLocator? scope = null;
@@ -1333,8 +1348,9 @@ public sealed partial class WebEngine : IEngine
             }
 
             var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
-            // One round trip for every match: an element the observation did not list has no ref, and is no node.
-            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>("els => els.map(" + PageScript.RefOf.Trim() + ")")).ConfigureAwait(false);
+            // One round trip for every match.
+            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce)).ConfigureAwait(false);
+            forcing.Marked |= found.Any(id => id is null);
             return found.OfType<string>().ToList();
         }
 
@@ -2580,7 +2596,19 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
-                var projected = WebLocators.NeedsPage(expression) ? await ProjectAsync(expression, budget).ConfigureAwait(false) : expression;
+                var projected = expression;
+                if (WebLocators.NeedsPage(expression))
+                {
+                    var forcing = new Forcing();
+                    projected = await ProjectAsync(expression, budget, forcing).ConfigureAwait(false);
+                    if (forcing.Marked)
+                    {
+                        // The twin check keeps the page's elements as the located node's observation set them, forced ones included.
+                        roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                        projected = await ProjectAsync(expression, budget, new Forcing()).ConfigureAwait(false);
+                    }
+                }
+
                 var observation = new Observation { Route = Route, Roots = roots.Select(each => ToNode(each, _testIdAttribute)).ToList() };
                 if (LocatorResolver.Resolve(observation, projected, expression.IncludeHidden).Count > 1)
                 {
@@ -3668,6 +3696,15 @@ public sealed partial class WebEngine : IEngine
     private sealed record TargetIdentity(string TargetId, string? BrowserContextId);
 
     private sealed record SessionBinding(IBrowser Browser, IBrowserContext Context, IPage? Page, string ContextId, TargetIdentity? Target);
+
+    /// <summary>
+    /// Whether a projection met a <c>selector</c> match the observation does not list. .NET-only: upstream reads every match through its
+    /// <c>e2e-read</c> engine, and the port's reader is the observation, so those matches are listed by a second observation first.
+    /// </summary>
+    private sealed class Forcing
+    {
+        public bool Marked { get; set; }
+    }
 
     private sealed class FrameWalk
     {

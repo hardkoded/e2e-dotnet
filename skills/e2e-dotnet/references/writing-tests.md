@@ -441,8 +441,9 @@ misses.
   keyboard and mouse.
 - `Locator("css or xpath")`: a locator from a raw CSS or XPath selector, for a
   control no role, label, or test-id query names. Not portable: a last resort.
-  It reads the same tree as `Screen`, so an element the tree leaves out (no
-  role, test id, or text of its own) matches nothing. A selector that
+  It matches any element in the document (`body`, `html`, a wrapper `div`), as
+  Playwright does; an element the tree does not list is read when the locator
+  resolves. A selector that
   captures with `*` before its last part (`*css=ul >> li`) fails with
   `INVALID_LOCATOR`; `Filter(has)` narrows instead.
 - `FrameLocator("#payment")`: a `Screen` scoped to one iframe
