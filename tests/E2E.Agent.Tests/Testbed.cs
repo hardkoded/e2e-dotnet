@@ -929,6 +929,7 @@ internal static class Testbed
             url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
             listener = new HttpListener();
             listener.Prefixes.Add(url);
+            listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
             try
             {
                 listener.Start();
@@ -1014,10 +1015,25 @@ internal static class Testbed
             }
             else
             {
-                await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                // The Playwright routes hold requests open (/never, /sse, /ws), so they do not block the loop.
+                _ = ServePlaywrightRoutesAsync(context);
+                continue;
             }
 
             response.Close();
+        }
+    }
+
+    private static async Task ServePlaywrightRoutesAsync(HttpListenerContext context)
+    {
+        try
+        {
+            await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+            context.Response.Close();
+        }
+        catch (Exception)
+        {
+            context.Response.Abort();
         }
     }
 
