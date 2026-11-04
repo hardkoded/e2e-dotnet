@@ -121,6 +121,7 @@ public class TextMatchOptions
     /// <c>visible</c>, and content under <c>content-visibility: hidden</c> or a
     /// closed <c>details</c>; a child that sets <c>visibility: visible</c> under a
     /// hidden parent is visible, and an <c>aria-hidden</c> node that paints is visible.
+    /// Everything inside a hidden <c>iframe</c> is hidden, cross-origin frames included.
     /// Role queries never match hidden or <c>aria-hidden</c> nodes, whatever this says.
     /// </summary>
     public bool Visible { get; init; }
