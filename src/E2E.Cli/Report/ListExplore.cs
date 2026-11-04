@@ -12,8 +12,9 @@ namespace E2E.Cli.Report;
 /// The list reporter's view of an <c>e2e explore</c> run, fed by its progress: the exploration steps by title as they finish, each
 /// finding the moment it is reported, and at the end the record, a <c>Findings</c> section with the evidence, and the assessment.
 /// An exploration is one synthetic test whose failure is its verdict, so the view stands in for the file block, the test line, and
-/// the <c>Failed Tests</c> entry that test would get. The port has no live window, so the view has no running rows; and no engine
-/// events, so a step line counts no actions.
+/// the <c>Failed Tests</c> entry that test would get. <c>e2e explore</c> prints it without the live window and counts no actions in a step
+/// line, since its output does not read the run's engine events; <see cref="ListReporter"/> feeds those to <see cref="Action"/> and paints
+/// <see cref="LiveRows"/>.
 /// </summary>
 internal sealed class ExploreView
 {
@@ -23,8 +24,22 @@ internal sealed class ExploreView
     /// <summary>Indentation of the exploration's rows under its header.</summary>
     private const string RowIndent = "   ";
 
-    /// <summary>Upstream's <c>WIDTH_MARGIN</c>: columns left free at the right edge.</summary>
-    private const int WidthMargin = 2;
+    /// <summary>Indentation of the detail under a running exploration in the live window.</summary>
+    private const string LiveIndent = "       ";
+
+    /// <summary>Most recent calls of the step in progress the live window shows.</summary>
+    private const int MaxEvents = 6;
+
+    /// <summary>Rows the live window spends around the exploration: blank lines and the margin above the prompt.</summary>
+    private const int ChromeRows = 6;
+
+    /// <summary>Rows reserved for the exploration from the first paint, so the summary below does not jump.</summary>
+    private const int ReservedRowsFloor = 14;
+
+    /// <summary>The tool call a finding stands in for; its own event is not an action.</summary>
+    private const string FindingToolEvent = "tool:report_finding";
+
+    private const string DownRight = "↳";
 
     /// <summary>Width of the label gutter in a finding's block: four for the number, then <c>expected  </c>.</summary>
     private const int DetailLabelWidth = 8;
@@ -32,7 +47,6 @@ internal sealed class ExploreView
     private const string DetailIndent = "    ";
 
     private readonly Colors _pc;
-    private readonly int _columns;
     private readonly string _goal;
     private readonly ExploreBudgets _budgets;
     private readonly List<FinishedStep> _steps = [];
@@ -41,19 +55,29 @@ internal sealed class ExploreView
     private ExploreProgress.Planning? _planning;
     private ReportExploreEnded? _ended;
     private string? _summary;
+    private readonly TimeProvider _time;
+    private readonly long _startedMs;
 
-    public ExploreView(Colors pc, ExploreProgress.Started started, int columns)
+    /// <summary>The exploration test's artifacts, once its result arrived: where a finding's screenshot is.</summary>
+    private IReadOnlyList<(string Id, string? Path)> _artifacts = [];
+
+    /// <summary>High-water mark of the live rows; the window pads up to it.</summary>
+    private int _reservedRows = ReservedRowsFloor;
+
+    /// <summary><paramref name="time"/> is the clock the live rows count the exploration's time by (upstream's <c>now</c>).</summary>
+    public ExploreView(Colors pc, ExploreProgress.Started started, TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(pc);
         ArgumentNullException.ThrowIfNull(started);
         _pc = pc;
-        _columns = columns;
         _goal = started.Goal;
         _budgets = started.Budgets;
+        _time = time ?? TimeProvider.System;
+        _startedMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
     }
 
     /// <summary>The step that finished last, with what the view counted while it ran.</summary>
-    public (ReportExploreStep Step, int Findings)? LastStep => _steps.Count == 0 ? null : (_steps[^1].Step, _steps[^1].Findings);
+    public FinishedStep? LastStep => _steps.Count == 0 ? null : _steps[^1];
 
     private IEnumerable<ReportExploreFinding> Issues => _findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue);
 
@@ -70,12 +94,12 @@ internal sealed class ExploreView
                 _open = new OpenStep(started.Step);
                 break;
             case ExploreProgress.StepFinished finished:
-                _steps.Add(new FinishedStep(finished.Step, _open?.Findings ?? 0));
+                _steps.Add(new FinishedStep(finished.Step, _open?.Actions ?? 0, _open?.Findings.Count ?? 0));
                 _open = null;
                 break;
             case ExploreProgress.FindingReported reported:
                 _findings.Add(reported.Finding);
-                _open?.AddFinding();
+                _open?.Findings.Add(reported.Finding);
                 break;
             case ExploreProgress.Finished finished:
                 _planning = null;
@@ -85,31 +109,62 @@ internal sealed class ExploreView
         }
     }
 
+    /// <summary>Counts one engine event of the step in progress as an action; the finding tool's own call is the finding.</summary>
+    public void Action(Reports.StepEvent stepEvent)
+    {
+        ArgumentNullException.ThrowIfNull(stepEvent);
+        if (_open is null || stepEvent.Kind != Reports.StepEventKind.Engine || stepEvent.Name == FindingToolEvent)
+        {
+            return;
+        }
+
+        _open.Actions++;
+    }
+
+    /// <summary>The exploration test's result arrived: keep its artifacts, so findings can name their screenshots.</summary>
+    public void Result(IEnumerable<(string Id, string? Path)> artifacts)
+    {
+        ArgumentNullException.ThrowIfNull(artifacts);
+        _artifacts = [.. artifacts];
+    }
+
     /// <summary>
     /// Whether the exploration's error is the verdict the findings already express: issues were found, so the run failed.
     /// Anything else (a provider failure, a run that explored nothing) is a failure worth its own entry.
     /// </summary>
-    public bool IsVerdict(E2EException error)
+    public bool IsVerdict(string code)
     {
-        ArgumentNullException.ThrowIfNull(error);
-        return error.Code == "ASSERTION_FAILED" && Issues.Any();
+        ArgumentNullException.ThrowIfNull(code);
+        return code == "ASSERTION_FAILED" && Issues.Any();
     }
 
-    /// <summary>` ❯ |web| Exploring  goal`.</summary>
-    public string Header(string badge) =>
-        " " + _pc.Bold(_pc.Yellow(Format.Pointer)) + " " + (badge.Length == 0 ? "" : badge + " ") + _pc.Bold("Exploring") + "  " + Format.Bounded(TextRules.Collapse(_goal));
-
-    /// <summary>One finished step: glyph, number, title, then duration, findings, and a non-passed status; its explanation under it.</summary>
-    public IReadOnlyList<string> StepLines((ReportExploreStep Step, int Findings) finished, string indent = RowIndent)
+    /// <summary>
+    /// <c> ❯ |web| Exploring  goal</c>; the goal clipped to <paramref name="maxWidth"/> when given. Once over, the glyph is the verdict: a cross when
+    /// issues were found or the exploration never concluded, a check otherwise.
+    /// </summary>
+    public string Header(string badge, ExploreVerb verb = ExploreVerb.Exploring, int? maxWidth = null)
     {
-        var (step, findings) = finished;
+        var glyph = verb == ExploreVerb.Exploring
+            ? _pc.Yellow(Format.Pointer)
+            : _ended is null || Issues.Any() ? _pc.Red(Format.Cross) : _pc.Green(Format.Check);
+        var head = " " + _pc.Bold(glyph) + " " + (badge.Length == 0 ? "" : badge + " ") + _pc.Bold(verb.ToString()) + "  ";
+        var goal = TextRules.Collapse(_goal);
+        return head + (maxWidth is not { } width ? Format.Bounded(goal) : Format.FitColumns(goal, Math.Max(24, width - Format.VisibleWidth(head))));
+    }
+
+    /// <summary>One finished step: glyph, number, title, then duration, actions, findings, and a non-passed status; its explanation under it.</summary>
+    public IReadOnlyList<string> StepLines(FinishedStep finished, string indent = RowIndent)
+    {
+        var (step, actions, findings) = finished;
         var glyph = step.Status switch
         {
             ReportExploreStepStatus.Passed => _pc.Green(Format.Check),
             ReportExploreStepStatus.Failed => _pc.Red(Format.Cross),
             _ => _pc.Yellow(Format.Cross),
         };
-        var tail = string.Join(" · ", new[] { Format.FormatTime(step.Duration) }.Concat(findings > 0 ? [Count(findings, "finding")] : []));
+        var tail = string.Join(
+            " · ",
+            new[] { Format.FormatTime(step.Duration) }.Concat(actions > 0 ? [Count(actions, "action")] : []).Concat(findings > 0 ? [Count(findings, "finding")] : []));
         var status = step.Status switch
         {
             ReportExploreStepStatus.Failed => "failed",
@@ -126,7 +181,7 @@ internal sealed class ExploreView
         // A step that did not pass explains itself; a passed step's summary is the planner's, not the reader's.
         if (step.Status != ReportExploreStepStatus.Passed && step.Summary is not null)
         {
-            var room = _columns - WidthMargin - indent.Length - 5;
+            var room = Format.TerminalColumns() - LiveWindow.WidthMargin - indent.Length - 5;
             lines.Add(indent + "     " + _pc.Dim(Format.FitColumns(TextRules.Collapse(step.Summary), Math.Max(24, room))));
         }
 
@@ -139,6 +194,82 @@ internal sealed class ExploreView
         ArgumentNullException.ThrowIfNull(finding);
         var location = finding.Path is null ? "" : _pc.Dim(" (" + Format.Bounded(finding.Path) + ")");
         return indent + SeverityColor(finding, FindingGlyph + " " + Grade(finding)) + "  " + Format.Bounded(TextRules.Collapse(finding.Title)) + location;
+    }
+
+    /// <summary>
+    /// The live window's running area: the header with its clock, the finished steps, and the step in progress with its latest calls and findings in
+    /// time order, or the planner deciding. Sized to the screen as the running tree is: the step in progress has priority, older finished steps fold.
+    /// </summary>
+    public IReadOnlyList<string> LiveRows(string badge, IReadOnlyList<Reports.StepEvent>? events, IReadOnlyList<string> summary, long now, int room)
+    {
+        ArgumentNullException.ThrowIfNull(summary);
+        var columns = Format.TerminalColumns() - LiveWindow.WidthMargin;
+        var clock = _pc.Bold(_pc.Yellow(Format.FormatTime(TimeSpan.FromMilliseconds(Math.Max(0, now - _startedMs)))));
+        List<string> lines = [Header(badge, ExploreVerb.Exploring, columns - Format.VisibleWidth(clock) - 1) + " " + clock];
+        var capacity = Format.TerminalRows() - summary.Count - ChromeRows;
+        var budget = capacity - 1;
+        var current = CurrentRows(events, now, budget);
+        budget -= current.Count;
+        var finished = _steps.SelectMany(step => StepLines(step, LiveIndent)).ToList();
+        if (budget > 0)
+        {
+            var folded = finished.Count - budget + 1;
+            lines.AddRange(folded > 1 ? [LiveIndent + _pc.Dim($"… {folded} earlier rows"), .. finished.Skip(folded)] : finished);
+        }
+
+        lines.AddRange(current);
+        _reservedRows = Math.Min(capacity, Math.Max(_reservedRows, lines.Count));
+        RunningTree.PadToScreen(lines, _reservedRows, room - RunningTree.FrameRows - summary.Count);
+        return ["", .. lines, "", .. summary, ""];
+    }
+
+    /// <summary>The step in progress, or the planner at work, at most <paramref name="budget"/> rows.</summary>
+    private List<string> CurrentRows(IReadOnlyList<Reports.StepEvent>? events, long now, int budget)
+    {
+        if (_ended is not null || budget < 1)
+        {
+            return [];
+        }
+
+        if (_open is null)
+        {
+            if (_planning is not { } planning)
+            {
+                return [];
+            }
+
+            var what = planning.Closing ? "the closing assessment" : $"step {_steps.Count + 1} of {_budgets.MaxSteps}";
+            return [.. new[] { LiveIndent + _pc.Dim($"{DownRight} planning {what}"), LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking") }.Take(budget)];
+        }
+
+        var step = _open.Step;
+        List<string> rows = [LiveIndent + _pc.Dim($"{DownRight} {step.Index}  ") + Format.Bounded(step.Title) + " " + _pc.Dim($"(step {step.Index} of {_budgets.MaxSteps})")];
+        var timeline = Timeline(events ?? []);
+        var shown = Math.Min(MaxEvents, Math.Max(0, budget - 2));
+        var overflow = timeline.Count - shown;
+        if (overflow > 0)
+        {
+            rows.Add(LiveIndent + "  " + _pc.Dim($"… {overflow} earlier call{(overflow == 1 ? "" : "s")}"));
+        }
+
+        rows.AddRange((overflow > 0 ? timeline.Skip(overflow) : timeline).Select(row => LiveIndent + "  " + row));
+        rows.Add(LiveIndent + "  " + RunningTree.WaitingRow(_pc, now, "Thinking"));
+        return [.. rows.Take(budget)];
+    }
+
+    /// <summary>The step's calls and its findings, interleaved by time; the finding tool's own call gives way to the finding.</summary>
+    private List<string> Timeline(IReadOnlyList<Reports.StepEvent> events)
+    {
+        var maxWidth = Format.TerminalColumns() - LiveWindow.WidthMargin - LiveIndent.Length - 2;
+        return
+        [
+            .. events
+                .Where(stepEvent => stepEvent.Name != FindingToolEvent)
+                .Select(stepEvent => (At: stepEvent.StartedAt, Row: ListSteps.EventLine(_pc, stepEvent, maxWidth)))
+                .Concat((_open?.Findings ?? []).Select(finding => (At: finding.ReportedAt, Row: FindingLine(finding, ""))))
+                .OrderBy(entry => entry.At)
+                .Select(entry => entry.Row),
+        ];
     }
 
     /// <summary>The summary's <c>Findings</c> and <c>Steps</c> rows, in place of <c>Test Files</c> and <c>Tests</c>.</summary>
@@ -178,12 +309,12 @@ internal sealed class ExploreView
     }
 
     /// <summary>
-    /// The permanent record once the run is over. The steps streamed as they finished, so only why the exploration ended is left
-    /// to say.
+    /// The permanent record once the run is over. With a live window (<paramref name="withSteps"/>) it was the steps' only home, so the header and
+    /// every step print here; without one they streamed as they finished, and only why the exploration ended is left to say.
     /// </summary>
-    public IReadOnlyList<string> Record()
+    public IReadOnlyList<string> Record(string badge, bool withSteps)
     {
-        List<string> lines = [];
+        List<string> lines = withSteps ? ["", Header(badge, ExploreVerb.Explored), .. _steps.SelectMany(step => StepLines(step))] : [];
         if (_steps.Count == 0)
         {
             lines.Add(RowIndent + _pc.Dim("no step ran"));
@@ -197,7 +328,7 @@ internal sealed class ExploreView
     /// The <c>Findings</c> section: a banner, then one block per finding, issues before warnings and the most severe first, each
     /// with where it was seen, what was expected against what the screen showed, the actions that reach it, and its screenshot.
     /// </summary>
-    public IReadOnlyList<string> FindingsSection(IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
+    public IReadOnlyList<string> FindingsSection(Func<string, string> displayPath, string? artifactsRoot)
     {
         if (_findings.Count == 0)
         {
@@ -234,7 +365,7 @@ internal sealed class ExploreView
                 lines.AddRange(Detail(i == 0 ? "steps" : "", (i + 1).ToString(CultureInfo.InvariantCulture) + ". " + finding.Reproduction[i]));
             }
 
-            if (Screenshot(finding, artifacts, artifactsRoot, displayPath) is { } screenshot)
+            if (Screenshot(finding, displayPath, artifactsRoot) is { } screenshot)
             {
                 lines.Add(DetailIndent + _pc.Dim("evidence".PadRight(DetailLabelWidth)) + "  " + _pc.Cyan(Format.Bounded(screenshot)));
             }
@@ -246,9 +377,9 @@ internal sealed class ExploreView
     }
 
     /// <summary>The path of a finding's screenshot as the reporter shows paths; null when no artifact of the run has the finding's id.</summary>
-    private static string? Screenshot(ReportExploreFinding finding, IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
+    private string? Screenshot(ReportExploreFinding finding, Func<string, string> displayPath, string? artifactsRoot)
     {
-        if (finding.ArtifactId is null || artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId)?.Path is not { } path)
+        if (finding.ArtifactId is null || _artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId).Path is not { } path)
         {
             return null;
         }
@@ -264,7 +395,7 @@ internal sealed class ExploreView
             return [];
         }
 
-        var width = Math.Max(24, _columns - RowIndent.Length - WidthMargin);
+        var width = Math.Max(24, Format.TerminalColumns() - RowIndent.Length - LiveWindow.WidthMargin);
         return [" " + _pc.Bold("Assessment"), .. Wrap(Format.Bounded(_summary), width).Select(line => RowIndent + line)];
     }
 
@@ -305,14 +436,14 @@ internal sealed class ExploreView
     {
         var gutterWidth = DetailIndent.Length + DetailLabelWidth + 2;
         var blank = new string(' ', gutterWidth);
-        return Wrap(TextRules.Collapse(Format.Bounded(text)), Math.Max(24, _columns - gutterWidth)).Select((line, index) =>
+        return Wrap(TextRules.Collapse(Format.Bounded(text)), Math.Max(24, Format.TerminalColumns() - gutterWidth)).Select((line, index) =>
             (index == 0 ? DetailIndent + _pc.Dim(label.PadRight(DetailLabelWidth)) + "  " : blank) + line);
     }
 
     private string Banner(string message, Func<string, string> color)
     {
         var label = _pc.Bold(_pc.Inverse(" " + message + " "));
-        var (before, after) = Format.Rule(label, _columns);
+        var (before, after) = Format.Rule(label, RuleAlign.Center);
         return color(before) + color(label) + color(after);
     }
 
@@ -349,14 +480,22 @@ internal sealed class ExploreView
         return lines;
     }
 
-    private sealed record FinishedStep(ReportExploreStep Step, int Findings);
+    /// <summary>One finished exploration step with what the view counted while it ran (upstream's <c>FinishedStep</c>).</summary>
+    internal sealed record FinishedStep(ReportExploreStep Step, int Actions, int Findings);
 
     private sealed class OpenStep(OpenedStep step)
     {
         public OpenedStep Step { get; } = step;
 
-        public int Findings { get; private set; }
+        public int Actions { get; set; }
 
-        public void AddFinding() => Findings++;
+        public List<ReportExploreFinding> Findings { get; } = [];
     }
+}
+
+/// <summary>The verb of an exploration's header (upstream's <c>'Exploring' | 'Explored'</c>).</summary>
+internal enum ExploreVerb
+{
+    Exploring,
+    Explored,
 }

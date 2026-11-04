@@ -96,7 +96,7 @@ internal static partial class ListReporterKit
         new(output, new ListReporterOptions { Colors = false, Live = live }, time ?? (live ? new FakeTime(DateTimeOffset.UnixEpoch) : null));
 
     /// <summary>Upstream's <c>attempt()</c>.</summary>
-    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1", long durationMs = 120) =>
+    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1", long durationMs = 120, IReadOnlyList<ReportArtifact>? artifacts = null) =>
         new()
         {
             Id = id,
@@ -105,6 +105,7 @@ internal static partial class ListReporterKit
             Status = status,
             Error = error,
             Steps = steps ?? [],
+            Artifacts = artifacts ?? [],
         };
 
     /// <summary>Upstream's <c>failedAttempt()</c>.</summary>
@@ -115,8 +116,8 @@ internal static partial class ListReporterKit
     public static TestStartedEvent TestStarted(string testId, string title, string target, string file = "tests/case.e2e.ts", string agent = "default", string? serialId = null) =>
         new(testId, agent, 0, title, file, serialId, target);
 
-    /// <summary>The <c>step</c> event of the default agent's first run of <paramref name="testId"/>, on <c>chromium</c>.</summary>
-    public static StepProgressEvent Step(string testId, StepProgress progress, string agent = "default") => new(testId, agent, 0, "chromium", StepProgressWire.Public(progress));
+    /// <summary>The <c>step</c> event of the default agent's first run of <paramref name="testId"/>, on <c>chromium</c> unless <paramref name="target"/> says otherwise.</summary>
+    public static StepProgressEvent Step(string testId, StepProgress progress, string agent = "default", string target = "chromium") => new(testId, agent, 0, target, StepProgressWire.Public(progress));
 
     /// <summary>Upstream's <c>agentStep()</c> of <c>describe('step streaming')</c>: an agent step's <c>start</c> or <c>end</c> progress.</summary>
     public static StepProgress AgentStep(StepProgressPhase phase, string label, StepStatus status = StepStatus.Passed) =>

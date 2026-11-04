@@ -63,8 +63,6 @@ internal static partial class ExploreCommand
           130  interrupted by Ctrl-C
         """;
 
-    private const int DefaultColumns = 80;
-
     /// <summary>The flags that take a value.</summary>
     private static readonly HashSet<string> ValueFlags = new(["--config", "--target", "--agent", "--max-steps", "--timeout", "--output"], StringComparer.Ordinal);
 
@@ -137,7 +135,6 @@ internal static partial class ExploreCommand
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
         var target = parsed.Target ?? config?.Targets[0].Name;
         var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");
-        var columns = interactive ? WindowWidth() : DefaultColumns;
         var gate = new object();
         ExploreView? view = null;
         var startedAt = DateTimeOffset.Now;
@@ -154,7 +151,7 @@ internal static partial class ExploreCommand
                 var progress = Redact(moment, redactor);
                 if (progress is ExploreProgress.Started started)
                 {
-                    view = new ExploreView(pc, started, columns);
+                    view = new ExploreView(pc, started);
                     Print("");
                     Print(view.Header(badge));
                     return;
@@ -227,21 +224,22 @@ internal static partial class ExploreCommand
             if (view is not null)
             {
                 var root = cwd ?? Directory.GetCurrentDirectory();
-                foreach (var line in view.Record().Concat(view.FindingsSection(outcome.Artifacts, outcome.ArtifactsRoot, target => DisplayPath(root, target))).Concat(view.Assessment()))
+                view.Result(outcome.Artifacts.Select(artifact => (artifact.Id, artifact.Path)));
+                foreach (var line in view.Record(badge, withSteps: false).Concat(view.FindingsSection(target => DisplayPath(root, target), outcome.ArtifactsRoot)).Concat(view.Assessment()))
                 {
                     Print(line);
                 }
             }
 
             // The verdict is the findings; any other error is a failure of its own.
-            if (outcome.Error is { } error && view?.IsVerdict(error) != true)
+            if (outcome.Error is { } error && view?.IsVerdict(error.Code) != true)
             {
                 Print("");
                 Print(" " + pc.Bold(pc.Red(error.Code)) + ": " + Format.Bounded(redactor.Redact(error.Message)));
             }
 
             Print("");
-            foreach (var row in (view ?? new ExploreView(pc, new ExploreProgress.Started(outcome.Explore.Goal, outcome.Explore.Budgets), columns)).SummaryRows())
+            foreach (var row in (view ?? new ExploreView(pc, new ExploreProgress.Started(outcome.Explore.Goal, outcome.Explore.Budgets))).SummaryRows())
             {
                 Print(row);
             }
@@ -286,18 +284,6 @@ internal static partial class ExploreCommand
     private static string Notice(string message) => "e2e explore: " + Format.Bounded(message);
 
     private static int Milliseconds(TimeSpan time) => (int)time.TotalMilliseconds;
-
-    private static int WindowWidth()
-    {
-        try
-        {
-            return Console.WindowWidth > 0 ? Console.WindowWidth : DefaultColumns;
-        }
-        catch (IOException)
-        {
-            return DefaultColumns;
-        }
-    }
 
     /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
     private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory, out bool failed)

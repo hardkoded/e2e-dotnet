@@ -210,6 +210,9 @@ public static class Explore
             state.Subscribe(listener);
         }
 
+        // The run's event spine carries the exploration too, so a reporter on it renders the moments with the test's own events.
+        state.Subscribe(progress => RunEvents.Emit(new ExploreEvent(progress)));
+
         var resolved = ResolvedAgent.From(agentName, entry);
         var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)));
         var resolvedExplorer = ResolvedAgent.From(agentName, explorer);
@@ -265,7 +268,6 @@ public static class Explore
                 CacheMode = CacheMode.Off,
                 TestTitle = state.Goal,
                 TestFile = ExploreFile,
-                EmitRunEvents = false,
                 TestTimeout = budgets.Timeout + TimeoutGrace,
                 LaunchTimeout = config.LaunchTimeout,
                 CleanupTimeout = config.CleanupTimeout,

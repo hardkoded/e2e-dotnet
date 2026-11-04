@@ -36,8 +36,9 @@ internal sealed record ListReporterOptions
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Repeats</c>, <c>Warnings</c>, <c>Errors</c>,
 /// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>), a test's console output, and the live window
 /// (<see cref="LiveWindow"/> and <see cref="RunningTree"/>). Without a live window each finished agent step prints at once and a test prints as it
-/// finishes; with one, the steps wait under their test in the file block. A failure also prints its code frame and its video rows. Not ported:
-/// serial groups and the live rows of the exploration view.
+/// finishes; with one, the steps wait under their test in the file block. A failure also prints its code frame and its video rows. An exploration
+/// (<see cref="ExploreEvent"/>) shows as its <see cref="ExploreView"/>: its own rows in the live window, its record and findings at the end. Not ported:
+/// serial groups.
 /// </para>
 /// </summary>
 internal sealed partial class ListReporter
@@ -138,6 +139,15 @@ internal sealed partial class ListReporter
     /// <summary>The configured models as the header names them; the summary's <c>AI</c> row names the models the steps reported instead.</summary>
     private string? _models;
 
+    /// <summary>
+    /// The exploration an <c>e2e explore</c> run reports through <see cref="ExploreEvent"/>; while present, its view stands in for the one synthetic
+    /// test's file block, live rows, failure entry, and test counters.
+    /// </summary>
+    private ExploreView? _explore;
+
+    /// <summary>The target the exploration's test started on, kept past the test's end for the record.</summary>
+    private string? _exploredTarget;
+
     public ListReporter(IListReporterOutput? output = null, ListReporterOptions? options = null, TimeProvider? timeProvider = null)
     {
         _output = output ?? DefaultOutput;
@@ -187,6 +197,9 @@ internal sealed partial class ListReporter
                 break;
             case TestFinishedEvent finished:
                 TestFinished(finished.Result);
+                break;
+            case ExploreEvent explore:
+                ExploreProgress(explore.Progress);
                 break;
             case RunErrorEvent error:
                 _errors.Add(ErrorOf(error.Error));
@@ -635,6 +648,11 @@ internal sealed partial class ListReporter
                 break;
             case Reports.StepProgressPhase.Event:
                 {
+                    if (progress.Event is { } counted)
+                    {
+                        _explore?.Action(counted);
+                    }
+
                     if (running.Current is not { } current)
                     {
                         break;
@@ -679,6 +697,12 @@ internal sealed partial class ListReporter
                     if (progress.Kind != Reports.StepKind.Agent)
                     {
                         _window.Redraw();
+                        break;
+                    }
+
+                    // An exploration's planner and charter steps show as the exploration's own rows.
+                    if (_explore is not null)
+                    {
                         break;
                     }
 
@@ -736,6 +760,19 @@ internal sealed partial class ListReporter
         if (details.CleanupErrors.Count > 0)
         {
             _cleanupFailures.Add((title, details.CleanupErrors[0]));
+        }
+
+        if (_explore is not null)
+        {
+            // The exploration's verdict is its findings; any other error is a failure of its own, unless the run stopped it.
+            _explore.Result(result.Attempts.SelectMany(attempt => attempt.Artifacts).Select(artifact => (artifact.Id, artifact.Path)));
+            if (details.Error is { } error && result.Status != ResultStatus.Interrupted && !_explore.IsVerdict(error.Code))
+            {
+                _failures.Add(new Failure(result.ResultId, group, title, declaredLine, result.Status, error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason, details.Videos));
+            }
+
+            _window.Redraw();
+            return;
         }
 
         var line = new TestLine
@@ -960,10 +997,13 @@ internal sealed partial class ListReporter
         var files = FileCounters();
         var tests = TestCounters();
         List<string> rows =
-        [
-            Format.PadTitle(_pc, "Test Files") + (files.Total == 0 ? EmptyState("no test files", "none started") : Format.StateString(_pc, files)),
-            Format.PadTitle(_pc, "Tests") + (tests.Total == 0 ? EmptyState("no tests executed", "none executed") : Format.StateString(_pc, tests)),
-        ];
+            _explore is not null
+                ? [.. _explore.SummaryRows()]
+                :
+                [
+                    Format.PadTitle(_pc, "Test Files") + (files.Total == 0 ? EmptyState("no test files", "none started") : Format.StateString(_pc, files)),
+                    Format.PadTitle(_pc, "Tests") + (tests.Total == 0 ? EmptyState("no tests executed", "none executed") : Format.StateString(_pc, tests)),
+                ];
         if (LeftOutText() is { } leftOut)
         {
             rows.Add(Format.PadTitle(_pc, "Left out") + leftOut);
@@ -1050,7 +1090,79 @@ internal sealed partial class ListReporter
     }
 
     /// <summary>The block's rows for <paramref name="room"/> screen rows under the permanent log: the running tree, then the summary (upstream's <c>renderWindow</c>).</summary>
-    private List<string> RenderWindow(int room) => _tree.Render([.. _pairs.Values], SummaryRows(false), NowMs(), room, _inFlight);
+    private List<string> RenderWindow(int room) =>
+        _explore is not null
+            ? [.. _explore.LiveRows(ExploreBadge(), _pairs.Values.FirstOrDefault()?.Current?.Events, SummaryRows(false), NowMs(), room)]
+            : _tree.Render([.. _pairs.Values], SummaryRows(false), NowMs(), room, _inFlight);
+
+    /// <summary>
+    /// The badge of the explored target: an exploration runs on exactly one, the one its test started on. <c>targets</c> lists every configured target,
+    /// so the first of those is only right when <c>--target</c> named it (upstream's <c>exploreBadge</c>).
+    /// </summary>
+    private string ExploreBadge()
+    {
+        _exploredTarget ??= _pairs.Values.FirstOrDefault()?.Group.Target;
+        return Badge(_exploredTarget ?? _targets.FirstOrDefault() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// One moment of an exploration. The first creates the view and, without a live window, prints the header; from then on a finished step and a
+    /// finding each print at once without one, and the window shows them with one (upstream's <c>exploreProgress</c>).
+    /// </summary>
+    private void ExploreProgress(global::E2E.ExploreProgress progress)
+    {
+        if (progress is global::E2E.ExploreProgress.Started started)
+        {
+            _explore = new ExploreView(_pc, started, _time);
+            if (!_live)
+            {
+                Print(_explore.Header(ExploreBadge()));
+            }
+
+            _window.Redraw();
+            return;
+        }
+
+        if (_explore is not { } view)
+        {
+            return;
+        }
+
+        view.Progress(progress);
+        if (!_live)
+        {
+            if (progress is global::E2E.ExploreProgress.StepFinished && view.LastStep is { } last)
+            {
+                foreach (var line in view.StepLines(last))
+                {
+                    Print(line);
+                }
+            }
+            else if (progress is global::E2E.ExploreProgress.FindingReported reported)
+            {
+                Print(view.FindingLine(reported.Finding));
+            }
+        }
+
+        _window.Redraw();
+    }
+
+    /// <summary>
+    /// An exploration's permanent record: the header and, with a live window, the steps it was the only home of; then the findings with their
+    /// evidence, and the closing assessment (upstream's <c>printExplore</c>).
+    /// </summary>
+    private void PrintExplore()
+    {
+        if (_explore is not { } view)
+        {
+            return;
+        }
+
+        foreach (var line in view.Record(ExploreBadge(), _live).Concat(view.FindingsSection(DisplayPath, _artifactsRoot)).Concat(view.Assessment()))
+        {
+            Print(line);
+        }
+    }
 
     /// <summary>A zero counter's label: the plain text, or the interrupt when that is why nothing is counted.</summary>
     private string EmptyState(string none, string cut) => _interrupted ? _pc.Yellow($"{cut} (interrupted)") : _pc.Dim(none);
@@ -1234,6 +1346,7 @@ internal sealed partial class ListReporter
             PrintGroup(group);
         }
 
+        PrintExplore();
         var pages = finished.Traces ?? new Dictionary<string, string>();
         PrintFailures("Failed Tests", _failures, pages);
         PrintFailures("Skipped After Failure", _skippedFailures, pages);

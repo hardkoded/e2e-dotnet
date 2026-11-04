@@ -1323,7 +1323,7 @@ public sealed class E2ESessionOptions
     public Action<TestException>? OnSoftFailure { get; init; }
 
     /// <summary>
-    /// Whether the session reports its start, steps, and end to the process's run events. Off for an exploration, whose run is not a test.
+    /// Whether the session reports its start, steps, and end to the process's run events. Off for a session whose run a test supplies.
     /// </summary>
     internal bool EmitRunEvents { get; init; } = true;
 
