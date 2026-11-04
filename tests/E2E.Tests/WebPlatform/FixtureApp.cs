@@ -229,8 +229,18 @@ internal static class FixtureApp
           <div id="outer"><section class="card"><div class="inner"><a href="/about">Open about</a></div></section></div>
           <main id="empty"></main>
           <button id="menu"><i class="glyph"></i>Menu</button>
+          <span id="shadow-menu" role="button" tabindex="0"></span>
+          <script>document.getElementById('shadow-menu').attachShadow({ mode: 'open' }).innerHTML = '<i class="in-shadow"></i>Shadow menu';</script>
           <div id="pad" style="width:80px;height:40px" onclick="document.title = 'Pad clicked'"></div>
           <iframe id="box" title="box" srcdoc="&lt;div id=&quot;in-frame&quot;&gt;&lt;p&gt;&lt;a href=&quot;#&quot;&gt;Inside link&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;"></iframe>
+        </body></html>
+        """;
+
+    // More listed nodes than the observation holds, then an element no node lists: a selector must still reach it past the cut.
+    private const string Crowded = """
+        <!doctype html><html><head><title>Crowded</title></head><body>
+          <script>document.write('<button>b</button>'.repeat(3100));</script>
+          <div class="tail-wrap"><i class="tail"></i></div>
         </body></html>
         """;
 
@@ -269,6 +279,7 @@ internal static class FixtureApp
         {
             "/downloads" => TinySite.RespondAsync(context, Downloads),
             "/wrappers" => TinySite.RespondAsync(context, Wrappers),
+            "/crowded" => TinySite.RespondAsync(context, Crowded),
             "/exports" => TinySite.RespondAsync(context, Exports),
             "/echo.csv" => RespondEchoCsvAsync(context),
             "/dialog" => TinySite.RespondAsync(context, Dialog),

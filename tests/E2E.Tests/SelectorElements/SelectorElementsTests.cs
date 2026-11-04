@@ -26,6 +26,7 @@ public sealed class SelectorElementsTests
     [InlineData("a", 1)]
     [InlineData("main#empty", 1)]
     [InlineData("button i.glyph", 1)]
+    [InlineData("#shadow-menu i.in-shadow", 1)]
     [InlineData("#absent", 0)]
     public async Task Counts_every_element_a_selector_names(string selector, int expected)
     {
@@ -89,18 +90,16 @@ public sealed class SelectorElementsTests
     }
 
     [Fact]
-    public async Task Keeps_the_refs_of_listed_nodes_when_a_selector_adds_unlisted_ones()
+    public async Task Reaches_an_unlisted_element_past_the_node_cap()
     {
         await RunAsync(async session =>
         {
-            var link = session.Browser.Locator("a");
-            var before = await link.TextContentAsync();
-            Assert.Equal(1, await session.Browser.Locator("#outer").CountAsync());
-            Assert.Equal(before, await link.TextContentAsync());
-        });
+            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap i.tail").CountAsync());
+            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap").CountAsync());
+        }, "/crowded", "Crowded");
     }
 
-    private static async Task RunAsync(Func<E2ESession, Task> body)
+    private static async Task RunAsync(Func<E2ESession, Task> body, string path = "/wrappers", string? ready = null)
     {
         using var site = await WebPlatform.FixtureApp.StartAsync();
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -113,8 +112,16 @@ public sealed class SelectorElementsTests
             AssertionTimeout = TimeSpan.FromSeconds(4),
             TestTimeout = TimeSpan.FromSeconds(30),
         });
-        await session.App.OpenAsync("/wrappers");
-        await Expect.That(session.Screen.GetByRole("link", "Open about")).ToBeVisibleAsync();
+        await session.App.OpenAsync(path);
+        if (ready is null)
+        {
+            await Expect.That(session.Screen.GetByRole("link", "Open about")).ToBeVisibleAsync();
+        }
+        else
+        {
+            await Expect.That(session.Browser).ToHaveTitleAsync(ready);
+        }
+
         await body(session);
     }
 }

@@ -40,8 +40,14 @@ internal static class PageScript
           const forced = publish ? globalThis[forcedKey] ?? null : null;
           if (publish) delete globalThis[forcedKey];
           const isForced = (el) => forced !== null && forced.has(el);
-          // A leaf lists no children, unless a selector named one of them.
-          const holdsForced = (el) => forced !== null && [...forced].some((named) => named !== el && el.contains(named));
+          // The ancestors of the marked elements, shadow hosts included: a leaf lists no children, unless a selector named one of them.
+          const holders = new Set();
+          if (forced !== null) {
+            for (const named of forced) {
+              for (let node = named.parentNode ?? named.host ?? null; node && !holders.has(node); node = node.parentNode ?? node.host ?? null) holders.add(node);
+            }
+          }
+          const holdsForced = (el) => holders.has(el);
           const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "NEXT-ROUTE-ANNOUNCER"]);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
@@ -921,7 +927,7 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || full) return;
+            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || (full && (forced === null || (!holders.has(el) && !isForced(el))))) return;
             if (gate !== null && !gate(el)) return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
@@ -938,6 +944,8 @@ internal static class PageScript
               if (!named && (textNode ? textCount >= max : count >= max)) {
                 if (!textNode) {
                   full = true;
+                  // The walk goes on to the elements a selector named, which are listed past the cut.
+                  if (holdsForced(el)) walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
                 textCut = true;
@@ -1050,7 +1058,7 @@ internal static class PageScript
             if (truncated) offBudget = Math.max(0, max - tally(body, true));
             // An element outside the body (html, head, and what is in it) is walked from the root, down the paths that lead to one.
             if (body && forced !== null && [...forced].some((el) => !body.contains(el))) {
-              gate = (el) => el === body || body.contains(el) || forced.has(el) || [...forced].some((named) => el.contains(named));
+              gate = (el) => el === body || body.contains(el) || forced.has(el) || holders.has(el);
               walk(document.documentElement, roots, false, false);
             } else if (body) walk(body, roots, false, false);
           } finally {
