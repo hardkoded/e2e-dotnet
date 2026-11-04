@@ -54,11 +54,11 @@ public sealed class ExploreFlagsTests
     }
 
     [Theory]
-    [InlineData("--max-steps", "0", "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--max-steps", "13", "option '--max-steps <n>' argument '13' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--max-steps", "two", "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--timeout", "179999", "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 900000")]
-    [InlineData("--timeout", "900001", "option '--timeout <ms>' argument '900001' is invalid. must be an integer from 180000 through 900000")]
+    [InlineData("--max-steps", "0", "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--max-steps", "101", "option '--max-steps <n>' argument '101' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--max-steps", "two", "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--timeout", "179999", "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 7200000")]
+    [InlineData("--timeout", "7200001", "option '--timeout <ms>' argument '7200001' is invalid. must be an integer from 180000 through 7200000")]
     [InlineData("--target", null, "option '--target <id>' argument missing")]
     [InlineData("--headed=yes", null, "option '--headed' takes no argument")]
     [InlineData("--nope", null, "unknown option '--nope'")]
@@ -172,8 +172,8 @@ public sealed class ExploreFlagsTests
         Assert.Equal(0, code);
         Assert.Null(fake.Options);
         Assert.StartsWith("Usage: e2e explore [options] [goal]", stdout, StringComparison.Ordinal);
-        Assert.Contains("exploration steps at most, 1 through 12 (default: 8)", stdout, StringComparison.Ordinal);
-        Assert.Contains("wall clock in milliseconds, 180000 through 900000 (default: 600000)", stdout, StringComparison.Ordinal);
+        Assert.Contains("exploration steps at most, 1 through 100 (default: 8)", stdout, StringComparison.Ordinal);
+        Assert.Contains("wall clock in milliseconds, 180000 through 7200000 (default: 600000)", stdout, StringComparison.Ordinal);
         Assert.Contains("--trace [mode]", stdout, StringComparison.Ordinal);
         Assert.Contains("Modes: off, on, retain-on-failure, on-first-retry, on-all-retries (also E2E_VIDEO)", stdout, StringComparison.Ordinal);
         Assert.DoesNotContain("Not supported by the .NET port: --session, --reporter (it refuses these), and", stdout, StringComparison.Ordinal);
