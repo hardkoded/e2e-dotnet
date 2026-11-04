@@ -1578,13 +1578,18 @@ internal static class LocatorResolver
                         ? candidates
                         : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
                     var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
-                    return query.Kind is "text" or "label" ? tree.InnermostOnly(BoxedFirst(matches)) : matches;
+                    return query.Kind switch
+                    {
+                        "text" => tree.InnermostOnly(BoxedFirst(matches)),
+                        "label" => tree.InnermostOnly(matches),
+                        _ => matches,
+                    };
                 }
         }
     }
 
     /// <summary>
-    /// The matches with a box when there are any. Upstream's web tree lists no node that has no box, so a zero-sized control inside a shown
+    /// The matches with a box when there are any (a node that reports no <c>Rect</c> counts as boxed). Upstream's web tree lists no node that has no box, so a zero-sized control inside a shown
     /// label never stands in for the label as its innermost match; this tree lists such a node, so it is left out here instead.
     /// </summary>
     private static List<SemanticNode> BoxedFirst(List<SemanticNode> matches)

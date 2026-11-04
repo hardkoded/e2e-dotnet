@@ -38,10 +38,11 @@ public sealed class PageScriptGlobalsTests
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetContentAsync("<label>Click me <input onclick=\"window.__clicked=true\" style=\"width:0;height:0;padding:0;margin:0;border:0;\"></label>");
 
-        var observation = await session.ObserveAsync(CancellationToken.None);
+        var found = await session.LocateAsync(LocatorExpression.For("text", "Click me", new TextMatchOptions(), "text"), TimeSpan.FromSeconds(5), CancellationToken.None);
 
-        var text = Assert.Single(Flatten(observation.Roots), node => node.Text == "Click me" && node.Role is null);
-        Assert.True(text.Rect is { Width: > 0, Height: > 0 });
+        var label = Assert.Single(found);
+        Assert.Null(label.Role);
+        Assert.True(label.Rect is { Width: > 0, Height: > 0 });
     }
 
     private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) => nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);
