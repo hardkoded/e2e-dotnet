@@ -57,14 +57,35 @@ public sealed class LateHandlerFixture : E2ETest
 
     private static string StartSite()
     {
-        var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        var url = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
-        var http = new HttpListener();
-        http.Prefixes.Add(url);
-        http.Start();
+        // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
+        string url;
+        HttpListener http;
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            url = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+            http = new HttpListener();
+            http.Prefixes.Add(url);
+            try
+            {
+                http.Start();
+                break;
+            }
+            catch (HttpListenerException)
+            {
+                http.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
+            }
+        }
+
         _ = Task.Run(async () =>
         {
             while (true)

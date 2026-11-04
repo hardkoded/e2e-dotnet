@@ -917,14 +917,35 @@ internal static class Testbed
 
     private static string Start()
     {
-        var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        var url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
-        var listener = new HttpListener();
-        listener.Prefixes.Add(url);
-        listener.Start();
+        // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
+        string url;
+        HttpListener listener;
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
+            listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            try
+            {
+                listener.Start();
+                break;
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
+            }
+        }
+
         _ = Task.Run(() => ListenAsync(listener));
         return url.TrimEnd('/');
     }

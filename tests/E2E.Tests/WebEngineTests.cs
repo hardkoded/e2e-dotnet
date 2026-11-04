@@ -415,12 +415,13 @@ public sealed class WebEngineTests
 
 internal sealed class TinySite : IDisposable
 {
-    private readonly HttpListener _listener = new();
+    private readonly HttpListener _listener;
     private readonly CancellationTokenSource _stop = new();
     private readonly Func<HttpListenerContext, Task> _handler;
 
-    private TinySite(string url, Func<HttpListenerContext, Task> handler)
+    private TinySite(HttpListener listener, string url, Func<HttpListenerContext, Task> handler)
     {
+        _listener = listener;
         Url = url;
         _handler = handler;
     }
@@ -441,18 +442,37 @@ internal sealed class TinySite : IDisposable
         context.Response.Close();
     }
 
-    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
+    public static Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
-        var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
-        site._listener.Prefixes.Add(site.Url);
-        site._listener.Start();
-        _ = Task.Run(() => site.ListenAsync(site._stop.Token));
-        await Task.Delay(30);
-        return site;
+        // .NET-only: HttpListener cannot bind port 0, so take a free port and try again when another test takes it first.
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            var url = "http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            try
+            {
+                listener.Start();
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
+            }
+
+            var site = new TinySite(listener, url, handler);
+            _ = Task.Run(() => site.ListenAsync(site._stop.Token));
+            return Task.FromResult(site);
+        }
     }
 
     public void Dispose()
