@@ -151,7 +151,7 @@ public sealed class Browser
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return RunStepAsync(StepKind.Resource, "browser.waitForURL", Routes.Label(pattern), () =>
+        return RunStepAsync(StepKind.Resource, "browser.waitForURL", Routes.PatternLabel(pattern), () =>
         {
             Require("waitForURL");
             return new BrowserExpect(this, negated: false).ToHaveURLAsync(pattern, timeout: timeout, cancellationToken: cancellationToken);
@@ -513,7 +513,7 @@ public sealed class Browser
     }
 
     private Task<WebResponse> WaitForResponseCoreAsync(object pattern, Func<Func<string, bool>> matcher, TimeSpan? timeout, CancellationToken cancellationToken) =>
-        RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.Label(pattern), async () =>
+        RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.PatternLabel(pattern), async () =>
         {
             var session = Require("waitForResponse");
             var response = await session.WaitForResponseAsync(matcher(), timeout ?? _actionTimeout, Token(cancellationToken)).ConfigureAwait(false);
@@ -523,7 +523,7 @@ public sealed class Browser
     private Task RouteCoreAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        return RunStepAsync(StepKind.Resource, "browser.route", Routes.Label(pattern), () => RouteStepAsync(pattern, handler, cancellationToken));
+        return RunStepAsync(StepKind.Resource, "browser.route", Routes.PatternLabel(pattern), () => RouteStepAsync(pattern, handler, cancellationToken));
     }
 
     private async Task RouteStepAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
@@ -544,7 +544,7 @@ public sealed class Browser
     }
 
     private Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken) =>
-        RunStepAsync(StepKind.Resource, "browser.unroute", Routes.Label(pattern), () =>
+        RunStepAsync(StepKind.Resource, "browser.unroute", Routes.PatternLabel(pattern), () =>
             RemoveRoutesAsync("unroute", stored => Routes.PatternsEqual(stored.Pattern, pattern), cancellationToken));
 
     /// <summary>Unregisters the stored routes <paramref name="match"/> selects, newest first.</summary>
