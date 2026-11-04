@@ -19,6 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\E2E.Agent.Tests\Testbed.cs" Link="Testbed\Playground.cs" />
+    <Compile Include="..\E2E.Agent.Tests\PlaywrightRoutes.cs" Link="Testbed\PlaywrightRoutes.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.XUnit.V3\E2E.XUnit.V3.csproj" />
