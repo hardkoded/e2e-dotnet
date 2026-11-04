@@ -65,11 +65,14 @@ internal sealed class HostRun : IDisposable
         set => Volatile.Write(ref _rerunDir, value);
     }
 
-    /// <summary>The run began (<c>run-started</c>). The run's id is the process's: every report this process writes carries it.</summary>
-    public static void Started(E2EConfig config)
+    /// <summary>
+    /// The run began (<c>run-started</c>). The run's id is the process's: every report this process writes carries it. A run that explores
+    /// one target as one agent names them: <paramref name="targets"/> are the targets it runs on, and <paramref name="agentName"/> the agent whose model it shows.
+    /// </summary>
+    public static void Started(E2EConfig config, IReadOnlyList<string>? targets = null, string agentName = "default")
     {
         ArgumentNullException.ThrowIfNull(config);
-        var agent = config.Agents.GetValueOrDefault("default");
+        var agent = config.Agents.GetValueOrDefault(agentName);
         var judge = agent?.Judge is { } judged && judged != agent.Model ? ModelLabel(agent, judged) : null;
         RunEvents.Emit(new RunStartedEvent
         {
@@ -78,7 +81,8 @@ internal sealed class HostRun : IDisposable
             ProjectRoot = config.ProjectRoot,
             ArtifactsRoot = OutputLayout.Of(config.Output).Results,
             Ci = config.Ci,
-            Targets = [.. config.Targets.Select(target => target.Name)],
+            Targets = targets ?? [.. config.Targets.Select(target => target.Name)],
+            Agents = agentName == "default" ? null : [agentName],
             Model = agent?.Model is { } model ? ModelLabel(agent, model) : null,
             Judge = judge,
         });

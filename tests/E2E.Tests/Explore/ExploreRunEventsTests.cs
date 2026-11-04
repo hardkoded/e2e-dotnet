@@ -34,4 +34,25 @@ public sealed class ExploreRunEventsTests
         Assert.IsType<ExploreProgress.Finished>(moments.First(progress => progress is ExploreProgress.Finished));
         Assert.Contains(facts.OfType<TestFinishedEvent>(), fact => fact.Result.Test.File == Explorer.ExploreFile && fact.Result.Test.TitlePath[0] == goal);
     }
+
+    [Fact]
+    public async Task Announces_the_run_and_its_plan_of_one_test_before_the_test_starts()
+    {
+        const string goal = "Explore the home page for the run start test";
+        var facts = new ConcurrentQueue<RunEventFact>();
+        using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent => facts.Enqueue(runEvent.Fact)));
+        var model = new ExploreModel(_ => ExploreModel.Finish("Looked."), _ => ExploreModel.Done("passed", "unused"));
+
+        await Explorer.ExploreAsync(Options(TempRoot(), model.Model, [], goal: goal));
+
+        // Other explorations in the process write to the same events: the last start before this goal's test is this exploration's.
+        var all = facts.ToList();
+        var testStarted = all.FindIndex(fact => fact is TestStartedEvent started && started.Title == goal);
+        var plan = all.FindLastIndex(testStarted, fact => fact is PlanEvent);
+        var runStarted = all.FindLastIndex(plan, fact => fact is RunStartedEvent);
+        Assert.True(0 <= runStarted && runStarted < plan && plan < testStarted);
+        var planned = Assert.IsType<PlanEvent>(all[plan]);
+        Assert.Equal(1, planned.Total);
+        Assert.Equal(Explorer.ExploreFile, Assert.Single(planned.Files).File);
+    }
 }
