@@ -208,8 +208,9 @@ public sealed partial class Agent
 
         public async Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
         {
-            await scope.Session.ResizeAsync(size, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
-            scope.Steps.AttachViewport(new StepViewport(size.Width, size.Height, 1));
+            var viewport = Geometry.RequireViewportSize(size);
+            await scope.Session.ResizeAsync(viewport, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
             feed.ArmAfter(new RecordedAction { Kind = "resize" });
         }
 
