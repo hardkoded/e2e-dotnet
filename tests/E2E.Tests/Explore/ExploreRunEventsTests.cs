@@ -55,4 +55,23 @@ public sealed class ExploreRunEventsTests
         Assert.Equal(1, planned.Total);
         Assert.Equal(Explorer.ExploreFile, Assert.Single(planned.Files).File);
     }
+
+    // .NET-only: upstream redacts at its report boundary; the port's boundary is the explore state, which the list reporter reads through the run events.
+    [Fact]
+    public void Redacts_the_text_of_steps_paths_and_the_assessment_before_the_progress_event()
+    {
+        const string value = "step-Secret-9Lm2Qa";
+        var moments = new List<ExploreProgress>();
+        var state = new E2E.ExploreState("Explore", new ExploreBudgets(4, TimeSpan.FromMinutes(5)), redactor: E2E.Internal.Redactor.For([Secret.Create("probe", value)]));
+        state.Subscribe(moments.Add);
+
+        state.BeginStep("Sign in " + value, "Type " + value);
+        state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 1, "t", "e", "a", [], "/p/" + value));
+        state.EndStep(ReportExploreStepStatus.Passed, "Saw " + value);
+        state.End(ReportExploreEnded.Finished, "Assessment " + value);
+
+        var text = string.Join('\n', moments.Select(moment => moment.ToString()));
+        Assert.DoesNotContain(value, text, StringComparison.Ordinal);
+        Assert.Contains("<secret:probe>", text, StringComparison.Ordinal);
+    }
 }

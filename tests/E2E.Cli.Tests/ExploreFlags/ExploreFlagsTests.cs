@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Tests.Helpers;
+using E2E.Reports;
 
 namespace E2E.Cli.Tests.ExploreFlags;
 
@@ -206,6 +207,29 @@ public sealed class ExploreFlagsTests
         Assert.Equal(2, code);
         Assert.Equal("error INVALID_CONFIG: unknown agent \"x\"", stderr.ToString().TrimEnd());
         Assert.Equal("", stdout.ToString());
+    }
+
+    [Fact]
+    public async Task Closes_the_run_it_opened_when_the_exploration_fails_after_the_run_started()
+    {
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        var code = await ExploreCommand.RunAsync(
+            [],
+            stdout,
+            stderr,
+            interactive: false,
+            (_, _) =>
+            {
+                RunEvents.Emit(new RunStartedEvent { RunId = "run-1", ProjectId = "p", ProjectRoot = "/p", ArtifactsRoot = "/p/.e2e", Targets = ["web"] });
+                throw new EngineException("ENGINE_FAILURE", "the browser did not start");
+            },
+            CancellationToken.None);
+
+        Assert.Equal(3, code);
+        Assert.Equal("error ENGINE_FAILURE: the browser did not start", stderr.ToString().TrimEnd());
+        Assert.Contains(" RUN ", stdout.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Duration", stdout.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]

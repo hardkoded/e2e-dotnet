@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using E2E.Cli.Report;
 using E2E.Internal;
 using E2E.Mobile;
+using E2E.Reports;
 
 namespace E2E.Cli;
 
@@ -138,7 +139,12 @@ internal static partial class ExploreCommand
             new StdoutOutput(stdout),
             new ListReporterOptions { Live = false, Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) });
         using var run = HostRun.Begin([]);
-        using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent => reporter.Handle(runEvent.Fact)));
+        var started = false;
+        using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent =>
+        {
+            started |= runEvent.Fact is RunStartedEvent;
+            reporter.Handle(runEvent.Fact);
+        }));
 
         var options = new ExploreOptions
         {
@@ -174,7 +180,20 @@ internal static partial class ExploreCommand
         catch (E2EException ex)
         {
             await stderr.WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message))).ConfigureAwait(false);
-            return Runner.ExitCodeOf(ex);
+            var exitCode = Runner.ExitCodeOf(ex);
+            if (started)
+            {
+                // The run the header opened ends with its error and summary, as a run that failed to start does.
+                if (config is not null)
+                {
+                    HostRun.Failed(config, ex);
+                }
+
+                RunEvents.Emit(new RunFinishedEvent { Status = ReportRunStatus.Error, ExitCode = exitCode });
+                reporter.Rows([]);
+            }
+
+            return exitCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
