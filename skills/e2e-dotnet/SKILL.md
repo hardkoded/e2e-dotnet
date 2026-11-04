@@ -282,7 +282,10 @@ lines you changed:
 
 - Text matches are exact by default. A locator that matches two nodes
   fails with `LOCATOR_AMBIGUOUS`; narrow it, or add `First()` to an `a.Or(b)`
-  whose branches both match (topic `writing-tests`).
+  whose branches both match (topic `writing-tests`). When a filtered locator
+  matches nothing or too many, the message lists the candidates each filter
+  step left, counted after the failure; the step where the count jumps or
+  drops to 0 is the one to change.
 - Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
   of the four, at least one. `hasText` and `hasNotText` are case-insensitive
   substrings (or a `Regex`) over the subtree text. `has` keeps, and `hasNot`

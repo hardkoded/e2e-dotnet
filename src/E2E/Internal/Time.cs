@@ -20,6 +20,9 @@ internal sealed class Deadline(DateTimeOffset endsAt)
     public TimeSpan Remaining(DateTimeOffset now) => now >= EndsAt ? TimeSpan.Zero : EndsAt - now;
 
     public bool Expired(DateTimeOffset now) => now >= EndsAt;
+
+    /// <summary>The earlier of two deadlines (upstream's <c>Deadline.min</c>).</summary>
+    public static Deadline Min(Deadline first, Deadline second) => first.EndsAt <= second.EndsAt ? first : second;
 }
 
 /// <summary>

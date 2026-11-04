@@ -69,6 +69,12 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     internal TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
 
+    /// <summary>
+    /// The budget the whole diagnostic failure walk shares: best effort, never a wait (upstream's <c>STEP_COUNT_BUDGET_MS</c>). One deadline
+    /// bounds every prefix resolve, so a multi-step chain cannot cost more than one short budget; the real bound is the budget plus one read.
+    /// </summary>
+    private static readonly TimeSpan StepCountBudget = TimeSpan.FromMilliseconds(500);
+
     /// <summary>The end of the attempt's test timeout, which no read may outlast (upstream's <c>budget.deadline</c>); null outside a session or with no test timeout.</summary>
     internal Deadline? BudgetDeadline { get; set; }
 
@@ -345,7 +351,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task<SemanticNode?> TryReadAsync(LocatorExpression expression, CancellationToken token, ReadWindow? reads = null, MissingFrame missingFrame = MissingFrame.Wait)
     {
         var matches = await ResolveOnceAsync(expression, token, reads: reads, missingFrame: missingFrame).ConfigureAwait(false);
-        return matches.Count > 1 ? throw Ambiguous(expression, matches.Count) : matches.Count == 1 ? matches[0] : null;
+        return matches.Count > 1 ? throw await AmbiguousAsync(expression, matches.Count, token).ConfigureAwait(false) : matches.Count == 1 ? matches[0] : null;
     }
 
     /// <summary>
@@ -370,7 +376,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
             if (Clock.GetUtcNow() >= deadline)
             {
-                throw NotFound(expression, Clock.GetUtcNow() - started);
+                throw await NotFoundAsync(expression, Clock.GetUtcNow() - started, token).ConfigureAwait(false);
             }
 
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
@@ -397,7 +403,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
             if (deadline.Expired(Clock.GetUtcNow()))
             {
-                throw NotFound(expression, Clock.GetElapsedTime(started));
+                throw await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false);
             }
 
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
@@ -416,7 +422,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         }
         catch (Exception ex) when (sampled && !token.IsCancellationRequested && reads.CutOff(ex))
         {
-            throw new TestException("LOCATOR_NOT_FOUND", expression.Describe() + " matched 0 nodes.", ex) { Details = LocatorDetails(expression, elapsed()) };
+            throw await NotFoundAsync(expression, elapsed(), token, ex).ConfigureAwait(false);
         }
     }
 
@@ -483,7 +489,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             if (Clock.GetUtcNow() >= deadline)
             {
                 throw node is null
-                    ? NotFound(expression, Clock.GetUtcNow() - started)
+                    ? await NotFoundAsync(expression, Clock.GetUtcNow() - started, token).ConfigureAwait(false)
                     : new TestException("NOT_ACTIONABLE", expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
             }
 
@@ -537,7 +543,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             if (deadline.Expired(Clock.GetUtcNow()))
             {
                 throw node is null
-                    ? NotFound(expression, Clock.GetElapsedTime(started))
+                    ? await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false)
                     : new TestException("NOT_ACTIONABLE", expression.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
             }
 
@@ -700,9 +706,70 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         });
     }
 
-    internal static TestException Ambiguous(LocatorExpression expression, int count) =>
-        new("LOCATOR_AMBIGUOUS", expression.Describe() + " matched " + count.ToString(CultureInfo.InvariantCulture) + " nodes.") { Details = LocatorDetails(expression) with { Matches = count } };
+    /// <summary>
+    /// <c>LOCATOR_AMBIGUOUS</c> for a resolve of many nodes, with the per-step counts of a filtered locator (upstream's <c>singleOf</c>).
+    /// </summary>
+    internal async Task<TestException> AmbiguousAsync(LocatorExpression expression, int count, CancellationToken token)
+    {
+        var lines = await CandidateCountsAsync(expression, token).ConfigureAwait(false);
+        return new("LOCATOR_AMBIGUOUS", expression.Describe() + " matched " + count.ToString(CultureInfo.InvariantCulture) + " nodes." + lines) { Details = LocatorDetails(expression) with { Matches = count } };
+    }
 
-    private static TestException NotFound(LocatorExpression expression, TimeSpan waited) =>
-        new("LOCATOR_NOT_FOUND", expression.Describe() + " matched 0 nodes.") { Details = LocatorDetails(expression, waited) };
+    /// <summary>
+    /// <c>LOCATOR_NOT_FOUND</c>, with the per-step counts of a filtered locator (upstream's <c>notFound</c> in <c>resolveCounted</c>).
+    /// <paramref name="waited"/> is the wait as it happened, read before the diagnostic pass runs: the prefix resolves are not part of it.
+    /// </summary>
+    private async Task<TestException> NotFoundAsync(LocatorExpression expression, TimeSpan waited, CancellationToken token, Exception? cause = null)
+    {
+        var message = expression.Describe() + " matched 0 nodes." + await CandidateCountsAsync(expression, token).ConfigureAwait(false);
+        var details = LocatorDetails(expression, waited);
+        return cause is null ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details } : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
+    }
+
+    /// <summary>
+    /// The diagnostic on a filtered locator's failure: one immediate resolve per prefix of its chain, innermost first, and how many
+    /// candidates each left, as the message's per-step lines (upstream's <c>candidateCounts</c>). One deadline bounds the whole walk, so even
+    /// on a session whose locate ignores its budget, a chain whose walk cannot finish lists only the prefixes it read and says so, or lists
+    /// nothing when a read failed outright. The counts are read after the failure, so a page that changed since can disagree with the failing
+    /// attempt, and the message says so.
+    /// </summary>
+    private async Task<string> CandidateCountsAsync(LocatorExpression expression, CancellationToken token)
+    {
+        var spine = expression.FilterSpine();
+        if (spine.Count == 0)
+        {
+            return "";
+        }
+
+        var deadline = Deadline.Min(new Deadline(StepCountBudget, Clock), BudgetDeadline ?? new Deadline(DateTimeOffset.MaxValue));
+        var reads = new ReadWindow(deadline, Clock);
+        List<string> lines = [];
+        try
+        {
+            foreach (var prefix in spine)
+            {
+                if (deadline.Expired(Clock.GetUtcNow()))
+                {
+                    break;
+                }
+
+                var nodes = await ResolveNowAsync(prefix, token, reads).ConfigureAwait(false);
+                lines.Add(prefix.Describe() + ": " + nodes.Count.ToString(CultureInfo.InvariantCulture));
+            }
+        }
+        catch (Exception)
+        {
+            // A diagnostic read failure must not fail the failure: partial counts must not read as a completed walk, so return nothing.
+            token.ThrowIfCancellationRequested();
+            return "";
+        }
+
+        if (lines.Count == 0)
+        {
+            return "";
+        }
+
+        var stopped = lines.Count < spine.Count ? ", walk stopped after " + lines.Count.ToString(CultureInfo.InvariantCulture) + " of " + spine.Count.ToString(CultureInfo.InvariantCulture) + " steps" : "";
+        return "\ncandidates left after each filter step" + stopped + ", counted after the failure:\n" + string.Join('\n', lines);
+    }
 }
