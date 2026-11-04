@@ -127,9 +127,11 @@ public static class AgentTools
     /// <summary>Upstream's <c>resize_viewport</c> tool (<c>agent/primitives.ts</c>), offered where the engine can resize its viewport.</summary>
     internal const string ResizeViewportName = "resize_viewport";
 
+    internal const string ResizeViewportDescription = "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again. The result shows the screen at the new size; take a screenshot to check the layout itself (overflow, overlap, clipped or hidden content).";
+
     private static readonly ModelTool ResizeViewport = Tool(
         ResizeViewportName,
-        "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again. The result shows the screen at the new size; take a screenshot to check the layout itself (overflow, overlap, clipped or hidden content).",
+        ResizeViewportDescription,
         Parse(
             $$"""
             {
