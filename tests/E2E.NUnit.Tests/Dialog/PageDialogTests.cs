@@ -21,16 +21,17 @@ public sealed class PageDialogTests : PlaywrightTest
     public async Task Should_fire()
     {
         await Browser.GotoAsync("/empty.html");
-        var fired = false;
+        DialogType? type = null;
+        string? message = null;
         await Browser.OnDialogAsync(async dialog =>
         {
-            Assert.That(dialog.Type, Is.EqualTo(DialogType.Alert));
-            Assert.That(dialog.Message, Is.EqualTo("yo"));
-            fired = true;
+            type = dialog.Type;
+            message = dialog.Message;
             await dialog.AcceptAsync();
         });
         await Browser.EvaluateAsync<object>("() => alert('yo')");
-        Assert.That(fired, Is.True);
+        Assert.That(type, Is.EqualTo(DialogType.Alert));
+        Assert.That(message, Is.EqualTo("yo"));
     }
 
     [Test]

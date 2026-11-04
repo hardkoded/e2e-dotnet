@@ -70,7 +70,7 @@ internal static class PlaywrightRoutes
                     }
                 }
             }
-            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException or System.Net.ProtocolViolationException)
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException or InvalidOperationException or System.Net.ProtocolViolationException)
             {
                 response.StatusCode = 400;
                 response.ContentType = "text/plain";
