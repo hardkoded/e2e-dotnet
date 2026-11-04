@@ -3566,6 +3566,9 @@ public sealed partial class WebEngine : IEngine
                     Checked = dto.Checked,
                     Disabled = dto.Disabled,
                     Expanded = dto.Expanded,
+                    ExpandedAbsent = dto.ExpandedAbsent,
+                    Mixed = dto.Mixed,
+                    EmptyBox = dto.EmptyBox,
                     Focused = dto.Focused,
                     Hidden = dto.Hidden,
                     AriaHidden = dto.AriaHidden,
@@ -3853,6 +3856,12 @@ public sealed partial class WebEngine : IEngine
         public bool Checked { get; set; }
 
         public bool Expanded { get; set; }
+
+        public bool ExpandedAbsent { get; set; }
+
+        public bool Mixed { get; set; }
+
+        public bool EmptyBox { get; set; }
 
         public bool Selected { get; set; }
 

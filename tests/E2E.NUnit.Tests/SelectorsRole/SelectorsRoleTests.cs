@@ -71,72 +71,60 @@ public sealed class SelectorsRoleTests : PlaywrightTest
         Assert.That(await Screen.GetByRole("option", new RoleOptions { Selected = false }).AllTextContentsAsync(), Is.EqualTo(new[] { "Hi", "Hello" }));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1076: an indeterminate checkbox matches checked: false.
     [Test]
     public async Task Should_support_checked()
     {
-        await ExpectedToFailAsync("expected count 3; observed count 4", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <input type=checkbox>
-                <input type=checkbox checked>
-                <input type=checkbox indeterminate>
-                <div role=checkbox aria-checked="true">Hi</div>
-                <div role=checkbox aria-checked="false">Hello</div>
-                <div role=checkbox>Unknown</div>
-                """));
-            await Browser.EvaluateAsync<object>("() => { document.querySelector('[indeterminate]').indeterminate = true; }");
+        await Browser.GotoAsync(Content("""
+            <input type=checkbox>
+            <input type=checkbox checked>
+            <input type=checkbox indeterminate>
+            <div role=checkbox aria-checked="true">Hi</div>
+            <div role=checkbox aria-checked="false">Hello</div>
+            <div role=checkbox>Unknown</div>
+            """));
+        await Browser.EvaluateAsync<object>("() => { document.querySelector('[indeterminate]').indeterminate = true; }");
 
-            var checkedBoxes = Screen.GetByRole("checkbox", new RoleOptions { Checked = true });
-            await Expect.That(checkedBoxes).ToHaveCountAsync(2);
-            await Expect.That(checkedBoxes.First()).ToHaveAttributeAsync("checked", "");
-            await Expect.That(checkedBoxes.Nth(1)).ToHaveTextAsync("Hi");
+        var checkedBoxes = Screen.GetByRole("checkbox", new RoleOptions { Checked = true });
+        await Expect.That(checkedBoxes).ToHaveCountAsync(2);
+        await Expect.That(checkedBoxes.First()).ToHaveAttributeAsync("checked", "");
+        await Expect.That(checkedBoxes.Nth(1)).ToHaveTextAsync("Hi");
 
-            var unchecked_ = Screen.GetByRole("checkbox", new RoleOptions { Checked = false });
-            await Expect.That(unchecked_).ToHaveCountAsync(3);
-            Equal<string?>(null, await unchecked_.First().GetAttributeAsync("checked"));
-            Equal<string?>(null, await unchecked_.First().GetAttributeAsync("indeterminate"));
-            Equal("|Hello|Unknown", Joined(await unchecked_.AllTextContentsAsync()));
+        var unchecked_ = Screen.GetByRole("checkbox", new RoleOptions { Checked = false });
+        await Expect.That(unchecked_).ToHaveCountAsync(3);
+        Equal<string?>(null, await unchecked_.First().GetAttributeAsync("checked"));
+        Equal<string?>(null, await unchecked_.First().GetAttributeAsync("indeterminate"));
+        Equal("|Hello|Unknown", Joined(await unchecked_.AllTextContentsAsync()));
 
-            await Expect.That(Screen.GetByRole("checkbox")).ToHaveCountAsync(6);
-        });
+        await Expect.That(Screen.GetByRole("checkbox")).ToHaveCountAsync(6);
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1076: a button with aria-pressed="mixed" matches pressed: false.
     [Test]
     public async Task Should_support_pressed()
     {
-        await ExpectedToFailAsync("Expected Hi|Bye", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <button>Hi</button>
-                <button aria-pressed="true">Hello</button>
-                <button aria-pressed="false">Bye</button>
-                <button aria-pressed="mixed">Mixed</button>
-                """));
-            Equal("Hello", Joined(await Screen.GetByRole("button", new RoleOptions { Pressed = true }).AllTextContentsAsync()));
-            Equal("Hi|Bye", Joined(await Screen.GetByRole("button", new RoleOptions { Pressed = false }).AllTextContentsAsync()));
-            Equal("Hi|Hello|Bye|Mixed", Joined(await Screen.GetByRole("button").AllTextContentsAsync()));
-        });
+        await Browser.GotoAsync(Content("""
+            <button>Hi</button>
+            <button aria-pressed="true">Hello</button>
+            <button aria-pressed="false">Bye</button>
+            <button aria-pressed="mixed">Mixed</button>
+            """));
+        Equal("Hello", Joined(await Screen.GetByRole("button", new RoleOptions { Pressed = true }).AllTextContentsAsync()));
+        Equal("Hi|Bye", Joined(await Screen.GetByRole("button", new RoleOptions { Pressed = false }).AllTextContentsAsync()));
+        Equal("Hi|Hello|Bye|Mixed", Joined(await Screen.GetByRole("button").AllTextContentsAsync()));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1076: a treeitem with no aria-expanded matches expanded: false.
     [Test]
     public async Task Should_support_expanded()
     {
-        await ExpectedToFailAsync("Expected Bye", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <div role="treeitem">Hi</div>
-                <div role="treeitem" aria-expanded="true">Hello</div>
-                <div role="treeitem" aria-expanded="false">Bye</div>
-                """));
+        await Browser.GotoAsync(Content("""
+            <div role="treeitem">Hi</div>
+            <div role="treeitem" aria-expanded="true">Hello</div>
+            <div role="treeitem" aria-expanded="false">Bye</div>
+            """));
 
-            Equal("Hi|Hello|Bye", Joined(await Screen.GetByRole("treeitem").AllTextContentsAsync()));
-            Equal("Hello", Joined(await Screen.GetByRole("treeitem", new RoleOptions { Expanded = true }).AllTextContentsAsync()));
-            Equal("Bye", Joined(await Screen.GetByRole("treeitem", new RoleOptions { Expanded = false }).AllTextContentsAsync()));
-            Equal("Hi", Joined(await Browser.Locator("[role=treeitem]:not([aria-expanded])").AllTextContentsAsync()));
-        });
+        Equal("Hi|Hello|Bye", Joined(await Screen.GetByRole("treeitem").AllTextContentsAsync()));
+        Equal("Hello", Joined(await Screen.GetByRole("treeitem", new RoleOptions { Expanded = true }).AllTextContentsAsync()));
+        Equal("Bye", Joined(await Screen.GetByRole("treeitem", new RoleOptions { Expanded = false }).AllTextContentsAsync()));
+        Equal("Hi", Joined(await Browser.Locator("[role=treeitem]:not([aria-expanded])").AllTextContentsAsync()));
     }
 
     [Test]
@@ -229,21 +217,17 @@ public sealed class SelectorsRoleTests : PlaywrightTest
         await Expect.Soft(Screen.GetByTestId("deep-button")).ToBeDisabledAsync();
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1076: a div with role="heading" and aria-level="5" does not match level: 5.
     [Test]
     public async Task Should_support_level()
     {
-        await ExpectedToFailAsync("Expected Bye", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <h1>Hello</h1>
-                <h3>Hi</h3>
-                <div role="heading" aria-level="5">Bye</div>
-                """));
-            Equal("Hello", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 1 }).AllTextContentsAsync()));
-            Equal("Hi", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 3 }).AllTextContentsAsync()));
-            Equal("Bye", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 5 }).AllTextContentsAsync()));
-        });
+        await Browser.GotoAsync(Content("""
+            <h1>Hello</h1>
+            <h3>Hi</h3>
+            <div role="heading" aria-level="5">Bye</div>
+            """));
+        Equal("Hello", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 1 }).AllTextContentsAsync()));
+        Equal("Hi", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 3 }).AllTextContentsAsync()));
+        Equal("Bye", Joined(await Screen.GetByRole("heading", new RoleOptions { Level = 5 }).AllTextContentsAsync()));
     }
 
     [Test]
