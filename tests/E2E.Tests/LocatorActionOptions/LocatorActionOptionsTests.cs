@@ -107,4 +107,33 @@ public sealed class LocatorActionOptionsTests
         Assert.Contains("longPress duration must be an integer from 100 through 10000", error.Message);
         Assert.Empty(received);
     }
+
+    [Fact]
+    public async Task SetInputFiles_hands_an_empty_list_to_the_engine_which_clears_the_input()
+    {
+        var (screen, received) = BoxScreen();
+
+        await screen.GetByLabel("Agree").SetInputFilesAsync([]);
+
+        Assert.Empty(Assert.IsType<LocatorAction.SetInputFiles>(Assert.Single(received)).Paths);
+        var step = Assert.Single(screen.Steps!.All());
+        Assert.Equal("locator.setInputFiles", step.Api);
+        Assert.Equal(StepStatus.Passed, step.Status);
+    }
+
+    // Not portable, because the C# types refuse them at compile time: a number among the paths.
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("fixtures/a.txt", "")]
+    public async Task SetInputFiles_refuses_paths_before_any_lookup_or_action(params string[] paths)
+    {
+        var (screen, received) = BoxScreen();
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => screen.GetByLabel("Agree").SetInputFilesAsync(paths));
+
+        Assert.Contains("setInputFiles paths must be non-empty strings", error.Message, StringComparison.Ordinal);
+        Assert.Empty(received);
+        Assert.Empty(screen.Steps!.All());
+    }
 }

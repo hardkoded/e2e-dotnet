@@ -74,6 +74,28 @@ Response URL.
 
 ## Methods
 
+<a id="E2E_WebResponse_BodyAsync_"></a>
+<a id="E2E_WebResponse_BodyAsync_System_Threading_CancellationToken_"></a>
+
+### BodyAsync(CancellationToken)
+
+
+```csharp
+public Task<byte[]> BodyAsync(CancellationToken cancellationToken = default)
+```
+
+
+Waits for the body, up to the action timeout, and returns its bytes (upstream's `body()`), a copy on every call. Fails with
+`ACTION_FAILED` when the body could not be read or did not finish in time.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;byte\[\]&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_WebResponse_JsonAsync_"></a>
 <a id="E2E_WebResponse_JsonAsync__1_System_Threading_CancellationToken_"></a>
 

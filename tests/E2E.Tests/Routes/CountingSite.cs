@@ -12,7 +12,7 @@ namespace E2E.Tests.Routes;
 
 /// <summary>
 /// A server that counts what reaches it: <c>/echo</c> answers with what it received,
-/// <c>/api/*</c> answers <c>network:&lt;path&gt;</c>, and any other path is a page.
+/// <c>/api/*</c> answers <c>network:&lt;path&gt;</c>, <c>/binary</c> answers every byte value once, and any other path is a page.
 /// Every request is counted by path. It reads raw HTTP, so the same server answers
 /// under any host name, such as <c>localhost</c>, a site of its own.
 /// </summary>
@@ -34,6 +34,9 @@ internal sealed class CountingSite : IDisposable
 
     /// <summary>The same server under another host name.</summary>
     public string OtherSite => "http://localhost:" + Port;
+
+    /// <summary>Every byte value once, which no text decoding keeps intact.</summary>
+    public static readonly byte[] AllBytes = [.. Enumerable.Range(0, 256).Select(value => (byte)value)];
 
     public ConcurrentDictionary<string, int> Hits { get; } = new(StringComparer.Ordinal);
 
@@ -125,6 +128,12 @@ internal sealed class CountingSite : IDisposable
                 return;
             }
 
+            if (path == "/binary")
+            {
+                await EndAsync(client, "application/octet-stream", AllBytes);
+                return;
+            }
+
             if (path.StartsWith("/api/", StringComparison.Ordinal))
             {
                 await EndAsync(client, "text/plain", "network:" + path);
@@ -193,9 +202,10 @@ internal sealed class CountingSite : IDisposable
         return -1;
     }
 
-    private static async Task EndAsync(TcpClient client, string contentType, string body)
+    private static Task EndAsync(TcpClient client, string contentType, string body) => EndAsync(client, contentType, Encoding.UTF8.GetBytes(body));
+
+    private static async Task EndAsync(TcpClient client, string contentType, byte[] bytes)
     {
-        var bytes = Encoding.UTF8.GetBytes(body);
         var head = "HTTP/1.1 200 OK\r\ncontent-type: " + contentType + "\r\ncontent-length: "
             + bytes.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\r\nconnection: close\r\n\r\n";
         var stream = client.GetStream();

@@ -165,7 +165,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `FillAsync(value)` | the same; also takes a `Secret` | same |
 | `PressSequentiallyAsync(text, new() { Delay })` | `PressSequentiallyAsync(text)`; keystrokes through the platform keyboard, a `Secret` is refused | same |
 | `PressAsync(key)` | the same; modifiers join with `+` | same |
-| `ClearAsync()`, `FocusAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same | same |
+| `ClearAsync()`, `FocusAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same; `SetInputFilesAsync([])` clears the input | same |
 | `CheckAsync()`, `UncheckAsync()` | the same, except when the state updates late or the click removes the control, see [What differs on purpose](#what-differs-on-purpose) | by design |
 | `SelectOptionAsync("pro")` | `SelectOptionAsync("Pro")` selects the option whose value or label is the string | same |
 | `SelectOptionAsync(new[] { "a", "b" })`, `SelectOptionAsync(new SelectOptionValue { Index })` | one value or label per call | missing |
@@ -242,14 +242,14 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | Playwright .NET | e2e | Status |
 | --- | --- | --- |
 | `Page.RouteAsync(pattern, handler)` | `Browser.RouteAsync(pattern, handler)`; a string or `Regex` pattern, no predicate function; the handler decides exactly once | web only |
-| `route.FulfillAsync(new() { Json, Body, Path, Status, Headers, ContentType })` | `route.FulfillAsync(new RouteFulfillResponse { ... })`; one of `Json`, `Body`, or `Path`, and `Path` is relative to the project root | web only |
-| `route.ContinueAsync(new() { Url, Method, Headers, PostData })`, `route.FallbackAsync()` | `ContinueAsync(new RouteContinueOverrides { ... })`, `FallbackAsync()` | web only |
-| `route.FetchAsync()` | argument-free: no options, and redirects return unfollowed; returns `{ Url, Status, Headers, TextAsync(), JsonAsync<T>() }` without deciding the route | web only |
+| `route.FulfillAsync(new() { Json, Body, Path, Status, Headers, ContentType })` | `route.FulfillAsync(new RouteFulfillResponse { ... })`; one of `Json`, `Body`, or `Path`, and `Path` is relative to the project root. `Body` is text and bytes are `BodyBytes`; a `\n`-joined `set-cookie` sets each cookie | web only |
+| `route.ContinueAsync(new() { Url, Method, Headers, PostData })`, `route.FallbackAsync()` | `ContinueAsync(new RouteContinueOverrides { ... })`, `FallbackAsync()`; a header Playwright sets to `undefined` is named in `DropHeaders` | web only |
+| `route.FetchAsync()` | argument-free: no options, and redirects return unfollowed; returns `{ Url, Status, Headers, BodyAsync(), TextAsync(), JsonAsync<T>() }` without deciding the route | web only |
 | `route.AbortAsync(errorCode)` | `AbortAsync()` takes no error code | missing |
 | `Page.UnrouteAsync()` | `Browser.UnrouteAsync(pattern)` | web only |
 | `Page.UnrouteAllAsync()` | `Browser.UnrouteAllAsync()`; configured site headers stay | web only |
-| `Page.WaitForResponseAsync(pattern)`, `RunAndWaitForResponseAsync` | `Browser.WaitForResponseAsync(pattern)`: a string or `Regex`, no predicate; `Url`, `Status`, `Headers`, `JsonAsync<T>()`, `TextAsync()`. A string is a glob tested against the whole URL, never resolved against `app.url`: Playwright's `"/api/orders"` is the full URL or `"**/api/orders"`. Start it before the step that sends the request, and await it after | web only |
-| `response.Ok`, `response.BodyAsync()`, `response.Request` | `Status` and `TextAsync()` | missing |
+| `Page.WaitForResponseAsync(pattern)`, `RunAndWaitForResponseAsync` | `Browser.WaitForResponseAsync(pattern)`: a string or `Regex`, no predicate; `Url`, `Status`, `Headers`, `BodyAsync()`, `JsonAsync<T>()`, `TextAsync()`. A string is a glob tested against the whole URL, never resolved against `app.url`: Playwright's `"/api/orders"` is the full URL or `"**/api/orders"`. Start it before the step that sends the request, and await it after | web only |
+| `response.Ok`, `response.Request` | `Status` | missing |
 | `Page.WaitForRequestAsync()`, `request.PostDataJSON()` | none yet for `WaitForRequestAsync`; `route.Request.PostData` is a string | missing |
 | `RouteFromHARAsync()`, `RouteWebSocketAsync()` | not yet | missing |
 | `Page.Dialog += handler` | `await Browser.OnDialogAsync(DialogHandler.Accept)`, or a handler that calls `AcceptAsync` or `DismissAsync` | web only |
