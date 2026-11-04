@@ -229,6 +229,8 @@ internal static class FixtureApp
           <div id="outer"><section class="card"><div class="inner"><a href="/about">Open about</a></div></section></div>
           <main id="empty"></main>
           <button id="menu"><i class="glyph"></i>Menu</button>
+          <span id="shadow-menu" role="button" tabindex="0"></span>
+          <script>document.getElementById('shadow-menu').attachShadow({ mode: 'open' }).innerHTML = '<i class="in-shadow"></i>Shadow menu';</script>
           <div id="pad" style="width:80px;height:40px" onclick="document.title = 'Pad clicked'"></div>
           <iframe id="box" title="box" srcdoc="&lt;div id=&quot;in-frame&quot;&gt;&lt;p&gt;&lt;a href=&quot;#&quot;&gt;Inside link&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;"></iframe>
         </body></html>

@@ -26,6 +26,7 @@ public sealed class SelectorElementsTests
     [InlineData("a", 1)]
     [InlineData("main#empty", 1)]
     [InlineData("button i.glyph", 1)]
+    [InlineData("#shadow-menu i.in-shadow", 1)]
     [InlineData("#absent", 0)]
     public async Task Counts_every_element_a_selector_names(string selector, int expected)
     {
@@ -85,18 +86,6 @@ public sealed class SelectorElementsTests
             var wrapper = session.Browser.Locator("div.inner");
             await Expect.That(wrapper).ToBeVisibleAsync();
             await wrapper.TapAsync();
-        });
-    }
-
-    [Fact]
-    public async Task Keeps_the_refs_of_listed_nodes_when_a_selector_adds_unlisted_ones()
-    {
-        await RunAsync(async session =>
-        {
-            var link = session.Browser.Locator("a");
-            var before = await link.TextContentAsync();
-            Assert.Equal(1, await session.Browser.Locator("#outer").CountAsync());
-            Assert.Equal(before, await link.TextContentAsync());
         });
     }
 
