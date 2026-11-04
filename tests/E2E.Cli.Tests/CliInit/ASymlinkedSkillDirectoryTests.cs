@@ -124,7 +124,7 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             var question = new ConfirmCall("Replace the symlink .claude/skills/e2e-dotnet -> " + Real(target) + " with a copy of the skill?", false);
             Prompts.NextConfirm(false, true);
             Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
-            Assert.Equal(2, Prompts.ConfirmCalls.Count);
+            Assert.Equal(3, Prompts.ConfirmCalls.Count);
             Assert.Equal(question, Prompts.ConfirmCalls[0]);
             Assert.True(IsLink(Path_(".claude/skills/e2e-dotnet")));
             Untouched(target);
@@ -133,9 +133,9 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
             ClearOutput();
             Prompts.NextConfirm(true, true);
             Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
-            Assert.Equal(question, Prompts.ConfirmCalls[2]);
+            Assert.Equal(question, Prompts.ConfirmCalls[3]);
             Assert.Contains("  - Replace .claude/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
-            Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[3].Message);
+            Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[4].Message);
             Assert.False(IsLink(Path_(".claude/skills/e2e-dotnet")));
             Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
             Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
@@ -250,8 +250,7 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
     }
 
     [Fact]
-    // Partial: the port has no install question, so the apply is the only confirm.
-    public async Task Partial_Is_skipped_without_a_question_when_a_parent_is_the_link()
+    public async Task Is_skipped_without_a_question_when_a_parent_is_the_link()
     {
         if (!Symlinks)
         {
@@ -264,9 +263,9 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         await File.WriteAllTextAsync(Path.Combine(target, "SKILL.md"), "mine\n");
         Directory.CreateDirectory(Path_(".claude"));
         Link(Path_(".claude/skills"), shared, directory: true);
-        Prompts.NextConfirm(true);
+        Prompts.NextConfirm(true, false);
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
-        Assert.Single(Prompts.ConfirmCalls);
+        Assert.Equal(["Apply these changes?", "Install dependencies with dotnet restore?"], Prompts.ConfirmCalls.Select(call => call.Message));
         Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills -> " + Real(shared) + ")", Output, StringComparison.Ordinal);
         Untouched(target);
         Assert.True(IsLink(Path_(".claude/skills")));

@@ -11,6 +11,8 @@ Run `e2e doctor` to check the setup before the first run. It reports the runtime
 
 ## 1. Create the test project
 
+Run `e2e init MyApp.E2ETests` to scaffold the project, an example test, and the config in one step (`--framework xunit` for xUnit v3, `--install` to restore). Or create it by hand:
+
 ```bash
 dotnet new nunit -n MyApp.E2ETests
 cd MyApp.E2ETests

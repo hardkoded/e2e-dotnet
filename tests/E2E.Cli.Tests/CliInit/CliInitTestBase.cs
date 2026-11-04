@@ -46,9 +46,12 @@ public abstract class CliInitTestBase : IDisposable
     /// <summary>The answers to the questions init asks; a run reads them from here unless its options bring their own.</summary>
     private protected FakePrompts Prompts { get; } = new();
 
-    private protected Task<InitRunOutcome> RunInitAsync(InitOptions options, string? root = null) => Init.RunAsync(root ?? Dir, options.Prompts is null ? options with { Prompts = Prompts } : options, _output);
+    private protected Task<InitRunOutcome> RunInitAsync(InitOptions options, string? root = null, CancellationToken cancellationToken = default) => Init.RunAsync(root ?? Dir, options.Prompts is null ? options with { Prompts = Prompts } : options, _output, cancellationToken);
 
     private protected Task<InitRunOutcome> RunInitAsync(bool yes = true) => RunInitAsync(new InitOptions { Yes = yes });
+
+    /// <summary>The project file a new project takes from the throwaway directory's name.</summary>
+    protected string ProjectFile() => Init.ProjectNameOf(Dir) + ".csproj";
 
     protected string Read(string file) => File.ReadAllText(Path.Combine(Dir, file));
 

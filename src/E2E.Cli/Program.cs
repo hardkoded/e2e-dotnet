@@ -26,7 +26,7 @@ public static partial class Program
           e2e guide [topic]
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
-          e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
+          e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
           e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json]
@@ -39,7 +39,7 @@ public static partial class Program
           opencode-console  OpenCode Console workspace (OpenCode Zen and Go)
           spacexai          SuperGrok or X Premium+
 
-        e2e init scaffolds e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
+        e2e init scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
         It asks the questions no flag answered; --yes takes the defaults instead. e2e init --help lists its flags.
 
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
@@ -107,7 +107,7 @@ public static partial class Program
 
         if (args[0] == "init")
         {
-            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive).ConfigureAwait(false);
+            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive, cancellationToken).ConfigureAwait(false);
         }
 
         if (args[0] == "install")
@@ -133,7 +133,7 @@ public static partial class Program
         }
     }
 
-    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive)
+    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken)
     {
         if (args.Contains("--help") || args.Contains("-h"))
         {
@@ -151,7 +151,7 @@ public static partial class Program
         var root = Path.GetFullPath(options.Directory ?? Environment.CurrentDirectory);
         try
         {
-            return (await Init.RunAsync(root, options with { Interactive = interactive, Prompts = new ConsolePrompts(stdin, stdout) }, stdout).ConfigureAwait(false)).ExitCode;
+            return (await Init.RunAsync(root, options with { Interactive = interactive, Prompts = new ConsolePrompts(stdin, stdout) }, stdout, cancellationToken).ConfigureAwait(false)).ExitCode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
