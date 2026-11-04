@@ -841,10 +841,16 @@ internal static class PageScript
             }
             return labelledBy.get(id) ?? [];
           };
-          // Text in an element a role's aria-labelledby names is the labelled
-          // element's name already. Text in a label is listed, as upstream lists
-          // it, so a text query finds the label, even one whose control has no box.
+          // Text inside a label of a control, or in an element a role's
+          // aria-labelledby names, is the labelled element's name already. A
+          // control with no box carries nothing a person can aim at, so the
+          // label keeps its text and a text query finds the label.
           const namesControl = (el) => {
+            const control = el.closest("label")?.control;
+            if (control) {
+              const box = control.getBoundingClientRect();
+              if (box.width > 0 && box.height > 0) return true;
+            }
             if (!el.id || document.getElementById(el.id) !== el) return false;
             return referencesOf(el.id).some((ref) => {
               const role = roleOf(ref);
@@ -855,7 +861,7 @@ internal static class PageScript
           // or text of its own, so text inside a bare span or a strong is a node
           // a text query can answer with. Text that names another element is
           // not listed: that element carries it as its name, so a text query
-          // answers with it. An
+          // answers with it, and a fill acts on the control a label names. An
           // SVG element has no innerText to read, so it is not listed by text.
           const ownsText = (el) => el instanceof HTMLElement && !namesControl(el) &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
