@@ -62,6 +62,36 @@ public sealed class NestedFrameLocatorsTests
         Assert.Equal(["Hello iframe"], nodes.Select(node => node.Name));
     }
 
+    // .NET-only, as the test above: upstream's text engine and hasText filter read one document, so the frame's text is not the box's.
+    [Fact]
+    public async Task A_text_query_keeps_an_outer_match_that_a_nested_frame_repeats()
+    {
+        await using var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync($"<div>Greeting<iframe srcdoc=\"{Attribute("<p>Greeting</p>")}\"></iframe></div>");
+        await page.FrameLocator("iframe").GetByText("Greeting").WaitForAsync();
+
+        var nodes = await session.LocateAsync(new LocatorExpression { Kind = "text", Value = "Greeting" }, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Equal(2, nodes.Count);
+    }
+
+    [Fact]
+    public async Task A_has_text_filter_does_not_read_the_text_of_a_nested_frame()
+    {
+        await using var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync($"<div data-testid=\"box\"><iframe srcdoc=\"{Attribute("<p>Nested only</p>")}\"></iframe></div>");
+        await page.FrameLocator("iframe").GetByText("Nested only").WaitForAsync();
+
+        var box = new LocatorExpression { Kind = "testid", Value = "box" };
+        var withText = await session.LocateAsync(new LocatorExpression { Kind = "filter", Source = box, HasText = "Nested only" }, TimeSpan.FromSeconds(10), CancellationToken.None);
+        var withoutText = await session.LocateAsync(new LocatorExpression { Kind = "filter", Source = box, HasNotText = "Nested only" }, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Empty(withText);
+        Assert.Single(withoutText);
+    }
+
     /// <summary>Escapes HTML for a double-quoted attribute value, so a document can carry a nested <c>srcdoc</c>.</summary>
     private static string Attribute(string html) => html.Replace("&", "&amp;", StringComparison.Ordinal).Replace("\"", "&quot;", StringComparison.Ordinal);
 }

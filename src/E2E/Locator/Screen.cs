@@ -1651,6 +1651,12 @@ internal static class LocatorResolver
             return true;
         }
 
+        // A frame node's children are another document's, which an element's text does not include.
+        if (node.Frame)
+        {
+            return false;
+        }
+
         foreach (var child in node.Children)
         {
             if (SubtreeHasText(child, expected, exact, includeValue))
@@ -1719,7 +1725,7 @@ internal static class LocatorResolver
             var containers = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
             foreach (var match in matches)
             {
-                containers.UnionWith(Ancestors(match));
+                containers.UnionWith(Ancestors(match).TakeWhile(ancestor => !ancestor.Frame));
             }
 
             return matches.Where(node => !containers.Contains(node)).ToList();
