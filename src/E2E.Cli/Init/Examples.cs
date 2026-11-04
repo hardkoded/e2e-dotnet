@@ -205,7 +205,7 @@ internal static class Examples
         var projects = Directory.GetFiles(projectDir, "*.csproj");
         if (projects.Length != 1)
         {
-            return;
+            throw new InvalidDataException($"The example has {projects.Length} project files at its root, not one.");
         }
 
         var original = File.ReadAllText(projects[0]);

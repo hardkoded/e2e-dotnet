@@ -859,4 +859,34 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(marker == "NUnit", references.Contains("NUnit3TestAdapter"));
         Assert.Equal(marker != "NUnit", references.Contains("xunit.runner.visualstudio"));
     }
+
+    [Fact]
+    // .NET-only: a flag for the other framework would put two test frameworks in one project.
+    public async Task Refuses_a_framework_flag_that_differs_from_the_framework_the_project_uses()
+    {
+        var project = "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3.mtp-off\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n";
+        await File.WriteAllTextAsync(Path_("existing-app.csproj"), project);
+        Assert.Equal(2, (await RunInitAsync(new InitOptions { Yes = true, Framework = "nunit", Gateway = "none" })).ExitCode);
+        Assert.Equal(project, Read("existing-app.csproj"));
+    }
+
+    [Fact]
+    // .NET-only: another xunit.v3 package already makes the project xUnit v3.
+    public async Task Adds_no_second_xunit_v3_package_beside_xunit_v3()
+    {
+        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"xunit.v3\" Version=\"4.0.1\" />\n  </ItemGroup>\n</Project>\n");
+        Assert.Equal(0, (await RunInitAsync()).ExitCode);
+        var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        Assert.DoesNotContain("xunit.v3.mtp-off", references);
+        Assert.Contains("E2E.XUnit.V3", references);
+    }
+
+    [Fact]
+    // .NET-only: the comments before <Project> stay when init adds a reference.
+    public async Task Keeps_a_comment_before_the_project_element()
+    {
+        await File.WriteAllTextAsync(Path_("existing-app.csproj"), "<!-- license -->\n<Project Sdk=\"Microsoft.NET.Sdk\">\n  <ItemGroup>\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n  </ItemGroup>\n</Project>\n");
+        Assert.Equal(0, (await RunInitAsync()).ExitCode);
+        Assert.StartsWith("<!-- license -->\n<Project", Read("existing-app.csproj"), StringComparison.Ordinal);
+    }
 }

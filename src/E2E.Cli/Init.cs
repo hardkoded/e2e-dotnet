@@ -4,6 +4,7 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -128,6 +129,21 @@ internal static partial class Init
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(options);
+        var copied = new StrongBox<ExampleCopy?>();
+        try
+        {
+            return await RunCoreAsync(root, options, output, copied, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception) when (copied.Value is not null && !cancellationToken.IsCancellationRequested)
+        {
+            // A failure after the copy leaves no half-written example behind.
+            copied.Value.Remove();
+            throw;
+        }
+    }
+
+    private static async Task<InitRunOutcome> RunCoreAsync(string root, InitOptions options, TextWriter output, StrongBox<ExampleCopy?> copied, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(output);
         var log = new InitLog(output);
         var prompts = options.Prompts ?? new ConsolePrompts(Console.In, output);
@@ -186,6 +202,7 @@ internal static partial class Init
             try
             {
                 exampleCopy = await Examples.CopyExampleAsync(example, root, new CopyOptions { OnFallback = tag => fellBack = tag, Signal = cancellationToken, Handler = options.ExampleHandler }).ConfigureAwait(false);
+                copied.Value = exampleCopy;
             }
             catch (ExampleCopyCancelled)
             {
@@ -221,7 +238,14 @@ internal static partial class Init
             return Done(InitResult.InvalidProject, 2);
         }
 
-        var framework = requested ?? Frameworks.Detect(Package.DeclaredDependencies(pkg)) ?? Frameworks.Get(Frameworks.DefaultFrameworkId);
+        var detected = Frameworks.Detect(Package.DeclaredDependencies(pkg));
+        if (requested is not null && detected is not null && requested.Id != detected.Id)
+        {
+            log.Error($"{pkg.FileName} already uses {detected.Label}; --framework {requested.Id} would add a second test framework.");
+            return Done(InitResult.InvalidProject, 2);
+        }
+
+        var framework = requested ?? detected ?? Frameworks.Get(Frameworks.DefaultFrameworkId);
         var bundledSkill = (options.ReadSkillFiles ?? Skill.ReadFiles)();
         if (bundledSkill.Count == 0)
         {

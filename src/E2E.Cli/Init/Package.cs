@@ -86,7 +86,9 @@ internal static class Package
     public static IReadOnlyList<KeyValuePair<string, string>> AddDependencies(PackageProject project, IEnumerable<KeyValuePair<string, string>> dependencies)
     {
         var declared = DeclaredDependencies(project);
-        var additions = dependencies.Where(entry => !declared.Contains(entry.Key, StringComparer.OrdinalIgnoreCase)).ToList();
+        // Any xunit.v3 package (xunit.v3, xunit.v3.core, xunit.v3.mtp-off) is xUnit v3; adding another beside it breaks the restore.
+        var additions = dependencies.Where(entry => !declared.Contains(entry.Key, StringComparer.OrdinalIgnoreCase)
+            && !(entry.Key.StartsWith("xunit.v3", StringComparison.OrdinalIgnoreCase) && declared.Any(name => name.StartsWith("xunit.v3", StringComparison.OrdinalIgnoreCase)))).ToList();
         if (additions.Count == 0)
         {
             return additions;
@@ -140,7 +142,11 @@ internal static class Package
         using (var writer = new StringWriter(builder))
         {
             using var xml = XmlWriter.Create(writer, new XmlWriterSettings { OmitXmlDeclaration = true, NewLineHandling = NewLineHandling.None });
-            project.Document.Root!.Save(xml);
+            // The nodes before the root (a license comment) stay.
+            foreach (var node in project.Document.Nodes())
+            {
+                node.WriteTo(xml);
+            }
         }
 
         var body = builder.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
