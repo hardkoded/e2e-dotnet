@@ -14,7 +14,7 @@ Migrate this project's Selenium .NET tests to e2e, one flow at a time. Docs: the
 
 1. Read the migration guide. It maps Selenium config and WebDriver calls to e2e.
 2. e2e tests are NUnit or xUnit v3 tests. If the Selenium suite uses another language, ask me where the new test project should live.
-3. If the solution has no e2e test project, create one beside the Selenium project and run `e2e init --yes` there. It writes e2e.config.json and installs the skill. It creates no test project and edits no .csproj.
+3. If the solution has no e2e test project, run `e2e init <directory> --yes` beside the Selenium project (add `--framework xunit` for xUnit v3). It creates the test project and example test, writes e2e.config.json, and installs the skill. In an existing test project it adds the missing package references to the .csproj.
 4. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
 5. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 6. Set the target's app.url to the URL every driver.Navigate().GoToUrl used, and app.command to the command that starts the app if the suite starts it. Move passwords and tokens into credentials or secrets.

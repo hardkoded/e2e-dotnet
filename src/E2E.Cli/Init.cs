@@ -2,16 +2,24 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace E2E.Cli;
 
-/// <summary>How <c>e2e init</c> ended (upstream's <c>InitResult</c>, without the results the port cannot reach: it has no examples and no install).</summary>
+/// <summary>How <c>e2e init</c> ended (upstream's <c>InitResult</c>).</summary>
 internal enum InitResult
 {
     /// <summary>The project was scaffolded.</summary>
     Scaffolded,
+
+    /// <summary>The scaffold was written and the dependencies could not be restored.</summary>
+    InstallFailed,
+
+    /// <summary>The example could not be downloaded.</summary>
+    ExampleFailed,
 
     /// <summary>The user left a question or declined the plan; nothing was written.</summary>
     Cancelled,
@@ -53,6 +61,21 @@ internal sealed record InitOptions
 
     public IReadOnlyList<string>? Mcp { get; init; }
 
+    /// <summary>An <c>samples/</c> folder name to copy into the directory first; the wizard then runs on the example's project with its config and tests as they are.</summary>
+    public string? Example { get; init; }
+
+    /// <summary>Whether to restore the packages after scaffolding; unset, it asks, and <c>--yes</c> takes no.</summary>
+    public bool? Install { get; init; }
+
+    /// <summary>.NET-only: the test framework of a new project (<c>nunit</c> or <c>xunit</c>); unset, the framework an existing project uses, else NUnit.</summary>
+    public string? Framework { get; init; }
+
+    /// <summary>Test seam (.NET-only): runs the restore in a directory and returns its exit code, in place of mocking <c>spawnSync</c>.</summary>
+    public Func<string, CancellationToken, Task<int>>? RunInstall { get; init; }
+
+    /// <summary>Test seam (.NET-only): the handler that answers the example download, in place of stubbing <c>fetch</c>.</summary>
+    public HttpMessageHandler? ExampleHandler { get; init; }
+
     /// <summary>.NET-only: where the questions are asked, in place of <c>@clack/prompts</c>. Unset, they are asked on the console.</summary>
     internal IInitPrompts? Prompts { get; init; }
 
@@ -63,16 +86,18 @@ internal sealed record InitOptions
     public bool? Windows { get; init; }
 }
 
-/// <summary>How init ended, with its exit code and what was chosen (upstream's <c>InitRunOutcome</c> without <c>ready</c>, <c>example</c>, and <c>install</c>).</summary>
-internal sealed record InitRunOutcome(int ExitCode, InitResult Result, bool Yes, bool ExistingConfig, string? Engine, string? Gateway, bool Skill, bool Mcp);
+/// <summary>How init ended, with its exit code and what was chosen (upstream's <c>InitRunOutcome</c> without <c>ready</c>).</summary>
+internal sealed record InitRunOutcome(int ExitCode, InitResult Result, bool Yes, bool ExistingConfig, string? Engine, string? Gateway, bool Skill, bool Mcp, string? Example = null, bool Install = false);
 
 /// <summary>
 /// Upstream's <c>cli/init.ts</c>: non-destructive project scaffolding. Every question is answered from a flag, from
-/// <c>--yes</c>, or by asking. The port writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, and
-/// touches no <c>.csproj</c>: the closing line points at <c>dotnet test</c>. Every question is asked before the first write,
-/// and existing config files are never touched. The agent skill and MCP registration are offered once; later runs refresh
+/// <c>--yes</c>, or by asking. The port writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, a
+/// <c>.csproj</c> and <c>ExampleTests.cs</c> where it writes <c>package.json</c> and <c>tests/example.e2e.ts</c>, and
+/// restores packages with <c>dotnet restore</c> where it installs. Every question is asked before the first write, and
+/// existing config and test files are never touched. The agent skill and MCP registration are offered once; later runs refresh
 /// the locations that exist, and <c>--skills</c> or <c>--mcp</c> replaces that set with exactly the ones it names. Nothing is
-/// written through a symlink unless the user agrees to replace it.
+/// written through a symlink unless the user agrees to replace it. With <c>Example</c>, the sample is downloaded into an empty
+/// directory before the first prompt and removed again when the wizard is cancelled.
 /// </summary>
 internal static partial class Init
 {
@@ -80,6 +105,8 @@ internal static partial class Init
 
     private static readonly string[] GitignoreEntries =
     [
+        "bin/",
+        "obj/",
         ".e2e/results/",
         ".e2e/cache/",
         ".e2e/report.json",
@@ -89,26 +116,41 @@ internal static partial class Init
 
     private static readonly UTF8Encoding Utf8 = new(false);
 
+    /// <summary>.NET-only: how long <c>dotnet restore</c> may run before init kills it.</summary>
+    private static readonly TimeSpan RestoreTimeout = TimeSpan.FromMinutes(10);
+
+    /// <summary>A file the run will write: a project, the config, or a test (upstream's <c>files</c> entries).</summary>
+    private sealed record PlannedFile(string Relative, string Content, bool Existing);
+
     /// <summary>Runs <c>e2e init</c> in <paramref name="root"/>, writing its report to <paramref name="output"/>.</summary>
-    public static Task<InitRunOutcome> RunAsync(string root, InitOptions options, TextWriter output)
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> stopped the restore.</exception>
+    public static async Task<InitRunOutcome> RunAsync(string root, InitOptions options, TextWriter output, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(output);
-        return Task.FromResult(Run(root, options, output));
-    }
-
-    private static InitRunOutcome Run(string root, InitOptions options, TextWriter output)
-    {
         var log = new InitLog(output);
         var prompts = options.Prompts ?? new ConsolePrompts(Console.In, output);
         log.Intro(options.Directory is null ? "e2e init" : "e2e init " + options.Directory);
         string? engineFact = null;
         string? gatewayFact = null;
+        string? exampleFact = null;
         var existingConfig = false;
         var skillFact = false;
         var mcpFact = false;
-        InitRunOutcome Done(InitResult result, int exitCode) => new(exitCode, result, options.Yes, existingConfig, engineFact, gatewayFact, skillFact, mcpFact);
+        var installFact = false;
+        ExampleCopy? exampleCopy = null;
+        InitRunOutcome Done(InitResult result, int exitCode)
+        {
+            // An example copied before the prompts goes again when the run ends without writing its own files.
+            if (result is not (InitResult.Scaffolded or InitResult.InstallFailed))
+            {
+                exampleCopy?.Remove();
+            }
+
+            return new(exitCode, result, options.Yes, existingConfig, engineFact, gatewayFact, skillFact, mcpFact, exampleFact, installFact);
+        }
+
         InitRunOutcome Cancel() => Done(InitResult.Cancelled, log.Cancelled());
 
         if (options.Interactive == false && !options.Yes)
@@ -123,7 +165,63 @@ internal static partial class Init
             return Done(InitResult.InvalidProject, 2);
         }
 
+        var example = options.Example is null ? null : Examples.FindExample(options.Example);
+        if (options.Example is not null && example is null)
+        {
+            log.Error("Unknown example " + options.Example);
+            return Done(InitResult.InvalidProject, 2);
+        }
+
+        if (example is not null)
+        {
+            exampleFact = example.Id;
+            if (!Examples.IsEmptyDirectory(root))
+            {
+                log.Error((options.Directory ?? root) + " is not empty; --example needs a new or empty directory, such as e2e init my-app --example " + example.Id);
+                return Done(InitResult.InvalidProject, 2);
+            }
+
+            log.Info("Downloading the " + example.Id + " example from GitHub");
+            var fellBack = (string?)null;
+            try
+            {
+                exampleCopy = await Examples.CopyExampleAsync(example, root, new CopyOptions { OnFallback = tag => fellBack = tag, Signal = cancellationToken, Handler = options.ExampleHandler }).ConfigureAwait(false);
+            }
+            catch (ExampleCopyCancelled)
+            {
+                output.WriteLine("Cancelled; no changes were made");
+                return Done(InitResult.Cancelled, 130);
+            }
+            catch (ExampleDownloadError cause)
+            {
+                log.Error("Could not download the " + example.Id + " example: " + cause.Message + "; check the connection and retry, or copy it from https://github.com/hardkoded/e2e-dotnet/tree/main/samples/" + example.Id);
+                return Done(InitResult.ExampleFailed, 2);
+            }
+
+            log.Success("Copied the " + example.Id + " example (" + exampleCopy.Ref + ")");
+            if (fellBack is not null)
+            {
+                log.Warn("GitHub has no " + fellBack + " tag; used the samples on main");
+            }
+        }
+
+        // The e2e project: the directory itself.
         var cwd = root;
+
+        // A new project is made for the framework the flag names, else NUnit; an existing one keeps the framework it uses.
+        var requested = options.Framework is null ? null : Frameworks.Get(options.Framework);
+        PackageProject pkg;
+        try
+        {
+            pkg = Package.ReadPackage(cwd, requested ?? Frameworks.Get(Frameworks.DefaultFrameworkId));
+        }
+        catch (InvalidOperationException cause)
+        {
+            log.Error(cause.Message);
+            return Done(InitResult.InvalidProject, 2);
+        }
+
+        var framework = requested ?? Frameworks.Detect(Package.DeclaredDependencies(pkg)) ?? Frameworks.Get(Frameworks.DefaultFrameworkId);
         var bundledSkill = (options.ReadSkillFiles ?? Skill.ReadFiles)();
         if (bundledSkill.Count == 0)
         {
@@ -132,7 +230,7 @@ internal static partial class Init
         }
 
         existingConfig = File.Exists(Path.Combine(cwd, E2EConfig.FileName));
-        if (existingConfig)
+        if (existingConfig && example is null)
         {
             log.Warn("Exists, not touching: " + E2EConfig.FileName);
         }
@@ -299,9 +397,46 @@ internal static partial class Init
             return Done(InitResult.InvalidProject, 2);
         }
 
-        var scaffold = Scaffold.CreateScaffold(engines, model);
-        (string Relative, string Content)? configFile = existingConfig ? null : (E2EConfig.FileName, scaffold.Config);
-        if (configFile is null && skillInstalls.Count == 0 && mcpRegistrations.Count == 0 && missingIgnore.Count == 0)
+        var projectName = pkg.FileName is null ? ProjectNameOf(cwd) : Path.GetFileNameWithoutExtension(pkg.FileName);
+        var scaffold = Scaffold.CreateScaffold(engines, model, framework, RootNamespaceOf(projectName));
+
+        // A config with an example test of its own keeps it; a re-run adds no second one.
+        var tests = existingConfig && scaffold.Tests.Any(test => File.Exists(Path.Combine(cwd, test.Name + ".cs")))
+            ? []
+            : scaffold.Tests.Select(test => new PlannedFile(test.Name + ".cs", test.Content, false)).ToList();
+        var newTests = tests.Where(test => !File.Exists(Path.Combine(cwd, test.Relative))).ToList();
+        if (example is null)
+        {
+            foreach (var test in tests.Except(newTests))
+            {
+                log.Warn("Exists, not touching: " + test.Relative);
+            }
+        }
+
+        var additions = Package.AddDependencies(pkg, scaffold.Dependencies);
+        if (example is null && additions.Count > 0)
+        {
+            log.Info("Add package references: " + string.Join(", ", additions.Select(addition => addition.Key + "@" + addition.Value)));
+        }
+
+        // An example's project, config, and tests stay as the example has them.
+        var files = new List<PlannedFile>();
+        if (example is null)
+        {
+            if (pkg.Original is null || additions.Count > 0)
+            {
+                files.Add(new PlannedFile(pkg.FileName ?? projectName + ".csproj", Package.SerializePackage(pkg), pkg.Original is not null));
+            }
+
+            if (!existingConfig)
+            {
+                files.Add(new PlannedFile(E2EConfig.FileName, scaffold.Config, false));
+            }
+
+            files.AddRange(newTests);
+        }
+
+        if (example is null && files.Count == 0 && skillInstalls.Count == 0 && mcpRegistrations.Count == 0 && missingIgnore.Count == 0)
         {
             log.Outro("Nothing to create; project already initialized");
             return Done(InitResult.AlreadyInitialized, 0);
@@ -310,10 +445,12 @@ internal static partial class Init
         if (!options.Yes)
         {
             var actions = new List<string>();
-            if (configFile is { } created)
+            if (example is not null)
             {
-                actions.Add("Create " + created.Relative);
+                actions.Add("Keep the " + example.Id + " example in " + (options.Directory ?? "this directory") + " (cancelling removes it)");
             }
+
+            actions.AddRange(files.Select(file => (file.Existing ? "Update " : "Create ") + file.Relative));
 
             foreach (var install in skillInstalls)
             {
@@ -336,12 +473,21 @@ internal static partial class Init
             }
         }
 
+        // The restore is asked once the plan is accepted and runs after everything is written.
+        var restore = options.Install ?? (options.Yes ? false : prompts.Confirm("Install dependencies with dotnet restore?", initialValue: true));
+        if (restore is null)
+        {
+            return Cancel();
+        }
+
+        installFact = restore.Value;
+
         // The first write; a directory named on the command line comes into being here.
         System.IO.Directory.CreateDirectory(cwd);
-        if (configFile is { } config)
+        foreach (var file in files)
         {
-            WriteFile(Path.Combine(cwd, config.Relative), config.Content);
-            log.Success("Created " + config.Relative);
+            WriteFile(Path.Combine(cwd, file.Relative), file.Content);
+            log.Success((file.Existing ? "Updated " : "Created ") + file.Relative);
         }
 
         foreach (var skill in skillInstalls)
@@ -373,6 +519,28 @@ internal static partial class Init
             log.Success("Updated .gitignore (" + missingIgnore.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " entries)");
         }
 
+        if (restore.Value)
+        {
+            int exitCode;
+            string reason;
+            try
+            {
+                exitCode = await (options.RunInstall ?? RestoreAsync)(cwd, cancellationToken).ConfigureAwait(false);
+                reason = "exit " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch (System.ComponentModel.Win32Exception cause)
+            {
+                (exitCode, reason) = (-1, cause.Message);
+            }
+
+            if (exitCode != 0)
+            {
+                log.Error("Installation failed (" + reason + "); retry with dotnet restore");
+                log.Outro("Scaffold saved");
+                return Done(InitResult.InstallFailed, 2);
+            }
+        }
+
         // A subscription gateway has no key to set; the sign-in is the step before the first run.
         var subscription = model is null ? null : Gateways.GetGatewayPreset(model.Gateway).Login;
         var before = new List<string>();
@@ -388,6 +556,62 @@ internal static partial class Init
 
         log.Outro("Next: " + string.Join(", then ", [.. before, "dotnet test"]));
         return Done(InitResult.Scaffolded, 0);
+    }
+
+    /// <summary>
+    /// .NET-only: the name a new project takes from its directory, as <c>dotnet new</c> names it, with the characters a file
+    /// name cannot hold made <c>-</c> (upstream's <c>package.json</c> has no name to choose).
+    /// </summary>
+    internal static string ProjectNameOf(string directory)
+    {
+        var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory)));
+        var invalid = Path.GetInvalidFileNameChars();
+        var clean = string.Concat(name.Select(character => invalid.Contains(character) ? '-' : character)).Trim('.', ' ');
+        return clean.Length == 0 ? "E2ETests" : clean;
+    }
+
+    /// <summary>.NET-only: the namespace <c>dotnet new</c> gives a project of this name: every part an identifier.</summary>
+    internal static string RootNamespaceOf(string projectName) =>
+        string.Join('.', projectName.Split('.').Select(part =>
+        {
+            var identifier = string.Concat(part.Select(character => char.IsLetterOrDigit(character) || character == '_' ? character : '_'));
+            return identifier.Length == 0 || char.IsDigit(identifier[0]) ? "_" + identifier : identifier;
+        }));
+
+    /// <summary>
+    /// Runs <c>dotnet restore</c> in <paramref name="cwd"/> with the terminal of this process (upstream's <c>spawnSync(manager,
+    /// ['install'], { stdio: 'inherit' })</c>), bounded by <see cref="RestoreTimeout"/>. A cancel or a timeout kills the process tree.
+    /// </summary>
+    private static async Task<int> RestoreAsync(string cwd, CancellationToken cancellationToken)
+    {
+        var start = new ProcessStartInfo("dotnet") { WorkingDirectory = cwd, UseShellExecute = false };
+        start.ArgumentList.Add("restore");
+        using var process = Process.Start(start) ?? throw new Win32Exception("could not start dotnet");
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(RestoreTimeout);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+            return process.ExitCode;
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+                // It exited between the cancel and the kill.
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+
+            return 124;
+        }
     }
 
     /// <summary>

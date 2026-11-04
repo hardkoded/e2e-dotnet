@@ -21,6 +21,41 @@ public sealed class InitFlagsTests : CliInitTestBase
         Assert.StartsWith("error:", error, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("--example", "expo")]
+    [InlineData("--framework", "mstest")]
+    [InlineData("--example", "TodoMvc", "--engine", "web")]
+    [InlineData("--example", "TodoMvc", "--gateway", "none")]
+    [InlineData("--example", "TodoMvc", "--framework", "xunit")]
+    public void Rejects_an_unknown_example_or_framework_and_an_example_beside_the_flags_it_brings_its_own_files_for(params string[] args)
+    {
+        var (options, error) = InitFlags.Parse(args);
+        Assert.Null(options);
+        Assert.StartsWith("error:", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Reads_the_example_in_any_case_and_the_install_and_framework_flags()
+    {
+        var (options, error) = InitFlags.Parse(["--example", "todomvc", "--install"]);
+        Assert.Null(error);
+        Assert.Equal("TodoMvc", options!.Example);
+        Assert.True(options.Install);
+
+        (options, error) = InitFlags.Parse(["--no-install", "--framework=xunit"]);
+        Assert.Null(error);
+        Assert.False(options!.Install);
+        Assert.Equal("xunit", options.Framework);
+        Assert.Null(InitFlags.Parse([]).Options!.Install);
+    }
+
+    [Fact]
+    public void Lists_every_example_and_framework_in_the_usage()
+    {
+        Assert.All(Examples.All, example => Assert.Contains(example.Id, InitFlags.Usage, StringComparison.Ordinal));
+        Assert.All(Frameworks.All, framework => Assert.Contains(framework.Id, InitFlags.Usage, StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Merges_a_repeated_list_flag_and_drops_duplicates()
     {

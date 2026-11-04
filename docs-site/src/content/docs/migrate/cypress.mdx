@@ -13,7 +13,7 @@ e2e replaces Cypress command chains with async C# tests that run with `dotnet te
 Migrate this project's Cypress tests to e2e, one spec at a time. Docs: the "From Cypress" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/cypress.mdx).
 
 1. Read the migration guide. It maps Cypress config, commands, and assertions to e2e.
-2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. If the repository has none, create it (dotnet new nunit, or xunit3) and run `e2e init --yes` there. It writes e2e.config.json and installs the skill. It creates no test project and edits no .csproj.
+2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. If the repository has none, run `e2e init <directory> --yes` (add `--framework xunit` for xUnit v3). It creates the test project and example test, writes e2e.config.json, and installs the skill. In an existing test project it adds the missing package references to the .csproj.
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port cypress.config.* into e2e.config.json: baseUrl and the dev server command become the target's app, and if the specs select by data-cy, set WebEngineOptions.TestIdAttribute = "data-cy" so Screen.GetByTestId reads it. Keep Cypress installed while both suites run.

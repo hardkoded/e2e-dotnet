@@ -46,8 +46,12 @@ Text downloads are redacted only when they are UTF-8 without NUL bytes; other fi
 
 ## Scaffold with `e2e init`
 
-`e2e init [directory]` writes `e2e.config.json`, installs this skill, registers
-the `e2e mcp` server, and updates `.gitignore`, skipping files that exist. In a
+`e2e init [directory]` writes `e2e.config.json`, a test project (a `.csproj` and
+an `ExampleTests.cs`; or only the missing package references in an existing
+`.csproj`), installs this skill, registers the `e2e mcp` server, and updates
+`.gitignore`, skipping files that exist. `--framework nunit|xunit` picks the
+framework, `--install` runs `dotnet restore`, and `--example <name>` copies a
+sample. In a
 terminal it asks the questions no flag answered (engines, model gateway and
 endpoint, skill locations, MCP locations), lists the changes, and asks to apply
 them. It asks before replacing a symlinked skill directory with a copy or a link,
@@ -55,8 +59,8 @@ and declines by default. A rerun never touches an existing `e2e.config.json`,
 but refreshes stale skill copies and updates the e2e entry of existing MCP
 files. Leaving a question or declining the final plan writes nothing and exits
 0; declining a symlink replacement skips only that replacement. You have no terminal, so pass `--yes`: it asks nothing and takes the default
-of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--skills`,
-`--mcp`) did not answer, and it never replaces a symlink. A run with no
+of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--framework`,
+`--install`, `--skills`, `--mcp`) did not answer, and it never replaces a symlink. A run with no
 terminal and no `--yes` exits 2. `setup` has the details.
 
 ## Quick start
