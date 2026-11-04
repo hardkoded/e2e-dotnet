@@ -78,6 +78,6 @@ internal static class Frameworks
     public static FrameworkPreset? Detect(IEnumerable<string> packages)
     {
         var names = packages.ToList();
-        return All.FirstOrDefault(entry => names.Any(name => name.StartsWith(entry.Marker, StringComparison.OrdinalIgnoreCase)));
+        return All.FirstOrDefault(entry => names.Any(name => name.StartsWith(entry.Marker, StringComparison.OrdinalIgnoreCase) || (name.StartsWith("E2E.", StringComparison.OrdinalIgnoreCase) && name.Contains(entry.Marker, StringComparison.OrdinalIgnoreCase))));
     }
 }

@@ -889,4 +889,27 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         Assert.StartsWith("<!-- license -->\n<Project", Read("existing-app.csproj"), StringComparison.Ordinal);
     }
+
+    [Fact]
+    // .NET-only: Ctrl-C during dotnet restore ends the run with 130 and keeps the scaffold.
+    public async Task Exits_130_and_keeps_the_scaffold_when_the_restore_is_cancelled()
+    {
+        using var interrupt = new CancellationTokenSource();
+        var outcome = await RunInitAsync(
+            new InitOptions
+            {
+                Yes = true,
+                Install = true,
+                Gateway = "none",
+                RunInstall = (_, token) =>
+                {
+                    interrupt.Cancel();
+                    token.ThrowIfCancellationRequested();
+                    return Task.FromResult(0);
+                },
+            },
+            cancellationToken: interrupt.Token);
+        Assert.Equal(130, outcome.ExitCode);
+        Assert.True(File.Exists(Path_(ProjectFile())));
+    }
 }

@@ -39,5 +39,7 @@ public sealed class FrameworkPresetsTests
         Assert.Equal("nunit", Frameworks.Detect(["Microsoft.NET.Test.Sdk", "NUnit3TestAdapter"])?.Id);
         Assert.Equal("xunit", Frameworks.Detect(["xunit.v3.mtp-off"])?.Id);
         Assert.Null(Frameworks.Detect(["Microsoft.NET.Test.Sdk", "E2E"]));
+        Assert.Equal("xunit", Frameworks.Detect(["E2E", "E2E.XUnit.V3"])?.Id);
+        Assert.Equal("nunit", Frameworks.Detect(["E2E.Mobile.NUnit"])?.Id);
     }
 }

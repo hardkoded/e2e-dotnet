@@ -182,7 +182,14 @@ internal static class Examples
         {
             if (!succeeded)
             {
-                Remove();
+                try
+                {
+                    Remove();
+                }
+                catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+                {
+                    // The copy failed first; a leftover file must not hide that error.
+                }
             }
         }
     }

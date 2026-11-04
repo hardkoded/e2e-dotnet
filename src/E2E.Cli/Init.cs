@@ -120,6 +120,9 @@ internal static partial class Init
     /// <summary>.NET-only: how long <c>dotnet restore</c> may run before init kills it.</summary>
     private static readonly TimeSpan RestoreTimeout = TimeSpan.FromMinutes(10);
 
+    /// <summary>The exit code <see cref="RestoreAsync"/> reports for a restore it killed after <see cref="RestoreTimeout"/> (the code of <c>timeout</c>).</summary>
+    private const int RestoreTimedOut = 124;
+
     /// <summary>A file the run will write: a project, the config, or a test (upstream's <c>files</c> entries).</summary>
     private sealed record PlannedFile(string Relative, string Content, bool Existing);
 
@@ -550,11 +553,16 @@ internal static partial class Init
             try
             {
                 exitCode = await (options.RunInstall ?? RestoreAsync)(cwd, cancellationToken).ConfigureAwait(false);
-                reason = "exit " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                reason = exitCode == RestoreTimedOut ? "timed out after " + RestoreTimeout.TotalMinutes + " minutes" : "exit " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (System.ComponentModel.Win32Exception cause)
             {
                 (exitCode, reason) = (-1, cause.Message);
+            }
+            catch (OperationCanceledException)
+            {
+                output.WriteLine("Cancelled; the scaffold is saved, run dotnet restore to finish");
+                return Done(InitResult.Cancelled, 130);
             }
 
             if (exitCode != 0)
@@ -634,7 +642,7 @@ internal static partial class Init
                 throw;
             }
 
-            return 124;
+            return RestoreTimedOut;
         }
     }
 
