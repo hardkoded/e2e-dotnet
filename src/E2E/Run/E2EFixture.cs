@@ -256,6 +256,7 @@ public abstract class E2EFixture
                 TargetName = TargetName,
                 UpdateSnapshots = UpdateSnapshots,
                 ResultsDirectory = ResultsDirectory,
+                RerunDir = HostRun.RerunDir,
                 Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory),
                 CacheEnabled = cacheMode != CacheMode.Off,
                 CacheMode = cacheMode,

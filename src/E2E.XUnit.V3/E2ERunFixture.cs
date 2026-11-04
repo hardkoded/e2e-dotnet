@@ -76,6 +76,7 @@ public class E2ERunFixture : IAsyncLifetime
             {
                 var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed).ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
+                HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
                 await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);
             }

@@ -1528,6 +1528,9 @@ internal sealed class AttemptScope
     /// <summary>The attempt's artifact directory (upstream's <c>ArtifactSink.dir</c>); null when the scope has none, as in a unit test.</summary>
     public string? ArtifactsDir { get; init; }
 
+    /// <summary>The directory a <c>--last-failed</c> rerun files its attempts in, inside the test's (upstream's <c>rerunDir</c>); null for any other run.</summary>
+    public string? RerunDir { get; init; }
+
     /// <summary>The host store every artifact is handed to as it is produced (upstream's <c>artifacts.store</c>); null keeps files local only.</summary>
     public IArtifactStore? ArtifactStore { get; init; }
 
@@ -1551,11 +1554,11 @@ internal sealed class AttemptScope
                 () =>
                 {
                     var attempt = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-                    var test = Path.GetDirectoryName(attempt)!;
+                    var test = Path.GetDirectoryName(RerunDir is null ? attempt : Path.GetDirectoryName(attempt)!)!;
                     return ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
                     {
-                        ArtifactsRoot = Path.GetDirectoryName(test)!,
-                        Segments = [Path.GetFileName(test), Path.GetFileName(attempt)],
+                        ArtifactsRoot = ResultsRootOf(directory),
+                        Segments = [Path.GetFileName(test), .. RerunDir is null ? (string[])[] : [RerunDir], Path.GetFileName(attempt)],
                         AttemptId = AttemptId,
                         CurrentStepId = Steps.ArtifactStepId,
                         Store = ArtifactStore,
@@ -1587,7 +1590,7 @@ internal sealed class AttemptScope
             if (ArtifactsDir is { } directory && Secrecy.RedactsDownloads(Redactor))
             {
                 var redactor = Redactor;
-                var root = Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory))))!;
+                var root = ResultsRootOf(directory);
                 records = [.. records.Select(record => record.Kind == ArtifactKind.Download && record.Path is { } path && ArtifactPaths.IsTextLike(record.MediaType)
                     ? record with { Redaction = ArtifactPaths.RedactDownload(Path.Combine(root, path), redactor) }
                     : record)];
@@ -1595,6 +1598,13 @@ internal sealed class AttemptScope
 
             return records;
         }
+    }
+
+    // The results directory the report paths are relative to: above the test's directory, which is above the rerun's in a rerun.
+    private string ResultsRootOf(string directory)
+    {
+        var attempt = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        return Path.GetDirectoryName(Path.GetDirectoryName(RerunDir is null ? attempt : Path.GetDirectoryName(attempt)!)!)!;
     }
 
     /// <summary>Keeps <paramref name="relative"/> as an artifact of the running step, or of the last one when none runs (upstream's <c>attachArtifact</c>).</summary>

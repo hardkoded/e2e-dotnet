@@ -63,7 +63,7 @@ internal sealed record PreviousRun(Report Report, JsonObject Document)
 
 /// <summary>
 /// What <c>--last-failed</c> reads back from the previous run's report (upstream's <c>run/last-run.ts</c>). The port has no serial groups, so a
-/// carried block's <c>serialGroups</c> is always empty, and no pruning of the results tree, so <c>reportArtifactPaths</c> has no caller.
+/// carried block's <c>serialGroups</c> is always empty, so <see cref="ReportArtifactPaths"/> reads no serial group's attempts.
 /// Not ported: <c>previousFileDurations</c> and <c>fileDurationKey</c> (they order the files of a parallel run, and the test framework owns that order here).
 /// </summary>
 internal static class LastRun
@@ -176,6 +176,19 @@ internal static class LastRun
         }
 
         return ids;
+    }
+
+    /// <summary>
+    /// Every artifact file a report points at, by its report path (relative to the results directory): the files of the attempts of its results, and of
+    /// what it carries. What a <c>--last-failed</c> rerun keeps of the tree when it starts. An artifact that is only a link has no path.
+    /// </summary>
+    public static IReadOnlySet<string> ReportArtifactPaths(Report document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var results = document.Run.Results.Concat(document.Run.Carried?.Results ?? []);
+        return new HashSet<string>(
+            results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts).Select(artifact => artifact.Path).OfType<string>(),
+            StringComparer.Ordinal);
     }
 
     /// <summary>Whether two suite hook failures are the same hook's: one phase, one scope.</summary>

@@ -189,10 +189,9 @@ public sealed class E2ESession : IAsyncDisposable
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
-        var attemptDir = Path.Combine(
+        var attemptDir = Path.Combine([
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
-            "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            .. ArtifactPaths.AttemptSegments(options.RerunDir, AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle), options.Attempt - 1)]);
         IEngineSession engine;
 
         // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
@@ -294,6 +293,7 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 ArtifactsDir = attemptDir,
+                RerunDir = options.RerunDir,
                 OnProgress = events is null ? options.OnProgress : events.Progress(options.OnProgress),
                 ArtifactStore = options.ArtifactStore,
                 Session = engine,
@@ -400,7 +400,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
-            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory, options.RerunDir);
             var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
             try
             {
@@ -1347,6 +1347,12 @@ public sealed class E2ESessionOptions
 
     /// <summary>Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to <c>.e2e/results</c> under the project root.</summary>
     public string? ResultsDirectory { get; init; }
+
+    /// <summary>
+    /// The directory a <c>--last-failed</c> rerun files its attempts in, inside each test's directory (<c>rerun-&lt;n&gt;</c>, upstream's <c>rerunDir</c>), so no
+    /// attempt writes over the evidence of the report it reruns. Null for any other run.
+    /// </summary>
+    internal string? RerunDir { get; init; }
 
     /// <summary>Where the stored screenshots of the test file a call was made from live. Null keeps them in <c>&lt;test file&gt;-snapshots</c>.</summary>
     internal Func<string?, string?>? SnapshotDirectoryOf { get; init; }

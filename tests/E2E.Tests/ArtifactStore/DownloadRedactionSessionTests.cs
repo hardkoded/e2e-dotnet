@@ -89,6 +89,35 @@ public sealed class DownloadRedactionSessionTests : IDisposable
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))), (string?)record["sha256"]);
     }
 
+    // .NET-only: in a --last-failed rerun the attempt sits one level deeper, and the rescan must still find the file by its report path.
+    [Fact]
+    public async Task Rescans_a_download_of_a_last_failed_rerun_from_the_results_root()
+    {
+        var attempt = Path.Combine(_root, "test", "rerun-1", "attempt-1");
+        Directory.CreateDirectory(Path.Combine(attempt, "downloads"));
+        var scope = new AttemptScope
+        {
+            Session = null!,
+            Agents = new Dictionary<string, ResolvedAgent>(),
+            Cache = null,
+            CacheEnabled = false,
+            TestTitle = "downloads",
+            EnginePlatform = "web",
+            ArtifactsDir = attempt,
+            RerunDir = "rerun-1",
+        };
+        const string later = "later-credential-Jk8-5931";
+        await File.WriteAllTextAsync(Path.Combine(attempt, "downloads", "export.txt"), $"key={later}\n");
+        scope.AttachArtifact("download", "downloads/export.txt");
+        await scope.Artifacts!.SettleAsync();
+        Assert.Equal("test/rerun-1/attempt-1/downloads/export.txt", scope.Attached[0].Path);
+
+        scope.Register("api-key", later);
+
+        Assert.Equal(E2E.Reports.ArtifactRedaction.Complete, scope.Attached[0].Redaction);
+        Assert.Equal("key=<secret:api-key>\n", await File.ReadAllTextAsync(Path.Combine(attempt, "downloads", "export.txt")));
+    }
+
     // A failed final scan must replace the earlier registration's successful result.
     [Fact]
     public async Task Reports_a_previously_complete_download_incomplete_when_the_final_scan_fails()
