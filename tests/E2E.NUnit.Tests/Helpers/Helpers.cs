@@ -36,8 +36,11 @@ internal static class Helpers
         }
     }
 
-    /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c> (<c>localhost</c> on the app's port).</summary>
-    public static string CROSS => new UriBuilder(PREFIX) { Host = "localhost" }.Uri.GetLeftPart(UriPartial.Authority);
+    /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c>.</summary>
+    public static string CROSS => PREFIX.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
+
+    /// <summary>The absolute path of one of Playwright's test assets.</summary>
+    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
 
     /// <summary>A path that serves <paramref name="html"/> as a page, for Playwright's <c>page.setContent(html)</c>.</summary>
     public static string Content(string html) =>

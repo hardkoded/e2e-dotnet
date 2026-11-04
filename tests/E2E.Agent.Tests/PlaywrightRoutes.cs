@@ -2,8 +2,11 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Net;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace E2E.Playground;
 
@@ -62,6 +65,35 @@ internal static class PlaywrightRoutes
             return;
         }
 
+        if (path == "/respond")
+        {
+            var query = context.Request.QueryString;
+            response.StatusCode = int.TryParse(query["status"], CultureInfo.InvariantCulture, out var status) ? status : 200;
+            if (query["headers"] is { } headers)
+            {
+                foreach (var (name, value) in JsonSerializer.Deserialize<Dictionary<string, string>>(headers)!)
+                {
+                    if (name.Equals("content-type", StringComparison.OrdinalIgnoreCase))
+                    {
+                        response.ContentType = value;
+                    }
+                    else
+                    {
+                        response.AddHeader(name, value);
+                    }
+                }
+            }
+
+            await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "")).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/upload")
+        {
+            await UploadAsync(context).ConfigureAwait(false);
+            return;
+        }
+
         var file = Path.GetFullPath(Path.Combine(Root, Uri.UnescapeDataString(path).TrimStart('/')));
         if (!file.StartsWith(Root + Path.DirectorySeparatorChar, StringComparison.Ordinal) || !File.Exists(file))
         {
@@ -82,6 +114,56 @@ internal static class PlaywrightRoutes
         AppDomain.CurrentDomain.ProcessExit += (_, _) => source.Cancel();
         return source;
     }
+
+    /// <summary>Answers a multipart form with the files it carried as JSON, as upstream's <c>/upload</c>: name, filename, mimetype, size, and the bytes (base64) of a file up to 64 KB.</summary>
+    private static async Task UploadAsync(HttpListenerContext context)
+    {
+        using var received = new MemoryStream();
+        await context.Request.InputStream.CopyToAsync(received).ConfigureAwait(false);
+        var data = received.GetBuffer().AsMemory(0, (int)received.Length);
+        var type = context.Request.ContentType ?? "";
+        var marker = type.IndexOf("boundary=", StringComparison.Ordinal);
+        var boundary = Encoding.UTF8.GetBytes("--" + (marker < 0 ? "" : type[(marker + "boundary=".Length)..]));
+        var files = new List<Dictionary<string, object?>>();
+        var start = data.Span.IndexOf(boundary);
+        while (start >= 0)
+        {
+            var afterStart = start + boundary.Length;
+            var relative = data.Span[afterStart..].IndexOf(boundary);
+            if (relative < 0)
+            {
+                break;
+            }
+
+            var next = afterStart + relative;
+            var part = data[(afterStart + 2)..(next - 2)];
+            var split = part.Span.IndexOf("\r\n\r\n"u8);
+            if (split < 0)
+            {
+                start = next;
+                continue;
+            }
+
+            var head = Encoding.UTF8.GetString(part.Span[..split]);
+            var body = part[(split + 4)..];
+            files.Add(new Dictionary<string, object?>
+            {
+                ["name"] = Capture(head, "name=\"([^\"]*)\""),
+                ["filename"] = Capture(head, "filename=\"([^\"]*)\""),
+                ["mimetype"] = Capture(head, "content-type: ([^\r\n]+)"),
+                ["size"] = body.Length,
+                ["base64"] = body.Length <= 65536 ? Convert.ToBase64String(body.Span) : null,
+            });
+            start = next;
+        }
+
+        context.Response.ContentType = "text/plain";
+        context.Response.AddHeader("Access-Control-Allow-Origin", "*");
+        await WriteAsync(context.Response, JsonSerializer.SerializeToUtf8Bytes(files)).ConfigureAwait(false);
+    }
+
+    private static string? Capture(string text, string pattern) =>
+        Regex.Match(text, pattern, RegexOptions.IgnoreCase) is { Success: true } match ? match.Groups[1].Value : null;
 
     private static byte[] FromBase64Url(string value)
     {
