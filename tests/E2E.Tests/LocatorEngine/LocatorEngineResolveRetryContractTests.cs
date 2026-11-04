@@ -99,16 +99,21 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Lets_a_slow_last_resolve_finish_past_the_deadline_a_late_match_resolves()
     {
+        // The slow resolves move a fake clock, so no load on the runner can move the deadline.
+        var clock = new SteppingTime();
         var budgets = new List<TimeSpan>();
         var screen = LocatingScreen(
             [
-                budget => SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(200), [], budget),
-                budget => SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(200), [Match], budget),
+                budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
+                budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [Match], budget),
             ],
-            budgets);
+            budgets,
+            clock: clock);
         var deadline = new Deadline(TimeSpan.FromMilliseconds(400), screen.Clock);
 
-        var node = await screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
+        var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        var node = await resolving;
 
         Assert.Equal(Match.Ref, node.Ref);
 
