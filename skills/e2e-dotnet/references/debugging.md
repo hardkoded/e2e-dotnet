@@ -35,8 +35,8 @@
 3. A failed agent step carries the model's explanation. A passing act's
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed. A run summary tallies those by step as `Cache  4 replayed · 1 handed
-   off · 1 missed · 1 not saved`; the port's internal `ListReporter` renders it, but no
-   command prints a run summary yet.
+   off · 1 missed · 1 not saved`; the port's internal `ListReporter` renders it, but only
+   `e2e explore` prints a run summary, so a test run does not show it.
 
 Fix from that evidence, never by walking the flow again from the start over
 MCP: the run already saw every screen up to the failure.

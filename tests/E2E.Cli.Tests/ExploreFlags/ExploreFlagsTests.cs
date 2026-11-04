@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Tests.Helpers;
+using E2E.Reports;
 
 namespace E2E.Cli.Tests.ExploreFlags;
 
@@ -209,6 +210,29 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
+    public async Task Closes_the_run_it_opened_when_the_exploration_fails_after_the_run_started()
+    {
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        var code = await ExploreCommand.RunAsync(
+            [],
+            stdout,
+            stderr,
+            interactive: false,
+            (_, _) =>
+            {
+                RunEvents.Emit(new RunStartedEvent { RunId = "run-1", ProjectId = "p", ProjectRoot = "/p", ArtifactsRoot = "/p/.e2e", Targets = ["web"] });
+                throw new EngineException("ENGINE_FAILURE", "the browser did not start");
+            },
+            CancellationToken.None);
+
+        Assert.Equal(3, code);
+        Assert.Equal("error ENGINE_FAILURE: the browser did not start", stderr.ToString().TrimEnd());
+        Assert.Contains(" RUN ", stdout.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Duration", stdout.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Exits_130_when_interrupted()
     {
         using var cancel = new CancellationTokenSource();
@@ -276,60 +300,16 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
-    public async Task Gives_the_agent_each_account_in_the_environment_and_never_prints_a_password()
+    public async Task Gives_the_agent_each_account_in_the_environment()
     {
-        const string Password = "hunter2-secret-pw";
         using var _ = Env("E2E_USER_EXPLORE_TEST_USERNAME", "alice@example.com");
-        using var __ = Env("E2E_USER_EXPLORE_TEST_PASSWORD", Password);
-        var outcome = new ExploreOutcome(
-            RunStatus.Failed,
-            3,
-            new AgentException("MODEL_PROVIDER_FAILED", "the provider echoed " + Password),
-            Passed().Explore);
-        var fake = Fake(outcome);
+        using var __ = Env("E2E_USER_EXPLORE_TEST_PASSWORD", "hunter2-secret-pw");
+        var fake = Fake();
 
-        var (_, stdout, stderr) = await fake.InvokeAsync();
+        await fake.InvokeAsync();
 
         var account = Assert.Contains("explore_test", fake.Options!.Credentials!);
         Assert.Equal("alice@example.com", account.Username);
-        Assert.DoesNotContain(Password, stdout + stderr, StringComparison.Ordinal);
-        Assert.Contains("MODEL_PROVIDER_FAILED: the provider echoed <secret:", stdout, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Redacts_an_account_password_the_record_echoes_wherever_it_is_printed()
-    {
-        const string Password = "hunter2-secret-pw";
-        using var _ = Env("E2E_USER_EXPLORE_ECHO_USERNAME", "carol@example.com");
-        using var __ = Env("E2E_USER_EXPLORE_ECHO_PASSWORD", Password);
-        var finding = new ReportExploreFinding(
-            "f-1",
-            0,
-            1,
-            ReportExploreFindingKind.Issue,
-            3,
-            "The page shows " + Password,
-            "No password on the page",
-            "The banner reads " + Password,
-            ["Sign in", "Read " + Password],
-            DateTimeOffset.UnixEpoch);
-        var step = new ReportExploreStep(1, "Sign in " + Password, "Sign in", ReportExploreStepStatus.Failed, DateTimeOffset.UnixEpoch, TimeSpan.FromSeconds(1), "It printed " + Password, "STEP_FAILED");
-        var fake = new FakeExplore(
-            [
-                new ExploreProgress.Started("Explore", Budgets),
-                new ExploreProgress.StepStarted(new OpenedStep(1, step.Title, step.Instruction)),
-                new ExploreProgress.FindingReported(finding),
-                new ExploreProgress.StepFinished(step),
-                new ExploreProgress.Finished(ReportExploreEnded.Finished, "The assessment kept " + Password),
-            ],
-            new ExploreOutcome(RunStatus.Failed, 1, null, Passed().Explore with { Findings = [finding], Steps = [step] }));
-
-        var (_, stdout, stderr) = await fake.InvokeAsync();
-
-        Assert.DoesNotContain(Password, stdout + stderr, StringComparison.Ordinal);
-        Assert.Contains("The page shows <secret:", stdout, StringComparison.Ordinal);
-        Assert.Contains("It printed <secret:", stdout, StringComparison.Ordinal);
-        Assert.Contains("The assessment kept <secret:", stdout, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -243,9 +243,13 @@ public static class Explore
             notice(message);
         }
 
+        // The exploration is a run of one test on one target: its start is announced before the app command's setup, its plan after it.
+        HostRun.Started(config, [target.Name], agentName);
+
         // The target's app command starts before the session opens, and the URL is on the port it was started on.
         var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
         target = appTarget;
+        RunEvents.Emit(new PlanEvent(1, [(ExploreFile, target.Name, 1)]));
         var appFailures = new List<Exception>();
         var resultsDirectory = OutputLayout.Of(config.ResolveOutput(options.Output)).Results;
         StandaloneAttempt attempt;

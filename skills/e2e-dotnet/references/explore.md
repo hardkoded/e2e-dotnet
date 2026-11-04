@@ -124,12 +124,13 @@ Every `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the
 environment is an account the explorer can sign in with, named `<name>` in
 lower case; a username with no password (or a short one) exits 2.
 
-The terminal shows each step by its title with its duration and findings, and
-each finding the moment it is reported as `⚑ high issue  Title (/path)`. At
-the end a `Findings` section lists every finding, issues first and the most
-severe first, each with where it was seen, expected against actual, the steps
-that reach it, and its screenshot path; then the `Assessment` and a summary
-with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
+The terminal opens with the `RUN` header, then shows each step by its title
+with its duration, actions, and findings, and each finding the moment it is
+reported as `⚑ high issue  Title (/path)`. At the end a `Findings` section lists
+every finding, issues first and the most severe first, each with where it was
+seen, expected against actual, the steps that reach it, and its screenshot
+path; then the `Assessment` and a summary with `Findings`, `Steps`, `AI`,
+`Start at`, and `Duration`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 (warnings do not count), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
