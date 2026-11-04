@@ -131,6 +131,8 @@ internal sealed class TestHost : IReplayHost
 
         public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => host.Act("pressKey", key);
 
+        public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) => host.Act("dismissKeyboard");
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("select", (target.Id, value));
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => host.Act("check", (target.Id, check));

@@ -1087,8 +1087,7 @@ public sealed record HoverAtActionEvent(int Index, string Action, string Summary
 public sealed record DragAtActionEvent(int Index, string Action, string Summary, ActionSource Source, Point From, Point To) : ActionEvent(Index, Action, Summary, Source);
 
 /// <summary>
-/// The name <see cref="ActionEvent"/> reports a committed action under (upstream's <c>ActionName</c>). Upstream's <c>dismissKeyboard</c>
-/// is left out: the port has no such action. A <c>clear</c> reads <see cref="Type"/>.
+/// The name <see cref="ActionEvent"/> reports a committed action under (upstream's <c>ActionName</c>). A <c>clear</c> reads <see cref="Type"/>.
 /// </summary>
 public enum ActionName
 {
@@ -1118,6 +1117,9 @@ public enum ActionName
 
     /// <summary>One key sent to whatever held focus (<c>pressKey</c>).</summary>
     PressKey,
+
+    /// <summary>An on-screen keyboard hidden (<c>dismissKeyboard</c>).</summary>
+    DismissKeyboard,
 
     /// <summary>A mutating project tool; <see cref="ActionEvent.ToolName"/> names it. Upstream reads <c>tool:name</c> in <c>action</c>; this value is .NET-only.</summary>
     Tool,

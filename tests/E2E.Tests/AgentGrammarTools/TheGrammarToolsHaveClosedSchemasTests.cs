@@ -25,6 +25,13 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(
             ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+
+        // dismiss_keyboard comes with an engine that can hide its keyboard, and takes no input.
+        var device = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, dismissKeyboard: true);
+        Assert.Empty(device.Single(tool => tool.Name == "dismiss_keyboard").Parameters.GetProperty("properties").EnumerateObject());
+        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard), tool => tool.Name == "dismiss_keyboard");
+        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, dismissKeyboard: true), tool => tool.Name == "dismiss_keyboard");
+        Assert.True(AgentTools.IsReserved("dismiss_keyboard"));
     }
 
     // Part of upstream's "offers the whole vocabulary over the full grammar": the pointer verbs follow the action kinds the engine declares,

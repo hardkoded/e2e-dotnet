@@ -77,7 +77,7 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds, scope.Session.PointerActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
+        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds, scope.Session.PointerActionKinds, scope.Session.CanDismissKeyboard), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
@@ -173,7 +173,7 @@ internal sealed partial class ActContext : StepExecutorContext
     }
 
     // The verbs the engine can honor: the grammar the built-in tools offer for these capabilities.
-    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds)
+    internal static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds, bool canDismissKeyboard = false)
     {
         var verbs = new HashSet<ExecutorVerb>
         {
@@ -214,6 +214,12 @@ internal sealed partial class ActContext : StepExecutorContext
         if (capabilities.HasFlag(EngineCapabilities.Keyboard))
         {
             verbs.UnionWith([ExecutorVerb.TypeText, ExecutorVerb.PressKey]);
+
+            // A keyboard that can be sent away (a device's) adds dismissKeyboard, as upstream's `keyboard.dismiss` hook does.
+            if (canDismissKeyboard)
+            {
+                verbs.Add(ExecutorVerb.DismissKeyboard);
+            }
         }
 
         // The point verbs follow the pointer kinds the engine declared (upstream's declaredVerbs).

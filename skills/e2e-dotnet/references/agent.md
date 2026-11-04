@@ -199,7 +199,9 @@ all four, the device engines all but `secondaryTap`, and the document engine
 none. `drag` takes a `target` and a `to`, the node to drop on, each named like
 any node (`ref`, or `role` and `name`); both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
-the model when either is gone. `screenshot` and the point tools `tap_at`,
+the model when either is gone. `dismiss_keyboard` (no input) comes with an engine that can hide its
+keyboard (the mobile engine): it hides the on-screen keyboard when it covers what
+the model needs to reach. `screenshot` and the point tools `tap_at`,
 `type_at`, `press_at`, and `select_at` are always offered (see "Screenshots in
 `ActAsync`"), and `hover_at` and `drag_at` with an engine that takes a bare
 point for a hover or a drag (the web engine does) or that lists `hover` or
@@ -418,8 +420,9 @@ points from, and the point tools follow it in the catalog.
 A custom executor reaches the same verbs as `Actions.TapAtAsync`,
 `HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`, and, when the engine
 declares `Keyboard`, `TypeTextAsync` and `PressKeyAsync` for the focused field
-(`ExecutorVerb.TypeText` and `PressKey`). The trace records them as `typeText`
-and `pressKey`. The trace cache records a
+(`ExecutorVerb.TypeText` and `PressKey`), and, on an engine that can hide its
+keyboard, `DismissKeyboardAsync` (`ExecutorVerb.DismissKeyboard`). The trace
+records them as `typeText`, `pressKey`, and `dismissKeyboard`. The trace cache records a
 point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).

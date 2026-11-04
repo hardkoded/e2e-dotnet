@@ -395,7 +395,7 @@ public sealed class ObservationTests
             "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), OperationContext.Test, CancellationToken.None),
             "type" => session.TypeTextAsync("hi", replace: false, CancellationToken.None),
             "press" => session.PressAsync("Enter", CancellationToken.None),
-            "keyboard dismiss" => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss")),
+            "keyboard dismiss" => ((IEngineSession)session).DismissKeyboardAsync(CancellationToken.None),
             "back" => session.BackAsync(OperationContext.Test, CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };

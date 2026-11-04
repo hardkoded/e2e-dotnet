@@ -46,6 +46,7 @@ internal static class AgentActions
             "dragAt" => ActionName.DragAt,
             "typeText" => ActionName.TypeText,
             "pressKey" => ActionName.PressKey,
+            "dismissKeyboard" => ActionName.DismissKeyboard,
             _ => throw new ArgumentException("\"" + action + "\" is not an action an event reports.", nameof(action)),
         };
     }
