@@ -14,25 +14,21 @@ namespace E2E.NUnit.Tests.LocatorIsVisible;
 /// </summary>
 public sealed class LocatorIsVisibleTests : PlaywrightTest
 {
-    // Known difference, hardkoded/e2e-dotnet#1075: an element with an empty box reads as visible.
     [Test]
     public async Task IsVisible_and_isHidden_should_work()
     {
-        await ExpectedToFailAsync("Expected False, but was True", async () =>
-        {
-            await Browser.GotoAsync(Content("<div>Hi</div><span></span>"));
+        await Browser.GotoAsync(Content("<div>Hi</div><span></span>"));
 
-            var div = Browser.Locator("div");
-            Equal(true, await div.IsVisibleAsync());
-            Equal(false, await div.IsHiddenAsync());
+        var div = Browser.Locator("div");
+        Equal(true, await div.IsVisibleAsync());
+        Equal(false, await div.IsHiddenAsync());
 
-            var span = Browser.Locator("span");
-            Equal(false, await span.IsVisibleAsync());
-            Equal(true, await span.IsHiddenAsync());
+        var span = Browser.Locator("span");
+        Equal(false, await span.IsVisibleAsync());
+        Equal(true, await span.IsHiddenAsync());
 
-            Equal(false, await Browser.Locator("no-such-element").IsVisibleAsync());
-            Equal(true, await Browser.Locator("no-such-element").IsHiddenAsync());
-        });
+        Equal(false, await Browser.Locator("no-such-element").IsVisibleAsync());
+        Equal(true, await Browser.Locator("no-such-element").IsHiddenAsync());
     }
 
     [Test]
@@ -127,38 +123,30 @@ public sealed class LocatorIsVisibleTests : PlaywrightTest
         }
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1075: an element with an empty box reads as visible.
     [Test]
     public async Task IsVisible_inside_a_button()
     {
-        await ExpectedToFailAsync("Expected False, but was True", async () =>
-        {
-            await Browser.GotoAsync(Content("<button><span></span>a button</button>"));
-            var span = Browser.Locator("span");
-            Equal(false, await span.IsVisibleAsync());
-            Equal(true, await span.IsHiddenAsync());
-            await Expect.That(span).Not.ToBeVisibleAsync();
-            await Expect.That(span).ToBeHiddenAsync();
-            await span.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
-            await Browser.Locator("button").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
-        });
+        await Browser.GotoAsync(Content("<button><span></span>a button</button>"));
+        var span = Browser.Locator("span");
+        Equal(false, await span.IsVisibleAsync());
+        Equal(true, await span.IsHiddenAsync());
+        await Expect.That(span).Not.ToBeVisibleAsync();
+        await Expect.That(span).ToBeHiddenAsync();
+        await span.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        await Browser.Locator("button").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1075: an element with an empty box reads as visible.
     [Test]
     public async Task IsVisible_inside_a_role_button()
     {
-        await ExpectedToFailAsync("Expected False, but was True", async () =>
-        {
-            await Browser.GotoAsync(Content("<div role=button><span></span>a button</div>"));
-            var span = Browser.Locator("span");
-            Equal(false, await span.IsVisibleAsync());
-            Equal(true, await span.IsHiddenAsync());
-            await Expect.That(span).Not.ToBeVisibleAsync();
-            await Expect.That(span).ToBeHiddenAsync();
-            await span.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
-            await Browser.Locator("[role=button]").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
-        });
+        await Browser.GotoAsync(Content("<div role=button><span></span>a button</div>"));
+        var span = Browser.Locator("span");
+        Equal(false, await span.IsVisibleAsync());
+        Equal(true, await span.IsHiddenAsync());
+        await Expect.That(span).Not.ToBeVisibleAsync();
+        await Expect.That(span).ToBeHiddenAsync();
+        await span.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+        await Browser.Locator("[role=button]").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
     }
 
     [Test]

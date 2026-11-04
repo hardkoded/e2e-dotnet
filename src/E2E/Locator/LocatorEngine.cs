@@ -103,7 +103,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal bool LocatesInEngine => options.Locate is not null;
 
     /// <summary>Canonical visibility predicate over a semantic node snapshot (upstream's <c>isNodeVisible</c>).</summary>
-    internal static bool IsNodeVisible(SemanticNode? node) => node is { States.Hidden: false };
+    internal static bool IsNodeVisible(SemanticNode? node) =>
+        node is { States: { Hidden: false, EmptyBox: false } };
 
     /// <summary>
     /// Denies reading a value, text, or attribute when any node is a secure field: the engine withholds them there, so what reads as
@@ -294,7 +295,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
                 // An engine answers `visible` inside scopes, filters, and indices, where only it can. A direct query is held to the same
                 // predicate here, so it never resolves to a node its own state calls hidden.
-                return expression.Visible && expression.Kind is not ("filter" or "index" or "selector") ? nodes.Where(node => !node.States.Hidden).ToList() : nodes;
+                return expression.Visible && expression.Kind is not ("filter" or "index" or "selector") ? nodes.Where(node => IsNodeVisible(node)).ToList() : nodes;
             }
             catch (EngineException ex) when (retried is not null && !token.IsCancellationRequested && reads.CutOff(ex))
             {

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace E2E.Internal;
@@ -147,12 +149,18 @@ internal static partial class Routes
         _ => false,
     };
 
-    /// <summary>The step label of a URL pattern, as upstream's <c>String(pattern)</c> writes it: a glob as it is, a regex as <c>/source/flags</c>.</summary>
-    public static string Label(object pattern) => pattern switch
+    /// <summary>
+    /// A URL pattern as steps and errors name it, upstream's <c>patternLabel</c>: a glob string quoted (<c>JSON.stringify</c>), a regex as
+    /// <c>/source/flags</c> (<c>String(RegExp)</c>).
+    /// </summary>
+    public static string PatternLabel(object pattern) => pattern switch
     {
+        string glob => JsonSerializer.Serialize(glob, QuoteOptions),
         Regex regex => "/" + regex + "/" + (regex.Options.HasFlag(RegexOptions.IgnoreCase) ? "i" : "") + (regex.Options.HasFlag(RegexOptions.Multiline) ? "m" : "") + (regex.Options.HasFlag(RegexOptions.Singleline) ? "s" : ""),
-        _ => (string)pattern,
+        _ => throw new ArgumentException("A URL pattern is a string or a Regex.", nameof(pattern)),
     };
+
+    private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePattern();
