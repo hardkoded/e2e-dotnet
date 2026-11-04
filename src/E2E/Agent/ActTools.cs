@@ -790,7 +790,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return new ScreenText(action + "\n" + note + view.Text + "\n\n" + PixelMode.Note(shot), shot);
         }
 
-        // The pixels the step asked for did not come: say why once and keep working from the tree.
+        // The pixels the step asked for did not come: say why once and keep working from the tree. The model holds this listing now.
+        _pixels?.Listed(view.Text, view.Revision);
         return new ScreenText(action + "\n" + view.Text + (view.PixelsWithheld is { } withheld ? "\n\nNo screenshot: " + PixelMode.WithheldAdvice(withheld) : ""), null);
     }
 
