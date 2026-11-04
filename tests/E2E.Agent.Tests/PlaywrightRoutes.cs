@@ -47,7 +47,7 @@ internal static class PlaywrightRoutes
         if (path == "/download")
         {
             response.ContentType = "application/octet-stream";
-            response.AddHeader("Content-Disposition", "attachment" + (query["name"] is { } name ? "; filename=" + name : ""));
+            response.AddHeader("Content-Disposition", "attachment" + (query["name"] is { } name ? "; filename=\"" + name + "\"" : ""));
             await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "Hello world")).ConfigureAwait(false);
             return;
         }
