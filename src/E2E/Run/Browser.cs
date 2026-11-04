@@ -140,7 +140,7 @@ public sealed class Browser
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        return RunStepAsync(StepKind.Resource, "browser.waitForURL", url, () =>
+        return RunStepAsync(StepKind.Resource, "browser.waitForURL", Routes.PatternLabel(url), () =>
         {
             Require("waitForURL");
             return new BrowserExpect(this, negated: false).ToHaveURLAsync(url, timeout: timeout, cancellationToken: cancellationToken);
