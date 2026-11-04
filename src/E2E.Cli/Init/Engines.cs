@@ -62,7 +62,7 @@ internal static class Engines
                         public async Task App_opens()
                         {
                             await App.OpenAsync("/");
-                            await Expect.That(Browser.Locator("body *").First()).ToBeVisibleAsync();
+                            await Expect.That(Browser.Locator("body")).ToBeVisibleAsync();
                         }
                     """),
                 framework => $$"""

@@ -34,6 +34,14 @@ internal static class PageScript
           // Named as upstream's SKIP_TAGS in read-semantics.ts, which also lists next-route-announcer: Next.js App
           // Router's route announcer echoes the title on a hydration schedule of its own, which an observation must
           // not read as an alert.
+          // The elements a locator's selector named that this tree does not list (upstream reads any element the selector matches).
+          // The host sets them just before an observation that publishes, which takes them: they are listed as nodes like the rest.
+          const forcedKey = Symbol.for("e2e.observation.forced");
+          const forced = publish ? globalThis[forcedKey] ?? null : null;
+          if (publish) delete globalThis[forcedKey];
+          const isForced = (el) => forced !== null && forced.has(el);
+          // A leaf lists no children, unless a selector named one of them.
+          const holdsForced = (el) => forced !== null && [...forced].some((named) => named !== el && el.contains(named));
           const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "NEXT-ROUTE-ANNOUNCER"]);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
@@ -46,6 +54,7 @@ internal static class PageScript
           let textCount = 0;
           let textCut = false;
           let full = false;
+          let gate = null;
           let offBudget = max;
           let offCount = 0;
           let scroll = Math.round(scrollX) + "," + Math.round(scrollY);
@@ -847,10 +856,10 @@ internal static class PageScript
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
           // so <iframe role="none"> stays listed, with the role none.
-          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
+          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el) || isForced(el);
           // A node listed for its text alone. It draws on its own allowance, so
           // a page full of text cannot push controls out of the snapshot.
-          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute);
+          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute) && !isForced(el);
           // The inline elements read in the element's line that have no node of
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
@@ -884,7 +893,7 @@ internal static class PageScript
             return true;
           };
           const tally = (el, visible) => {
-            if (!el || skip.has(el.tagName) || isInert(el)) return 0;
+            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el)) return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
             const role = roleOf(el);
@@ -900,7 +909,7 @@ internal static class PageScript
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role)) return n;
+              if (isLeaf(el, role) && !holdsForced(el)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -912,7 +921,8 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || skip.has(el.tagName) || isInert(el) || full) return;
+            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || full) return;
+            if (gate !== null && !gate(el)) return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
             const isAriaHidden = !!parentAria || ariaHidden(el);
@@ -923,7 +933,9 @@ internal static class PageScript
             if (isFrame && (isHidden || isAriaHidden)) return;
             if (listed(el, role)) {
               const textNode = textOnly(el, role);
-              if (textNode ? textCount >= max : count >= max) {
+              // A node a selector named is read whatever the budget says: the locate must reach what it names.
+              const named = isForced(el);
+              if (!named && (textNode ? textCount >= max : count >= max)) {
                 if (!textNode) {
                   full = true;
                   return;
@@ -932,9 +944,9 @@ internal static class PageScript
                 walkChildren(el, into, childrenHidden, isAriaHidden);
                 return;
               }
-              if (!textNode && offBudget < max && !inView(el)) {
+              if (!named && !textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
-                  if (isLeaf(el, role) || el.tagName === "SELECT") return;
+                  if ((isLeaf(el, role) && !holdsForced(el)) || el.tagName === "SELECT") return;
                   walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
@@ -1009,7 +1021,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role)) return;
+              if (isLeaf(el, role) && !holdsForced(el)) return;
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
@@ -1036,7 +1048,11 @@ internal static class PageScript
             const body = document.documentElement.inert ? null : document.body;
             truncated = !!body && tally(body, false) > max;
             if (truncated) offBudget = Math.max(0, max - tally(body, true));
-            if (body) walk(body, roots, false, false);
+            // An element outside the body (html, head, and what is in it) is walked from the root, down the paths that lead to one.
+            if (body && forced !== null && [...forced].some((el) => !body.contains(el))) {
+              gate = (el) => el === body || body.contains(el) || forced.has(el) || [...forced].some((named) => el.contains(named));
+              walk(document.documentElement, roots, false, false);
+            } else if (body) walk(body, roots, false, false);
           } finally {
             document.adoptedStyleSheets = sheets;
           }
@@ -1110,6 +1126,24 @@ internal static class PageScript
     // observation under the iframe node.
     public const string RefOf = """
         (el) => el[Symbol.for("e2e.observation.ref")] ?? null
+        """;
+
+    // What a locator's selector names, in one frame: per element, its ref when the last observation lists it, else null. Those are marked,
+    // so the observation that follows lists them as nodes (the page-side half of upstream's e2e-read engine).
+    public const string RefsOrForce = """
+        (els, mark) => {
+          const listed = window[Symbol.for("e2e.observation.elements")];
+          const key = Symbol.for("e2e.observation.forced");
+          return els.map((el) => {
+            const id = el[Symbol.for("e2e.observation.ref")];
+            if (id !== undefined && listed?.get(id) === el && el.isConnected) return id;
+            if (!mark) return null;
+            const forced = globalThis[key] ?? new Set();
+            forced.add(el);
+            globalThis[key] = forced;
+            return null;
+          });
+        }
         """;
 
     // Whether an element is a frame, the only element a frame locator can enter.
