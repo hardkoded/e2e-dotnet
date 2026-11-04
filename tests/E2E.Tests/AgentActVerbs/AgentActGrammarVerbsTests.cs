@@ -9,10 +9,8 @@ using PolicyDecision = E2E.Reports.PolicyDecision;
 namespace E2E.Tests.AgentActVerbs;
 
 /// <summary>
-/// <c>agent.act</c> grammar verbs on the gestures page, driven by a scripted model. Upstream also runs a repeated key
-/// press and a hover at a bare point. This port has no repeat count on press, and its point tools are a separate port. Upstream also
-/// checks the changes a tool result lists. The port's tool result lists the whole screen and names the node by its role and
-/// name where upstream names it by id.
+/// <c>agent.act</c> grammar verbs on the gestures page, driven by a scripted model. Upstream also checks the changes a tool
+/// result lists. The port's tool result lists the whole screen and names the node by its role and name where upstream names it by id.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class AgentActGrammarVerbsTests
@@ -161,6 +159,54 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Contains("heading \"About\"", toolResults[0], StringComparison.Ordinal);
         Assert.StartsWith("Navigated back.", toolResults[1], StringComparison.Ordinal);
         Assert.Contains("heading \"Gestures\"", toolResults[1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Repeats_a_key_in_one_call_one_engine_action_per_press_and_shows_the_selection_it_made()
+    {
+        using var site = await StartSiteAsync();
+        var model = ModelFor(SelectWordFlow);
+        var (result, steps) = await RunFlowWithStepsAsync(site, SelectWordFlow, model, NewCacheDirectory());
+
+        // The first press addresses the node; the seven after it ride the focus it took.
+        var actions = EngineEvents(steps);
+        Assert.Equal(["tap", "press", .. Enumerable.Repeat("pressKey", 7)], actions.Select(item => item.Name));
+        Assert.Equal("press textbox \"Memo\"", actions[1].Detail);
+        Assert.Equal(9, result.Actions);
+        var toolResult = CounterPage.ToolResults(model)[1];
+        Assert.Matches("^Pressed Shift\\+ArrowLeft 8 times on #e\\d+\\.", toolResult);
+        Assert.Matches("textbox \"Memo\" .*value=\"release approved\" selection=\"approved\"", toolResult);
+    }
+
+    [Fact]
+    public async Task Walks_focus_on_with_a_repeated_Tab_instead_of_returning_to_the_node_each_time()
+    {
+        using var site = await StartSiteAsync();
+        var model = ModelFor(TabFlow);
+        var (_, steps) = await RunFlowWithStepsAsync(site, TabFlow, model, NewCacheDirectory());
+
+        var actions = EngineEvents(steps);
+        Assert.Equal(["press", "pressKey"], actions.Select(item => item.Name));
+        Assert.Equal("press checkbox \"Agree to terms\"", actions[0].Detail);
+        var toolResult = CounterPage.ToolResults(model)[0];
+        Assert.Matches("^Pressed Tab 2 times on #e\\d+\\.", toolResult);
+        Assert.Matches("textbox \"Memo\" .*value=\"release approved\" selection=\"release approved\"", toolResult);
+    }
+
+    [Fact]
+    public async Task Hovers_a_bare_point_through_the_engine_when_nothing_listed_is_a_control_there()
+    {
+        using var site = await StartSiteAsync();
+        var model = ModelFor(HoverAtFlow);
+        var (_, steps) = await RunFlowWithStepsAsync(site, HoverAtFlow, model, NewCacheDirectory());
+
+        var actions = EngineEvents(steps);
+        Assert.Equal(["hoverAt", "tap"], actions.Select(item => item.Name));
+        // The port words the event detail as `hover the point (x, y) on node ...`, where upstream's reads `hover over the point (x, y)`.
+        Assert.Matches("^hover the point \\(140, 55\\)", actions[0].Detail);
+        var third = CounterPage.ToolResults(model);
+        Assert.Contains("Hovered over the point (140, 55); no listed control is there", third[1], StringComparison.Ordinal);
+        Assert.Contains("button \"Redeem\"", third[1], StringComparison.Ordinal);
     }
 
     private static async Task<(ActResult Result, ScriptedModel Model)> RunOneAsync(Flow flow)

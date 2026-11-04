@@ -8,9 +8,8 @@ using E2E.Engine;
 namespace E2E.Tests.AgentActPixelTools;
 
 // The point-tool its of upstream's describe('agent.act pixel verbs'), run on the web engine over the canvas fixture pages with a scripted
-// model that cannot see. Not ported here: "counts failing point verbs toward the
-// failure streak", because the port has no streak guard; and "reports a moved screenshot under an unchanged listing...", because the built-in
-// agent prints whole screens without upstream's diff presenter.
+// model that cannot see. Not ported here: "reports a moved screenshot under an unchanged listing...", because the built-in agent prints
+// whole screens without upstream's diff presenter.
 public sealed partial class AgentActPixelVerbsTests
 {
     private sealed record WebRun(List<Sent> Requests, StepRecord Step, Exception? Error);
@@ -381,6 +380,31 @@ public sealed partial class AgentActPixelVerbsTests
         // The engine refused before any keystroke: the action was reserved, not committed.
         Assert.DoesNotContain(EngineEvents(run), item => item.Status == StepEventStatus.Passed);
         Assert.Contains("nothing that takes keystrokes has focus: the typed text would reach no field", Result(run, 1), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Counts_failing_point_verbs_toward_the_failure_streak_a_warning_at_three_a_forced_verdict_at_five()
+    {
+        // Five select_at calls on the blank page right of the controls: nothing listed is there, so each fails, and each names a new point so
+        // only the failure streak can stop the loop.
+        var run = await ActOnAsync(
+            "/canvas",
+            "pick options off the empty map margin",
+            calls => calls switch
+            {
+                0 => ModelResponses.Call("screenshot", new { }),
+                <= 5 => ModelResponses.Call("select_at", new { x = 380 + (calls * 20), y = 180 + (calls * 10), value = "x" }),
+                _ => Done(passed: false),
+            });
+        Assert.NotNull(run.Error);
+        Assert.True(run.Step.Metrics?.ModelCalls <= 8);
+        // Every refusal reads `select_at (x, y) failed: ...` beside a fresh screenshot: pixel mode held.
+        Assert.Contains("select_at (400, 190) failed: ACTION_FAILED: nothing the screen lists is at", Result(run, 2), StringComparison.Ordinal);
+        Assert.Equal(1, run.Requests[2].Messages[^1].Images?.Count);
+        Assert.Contains(run.Requests, request => request.Messages.Any(message => message.Role == "user" && message.Content?.Contains("the last 3 actions failed in a row", StringComparison.Ordinal) == true));
+        var last = run.Requests[^1];
+        Assert.Equal(["done"], last.Tools.Select(tool => tool.Name));
+        Assert.Contains("Loop guard: the last 5 actions failed in a row", last.Messages[^1].Content, StringComparison.Ordinal);
     }
 
     [Fact]

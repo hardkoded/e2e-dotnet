@@ -6,9 +6,12 @@ using System.Globalization;
 
 namespace E2E;
 
+/// <summary>One tool result as the failure streak reads it (upstream's <c>GuardToolResult</c>). The loop knows whether a call failed, so the result carries no text to parse.</summary>
+internal readonly record struct GuardToolResult(bool Failed);
+
 /// <summary>
-/// Detects a model going in circles: the same call again and again, or a short sequence of calls
-/// repeated. Identity is the tool name plus its exact arguments, so two taps on different targets are
+/// Detects a model going in circles: the same call again and again, a short sequence of calls
+/// repeated, or a run of failed calls. Identity is the tool name plus its exact arguments, so two taps on different targets are
 /// never a repeat. A warning lets the model react; a stop forces the verdict.
 /// </summary>
 internal static class LoopGuards
@@ -18,6 +21,8 @@ internal static class LoopGuards
     private const int RepeatStop = 5;
     private const int CycleWarn = 2;
     private const int CycleStop = 3;
+    private const int FailureWarn = 3;
+    private const int FailureStop = 5;
 
     /// <summary>The calls of a transcript in order, without the verdict tool: ending the step is never a loop.</summary>
     public static IReadOnlyList<(string Name, string Input)> ExtractGuardCalls(IEnumerable<ModelMessage> messages) =>
@@ -51,6 +56,23 @@ internal static class LoopGuards
         }
 
         return warning;
+    }
+
+    /// <summary>
+    /// Checks the trailing run of failed results (upstream's <c>checkFailureStreak</c>). Different targets or inputs do not save a
+    /// streak: five failures in a row say the approach is wrong, not that the last id was. Warns first, then forces the conclusion.
+    /// Returns no reason when the results are clear.
+    /// </summary>
+    public static (bool Stop, string? Reason) CheckFailureStreak(IReadOnlyList<GuardToolResult> results)
+    {
+        var streak = 0;
+        for (var index = results.Count - 1; index >= 0 && results[index].Failed; index--)
+        {
+            streak++;
+        }
+
+        var reason = "the last " + streak.ToString(CultureInfo.InvariantCulture) + " actions failed in a row";
+        return streak >= FailureStop ? (true, reason) : streak >= FailureWarn ? (false, reason) : (false, null);
     }
 
     /// <summary>How many times the last <paramref name="period"/> calls repeat one after the other.</summary>

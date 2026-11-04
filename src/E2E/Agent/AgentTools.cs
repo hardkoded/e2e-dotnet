@@ -30,6 +30,9 @@ public static class AgentTools
     /// <summary>Screens one scroll call may move.</summary>
     internal const int MaxScrollTimes = 20;
 
+    /// <summary>Presses one <c>press</c> call may repeat: a selection of a word, a caret moved a few steps (upstream's <c>MAX_PRESS_TIMES</c>).</summary>
+    internal const int MaxPressTimes = 20;
+
     /// <summary>Longest text <c>scroll_to</c> pages toward: a row label, never a paragraph.</summary>
     internal const int MaxScrollToText = 200;
 
@@ -147,7 +150,7 @@ public static class AgentTools
     /// <summary>
     /// Upstream's <c>POINT_TOOLS</c> (<c>agent/primitives.ts</c>): the point verbs that take only a point, one tool each. <c>Kind</c> is the
     /// engine pointer kind that takes the bare point, <c>Does</c> what the tool does up to the clause about a bare point, <c>ById</c> the
-    /// node verb the last-resort advice names. The node hover of #861 is not offered here, so <c>hover_at</c> needs its pointer kind.
+    /// node verb the last-resort advice names. <c>hover_at</c> is offered with the pointer kind or with the node hover.
     /// </summary>
     private static readonly (string Tool, string Kind, string Does, string ById)[] PointTools =
     [
@@ -169,7 +172,14 @@ public static class AgentTools
         Tool("double_tap", "Double-click a control. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Target),
         Tool("fill", "Replace the text in a field.", WithValue(Target, "value")),
         Tool("fill_secret", "Type a declared secret into an editable field. A password secret needs a password field. Pass the secret name, never the value.", WithValue(Target, "secret")),
-        Tool("press", "Press a key such as Enter, Escape, or Tab. Omit role and name to press the focused control.", WithValue(Target, "key")),
+        Tool(
+            "press",
+            "Press a key such as Enter, Escape, or Tab. Omit role and name to press the focused control. " +
+            "Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\".",
+            Extend(
+                WithValue(Target, "key"),
+                $$"""{ "times": { "type": "integer", "minimum": 1, "maximum": {{MaxPressTimes}}, "description": "Press the key this many times in this one call, 1 to {{MaxPressTimes}}; default 1. Use more to extend a selection or move a caret several steps at once." } }""",
+                "key")),
         Tool("select", "Choose an option in a combobox.", WithValue(Target, "value")),
         Tool("check", "Check a checkbox.", Target),
         Tool("uncheck", "Uncheck a checkbox.", Target),
@@ -349,7 +359,7 @@ public static class AgentTools
         }
 
         tools.Add(Screenshot);
-        tools.AddRange(CreatePointTools(pointerKinds ?? [], keyboard));
+        tools.AddRange(CreatePointTools(pointerKinds ?? [], actionKinds ?? [], keyboard));
         if (project is not null)
         {
             tools.AddRange(project);
@@ -364,13 +374,13 @@ public static class AgentTools
     /// exists is offered even without the kind, and says its bare point cannot be taken. With a <paramref name="keyboard"/>, <c>type_at</c> and
     /// <c>press_at</c> on a point on nothing listed tap it to focus it and go through the keyboard.
     /// </summary>
-    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds, bool keyboard)
+    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds, IReadOnlyCollection<string> actionKinds, bool keyboard)
     {
         var tools = new List<ModelTool>();
         foreach (var (tool, kind, does, byId) in PointTools)
         {
             var bare = pointerKinds.Contains(kind);
-            if (!bare && kind != "tap")
+            if (!bare && kind != "tap" && !actionKinds.Contains(kind))
             {
                 continue;
             }
@@ -381,11 +391,14 @@ public static class AgentTools
                 PointXY));
         }
 
-        if (pointerKinds.Contains("dragTo"))
+        var bareDrag = pointerKinds.Contains("dragTo");
+        if (bareDrag || actionKinds.Contains("dragTo"))
         {
             tools.Add(Tool(
                 "drag_at",
-                "Drag from one point in the latest screenshot to another, for a drag the screen does not list: a shape on a canvas, a pin on a map, a card dropped on an empty spot. Both points are pixel coordinates in that image (x from the left edge, y from the top edge). Start on the center of what you drag. The bare points are dragged. Last resort: when the screen lists what you drag and where it goes, use drag by id.",
+                "Drag from one point in the latest screenshot to another, for a drag the screen does not list: a shape on a canvas, a pin on a map, a card dropped on an empty spot. Both points are pixel coordinates in that image (x from the left edge, y from the top edge). Start on the center of what you drag. The bare points are dragged" +
+                (bareDrag ? "." : ", which this engine cannot do: the points must land on two different listed controls.") +
+                " Last resort: when the screen lists what you drag and where it goes, use drag by id.",
                 Extend(
                     PointXY,
                     """

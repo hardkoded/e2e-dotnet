@@ -202,7 +202,11 @@ screen. A replay finds both ends again before it drags and hands the step to
 the model when either is gone. `screenshot` and the point tools `tap_at`,
 `type_at`, `press_at`, and `select_at` are always offered (see "Screenshots in
 `ActAsync`"), and `hover_at` and `drag_at` with an engine that takes a bare
-point for a hover or a drag (the web engine does). A step that needs a verb its engine lacks is
+point for a hover or a drag (the web engine does) or that lists `hover` or
+`dragTo` in its `ActionKinds`. `press` takes `times`, 1 to 20 (default 1): the
+first press goes to the node and the rest to whatever has focus, one recorded
+action each, so `Shift+ArrowLeft` with `times` of 8 selects a word and `Tab`
+with `times` of 2 walks focus on. A step that needs a verb its engine lacks is
 `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
 `upload` takes a target and `files`, project-relative paths such as
 `fixtures/photo.png`, and attaches them to a file input or to a control that
@@ -392,9 +396,12 @@ they cost nothing and answer with the line that says to take one.
   `to_y`) send the bare point to the engine, scaled into CSS pixels and
   clamped to the viewport, when it declares the pointer kind. The result names
   the control the point landed inside, or says no listed control is there. An
-  engine without the bare-point tap taps the enabled control that contains the
-  point by its id instead, and a point on nothing listed fails with
-  `UNSUPPORTED_CAPABILITY`. `hover_at` and `drag_at` need the bare point.
+  engine without the bare point acts on the enabled control that contains the
+  point by its id instead (`tap`, and `hover` where the engine lists it), and a
+  point on nothing listed fails with `UNSUPPORTED_CAPABILITY`. `drag_at` on
+  such an engine joins two points that land on two different listed controls by
+  id, as `drag` does; a drag inside one control, or from a point on nothing
+  listed, fails the same way.
 - `type_at`, `press_at`, and `select_at` act by id on the enabled control the
   point lands on (`value` or `key` beside the point). A point on nothing listed
   is an action failure the model can read, and costs no action, except with a
@@ -416,6 +423,11 @@ and `pressKey`. The trace cache records a
 point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).
+
+The loop watches for a run of failed calls too, of any tools and with any
+inputs: three in a row add a notice that asks the model to change approach,
+and five in a row leave it only `done`. A call that worked starts the count
+over. A turn with no tool call counts as a failure.
 
 ## Budgets and cost
 

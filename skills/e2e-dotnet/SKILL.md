@@ -388,7 +388,8 @@ lines you changed:
   nothing listed tap it to focus it and go through the keyboard, and `fill`
   with no target types into the focused field (`replace` clears it first);
   `select_at` needs a listed control. Tell the agent to prefer ids (topic
-  `agent`).
+  `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
+  five failed calls in a row leave the agent only `done` (topic `agent`).
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),
   never to drive the app. It is awaited and counts toward `Timeout`. A throw

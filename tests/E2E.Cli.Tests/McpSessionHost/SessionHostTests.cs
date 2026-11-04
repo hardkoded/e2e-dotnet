@@ -375,7 +375,8 @@ public sealed class SessionHostTests : IAsyncLifetime
     {
         var host = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap"] });
         var names = ServedCli.CatalogNames(await host.OpenAsync(new Mcp.OpenSessionOptions()));
-        Assert.Equal(["screenshot", "tap_at", "type_at", "press_at", "select_at"], names.SkipWhile(name => name != "screenshot").TakeWhile(name => name != "locate"));
+        // The fake engine lists the hover and drag node verbs, so hover_at and drag_at are offered too (they fall back to the node verbs).
+        Assert.Equal(["screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], names.SkipWhile(name => name != "screenshot").TakeWhile(name => name != "locate"));
         await host.CloseAsync("done");
 
         var pointing = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap", "hover", "dragTo"] });

@@ -194,6 +194,44 @@ internal static class GesturesSession
             : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("Design review is done"));
 
+    /// <summary>Upstream's "selects one word with a repeated press and sees the selection" flow: a tap parks the caret, then one press selects the word.</summary>
+    public static readonly Flow SelectWordFlow = new(
+        "selects one word with a repeated press and sees the selection",
+        "select the last word of the memo",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "textbox \"Memo\"") }),
+            1 => ModelResponses.Call("press", new { @ref = RefFor(prompt, "textbox \"Memo\""), key = "Shift+ArrowLeft", times = 8 }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("selected: approved"));
+
+    /// <summary>
+    /// Upstream's "tabs from the terms checkbox to the memo with one repeated press" flow. Tabbing into a text input selects its contents, which
+    /// the page's select listener echoes.
+    /// </summary>
+    public static readonly Flow TabFlow = new(
+        "tabs from the terms checkbox to the memo with one repeated press",
+        "tab from the terms checkbox to the memo",
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("press", new { @ref = RefFor(prompt, "checkbox \"Agree to terms\""), key = "Tab", times = 2 }) : null,
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("selected: release approved"));
+
+    /// <summary>
+    /// Upstream's "hovers a bare point in the screenshot" flow. The trigger's center is CSS (140, 55); the screenshot is 768 wide for the 1280-wide
+    /// viewport, so the model reads it at (84, 33).
+    /// </summary>
+    public static readonly Flow HoverAtFlow = new(
+        "hovers a bare point in the screenshot",
+        "hover the corner to reveal the redeem button",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("screenshot", new { }),
+            1 => ModelResponses.Call("hover_at", new { x = 84, y = 33 }),
+            2 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
+
     /// <summary>
     /// The flows of upstream's record-then-replay pass this port can run: the instruction, the
     /// scripted model's tool call for each turn (null concludes the step), and the check after it.
@@ -228,6 +266,8 @@ internal static class GesturesSession
             "scroll the ledger to the golden row",
             (calls, prompt) => calls == 0 ? ModelResponses.Call("scroll_to", new { text = "Row 24", @ref = RefFor(prompt, "list \"Ledger\"") }) : null,
             screen => Expect.That(screen.GetByLabel("Ledger state")).ToHaveTextAsync("golden in view")),
+        SelectWordFlow,
+        TabFlow,
         new(
             "opens a page and comes back",
             "open the about page and come back",
