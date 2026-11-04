@@ -10,9 +10,37 @@ using AttemptStatus = E2E.Internal.AttemptStatus;
 
 namespace E2E.Cli.Tests.ReportList;
 
-/// <summary>Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('summary').</summary>
+/// <summary>Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('summary'). The 4 serial-member <c>it</c> (the not-saved count of a serial member) are not ported: serial runs are the test runner's feature.</summary>
 public sealed class SummaryTests
 {
+    [Fact]
+    public void Closes_with_each_failed_test_after_the_reporter_rows_its_file_and_failing_line_else_its_declaration_the_error_and_the_trace_page()
+    {
+        // A failed attempt whose error the runner located at `file:line`.
+        static ReportAttempt ThrownAt(string message, string file, int line) => FailedAttempt(message, new SourceLocation(file, line, 1));
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "a", title: ["login", "welcomes"], line: 3, attempts: [ThrownAt("expected \"Welcome\"\ngot \"Sign in\"", "tests/case.e2e.ts", 9)])));
+        reporter.Handle(Finished(Result(ResultStatus.TimedOut, id: "b", title: ["login", "slow"], line: 12, attempts: [ThrownAt("took too long", "tests/helpers.ts", 4)])));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "c", title: ["login", "opens"])));
+        reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, ".e2e/report.json", traces: new Dictionary<string, string> { ["a"] = ".e2e/results/login-welcomes/trace.md" }));
+        Assert.DoesNotContain("Failed  ", string.Join('\n', output.Lines));
+        reporter.Rows([("JUnit", ".e2e/junit.xml")]);
+        Assert.Equal(
+            [
+                "      JUnit  .e2e/junit.xml",
+                "",
+                "     Failed  × |chromium| tests/case.e2e.ts:9 > login > welcomes",
+                "               ASSERTION_FAILED: expected \"Welcome\"",
+                "               trace .e2e/results/login-welcomes/trace.md",
+                "             × |chromium| tests/case.e2e.ts:12 > login > slow",
+                "               ASSERTION_FAILED: took too long",
+                "",
+            ],
+            output.Lines.TakeLast(8));
+    }
+
     [Fact]
     public void Counts_timed_out_results_as_failures_and_interrupted_ones_on_their_own_listing_an_interrupted_test_under_its_file_but_not_among_the_failures()
     {
@@ -37,6 +65,41 @@ public sealed class SummaryTests
         Assert.DoesNotContain("Failed Tests", string.Join('\n', interrupted.Lines));
         Assert.Contains(" Test Files  1 interrupted | 1 passed (2)", interrupted.Lines);
         Assert.Contains("      Tests  1 interrupted | 2 passed (3)", interrupted.Lines);
+    }
+
+    [Fact]
+    public void Counts_the_tests_each_filter_left_out_on_a_Left_out_row_a_test_once_across_targets_and_repeats_as_the_filter_line_counts_them()
+    {
+        // An unselected result `filter` left out.
+        static TestFinishedEvent LeftOutBy(string id, string target, string filter, int repeat = 0) =>
+            Finished(Result(ResultStatus.Skipped, id: id, target: target, selected: false, attempts: [], skipReason: "unaffected", filter: filter, repeat: repeat));
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
+        reporter.Handle(LeftOutBy("pays", "chromium", "areas"));
+        reporter.Handle(LeftOutBy("pays", "webkit", "areas"));
+        reporter.Handle(LeftOutBy("pays", "chromium", "areas", repeat: 1));
+        reporter.Handle(LeftOutBy("refunds", "chromium", "areas"));
+        reporter.Handle(LeftOutBy("export", "chromium", "jev"));
+        reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "slow", selected: false, attempts: [], skipReason: "carries an excluded tag")));
+        reporter.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.Contains("      Tests  1 passed (1)", output.Lines);
+        Assert.Contains("   Left out  2 by areas, 1 by jev", output.Lines);
+
+        var one = new Capture();
+        var single = PlainReporter(one);
+        single.Handle(Plan());
+        single.Handle(LeftOutBy("pays", "chromium", "areas"));
+        single.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.Contains("   Left out  1 test by areas", one.Lines);
+        Assert.Contains("      Tests  no tests executed", one.Lines);
+
+        var none = new Capture();
+        var plain = PlainReporter(none);
+        plain.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
+        plain.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.DoesNotContain("Left out", string.Join('\n', none.Lines));
     }
 
     [Fact]

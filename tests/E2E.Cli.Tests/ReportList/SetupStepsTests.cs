@@ -62,7 +62,7 @@ public sealed class SetupStepsTests
             output.Lines.Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, "jev|areas|silent|slow")));
 
         var chunks = new Raw();
-        var colored = new ListReporter(chunks, new ListReporterOptions { Colors = true });
+        var colored = new global::E2E.Cli.Report.ListReporter(chunks, new ListReporterOptions { Colors = true });
         colored.Handle(RunStarted());
         colored.Handle(new SetupEvent(areas, SetupState.Started));
         colored.Handle(new NoticeEvent("filter", "areas: asking the model about 3 tests"));
