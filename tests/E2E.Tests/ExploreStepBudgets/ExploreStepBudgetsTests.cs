@@ -7,7 +7,8 @@ using Explorer = E2E.Explore;
 namespace E2E.Tests.ExploreStepBudgets;
 
 // .NET-only: upstream has no test for this. It reads `maxSteps ?? DEFAULT_STEP_BUDGET` where the config entry may leave the key out;
-// the port keeps that "left out" as null, since an int cannot tell an absent key from an explicit 25.
+// the port keeps that "left out" as null, since an int cannot tell an absent key from an explicit 25. The last test is .NET-only too: it checks
+// how `WithStepBudgets` joins the signed-in sentence into the context (upstream sets it as the test's `agentContext`).
 public sealed class ExploreStepBudgetsTests
 {
     private static readonly string Root = Path.GetTempPath();
@@ -63,7 +64,7 @@ public sealed class ExploreStepBudgetsTests
         var explorer = Explorer.WithStepBudgets(config.Agent.CreateOptions(), "admin");
         var plain = Explorer.WithStepBudgets(config.Agent.CreateOptions());
 
-        Assert.Equal("Be brief.\nThe app starts signed in: the run restored the session \"admin\" a setup test saved. Do not sign in again, and do not sign out, unless the goal asks for it.", explorer.Context);
+        Assert.Equal("Be brief.\n" + global::E2E.ExplorePlan.SignedInContext("admin"), explorer.Context);
         Assert.Equal("Be brief.", plain.Context);
     }
 }
