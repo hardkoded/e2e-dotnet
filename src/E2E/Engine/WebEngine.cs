@@ -3553,6 +3553,8 @@ public sealed partial class WebEngine : IEngine
                 Text = dto.Text,
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 OwnText = dto.OwnText,
+                DomText = dto.DomText,
+                Labels = dto.Labels,
                 Value = dto.Secure ? null : dto.Value,
                 Selection = dto.Secure ? null : dto.Selection,
                 TestId = dto.TestId,
@@ -3834,6 +3836,10 @@ public sealed partial class WebEngine : IEngine
         public string? Text { get; set; }
 
         public string? OwnText { get; set; }
+
+        public string? DomText { get; set; }
+
+        public List<string>? Labels { get; set; }
 
         public string? Value { get; set; }
 

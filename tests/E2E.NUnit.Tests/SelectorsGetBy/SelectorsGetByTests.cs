@@ -55,17 +55,13 @@ public sealed class SelectorsGetByTests : PlaywrightTest
         Assert.That(await Screen.GetByText("Hello").TextContentAsync(), Is.EqualTo("Hello"));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1072: getByText("Name") returns the control of the label, not the label.
     [Test]
     public async Task GetByLabel_should_work()
     {
-        await ExpectedToFailAsync("Expected target", async () =>
-        {
-            await Browser.GotoAsync(Content("<div><label for=target>Name</label><input id=target type=text></div>"));
-            Equal("target", await Screen.GetByText("Name", exact: false).GetAttributeAsync("for"));
-            Equal("target", await Screen.GetByLabel("Name", exact: false).GetAttributeAsync("id"));
-            Equal("target", await Browser.Locator("div").GetByLabel("Name", exact: false).GetAttributeAsync("id"));
-        });
+        await Browser.GotoAsync(Content("<div><label for=target>Name</label><input id=target type=text></div>"));
+        Equal("target", await Screen.GetByText("Name", exact: false).GetAttributeAsync("for"));
+        Equal("target", await Screen.GetByLabel("Name", exact: false).GetAttributeAsync("id"));
+        Equal("target", await Browser.Locator("div").GetByLabel("Name", exact: false).GetAttributeAsync("id"));
     }
 
     [Test]
@@ -165,10 +161,7 @@ public sealed class SelectorsGetByTests : PlaywrightTest
         await Expect.That(Browser.Locator("div").GetByPlaceholder("hello", exact: false)).ToHaveCountAsync(2);
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1072: getByText returns the control of a label, and matches an input's placeholder. Ignored, not
-    // run behind ExpectedToFailAsync, because its Expect.Soft failures end the test, as upstream's expect.soft.
     [Test]
-    [Ignore("hardkoded/e2e-dotnet#1072")]
     public async Task GetBy_escaping()
     {
         const string SetAttributes = "(value) => { const input = document.querySelector('input'); for (const name of ['placeholder', 'title', 'alt']) input.setAttribute(name, value); }";
@@ -232,31 +225,27 @@ public sealed class SelectorsGetByTests : PlaywrightTest
         await Expect.That(Screen.GetByRole("button", new Regex("Missing"))).ToHaveCountAsync(0, TimeSpan.FromSeconds(1));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1072: getByText matches an input's placeholder, so it counts 12, not 9.
     [Test]
     public async Task Locators_should_not_be_affected_by_global_and_sticky_regex_flags()
     {
-        await ExpectedToFailAsync("expected count 9; observed count 12", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <div>foo</div><div>foo</div><div>foo</div>
-                <label>foo<input></label><label>foo<input></label><label>foo<input></label>
-                <button>foo</button><button>foo</button><button>foo</button>
-                <input placeholder=foo><input placeholder=foo><input placeholder=foo>
-                """));
-            var foo = new Regex("foo");
-            await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
-            await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
-            await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
-            await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
-            await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
-        });
+        await Browser.GotoAsync(Content("""
+            <div>foo</div><div>foo</div><div>foo</div>
+            <label>foo<input></label><label>foo<input></label><label>foo<input></label>
+            <button>foo</button><button>foo</button><button>foo</button>
+            <input placeholder=foo><input placeholder=foo><input placeholder=foo>
+            """));
+        var foo = new Regex("foo");
+        await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
+        await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
+        await Expect.That(Screen.GetByText(foo)).ToHaveCountAsync(9);
+        await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByLabel(foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByRole("button", foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
+        await Expect.That(Screen.GetByPlaceholder(foo)).ToHaveCountAsync(3);
     }
 }
