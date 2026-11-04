@@ -3575,7 +3575,7 @@ public sealed partial class WebEngine : IEngine
             // route included, so it merges those headers itself.
             var site = _siteHeaders(overrides.Url ?? Request.Url);
             Dictionary<string, string>? headers = null;
-            if (overrides.Headers is not null || overrides.DropHeaders is not null || site is not null)
+            if (overrides.Headers is not null || overrides.DropHeaders is { Count: > 0 } || site is not null)
             {
                 headers = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var (name, value) in overrides.Headers ?? Request.Headers)
