@@ -957,7 +957,7 @@ internal static class Testbed
                 listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
                 crossOrigin = true;
             }
-            catch (HttpListenerException)
+            catch (Exception ex) when (ex is HttpListenerException or System.Net.Sockets.SocketException or ArgumentException)
             {
                 crossOrigin = false;
             }
