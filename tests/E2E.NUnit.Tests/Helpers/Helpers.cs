@@ -80,6 +80,12 @@ internal static class Helpers
     /// </summary>
     public static async Task<T> AllAsync<T>(Task<T> wait, Task action)
     {
+        var first = await Task.WhenAny(wait, action).ConfigureAwait(false);
+        if (first.IsFaulted)
+        {
+            await first.ConfigureAwait(false);
+        }
+
         await Task.WhenAll(wait, action).ConfigureAwait(false);
         return wait.Result;
     }
