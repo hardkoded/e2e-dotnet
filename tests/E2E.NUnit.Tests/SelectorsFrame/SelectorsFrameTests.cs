@@ -162,7 +162,8 @@ public sealed class SelectorsFrameTests : PlaywrightTest
     {
         await Browser.GotoAsync(Iframe);
         var promise = Browser.Locator("button").Filter(hasText: "Hello nested iframe").TapAsync();
-        await Task.Delay(100);
+        // Upstream waits 100 ms; the page being loaded and the tap polling for a button it does not have yet is the condition.
+        await Expect.That(Screen.GetByRole("button", "Hello iframe")).ToBeVisibleAsync();
         await Browser.GotoAsync(Iframe2);
         await promise;
     }

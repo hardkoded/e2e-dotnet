@@ -915,6 +915,9 @@ internal static class Testbed
     /// <summary>The base URL of the running playground, started on first use.</summary>
     public static string Url => Server.Value;
 
+    /// <summary>Whether the app also answers on <c>localhost</c>, the second origin of the cross-origin cases. Read after <see cref="Url"/>.</summary>
+    public static bool CrossOriginAvailable { get; private set; }
+
     private static string Start()
     {
         // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
@@ -934,6 +937,21 @@ internal static class Testbed
             try
             {
                 listener.Start();
+                CrossOriginAvailable = true;
+                break;
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+            }
+
+            // A host that cannot bind localhost (no mapping, no URL ACL) still serves the app; the cross-origin tests skip themselves.
+            listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            try
+            {
+                listener.Start();
+                CrossOriginAvailable = false;
                 break;
             }
             catch (HttpListenerException)
@@ -943,8 +961,6 @@ internal static class Testbed
                 {
                     throw;
                 }
-
-                continue;
             }
         }
 

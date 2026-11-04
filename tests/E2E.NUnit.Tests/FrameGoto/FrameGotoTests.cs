@@ -19,7 +19,7 @@ public sealed class FrameGotoTests : PlaywrightTest
     [Test]
     public async Task Should_continue_after_client_redirect()
     {
-        await ExpectedToFailAsync("exceeded", async () =>
+        await ExpectedToFailAsync("child-redirect.html: Timeout", async () =>
         {
             await Browser.RouteAsync("**/frames/script.js", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" }));
             var url = $"{PREFIX}/frames/child-redirect.html";

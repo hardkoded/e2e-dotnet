@@ -17,6 +17,9 @@ internal static class PlaywrightRoutes
 {
     private static readonly string Root = Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets");
 
+    /// <summary>Cancelled when the process exits, which releases the requests a route holds.</summary>
+    private static readonly CancellationTokenSource Shutdown = CreateShutdown();
+
     private static readonly Dictionary<string, string> Types = new(StringComparer.Ordinal)
     {
         [".html"] = "text/html",
@@ -44,8 +47,17 @@ internal static class PlaywrightRoutes
 
         if (path == "/never")
         {
-            // Holds the response and never answers, as upstream's /never; ends after upstream's longest delay so the task does not outlive the run.
-            await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+            // Holds the response and never answers, as upstream's /never. It ends when the run ends (the testbed never stops before that)
+            // or after upstream's longest delay, so a held request cannot outlive the run.
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), Shutdown.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run is ending.
+            }
+
             response.Abort();
             return;
         }
@@ -62,6 +74,13 @@ internal static class PlaywrightRoutes
         response.ContentType = Types.GetValueOrDefault(Path.GetExtension(file), "application/octet-stream");
         response.AddHeader("Cache-Control", "no-store");
         await WriteAsync(response, await File.ReadAllBytesAsync(file).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    private static CancellationTokenSource CreateShutdown()
+    {
+        var source = new CancellationTokenSource();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => source.Cancel();
+        return source;
     }
 
     private static byte[] FromBase64Url(string value)

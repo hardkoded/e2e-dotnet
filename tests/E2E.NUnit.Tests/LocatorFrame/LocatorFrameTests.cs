@@ -185,7 +185,8 @@ public sealed class LocatorFrameTests : PlaywrightTest
         await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden, Timeout = TimeSpan.FromSeconds(1) });
         await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Detached, Timeout = TimeSpan.FromSeconds(1) });
         var error = await Assert.CatchAsync(() => button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached, Timeout = TimeSpan.FromSeconds(1) }));
-        Assert.That(error, Is.Not.Null);
+        // Upstream only expects the error to be defined; the port's message names the missing frame.
+        Assert.That(error!.Message, Does.Contain("no frame matches iframe1"));
     }
 
     // Known difference, hardkoded/e2e-dotnet#1067: an element inside a `visibility: hidden` iframe is not found, instead of hidden.
@@ -252,6 +253,12 @@ public sealed class LocatorFrameTests : PlaywrightTest
     [Test]
     public async Task Should_treat_elements_inside_hidden_cross_origin_iframe_as_hidden()
     {
+        _ = PREFIX;
+        if (!E2E.Playground.Testbed.CrossOriginAvailable)
+        {
+            Assert.Ignore("The testbed could not bind localhost, the second origin of this test (CROSS).");
+        }
+
         await ExpectedToFailAsync("is not in the observation", async () =>
         {
             await Browser.GotoAsync("/empty.html");
