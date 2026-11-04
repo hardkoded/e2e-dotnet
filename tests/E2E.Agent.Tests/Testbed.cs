@@ -1014,7 +1014,23 @@ internal static class Testbed
             }
             else
             {
-                await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                // Its own task: a route that holds its response (upstream's /never) must not stall the other requests.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException)
+                    {
+                        // The client went away.
+                    }
+                    finally
+                    {
+                        response.Close();
+                    }
+                });
+                continue;
             }
 
             response.Close();

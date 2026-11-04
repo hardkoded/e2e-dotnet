@@ -8,12 +8,15 @@ namespace E2E.NUnit.Tests;
 
 /// <summary>
 /// The helpers of the tests ported from Playwright, upstream's <c>apps/testbed/tests/helpers.ts</c>:
-/// <c>content</c> and <c>PREFIX</c>. <see cref="ExpectedToFailAsync"/> is .NET-only (see its summary).
+/// <c>content</c>, <c>PREFIX</c> and <c>CROSS</c>. <see cref="ExpectedToFailAsync"/> is .NET-only (see its summary).
 /// </summary>
 internal static class Helpers
 {
     /// <summary>The app's origin, Playwright's <c>server.PREFIX</c> in the tests ported from it.</summary>
     public static string PREFIX => E2E.Playground.Testbed.Url;
+
+    /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c> (<c>localhost</c> on the app's port).</summary>
+    public static string CROSS => new UriBuilder(PREFIX) { Host = "localhost" }.Uri.GetLeftPart(UriPartial.Authority);
 
     /// <summary>A path that serves <paramref name="html"/> as a page, for Playwright's <c>page.setContent(html)</c>.</summary>
     public static string Content(string html) =>

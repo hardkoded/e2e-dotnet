@@ -11,7 +11,7 @@ namespace E2E.Playground;
 /// The routes of the tests ported from Playwright, a port of upstream's <c>apps/testbed/app/playwright/routes.mjs</c>:
 /// its test assets (copied from microsoft/playwright <c>tests/assets</c> at v1.64.1, Apache-2.0, under
 /// <c>Testbed/playwright/assets</c> next to the test assembly) and the dynamic routes its test server sets per test.
-/// The playground serves them for any path it has no page for. This port has <c>/content</c> and the assets so far.
+/// The playground serves them for any path it has no page for. This port has <c>/content</c>, <c>/never</c> and the assets so far.
 /// </summary>
 internal static class PlaywrightRoutes
 {
@@ -39,6 +39,14 @@ internal static class PlaywrightRoutes
             var html = context.Request.QueryString["html"] ?? "";
             response.ContentType = "text/html; charset=utf-8";
             await WriteAsync(response, FromBase64Url(html)).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/never")
+        {
+            // Holds the response and never answers, as upstream's /never; ends after upstream's longest delay so the task does not outlive the run.
+            await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+            response.Abort();
             return;
         }
 
