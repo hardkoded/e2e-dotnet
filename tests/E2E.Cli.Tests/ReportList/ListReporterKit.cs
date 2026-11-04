@@ -73,11 +73,12 @@ internal static partial class ListReporterKit
             var directory = Path.Combine(Path.GetDirectoryName(caller)!, "..", "Fixtures", "ListReporter");
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, name), text);
+            return;
         }
 
         var file = Path.Combine(AppContext.BaseDirectory, "Fixtures", "ListReporter", name);
         Assert.True(File.Exists(file), $"{file} is missing; run with E2E_GOLDEN_UPDATE=1");
-        Assert.Equal(File.ReadAllText(file).Replace("\r\n", "\n", StringComparison.Ordinal), text);
+        Assert.Equal(File.ReadAllText(file).Replace("\r\n", "\n", StringComparison.Ordinal), text.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
     /// <summary>Upstream's <c>stable()</c>: masks what differs between releases and machines, the package version and, when given, a temporary project root.</summary>

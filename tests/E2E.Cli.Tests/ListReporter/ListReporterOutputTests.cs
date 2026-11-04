@@ -9,7 +9,7 @@ using AttemptStatus = E2E.Internal.AttemptStatus;
 namespace E2E.Cli.Tests.ListReporter;
 
 /// <summary>
-/// Upstream: packages/e2e/tests/integration/list-reporter.test.ts, describe('list reporter output'). The first <c>it</c>, the tally of a <c>--repeat-each</c> run, needs the runner and is not ported; <c>ReportList/RepeatsRowTests</c> tests that row from events.
+/// Upstream: packages/e2e/tests/integration/list-reporter.test.ts, describe('list reporter output'). The first <c>it</c>, the tally of a <c>--repeat-each</c> run, needs the runner; <c>ReportList/RepeatsRowTests</c> is its partial port, from events.
 /// </summary>
 public sealed class ListReporterOutputTests
 {
