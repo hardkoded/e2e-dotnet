@@ -850,17 +850,12 @@ public sealed partial class WebEngine : IEngine
     internal static LiveSurface? SurfaceOf(IEngineSession session) =>
         session is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
 
-    /// <summary>Runs <paramref name="work"/> through the operation entry of a web session, which latches <paramref name="latched"/> while it runs; for tests (upstream's <c>surface.guard</c> with <c>surface.latch.latch</c>).</summary>
-    internal static Task<T> GuardWithLatchedAsync<T>(IEngineSession session, string label, Exception? latched, Func<Task<T>> work) =>
-        ((WebSession)session).RunAsync(label, CancellationToken.None, () =>
-        {
-            if (latched is not null)
-            {
-                ((WebSession)session).Latch(latched);
-            }
+    /// <summary>Runs <paramref name="work"/> through the operation entry of a web session (upstream's <c>surface.guard</c>); for tests.</summary>
+    internal static Task<T> Guard<T>(IEngineSession session, string label, CancellationToken cancellationToken, Func<Task<T>> work) =>
+        ((WebSession)session).GuardAsync(label, cancellationToken, work);
 
-            return work();
-        });
+    /// <summary>Latches an error on a web session as a handler nobody awaits would (upstream's <c>surface.latch.latch</c>); for tests.</summary>
+    internal static void Latch(IEngineSession session, Exception error) => ((WebSession)session).Latch(error);
 
     // Refuses a locale that is not a BCP 47 tag, and one an accept-language
     // header would override on the app's host while navigator.language kept
@@ -1142,7 +1137,7 @@ public sealed partial class WebEngine : IEngine
 
         public string Route => Routes.LocationOf(Page.Url);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("navigation", cancellationToken, async () =>
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("navigation", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -1177,7 +1172,7 @@ public sealed partial class WebEngine : IEngine
         private static readonly TimeSpan MinLocateRead = TimeSpan.FromMilliseconds(500);
 
         // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
-        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
+        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => GuardAsync("observe", cancellationToken, async () =>
         {
             var budget = ObserveBudget(cancellationToken, timeout);
             return await ObserveInTurnAsync(budget, () => ReadObservationAsync(budget)).ConfigureAwait(false);
@@ -1272,7 +1267,7 @@ public sealed partial class WebEngine : IEngine
                 // the one the projection is read against. Both, and the projection onto it (upstream reads whatever the selector matches;
                 // here every match must be a node of the observation the caller acts on), run in one turn: another call's observation in
                 // between would take the marks, or replace the listed elements.
-                var (listed, onto) = await RunAsync("locate", cancellationToken, async () =>
+                var (listed, onto) = await GuardAsync("locate", cancellationToken, async () =>
                 {
                     var budget = ObserveBudget(cancellationToken, timeout);
                     return await ObserveInTurnAsync(budget, async () =>
@@ -1454,7 +1449,7 @@ public sealed partial class WebEngine : IEngine
             return found.OfType<string>().ToList();
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
@@ -1541,7 +1536,7 @@ public sealed partial class WebEngine : IEngine
         /// element to wait on, and the page decides what the gesture lands on, as it does for a person. Upstream's <c>performAt</c> and
         /// <c>dispatchPointerAction</c>.
         /// </summary>
-        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, () =>
+        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, () =>
         {
             ArgumentNullException.ThrowIfNull(action);
             RequireObservation();
@@ -1629,7 +1624,7 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.press", cancellationToken, () =>
+        public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.press", cancellationToken, () =>
         {
             RequireObservation();
             return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
@@ -1641,7 +1636,7 @@ public sealed partial class WebEngine : IEngine
         /// select-all and delete: the only locator-free clear, scoped by the browser to the whole editing host, so it is opt-in. Upstream's
         /// <c>typeText</c> of the web surface (<c>keyboard.type</c>).
         /// </summary>
-        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.type", cancellationToken, async () =>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.type", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(text);
             RequireObservation();
@@ -1689,10 +1684,10 @@ public sealed partial class WebEngine : IEngine
         }
 
         // Direct test input: it needs no observation, so it stays available after a reconnect.
-        public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
+        public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.press", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
 
-        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("back", cancellationToken, async () =>
+        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("back", cancellationToken, async () =>
         {
             try
             {
@@ -1713,7 +1708,7 @@ public sealed partial class WebEngine : IEngine
         public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
             ActedAsync(cancellationToken, () => SetViewportAsync(size.Width, size.Height, cancellationToken));
 
-        public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, async () =>
+        public Task ForwardAsync(CancellationToken cancellationToken) => GuardAsync("forward", cancellationToken, async () =>
         {
             try
             {
@@ -1729,7 +1724,7 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("goto", cancellationToken, async () =>
+        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("goto", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -1758,7 +1753,7 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task ReloadAsync(CancellationToken cancellationToken) => RunAsync("reload", cancellationToken, async () =>
+        public Task ReloadAsync(CancellationToken cancellationToken) => GuardAsync("reload", cancellationToken, async () =>
         {
             try
             {
@@ -1774,7 +1769,7 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task RestartAsync(CancellationToken cancellationToken) => RunAsync("restart", cancellationToken, async () =>
+        public Task RestartAsync(CancellationToken cancellationToken) => GuardAsync("restart", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -1824,7 +1819,7 @@ public sealed partial class WebEngine : IEngine
         private static Task Within(OperationBudget? budget, Task call) => budget is null ? call : budget.WithinAsync(call);
 
         /// <summary>Upstream's <c>captureState</c>: the context's cookies, local storage, and IndexedDB, as a Playwright storage state.</summary>
-        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => RunAsync("state capture", cancellationToken, async () =>
+        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => GuardAsync("state capture", cancellationToken, async () =>
         {
             var budget = Budget("state capture", cancellationToken);
             try
@@ -1872,18 +1867,18 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task<string> GetUrlAsync(CancellationToken cancellationToken) => RunAsync("url", cancellationToken, () =>
+        public Task<string> GetUrlAsync(CancellationToken cancellationToken) => GuardAsync("url", cancellationToken, () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(Page.Url);
         });
 
-        public Task<string> GetTitleAsync(CancellationToken cancellationToken) => RunAsync("title", cancellationToken, () =>
+        public Task<string> GetTitleAsync(CancellationToken cancellationToken) => GuardAsync("title", cancellationToken, () =>
         {
             return Budget("title", cancellationToken).WithinAsync(Page.TitleAsync());
         });
 
-        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
+        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => GuardAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
         {
             var budget = Budget("evaluate", cancellationToken);
             string? report;
@@ -1940,7 +1935,7 @@ public sealed partial class WebEngine : IEngine
             return message.StartsWith("Error: ", StringComparison.Ordinal) ? message["Error: ".Length..] : message;
         }
 
-        public Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("waitForResponse", cancellationToken, async () =>
+        public Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("waitForResponse", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             IResponse response;
@@ -2006,7 +2001,7 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("route", cancellationToken, async () =>
+        public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => GuardAsync("route", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -2021,7 +2016,7 @@ public sealed partial class WebEngine : IEngine
             _routes.Add((matches, playwrightHandler, handler));
         });
 
-        public Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("unroute", cancellationToken, async () =>
+        public Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => GuardAsync("unroute", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -2060,10 +2055,10 @@ public sealed partial class WebEngine : IEngine
         }
 
         public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
-            (await RunAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, 1, timeout, "browser.waitForDownload", cancellationToken)).ConfigureAwait(false))[0];
+            (await GuardAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, 1, timeout, "browser.waitForDownload", cancellationToken)).ConfigureAwait(false))[0];
 
         public Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
-            RunAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, count, timeout, "browser.waitForDownloads", cancellationToken));
+            GuardAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, count, timeout, "browser.waitForDownloads", cancellationToken));
 
         /// <summary>
         /// Runs <paramref name="trigger"/> once and saves the first <paramref name="count"/> downloads it starts, in start order (upstream's
@@ -2240,7 +2235,7 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => RunAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
+        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var cookies = await RequireContext().CookiesAsync().ConfigureAwait(false);
@@ -2257,7 +2252,7 @@ public sealed partial class WebEngine : IEngine
             }).ToList();
         });
 
-        public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken) => RunAsync("cookies", cancellationToken, () =>
+        public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken) => GuardAsync("cookies", cancellationToken, () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(cookies);
@@ -2281,7 +2276,7 @@ public sealed partial class WebEngine : IEngine
             }));
         });
 
-        public Task ClearCookiesAsync(CookieFilter? options, CancellationToken cancellationToken) => RunAsync("clearCookies", cancellationToken, () =>
+        public Task ClearCookiesAsync(CookieFilter? options, CancellationToken cancellationToken) => GuardAsync("clearCookies", cancellationToken, () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             return RequireContext().ClearCookiesAsync(options is null ? null : new BrowserContextClearCookiesOptions
@@ -2295,7 +2290,7 @@ public sealed partial class WebEngine : IEngine
             });
         });
 
-        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => RunAsync("setViewport", cancellationToken, async () =>
+        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => GuardAsync("setViewport", cancellationToken, async () =>
         {
             if (width < 0 || height < 0)
             {
@@ -2310,7 +2305,7 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) => RunAsync("emulateMedia", cancellationToken, async () =>
+        public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) => GuardAsync("emulateMedia", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(media);
             var context = RequireContext();
@@ -2368,7 +2363,7 @@ public sealed partial class WebEngine : IEngine
             };
         }
 
-        public Task AddInitScriptAsync(string source, CancellationToken cancellationToken) => RunAsync("addInitScript", cancellationToken, async () =>
+        public Task AddInitScriptAsync(string source, CancellationToken cancellationToken) => GuardAsync("addInitScript", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -2376,25 +2371,25 @@ public sealed partial class WebEngine : IEngine
             _initScripts.Add(source);
         });
 
-        public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) => RunAsync("keyboard.type", cancellationToken, () =>
+        public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) => GuardAsync("keyboard.type", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken));
 
-        public Task KeyboardDownAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.down", cancellationToken, () =>
+        public Task KeyboardDownAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.down", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.DownAsync(key), "keyboard.down " + key, cancellationToken));
 
-        public Task KeyboardUpAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.up", cancellationToken, () =>
+        public Task KeyboardUpAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.up", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.UpAsync(key), "keyboard.up " + key, cancellationToken));
 
-        public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken) => RunAsync("mouse.move", cancellationToken, () =>
+        public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken) => GuardAsync("mouse.move", cancellationToken, () =>
             InputAsync(() => Page.Mouse.MoveAsync(x, y), "mouse.move", cancellationToken));
 
-        public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken) => RunAsync("mouse.wheel", cancellationToken, () =>
+        public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken) => GuardAsync("mouse.wheel", cancellationToken, () =>
             InputAsync(() => Page.Mouse.WheelAsync(deltaX, deltaY), "mouse.wheel", cancellationToken));
 
-        public Task MouseDownAsync(CancellationToken cancellationToken) => RunAsync("mouse.down", cancellationToken, () =>
+        public Task MouseDownAsync(CancellationToken cancellationToken) => GuardAsync("mouse.down", cancellationToken, () =>
             InputAsync(() => Page.Mouse.DownAsync(), "mouse.down", cancellationToken));
 
-        public Task MouseUpAsync(CancellationToken cancellationToken) => RunAsync("mouse.up", cancellationToken, () =>
+        public Task MouseUpAsync(CancellationToken cancellationToken) => GuardAsync("mouse.up", cancellationToken, () =>
             InputAsync(() => Page.Mouse.UpAsync(), "mouse.up", cancellationToken));
 
         /// <summary>Opens a clean context at the current viewport. Its first page opens on the first navigation.</summary>
@@ -2409,7 +2404,7 @@ public sealed partial class WebEngine : IEngine
 
         public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => SwipeAsync(direction, null, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("scroll", cancellationToken, async () =>
+        public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("scroll", cancellationToken, async () =>
         {
             RequireObservation();
             var budget = Budget("scroll", cancellationToken);
@@ -2476,7 +2471,7 @@ public sealed partial class WebEngine : IEngine
             await Page.EvaluateAsync(PageScript.NextRenderedFrame).ConfigureAwait(false);
         }
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
         {
             var budget = Budget("screenshot", cancellationToken);
             try
@@ -2534,7 +2529,7 @@ public sealed partial class WebEngine : IEngine
         /// A redacted screenshot artifact: secure fields in every frame are masked at the source, as in observation pixels. The file is
         /// written through a unique temporary name and moved into place (upstream's <c>screenshot</c> in <c>web/src/surface.ts</c>).
         /// </summary>
-        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
+        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
         {
             var budget = Budget("screenshot", cancellationToken);
             var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
@@ -3164,32 +3159,56 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private Task RunAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
-            RunAsync(label, cancellationToken, async () =>
+        private Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
+            GuardAsync(label, cancellationToken, async () =>
             {
                 await work().ConfigureAwait(false);
                 return true;
             });
 
         /// <summary>
-        /// Runs one operation. On a persistent context whose transport dropped, it
-        /// first shares one reconnect, then dispatches once with the time that remains.
-        /// An operation is never retried.
+        /// The single entry of every operation (upstream's <c>PlaywrightSurface.guard</c>): rethrows an error latched on
+        /// an unawaited path before it runs anything, refuses a cancelled operation, and stops waiting on the call once the
+        /// operation aborts, so an abort mid-call surfaces as <c>CANCELLED</c> instead of waiting out Playwright. On a
+        /// persistent context whose transport dropped, it first shares one reconnect, then dispatches once with the time
+        /// that remains. An operation is never retried.
         /// </summary>
-        internal async Task<T> RunAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
+        internal async Task<T> GuardAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
         {
+            ThrowPending();
             try
             {
-                return _persistent is null ? await work().ConfigureAwait(false) : await RunPersistentAsync(label, cancellationToken, work).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                var running = _persistent is null ? work() : RunPersistentAsync(label, cancellationToken, work);
+                try
+                {
+                    return await running.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested && !running.IsCompleted)
+                {
+                    // .NET-only: work that honours the token gets a moment to undo itself (a drag releases the button) before
+                    // the step reports; work that does not is left behind, its failure observed.
+                    _ = running.ContinueWith(static task => task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                    await Task.WhenAny(running, Task.Delay(CancelGrace, CancellationToken.None)).ConfigureAwait(false);
+                    throw;
+                }
             }
-            catch
+            catch (Exception ex)
             {
                 // A handler error latched while the operation ran is its cause: a route that refused its own arguments
                 // aborts the request the step waited on.
                 ThrowPending();
+                // A persistent context keeps the port's OperationCanceledException for a caller's cancel (see COMPATIBILITY.md).
+                if (_persistent is null && ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
+                {
+                    throw new EngineException(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false, ex);
+                }
+
                 throw;
             }
         }
+
+        private static readonly TimeSpan CancelGrace = TimeSpan.FromSeconds(1);
 
         private async Task<T> RunPersistentAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
         {

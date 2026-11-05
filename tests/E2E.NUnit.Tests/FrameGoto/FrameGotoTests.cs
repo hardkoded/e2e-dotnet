@@ -15,20 +15,12 @@ namespace E2E.NUnit.Tests.FrameGoto;
 /// </summary>
 public sealed class FrameGotoTests : PlaywrightTest
 {
-    // Known difference, hardkoded/e2e-dotnet#1068: the timeout message has no `timed out in browser.goto` label.
     [Test]
     public async Task Should_continue_after_client_redirect()
     {
-        await ExpectedToFailAsync("child-redirect.html: Timeout", async () =>
-        {
-            await Browser.RouteAsync("**/frames/script.js", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" }));
-            var url = $"{PREFIX}/frames/child-redirect.html";
-            var error = await Record(() => Browser.GotoAsync(url, new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle }));
-
-            if (error is null || !error.Message.Contains("timed out in browser.goto", StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("Expected a message with 'timed out in browser.goto', but was: " + (error?.Message ?? "no error"));
-            }
-        });
+        await Browser.RouteAsync("**/frames/script.js", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" }));
+        var url = $"{PREFIX}/frames/child-redirect.html";
+        var error = await Record(() => Browser.GotoAsync(url, new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle }));
+        Contain("timed out in browser.goto", error?.Message ?? "no error");
     }
 }

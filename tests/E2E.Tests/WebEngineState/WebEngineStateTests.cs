@@ -96,7 +96,7 @@ public sealed class WebEngineStateTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.CaptureStateAsync(cancelled.Token));
+        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => session.CaptureStateAsync(cancelled.Token))).Code);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, new JsonObject { ["cookies"] = new JsonArray(), ["origins"] = new JsonArray() }), cancelled.Token));
     }
 

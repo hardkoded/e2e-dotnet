@@ -15,6 +15,9 @@ internal static class Ids
     /// <summary>SHA-256 of a UTF-8 string, lowercase hex.</summary>
     public static string Sha256Hex(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
+    /// <summary>SHA-256 of raw bytes, lowercase hex.</summary>
+    public static string Sha256Hex(ReadOnlySpan<byte> input) => Convert.ToHexStringLower(SHA256.HashData(input));
+
     /// <summary>
     /// Result ID: SHA-256/JCS of <c>{ testId, targetId, agent }</c>, with <c>repeat</c> added for a run past the first under
     /// <c>--repeat-each</c>; a test run as several agents has one per agent, and one per repeat (upstream's <c>resultId</c>).
