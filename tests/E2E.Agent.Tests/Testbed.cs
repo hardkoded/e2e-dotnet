@@ -915,11 +915,17 @@ internal static class Testbed
     /// <summary>The base URL of the running playground, started on first use.</summary>
     public static string Url => Server.Value;
 
+    /// <summary>Whether the app also answers on <c>localhost</c>, the second origin of the cross-origin cases. Starts the app when it is not running yet.</summary>
+    public static bool CrossOriginAvailable => Url.Length > 0 && s_crossOrigin;
+
+    private static bool s_crossOrigin;
+
     private static string Start()
     {
         // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
         string url;
         HttpListener listener;
+        bool crossOrigin;
         for (var attempt = 0; ; attempt++)
         {
             var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
@@ -933,7 +939,6 @@ internal static class Testbed
             try
             {
                 listener.Start();
-                break;
             }
             catch (HttpListenerException)
             {
@@ -945,7 +950,23 @@ internal static class Testbed
 
                 continue;
             }
+
+            // The second origin of the cross-origin cases (upstream's CROSS), the same app under another host name. A host that cannot
+            // bind it (no mapping, no URL ACL) still serves the app; only the cross-origin tests skip themselves.
+            try
+            {
+                listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
+                crossOrigin = true;
+            }
+            catch (Exception ex) when (ex is HttpListenerException or System.Net.Sockets.SocketException or ArgumentException)
+            {
+                crossOrigin = false;
+            }
+
+            break;
         }
+
+        s_crossOrigin = crossOrigin;
 
         _ = Task.Run(() => ListenAsync(listener));
         return url.TrimEnd('/');
@@ -1015,7 +1036,42 @@ internal static class Testbed
             }
             else
             {
-                await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                // Its own task: a route that holds its response (upstream's /never) must not stall the other requests.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                    {
+                        // The client went away.
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // A route bug is a 500 the test can see, not an empty 200.
+                        try
+                        {
+                            response.StatusCode = 500;
+                        }
+                        catch (Exception inner) when (inner is InvalidOperationException or ObjectDisposedException or System.Net.ProtocolViolationException)
+                        {
+                            // The response was already sent.
+                        }
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            response.Close();
+                        }
+                        catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                        {
+                            // The response was aborted.
+                        }
+                    }
+                });
+                continue;
             }
 
             response.Close();

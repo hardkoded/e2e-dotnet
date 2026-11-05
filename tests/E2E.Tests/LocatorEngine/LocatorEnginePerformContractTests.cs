@@ -86,6 +86,28 @@ public sealed class LocatorEnginePerformContractTests
     }
 
     [Fact]
+    public async Task NET_only_sends_the_action_to_a_hidden_node_and_leaves_its_actionability_to_the_engine()
+    {
+        // Upstream's performUntil reads no state; Playwright waits for the node to be actionable, and scrollIntoView needs no visibility.
+        var performed = new List<LocatorAction>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "node-1", Text = "Hello", States = new NodeStates { Hidden = true } }] }),
+            (_, action, _) =>
+            {
+                performed.Add(action);
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(300),
+            TimeSpan.FromMilliseconds(300));
+
+        await screen.GetByText("Hello").ScrollIntoViewAsync();
+
+        Assert.IsType<LocatorAction.ScrollIntoView>(Assert.Single(performed));
+    }
+
+    [Fact]
     public async Task Never_sends_an_action_whose_target_resolved_past_the_deadline()
     {
         // The slow resolves move a fake clock, so the deadline passes without any waiting.

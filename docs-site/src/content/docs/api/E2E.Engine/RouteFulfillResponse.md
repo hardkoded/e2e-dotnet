@@ -43,6 +43,22 @@ public string? Body { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_RouteFulfillResponse_BodyBytes_"></a>
+<a id="E2E_Engine_RouteFulfillResponse_BodyBytes"></a>
+
+### BodyBytes
+
+
+```csharp
+public byte[]? BodyBytes { get; init; }
+```
+
+
+A body of bytes, sent unchanged (upstream's `body` as a `Buffer` or `Uint8Array`). .NET-only name: C# has no
+string-or-bytes union, so [Body](#E2E_Engine_RouteFulfillResponse_Body) stays the text and this holds the bytes. Give at most one of the two.
+
+**Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
+
 <a id="E2E_Engine_RouteFulfillResponse_ContentType_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_ContentType"></a>
 
@@ -68,6 +84,8 @@ Sets the `Content-Type` response header.
 public IReadOnlyDictionary<string, string>? Headers { get; init; }
 ```
 
+
+Response headers; `set-cookie` may join several cookies with `\n`, as `route.fetch()` reports them.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
