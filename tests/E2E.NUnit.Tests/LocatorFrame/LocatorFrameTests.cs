@@ -156,24 +156,20 @@ public sealed class LocatorFrameTests : PlaywrightTest
         await navigated;
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1066: a frame-scoped getByRole also matches the nested frame's button.
     [Test]
     public async Task GetBy_coverage_role_text_test_id_label_placeholder()
     {
-        await ExpectedToFailAsync("observed matched 2 nodes", async () =>
-        {
-            await Browser.GotoAsync(Routed);
-            var button1 = Browser.FrameLocator("iframe").GetByRole("button");
-            var button2 = Browser.FrameLocator("iframe").GetByText("Hello", exact: false);
-            var button3 = Browser.FrameLocator("iframe").GetByTestId("buttonId");
-            await Expect.That(button1).ToHaveTextAsync("Hello iframe");
-            await Expect.That(button2).ToHaveTextAsync("Hello iframe");
-            await Expect.That(button3).ToHaveTextAsync("Hello iframe");
-            var input1 = Browser.FrameLocator("iframe").GetByLabel("Name");
-            await Expect.That(input1).ToHaveValueAsync("");
-            var input2 = Browser.FrameLocator("iframe").GetByPlaceholder("Placeholder");
-            await Expect.That(input2).ToHaveValueAsync("");
-        });
+        await Browser.GotoAsync(Routed);
+        var button1 = Browser.FrameLocator("iframe").GetByRole("button");
+        var button2 = Browser.FrameLocator("iframe").GetByText("Hello", exact: false);
+        var button3 = Browser.FrameLocator("iframe").GetByTestId("buttonId");
+        await Expect.That(button1).ToHaveTextAsync("Hello iframe");
+        await Expect.That(button2).ToHaveTextAsync("Hello iframe");
+        await Expect.That(button3).ToHaveTextAsync("Hello iframe");
+        var input1 = Browser.FrameLocator("iframe").GetByLabel("Name");
+        await Expect.That(input1).ToHaveValueAsync("");
+        var input2 = Browser.FrameLocator("iframe").GetByPlaceholder("Placeholder");
+        await Expect.That(input2).ToHaveValueAsync("");
     }
 
     [Test]
