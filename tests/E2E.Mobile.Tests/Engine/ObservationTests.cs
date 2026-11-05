@@ -658,21 +658,28 @@ public sealed class ObservationTests
     public async Task Shares_one_budget_across_observe_steps_so_screenshot_cannot_take_a_fresh_budget()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await OpenAttempt(h);
-        // The snapshot carries its geometry, so the only screenshot is the observation's pixels.
-        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        // The snapshot carries its geometry, so the only screenshot is the observation's pixels. The snapshot takes 150 ms of the test's
+        // clock, so a loaded runner cannot make it use up the 500 ms budget before the screenshot starts.
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
         {
-            await Task.Delay(150);
-            return WithViewport(402, 874);
+            h.Clock.Spend(TimeSpan.FromMilliseconds(150));
+            return Task.FromResult<JsonNode?>(WithViewport(402, 874));
         });
         var screenshots = 0;
+        var shot = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) =>
         {
             Interlocked.Increment(ref screenshots);
+            shot.TrySetResult();
             return Never();
         });
         var started = DateTimeOffset.UtcNow;
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        var observing = Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        await shot.Task;
+        await h.Clock.SpendUntil(observing, TimeSpan.FromMilliseconds(400));
+        var failure = await observing;
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         Assert.Equal(1, screenshots);
         Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3));
