@@ -827,8 +827,8 @@ internal static class PageScript
             let out = "";
             const read = (node) => {
               if (out.length > domTextBound) return;
-              if (node.nodeType === Node.TEXT_NODE) out += node.nodeValue ?? "";
-              if (node.nodeType !== Node.ELEMENT_NODE || skip.has(node.tagName)) return;
+              if (node.nodeType === 3) out += node.nodeValue ?? "";
+              if (node.nodeType !== 1 || skip.has(node.tagName)) return;
               if (node instanceof HTMLInputElement && (node.type === "button" || node.type === "submit")) {
                 out += node.value;
                 return;
