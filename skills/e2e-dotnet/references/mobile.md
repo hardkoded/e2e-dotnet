@@ -7,6 +7,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 ## Contents
 
 - The fixture
+- NativeScript test ids
 - A test
 - Device controls
 - Choosing a device
@@ -50,6 +51,10 @@ public sealed class GreetingTests : MobileAppTest
 - `AttachesToRunningApp` is true with `E2E_MOBILE_PROVIDER=devflow`. Use it in `Assume.That` for a test that needs a relaunch.
 - The environment wins over the config: `E2E_MOBILE_PLATFORM` (`ios` or `android`), `E2E_MOBILE_APP_PATH`, `E2E_MOBILE_DEVICE`, `E2E_MOBILE_PROVIDER` (`local`, `limrun`, or `devflow`), `E2E_DEVFLOW_PORT`, and `E2E_DEVFLOW_APP`.
 - The base class adds no `[Category]`. Tag your tests, for example `[assembly: Category("Device")]`, so a run without a device can skip them.
+
+## NativeScript test ids
+
+In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`.
 
 ## A test
 
