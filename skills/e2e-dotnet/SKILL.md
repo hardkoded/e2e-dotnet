@@ -346,8 +346,9 @@ lines you changed:
 - On the web, a swipe is a wheel gesture, as a person scrolls: the viewport swipe wheels by a share of the
   viewport, and a node swipe moves the pointer over the node and wheels by a share of its box. A node that
   nothing scrollable holds scrolls nothing. `Expect.Soft(screen)` keeps a screenshot failure like `Expect.Soft(locator)`.
-- A `Browser` call reports an engine failure the same way, and a timeout names the call:
-  `operation timed out in browser.goto <url>` or `... in browser.waitForResponse "foo.css"`.
+- A `Browser` call, an `App` call, and a device fixture call report an engine failure the same way, and a timeout names the call:
+  `operation timed out in browser.goto <url>`, `... in browser.waitForResponse "foo.css"`, or `... in app.open /orders`. A browser call on
+  an engine that has no browser, including `OnDialogAsync` and the download waits, is a `ConfigurationException`.
 - A locator reports an engine failure in the test's own codes, with the engine's
   error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and
   `OPERATION_TIMEOUT` are `ACTION_FAILED` (the timeout reads `operation timed

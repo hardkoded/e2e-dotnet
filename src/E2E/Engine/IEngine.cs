@@ -71,10 +71,10 @@ public sealed class EngineFixtureContext
 
     /// <summary>
     /// Runs one fixture call as a recorded step of the attempt (upstream's <c>FixtureRecorder.run</c>, which wraps each operation a fixture
-    /// declares through <c>fixture</c>). .NET-only: the port's fixtures call it themselves instead of declaring their operations.
+    /// declares through <c>fixture</c>), mapping the engine error the call throws onto the runner taxonomy. .NET-only: the port's fixtures call it themselves instead of declaring their operations.
     /// </summary>
     internal Task<T> RunOperationAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body) =>
-        _screen.RunStepAsync(kind, api, label, body);
+        _screen.RunStepAsync(kind, api, label, () => FixtureRecording.Translated(api, label, body));
 
     /// <summary>Mints a public locator from a raw expression (a platform selector, say). Upstream's <c>locator</c>.</summary>
     public Locator Locator(LocatorExpression expression)
