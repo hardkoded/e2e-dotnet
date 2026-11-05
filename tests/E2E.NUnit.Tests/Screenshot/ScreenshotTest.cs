@@ -30,7 +30,7 @@ public abstract class ScreenshotTest : PlaywrightTest
             """
             ({ targets, color }) => {
               for (const { frame, selector, index } of targets) {
-                const host = frame === null ? undefined : document.querySelector(frame);
+                const host = frame == null ? undefined : document.querySelector(frame);
                 const origin = host === undefined ? { left: 0, top: 0 } : host.getBoundingClientRect();
                 const offset = host === undefined ? { left: 0, top: 0 } : { left: host.clientLeft, top: host.clientTop };
                 const element = (host === undefined ? document : host.contentDocument).querySelectorAll(selector)[index];
@@ -85,6 +85,11 @@ public abstract class ScreenshotTest : PlaywrightTest
         foreach (var file in _stored)
         {
             File.Delete(file);
+            var directory = Path.GetDirectoryName(file)!;
+            if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+            {
+                Directory.Delete(directory);
+            }
         }
 
         _stored.Clear();
