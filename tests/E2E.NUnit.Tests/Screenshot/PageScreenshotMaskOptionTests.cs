@@ -12,7 +12,6 @@ namespace E2E.NUnit.Tests.Screenshot;
 /// (Playwright's <c>page-screenshot.spec.ts</c>). A <c>mask</c> is the <c>ToHaveScreenshotAsync</c> option, compared against the same
 /// viewport with boxes of the mask color painted over the masked elements. Not ported, as upstream: mask option should work with
 /// elementhandle (element handles), and should hide and remove elements based on attr (no <c>style</c> option).
-/// All nine tests are ignored: <c>ToHaveScreenshotAsync</c> cannot resolve the CSS-selector and frame locators of <c>Browser</c> as masks (#1109).
 /// </summary>
 public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
 {
