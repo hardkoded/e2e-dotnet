@@ -108,7 +108,7 @@ public Locator GetByLabel(TextMatch label, TextMatchOptions options)
 ```
 
 
-Creates a lazy accessible-label query: any node whose accessible name matches.
+Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose `aria-label`, `aria-labelledby` target, or `<label>` text matches.
 
 **Parameters**
 
@@ -129,7 +129,7 @@ public Locator GetByLabel(TextMatch label, bool exact = true)
 ```
 
 
-Creates a lazy accessible-label query: any node whose accessible name matches.
+Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose `aria-label`, `aria-labelledby` target, or `<label>` text matches.
 
 **Parameters**
 
@@ -303,7 +303,7 @@ public Locator GetByText(TextMatch text, TextMatchOptions options)
 
 
 Creates a lazy visible-text query. It answers with the innermost match, such as a
-`<strong>` inside a paragraph. Text inside a control's label answers with the control.
+`<strong>` inside a paragraph. The text of a label answers with the label, not the control it names.
 
 **Parameters**
 
@@ -325,7 +325,7 @@ public Locator GetByText(TextMatch text, bool exact = true)
 
 
 Creates a lazy visible-text query. It answers with the innermost match, such as a
-`<strong>` inside a paragraph. Text inside a control's label answers with the control.
+`<strong>` inside a paragraph. The text of a label answers with the label, not the control it names.
 
 **Parameters**
 

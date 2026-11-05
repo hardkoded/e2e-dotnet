@@ -95,8 +95,11 @@ Members of `E2ETest` in both frameworks:
   case-insensitive substring, or a .NET `Regex`.
 - `GetByText` and `GetByLabel` return the innermost match, so a container
   echoing its child does not count twice: `GetByText("$42.00")` finds the
-  `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. Text inside a
-  control's `<label>` answers with the control.
+  `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. On a web page,
+  `GetByText` matches the DOM text only: the `<label>` answers, not the control
+  it names, and a placeholder, a title, or an `aria-label` is no text.
+  `GetByLabel` finds a control by its `aria-label`, its `aria-labelledby`
+  target, or its `<label>`.
 - Roles follow HTML-AAM, and `img` aliases `image`. An inline `<svg>` is an
   `image`. An `<img alt="">` is decoration and matches nothing, unless it has
   a `title`, a `tabindex`, or a global ARIA attribute: then it is an `image`.
