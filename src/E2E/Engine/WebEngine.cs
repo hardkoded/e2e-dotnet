@@ -1848,7 +1848,14 @@ public sealed partial class WebEngine : IEngine
                 }
                 finally
                 {
-                    await handle.DisposeAsync().ConfigureAwait(false);
+                    try
+                    {
+                        await handle.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (PlaywrightException)
+                    {
+                        // Best effort: a page that navigated or closed took the handle with it, and the read's own failure is the one to report.
+                    }
                 }
             }
             catch (PlaywrightException ex) when (ex.Message.StartsWith("SyntaxError", StringComparison.Ordinal))
