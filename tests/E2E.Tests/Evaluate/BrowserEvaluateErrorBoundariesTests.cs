@@ -147,6 +147,16 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     }
 
     [Fact]
+    public async Task Works_with_Array_deleted()
+    {
+        await AttemptAsync(async session =>
+        {
+            Assert.Equal(5, await session.Browser.EvaluateAsync<int>("() => { delete window.Array; return 5; }"));
+            Assert.Equal(6, await session.Browser.EvaluateAsync<int>("() => 6"));
+        });
+    }
+
+    [Fact]
     public async Task Fails_a_later_evaluate_and_a_locate_as_EVALUATE_FAILED_once_the_page_replaced_Map()
     {
         await AttemptAsync(async session =>
