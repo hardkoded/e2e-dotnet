@@ -53,7 +53,7 @@ public sealed class GreetingTests : MobileAppTest
 
 ## NativeScript test ids
 
-In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`. This mirrors upstream's `docs/mobile.mdx`; the port has no NativeScript test.
+In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`.
 
 ## A test
 
