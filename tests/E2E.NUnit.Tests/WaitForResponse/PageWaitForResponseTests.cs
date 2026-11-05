@@ -11,9 +11,7 @@ namespace E2E.NUnit.Tests.WaitForResponse;
 /// <c>test.describe('page wait for response')</c> of upstream's <c>apps/testbed/tests/wait-for-response.e2e.ts</c> (Playwright's
 /// <c>page-wait-for-response.spec.ts</c>). Not ported, as upstream: should respect timeout (no <c>waitForEvent('response')</c>),
 /// should respect default timeout (no <c>setDefaultTimeout</c>, no predicate), should work with predicate, should work with async
-/// predicate, sync predicate should be only called once (no response predicates). The <c>/digits/*.png</c> assets are not copied: the tests
-/// match the URL of the response, which a 404 has too, and <c>grid.html</c> lays out one pixel lower once its digit images load
-/// (<c>LocatorMisc2Tests.Should_return_bounding_box</c> expects <c>y</c> 50).
+/// predicate, sync predicate should be only called once (no response predicates).
 /// </summary>
 public sealed class PageWaitForResponseTests : PlaywrightTest
 {
