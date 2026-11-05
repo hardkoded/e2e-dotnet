@@ -46,7 +46,6 @@ public sealed class PageWaitForResponseTests : PlaywrightTest
     }
 
     [Test]
-    [Ignore("a timeout must be positive, so there is no `timeout: 0` for no timeout (refused as INVALID_ARGUMENT, which `fail` does not cover)")]
     public async Task Should_work_with_no_timeout()
     {
         await Browser.GotoAsync(EmptyPage);
