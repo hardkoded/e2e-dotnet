@@ -26,7 +26,7 @@ public sealed partial class WebEngine
         /// <summary>How the session records video. Null for a session started without an artifact directory.</summary>
         public VideoSetup? Video { get; init; }
 
-        public Task StartVideoAsync(CancellationToken cancellationToken) => RunAsync("video", cancellationToken, async () =>
+        public Task StartVideoAsync(CancellationToken cancellationToken) => GuardAsync("video", cancellationToken, async () =>
         {
             var setup = Video;
             var dir = setup?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "video needs the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");

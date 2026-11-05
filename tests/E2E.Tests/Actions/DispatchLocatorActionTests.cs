@@ -143,7 +143,7 @@ public sealed class DispatchLocatorActionTests
                 var upload = session.PerformAsync(pick, new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), cancel.Token);
                 await Task.Delay(TimeSpan.FromMilliseconds(300));
                 await cancel.CancelAsync();
-                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => upload);
+                Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => upload)).Code);
 
                 await Task.Delay(TimeSpan.FromMilliseconds(1500));
                 Assert.Equal(0, await EvaluateAsync<int>(session, "() => document.getElementById('avatar').files.length"));

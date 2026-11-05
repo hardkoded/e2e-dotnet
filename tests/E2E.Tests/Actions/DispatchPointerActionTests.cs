@@ -114,7 +114,7 @@ public sealed class DispatchPointerActionTests
             await WaitForMoveAfterDownAsync(session);
 
             await cancel.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)));
+            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
 
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
@@ -135,7 +135,7 @@ public sealed class DispatchPointerActionTests
             await WaitForMoveAfterDownAsync(session);
 
             await cancel.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)));
+            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
 
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
