@@ -731,6 +731,7 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Check(), options, cancellationToken);
     }
 
+    /// <summary>Unchecks a checkbox, switch, or <c>role="radio"</c> with one click. A checked native radio button fails with <c>ACTION_FAILED</c>: only another radio in its group clears it.</summary>
     public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         return ActAsync(new LocatorAction.Uncheck(), options, cancellationToken);

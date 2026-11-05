@@ -1363,6 +1363,8 @@ public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancel
 ```
 
 
+Unchecks a checkbox, switch, or `role="radio"` with one click. A checked native radio button fails with `ACTION_FAILED`: only another radio in its group clears it.
+
 **Parameters**
 
 | Name | Type | Description |
