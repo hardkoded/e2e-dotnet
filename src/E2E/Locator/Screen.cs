@@ -158,20 +158,20 @@ public class Screen
 
     /// <summary>
     /// Creates a lazy visible-text query. It answers with the innermost match, such as a
-    /// <c>&lt;strong&gt;</c> inside a paragraph. Text inside a control's label answers with the control.
+    /// <c>&lt;strong&gt;</c> inside a paragraph. The text of a label answers with the label, not the control it names.
     /// </summary>
     public Locator GetByText(TextMatch text, bool exact = true) => GetByText(text, new TextMatchOptions { Exact = exact });
 
     /// <summary>
     /// Creates a lazy visible-text query. It answers with the innermost match, such as a
-    /// <c>&lt;strong&gt;</c> inside a paragraph. Text inside a control's label answers with the control.
+    /// <c>&lt;strong&gt;</c> inside a paragraph. The text of a label answers with the label, not the control it names.
     /// </summary>
     public Locator GetByText(TextMatch text, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("text", text, options, nameof(text))));
 
-    /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches.</summary>
+    /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose <c>aria-label</c>, <c>aria-labelledby</c> target, or <c>&lt;label&gt;</c> text matches.</summary>
     public Locator GetByLabel(TextMatch label, bool exact = true) => GetByLabel(label, new TextMatchOptions { Exact = exact });
 
-    /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches.</summary>
+    /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose <c>aria-label</c>, <c>aria-labelledby</c> target, or <c>&lt;label&gt;</c> text matches.</summary>
     public Locator GetByLabel(TextMatch label, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("label", label, options, nameof(label))));
 
     /// <summary>Creates a lazy test-id query. A string matches the whole id, case-sensitive.</summary>
@@ -1617,8 +1617,8 @@ internal static class LocatorResolver
         return query.Kind switch
         {
             "role" => RoleMatches(node, query, includeHidden),
-            "text" => value!.Matches(node.Name, query.Exact) || value.Matches(node.Text, query.Exact),
-            "label" => value!.Matches(node.Name, query.Exact),
+            "text" => HasText(node, value!, query.Exact),
+            "label" => node.Labels is { } labels ? labels.Any(label => value!.Matches(label, query.Exact)) : value!.Matches(node.Name, query.Exact),
             "testid" => value!.Matches(node.TestId, exact: true),
             "placeholder" => value!.Matches(node.Placeholder, query.Exact),
             // A checkbox or radio carries a value it never shows (`on` by default), so it is no candidate.
@@ -1653,6 +1653,11 @@ internal static class LocatorResolver
             && (query.Level is null || node.Level == query.Level);
     }
 
+    // A node with DOM text (the web) answers to that text, as Playwright's text engine does: a placeholder, a title, or the label a
+    // control is named by is no text. Any other node answers to its accessible name or its text.
+    private static bool HasText(SemanticNode node, TextMatch expected, bool exact) =>
+        node.DomText is { } domText ? expected.Matches(domText, exact) : expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact);
+
     /// <summary>A state with no value to match (mixed, or an attribute that is absent) matches neither true nor false, as Playwright's role selector reads it.</summary>
     private static bool StateIs(bool? wanted, bool actual, bool unset = false) => wanted is null || (!unset && wanted.Value == actual);
 
@@ -1662,13 +1667,14 @@ internal static class LocatorResolver
     /// </summary>
     private static bool SubtreeHasText(SemanticNode node, TextMatch expected, bool exact, bool includeValue)
     {
-        if (expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact) || (includeValue && expected.Matches(node.Value, exact)))
+        if (HasText(node, expected, exact) || (includeValue && expected.Matches(node.Value, exact)))
         {
             return true;
         }
 
+        // DOM text holds every descendant's text already; a child's alone would match a pattern anchored to the whole.
         // A frame node's children are another document's, which an element's text does not include.
-        if (node.Frame)
+        if (node.DomText is not null || node.Frame)
         {
             return false;
         }

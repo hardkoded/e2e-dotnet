@@ -79,6 +79,19 @@ public sealed class SemanticNode
     /// </summary>
     internal IReadOnlyList<SemanticNode> InlineNodes { get; init; } = [];
 
+    /// <summary>
+    /// The text of the DOM as Playwright's text engine reads it: every descendant's text in place, with no separator between blocks.
+    /// Null on a surface with no such text. A web query by text or <c>hasText</c> matches it, in place of <see cref="Name"/> and
+    /// <see cref="Text"/>, which read the rendered text and the accessible name.
+    /// </summary>
+    internal string? DomText { get; init; }
+
+    /// <summary>
+    /// What a label query finds the node by on the web: its <c>aria-label</c>, the elements its <c>aria-labelledby</c> names, and its
+    /// <c>&lt;label&gt;</c> elements (upstream's <c>labels</c> of a raw node). Null on a surface whose label is its <see cref="Name"/>.
+    /// </summary>
+    internal IReadOnlyList<string>? Labels { get; init; }
+
     public string? Value { get; init; }
 
     /// <summary>The text selected inside the focused field or editing host. Null for a caret, an unfocused field, or a secure one.</summary>

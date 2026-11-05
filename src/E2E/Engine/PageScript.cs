@@ -806,6 +806,38 @@ internal static class PageScript
             }
             return out;
           };
+          // What a label query finds an element by, as Playwright's getByLabel does: its aria-label, the elements its
+          // aria-labelledby names, and the labels it is associated with. Its content, title, and placeholder are no label.
+          const labelsOf = (el) => {
+            const labels = [];
+            const ariaLabel = el.getAttribute("aria-label");
+            if (ariaLabel !== null && ariaLabel.trim() !== "") labels.push(ariaLabel.trim());
+            for (const name of referencedNamesOf(el, nameWalk([], false)) ?? []) labels.push(name);
+            for (const label of el.labels ? Array.from(el.labels) : []) {
+              const text = nameTextOf(label, false);
+              if (text !== "") labels.push(text);
+            }
+            return labels.map(withoutGlyphs).filter((label) => label !== "");
+          };
+          // An element's DOM text as Playwright's text engine reads it: every descendant's text in place, with no
+          // separator where one block ends and the next begins (innerText puts a line break there), and a button
+          // input's value standing for its text. Script and style text is no text. Read to a bound, then cut.
+          const domTextBound = 8192;
+          const domTextOf = (el) => {
+            let out = "";
+            const read = (node) => {
+              if (out.length > domTextBound) return;
+              if (node.nodeType === 3) out += node.nodeValue ?? "";
+              if (node.nodeType !== 1 || skip.has(node.tagName)) return;
+              if (node instanceof HTMLInputElement && (node.type === "button" || node.type === "submit")) {
+                out += node.value;
+                return;
+              }
+              for (const child of renderedChildrenOf(node)) read(child);
+            };
+            read(el);
+            return cut(out, textLimit);
+          };
           // True when an element with no role still says it can be acted on:
           // focusable through tabindex, a click handler set as an attribute or
           // a property, or an <a> with no href, which an app wires up by
@@ -836,46 +868,13 @@ internal static class PageScript
             const parent = el.assignedSlot ?? parentOrHostOf(el);
             if (parent === null || !flowsInLine(el)) return false;
             if (!ownsLine(parent)) return isReadInLine(parent);
-            return lineTextOf(parent).length <= textLimit && !invisible(parent, styleOf(parent)) && !namesControl(parent);
+            return lineTextOf(parent).length <= textLimit && !invisible(parent, styleOf(parent));
           });
-          // The elements that reference each id from aria-labelledby, read once
-          // per walk. nameOf resolves those ids in the document, so this does too.
-          let labelledBy = null;
-          const referencesOf = (id) => {
-            if (!labelledBy) {
-              labelledBy = new Map();
-              for (const ref of document.querySelectorAll("[aria-labelledby]")) {
-                for (const each of ref.getAttribute("aria-labelledby").trim().split(/\s+/)) {
-                  if (!labelledBy.has(each)) labelledBy.set(each, []);
-                  labelledBy.get(each).push(ref);
-                }
-              }
-            }
-            return labelledBy.get(id) ?? [];
-          };
-          // Text inside a label of a control, or in an element a role's
-          // aria-labelledby names, is the labelled element's name already. A
-          // control with no box carries nothing a person can aim at, so the
-          // label keeps its text and a text query finds the label.
-          const namesControl = (el) => {
-            const control = el.closest("label")?.control;
-            if (control) {
-              const box = control.getBoundingClientRect();
-              if (box.width > 0 && box.height > 0) return true;
-            }
-            if (!el.id || document.getElementById(el.id) !== el) return false;
-            return referencesOf(el.id).some((ref) => {
-              const role = roleOf(ref);
-              return !!role && role !== "presentation" && role !== "none";
-            });
-          };
           // As upstream's tree, an element is listed by its role, its test id,
-          // or text of its own, so text inside a bare span or a strong is a node
-          // a text query can answer with. Text that names another element is
-          // not listed: that element carries it as its name, so a text query
-          // answers with it, and a fill acts on the control a label names. An
-          // SVG element has no innerText to read, so it is not listed by text.
-          const ownsText = (el) => el instanceof HTMLElement && !namesControl(el) &&
+          // or text of its own, so text inside a bare span, a strong or a label is a
+          // node a text query can answer with. An SVG element has no innerText to
+          // read, so it is not listed by text.
+          const ownsText = (el) => el instanceof HTMLElement &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
@@ -894,7 +893,7 @@ internal static class PageScript
             for (const child of renderedChildrenOf(parent)) {
               if (child.nodeType !== 1 || !flowsInLine(child) || listed(child, roleOf(child))) continue;
               const text = cut(lineRunOf(child), Infinity);
-              if (text) out.push({ ref: stamp(child), text, hidden: isHidden, attributes: attributesOf(child, false), rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
+              if (text) out.push({ ref: stamp(child), text, domText: domTextOf(child), hidden: isHidden, attributes: attributesOf(child, false), rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
             }
             return out;
           };
@@ -1011,7 +1010,10 @@ internal static class PageScript
                 // A node that lists its children shows the snapshot only the
                 // text it owns, read as a line: its inline words stay in place.
                 ownText: secure || !ownsChildren ? null : cut(lineTextOf(el), textLimit),
-                inline: secure || !ownsChildren || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
+                // A leaf lists no children, but a text query still finds the words it holds in an inline element.
+                inline: secure || isFrame || el.tagName === "SELECT" || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
+                domText: secure ? "" : domTextOf(el),
+                labels: labelsOf(el),
                 value: secure ? null : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? String(el.value ?? "") : editorValue,
                 selection: el === focused && !secure ? selectedTextOf(el)?.slice(0, textLimit) ?? null : null,
                 testId,
