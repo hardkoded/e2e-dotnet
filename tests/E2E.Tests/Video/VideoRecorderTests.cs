@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using E2E.Engine;
 using E2E.Tests.AttemptSession;
 using Microsoft.Playwright;
@@ -34,9 +35,8 @@ public sealed class VideoRecorderTests : IDisposable
         var video = Recorder();
         var late = new ScriptedPage(firstFrameMs: 150);
         await video.ArmAsync(late.Page);
-        var stopping = Environment.TickCount64;
         await video.StopAsync();
-        Assert.True(late.StoppedAt[0] - stopping >= 140);
+        Assert.Equal(["frame", "stop"], late.Events);
 
         var silent = new ScriptedPage(firstFrameMs: null);
         await video.ArmAsync(silent.Page);
@@ -193,7 +193,7 @@ public sealed class VideoRecorderTests : IDisposable
 
     /// <summary>
     /// A page whose screencast writes its file on start unless told not to, sends its first frame at once (or after
-    /// <c>firstFrameMs</c>, or never with null), and fails to stop when told to.
+    /// <c>firstFrameMs</c>, or never with null) and records frame/stop order, and can fail to stop.
     /// </summary>
     private sealed class ScriptedPage
     {
@@ -223,13 +223,20 @@ public sealed class VideoRecorderTests : IDisposable
 
                 if (firstFrameMs is { } delay)
                 {
-                    _ = Task.Delay(delay).ContinueWith(_ => start.OnFrame?.Invoke(new ScreencastFrame()), TaskScheduler.Default);
+                    _ = Task.Delay(delay).ContinueWith(
+                        _ =>
+                        {
+                            Events.Enqueue("frame");
+                            start.OnFrame?.Invoke(new ScreencastFrame());
+                        },
+                        TaskScheduler.Default);
                 }
 
                 return Task.FromResult(FakeRemote.Registration);
             };
             screencastFake.Members["StopAsync"] = _ =>
             {
+                Events.Enqueue("stop");
                 StoppedAt.Add(Environment.TickCount64);
                 StoppedCount++;
                 return stopError is null ? Task.CompletedTask : Task.FromException(stopError);
@@ -245,6 +252,8 @@ public sealed class VideoRecorderTests : IDisposable
         public List<int?> Qualities { get; } = [];
 
         public List<long> StoppedAt { get; } = [];
+
+        public ConcurrentQueue<string> Events { get; } = [];
 
         public int StoppedCount { get; private set; }
     }

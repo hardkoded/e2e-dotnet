@@ -13,6 +13,8 @@ using System.Text;
 //   spawn <port>                   starts `serve <port>` as a child, then exits at once
 //   serve-logged <port>            appends `app` to startup.log in the working directory, then serves like `serve`
 //   serve-graceful <port> <file>   serves; on SIGTERM it writes `finished` to the file 50 ms later and exits 0
+//   serve-hold <port>              serves; on SIGTERM it writes `stopping` to the working directory, then exits 0 once `release-stop` exists there
+//   serve-receipt <port> <file> <dir>  serves; on SIGTERM it writes {"projectExists":<whether dir exists>} to the file 100 ms later and exits 0
 //   wrap <pidFile> <mode> <arg>... starts `<mode> <arg>...` as a child, writes its pid to the file, and exits 0 on SIGTERM, staying up until then
 //   idle                           stays up and answers nothing
 //   exit <code>                    exits with the code
@@ -45,6 +47,10 @@ switch (args[0])
         return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), false);
     case "serve-graceful":
         return await ServeGraceful(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2]);
+    case "serve-hold":
+        return await ServeHold(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture));
+    case "serve-receipt":
+        return await ServeReceipt(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2], args[3]);
     case "wrap":
         return await Wrap(args[1], args.Skip(2).ToArray());
     case "idle":
@@ -135,6 +141,34 @@ static async Task<int> ServeGraceful(int port, string finished)
         context.Cancel = true;
         Thread.Sleep(50);
         File.WriteAllText(finished, "finished");
+        Environment.Exit(0);
+    });
+    return await Serve(port, false);
+}
+
+static async Task<int> ServeHold(int port)
+{
+    using var registration = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+    {
+        context.Cancel = true;
+        File.WriteAllText("stopping", "started");
+        while (!File.Exists("release-stop"))
+        {
+            Thread.Sleep(10);
+        }
+
+        Environment.Exit(0);
+    });
+    return await Serve(port, false);
+}
+
+static async Task<int> ServeReceipt(int port, string receipt, string project)
+{
+    using var registration = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+    {
+        context.Cancel = true;
+        Thread.Sleep(100);
+        File.WriteAllText(receipt, "{\"projectExists\":" + (Directory.Exists(project) ? "true" : "false") + "}");
         Environment.Exit(0);
     });
     return await Serve(port, false);

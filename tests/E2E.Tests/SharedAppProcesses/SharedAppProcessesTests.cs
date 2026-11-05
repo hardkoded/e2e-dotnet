@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Globalization;
 using E2E.Internal;
 using E2E.Tests.ManagedProcess;
@@ -20,7 +21,19 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
 {
     private readonly string _dir = Directory.CreateTempSubdirectory("e2e-shared-apps-").FullName;
     private readonly int _port = AppProgram.FreePort();
-    private readonly List<IAppProcesses> _started = [];
+
+    // Actual processes, with each stop shared by the pool and teardown.
+    private readonly ConcurrentQueue<IAppProcesses> _started = [];
+
+    // Calls waiting on the pool, which may reject before their processes stop.
+    private readonly ConcurrentQueue<Task> _starting = [];
+
+    // Actual starts, including the cleanup they await when aborted.
+    private readonly ConcurrentQueue<Task> _launching = [];
+
+    // Aborts the starts a failed test left waiting.
+    private readonly CancellationTokenSource _teardown = new();
+    private readonly ConcurrentQueue<CancellationTokenSource> _scopes = [];
     private readonly string _url;
     private readonly CommandConfig _command;
 
@@ -32,15 +45,39 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
 
     public Task InitializeAsync() => Task.CompletedTask;
 
-    // Everything a test started, stopped after it whatever the test asserted.
     public async Task DisposeAsync()
     {
+        await StopProcesses();
+        Directory.Delete(_dir, true);
+    }
+
+    // Stops both acquired processes and starts abandoned by their callers, whatever the test asserted.
+    private async Task StopProcesses()
+    {
+        await _teardown.CancelAsync();
+        await Task.WhenAll(_starting.Select(Settled));
+        await Task.WhenAll(_launching.Select(Settled));
         foreach (var processes in _started)
         {
             await processes.StopAsync(_ => { });
         }
 
-        Directory.Delete(_dir, true);
+        foreach (var scope in _scopes)
+        {
+            scope.Dispose();
+        }
+    }
+
+    private static async Task Settled(Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (Exception)
+        {
+            // Like allSettled: a failure is the test's to assert, not teardown's.
+        }
     }
 
     [Fact]
@@ -107,7 +144,8 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => opening);
 
         // Nobody holds the abandoned start, so the pool stops what it spawned.
-        await Poll(false);
+        await Task.WhenAll(_launching.Select(Settled));
+        Assert.False(await Serving());
 
         // The next attempt starts it afresh rather than waiting on the abandoned start.
         using var retry = new CancellationTokenSource();
@@ -115,8 +153,87 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         await Poll(true);
         await retry.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => again);
-        await Poll(false);
+        await Task.WhenAll(_launching.Select(Settled));
+        Assert.False(await Serving());
         Assert.Equal("app\napp\n", StartupLog());
+    }
+
+    [Fact]
+    public async Task Waits_for_a_stop_already_running_in_the_pool_when_teardown_begins()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Upstream skips it there (it.skipIf(win32)): Windows has no SIGTERM handler to hold the shutdown.
+            return;
+        }
+
+        var stoppingFile = Path.Combine(_dir, "stopping");
+        var releaseFile = Path.Combine(_dir, "release-stop");
+        var config = Load(new AppConfig { Url = _url, Command = ShutdownCommand("serve-hold") });
+        var first = await Start(new SharedPool(), config);
+        var stopping = first.StopAsync(_ => { });
+        Task? cleaning = null;
+        try
+        {
+            await Poll(() => File.Exists(stoppingFile), true);
+            var cleaned = false;
+            cleaning = StopProcesses().ContinueWith(_ => cleaned = true, TaskScheduler.Default);
+
+            // An HTTP round trip also lets a prematurely completed teardown finish its continuations.
+            Assert.True(await Serving());
+            Assert.False(cleaned);
+        }
+        finally
+        {
+            await File.WriteAllTextAsync(releaseFile, "released");
+            await stopping;
+            if (cleaning is not null)
+            {
+                await cleaning;
+            }
+        }
+
+        Assert.False(await Serving());
+    }
+
+    [Fact]
+    public async Task Keeps_the_project_until_shutdown_completes_in_the_actual_afterEach_hook()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Upstream skips it there (it.skipIf(win32)): Windows has no SIGTERM handler to delay the shutdown.
+            return;
+        }
+
+        // The actual hook is DisposeAsync of a test instance: it runs here as the runner would run it, and the checks follow it.
+        var evidence = Directory.CreateTempSubdirectory("e2e-shared-apps-shutdown-").FullName;
+        var receipt = Path.Combine(evidence, "shutdown.json");
+        var test = new SharedAppProcessesTests();
+        try
+        {
+            var config = test.Load(new AppConfig
+            {
+                Url = test._url,
+                ReadyUrl = "http://127.0.0.1:1/",
+                Command = test.ShutdownCommand("serve-receipt", receipt, test._dir),
+            });
+            _ = test.Start(new SharedPool(), config);
+            await test.Poll(true);
+            await test.DisposeAsync();
+            Assert.False(await test.Serving());
+            Assert.False(Directory.Exists(test._dir));
+            Assert.Equal("{\"projectExists\":true}", await File.ReadAllTextAsync(receipt));
+        }
+        finally
+        {
+            await test.StopProcesses();
+            if (Directory.Exists(test._dir))
+            {
+                Directory.Delete(test._dir, true);
+            }
+
+            Directory.Delete(evidence, true);
+        }
     }
 
     private CommandConfig Command(TimeSpan? startupTimeout = null) => new()
@@ -127,21 +244,64 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         InheritEnv = ["DOTNET_ROOT"],
     };
 
+    // A server whose SIGTERM handler holds the shutdown (serve-hold) or records its project (serve-receipt).
+    private CommandConfig ShutdownCommand(params string[] mode) => new()
+    {
+        Executable = AppProgram.Executable,
+        Args = [mode[0], _port.ToString(CultureInfo.InvariantCulture), .. mode.Skip(1)],
+        InheritEnv = ["DOTNET_ROOT"],
+    };
+
     // One config load, as a live session loads it: one target per declaration, named t0, t1, and so on.
     private IReadOnlyList<(string Name, ResolvedApp App)> Load(params AppConfig[] declared) =>
         [.. declared.Select((app, index) => ("t" + index.ToString(CultureInfo.InvariantCulture), TargetApps.ResolveTargetApp("t" + index.ToString(CultureInfo.InvariantCulture), app, _dir)))];
 
     private async Task<IAppProcesses> Start(SharedPool pool, IReadOnlyList<(string Name, ResolvedApp App)> config, string name = "t0", CancellationToken cancellationToken = default)
     {
-        var processes = await Provision.StartDeclaredProcessesAsync(
+        var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _teardown.Token);
+        _scopes.Enqueue(scope);
+        var opening = Provision.StartDeclaredProcessesAsync(
             config.Where(target => target.Name == name),
             _dir,
             () => new ManagedProcessHooks { Ci = false },
             new DebugTrace(false),
-            cancellationToken,
-            pool);
-        _started.Add(processes);
-        return processes;
+            scope.Token,
+            new TrackingPool(pool, this));
+        _starting.Enqueue(opening);
+        return await opening;
+    }
+
+    // Tracks the pool's actual starts and shares each stop with teardown.
+    private sealed class TrackingPool(SharedPool pool, SharedAppProcessesTests test) : IProcessPool
+    {
+        public Task<IAppProcesses> AcquireAsync(string key, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken) =>
+            pool.AcquireAsync(
+                key,
+                async scope =>
+                {
+                    var pending = start(scope);
+                    test._launching.Enqueue(pending);
+                    var tracked = new SharedStop(await pending);
+                    test._started.Enqueue(tracked);
+                    return tracked;
+                },
+                cancellationToken);
+    }
+
+    private sealed class SharedStop(IAppProcesses processes) : IAppProcesses
+    {
+        private readonly Lock _gate = new();
+        private Task? _stopping;
+
+        public bool Running => processes.Running;
+
+        public Task StopAsync(Action<Exception> onFailure)
+        {
+            lock (_gate)
+            {
+                return _stopping ??= processes.StopAsync(onFailure);
+            }
+        }
     }
 
     private string StartupLog() => File.ReadAllText(Path.Combine(_dir, "startup.log"));
@@ -158,5 +318,17 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         }
 
         Assert.Equal(expected, await Serving());
+    }
+
+    // Polls until the condition holds, for at most 20 seconds.
+    private static async Task Poll(Func<bool> condition, bool expected)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(20);
+        while (condition() != expected && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+        }
+
+        Assert.Equal(expected, condition());
     }
 }
