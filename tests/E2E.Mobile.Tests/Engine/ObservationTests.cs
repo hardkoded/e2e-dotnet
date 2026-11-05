@@ -409,6 +409,9 @@ public sealed class ObservationTests
     public async Task Sends_nothing_once_a_settling_target_spent_the_budget_and_no_keystroke_once_a_focus_tap_used_it_up()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
+
+        // The budget runs out when the test spends it; a real 100 ms wait also cuts off the setup's own observations on a loaded runner.
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
         var about = await Screens.Observed(session, "About");
 
@@ -458,12 +461,21 @@ public sealed class ObservationTests
     public async Task Keeps_a_timed_out_input_in_flight_the_next_attempt_waits_for_the_device_command_to_settle()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
         var about = await Screens.Observed(session, "About");
         var pressed = new TaskCompletionSource<JsonNode?>();
         var settled = false;
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => pressed.Task);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) =>
+        {
+            sent.TrySetResult();
+            return pressed.Task;
+        });
+        var tap = session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        await sent.Task;
+        await h.Clock.SpendUntil(tap, TimeSpan.FromMilliseconds(250));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => tap);
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
         Assert.False(settled);
 
@@ -494,14 +506,17 @@ public sealed class ObservationTests
 
     private static Task<JsonNode?> Never() => new TaskCompletionSource<JsonNode?>().Task;
 
-    // The budgets here run on real time, as the harness's clock makes timers: the device's answers are tasks that take real milliseconds.
+    // The budgets here run out when a test spends them, like upstream's fake timers, so a loaded runner cannot end one early.
     [Fact]
     public async Task Bounds_a_snapshot_by_the_operation_budget()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
         h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) => Never());
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        var locate = session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None);
+        await h.Clock.SpendUntil(locate, TimeSpan.FromMilliseconds(350));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => locate);
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
     }
 
@@ -509,6 +524,7 @@ public sealed class ObservationTests
     public async Task Returns_a_sparse_capture_when_the_budget_cannot_fit_a_retry_instead_of_timing_out()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
         var snapshots = 0;
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
@@ -525,14 +541,28 @@ public sealed class ObservationTests
     public async Task Bounds_the_snapshots_of_a_keyboard_dismissal_by_its_budget_and_reports_one_cut_off_after_the_drag_as_possibly_committed()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.CommandKeyboard, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key"));
         var keyboardUp = FakeDeviceClient.SettingsSnapshot();
         keyboardUp["viewport"] = new JsonObject { ["width"] = 390, ["height"] = 844 };
         keyboardUp["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
         var snapshots = 0;
-        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) => snapshots++ == 0 ? Task.FromResult<JsonNode?>(keyboardUp) : Never());
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300))));
+        var dragged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
+        {
+            if (snapshots++ == 0)
+            {
+                return Task.FromResult<JsonNode?>(keyboardUp);
+            }
+
+            dragged.TrySetResult();
+            return Never();
+        });
+        var dismiss = session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300)));
+        await dragged.Task;
+        await h.Clock.SpendUntil(dismiss, TimeSpan.FromMilliseconds(350));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => dismiss);
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
         Assert.Single(h.Fake.Calls, call => call.Method == "interactions.swipe");
     }

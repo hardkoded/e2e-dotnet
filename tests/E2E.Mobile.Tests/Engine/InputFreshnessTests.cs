@@ -344,6 +344,9 @@ public sealed class InputFreshnessTests
     public async Task Does_not_send_input_if_the_preflight_consumed_the_input_budget()
     {
         var h = WithTransition(0);
+
+        // The budget runs out when the test spends it; a real 500 ms wait also cuts off the setup's own observation on a loaded runner.
+        h.Clock.ManualTimers = true;
         var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(500));
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account());
         var old = await Observed(session, "Account");
