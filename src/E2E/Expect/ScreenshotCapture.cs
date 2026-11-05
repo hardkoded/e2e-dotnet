@@ -53,24 +53,22 @@ internal static partial class ScreenshotAssertion
         public async Task<Capture> CaptureAsync(CancellationToken cancellationToken)
         {
             var shown = Subject(subject);
-            var observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
             BoundingBox? box = null;
             if (subject is not null)
             {
-                var node = OneNode(observation);
+                var node = await screen.Engine.TryReadAsync(subject.Query, cancellationToken, reads).ConfigureAwait(false);
                 if (node is not null && !_scrolled)
                 {
                     try
                     {
-                        await screen.Engine.SessionPerformAsync(node, new LocatorAction.ScrollIntoView(), cancellationToken).ConfigureAwait(false);
+                        await screen.Engine.PerformUntilAsync(subject.Query, new LocatorAction.ScrollIntoView(), reads.Deadline, cancellationToken, anyState: true).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "LOCATOR_NOT_FOUND" })
+                    catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
                     {
                     }
 
                     _scrolled = true;
-                    observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
-                    node = OneNode(observation);
+                    node = await screen.Engine.TryReadAsync(subject.Query, cancellationToken, reads).ConfigureAwait(false);
                 }
 
                 if (node is null)
@@ -86,6 +84,7 @@ internal static partial class ScreenshotAssertion
                 box = node.Rect;
             }
 
+            var observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
             var shot = await ReadAsync(store.Capture, cancellationToken).ConfigureAwait(false);
 
             // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
@@ -103,7 +102,13 @@ internal static partial class ScreenshotAssertion
             image = ImageOps.FillBoxes(image, secure, (0, 0, 0));
             if (call.Masks.Count > 0)
             {
-                var masks = call.Masks.SelectMany(mask => LocatorResolver.Resolve(observation, mask.Query)).Where(node => !node.States.Hidden && node.Rect is not null).Select(node => node.Rect!);
+                var masks = new List<BoundingBox>();
+                foreach (var mask in call.Masks)
+                {
+                    masks.AddRange((await screen.Engine.ReadAllNowAsync(mask.Query, cancellationToken, reads).ConfigureAwait(false))
+                        .Where(node => !node.States.Hidden && node.Rect is not null).Select(node => node.Rect!));
+                }
+
                 image = ImageOps.FillBoxes(image, masks, call.MaskColor);
             }
 
@@ -115,17 +120,6 @@ internal static partial class ScreenshotAssertion
             return ImageOps.ClipBox(image.Width, image.Height, box) is { } clipped
                 ? new Capture(ImageOps.CropImage(image, clipped), null)
                 : new Capture(null, shown + " is outside the viewport");
-        }
-
-        private SemanticNode? OneNode(Observation observation)
-        {
-            var matches = LocatorResolver.Resolve(observation, subject!.Query);
-            return matches.Count switch
-            {
-                0 => null,
-                1 => matches[0],
-                _ => throw new TestException("LOCATOR_AMBIGUOUS", subject.Query.Describe() + " matched " + Number(matches.Count) + " nodes."),
-            };
         }
     }
 }

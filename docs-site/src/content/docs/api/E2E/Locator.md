@@ -818,9 +818,9 @@ public Task<string> InputValueAsync(CancellationToken cancellationToken = defaul
 ```
 
 
-Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
+Waits up to the action timeout for one match, then reads an input value once, the empty string for a field with none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked state. Fails with
-`POLICY_DENIED` on a secure field.
+`POLICY_DENIED` on a secure field, and with `ACTION_FAILED` on a node with no value, such as a heading or a button.
 
 **Parameters**
 
@@ -841,7 +841,7 @@ public Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Waits up to the action timeout for one match, then reads its checked state once.
+Waits up to the action timeout for one match, then reads its checked state once. A checkable role with no state reported reads false. Fails with `ACTION_FAILED` on a node with no checked state, such as a button or a heading.
 
 **Parameters**
 
@@ -1317,7 +1317,7 @@ public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = 
 ```
 
 
-Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner: the node is scrolled
+Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner, inside its border on a document platform: the node is scrolled
 into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
 engine's `tap` pointer action. A node that never has a box fails with `LOCATOR_NOT_FOUND`, as `WaitForAsync` does.
 
@@ -1362,6 +1362,8 @@ Does not retry for a value and does not verify an earlier `act`. Fails with `POL
 public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
 ```
 
+
+Unchecks a checkbox, switch, or `role="radio"` with one click. A checked native radio button fails with `ACTION_FAILED`: only another radio in its group clears it.
 
 **Parameters**
 

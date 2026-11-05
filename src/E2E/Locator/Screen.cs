@@ -410,11 +410,7 @@ public class Screen
             throw new TestException("INVALID_ARGUMENT", api + " reads the whole screen; call it on screen");
         }
 
-        var timeout = options?.Timeout ?? ActionTimeout;
-        if (timeout != System.Threading.Timeout.InfiniteTimeSpan)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero, "timeout");
-        }
+        var timeout = options?.Timeout is null ? ActionTimeout : Engine.TimeoutOf(options.Timeout);
 
         var token = Token(cancellationToken);
         async Task<string> Read()
@@ -616,7 +612,7 @@ public sealed class Locator
     public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapWithAsync("tap", options, cancellationToken);
 
     /// <summary>
-    /// Taps the node, or, with <see cref="TapOptions.Position"/>, the point of its box at that offset from its top-left corner: the node is scrolled
+    /// Taps the node, or, with <see cref="TapOptions.Position"/>, the point of its box at that offset from its top-left corner, inside its border on a document platform: the node is scrolled
     /// into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
     /// engine's <c>tap</c> pointer action. A node that never has a box fails with <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does.
     /// </summary>
@@ -731,6 +727,7 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Check(), options, cancellationToken);
     }
 
+    /// <summary>Unchecks a checkbox, switch, or <c>role="radio"</c> with one click. A checked native radio button fails with <c>ACTION_FAILED</c>: only another radio in its group clears it.</summary>
     public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         return ActAsync(new LocatorAction.Uncheck(), options, cancellationToken);
@@ -806,14 +803,21 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier <c>act</c>. A checkbox or
+    /// Waits up to the action timeout for one match, then reads an input value once, the empty string for a field with none. Does not retry for a value and does not verify an earlier <c>act</c>. A checkbox or
     /// radio reads its value attribute, <c>on</c> when it has none, whatever its checked state. Fails with
-    /// <c>POLICY_DENIED</c> on a secure field.
+    /// <c>POLICY_DENIED</c> on a secure field, and with <c>ACTION_FAILED</c> on a node with no value, such as a heading or a button.
     /// </summary>
     public async Task<string> InputValueAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveReadableAsync(cancellationToken).ConfigureAwait(false);
-        return node.Value ?? "";
+        if (node.Value is not null)
+        {
+            return node.Value;
+        }
+
+        return Roles.IsValueControl(node)
+            ? ""
+            : throw new TestException("ACTION_FAILED", $"Node is not an <input>, <textarea> or <select> element: {Query.Describe()}");
     }
 
     /// <summary>Waits up to the action timeout for one match, then reads one platform attribute once, or null when the node does not have it. Fails with <c>POLICY_DENIED</c> on a secure field.</summary>
@@ -849,11 +853,13 @@ public sealed class Locator
         return !await IsEnabledAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Waits up to the action timeout for one match, then reads its checked state once.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads its checked state once. A checkable role with no state reported reads false. Fails with <c>ACTION_FAILED</c> on a node with no checked state, such as a button or a heading.</summary>
     public async Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
     {
         var node = await _screen.Engine.ReadAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false);
-        return node.States.Checked;
+        return Roles.IsCheckable(node)
+            ? node.States.Checked
+            : throw new TestException("ACTION_FAILED", $"Not a checkbox or radio button: {Query.Describe()}");
     }
 
     /// <summary>
@@ -918,7 +924,7 @@ public sealed class Locator
         var token = _screen.Token(cancellationToken);
         var clock = _screen.Clock;
         var startedAt = clock.GetTimestamp();
-        var deadline = new Deadline(TimeoutOf(options?.Timeout), clock);
+        var deadline = _screen.Engine.DeadlineFor(options?.Timeout);
         var samples = new SampleHistory("waitFor", _screen.Redact);
         await samples.RecordAsync(_screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
         {
@@ -1063,7 +1069,7 @@ public sealed class Locator
         _screen.ScrollUntilVisibleAsync(target, options, this, cancellationToken);
 
     /// <summary>
-    /// Performs one pointer action at an offset from the top-left corner of exactly one match: the node is scrolled into view when the engine
+    /// Performs one pointer action at an offset from the origin of exactly one match (<see cref="SemanticNode.Origin"/>, else its box's top-left corner): the node is scrolled into view when the engine
     /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
     /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
     /// </summary>
@@ -1095,8 +1101,6 @@ public sealed class Locator
     internal Task<SemanticNode> ResolveExactlyOneAsync(Deadline deadline, CancellationToken token) =>
         _screen.Engine.ResolveExactlyOneAsync(Query, deadline, token);
 
-    private TimeSpan TimeoutOf(TimeSpan? timeout) => _screen.Engine.TimeoutOf(timeout);
-
     private static string StateName(WaitForState state) => state switch
     {
         WaitForState.Attached => "attached",
@@ -1109,7 +1113,7 @@ public sealed class Locator
 /// <summary>Options for one locator action.</summary>
 public class ActionOptions
 {
-    /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout.</summary>
+    /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }
 
@@ -1127,7 +1131,7 @@ public class ClickOptions : ActionOptions
 public class TapOptions : ClickOptions
 {
     /// <summary>
-    /// Where to tap, relative to the node's top-left corner. Without it the platform picks a point of the node, usually its center, behind
+    /// Where to tap, relative to the node's top-left corner, inside its border on a document platform. Without it the platform picks a point of the node, usually its center, behind
     /// its own actionability checks; with it the pointer is dispatched at that point once the node is in view and has a box, which needs
     /// the engine's <c>tap</c> pointer action. Not held with <see cref="ClickOptions.Modifiers"/> yet.
     /// </summary>
@@ -1207,7 +1211,7 @@ public sealed class LocatorWaitForOptions
 {
     public WaitForState State { get; init; } = WaitForState.Visible;
 
-    /// <summary>How long to wait. Defaults to the configured action timeout.</summary>
+    /// <summary>How long to wait. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }
 

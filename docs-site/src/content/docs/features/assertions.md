@@ -9,7 +9,7 @@ sidebar:
 
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record each failure and let the test go on. On NUnit the failures land on the test result, as inside `Assert.EnterMultipleScope`, and the test fails when it ends with every failure listed. On xUnit v3 they stay on the session, and the test fails when it is disposed, with every failure in one message.
 - `Expect.Soft(Browser)` keeps the failures of `ToHaveURLAsync`, `ToHaveTitleAsync`, and `ToHaveClassAsync` the same way.
-- `Expect.Poll(read)` retries a value. `ToBeAsync` and `ToSatisfyAsync(predicate)` work on both adapters. `E2E.NUnit` also adds `ToMatchAsync` with any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`. A read that throws, or a matcher that refuses the value's type, is one failing sample, not the end of the poll.
+- `Expect.Poll(read)` retries a value. `ToBeAsync` and `ToSatisfyAsync(predicate)` work on both adapters. `E2E.NUnit` also adds `ToMatchAsync` with any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`. A read that throws, or a matcher that refuses the value's type, is one failing sample, not the end of the poll. A `Timeout` of `TimeSpan.Zero` sets no deadline: the poll runs until the cancellation token you pass ends.
 
 ## Evidence screenshots
 

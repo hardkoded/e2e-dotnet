@@ -129,6 +129,17 @@ public sealed class ExpectPollTests
         Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(1) });
     }
 
+    // Partial: the port has no attempt, and a poll's phase is the caller's cancellation token, so a token that cannot end stands for outside a test.
+    [Fact]
+    public async Task Partial_Refuses_timeout_0_outside_an_attempt_where_no_test_deadline_bounds_it()
+    {
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Expect.Poll(() => "running", new PollOptions { Timeout = TimeSpan.Zero }).ToBeAsync("done"));
+
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("needs a cancellation token that ends with the test", error.Message, StringComparison.Ordinal);
+    }
+
     private PollOptions Every(int milliseconds) => new() { Interval = TimeSpan.FromMilliseconds(milliseconds), Clock = _time };
 
     private PollOptions Options(int timeout, int interval) =>

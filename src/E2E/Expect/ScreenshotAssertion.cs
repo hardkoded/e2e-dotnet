@@ -54,7 +54,7 @@ internal static partial class ScreenshotAssertion
         var file = Path.Combine(directory, call.Stem + store.Suffix + ".png");
         var shown = Shown(store, file);
         var token = screen.Token(cancellationToken);
-        var deadline = new Deadline(call.Timeout ?? screen.AssertionTimeout, screen.Clock);
+        var deadline = screen.Engine.AssertionDeadlineFor(call.Timeout, api + " option");
 
         var reads = screen.Reads(deadline);
         var capturer = new Capturer(screen, store, api, subject, call, reads);

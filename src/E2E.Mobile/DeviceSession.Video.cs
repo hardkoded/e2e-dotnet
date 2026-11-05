@@ -26,6 +26,9 @@ public sealed partial class DeviceSession
         public string Absolute { get; } = absolute;
 
         public string StartedAt { get; set; } = startedAt;
+
+        /// <summary>The stop in flight, shared: it outlives a caller's cancelled wait, and its result with it (upstream's <c>stopping</c>).</summary>
+        public Task<JsonNode?>? Stopping { get; set; }
     }
 
     /// <summary>The device provider's recording of the leased device, as its <c>RecordAsync</c> is starting it or started it.</summary>
@@ -130,16 +133,33 @@ public sealed partial class DeviceSession
     /// and stopping it ends that session, whatever the test opened in it since, so the session is then as
     /// <see cref="CloseAppAsync"/> leaves it.
     /// </summary>
-    private async Task<JsonNode?> StopScreenRecordingAsync(ScreenRecording video, CancellationToken cancellationToken)
-    {
-        var result = await CommandAsync("stop video recording", DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), cancellationToken).ConfigureAwait(false);
-        ClearRecording(video);
-        if (result is JsonObject { } data && data["recordOnlySession"] is JsonValue only && only.TryGetValue<bool>(out var recordOnly) && recordOnly)
-        {
-            ScreenReplaced();
-        }
+    private Task<JsonNode?> StopScreenRecordingAsync(ScreenRecording video, CancellationToken cancellationToken) =>
+        DeviceErrors.RunCommandAsync("stop video recording", _ => video.Stopping ??= Track(StopSharedAsync(video)), cancellationToken, _where);
 
-        return result;
+    /// <summary>
+    /// The one stop request of a screen recording. It runs on its own, not under a caller's token, so a caller that leaves does not
+    /// cancel it. A stop that fails is dropped, so the next caller or the attempt's cleanup sends it again.
+    /// </summary>
+    private async Task<JsonNode?> StopSharedAsync(ScreenRecording video)
+    {
+        // Held back until the caller stored this task, so a stop that fails at once cannot leave a stale one.
+        await Task.Yield();
+        try
+        {
+            var result = await CommandAsync("stop video recording", DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), CancellationToken.None).ConfigureAwait(false);
+            ClearRecording(video);
+            if (result is JsonObject { } data && data["recordOnlySession"] is JsonValue only && only.TryGetValue<bool>(out var recordOnly) && recordOnly)
+            {
+                ScreenReplaced();
+            }
+
+            return result;
+        }
+        catch (Exception)
+        {
+            video.Stopping = null;
+            throw;
+        }
     }
 
     /// <summary>
@@ -250,11 +270,27 @@ public sealed partial class DeviceSession
         }
     }
 
-    /// <summary>Stops a recording the session never collected, on the client that is closing. Whatever stops it, the close goes on.</summary>
-    private async Task StopQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
+    /// <summary>
+    /// Stops a recording the session never collected, on the client that is closing. A stop already in flight is waited for, not sent
+    /// twice, and sent again only if it failed. Whatever stops it, the close goes on.
+    /// </summary>
+    private async Task StopQuietlyAsync(IDeviceClient client, ScreenRecording video, CancellationToken cancellationToken)
     {
         try
         {
+            if (video.Stopping is { } pending)
+            {
+                try
+                {
+                    await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // The shared stop failed: it is sent again below.
+                }
+            }
+
             await client.CallAsync(DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)

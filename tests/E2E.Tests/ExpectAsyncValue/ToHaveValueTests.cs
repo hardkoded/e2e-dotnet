@@ -88,7 +88,6 @@ public sealed class ToHaveValueTests
         await Denied(() => locator.InputValueAsync());
         await Denied(() => locator.GetAttributeAsync("type"));
         Assert.True(await locator.IsEnabledAsync());
-        Assert.False(await locator.IsCheckedAsync());
         Assert.True(await locator.IsVisibleAsync());
     }
 

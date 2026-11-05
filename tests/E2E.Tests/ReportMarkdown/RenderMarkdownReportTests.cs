@@ -63,7 +63,7 @@ public sealed class RenderMarkdownReportTests
                     "| 🟢 | dashboard › opens directly | 1 step · 1 call | 2.1s |",
                     "</details>"),
                 "",
-                "<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web · [run artifacts](https://github.com/o/r/actions/runs/9)</sub>",
+                "<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web · [run artifacts](https://github.com/o/r/actions/runs/9)</sub>",
                 ""),
             body);
     }
@@ -78,7 +78,7 @@ public sealed class RenderMarkdownReportTests
                 "",
                 "<details>\n<summary>All 1 test in 1 file</summary>\n\n|  | Test | Time |\n| --- | --- | --- |\n| 🟢 | **tests/smoke.e2e.ts** · 1 passed | 850ms |\n| 🟢 | opens the app | 850ms |\n</details>",
                 "",
-                "<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web</sub>",
+                "<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web</sub>",
                 ""),
             Render(Page(results: [Passing])));
     }
@@ -231,7 +231,7 @@ public sealed class RenderMarkdownReportTests
     [Fact]
     public void Says_no_tests_selected_when_nothing_ran_and_nothing_failed()
     {
-        Assert.Equal("### 🟢 e2e: no tests selected\n\n<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web</sub>\n", Render(Page()));
+        Assert.Equal("### 🟢 e2e: no tests selected\n\n<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web</sub>\n", Render(Page()));
     }
 
     [Fact]
@@ -353,7 +353,7 @@ public sealed class RenderMarkdownReportTests
         var one = Render(Page(ReportRunStatus.Failed, [Failing, Passing], twoTargets));
         Assert.DoesNotContain("(web)", one);
         Assert.Contains("`tests/members.e2e.ts:41`\n\n", one);
-        Assert.Contains("<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web</sub>", one);
+        Assert.Contains("<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web</sub>", one);
 
         // One file on two targets is two groups and one file.
         var twice = Render(Page(results: [Passing, Passing with { TargetId = "mobile" }], targets: [Target(), Target("mobile", 1)]));

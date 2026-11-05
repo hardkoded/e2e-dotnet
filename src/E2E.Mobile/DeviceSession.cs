@@ -439,9 +439,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         {
             await StopLeaseQuietlyAsync(lease, cancellationToken).ConfigureAwait(false);
         }
-        else if (dangling is not null)
+        else if (dangling is ScreenRecording video)
         {
-            await StopQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
+            await StopQuietlyAsync(client, video, cancellationToken).ConfigureAwait(false);
         }
 
         try

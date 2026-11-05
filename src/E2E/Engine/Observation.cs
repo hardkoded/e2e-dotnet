@@ -17,7 +17,14 @@ public static class ObservationLimits
 /// <summary>Boolean states a platform can report for one node.</summary>
 public sealed class NodeStates
 {
-    public bool Checked { get; init; }
+    public bool Checked { get; init { field = value; CheckedReported = true; } }
+
+    /// <summary>
+    /// The platform reported a checked state for the node, true or false. Setting <see cref="Checked"/> reports it; a node with none
+    /// (a button, a heading) leaves it false, and <c>IsChecked</c> fails on it unless its role carries a checked state. List it after
+    /// <see cref="Checked"/> in an initializer to override that (.NET-only; upstream reads the state as nullable).
+    /// </summary>
+    public bool CheckedReported { get; init; }
 
     public bool Disabled { get; init; }
 
@@ -132,6 +139,13 @@ public sealed class SemanticNode
 
     /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
     public BoundingBox? Rect { get; init; }
+
+    /// <summary>
+    /// The point an offset into the node is measured from, in <see cref="Rect"/>'s space, when it is not <see cref="Rect"/>'s top-left corner: a
+    /// document element's padding box, inside its border, or the corner of a box a frame clipped <see cref="Rect"/> from.
+    /// <c>tap({ position })</c> adds the offset to it.
+    /// </summary>
+    public Point? Origin { get; init; }
 
     public IReadOnlyList<SemanticNode> Children { get; init; } = [];
 }

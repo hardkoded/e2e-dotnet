@@ -110,7 +110,7 @@ public sealed class ToHaveScreenshotTests
         using var project = new ScreenProject(engine);
         static async Task Body(Screen screen)
         {
-            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = OneSecond });
+            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = TimeSpan.Zero });
             await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixelRatio = 0.001, Timeout = OneSecond });
             await Expect.That(screen).Not.ToHaveScreenshotAsync("home", Quick);
         }
@@ -344,6 +344,10 @@ public sealed class ToHaveScreenshotTests
     [Fact]
     public Task Refuses_a_threshold_above_1_before_it_reads_the_screen() =>
         RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Threshold = 2 }, "threshold must be a number from 0 to 1");
+
+    [Fact]
+    public Task Refuses_a_negative_timeout_before_it_reads_the_screen() =>
+        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Timeout = TimeSpan.FromMilliseconds(-1) }, "timeout must be a finite number of milliseconds, 0 or more");
 
     [Fact]
     public Task Refuses_a_mask_that_is_not_a_locator_before_it_reads_the_screen() =>

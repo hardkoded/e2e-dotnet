@@ -99,6 +99,23 @@ The accessible name, by the accname rules Playwright follows, or null when the n
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_SemanticNode_Origin_"></a>
+<a id="E2E_Engine_SemanticNode_Origin"></a>
+
+### Origin
+
+
+```csharp
+public Point? Origin { get; init; }
+```
+
+
+The point an offset into the node is measured from, in [Rect](#E2E_Engine_SemanticNode_Rect)'s space, when it is not [Rect](#E2E_Engine_SemanticNode_Rect)'s top-left corner: a
+document element's padding box, inside its border, or the corner of a box a frame clipped [Rect](#E2E_Engine_SemanticNode_Rect) from.
+`tap({ position })` adds the offset to it.
+
+**Value:** `Point?`
+
 <a id="E2E_Engine_SemanticNode_OwnText_"></a>
 <a id="E2E_Engine_SemanticNode_OwnText"></a>
 

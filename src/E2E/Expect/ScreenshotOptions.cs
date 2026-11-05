@@ -22,6 +22,6 @@ public sealed class ScreenshotOptions
     /// <summary>Color of the <see cref="Mask"/> boxes, written <c>#rrggbb</c>. Default <c>#ff00ff</c>.</summary>
     public string? MaskColor { get; init; }
 
-    /// <summary>Assertion budget. Defaults to the assertion timeout.</summary>
+    /// <summary>Assertion budget. Defaults to the assertion timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }

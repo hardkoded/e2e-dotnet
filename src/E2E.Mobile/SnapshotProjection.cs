@@ -357,6 +357,7 @@ public static partial class SnapshotProjection
                     Hidden = reported.ContainsKey("hidden"),
                     Secure = secure,
                     Checked = checkedState == true,
+                    CheckedReported = checkedState is not null,
                     Expanded = expanded == true,
                 },
                 Placeholder = folded?.Placeholder ?? NonEmpty(source.Placeholder),

@@ -56,7 +56,7 @@ public sealed class RenderMarkdownReportForAnExplorationTests
                 "",
                 "The cart is the weak spot.",
                 "",
-                "<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web</sub>",
+                "<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web</sub>",
                 ""),
             body);
         // The exploration's own failure is the verdict the findings express, so it gets no block and no table.

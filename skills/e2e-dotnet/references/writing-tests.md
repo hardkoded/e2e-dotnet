@@ -61,7 +61,8 @@ Members of `E2ETest` in both frameworks:
   screenshot artifact under `screenshots/` and returns its absolute path; the
   report records the path relative to the artifact root. It masks secure
   fields only, after a `Secret` fill too, so a secret the app shows anywhere
-  else is in the image. It is `UNSUPPORTED_CAPABILITY` only on an engine that
+  else is in the image. A screenshot taken while the page navigates captures
+  the document showing. It is `UNSUPPORTED_CAPABILITY` only on an engine that
   keeps no screenshot artifact. The web, mobile, and Windows engines keep
   screenshot artifacts.
 - `App.StartRecordingAsync(new RecordingOptions { Name = "dialog" })`, then
@@ -166,7 +167,9 @@ Members of `E2ETest` in both frameworks:
 `UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label, or a `SelectOption` with one of
 `Label`, `Value`, or `Index`),
 `FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
-the action timeout for exactly one enabled, visible match.
+the action timeout for exactly one enabled, visible match. `UncheckAsync` on a
+checked native radio fails with `ACTION_FAILED`; a `role="radio"` is clicked,
+and fails only if it stays checked.
 
 `ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
 `DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
@@ -189,7 +192,7 @@ engine has them all; the document engine has swipe only and fails the rest with
 screen refuses another before it resolves the node.
 
 `TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
-node's box (from its top left corner), once the node is in view with a box;
+node's box (from its top left corner, inside its border), once the node is in view with a box;
 modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
 taps a viewport point with no locator, and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points
@@ -226,12 +229,14 @@ when a value has to settle.
 (`display: none` on it or an ancestor, or any `display: contents`
 element). `InputValueAsync` on a checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked
-state; `IsCheckedAsync` reads the state.
+state; `IsCheckedAsync` reads the state. `IsCheckedAsync` on a node that cannot
+be checked (a button), and `InputValueAsync` on one that holds no value (a
+heading), throw `ACTION_FAILED`, so query checkable controls by role.
 
 `TextContentAsync` is `null` for a node with no text and never falls back to
 the node's name: an image reads `null`, not its alt text. `InputValueAsync`
-returns a `string`, `""` for a node with no value (a heading, a cleared
-field), never `null`. A caller that tested it for null tests for `""` now.
+returns a `string`, `""` for a field with no value (a cleared field), never
+`null`. A node that holds no value at all, such as a heading, throws instead.
 
 Text reads (`ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and
 `AllTextContentsAsync`) read the node's rendered text, whitespace
@@ -495,6 +500,9 @@ misses.
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root. An error the handler throws fails the next step; when
   no step follows, it fails the test at its end, after the teardown has run.
+  A step the handler made fail, such as the `GotoAsync` whose request it left
+  aborted, fails with the handler's error. A `GotoAsync` whose request a
+  handler aborted on purpose fails with `ACTION_FAILED`.
 - `UnrouteAllAsync()` removes every route; configured site headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within

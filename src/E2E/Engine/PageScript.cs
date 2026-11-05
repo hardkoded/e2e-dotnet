@@ -664,6 +664,8 @@ internal static class PageScript
             if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
             return el.getAttribute("aria-checked") === "true";
           };
+          // Whether the element reports a checked state at all: a native checkbox or radio, or an aria-checked attribute.
+          const checkedReportedOf = (el) => (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) || el.getAttribute("aria-checked") !== null;
           // The mixed state of a checkbox (indeterminate, or aria-checked) or a
           // button (aria-pressed): a role query for either value skips it.
           const mixedOf = (el) => el instanceof HTMLInputElement && el.type === "checkbox"
@@ -724,6 +726,17 @@ internal static class PageScript
             if (el.getClientRects().length === 0) return null;
             const box = el.getBoundingClientRect();
             return { x: box.x, y: box.y, width: box.width, height: box.height };
+          };
+          // The element's padding-box corner, when a border puts it past the
+          // rect's: where an offset into the element is measured from.
+          const originOf = (el) => {
+            if (el.getClientRects().length === 0) return null;
+            const style = getComputedStyle(el);
+            const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+            const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+            if (borderLeft === 0 && borderTop === 0) return null;
+            const box = el.getBoundingClientRect();
+            return { x: box.x + borderLeft, y: box.y + borderTop };
           };
           // Text owned directly by an element, not by its child elements. An
           // element with content-visibility: hidden renders none of it. The
@@ -1022,6 +1035,7 @@ internal static class PageScript
                 level: levelOf(el, role),
                 disabled: disabledOf(el, role),
                 checked: checkedOf(el),
+                checkedReported: checkedReportedOf(el),
                 mixed: mixedOf(el),
                 // A box with no width or height; an option has none while its select is closed.
                 emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
@@ -1038,6 +1052,7 @@ internal static class PageScript
                 // Upstream's node read keeps the whole href; here every read comes from this tree.
                 wholeHref: el.getAttribute("href"),
                 rect: rectOf(el),
+                origin: originOf(el),
                 children: []
               };
               into.push(node);
@@ -1117,9 +1132,13 @@ internal static class PageScript
         }
         """;
 
-    // Whether a checkable element is a radio, which a click can select but never clear.
-    public const string IsRadio = """
-        (node) => (node instanceof HTMLInputElement && node.type === "radio") || node.getAttribute("role") === "radio"
+    // Which kind of radio a checkable element is, if any (upstream's radioKind). A native radio can be selected but never cleared by a click.
+    // An ARIA radio is clicked like any control, as Playwright does: its script decides what a click does.
+    public const string RadioKind = """
+        (node) => {
+          if (node instanceof HTMLInputElement && node.type === "radio") return "native";
+          return node.getAttribute("role") === "radio" ? "aria" : null;
+        }
         """;
 
     // Whether an element is a file input, or labels one, so setInputFiles can take it directly (upstream's isFileInput).
