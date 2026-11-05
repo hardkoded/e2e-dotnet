@@ -26,7 +26,7 @@ public sealed class CodexLoginTests
     public async Task Runs_the_browser_flow_PKCE_authorize_URL_local_callback_code_exchange_account_id_and_residency()
     {
         var issuer = new FakeApi(request => (request.Uri.AbsolutePath == "/oauth/token" ? HttpStatusCode.OK : HttpStatusCode.NotFound, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), originator: "my-tool", issuer: Issuer, callbackPort: FreePort());
+        var provider = new CodexProvider(new HttpClient(issuer), originator: "my-tool", issuer: Issuer, callbackPort: 0);
         Uri? authorize = null;
         Task<HttpResponseMessage>? browser = null;
 
@@ -62,7 +62,7 @@ public sealed class CodexLoginTests
     public async Task Cancels_a_held_authorization_code_exchange_after_the_browser_returns()
     {
         var issuer = new HeldExchange(_ => (HttpStatusCode.OK, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: FreePort());
+        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0);
         using var cancellation = new CancellationTokenSource();
         Task<HttpResponseMessage>? browser = null;
 
@@ -111,7 +111,7 @@ public sealed class CodexLoginTests
     public async Task Ignores_a_callback_with_the_wrong_state_and_treats_a_declined_sign_in_as_cancelled()
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: FreePort());
+        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0);
         var statuses = new List<HttpStatusCode>();
         Task? browser = null;
 
@@ -162,7 +162,7 @@ public sealed class CodexLoginTests
         }
 
         // After the browser fails to return in time, the terminal asks for the URL instead of failing.
-        var slow = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: FreePort(), loginTimeout: TimeSpan.FromMilliseconds(50));
+        var slow = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0, loginTimeout: TimeSpan.FromMilliseconds(50));
         var pasted = await slow.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("late-code") },
             new OAuthLoginOptions(),
@@ -175,7 +175,7 @@ public sealed class CodexLoginTests
     public async Task Is_cancelled_at_once_by_an_already_aborted_signal_and_by_a_malformed_callback()
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: FreePort(), loginTimeout: TimeSpan.FromSeconds(60));
+        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0, loginTimeout: TimeSpan.FromSeconds(60));
         var quiet = new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") };
         var aborted = await Assert.ThrowsAsync<OAuthException>(() => provider.LoginAsync(quiet, new OAuthLoginOptions(), new CancellationToken(canceled: true)));
         Assert.Equal(OAuthException.Cancelled, aborted.Code);
@@ -286,15 +286,6 @@ public sealed class CodexLoginTests
             await Task.Delay(Timeout.Infinite, cancellationToken);
             throw new InvalidOperationException("unreachable");
         }
-    }
-
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
     }
 
     /// <summary>Simulates the browser returning to the callback server with the given query; "$state" stands for the flow's state.</summary>
