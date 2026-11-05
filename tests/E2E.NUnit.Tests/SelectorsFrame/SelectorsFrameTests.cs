@@ -85,16 +85,12 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         Assert.That(await Browser.FrameLocator("iframe").Locator("canvas").AllTextContentsAsync(), Has.Count.EqualTo(0));
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1066: a frame-scoped getByRole also matches the nested frame's button.
     [Test]
     public async Task Should_work_for_DollarEval()
     {
-        await ExpectedToFailAsync("observed count 2", async () =>
-        {
-            await Browser.GotoAsync(Routed);
-            await Expect.That(Browser.FrameLocator("iframe").GetByRole("button")).ToHaveCountAsync(1);
-            await Expect.That(Browser.FrameLocator("iframe").Locator("button")).ToHaveCountAsync(1);
-        });
+        await Browser.GotoAsync(Routed);
+        await Expect.That(Browser.FrameLocator("iframe").GetByRole("button")).ToHaveCountAsync(1);
+        await Expect.That(Browser.FrameLocator("iframe").Locator("button")).ToHaveCountAsync(1);
     }
 
     [Test]

@@ -81,12 +81,8 @@ public sealed class ElementhandleScrollIntoViewTests : PlaywrightTest
     [Test]
     public async Task Should_work_for_visibility_hidden_element()
     {
-        // Known difference (hardkoded/e2e-dotnet#1081): ScrollIntoViewAsync refuses a hidden node.
-        await ExpectedToFailAsync("is hidden", async () =>
-        {
-            await Browser.GotoAsync(Content("<div style=\"visibility:hidden\">Hello</div>"));
-            await Browser.Locator("div").ScrollIntoViewAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(3) });
-        });
+        await Browser.GotoAsync(Content("<div style=\"visibility:hidden\">Hello</div>"));
+        await Browser.Locator("div").ScrollIntoViewAsync();
     }
 
     [Test]
