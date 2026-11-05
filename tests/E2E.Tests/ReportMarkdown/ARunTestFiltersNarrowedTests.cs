@@ -45,7 +45,7 @@ public sealed class ARunTestFiltersNarrowedTests
                 "",
                 "<details>\n<summary>All 1 test in 1 file</summary>\n\n|  | Test | Time |\n| --- | --- | --- |\n| 🟢 | **tests/smoke.e2e.ts** · 1 passed | 850ms |\n| 🟢 | opens the app | 850ms |\n</details>",
                 "",
-                "<sub>Tested by [e2e](https://e2e.tester.army) 0.9.0 · 8.4s · web</sub>",
+                "<sub>Tested by [e2e](https://e2e.com) 0.9.0 · 8.4s · web</sub>",
                 ""),
             body);
     }

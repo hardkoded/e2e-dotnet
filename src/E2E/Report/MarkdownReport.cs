@@ -58,7 +58,7 @@ public static class MarkdownReport
     private const int MaxAssessmentChars = 2_000;
     private const int MaxGoalChars = 400;
     private const int MaxLeftOutRows = 50;
-    private const string SiteUrl = "https://e2e.tester.army";
+    private const string SiteUrl = "https://e2e.com";
     private const string TruncatedNote = "_Truncated to fit a pull request comment; the full report is in `report.json`._";
 
     /// <summary>A result with what it left behind, read once.</summary>
