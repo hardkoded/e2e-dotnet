@@ -2824,19 +2824,24 @@ public sealed partial class WebEngine : IEngine
         {
             foreach (var node in nodes ?? [])
             {
-                node.Rect = content is null || node.Rect is null ? null : Clip(node.Rect, content);
+                if (content is null || node.Rect is not { } rect)
+                {
+                    node.Rect = null;
+                    node.Origin = null;
+                }
+                else
+                {
+                    var (placed, origin) = FramePlacement.PlaceBoxInFrame(
+                        new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height),
+                        node.Origin is { } corner ? new Point(corner.X, corner.Y) : null,
+                        new BoundingBox(content.X, content.Y, content.Width, content.Height));
+                    node.Rect = placed is { } box ? new WebRect { X = box.X, Y = box.Y, Width = box.Width, Height = box.Height } : null;
+                    node.Origin = origin is { } at ? new WebPoint { X = at.X, Y = at.Y } : null;
+                }
+
                 Place(node.Children, content);
                 Place(node.Inline, content);
             }
-        }
-
-        private static WebRect? Clip(WebRect rect, WebRect frame)
-        {
-            var x0 = Math.Max(rect.X + frame.X, frame.X);
-            var y0 = Math.Max(rect.Y + frame.Y, frame.Y);
-            var x1 = Math.Min(rect.X + frame.X + rect.Width, frame.X + frame.Width);
-            var y1 = Math.Min(rect.Y + frame.Y + rect.Height, frame.Y + frame.Height);
-            return x1 > x0 && y1 > y0 ? new WebRect { X = x0, Y = y0, Width = x1 - x0, Height = y1 - y0 } : null;
         }
 
         private static void Index(List<WebNode> nodes, IFrame frame, FrameWalk walk, Dictionary<string, WebNode> owners)
@@ -3591,6 +3596,7 @@ public sealed partial class WebEngine : IEngine
                 Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
                 WholeHref = dto.WholeHref,
                 Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
+                Origin = dto.Origin is { } origin ? new Point(origin.X, origin.Y) : null,
                 Children = dto.Children?.Select(child => ToNode(child, testIdAttribute)).ToList() ?? [],
             };
         }
@@ -3907,6 +3913,8 @@ public sealed partial class WebEngine : IEngine
 
         public WebRect? Rect { get; set; }
 
+        public WebPoint? Origin { get; set; }
+
         public List<WebNode>? Inline { get; set; }
 
         public List<WebNode>? Children { get; set; }
@@ -3917,6 +3925,13 @@ public sealed partial class WebEngine : IEngine
         public string Aim { get; set; } = "blocked";
 
         public WebRect? Box { get; set; }
+    }
+
+    private sealed class WebPoint
+    {
+        public double X { get; set; }
+
+        public double Y { get; set; }
     }
 
     private sealed class WebRect

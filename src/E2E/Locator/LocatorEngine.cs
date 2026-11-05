@@ -560,7 +560,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     }
 
     /// <summary>
-    /// Performs one pointer action at an offset from the top-left corner of exactly one match: the node is scrolled into view when the engine
+    /// Performs one pointer action at an offset from the origin of exactly one match (<see cref="SemanticNode.Origin"/>, else its box's top-left corner): the node is scrolled into view when the engine
     /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
     /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
     /// </summary>
@@ -598,7 +598,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             sampled = true;
             if (node is { States.Hidden: false, Rect: { } rect })
             {
-                await DispatchAtAsync(new Point(rect.X + offset.X, rect.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
+                var origin = node.Origin ?? new Point(rect.X, rect.Y);
+                await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
                 return;
             }
 
