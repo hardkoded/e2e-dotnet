@@ -14,7 +14,6 @@ namespace E2E.NUnit.Tests.Screenshot;
 /// elementhandle (element handles), and should hide and remove elements based on attr (no <c>style</c> option).
 /// All nine tests are ignored: <c>ToHaveScreenshotAsync</c> cannot resolve the CSS-selector and frame locators of <c>Browser</c> as masks (#1109).
 /// </summary>
-[Ignore("ToHaveScreenshotAsync cannot mask a CSS-selector or frame locator of Browser: #1109")]
 public sealed class PageScreenshotMaskOptionTests : ScreenshotTest
 {
     [Test]
