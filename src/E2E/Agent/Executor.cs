@@ -353,7 +353,7 @@ public sealed record ExecutorObservation(string Text)
 
 /// <summary>
 /// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's id after the <c>#</c> in the text and in
-/// <see cref="ExecutorNode.Id"/>. A ref the screen no longer lists fails the action instead of acting on the wrong node.
+/// <see cref="ExecutorNode.Id"/>. An id the screen no longer lists fails the action instead of acting on the wrong node.
 /// </summary>
 public sealed class ExecutorTarget
 {

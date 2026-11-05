@@ -28,7 +28,7 @@ internal static class SnapshotText
     public static string Render(Observation observation, Redactor redactor, string? appOrigin, int maxBytes, out bool cut)
     {
         var (lines, nodes) = FailureEvidence.Listing(observation, redactor, appOrigin, maxBytes);
-        cut = lines.Count > nodes;
+        cut = lines.Count > nodes && lines[^1] == TruncationMarker;
         return string.Join('\n', lines);
     }
 

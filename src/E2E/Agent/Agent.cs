@@ -448,7 +448,7 @@ public sealed partial class Agent
             {
                 var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(token), guard, token).ConfigureAwait(false);
                 var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
-                return (Seen: seen, Tree: "Screen (" + _scope.Redactor.Redact(seen.Route) + "):\n" + listing, Cut: overBudget);
+                return (Seen: seen, Tree: "Screen (" + _scope.Redactor.Redact(seen.Route) + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Cut: overBudget);
             },
             look => new PhaseDetail(LocatorResolver.Walk(look.Seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(look.Tree))).ConfigureAwait(false);
 
