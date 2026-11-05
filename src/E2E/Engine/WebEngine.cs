@@ -1396,7 +1396,7 @@ public sealed partial class WebEngine : IEngine
                 var count = await budget.WithinAsync(element.CountAsync()).ConfigureAwait(false);
                 if (count == 0)
                 {
-                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+                    throw NoFrame(selector);
                 }
 
                 if (count > 1)
@@ -1406,15 +1406,15 @@ public sealed partial class WebEngine : IEngine
 
                 // The iframe can go between the count and this read: it then lists nothing, as a count of zero says.
                 var listed = await budget.WithinAsync(element.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false);
-                refs.Add(listed.Length > 0 ? listed[0] : throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true));
+                refs.Add(listed.Length > 0 ? listed[0] : throw NoFrame(selector));
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
             // A selector counts one element; only an iframe is a frame boundary. Read without waiting for the element: an iframe that went since the count is no frame, not an element to wait for.
-            var isFrame = await budget.WithinAsync(element!.EvaluateAllAsync<bool[]>($"(els) => els.map({PageScript.IsFrameElement})")).ConfigureAwait(false);
+            var isFrame = await budget.WithinAsync(element!.EvaluateAllAsync<bool[]>(PageScript.AreFrameElements)).ConfigureAwait(false);
             if (isFrame.Length == 0)
             {
-                throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {frames[^1]}", retryable: true);
+                throw NoFrame(frames[^1]);
             }
 
             if (!isFrame[0])
@@ -1436,6 +1436,8 @@ public sealed partial class WebEngine : IEngine
 
             return refs[^1]!;
         }
+
+        private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
 
         /// <summary>
         /// The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page. An element
@@ -3627,8 +3629,8 @@ public sealed partial class WebEngine : IEngine
             IFileChooser chooser;
             try
             {
-                // The deadline ends this wait too: on a loaded machine it can fire together with Playwright's timeout, which is the lead sooner.
-                // Upstream's earlier timer always wins that race; here the deadline gives the same answer.
+                // On a loaded machine the deadline that wraps this upload can fire together with Playwright's timeout, which is the lead sooner.
+                // Upstream's earlier timer always wins that race; here that deadline gives the same answer.
                 chooser = await budget.AwaitingAsync(opened, () => NoFileChooser(null)).ConfigureAwait(false);
             }
             catch (System.TimeoutException ex)
@@ -4200,15 +4202,25 @@ internal sealed class OperationBudget
 
     /// <summary>
     /// Awaits a call whose own timeout is the lead ahead of the deadline. If the deadline passes first, because both fired in one stall
-    /// of a loaded machine, it ends as <paramref name="atDeadline"/> answers, not as <c>OPERATION_TIMEOUT</c>. The answer stays once
-    /// the call fails, and goes when it succeeds, so a later deadline is a plain timeout again.
+    /// of a loaded machine, the deadline that wraps this call (<see cref="WithinAsync(Task)"/>) ends it as <paramref name="atDeadline"/>
+    /// answers, not as <c>OPERATION_TIMEOUT</c>. The answer stays when the call fails on its timeout, and goes on success or another
+    /// failure, so a later deadline is a plain timeout again.
     /// </summary>
     public async Task<T> AwaitingAsync<T>(Task<T> call, Func<EngineException> atDeadline)
     {
         _atDeadline = atDeadline;
-        var result = await call.ConfigureAwait(false);
-        _atDeadline = null;
-        return result;
+        try
+        {
+            var result = await call.ConfigureAwait(false);
+            _atDeadline = null;
+            return result;
+        }
+        catch (Exception ex) when (ex is not System.TimeoutException)
+        {
+            // Another failure ends the operation on its own answer; a deadline after it is a plain timeout.
+            _atDeadline = null;
+            throw;
+        }
     }
 
     /// <summary>Waits for <paramref name="call"/> until the deadline, then abandons it as <c>OPERATION_TIMEOUT</c>.</summary>
