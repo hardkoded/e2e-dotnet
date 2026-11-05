@@ -228,7 +228,9 @@ public sealed class Browser
     /// takes. The route registered last runs first. <paramref name="handler"/> must take
     /// exactly one decision on the <see cref="WebRoute"/>. A handler that takes none,
     /// takes two, or throws fails the next step with that error, and an undecided
-    /// request is aborted.
+    /// request is aborted. A step the handler made fail, such as the <c>GotoAsync</c> whose
+    /// request it left aborted, fails with the handler's error. A <c>GotoAsync</c> whose
+    /// request a handler aborted on purpose fails with <c>ACTION_FAILED</c>.
     /// </summary>
     public Task RouteAsync(string pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken = default)
     {
