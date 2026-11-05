@@ -34,7 +34,7 @@ public sealed class BrowserWaitForResponseBodiesTests
             using var cancel = new CancellationTokenSource();
             var waiting = session.Browser.WaitForResponseAsync("**/never", cancellationToken: cancel.Token);
             await cancel.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)));
+            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)))).Code);
         });
     }
 
