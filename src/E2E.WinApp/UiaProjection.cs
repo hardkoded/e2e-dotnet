@@ -191,7 +191,7 @@ public static class UiaProjection
                     Disabled = !source.IsEnabled,
                     Hidden = source.IsOffscreen,
                     Checked = string.Equals(source.ToggleState, "On", StringComparison.OrdinalIgnoreCase) || (role == "radio" && source.IsSelected == true),
-                    CheckedReported = source.ToggleState is not null || role == "radio",
+                    CheckedReported = source.ToggleState is not null,
                     Selected = source.IsSelected == true,
                     Expanded = string.Equals(source.ExpandState, "Expanded", StringComparison.OrdinalIgnoreCase) || string.Equals(source.ExpandState, "PartiallyExpanded", StringComparison.OrdinalIgnoreCase),
                     Focused = focused is not null && source.Handle == focused,
