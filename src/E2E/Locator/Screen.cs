@@ -761,7 +761,7 @@ public sealed class Locator
 
     /// <summary>
     /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
-    /// On the web it also takes a button that opens a file chooser. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
+    /// On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires <c>input</c> and <c>change</c>. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
     /// </summary>
     public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -770,14 +770,14 @@ public sealed class Locator
     }
 
     /// <inheritdoc cref="SetInputFilesAsync(string, ActionOptions, CancellationToken)"/>
-    /// <exception cref="ArgumentException"><paramref name="paths"/> is empty or has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
+    /// <exception cref="ArgumentException"><paramref name="paths"/> has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
     public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paths);
         var list = paths.ToList();
-        if (list.Count == 0 || list.Any(string.IsNullOrWhiteSpace))
+        if (list.Any(string.IsNullOrWhiteSpace))
         {
-            throw new ArgumentException("setInputFiles requires one or more non-empty paths", nameof(paths));
+            throw new ArgumentException("setInputFiles paths must be non-empty strings", nameof(paths));
         }
 
         var root = _screen.ProjectRoot;

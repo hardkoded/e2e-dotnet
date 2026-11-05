@@ -199,7 +199,8 @@ point: the web engine does, and so does a device; the others fail with
 `SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
 file input, or of a control that opens a file chooser, such as a button over a
 hidden input. A locator refuses a hidden node, so target the button or label
-over a hidden input, not the input. Paths resolve from the project root; an empty list or a blank
+over a hidden input, not the input. Paths resolve from the project root; an
+empty list clears the input and fires `input` and `change`, and a blank
 entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,
 or a node inside a `<label>` for one, takes the files directly with no click.
 Anything else is clicked with the file chooser already awaited, and the chooser
@@ -467,19 +468,23 @@ misses.
   presses and releases within the call. Prefer `PressAsync` and `FillAsync` on a
   locator.
 - `WaitForResponseAsync(pattern, timeout?)` resolves once the headers
-  arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `TextAsync()`,
-  `JsonAsync<T>()`). `TextAsync` and `JsonAsync` wait for the body (up to
+  arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `BodyAsync()`,
+  `TextAsync()`, `JsonAsync<T>()`). The body readers wait for the body (up to
   the action timeout) and fail with `ACTION_FAILED` when it could not be
   read. Start it before the step that sends the request, and await it after.
   This includes the first `GotoAsync` or `App.OpenAsync`.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
   requests, newest route first. `route.Request` has `Url`, `Method`,
   `Headers`, `PostData`. `route.FetchAsync()` reads upstream without deciding
-  the route and returns `Url`, `Status`, `Headers`, `TextAsync()`,
-  `JsonAsync<T>()`; redirects are not followed. The handler calls exactly one of
-  `FulfillAsync(new RouteFulfillResponse { Status, Headers, ContentType, Json | Body | Path })`,
-  `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, PostData })`
-  (straight to the network), `FallbackAsync()` (the route registered before
+  the route and returns `Url`, `Status`, `Headers`, `BodyAsync()`, `TextAsync()`,
+  `JsonAsync<T>()`; redirects are not followed. Hand binary bodies on with
+  `BodyAsync()`, never `TextAsync()`. The handler calls exactly one of
+  `FulfillAsync(new RouteFulfillResponse { Status, Headers, ContentType, Json | Body | BodyBytes | Path })`
+  (`Body` is text, `BodyBytes` bytes; several cookies as one `\n`-joined
+  `set-cookie`),
+  `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, DropHeaders, PostData })`
+  (straight to the network; `DropHeaders` names request headers to send
+  without, configured site headers still added), `FallbackAsync()` (the route registered before
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root. An error the handler throws fails the next step; when

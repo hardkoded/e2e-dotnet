@@ -1887,12 +1887,14 @@ public sealed partial class WebEngine : IEngine
             // only by the caller's body read on a budget of its own: the timeout
             // bounds the match, never a body still streaming in behind headers
             // that already arrived.
+            var bytes = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure);
             return new BrowserResponse
             {
                 Url = response.Url,
                 Status = response.Status,
                 Headers = response.Headers,
-                Body = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure),
+                Body = AsText(bytes),
+                BodyBytes = bytes,
             };
         });
 
@@ -3395,16 +3397,24 @@ public sealed partial class WebEngine : IEngine
         /// declared length), and the error behind the read is the fallback, as for
         /// a redirect, whose body the browser never keeps.
         /// </summary>
-        internal static async Task<string> ReadResponseBodyAsync(string api, Func<Task<byte[]>> body, Func<string?> failure)
+        internal static async Task<byte[]> ReadResponseBodyAsync(string api, Func<Task<byte[]>> body, Func<string?> failure)
         {
             try
             {
-                return System.Text.Encoding.UTF8.GetString(await body().ConfigureAwait(false));
+                return await body().ConfigureAwait(false);
             }
             catch (PlaywrightException ex)
             {
                 throw new TestException("ACTION_FAILED", api + ": response body could not be read: " + (failure() ?? WebErrors.Message(ex)), ex);
             }
+        }
+
+        /// <summary>The body read as UTF-8 text; a body that faults faults the text the same way, and the fault is observed here so an unread text does not report it again.</summary>
+        internal static Task<string> AsText(Task<byte[]> bytes)
+        {
+            var text = bytes.ContinueWith(static done => Encoding.UTF8.GetString(done.GetAwaiter().GetResult()), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            _ = text.ContinueWith(static done => _ = done.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return text;
         }
 
         /// <summary>
@@ -3629,6 +3639,7 @@ public sealed partial class WebEngine : IEngine
                 Headers = response.Headers,
                 ContentType = response.ContentType,
                 Body = response.Body,
+                BodyBytes = response.BodyBytes,
                 Path = response.Path,
             }));
 
@@ -3638,12 +3649,18 @@ public sealed partial class WebEngine : IEngine
             // route included, so it merges those headers itself.
             var site = _siteHeaders(overrides.Url ?? Request.Url);
             Dictionary<string, string>? headers = null;
-            if (overrides.Headers is not null || site is not null)
+            if (overrides.Headers is not null || overrides.DropHeaders is { Count: > 0 } || site is not null)
             {
                 headers = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var (name, value) in overrides.Headers ?? Request.Headers)
                 {
                     headers[name.ToLowerInvariant()] = value;
+                }
+
+                // Dropped before the site's headers go on top, which stay.
+                foreach (var name in overrides.DropHeaders ?? [])
+                {
+                    headers.Remove(name.ToLowerInvariant());
                 }
 
                 foreach (var (name, value) in site ?? Enumerable.Empty<KeyValuePair<string, string>>())
@@ -3714,7 +3731,7 @@ public sealed partial class WebEngine : IEngine
                 catch (TimeoutException)
                 {
                     var budget = ((long)timeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                    body = Task.FromException<string>(new TestException("ACTION_FAILED", "route.fetch: response body did not finish within " + budget + "ms"));
+                    body = Task.FromException<byte[]>(new TestException("ACTION_FAILED", "route.fetch: response body did not finish within " + budget + "ms"));
                 }
 
                 return new BrowserResponse
@@ -3722,7 +3739,8 @@ public sealed partial class WebEngine : IEngine
                     Url = response.Url,
                     Status = response.Status,
                     Headers = response.Headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal),
-                    Body = body,
+                    Body = WebSession.AsText(body),
+                    BodyBytes = body,
                 };
             }
             finally
