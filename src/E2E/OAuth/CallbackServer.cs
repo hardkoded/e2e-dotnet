@@ -42,7 +42,7 @@ internal sealed class CallbackServer : IDisposable
     /// <summary>Vendors register <c>localhost</c>, not the loopback address, as the redirect host.</summary>
     public string RedirectUri { get; }
 
-    /// <summary>Port 0 lets the OS pick a free port, and <see cref="RedirectUri"/> names the port it bound; tests use it so no one can take the port between a probe and the bind.</summary>
+    /// <summary>Port 0 binds a port the OS picks; <see cref="RedirectUri"/> names the port that was bound.</summary>
     public static CallbackServer? TryStart(int port, string path, string state, string product, TimeSpan? requestTimeout = null)
     {
         var listener = new TcpListener(IPAddress.Loopback, port);

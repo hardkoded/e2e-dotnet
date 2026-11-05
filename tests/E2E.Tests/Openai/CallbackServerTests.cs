@@ -136,30 +136,11 @@ public sealed class CallbackServerTests
         return Encoding.ASCII.GetString(reply.ToArray());
     }
 
-    /// <summary>
-    /// Starts the server on a port nothing listens on. The port is free when it is picked, not when the server binds: another connection
-    /// can take it in between, and <see cref="CallbackServer.TryStart"/> then returns null. So a taken port is a new pick.
-    /// </summary>
+    /// <summary>Starts the server on a port the OS picks at bind time, so no other connection can take it first.</summary>
     private static (CallbackServer Server, int Port) StartOnFreePort(TimeSpan? requestTimeout = null)
     {
-        for (var attempt = 0; attempt < 20; attempt++)
-        {
-            var port = FreePort();
-            if (CallbackServer.TryStart(port, "/auth/callback", "st", "Test", requestTimeout) is { } server)
-            {
-                return (server, port);
-            }
-        }
-
-        throw new InvalidOperationException("no free port took the callback server in 20 tries");
-    }
-
-    private static int FreePort()
-    {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
+        var server = CallbackServer.TryStart(0, "/auth/callback", "st", "Test", requestTimeout)
+            ?? throw new InvalidOperationException("the callback server could not bind a port");
+        return (server, new Uri(server.RedirectUri).Port);
     }
 }
