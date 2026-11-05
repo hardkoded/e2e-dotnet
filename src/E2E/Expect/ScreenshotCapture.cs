@@ -61,7 +61,7 @@ internal static partial class ScreenshotAssertion
                 {
                     try
                     {
-                        await screen.Engine.PerformUntilAsync(subject.Query, new LocatorAction.ScrollIntoView(), reads.Deadline, cancellationToken).ConfigureAwait(false);
+                        await screen.Engine.PerformUntilAsync(subject.Query, new LocatorAction.ScrollIntoView(), reads.Deadline, cancellationToken, anyState: true).ConfigureAwait(false);
                     }
                     catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
                     {

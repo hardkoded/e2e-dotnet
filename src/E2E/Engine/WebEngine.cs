@@ -1235,25 +1235,27 @@ public sealed partial class WebEngine : IEngine
             if (WebLocators.NeedsPage(expression))
             {
                 var forcing = new Forcing();
-                // The elements a projection marks are taken by the next observation that publishes, so the one that lists them runs
-                // in the same turn: another call's observation in between would take the marks and leave them unlisted.
-                var (marked, listed) = await RunAsync("locate", cancellationToken, async () =>
+                // The elements a projection marks are taken by the next observation that publishes, and the observation that lists them is
+                // the one the projection is read against. Both, and the projection onto it (upstream reads whatever the selector matches;
+                // here every match must be a node of the observation the caller acts on), run in one turn: another call's observation in
+                // between would take the marks, or replace the listed elements.
+                var (listed, onto) = await RunAsync("locate", cancellationToken, async () =>
                 {
                     var budget = ObserveBudget(cancellationToken, timeout);
                     return await ObserveInTurnAsync(budget, async () =>
                     {
                         var first = await ProjectAsync(expression, timeout, cancellationToken, forcing).ConfigureAwait(false);
-                        return (first, forcing.Marked ? await ReadObservationAsync(budget).ConfigureAwait(false) : null);
+                        if (!forcing.Marked)
+                        {
+                            return ((Observation?)null, first);
+                        }
+
+                        var observed = await ReadObservationAsync(budget).ConfigureAwait(false);
+                        return (observed, await ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false }).ConfigureAwait(false));
                     }).ConfigureAwait(false);
                 }).ConfigureAwait(false);
-                projected = marked;
-                if (listed is not null)
-                {
-                    // Upstream reads whatever the selector matches; here the observation lists those elements first, then the expression is
-                    // projected onto it again, so every match is a node of the observation the caller acts on.
-                    observation = listed;
-                    projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false })).ConfigureAwait(false);
-                }
+                projected = onto;
+                observation = listed ?? observation;
             }
 
             _trace?.ShowScreen(observation);
