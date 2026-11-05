@@ -15,14 +15,14 @@ internal static class TranscriptMessages
 
     public static ModelMessage Opening(string text) => new() { Role = "user", Content = text };
 
-    public static ModelMessage OpeningWithScreen { get; } = Opening("Goal: do the thing\n\nScreen (/):\n- document \"Home\" [ref=e1]\n  - heading \"Home\" [ref=e2]");
+    public static ModelMessage OpeningWithScreen { get; } = Opening("Goal: do the thing\n\nScreen (/):\n#e1 document \"Home\"\n #e2 heading \"Home\"");
 
     public static ModelMessage FullScreenResult(string id, int rows = 1) => new()
     {
         Role = "tool",
         ToolCallId = id,
         Name = "tap",
-        Content = "Tapped #e3.\nScreen (/):\n- document [ref=e1]\n" + string.Join('\n', Enumerable.Range(0, rows).Select(index => $"  - heading \"X{index}\" [ref=e{index + 2}]")),
+        Content = "Tapped #e3.\nScreen (/):\n#e1 document\n" + string.Join('\n', Enumerable.Range(0, rows).Select(index => $" #e{index + 2} heading \"X{index}\"")),
     };
 
     public static ModelMessage ChangeResult(string id) => new() { Role = "tool", ToolCallId = id, Name = "type", Content = "Typed into #e6. The field shows a." };

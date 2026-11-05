@@ -26,7 +26,7 @@ public sealed class PrepareObservationTests
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = [new SemanticNode { Ref = "n2", Role = "button", Name = "One" }] };
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None);
         Assert.Contains("button \"One\"", text, StringComparison.Ordinal);
-        Assert.EndsWith("\n(More of the page is off screen. Scroll to reach it.)", text, StringComparison.Ordinal);
+        Assert.EndsWith("\n[observation truncated: the engine stopped listing nodes at its limit]", text, StringComparison.Ordinal);
     }
 
     /// <summary>Partial: upstream "truncates at the byte limit while keeping the root and flagging truncation" reads the flag, the node index (201 nodes), and the text from <c>prepareObservation</c>. The port has no node index: it checks the text and the cut flag of <c>Render</c>.</summary>
@@ -37,7 +37,7 @@ public sealed class PrepareObservationTests
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = children };
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None, null, 256, out var cut);
         Assert.True(cut);
-        Assert.StartsWith("Screen (/):\n- document [ref=n1]", text, StringComparison.Ordinal);
+        Assert.StartsWith("#n1 document", text, StringComparison.Ordinal);
         Assert.Contains("[observation truncated", text, StringComparison.Ordinal);
     }
 
@@ -115,7 +115,7 @@ public sealed class PrepareObservationTests
         };
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None);
         Assert.Equal(
-            ["Screen (/):", "- document \"Home\" [ref=n1]", "  - heading \"Welcome\" [ref=n2]", "  - button \"Buy\" [ref=n3] [disabled]"],
+            ["#n1 document \"Home\"", " #n2 heading \"Welcome\"", " #n3 button \"Buy\" [disabled]"],
             text.Split('\n'));
     }
 
@@ -147,7 +147,7 @@ public sealed class PrepareObservationTests
         };
         var text = SnapshotText.Render(new Observation { Route = "/reset?token=hunter2", Roots = [tree] }, Redactor.For([Secret.Create("member", "hunter2")]));
         Assert.DoesNotContain("hunter2", text, StringComparison.Ordinal);
-        Assert.Contains("Screen (/reset?token=<secret:member>):", text, StringComparison.Ordinal);
+        Assert.Contains("<secret:member>", text, StringComparison.Ordinal);
     }
 
     [Fact]

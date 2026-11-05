@@ -27,7 +27,7 @@ public sealed class ActionsTapAtFromACustomExecutorTests
             async (context, token) =>
             {
                 var observation = await context.ObserveAsync(cancellationToken: token);
-                var reset = Regex.Match(observation.Text, @"button ""Reset"" \[ref=(e\d+)\]", RegexOptions.None, TimeSpan.FromSeconds(2)).Groups[1].Value;
+                var reset = Regex.Match(observation.Text, @"#(\S+) button ""Reset""", RegexOptions.None, TimeSpan.FromSeconds(2)).Groups[1].Value;
                 if (reset.Length == 0)
                 {
                     return new StepVerdict(StepVerdictStatus.Failed, "no reset button on screen");

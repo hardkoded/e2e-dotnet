@@ -18,88 +18,18 @@ internal static class SnapshotText
     internal const string TruncationMarker = "[observation truncated at the resolved observation byte limit]";
 
     /// <summary>
-    /// The screen as the model reads it. A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its
-    /// path: the one a navigation to a path resolves against.
+    /// The screen as the model reads it (upstream's <c>prepareObservation</c> text): one <c>#id role "name"</c> line per node
+    /// (<see cref="FailureEvidence.Listing"/>). A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its path.
     /// </summary>
     public static string Render(Observation observation, Redactor redactor, string? appOrigin = null) =>
         Render(observation, redactor, appOrigin, int.MaxValue, out _);
 
-    /// <summary>
-    /// <see cref="Render(Observation, Redactor, string?)"/> within <paramref name="maxBytes"/>, upstream's <c>prepareObservation</c> cut: the
-    /// marker is reserved up front so a cut screen still fits, the first node is always listed, and the first node line that would
-    /// pass the budget ends the listing with <see cref="TruncationMarker"/>. <paramref name="cut"/> says whether the budget cut it.
-    /// </summary>
+    /// <summary><see cref="Render(Observation, Redactor, string?)"/> within <paramref name="maxBytes"/>. <paramref name="cut"/> says whether the budget cut it.</summary>
     public static string Render(Observation observation, Redactor redactor, string? appOrigin, int maxBytes, out bool cut)
     {
-        var builder = new StringBuilder();
-        builder.Append("Screen (").Append(redactor.Redact(observation.Route)).Append("):");
-        var budget = Math.Max(0, maxBytes - Encoding.UTF8.GetByteCount(TruncationMarker + "\n"));
-        var state = new CutState(Encoding.UTF8.GetByteCount(builder.ToString() + "\n"), budget);
-        foreach (var root in observation.Roots)
-        {
-            Write(builder, root, 0, redactor, appOrigin, state);
-        }
-
-        if (!state.Any)
-        {
-            builder.Append('\n');
-            builder.Append("(empty)");
-        }
-
-        cut = state.Cut;
-        if (state.Cut)
-        {
-            builder.Append('\n');
-            builder.Append(TruncationMarker);
-        }
-        else if (observation.Truncated)
-        {
-            builder.Append('\n');
-            builder.Append("(More of the page is off screen. Scroll to reach it.)");
-        }
-
-        return builder.ToString();
-    }
-
-    // The listing's progress against its byte budget: the bytes of the lines written so far, and whether the budget stopped the walk.
-    private sealed class CutState(int bytes, int budget)
-    {
-        public bool Any { get; set; }
-
-        public bool Cut { get; set; }
-
-        public int Bytes { get; set; } = bytes;
-
-        public int Budget { get; } = budget;
-    }
-
-    private static void Write(StringBuilder builder, SemanticNode node, int depth, Redactor redactor, string? appOrigin, CutState state)
-    {
-        if (state.Cut)
-        {
-            return;
-        }
-
-        var hidden = node.States.Hidden || node.States.AriaHidden;
-        if (!hidden)
-        {
-            var line = "\n" + new string(' ', depth * 2) + "- " + Describe(node, redactor, appOrigin, listing: true);
-            var size = Encoding.UTF8.GetByteCount(line);
-            if (state.Any && state.Bytes + size > state.Budget)
-            {
-                state.Cut = true;
-                return;
-            }
-
-            state.Bytes += size;
-            builder.Append(line);
-            state.Any = true;
-        }
-
-        foreach (var child in node.Children)
-        {
-            Write(builder, child, hidden ? depth : depth + 1, redactor, appOrigin, state);
-        }
+        var (lines, nodes) = FailureEvidence.Listing(observation, redactor, appOrigin, maxBytes);
+        cut = lines.Count > nodes && lines[^1] == TruncationMarker;
+        return string.Join('\n', lines);
     }
 
     /// <summary>Levels of indent a <see cref="FormatNode"/> line keeps; deeper nodes line up with the tenth.</summary>
@@ -110,15 +40,14 @@ internal static class SnapshotText
     /// <c>agent/observation.ts</c>). A node with no role reads as <c>text</c>, as in the lines the model reads. Focus is listed.
     /// </summary>
     internal static string FormatNode(SemanticNode node, int depth, Redactor redactor, string? appOrigin) =>
-        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, listing: false, focus: true);
+        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, focus: true);
 
     /// <summary>
     /// One node as a line names it, after its <c>- </c> and indent: role, name, text, the disambiguators, value, and the states
-    /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). A <paramref name="listing"/> line is the one the model
-    /// reads, with the node's reference and focus; without it, the line is the node as a reader comparing two screens counts it:
-    /// ids are minted per observation and focus moves with every action. <paramref name="focus"/> lists focus without the reference.
+    /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). The line is the node as a reader comparing two screens
+    /// counts it: ids are minted per observation and focus moves with every action. <paramref name="focus"/> lists focus.
     /// </summary>
-    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool listing = true, bool focus = false)
+    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool focus = false)
     {
         var builder = new StringBuilder();
         builder.Append(node.Role ?? "text");
@@ -155,11 +84,6 @@ internal static class SnapshotText
         if (!string.IsNullOrEmpty(node.Placeholder) && string.IsNullOrEmpty(node.Name))
         {
             builder.Append(" placeholder=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor))).Append('"');
-        }
-
-        if (listing)
-        {
-            builder.Append(" [ref=").Append(node.Ref).Append(']');
         }
 
         // A checkbox's or radio's value is an app token its checked state already says more than.
@@ -210,7 +134,7 @@ internal static class SnapshotText
             builder.Append(" [pressed]");
         }
 
-        if (node.States.Focused && (listing || focus))
+        if (node.States.Focused && focus)
         {
             builder.Append(" [focused]");
         }

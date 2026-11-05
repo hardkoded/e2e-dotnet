@@ -22,7 +22,7 @@ internal static partial class OverflowShrink
 
     /// <summary>
     /// Every full screen is introduced by this phrase (upstream's <c>FULL_SCREEN_PATTERN</c>, <c>Current screen (revision </c>). The pattern also
-    /// matches the heading of the <c>[ref=…]</c> screen an executor of its own may print (<c>Screen (</c> at the start of a line).
+    /// matches the heading of the screen a judgment prints before its <c>#id</c> lines (<c>Screen (</c> at the start of a line, .NET-only).
     /// </summary>
     [GeneratedRegex(@"Current screen \(revision |^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     internal static partial Regex FullScreenPattern();

@@ -284,7 +284,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task Sends_the_semantic_tree_with_refs_and_a_secure_field_without_its_value()
+    public async Task Sends_the_semantic_tree_with_ids_and_a_secure_field_without_its_value()
     {
         var world = World().Map("/login", page =>
         {
@@ -304,8 +304,34 @@ public sealed class AgentJudgmentTierTests
         Assert.Null(result.Error);
         var observation = judge.Requests[0].Messages[0].Content!;
         Assert.Contains("button \"Increment\"", observation, StringComparison.Ordinal);
-        Assert.Contains("- button \"Increment\" [ref=e1]", observation, StringComparison.Ordinal);
-        Assert.Contains("- textbox \"Password\" [ref=e2] secure purpose=password", observation, StringComparison.Ordinal);
+        Assert.Contains("#e1 button \"Increment\"", observation, StringComparison.Ordinal);
+        Assert.Contains("#e2 textbox \"Password\" secure purpose=password", observation, StringComparison.Ordinal);
+        Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
+    }
+
+    /// <summary>.NET-only: the judgment path prints a <c>Screen (route):</c> line before the <c>#id</c> lines (upstream sends the route as the observation's attributes), and the route goes through the redactor.</summary>
+    [Fact]
+    public async Task Redacts_a_secret_in_the_route_of_the_screen_heading_the_judge_reads()
+    {
+        var world = World().Map("/reset", page => page.Button("Increment"));
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the reset page is open"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new DocumentEngine(world),
+            Judge = judge,
+            BaseUrl = "https://app.test",
+            TestTitle = "agent judgment route",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            TestTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
+        await session.Context.App.OpenAsync("/reset?token=hunter2-secret");
+        await session.Context.Agent.AssertAsync("the reset page is open");
+        session.Complete(null);
+
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.Contains("Screen (/reset?token=<secret:reset.token>):\n#", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
     }
 

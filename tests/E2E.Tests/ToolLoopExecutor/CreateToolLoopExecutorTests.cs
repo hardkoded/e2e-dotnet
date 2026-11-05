@@ -298,7 +298,7 @@ public sealed partial class CreateToolLoopExecutorTests
 
     private static string IncrementRef(string screen) => IncrementPattern().Match(screen).Groups["ref"].Value;
 
-    [GeneratedRegex("button \"Increment\"[^\\n]*\\[ref=(?<ref>[^\\]]+)\\]")]
+    [GeneratedRegex("^\\s*#(?<ref>\\S+) button \"Increment\"", RegexOptions.Multiline)]
     private static partial Regex IncrementPattern();
 
     /// <summary>A context a test builds itself, which carries no screen to drive.</summary>

@@ -26,10 +26,10 @@ public sealed class DisambiguatingAttributesTests
             new SemanticNode { Ref = "n5", Role = "textbox", Name = "Email", Placeholder = "ignored" },
         ]);
 
-        Assert.Equal("  - link \"About\" href=\"https://app.test/about\" [ref=n2]", lines[2]);
-        Assert.Equal("  - listitem \"Alpha\" testid=\"item\" [ref=n3]", lines[3]);
-        Assert.Equal("  - textbox placeholder=\"you@example.test\" [ref=n4]", lines[4]);
-        Assert.Equal("  - textbox \"Email\" [ref=n5]", lines[5]);
+        Assert.Equal(" #n2 link \"About\" href=\"https://app.test/about\"", lines[1]);
+        Assert.Equal(" #n3 listitem \"Alpha\" testid=\"item\"", lines[2]);
+        Assert.Equal(" #n4 textbox placeholder=\"you@example.test\"", lines[3]);
+        Assert.Equal(" #n5 textbox \"Email\"", lines[4]);
     }
 
     [Fact]
@@ -41,11 +41,11 @@ public sealed class DisambiguatingAttributesTests
             [Link("Project", project), Link("Docs", "https://docs.example.test/guides/setup"), Link("Search", "http://127.0.0.1:3100/search?…#…"), Link("Asset", longHref), Link("Lookalike", "http://127.0.0.1:31000/x")],
             "http://127.0.0.1:3100");
 
-        Assert.Equal("  - link \"Project\" href=\"/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5\" [ref=n]", lines[2]);
-        Assert.Equal("  - link \"Docs\" href=\"https://docs.example.test/guides/setup\" [ref=n]", lines[3]);
-        Assert.Equal("  - link \"Search\" href=\"/search?…#…\" [ref=n]", lines[4]);
-        Assert.Equal($"  - link \"Asset\" href=\"{longHref[..256]}…\" [ref=n]", lines[5]);
-        Assert.Equal("  - link \"Lookalike\" href=\"http://127.0.0.1:31000/x\" [ref=n]", lines[6]);
+        Assert.Equal(" #n link \"Project\" href=\"/dashboard/e2e-dc3cf837/projects/404b2532-9fab-44dc-b3d0-f0a1b2c3d4e5\"", lines[1]);
+        Assert.Equal(" #n link \"Docs\" href=\"https://docs.example.test/guides/setup\"", lines[2]);
+        Assert.Equal(" #n link \"Search\" href=\"/search?…#…\"", lines[3]);
+        Assert.Equal($" #n link \"Asset\" href=\"{longHref[..256]}…\"", lines[4]);
+        Assert.Equal(" #n link \"Lookalike\" href=\"http://127.0.0.1:31000/x\"", lines[5]);
     }
 
     [Fact]
@@ -54,9 +54,9 @@ public sealed class DisambiguatingAttributesTests
         var nodes = new[] { Link("Authorize", "https://github.com/login/oauth/authorize?…"), Link("Back to app", "https://app.test/settings") };
 
         var lines = Lines(nodes, "https://app.test");
-        Assert.Equal("  - link \"Authorize\" href=\"https://github.com/login/oauth/authorize?…\" [ref=n]", lines[2]);
-        Assert.Equal("  - link \"Back to app\" href=\"/settings\" [ref=n]", lines[3]);
-        Assert.Contains("href=\"https://app.test/settings\"", Lines(nodes)[3], StringComparison.Ordinal);
+        Assert.Equal(" #n link \"Authorize\" href=\"https://github.com/login/oauth/authorize?…\"", lines[1]);
+        Assert.Equal(" #n link \"Back to app\" href=\"/settings\"", lines[2]);
+        Assert.Contains("href=\"https://app.test/settings\"", Lines(nodes)[2], StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<ExecutorNode> Tree(IEnumerable<SemanticNode> nodes, string? appOrigin = null, Redactor? redactor = null) =>
@@ -68,7 +68,7 @@ public sealed class DisambiguatingAttributesTests
         var href = "https://cdn.example.test/" + new string('a', 230) + "😀tail";
         Assert.True(char.IsHighSurrogate(href[255]));
 
-        Assert.Equal($"  - link \"Emoji\" href=\"{href[..255]}…\" [ref=n]", Lines([Link("Emoji", href)])[2]);
+        Assert.Equal($" #n link \"Emoji\" href=\"{href[..255]}…\"", Lines([Link("Emoji", href)])[1]);
         Assert.Equal(href[..255] + "…", Tree([Link("Emoji", href)])[0].Attributes!["href"]);
     }
 
@@ -89,7 +89,7 @@ public sealed class DisambiguatingAttributesTests
         const string href = "https://app.test//settings";
         var node = Link("Settings", href);
 
-        Assert.Equal($"  - link \"Settings\" href=\"{href}\" [ref=n]", Lines([node], "https://app.test")[2]);
+        Assert.Equal($" #n link \"Settings\" href=\"{href}\"", Lines([node], "https://app.test")[1]);
         Assert.Equal(href, Tree([node], "https://app.test")[0].Attributes!["href"]);
     }
 
@@ -99,9 +99,9 @@ public sealed class DisambiguatingAttributesTests
         var path = "/" + new string('p', 250) + "/tok-0123456789";
         var redactor = Redactor.For([Secret.Create("token", "tok-0123456789")]);
 
-        var line = Lines([Link("Magic", "https://app.test" + path)], "https://app.test", redactor)[2];
+        var line = Lines([Link("Magic", "https://app.test" + path)], "https://app.test", redactor)[1];
 
-        Assert.Equal($"  - link \"Magic\" href=\"{redactor.Redact(path)[..256]}…\" [ref=n]", line);
+        Assert.Equal($" #n link \"Magic\" href=\"{redactor.Redact(path)[..256]}…\"", line);
         Assert.DoesNotContain("tok-", line, StringComparison.Ordinal);
     }
 
@@ -120,13 +120,13 @@ public sealed class DisambiguatingAttributesTests
             Field("n6", value: "alpha beta", selection: " ", focused: true),
         ]);
 
-        Assert.Equal("  - textbox [ref=n2] value=\"release approved\" selection=\"approved\" [focused]", lines[2]);
+        Assert.Equal(" #n2 textbox value=\"release approved\" selection=\"approved\" [focused]", lines[1]);
         // The port shows a value as it is, newline included; upstream escapes it.
-        Assert.Equal("  - textbox [ref=n3] value=\"two", lines[3]);
-        Assert.Equal("lines\" selection=\"two\\nli\" [focused]", lines[4]);
-        Assert.Equal("  - textbox \"Password\" [ref=n4] secure [focused]", lines[5]);
-        Assert.Equal("  - textbox [ref=n5] value=\"caret only\"", lines[6]);
-        Assert.Equal("  - textbox [ref=n6] value=\"alpha beta\" selection=\" \" [focused]", lines[7]);
+        Assert.Equal(" #n3 textbox value=\"two", lines[2]);
+        Assert.Equal("lines\" selection=\"two\\nli\" [focused]", lines[3]);
+        Assert.Equal(" #n4 textbox \"Password\" secure [focused]", lines[4]);
+        Assert.Equal(" #n5 textbox value=\"caret only\"", lines[5]);
+        Assert.Equal(" #n6 textbox value=\"alpha beta\" selection=\" \" [focused]", lines[6]);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class DisambiguatingAttributesTests
     {
         var lines = Lines([Field("n2", value: "x", selection: "a\"b\\c\u001f😀\ud83d", focused: true)]);
 
-        Assert.Equal("  - textbox [ref=n2] value=\"x\" selection=\"a\\\"b\\\\c\\u001f😀\\ud83d\" [focused]", lines[2]);
+        Assert.Equal(" #n2 textbox value=\"x\" selection=\"a\\\"b\\\\c\\u001f😀\\ud83d\" [focused]", lines[1]);
     }
 
     [Fact]
@@ -154,11 +154,11 @@ public sealed class DisambiguatingAttributesTests
 
         Assert.Equal(
             [
-                "  - textbox \"Token\" [ref=n2] value=\"<secret:member>\" [focused]",
-                "  - textbox \"Note\" [ref=n3] value=\"release approved\" selection=\"approved\"",
-                "  - textbox \"Rich\" text=\"key <secret:member>\" [ref=n4]",
+                " #n2 textbox \"Token\" value=\"<secret:member>\" [focused]",
+                " #n3 textbox \"Note\" value=\"release approved\" selection=\"approved\"",
+                " #n4 textbox \"Rich\" text=\"key <secret:member>\"",
             ],
-            lines.Skip(2));
+            lines.Skip(1));
         Assert.DoesNotContain(lines, line => line.Contains(fragment, StringComparison.Ordinal));
         Assert.DoesNotContain(fragment, System.Text.Json.JsonSerializer.Serialize(Tree(
             [

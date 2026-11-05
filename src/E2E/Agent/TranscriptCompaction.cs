@@ -12,8 +12,8 @@ namespace E2E;
 /// the request prefix, and the provider's prompt cache serves only an unchanged prefix, so stale parts are tolerated up to a budget and then
 /// elided in one batch rather than one rewrite per turn. Both elisions walk the transcript the same way: oldest message first, across the
 /// opening prompt and the tool results alike. Differences: a message here holds one text and its images, where upstream's holds parts, and
-/// the pattern of a full screen (<see cref="OverflowShrink.FullScreenPattern"/>) also takes the <c>Screen (</c> heading of the <c>[ref=…]</c>
-/// screen a custom executor may print.
+/// the pattern of a full screen (<see cref="OverflowShrink.FullScreenPattern"/>) also takes the <c>Screen (</c> heading of the screen a judgment
+/// prints before its <c>#id</c> lines.
 /// </summary>
 internal static class TranscriptCompaction
 {

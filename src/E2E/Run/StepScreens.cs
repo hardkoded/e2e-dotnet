@@ -165,7 +165,7 @@ internal static class StepScreens
             var shown = !(node.States.Hidden || node.States.AriaHidden);
             if (shown)
             {
-                var text = SnapshotText.Describe(node, options.Redactor, options.AppOrigin, listing: false);
+                var text = SnapshotText.Describe(node, options.Redactor, options.AppOrigin);
                 bytes += Encoding.UTF8.GetByteCount(text) + 1;
                 if (lines.Count > 0 && bytes > options.MaxBytes)
                 {

@@ -37,7 +37,7 @@ public sealed class ACheckableControlsValueTests(ChromiumPage chromium) : IClass
         // matters. Here a locator read keeps the value on the node, and the snapshot is the model's tree.
         var nodes = await chromium.CaptureAsync();
         var snapshot = SnapshotText.Render(new Observation { Route = "/", Roots = nodes.Select(node => node.ToSemanticNode()).ToList() }, Redactor.None);
-        Assert.Equal(testIds.Length, snapshot.Split('\n').Count(line => line.Contains("- checkbox", StringComparison.Ordinal) || line.Contains("- radio", StringComparison.Ordinal)));
+        Assert.Equal(testIds.Length, snapshot.Split('\n').Count(line => line.Contains(" checkbox", StringComparison.Ordinal) || line.Contains(" radio", StringComparison.Ordinal)));
         Assert.DoesNotContain("value=", snapshot, StringComparison.Ordinal);
     }
 }

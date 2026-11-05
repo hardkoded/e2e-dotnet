@@ -16,7 +16,7 @@ public sealed class CompactScreenshotHistoryTests
     private static ModelMessage OpeningWithImage { get; } = new()
     {
         Role = "user",
-        Content = "Goal: tap the pin\n\nScreen (/):\n- document [ref=e1]",
+        Content = "Goal: tap the pin\n\nScreen (/):\n#e1 document",
         Images = [TranscriptMessages.Png],
     };
 
@@ -36,7 +36,7 @@ public sealed class CompactScreenshotHistoryTests
         Assert.NotSame(messages, compacted);
         Assert.Equal(2, ImageCount(compacted));
         Assert.Equal(
-            "Goal: tap the pin\n\nScreen (/):\n- document [ref=e1]\n" + Compaction.ScreenshotElidedNotice,
+            "Goal: tap the pin\n\nScreen (/):\n#e1 document\n" + Compaction.ScreenshotElidedNotice,
             compacted[0].Content);
         Assert.Null(compacted[0].Images);
         Assert.Equal("Screenshot attached to the result of t1.\n" + Compaction.ScreenshotElidedNotice, compacted[1].Content);

@@ -527,7 +527,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     {
         ArgumentNullException.ThrowIfNull(target);
         return target.Node
-            ?? (target.Node = _feed.LastSeen(target.Id)?.Node)
+            ?? (target.Node = _feed.LastSeen(target.Id.TrimStart('#'))?.Node)
             ?? throw new TestException("LOCATOR_NOT_FOUND", "node " + target.Id + " is not on the current screen; it was removed or never existed");
     }
 
