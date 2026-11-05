@@ -189,7 +189,7 @@ engine has them all; the document engine has swipe only and fails the rest with
 screen refuses another before it resolves the node.
 
 `TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
-node's box (from its top left corner), once the node is in view with a box;
+node's box (from its top left corner, inside its border), once the node is in view with a box;
 modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
 taps a viewport point with no locator, and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points

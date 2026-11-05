@@ -725,6 +725,17 @@ internal static class PageScript
             const box = el.getBoundingClientRect();
             return { x: box.x, y: box.y, width: box.width, height: box.height };
           };
+          // The element's padding-box corner, when a border puts it past the
+          // rect's: where an offset into the element is measured from.
+          const originOf = (el) => {
+            if (el.getClientRects().length === 0) return null;
+            const style = getComputedStyle(el);
+            const borderLeft = Number.parseFloat(style.borderLeftWidth) || 0;
+            const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+            if (borderLeft === 0 && borderTop === 0) return null;
+            const box = el.getBoundingClientRect();
+            return { x: box.x + borderLeft, y: box.y + borderTop };
+          };
           // Text owned directly by an element, not by its child elements. An
           // element with content-visibility: hidden renders none of it. The
           // budget tally and the walk both ask, so each answer is kept.
@@ -1038,6 +1049,7 @@ internal static class PageScript
                 // Upstream's node read keeps the whole href; here every read comes from this tree.
                 wholeHref: el.getAttribute("href"),
                 rect: rectOf(el),
+                origin: originOf(el),
                 children: []
               };
               into.push(node);

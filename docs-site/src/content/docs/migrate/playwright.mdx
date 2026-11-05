@@ -157,7 +157,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `ClickAsync()` | `TapAsync()`; `ClickAsync()` is an alias | same |
 | `ClickAsync(new() { Button = MouseButton.Right })` | `SecondaryTapAsync()` | renamed |
 | `DblClickAsync()` | `DoubleTapAsync()`; `DblClickAsync()` is an alias | same |
-| `ClickAsync(new() { Position })` | the tap `position` is not ported yet | missing |
+| `ClickAsync(new() { Position })` | `TapAsync(new TapOptions { Position })`, an offset from the node's top-left corner inside its border | renamed |
 | `ClickAsync(new() { Force })` | not yet | missing |
 | `ClickAsync(new() { Modifiers })`, `DblClickAsync(new() { Modifiers })` | `TapAsync(new ClickOptions { Modifiers = [...] })`, `DoubleTapAsync`, `SecondaryTapAsync`; web only | renamed |
 | `ClickAsync(new() { ClickCount, Delay, Trial })` | not yet | missing |

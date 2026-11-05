@@ -1317,7 +1317,7 @@ public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = 
 ```
 
 
-Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner: the node is scrolled
+Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner, inside its border on a document platform: the node is scrolled
 into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
 engine's `tap` pointer action. A node that never has a box fails with `LOCATOR_NOT_FOUND`, as `WaitForAsync` does.
 
