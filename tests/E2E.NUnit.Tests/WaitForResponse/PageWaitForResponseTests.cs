@@ -36,19 +36,14 @@ public sealed class PageWaitForResponseTests : PlaywrightTest
     [Test]
     public async Task Should_log_the_url()
     {
-        // Known difference (hardkoded/e2e-dotnet#1068): the timeout message does not name the pattern yet.
-        await ExpectedToFailAsync("Timeout 1000ms exceeded", async () =>
-        {
-            await Browser.GotoAsync(EmptyPage);
-            var error1 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync("foo.css", TimeSpan.FromMilliseconds(1000)));
-            Contain("\"foo.css\"", error1!.Message);
-            var error2 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync(new Regex("foo.css", RegexOptions.IgnoreCase), TimeSpan.FromMilliseconds(1000)));
-            Contain("/foo.css/i", error2!.Message);
-        });
+        await Browser.GotoAsync(EmptyPage);
+        var error1 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync("foo.css", TimeSpan.FromMilliseconds(1000)));
+        Contain("\"foo.css\"", error1!.Message);
+        var error2 = await Assert.CatchAsync(() => Browser.WaitForResponseAsync(new Regex("foo.css", RegexOptions.IgnoreCase), TimeSpan.FromMilliseconds(1000)));
+        Contain("/foo.css/i", error2!.Message);
     }
 
     [Test]
-    [Ignore("a timeout must be positive, so there is no `timeout: 0` for no timeout (refused as INVALID_ARGUMENT, which `fail` does not cover)")]
     public async Task Should_work_with_no_timeout()
     {
         await Browser.GotoAsync(EmptyPage);
