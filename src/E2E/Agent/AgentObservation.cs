@@ -189,17 +189,8 @@ internal static partial class AgentObservation
             : appOrigin + SnapshotText.Bound(CacheRoute.AppNavigation(redacted, appOrigin));
     }
 
-    /// <summary>FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.</summary>
-    public static string PixelDigest(ReadOnlySpan<byte> bytes)
-    {
-        var hash = 0x811c9dc5u;
-        foreach (var value in bytes)
-        {
-            hash = (hash ^ value) * 0x01000193u;
-        }
-
-        return hash.ToString("x", System.Globalization.CultureInfo.InvariantCulture);
-    }
+    /// <summary>SHA-256 over the image bytes: equal frames encode to equal bytes, and no 32-bit collision can read two screens as one.</summary>
+    public static string PixelDigest(ReadOnlySpan<byte> bytes) => Ids.Sha256Hex(bytes);
 
     /// <summary>
     /// Whether an observation shows a screen in transition: no node, or only an empty document root, with no screenshot to describe content
