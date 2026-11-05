@@ -78,7 +78,7 @@ public sealed class RunnerEngineContractTests
             TestTitle = "needs browser",
         });
         await session.App.OpenAsync("/settings/billing");
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.Browser.GotoAsync("/somewhere"));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.Browser.GotoAsync("/somewhere"));
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
         Assert.Contains("browser.goto needs a browser engine", error.Message, StringComparison.Ordinal);
     }

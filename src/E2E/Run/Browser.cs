@@ -77,11 +77,43 @@ public sealed class Browser
 
     /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
-        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+        Steps is null ? Translated(Call(api, label), body) : Steps.RunAsync(kind, api, label, () => Translated(Call(api, label), body), new StepRunOptions { Verifies = verifies });
 
     /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
-        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+        Steps is null ? Translated(Call(api, label), body) : Steps.RunAsync(kind, api, label, () => Translated(Call(api, label), body), new StepRunOptions { Verifies = verifies });
+
+    private static string Call(string api, string label) => label == "" ? api : api + " " + label;
+
+    /// <summary>
+    /// Runs one operation and maps an <see cref="EngineException"/> it rejects with onto the runner taxonomy, as every other engine
+    /// surface is mapped (upstream's <c>translated</c>). <paramref name="call"/> names the operation and its label, so a timeout says
+    /// what it waited for. Anything else is rethrown as the call threw it.
+    /// </summary>
+    private static async Task Translated(string call, Func<Task> body)
+    {
+        try
+        {
+            await body().ConfigureAwait(false);
+        }
+        catch (EngineException cause)
+        {
+            throw ErrorSerializer.TranslateEngineError(cause, " in " + call);
+        }
+    }
+
+    /// <inheritdoc cref="Translated(string, Func{Task})"/>
+    private static async Task<T> Translated<T>(string call, Func<Task<T>> body)
+    {
+        try
+        {
+            return await body().ConfigureAwait(false);
+        }
+        catch (EngineException cause)
+        {
+            throw ErrorSerializer.TranslateEngineError(cause, " in " + call);
+        }
+    }
 
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
