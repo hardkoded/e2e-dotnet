@@ -1179,25 +1179,31 @@ public sealed partial class WebEngine : IEngine
         // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
         private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
         {
-            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
-            return await ObserveInTurnAsync(budget, async () =>
-            {
-                var walk = new FrameWalk();
-                List<WebNode> roots;
-                try
-                {
-                    roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
-                }
-                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-                {
-                    throw WebErrors.NavigationStaleOr(ex, "observe");
-                }
-
-                _frames = walk.Frames;
-                _observed = true;
-                return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
-            }).ConfigureAwait(false);
+            var budget = ObserveBudget(cancellationToken, timeout);
+            return await ObserveInTurnAsync(budget, () => ReadObservationAsync(budget)).ConfigureAwait(false);
         });
+
+        private OperationBudget ObserveBudget(CancellationToken cancellationToken, TimeSpan? timeout) =>
+            Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
+
+        /// <summary>One read of the page into a tree, publishing its refs. Callers hold their turn (<see cref="ObserveInTurnAsync"/>).</summary>
+        private async Task<Observation> ReadObservationAsync(OperationBudget budget)
+        {
+            var walk = new FrameWalk();
+            List<WebNode> roots;
+            try
+            {
+                roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.NavigationStaleOr(ex, "observe");
+            }
+
+            _frames = walk.Frames;
+            _observed = true;
+            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+        }
 
         // Settles when the latest observation in line has finished; never faults.
         private Task _observing = Task.CompletedTask;
@@ -1247,14 +1253,27 @@ public sealed partial class WebEngine : IEngine
             if (WebLocators.NeedsPage(expression))
             {
                 var forcing = new Forcing();
-                projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, forcing)).ConfigureAwait(false);
-                if (forcing.Marked)
+                // The elements a projection marks are taken by the next observation that publishes, and the observation that lists them is
+                // the one the projection is read against. Both, and the projection onto it (upstream reads whatever the selector matches;
+                // here every match must be a node of the observation the caller acts on), run in one turn: another call's observation in
+                // between would take the marks, or replace the listed elements.
+                var (listed, onto) = await RunAsync("locate", cancellationToken, async () =>
                 {
-                    // Upstream reads whatever the selector matches; here the observation lists those elements first, then the expression is
-                    // projected onto it again, so every match is a node of the observation the caller acts on.
-                    observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
-                    projected = await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false })).ConfigureAwait(false);
-                }
+                    var budget = ObserveBudget(cancellationToken, timeout);
+                    return await ObserveInTurnAsync(budget, async () =>
+                    {
+                        var first = await ProjectAsync(expression, timeout, cancellationToken, forcing).ConfigureAwait(false);
+                        if (!forcing.Marked)
+                        {
+                            return ((Observation?)null, first);
+                        }
+
+                        var observed = await ReadObservationAsync(budget).ConfigureAwait(false);
+                        return (observed, await ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false }).ConfigureAwait(false));
+                    }).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+                projected = onto;
+                observation = listed ?? observation;
             }
 
             _trace?.ShowScreen(observation);
