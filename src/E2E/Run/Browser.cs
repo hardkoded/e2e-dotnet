@@ -80,41 +80,11 @@ public sealed class Browser
     /// fixture runtime); a browser outside a session runs the call as it is, like the bare surface upstream's engine tests call.
     /// </summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
-        Steps is null ? body() : Steps.RunAsync(kind, api, label, () => Translated(api, label, body), new StepRunOptions { Verifies = verifies });
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, () => FixtureRecording.Translated(api, label, body), new StepRunOptions { Verifies = verifies });
 
     /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
-        Steps is null ? body() : Steps.RunAsync(kind, api, label, () => Translated(api, label, body), new StepRunOptions { Verifies = verifies });
-
-    /// <summary>
-    /// Runs one operation and maps an <see cref="EngineException"/> it rejects with onto the runner taxonomy, as every other engine
-    /// surface is mapped (upstream's <c>translated</c>). The suffix names the operation and its label, so a timeout says what it
-    /// waited for. Anything else is rethrown as the call threw it.
-    /// </summary>
-    private static async Task Translated(string api, string label, Func<Task> body)
-    {
-        try
-        {
-            await body().ConfigureAwait(false);
-        }
-        catch (EngineException cause)
-        {
-            throw ErrorSerializer.TranslateEngineError(cause, " in " + (label == "" ? api : api + " " + label));
-        }
-    }
-
-    /// <inheritdoc cref="Translated(string, string, Func{Task})"/>
-    private static async Task<T> Translated<T>(string api, string label, Func<Task<T>> body)
-    {
-        try
-        {
-            return await body().ConfigureAwait(false);
-        }
-        catch (EngineException cause)
-        {
-            throw ErrorSerializer.TranslateEngineError(cause, " in " + (label == "" ? api : api + " " + label));
-        }
-    }
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, () => FixtureRecording.Translated(api, label, body), new StepRunOptions { Verifies = verifies });
 
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
@@ -408,9 +378,8 @@ public sealed class Browser
     public async Task<Func<Task>> OnDialogAsync(DialogHandler handler, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        var session = Require("onDialog");
         Action unsubscribe = static () => { };
-        await RunStepAsync(StepKind.Resource, "browser.onDialog", "", async () => unsubscribe = await session.OnDialogAsync(handler, Token(cancellationToken)).ConfigureAwait(false)).ConfigureAwait(false);
+        await RunStepAsync(StepKind.Resource, "browser.onDialog", "", async () => unsubscribe = await Require("onDialog").OnDialogAsync(handler, Token(cancellationToken)).ConfigureAwait(false)).ConfigureAwait(false);
         return () =>
         {
             unsubscribe();
@@ -436,10 +405,10 @@ public sealed class Browser
     public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(trigger);
-        var session = Require("waitForDownload");
         BrowserDownload? download = null;
         await RunStepAsync(StepKind.Resource, "browser.waitForDownload", "", async () =>
         {
+            var session = Require("waitForDownload");
             var budget = StepBudget(timeout, "browser.waitForDownload");
             download = await AppNotOpen.GuardAsync(() => session.WaitForDownloadAsync(trigger, budget, Token(cancellationToken))).ConfigureAwait(false);
             Attach("download", download.Path);
@@ -459,10 +428,10 @@ public sealed class Browser
     public async Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(trigger);
-        var session = Require("waitForDownloads");
         IReadOnlyList<BrowserDownload> downloads = [];
         await RunStepAsync(StepKind.Resource, "browser.waitForDownloads", "", async () =>
         {
+            var session = Require("waitForDownloads");
             if (count < 1)
             {
                 throw new TestException("INVALID_ARGUMENT", "waitForDownloads: count must be a positive safe integer");

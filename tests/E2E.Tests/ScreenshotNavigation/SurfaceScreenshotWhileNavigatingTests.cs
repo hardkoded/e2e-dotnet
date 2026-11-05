@@ -89,7 +89,10 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     }, TimeSpan.FromSeconds(1), async (session, page, site) =>
     {
         await page.GotoAsync(site.Url + "hop?n=40");
-        var failure = await Assert.ThrowsAnyAsync<EngineException>(() => session.App.ScreenshotAsync("restless"));
+        // Upstream calls the surface; the port goes through App, whose step maps the engine error: it is ACTION_FAILED, the engine's error its cause.
+        var mapped = await Assert.ThrowsAsync<TestException>(() => session.App.ScreenshotAsync("restless"));
+        Assert.Equal("ACTION_FAILED", mapped.Code);
+        var failure = Assert.IsType<EngineException>(mapped.InnerException);
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         Assert.False(failure.Retryable);
     });

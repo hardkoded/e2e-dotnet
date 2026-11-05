@@ -198,9 +198,10 @@ public sealed class App
     /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
     internal Action<string, string> Attach { get; set; } = static (_, _) => { };
 
-    // Each call that steers the app is a recorded step of the attempt, or runs as it is without a timeline.
+    // Each call that steers the app is a recorded step of the attempt, which maps the engine error the call throws (upstream's fixture
+    // runtime), or runs as it is without a timeline.
     private Task RunStepAsync(string api, string label, Func<Task> body) =>
-        _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);
+        _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, () => FixtureRecording.Translated(api, label, body));
 
     // A steering hook ends at a blank surface, so the app is reopened at its base URL
     // inside the same step. Without a base URL there is nothing to reopen.

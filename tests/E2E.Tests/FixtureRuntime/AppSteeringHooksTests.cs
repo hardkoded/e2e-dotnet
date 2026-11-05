@@ -83,7 +83,7 @@ public sealed class AppSteeringHooksTests
     {
         const string Reason = "launching the app needs the build installed first with device.installApp()";
         await using var session = await StartAsync([], baseUrl: null, device: true, restartFailure: new EngineException("UNSUPPORTED_CAPABILITY", Reason));
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.App.OpenAsync());
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
         Assert.Equal(Reason, error.Message);
         session.Complete();
