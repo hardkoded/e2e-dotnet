@@ -59,14 +59,10 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_the_button_if_window_Node_is_removed()
     {
-        // Known difference (hardkoded/e2e-dotnet#1079): the page script reads window.Node.
-        await ExpectedToFailAsync("Node is not defined", async () =>
-        {
-            await Browser.GotoAsync("/input/button.html");
-            await Browser.EvaluateAsync<object>("() => { delete window.Node; }");
-            await Browser.Locator("button").TapAsync();
-            Equal("Clicked", await ResultAsync());
-        });
+        await Browser.GotoAsync("/input/button.html");
+        await Browser.EvaluateAsync<object>("() => { delete window.Node; }");
+        await Browser.Locator("button").TapAsync();
+        Assert.That(await ResultAsync(), Is.EqualTo("Clicked"));
     }
 
     [Test]
@@ -519,18 +515,14 @@ public sealed class PageClickTests : PlaywrightTest
     [Test]
     public async Task Should_click_zero_sized_input_by_label()
     {
-        // Known difference (hardkoded/e2e-dotnet#1080): the label is not actionable.
-        await ExpectedToFailAsync("not visible", async () =>
-        {
-            await Browser.GotoAsync(Content("""
-                <label>
-                  Click me
-                  <input onclick="window.__clicked=true" style="width:0;height:0;padding:0;margin:0;border:0;">
-                </label>
-                """));
-            await Screen.GetByText("Click me").TapAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(3) });
-            Equal(true, await Browser.EvaluateAsync<bool>("window.__clicked"));
-        });
+        await Browser.GotoAsync(Content("""
+            <label>
+              Click me
+              <input onclick="window.__clicked=true" style="width:0;height:0;padding:0;margin:0;border:0;">
+            </label>
+            """));
+        await Screen.GetByText("Click me").TapAsync();
+        Assert.That(await Browser.EvaluateAsync<bool>("window.__clicked"), Is.True);
     }
 
     [Test]
