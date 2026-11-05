@@ -173,7 +173,6 @@ public sealed class PageScreenshotTests : ScreenshotTest
     }
 
     [Test]
-    [Ignore("App.ScreenshotAsync fails when the page navigates during the capture: #1095")]
     public async Task Should_work_while_navigating()
     {
         await Browser.SetViewportAsync(500, 500);
