@@ -675,13 +675,14 @@ public sealed class ObservationTests
             shot.TrySetResult();
             return Never();
         });
-        var started = DateTimeOffset.UtcNow;
+        var started = h.Clock.GetUtcNow();
         var observing = Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
         await shot.Task;
-        await h.Clock.SpendUntil(observing, TimeSpan.FromMilliseconds(400));
+        await h.Clock.SpendUntil(observing, TimeSpan.FromMilliseconds(350));
         var failure = await observing;
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         Assert.Equal(1, screenshots);
-        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3));
+        // The snapshot spent 150 ms and the step 350: the screenshot ended at the 500 ms of the one budget, not 500 ms after its own start.
+        Assert.Equal(TimeSpan.FromMilliseconds(500), h.Clock.GetUtcNow() - started);
     }
 }
