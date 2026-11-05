@@ -7,6 +7,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 ## Contents
 
 - The fixture
+- NativeScript test ids
 - A test
 - Device controls
 - Choosing a device
