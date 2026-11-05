@@ -506,7 +506,7 @@ public sealed class ObservationTests
 
     private static Task<JsonNode?> Never() => new TaskCompletionSource<JsonNode?>().Task;
 
-    // The budgets here run out when a test spends them, like upstream's fake timers, so a loaded runner cannot end one early.
+    // A test that sets ManualTimers below has budgets that run out when it spends them, like upstream's fake timers, so a loaded runner cannot end one early.
     [Fact]
     public async Task Bounds_a_snapshot_by_the_operation_budget()
     {
