@@ -53,7 +53,7 @@ public sealed class GreetingTests : MobileAppTest
 
 ## A test
 
-`Screen` finds controls by test id (the MAUI `AutomationId`). The agent works out which field and button to use. Pair each agent step with a check that does not call the model. This is an excerpt of `GreetingTests.cs`.
+`Screen` finds controls by test id (the MAUI `AutomationId`; a NativeScript `testID` or `accessibilityIdentifier`, which set the same id). The agent works out which field and button to use. Pair each agent step with a check that does not call the model. This is an excerpt of `GreetingTests.cs`.
 
 ```csharp
     [Test]
