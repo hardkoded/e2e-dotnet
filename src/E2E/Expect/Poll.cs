@@ -3,13 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using E2E.Internal;
 
 namespace E2E;
 
 /// <summary>How <see cref="Expect.Poll{T}(Func{CancellationToken, Task{T}}, PollOptions?)"/> re-reads a value.</summary>
 public sealed class PollOptions
 {
-    /// <summary>Deadline for the matcher to hold. The default is 5 seconds.</summary>
+    /// <summary>
+    /// Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
+    /// given ends, so it needs a token that can end (<c>INVALID_CONFIG</c> otherwise).
+    /// </summary>
     public TimeSpan? Timeout { get; init; }
 
     /// <summary>Pause between reads. The default is 100 milliseconds.</summary>
@@ -74,7 +78,7 @@ public sealed class PollExpectation<T>
         var interval = _options.Interval ?? DefaultInterval;
         var clock = _options.Clock;
         var started = clock.GetUtcNow();
-        var deadline = started + timeout;
+        var deadline = PollDeadline(timeout, started, cancellationToken);
         string? last = null;
         while (true)
         {
@@ -88,7 +92,7 @@ public sealed class PollExpectation<T>
             T value;
             try
             {
-                value = await _read(cancellationToken).WaitAsync(remaining, clock, cancellationToken).ConfigureAwait(false);
+                value = await _read(cancellationToken).WaitAsync(remaining > Time.Unbounded ? Time.Unbounded : remaining, clock, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -140,6 +144,26 @@ public sealed class PollExpectation<T>
 
         lines.Add("last: " + (last ?? "no read completed"));
         throw new TestException("ASSERTION_FAILED", ErrorRedaction.Redact(string.Join('\n', lines)));
+    }
+
+    /// <summary>
+    /// The poll's own deadline. A <c>Timeout</c> of zero sets none, as upstream's <c>timeout: 0</c> waits for the phase's, and the port's
+    /// phase is the caller's <paramref name="cancellationToken"/>: it needs one that can end, or nothing would bound the poll
+    /// (upstream's <c>INVALID_CONFIG</c> outside a test).
+    /// </summary>
+    private static DateTimeOffset PollDeadline(TimeSpan timeout, DateTimeOffset started, CancellationToken cancellationToken)
+    {
+        if (timeout != TimeSpan.Zero)
+        {
+            return started + timeout;
+        }
+
+        if (!cancellationToken.CanBeCanceled)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", "expect.poll timeout 0 waits for the test deadline, so it needs a cancellation token that ends with the test; pass a positive timeout or the test's token");
+        }
+
+        return Time.Never;
     }
 
     private static Task PauseAsync(DateTimeOffset deadline, TimeSpan interval, TimeProvider clock, CancellationToken cancellationToken)

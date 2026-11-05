@@ -373,6 +373,7 @@ public sealed class E2ESession : IAsyncDisposable
             screen.ActionKinds = engine.ActionKinds;
             screen.PointerActionKinds = engine.PointerActionKinds;
             screen.BudgetDeadline = budgetDeadline;
+            browser.BudgetDeadline = budgetDeadline;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);

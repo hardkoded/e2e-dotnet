@@ -33,6 +33,20 @@ public sealed class InsideAnAttemptTests
         Assert.Equal(readsAtCancel, reads);
     }
 
+    // Partial: the port's attempt deadline is its cancellation token, which ends the poll as a cancel, not as "stopped at the attempt deadline".
+    [Fact]
+    public async Task Partial_Polls_with_timeout_0_past_the_assertion_timeout_until_the_attempt_deadline()
+    {
+        using var cancel = new CancellationTokenSource();
+        var options = new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(10) };
+        cancel.CancelAfter(TimeSpan.FromMilliseconds(150));
+        var started = DateTimeOffset.UtcNow;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Expect.Poll(() => "running", options).ToBeAsync("done", cancel.Token));
+
+        Assert.True(DateTimeOffset.UtcNow - started >= TimeSpan.FromMilliseconds(140));
+    }
+
     [Fact]
     public async Task Cuts_a_read_in_flight_when_the_attempt_is_cancelled()
     {

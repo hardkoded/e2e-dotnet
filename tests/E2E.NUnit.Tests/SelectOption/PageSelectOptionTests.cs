@@ -17,7 +17,8 @@ namespace E2E.NUnit.Tests.SelectOption;
 /// multiple is not set, should return [] on no values, should not allow null items, should unselect with null, should deselect all options
 /// when passed no values for a multiple select, should deselect all options when passed no values for a select without multiple, should wait
 /// for multiple options to be present (<c>SelectOptionAsync</c> takes one option, no arrays, and returns nothing); should throw if passed wrong
-/// types (asserts Playwright's protocol validator messages; the option is typed).
+/// types (asserts Playwright's protocol validator messages; the option is typed); should select single option (upstream selects a bare
+/// string by label only on purpose; the port's also matches the value).
 /// </summary>
 public sealed partial class PageSelectOptionTests : PlaywrightTest
 {
@@ -31,17 +32,6 @@ public sealed partial class PageSelectOptionTests : PlaywrightTest
 
     private async Task ExpectResultAsync(string name, string expected) =>
         Assert.That(await Browser.EvaluateAsync<string[]>($"() => window.result.{name}"), Is.EqualTo(new[] { expected }));
-
-    [Test]
-    public async Task Should_select_single_option()
-    {
-        // Upstream marks this { fail: 'a bare string selects by label only, where Playwright matches the value or the label' }; this port's
-        // bare string matches the value too, so the test passes without the marker.
-        await Browser.GotoAsync("/input/select.html");
-        await Browser.Locator("select").SelectOptionAsync("blue");
-        await ExpectResultAsync("onInput", "blue");
-        await ExpectResultAsync("onChange", "blue");
-    }
 
     [Test]
     public async Task Should_select_single_option_by_value()

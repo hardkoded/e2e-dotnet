@@ -410,11 +410,7 @@ public class Screen
             throw new TestException("INVALID_ARGUMENT", api + " reads the whole screen; call it on screen");
         }
 
-        var timeout = options?.Timeout ?? ActionTimeout;
-        if (timeout != System.Threading.Timeout.InfiniteTimeSpan)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero, "timeout");
-        }
+        var timeout = options?.Timeout is null ? ActionTimeout : Engine.TimeoutOf(options.Timeout);
 
         var token = Token(cancellationToken);
         async Task<string> Read()
@@ -918,7 +914,7 @@ public sealed class Locator
         var token = _screen.Token(cancellationToken);
         var clock = _screen.Clock;
         var startedAt = clock.GetTimestamp();
-        var deadline = new Deadline(TimeoutOf(options?.Timeout), clock);
+        var deadline = _screen.Engine.DeadlineFor(options?.Timeout);
         var samples = new SampleHistory("waitFor", _screen.Redact);
         await samples.RecordAsync(_screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
         {
@@ -1095,8 +1091,6 @@ public sealed class Locator
     internal Task<SemanticNode> ResolveExactlyOneAsync(Deadline deadline, CancellationToken token) =>
         _screen.Engine.ResolveExactlyOneAsync(Query, deadline, token);
 
-    private TimeSpan TimeoutOf(TimeSpan? timeout) => _screen.Engine.TimeoutOf(timeout);
-
     private static string StateName(WaitForState state) => state switch
     {
         WaitForState.Attached => "attached",
@@ -1109,7 +1103,7 @@ public sealed class Locator
 /// <summary>Options for one locator action.</summary>
 public class ActionOptions
 {
-    /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout.</summary>
+    /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }
 
@@ -1207,7 +1201,7 @@ public sealed class LocatorWaitForOptions
 {
     public WaitForState State { get; init; } = WaitForState.Visible;
 
-    /// <summary>How long to wait. Defaults to the configured action timeout.</summary>
+    /// <summary>How long to wait. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }
 

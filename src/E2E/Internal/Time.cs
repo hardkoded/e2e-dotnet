@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using E2E.Engine;
 
 namespace E2E.Internal;
@@ -54,7 +55,7 @@ internal sealed class ReadWindow
         var capped = _cap.Remaining(now);
         var budget = capped < left ? capped : left;
         var least = TimeSpan.FromMilliseconds(1);
-        return budget > least ? budget : least;
+        return budget > Time.Unbounded ? Time.Unbounded : budget > least ? budget : least;
     }
 
     /// <summary>Marks a read starting now: the one <see cref="CutOff"/> judges until the next starts.</summary>
@@ -165,6 +166,55 @@ internal static class Time
         }
 
         return session.CanBeCanceled ? CancellationTokenSource.CreateLinkedTokenSource(caller, session).Token : caller;
+    }
+
+    /// <summary>
+    /// The deadline of a step that has none of its own and no running phase to end it: far enough that nothing reaches it, and not
+    /// <see cref="DateTimeOffset.MaxValue"/>, so adding a read's time to it cannot overflow.
+    /// </summary>
+    public static readonly DateTimeOffset Never = new(9000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>The longest budget handed to an engine read or a timer: a day, standing for no limit when nothing caps a step.</summary>
+    public static readonly TimeSpan Unbounded = TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// Refuses a per-call step timeout below zero as <c>INVALID_ARGUMENT</c> (upstream's <c>checkStepTimeout</c>; a <see cref="TimeSpan"/> is
+    /// always a finite number of milliseconds, so only the sign is left to check). Zero means no step deadline: the step waits until the
+    /// running phase's deadline (the test timeout in the body).
+    /// </summary>
+    public static void CheckStepTimeout(TimeSpan? timeout, string api)
+    {
+        if (timeout is { } given && given < TimeSpan.Zero)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " timeout must be a finite number of milliseconds, 0 or more; got " + ((long)given.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
+    /// <summary>
+    /// The deadline of a step on a call's own <paramref name="timeout"/> (upstream's <c>stepTimeout</c>, capped by the phase as
+    /// <c>Deadline.min</c> does): the timeout, or <paramref name="fallback"/> when none is given, from now. Zero sets no deadline of its
+    /// own, so <paramref name="phase"/> alone bounds it; with no phase it is <see cref="Never"/>.
+    /// </summary>
+    public static Deadline StepDeadline(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    {
+        CheckStepTimeout(timeout, api);
+        return timeout == TimeSpan.Zero ? phase ?? new Deadline(Never) : new Deadline(timeout ?? fallback, clock);
+    }
+
+    /// <summary>
+    /// <see cref="StepDeadline"/> as a budget, for a call that hands one to the engine: what is left of the deadline, at least 1 ms and
+    /// at most <see cref="Unbounded"/>.
+    /// </summary>
+    public static TimeSpan StepBudget(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    {
+        if (timeout != TimeSpan.Zero)
+        {
+            CheckStepTimeout(timeout, api);
+            return timeout ?? fallback;
+        }
+
+        var left = StepDeadline(timeout, api, fallback, phase, clock).Remaining(clock.GetUtcNow());
+        return left < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : left > Unbounded ? Unbounded : left;
     }
 
     /// <summary>Canonical polling cadence for locator and assertion loops.</summary>

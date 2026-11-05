@@ -78,6 +78,25 @@ public sealed class BrowserRouteDecisionsTests
 
     // Not portable, because the C# signature refuses them at compile time (upstream's tests/types/downloads.ts): a batch with no count,
     // and a trigger that is not asynchronous.
+    // Partial: upstream hands a recording operation the timeouts and checks the budgets it was asked for (Infinity for 0). The port has no
+    // operation to record, so this runs real calls: 0 waits for the test deadline instead of failing, and a negative timeout is refused.
+    [Fact]
+    public Task Partial_Hands_timeout_0_to_the_operation_as_a_budget_only_the_test_deadline_caps_and_refuses_a_negative_one() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = TimeSpan.Zero });
+        await routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", TimeSpan.Zero);
+        var negative = TimeSpan.FromMilliseconds(-1);
+        foreach (var call in new Func<Task>[]
+        {
+            () => routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = negative }),
+            () => routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", negative),
+            () => routes.Browser.WaitForDownloadAsync(() => Task.CompletedTask, negative),
+        })
+        {
+            Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(call)).Code);
+        }
+    });
+
     [Fact]
     public Task Rejects_an_invalid_download_count_before_running_the_trigger() => WithRoutesAsync(async routes =>
     {

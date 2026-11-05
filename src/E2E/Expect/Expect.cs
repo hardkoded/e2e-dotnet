@@ -405,11 +405,6 @@ public sealed class LocatorExpect
         MissingFrame missingFrame,
         CancellationToken cancellationToken)
     {
-        if (timeout is { } budget)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(budget, TimeSpan.Zero, nameof(timeout));
-        }
-
         var token = _locator.Screen.Token(cancellationToken);
         var clock = _locator.Screen.Clock;
         Verdict last = default;
@@ -417,7 +412,7 @@ public sealed class LocatorExpect
         var samples = new SampleHistory("expect", _locator.Screen.Redact);
         try
         {
-            var deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock);
+            var deadline = _locator.Screen.Engine.AssertionDeadlineFor(timeout, "expect." + (_negated ? "not." : "") + matcher);
             await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
             {
                 Deadline = deadline,

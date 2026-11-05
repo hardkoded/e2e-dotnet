@@ -34,6 +34,8 @@ public sealed class PageClickTests : PlaywrightTest
 
     private static readonly ActionOptions Ten = new() { Timeout = TimeSpan.FromSeconds(10) };
 
+    private static readonly ActionOptions NoTimeout = new() { Timeout = TimeSpan.Zero };
+
     private async Task<string> ResultAsync() => (await Browser.EvaluateAsync<string>("result"))!;
 
     [Test]
@@ -155,7 +157,7 @@ public sealed class PageClickTests : PlaywrightTest
         var done = false;
         var clicked = Task.Run(async () =>
         {
-            await Browser.Locator("button").TapAsync(Ten);
+            await Browser.Locator("button").TapAsync(NoTimeout);
             done = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);
@@ -175,7 +177,7 @@ public sealed class PageClickTests : PlaywrightTest
         var done = false;
         var clicked = Task.Run(async () =>
         {
-            await Browser.Locator("button").TapAsync(Ten);
+            await Browser.Locator("button").TapAsync(NoTimeout);
             done = true;
         });
         await Browser.EvaluateAsync<object>(GiveItAChanceToClick);

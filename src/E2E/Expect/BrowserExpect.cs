@@ -161,14 +161,9 @@ public sealed class BrowserExpect
 
     private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken)
     {
-        if (timeout is { } given)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(given, TimeSpan.Zero, nameof(timeout));
-        }
-
         var token = _browser.Token(cancellationToken);
         var clock = TimeProvider.System;
-        var deadline = new Deadline(timeout ?? _browser.AssertionTimeout, clock);
+        var deadline = Time.StepDeadline(timeout, "expect." + (_negated ? "not." : "") + matcher, _browser.AssertionTimeout, _browser.BudgetDeadline, clock);
         string? observed = null;
         try
         {
@@ -182,7 +177,7 @@ public sealed class BrowserExpect
                 {
                     var left = deadline.Remaining(clock.GetUtcNow());
                     using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    bounded.CancelAfter(left > Time.PollInterval ? left : Time.PollInterval);
+                    bounded.CancelAfter(left > Time.Unbounded ? Time.Unbounded : left > Time.PollInterval ? left : Time.PollInterval);
                     try
                     {
                         var sample = await read(bounded.Token).ConfigureAwait(false);

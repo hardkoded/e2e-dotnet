@@ -113,6 +113,6 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-Assertion budget. Defaults to the assertion timeout.
+Assertion budget. Defaults to the assertion timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is `INVALID_ARGUMENT`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
