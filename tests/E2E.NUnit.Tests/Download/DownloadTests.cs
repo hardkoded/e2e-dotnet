@@ -22,23 +22,19 @@ public sealed class DownloadTests : PlaywrightTest
         await AssertDownloadToPdf(download, Asset("empty.pdf"));
     }
 
-    // Upstream marks this test `fail`: `route.fulfill` bodies are strings, so binary bytes do not survive the round trip.
     [Test]
     public async Task Should_be_able_to_download_a_inline_PDF_file_via_response_interception()
     {
-        await ExpectedToFailAsync("the downloaded bytes differ from the asset", async () =>
+        await Browser.GotoAsync("/empty.html");
+        await Browser.RouteAsync("**/empty.pdf", async route =>
         {
-            await Browser.GotoAsync("/empty.html");
-            await Browser.RouteAsync("**/empty.pdf", async route =>
-            {
-                var response = await route.FetchAsync();
-                var headers = new Dictionary<string, string>(response.Headers) { ["Content-Disposition"] = "attachment" };
-                await route.FulfillAsync(new RouteFulfillResponse { Status = response.Status, Headers = headers, Body = await response.TextAsync() });
-            });
-            await Browser.GotoAsync(Content("""<a href="/empty.pdf">open</a>"""));
-            var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
-            await AssertDownloadToPdf(download, Asset("empty.pdf"), thrown: true);
+            var response = await route.FetchAsync();
+            var headers = new Dictionary<string, string>(response.Headers) { ["Content-Disposition"] = "attachment" };
+            await route.FulfillAsync(new RouteFulfillResponse { Status = response.Status, Headers = headers, BodyBytes = await response.BodyAsync() });
         });
+        await Browser.GotoAsync(Content("""<a href="/empty.pdf">open</a>"""));
+        var download = await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
+        await AssertDownloadToPdf(download, Asset("empty.pdf"));
     }
 
     [Test]
@@ -93,29 +89,13 @@ public sealed class DownloadTests : PlaywrightTest
         Assert.That(download.SuggestedFilename, Is.EqualTo("foo.zip"));
     }
 
-    /// <summary>
-    /// Checks a saved download is the file at <paramref name="filePath"/> byte for byte, PDF magic first, Playwright's
-    /// <c>assertDownloadToPDF</c>. With <paramref name="thrown"/> it throws instead of asserting (for a body run by <see cref="ExpectedToFailAsync"/>).
-    /// </summary>
-    private static async Task AssertDownloadToPdf(BrowserDownload download, string filePath, bool thrown = false)
+    /// <summary>Checks a saved download is the file at <paramref name="filePath"/> byte for byte, PDF magic first, Playwright's <c>assertDownloadToPDF</c>.</summary>
+    private static async Task AssertDownloadToPdf(BrowserDownload download, string filePath)
     {
         var data = await File.ReadAllBytesAsync(download.AbsolutePath);
         var expected = await File.ReadAllBytesAsync(filePath);
-        var magic = "%PDF"u8.ToArray();
-        if (thrown)
-        {
-            // The known difference is the bytes only: the name is right and the file is a different size or has other content.
-            Equal(Path.GetFileName(filePath), download.SuggestedFilename);
-            if (!data.AsSpan().StartsWith(magic) || !data.AsSpan().SequenceEqual(expected))
-            {
-                throw new InvalidOperationException($"the downloaded bytes differ from the asset ({data.Length} bytes, expected {expected.Length})");
-            }
-
-            return;
-        }
-
         Assert.That(download.SuggestedFilename, Is.EqualTo(Path.GetFileName(filePath)));
-        Assert.That(data.AsSpan().StartsWith(magic), Is.True);
+        Assert.That(data.AsSpan().StartsWith("%PDF"u8), Is.True);
         Assert.That(data.AsSpan().SequenceEqual(expected), Is.True);
     }
 }
