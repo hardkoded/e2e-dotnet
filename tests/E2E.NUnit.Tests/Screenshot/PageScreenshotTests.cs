@@ -206,7 +206,6 @@ public sealed class PageScreenshotTests : ScreenshotTest
     }
 
     [Test]
-    [Ignore("Browser.EvaluateAsync fails once the page deletes window.Array: #1110")]
     public async Task Should_work_with_Array_deleted()
     {
         await Browser.SetViewportAsync(500, 500);

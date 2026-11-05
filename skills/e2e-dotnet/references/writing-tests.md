@@ -448,7 +448,10 @@ misses.
 
 - `GotoAsync(url, new GotoOptions { WaitUntil, Timeout })`, `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
   `WaitForURLAsync`, `EvaluateAsync<T>`, `SetViewportAsync`, and the raw
-  keyboard and mouse.
+  keyboard and mouse. `EvaluateAsync<T>` returns plain JSON only: a class
+  instance (a `DOMRect`, an element) is `INVALID_ARGUMENT`, so return
+  `rect.toJSON()` or the fields you need. It fails with `EVALUATE_FAILED` when
+  the code threw or when the page replaced a built-in such as `Map`.
 - `Locator("css or xpath")`: a locator from a raw CSS or XPath selector, for a
   control no role, label, or test-id query names. Not portable: a last resort.
   It matches any element in the document (`body`, `html`, a wrapper `div`), as

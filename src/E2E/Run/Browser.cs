@@ -194,9 +194,11 @@ public sealed class Browser
 
     /// <summary>
     /// Evaluates trusted test code in the page: an expression, or a function
-    /// source that is called. The result must be JSON-safe and is deserialized to
-    /// <typeparamref name="T"/>. A throwing script fails with <c>EVALUATE_FAILED</c>, and a
-    /// script that does not finish within the action timeout with <c>OPERATION_TIMEOUT</c>.
+    /// source that is called. The result must be plain JSON, <c>null</c> when the code returns nothing, and is deserialized to
+    /// <typeparamref name="T"/>. A class instance, such as a <c>DOMRect</c> or an element, fails with <c>INVALID_ARGUMENT</c>: return
+    /// <c>rect.toJSON()</c> or the fields you need. A throwing script fails with <c>EVALUATE_FAILED</c>, and so does a page that replaced
+    /// a JavaScript built-in (such as <c>Map</c>) that the engine's in-page code needs. A script that does not finish within the action
+    /// timeout fails with <c>OPERATION_TIMEOUT</c>.
     /// </summary>
     public Task<T?> EvaluateAsync<T>(string expression, CancellationToken cancellationToken = default) =>
         EvaluateCoreAsync<T>(expression, null, hasArg: false, cancellationToken);

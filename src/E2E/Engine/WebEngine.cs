@@ -1248,6 +1248,21 @@ public sealed partial class WebEngine : IEngine
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
+            try
+            {
+                return await LocateNowAsync(expression, timeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.EngineFailure && ex.InnerException is PlaywrightException cause)
+            {
+                // Upstream's pageScriptFailure around locate: a page that replaced a built-in the in-page code needs fails the test, not the engine.
+                var pageFailure = await WebErrors.PageScriptFailureAsync(Page, cause, "locate", (float)timeout.TotalMilliseconds).ConfigureAwait(false);
+                throw pageFailure is null ? ex : pageFailure;
+            }
+        }
+
+        /// <summary>The body of <see cref="LocateAsync"/>, inside its page-script guard.</summary>
+        private async Task<IReadOnlyList<SemanticNode>> LocateNowAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
             var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
             var projected = expression;
             if (WebLocators.NeedsPage(expression))
@@ -1871,33 +1886,45 @@ public sealed partial class WebEngine : IEngine
         public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
         {
             var budget = Budget("evaluate", cancellationToken);
-            System.Text.Json.JsonElement? outcome;
+            string? report;
             try
             {
-                outcome = await budget.WithinAsync(Page.EvaluateAsync<System.Text.Json.JsonElement?>(Evaluation.CompileEvaluation(expression, hasArg), arg)).ConfigureAwait(false);
+                // A handle, not a value: the boundary resolves to a string, which Playwright keeps out of its in-page serializer when it is taken back from a handle.
+                var handle = await budget.WithinAsync(Page.EvaluateHandleAsync(Evaluation.CompileEvaluation(expression, hasArg), arg)).ConfigureAwait(false);
+                try
+                {
+                    report = await budget.WithinAsync(handle.JsonValueAsync<string>()).ConfigureAwait(false);
+                }
+                finally
+                {
+                    try
+                    {
+                        await handle.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (PlaywrightException)
+                    {
+                        // Best effort: a page that navigated or closed took the handle with it, and the read's own failure is the one to report.
+                    }
+                }
             }
             catch (PlaywrightException ex) when (ex.Message.StartsWith("SyntaxError", StringComparison.Ordinal))
             {
                 throw new TestException("EVALUATE_FAILED", PageMessage(ex), ex);
             }
-            catch (PlaywrightException ex)
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
-                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result.
-                throw WebErrors.Translate(ex, "evaluate");
+                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result. Unless the page
+                // broke the engine's own in-page code, which is the test's to fix.
+                var pageFailure = await WebErrors.PageScriptFailureAsync(Page, ex, "evaluate", budget.PlaywrightTimeout).ConfigureAwait(false);
+                throw pageFailure is null ? WebErrors.Translate(ex, "evaluate") : pageFailure;
             }
             catch (ArgumentException ex)
             {
-                // Playwright cannot carry a result that is not JSON, such as Infinity or NaN.
-                throw new TestException("INVALID_ARGUMENT", "evaluate argument or result is not JSON: " + ex.Message, ex);
+                // Playwright cannot carry an argument that is not JSON, such as Infinity or NaN.
+                throw new TestException("INVALID_ARGUMENT", "evaluate argument is not JSON: " + ex.Message, ex);
             }
 
-            var result = outcome!.Value;
-            if (result.GetProperty("ok").GetBoolean())
-            {
-                return result.TryGetProperty("value", out var value) ? value : default(System.Text.Json.JsonElement?);
-            }
-
-            throw new TestException("EVALUATE_FAILED", result.GetProperty("message").GetString()!);
+            return Evaluation.DecodeEvaluation(report);
         });
 
         // What the page code threw, without the stack Playwright appends or the "Error: " it prefixes to an Error's message.
@@ -4230,6 +4257,72 @@ internal static partial class WebErrors
         return cause is System.TimeoutException
             ? new EngineException(EngineErrorCodes.OperationTimeout, text, cause)
             : new EngineException(EngineErrorCodes.EngineFailure, text, cause);
+    }
+
+    /// <summary>
+    /// The failure of an operation whose in-page code the page's own scripts broke, as <c>EVALUATE_FAILED</c>, or null when something else
+    /// failed (upstream's <c>pageScriptFailure</c>). A page that deletes or replaces a JavaScript built-in (<c>Map</c>, <c>Object</c>) breaks
+    /// every script Playwright runs in its main world. Told apart by asking the frame in both worlds: Playwright's utility world still reads
+    /// the document before and after a main-world query that runs no e2e code fails, so the frame lives throughout and e2e's own code is not
+    /// the cause. The port probes the top frame (.NET-only: upstream follows the frame selectors of the locator).
+    /// </summary>
+    public static Task<TestException?> PageScriptFailureAsync(IPage page, Exception cause, string operation, float timeoutMs)
+    {
+        var root = page.Locator(":root");
+        return PageScriptFailureAsync(
+            () => root.CountAsync(),
+            () => root.EvaluateAsync("() => 0", null, new LocatorEvaluateOptions { Timeout = Math.Max(timeoutMs, 1) }),
+            cause,
+            operation);
+    }
+
+    /// <summary>The probes of <see cref="PageScriptFailureAsync(IPage, Exception, string, float)"/> as delegates: the utility-world count and the main-world evaluate (.NET-only seam: the tests have no page to mock).</summary>
+    public static async Task<TestException?> PageScriptFailureAsync(Func<Task> count, Func<Task> evaluate, Exception cause, string operation)
+    {
+        if (cause is E2EException || cause is System.TimeoutException || IsNavigationRace(cause))
+        {
+            return null;
+        }
+
+        async Task<bool> Alive()
+        {
+            try
+            {
+                await count().ConfigureAwait(false);
+                return true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return false;
+            }
+        }
+
+        if (!await Alive().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        try
+        {
+            await evaluate().ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception probe) when (probe is System.TimeoutException || IsNavigationRace(probe))
+        {
+            return null;
+        }
+        catch (Exception probe) when (probe is not OperationCanceledException)
+        {
+            // The main world failed, as the page's own replaced built-in would make it: the case this method classifies.
+        }
+
+        // A crash or a closed target between the two probes fails this read too.
+        if (!await Alive().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new TestException("EVALUATE_FAILED", $"{operation} failed: the page deleted or replaced a JavaScript built-in that in-page automation code needs: {Message(cause)}", cause);
     }
 
     /// <summary>Whether Playwright's words for <paramref name="cause"/> say the element left the DOM.</summary>
