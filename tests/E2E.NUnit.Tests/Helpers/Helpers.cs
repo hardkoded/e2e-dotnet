@@ -8,12 +8,33 @@ namespace E2E.NUnit.Tests;
 
 /// <summary>
 /// The helpers of the tests ported from Playwright, upstream's <c>apps/testbed/tests/helpers.ts</c>:
-/// <c>content</c> and <c>PREFIX</c>. <see cref="ExpectedToFailAsync"/> is .NET-only (see its summary).
+/// <c>content</c>, <c>PREFIX</c> and <c>CROSS</c>. <see cref="ExpectedToFailAsync"/> is .NET-only (see its summary).
 /// </summary>
 internal static class Helpers
 {
     /// <summary>The app's origin, Playwright's <c>server.PREFIX</c> in the tests ported from it.</summary>
     public static string PREFIX => E2E.Playground.Testbed.Url;
+
+    /// <summary>Upstream's <c>delay(milliseconds).then(next)</c>.</summary>
+    public static async Task After(int milliseconds, Func<Task> next)
+    {
+        await Task.Delay(milliseconds).ConfigureAwait(false);
+        await next().ConfigureAwait(false);
+    }
+
+    /// <summary>The error <paramref name="act"/> threw, or null when it did not (upstream's <c>failure</c>).</summary>
+    public static async Task<Exception?> Record(Func<Task> act)
+    {
+        try
+        {
+            await act().ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ex;
+        }
+    }
 
     /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c>.</summary>
     public static string CROSS => E2E.Playground.Testbed.Url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);

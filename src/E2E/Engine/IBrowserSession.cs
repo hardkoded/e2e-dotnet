@@ -199,6 +199,12 @@ public sealed record BrowserResponse
 
     /// <summary>The body as text. Faults with <c>ACTION_FAILED</c> when the browser could not read it.</summary>
     public required Task<string> Body { get; init; }
+
+    /// <summary>
+    /// The body as bytes (upstream's <c>body()</c>), faulting like <see cref="Body"/>. .NET-only: <see cref="Body"/> predates it, so an engine
+    /// that sets only <see cref="Body"/> still serves <see cref="E2E.WebResponse.BodyAsync"/> with the text encoded as UTF-8.
+    /// </summary>
+    public Task<byte[]>? BodyBytes { get; init; }
 }
 
 /// <summary>
@@ -249,6 +255,7 @@ public sealed record RouteFulfillResponse
     /// <summary>HTTP status from 100 to 599. Defaults to 200.</summary>
     public int? Status { get; init; }
 
+    /// <summary>Response headers; <c>set-cookie</c> may join several cookies with <c>\n</c>, as <c>route.fetch()</c> reports them.</summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
     /// <summary>Sets the <c>Content-Type</c> response header.</summary>
@@ -258,6 +265,12 @@ public sealed record RouteFulfillResponse
     public object? Json { get; init; }
 
     public string? Body { get; init; }
+
+    /// <summary>
+    /// A body of bytes, sent unchanged (upstream's <c>body</c> as a <c>Buffer</c> or <c>Uint8Array</c>). .NET-only name: C# has no
+    /// string-or-bytes union, so <see cref="Body"/> stays the text and this holds the bytes. Give at most one of the two.
+    /// </summary>
+    public byte[]? BodyBytes { get; init; }
 
     /// <summary>A file relative to the project root. Its <c>Content-Type</c> follows its extension unless <see cref="ContentType"/> or a <c>content-type</c> header sets one.</summary>
     public string? Path { get; init; }
@@ -273,6 +286,13 @@ public sealed record RouteContinueOverrides
 
     /// <summary>Replaces every request header; the configured headers for the app's host are added on top.</summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>
+    /// Names of request headers to send without (upstream sets such a header to <c>undefined</c> in <c>headers</c>). .NET-only name: a
+    /// <c>string?</c> value in <see cref="Headers"/> would make every caller that passes a <c>Dictionary&lt;string, string&gt;</c> a nullable
+    /// warning. It applies to the request's own headers when <see cref="Headers"/> is unset, and also on a redirect.
+    /// </summary>
+    public IReadOnlyCollection<string>? DropHeaders { get; init; }
 
     public string? PostData { get; init; }
 }

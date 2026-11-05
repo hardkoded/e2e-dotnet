@@ -68,4 +68,24 @@ public sealed class ThroughTheLocatorTargetTests
                 Assert.Equal("", (await session.Browser.EvaluateAsync<string>(State))!.Split('|')[0]);
             });
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Clears_a_file_input_or_a_button_over_a_hidden_input_with_an_empty_list_and_fires_input_and_change(bool button)
+    {
+        await RunWithScreenAsync(
+            (button
+                ? """<button id="pick" type="button" onclick="document.getElementById('avatar').click()">Choose avatar</button><input id="avatar" type="file" hidden>"""
+                : """<input id="avatar" type="file" aria-label="Avatar">""") + CountClicks,
+            async session =>
+            {
+                var target = button ? session.Screen.GetByRole("button", "Choose avatar") : session.Screen.GetByLabel("Avatar");
+                await target.SetInputFilesAsync(AvatarFile);
+                await session.Browser.EvaluateAsync<string>(ListenForInputAndChange);
+                await target.SetInputFilesAsync([]);
+                Assert.Equal("", (await session.Browser.EvaluateAsync<string>(State))!.Split('|')[0]);
+                Assert.Equal("input,change", await session.Browser.EvaluateAsync<string>("() => window.events.join(',')"));
+            });
+    }
 }

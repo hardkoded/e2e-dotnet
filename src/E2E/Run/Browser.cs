@@ -655,6 +655,7 @@ public sealed class WebRoute
 public sealed class WebResponse
 {
     private readonly Task<string> _body;
+    private readonly Task<byte[]>? _bytes;
     private readonly TimeSpan _actionTimeout;
     private readonly Func<CancellationToken> _token;
 
@@ -664,6 +665,7 @@ public sealed class WebResponse
         Status = response.Status;
         Headers = response.Headers;
         _body = response.Body;
+        _bytes = response.BodyBytes;
         _actionTimeout = actionTimeout;
         _token = token;
     }
@@ -678,16 +680,27 @@ public sealed class WebResponse
     public IReadOnlyDictionary<string, string> Headers { get; }
 
     /// <summary>
+    /// Waits for the body, up to the action timeout, and returns its bytes (upstream's <c>body()</c>), a copy on every call. Fails with
+    /// <c>ACTION_FAILED</c> when the body could not be read or did not finish in time.
+    /// </summary>
+    public async Task<byte[]> BodyAsync(CancellationToken cancellationToken = default) =>
+        _bytes is null
+            ? System.Text.Encoding.UTF8.GetBytes(await TextAsync(cancellationToken).ConfigureAwait(false))
+            : (byte[])(await WaitForAsync(_bytes, cancellationToken).ConfigureAwait(false)).Clone();
+
+    /// <summary>
     /// Waits for the body, up to the action timeout, and reads it as text. Fails with
     /// <c>ACTION_FAILED</c> when the body could not be read or did not finish in time.
     /// </summary>
-    public async Task<string> TextAsync(CancellationToken cancellationToken = default)
+    public Task<string> TextAsync(CancellationToken cancellationToken = default) => WaitForAsync(_body, cancellationToken);
+
+    private async Task<T> WaitForAsync<T>(Task<T> body, CancellationToken cancellationToken)
     {
         try
         {
-            return await _body.WaitAsync(_actionTimeout, cancellationToken == default ? _token() : cancellationToken).ConfigureAwait(false);
+            return await body.WaitAsync(_actionTimeout, cancellationToken == default ? _token() : cancellationToken).ConfigureAwait(false);
         }
-        catch (TimeoutException) when (!_body.IsCompleted)
+        catch (TimeoutException) when (!body.IsCompleted)
         {
             var budget = ((long)_actionTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
             throw new TestException("ACTION_FAILED", "waitForResponse: response body did not finish within " + budget + "ms");
