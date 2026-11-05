@@ -204,11 +204,14 @@ public sealed class ManagedProcessTests
     [Fact]
     public async Task Times_out_and_cleans_up_when_the_app_never_becomes_ready()
     {
+        // A free port another parallel test can bind and answer on between the probes, which would make the start succeed. A server that holds
+        // the port and answers 503 (not ready) keeps it ours. Upstream's free port does not hold it.
+        await using var held = new TestServer(_ => Task.FromResult<int?>(503));
         var app = new ManagedProcessUnderTest(
             "app.command",
             AppProgram.Command(["idle"], TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(2)),
             Path.GetTempPath(),
-            new Readiness(UrlOf(AppProgram.FreePort())));
+            new Readiness(held.Url));
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Contains("was not reachable", failure.Message, StringComparison.Ordinal);
     }
