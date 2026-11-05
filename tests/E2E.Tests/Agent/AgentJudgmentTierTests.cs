@@ -309,6 +309,32 @@ public sealed class AgentJudgmentTierTests
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
     }
 
+    /// <summary>.NET-only: the judgment path prints a <c>Screen (route):</c> line before the <c>#id</c> lines (upstream sends the route as the observation's attributes), and the route goes through the redactor.</summary>
+    [Fact]
+    public async Task Redacts_a_secret_in_the_route_of_the_screen_heading_the_judge_reads()
+    {
+        var world = World().Map("/reset", page => page.Button("Increment"));
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the reset page is open"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new DocumentEngine(world),
+            Judge = judge,
+            BaseUrl = "https://app.test",
+            TestTitle = "agent judgment route",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            TestTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
+        await session.Context.App.OpenAsync("/reset?token=hunter2-secret");
+        await session.Context.Agent.AssertAsync("the reset page is open");
+        session.Complete(null);
+
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.Contains("Screen (/reset?token=<secret:reset.token>):\n#", observation, StringComparison.Ordinal);
+        Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
+    }
+
     private static DocumentWorld World() => CounterPage.World().Map("/about", page => page.Heading("About"));
 
     private static async Task<CoreTests.Attempt> RunAsync(
