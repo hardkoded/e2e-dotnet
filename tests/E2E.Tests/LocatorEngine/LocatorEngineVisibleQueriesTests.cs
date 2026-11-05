@@ -95,6 +95,20 @@ public sealed class LocatorEngineVisibleQueriesTests
         Assert.Contains("getByText(\"Save\", visible: true)", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task NET_only_a_text_query_resolves_a_shown_label_over_the_zero_sized_control_inside_it()
+    {
+        // Upstream's web tree lists no box-less node; this one does, so the text query leaves it out of the innermost pick.
+        var control = new SemanticNode { Ref = "input", Role = "textbox", Name = "Click me", Rect = new BoundingBox(68, 8, 0, 0) };
+        var label = new SemanticNode { Ref = "label", Text = "Click me", Rect = new BoundingBox(8, 8, 60, 18), Children = [control] };
+        var tapped = new List<string>();
+        var screen = ScreenOver([label], tapped);
+
+        await screen.GetByText("Click me").TapAsync();
+
+        Assert.Equal(["label"], tapped);
+    }
+
     /// <summary>A locator engine over an engine that answers every locate with <paramref name="nodes"/>, and keeps the expressions it was asked.</summary>
     private static E2E.LocatorEngine EngineAnswering(IReadOnlyList<SemanticNode> nodes, List<LocatorExpression> expressions) => new(new LocatorEngineOptions
     {

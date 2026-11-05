@@ -111,9 +111,7 @@ public sealed class PageFilechooserTests : PlaywrightTest
         Assert.That(await Browser.EvaluateAsync<string>("() => window.picked"), Is.EqualTo("contents of the file"));
     }
 
-    // Upstream: { skip: '`setInputFiles([])` is refused, so there is no way to clear a file input (refused as INVALID_ARGUMENT, which `fail` does not cover)' }.
     [Test]
-    [Ignore("`SetInputFilesAsync([])` is refused, so there is no way to clear a file input (refused as INVALID_ARGUMENT, which a known difference does not cover)")]
     public async Task Should_be_able_to_reset_selected_files_with_empty_file_list()
     {
         await Browser.GotoAsync(Content(Picker));
