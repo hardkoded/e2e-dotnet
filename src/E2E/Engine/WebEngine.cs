@@ -1396,7 +1396,7 @@ public sealed partial class WebEngine : IEngine
                 var count = await budget.WithinAsync(element.CountAsync()).ConfigureAwait(false);
                 if (count == 0)
                 {
-                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+                    throw NoFrame(selector);
                 }
 
                 if (count > 1)
@@ -1404,12 +1404,20 @@ public sealed partial class WebEngine : IEngine
                     throw new EngineException(EngineErrorCodes.FrameAmbiguous, $"{count} frames match {selector}", retryable: false);
                 }
 
-                refs.Add((await budget.WithinAsync(element.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false))[0]);
+                // The iframe can go between the count and this read: it then lists nothing, as a count of zero says.
+                var listed = await budget.WithinAsync(element.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false);
+                refs.Add(listed.Length > 0 ? listed[0] : throw NoFrame(selector));
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
-            // A selector counts one element; only an iframe is a frame boundary.
-            if (!await budget.WithinAsync(element!.EvaluateAsync<bool>(PageScript.IsFrameElement, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false))
+            // A selector counts one element; only an iframe is a frame boundary. Read without waiting for the element: an iframe that went since the count is no frame, not an element to wait for.
+            var isFrame = await budget.WithinAsync(element!.EvaluateAllAsync<bool[]>(PageScript.AreFrameElements)).ConfigureAwait(false);
+            if (isFrame.Length == 0)
+            {
+                throw NoFrame(frames[^1]);
+            }
+
+            if (!isFrame[0])
             {
                 throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
             }
@@ -1428,6 +1436,8 @@ public sealed partial class WebEngine : IEngine
 
             return refs[^1]!;
         }
+
+        private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
 
         /// <summary>
         /// The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page. An element
@@ -3619,16 +3629,21 @@ public sealed partial class WebEngine : IEngine
             IFileChooser chooser;
             try
             {
-                chooser = await opened.ConfigureAwait(false);
+                // On a loaded machine the deadline that wraps this upload can fire together with Playwright's timeout, which is the lead sooner.
+                // Upstream's earlier timer always wins that race; here that deadline gives the same answer.
+                chooser = await budget.AwaitingAsync(opened, () => NoFileChooser(null)).ConfigureAwait(false);
             }
             catch (System.TimeoutException ex)
             {
-                throw new EngineException(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, ex);
+                throw NoFileChooser(ex);
             }
 
             budget.ThrowIfExpired();
             await chooser.SetFilesAsync(paths, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
         }
+
+        private static EngineException NoFileChooser(Exception? cause) =>
+            new(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, cause);
 
         /// <summary>How often a check or uncheck reads the control's state after the click.</summary>
         private static readonly TimeSpan CheckPollInterval = TimeSpan.FromMilliseconds(100);
@@ -4162,6 +4177,7 @@ internal sealed class OperationBudget
     private readonly string _label;
     private readonly CancellationToken _cancellationToken;
     private readonly TimeProvider _clock;
+    private volatile Func<EngineException>? _atDeadline;
 
     // startedAt is when the operation began, on the clock, when engine work such as a reconnect already spent part of its budget.
     public OperationBudget(TimeSpan timeout, string label, CancellationToken cancellationToken, TimeProvider? clock = null, long? startedAt = null)
@@ -4181,6 +4197,29 @@ internal sealed class OperationBudget
         {
             var left = Remaining().TotalMilliseconds;
             return (float)Math.Ceiling(left - Math.Min(PlaywrightTimeoutLeadMs, left / 2));
+        }
+    }
+
+    /// <summary>
+    /// Awaits a call whose own timeout is the lead ahead of the deadline. If the deadline passes first, because both fired in one stall
+    /// of a loaded machine, the deadline that wraps this call (<see cref="WithinAsync(Task)"/>) ends it as <paramref name="atDeadline"/>
+    /// answers, not as <c>OPERATION_TIMEOUT</c>. The answer stays when the call fails on its timeout, and goes on success or another
+    /// failure, so a later deadline is a plain timeout again.
+    /// </summary>
+    public async Task<T> AwaitingAsync<T>(Task<T> call, Func<EngineException> atDeadline)
+    {
+        _atDeadline = atDeadline;
+        try
+        {
+            var result = await call.ConfigureAwait(false);
+            _atDeadline = null;
+            return result;
+        }
+        catch (Exception ex) when (ex is not System.TimeoutException)
+        {
+            // Another failure ends the operation on its own answer; a deadline after it is a plain timeout.
+            _atDeadline = null;
+            throw;
         }
     }
 
@@ -4243,7 +4282,7 @@ internal sealed class OperationBudget
         return left > TimeSpan.Zero ? left : throw Timeout();
     }
 
-    private EngineException Timeout() => new(EngineErrorCodes.OperationTimeout, _label + " timed out", retryable: false);
+    private EngineException Timeout() => _atDeadline?.Invoke() ?? new(EngineErrorCodes.OperationTimeout, _label + " timed out", retryable: false);
 }
 
 /// <summary>

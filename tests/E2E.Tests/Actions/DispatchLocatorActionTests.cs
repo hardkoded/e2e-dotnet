@@ -155,7 +155,21 @@ public sealed class DispatchLocatorActionTests
     {
         // A disabled button never becomes clickable, so the click fails while the chooser wait is still pending.
         var unobserved = new List<string>();
-        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs args) => unobserved.Add(args.Exception.ToString());
+        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs args)
+        {
+            lock (unobserved)
+            {
+                unobserved.Add(args.Exception.ToString());
+            }
+        }
+
+        // The listener is process-wide: finalize what earlier tests left behind before it starts, so only this test's tasks reach it.
+        for (var round = 0; round < 2; round++)
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
+            GC.WaitForPendingFinalizers();
+        }
+
         TaskScheduler.UnobservedTaskException += OnUnobserved;
         try
         {
@@ -182,7 +196,13 @@ public sealed class DispatchLocatorActionTests
             TaskScheduler.UnobservedTaskException -= OnUnobserved;
         }
 
-        Assert.DoesNotContain(unobserved, text => text.Contains("filechooser", StringComparison.OrdinalIgnoreCase));
+        List<string> leaked;
+        lock (unobserved)
+        {
+            leaked = unobserved.Where(text => text.Contains("filechooser", StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+
+        Assert.True(leaked.Count == 0, "An unobserved task exception names the file chooser:\n" + string.Join("\n---\n", leaked));
     }
 
     private static async Task<SemanticNode> FindByNameAsync(IEngineSession session, string name)
