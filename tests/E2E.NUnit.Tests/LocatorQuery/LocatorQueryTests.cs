@@ -86,10 +86,7 @@ public sealed class LocatorQueryTests : PlaywrightTest
         await Expect.That(Browser.Locator("div").Filter(hasText: new Regex("Hello \"world\""))).ToHaveTextAsync("Hello \"world\"");
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1073: getByText finds no text inside a button. Ignored, not run behind ExpectedToFailAsync,
-    // because its Expect.Soft failures end the test, as upstream's expect.soft.
     [Test]
-    [Ignore("hardkoded/e2e-dotnet#1073")]
     public async Task Should_filter_by_regex_with_a_single_quote()
     {
         await Browser.GotoAsync(Content("<button>let's let's<span>hello</span></button>"));
@@ -141,16 +138,12 @@ public sealed class LocatorQueryTests : PlaywrightTest
         await Expect.That(Browser).ToHaveClassAsync(Browser.Locator("div").Filter(hasText: new Regex("^title text$", RegexOptions.IgnoreCase)), "test");
     }
 
-    // Known difference, hardkoded/e2e-dotnet#1074: the text of a div joins two adjacent block elements with a space.
     [Test]
     public async Task Should_filter_by_regex_with_special_symbols()
     {
-        await ExpectedToFailAsync("expect.toHaveClass failed", async () =>
-        {
-            await Browser.GotoAsync(Content(@"<div class=""test""><h5>First/""and""</h5><h2><i>Second\</i></h2></div>"));
-            var pattern = new Regex(@"^first/"".*""second\\$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            await Expect.That(Browser).ToHaveClassAsync(Browser.Locator("div").Filter(hasText: pattern), "test");
-        });
+        await Browser.GotoAsync(Content(@"<div class=""test""><h5>First/""and""</h5><h2><i>Second\</i></h2></div>"));
+        var pattern = new Regex(@"^first/"".*""second\\$", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        await Expect.That(Browser).ToHaveClassAsync(Browser.Locator("div").Filter(hasText: pattern), "test");
     }
 
     [Test]

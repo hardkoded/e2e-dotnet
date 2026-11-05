@@ -37,10 +37,7 @@ internal static class Helpers
     }
 
     /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c>.</summary>
-    public static string CROSS => PREFIX.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
-
-    /// <summary>The absolute path of one of Playwright's test assets.</summary>
-    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
+    public static string CROSS => E2E.Playground.Testbed.Url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
 
     /// <summary>What <paramref name="act"/> threw, or null when it did not throw (upstream's <c>failure</c>).</summary>
     public static async Task<Exception?> Failure(Func<Task> act)
@@ -74,6 +71,62 @@ internal static class Helpers
         {
             throw new InvalidOperationException($"Expected {expected}, but was {actual}.");
         }
+    }
+
+    /// <summary>A check that <paramref name="actual"/> contains <paramref name="expected"/>, for a body run by <see cref="ExpectedToFailAsync"/>. It throws, as <see cref="Equal{T}"/> does.</summary>
+    public static void Contain(string expected, string actual)
+    {
+        if (!actual.Contains(expected, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Expected the text to contain {expected}, but was {actual}.");
+        }
+    }
+
+    /// <summary>The absolute path of one of Playwright's test assets.</summary>
+    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
+
+    /// <summary>A promise with its resolver, for a route handler the test holds open. .NET-only, a test helper.</summary>
+    public static TaskCompletionSource<T> Deferred<T>() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>A <see cref="Deferred{T}"/> with no value.</summary>
+    public static TaskCompletionSource Deferred() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>The request headers with <paramref name="set"/> added or replaced, for <c>{ ...route.request.headers, name: value }</c>. .NET-only, a test helper.</summary>
+    public static Dictionary<string, string> WithHeaders(IReadOnlyDictionary<string, string> headers, params (string Name, string Value)[] set)
+    {
+        var copy = new Dictionary<string, string>(headers, StringComparer.Ordinal);
+        foreach (var (name, value) in set)
+        {
+            copy[name] = value;
+        }
+
+        return copy;
+    }
+
+    /// <summary>The request the server received, which <c>/cors-echo</c> and <c>/echo</c> answer with. .NET-only, a test helper.</summary>
+    public sealed record Served(string Method, Dictionary<string, string> Headers, string Body, string Url)
+    {
+        /// <summary>The header named <paramref name="name"/>, or <see langword="null"/> when the request had none.</summary>
+        public string? Header(string name) => Headers.GetValueOrDefault(name);
+
+        public static Served Parse(string json) =>
+            System.Text.Json.JsonSerializer.Deserialize<Served>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+    }
+
+    /// <summary>
+    /// Playwright's <c>Promise.all([wait, action])</c> for a wait whose result the test reads: waits for both and returns the result of <paramref name="wait"/>.
+    /// .NET-only, a test helper.
+    /// </summary>
+    public static async Task<T> AllAsync<T>(Task<T> wait, Task action)
+    {
+        var first = await Task.WhenAny(wait, action).ConfigureAwait(false);
+        if (first.IsFaulted)
+        {
+            await first.ConfigureAwait(false);
+        }
+
+        await Task.WhenAll(wait, action).ConfigureAwait(false);
+        return wait.Result;
     }
 
     /// <summary>
