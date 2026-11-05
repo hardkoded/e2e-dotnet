@@ -191,18 +191,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// redacted and viewed. The text is always there, and the tree and the pixels when asked for. Pixels go out only when the
     /// engine captures them and its masking is proven; otherwise the look says why not.
     /// </summary>
-    public Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token) => ObserveAsync(options, false, token);
-
-    /// <summary>
-    /// <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> for the built-in agent's presenter, which reads the screen as
-    /// <c>#id</c> lines (<paramref name="listed"/>, see <see cref="ListedView"/>), where an executor's own look keeps the text of <see cref="View"/>.
-    /// </summary>
-    internal async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, bool listed, CancellationToken token)
+    public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, token).ConfigureAwait(false);
 
-        var view = listed ? Listed(observation, scope, options?.Pixels == true) : View(observation, scope, options);
+        var view = View(observation, scope, options);
         if (options?.Pixels != true && !observation.TreeUnavailable)
         {
             return view;
@@ -250,50 +244,6 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     }
 
     /// <summary>
-    /// One capture as the built-in agent and a session read it: the nodes as <c>#id role "name"</c> lines (<see cref="FailureEvidence.Listing"/>),
-    /// cut at the step's byte budget, or at the default observation limit when the feed has none. .NET-only name: upstream's <c>view</c> renders
-    /// these lines for every executor, where the port's executors still read the <c>[ref=…]</c> text of <see cref="View"/>, so the presenter takes this view instead.
-    /// </summary>
-    internal ExecutorObservation ListedView(Observation observation, AttemptScope scope, bool pixels = false)
-    {
-        if (observation.TreeUnavailable)
-        {
-            return new ExecutorObservation(UnavailableTreeMarker)
-            {
-                TreeUnavailable = true,
-                Truncated = true,
-                KeyboardVisible = observation.KeyboardVisible,
-                Path = scope.Redactor.Redact(observation.Route),
-                Revision = observation.Revision.Length > 0 ? observation.Revision : null,
-                Viewport = observation.Viewport,
-            };
-        }
-
-        var (lines, nodes) = FailureEvidence.Listing(observation, scope.Redactor, scope.AppOrigin, Options is null ? E2EDefaults.MaxObservationBytes : ByteBudget(pixels));
-        return new ExecutorObservation(string.Join('\n', lines))
-        {
-            Truncated = observation.Truncated || lines.Count > nodes,
-            KeyboardVisible = observation.KeyboardVisible,
-            Path = scope.Redactor.Redact(observation.Route),
-            Revision = observation.Revision.Length > 0 ? observation.Revision : null,
-            Viewport = observation.Viewport,
-        };
-    }
-
-    // The listed look as the model reads it, booked like the text of `View`: its size, and whether the byte budget cut it.
-    internal ExecutorObservation Listed(Observation observation, AttemptScope scope, bool pixels)
-    {
-        var view = ListedView(observation, scope, pixels);
-        MaxObservationBytes = Math.Max(MaxObservationBytes, System.Text.Encoding.UTF8.GetByteCount(view.Text));
-        if (view.Text.Contains(SnapshotText.TruncationMarker, StringComparison.Ordinal))
-        {
-            _observationTruncated = true;
-        }
-
-        return view;
-    }
-
-    /// <summary>
     /// The screen as the model reads it, cut at <see cref="ByteBudget"/> (upstream's <c>prepareObservation</c> under <c>capture</c>'s
     /// <c>maxBytes</c>). A step with a cut screen reports its observation as truncated.
     /// </summary>
@@ -338,7 +288,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     private int ByteBudget(bool pixels) =>
         Options is not { } options
-            ? int.MaxValue
+            ? E2EDefaults.MaxObservationBytes
             : ObservationBudget.ObservationByteBudget(
                 new ObservationBudgetLimits(options.MaxObservationBytes, options.MaxInputTokens),
                 new ObservationBudgetRequest(options.ContextBytes + options.LedgerBytes, options.InstructionBytes, pixels));

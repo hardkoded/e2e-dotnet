@@ -284,7 +284,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task Sends_the_semantic_tree_with_refs_and_a_secure_field_without_its_value()
+    public async Task Sends_the_semantic_tree_with_ids_and_a_secure_field_without_its_value()
     {
         var world = World().Map("/login", page =>
         {
@@ -304,8 +304,8 @@ public sealed class AgentJudgmentTierTests
         Assert.Null(result.Error);
         var observation = judge.Requests[0].Messages[0].Content!;
         Assert.Contains("button \"Increment\"", observation, StringComparison.Ordinal);
-        Assert.Contains("- button \"Increment\" [ref=e1]", observation, StringComparison.Ordinal);
-        Assert.Contains("- textbox \"Password\" [ref=e2] secure purpose=password", observation, StringComparison.Ordinal);
+        Assert.Contains("#e1 button \"Increment\"", observation, StringComparison.Ordinal);
+        Assert.Contains("#e2 textbox \"Password\" secure purpose=password", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
     }
 

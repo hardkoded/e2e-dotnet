@@ -667,7 +667,7 @@ executor brings is the agent's, and an entry that names another is
 `INVALID_CONFIG`. `WaitForAsync` and `ExtractAsync` keep using the judge.
 
 Keep the loop, change the vocabulary. This agent has two tools: one reads the
-screen, one taps a node by its ref.
+screen, one taps a node by its id.
 
 ```csharp
 using System.Text.Json;
@@ -683,18 +683,18 @@ public sealed class TapOnlyTests : E2ETest
     protected override IStepExecutor? AgentExecutor => ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
     {
         Name = "tap-only",
-        System = _ => "Read the screen before acting. Tap controls by their ref from the latest read.",
+        System = _ => "Read the screen before acting. Tap controls by their id from the latest read.",
         BuildPrompt = context => Task.FromResult(context.Step.Instruction),
         Tools = (context, _) =>
         [
             new ToolLoopTool(
-                new ModelTool { Name = "read_screen", Description = "Read the screen as text", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
+                new ModelTool { Name = "read_screen", Description = "Read the screen as text, one node per line as #id role \"name\"", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
                 async (_, token) => new ToolLoopResult((await context.ObserveAsync(cancellationToken: token)).Text)),
             new ToolLoopTool(
-                new ModelTool { Name = "tap", Description = "Tap a node by its ref from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
+                new ModelTool { Name = "tap", Description = "Tap a node by its id from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"] }""") },
                 async (call, token) =>
                 {
-                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
+                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("id").GetString()!.TrimStart('#')), token);
                     return new ToolLoopResult("Tapped.");
                 }),
         ],
@@ -777,7 +777,7 @@ What the context holds:
 | Member | What it is |
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
-| `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
+| `ObserveAsync(options)` | Redacted screen text, one node per line as `#id role "name" ...` (upstream's `text`; an executor that parsed the earlier `[ref=...]` text reads the id after `#` now), and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the id) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
 | `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` (all take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `LongPressAsync`, `HoverAsync`, and `DragAsync(source, destination)` (when `Target.Verbs` holds `ExecutorVerb.LongPress`, `SecondaryTap`, `Hover`, or `Drag`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`, `ResizeAsync(size)` (when `Target.Verbs` holds `ExecutorVerb.Resize`). A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |

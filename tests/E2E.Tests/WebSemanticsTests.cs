@@ -316,9 +316,9 @@ public sealed class WebSemanticsTests
         };
 
         var text = SnapshotText.Render(observation, Redactor.None);
-        Assert.Contains("button \"Menu\" [ref=e1] [expanded] [pressed] [focused]", text, StringComparison.Ordinal);
-        Assert.Contains("tab \"General\" [ref=e2] [selected]", text, StringComparison.Ordinal);
-        Assert.Contains("More of the page is off screen", text, StringComparison.Ordinal);
+        Assert.Contains("#e1 button \"Menu\" [expanded] [pressed] [focused]", text, StringComparison.Ordinal);
+        Assert.Contains("#e2 tab \"General\" [selected]", text, StringComparison.Ordinal);
+        Assert.Contains("the engine stopped listing nodes", text, StringComparison.Ordinal);
     }
 
     internal static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)

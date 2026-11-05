@@ -61,11 +61,11 @@ internal static class ExecutorKit
 
     /// <summary>
     /// Upstream's <c>nodeIdFor</c>: the id of the first node whose line reads as <paramref name="description"/>, such as
-    /// <c>button "Increment"</c>. The port's id is the ref the line ends its name with.
+    /// <c>button "Increment"</c>. The id is the one the line starts with, after its <c>#</c>.
     /// </summary>
     public static ExecutorTarget TargetFor(string text, string description)
     {
-        var match = Regex.Match(text, Regex.Escape(description) + @"[^\n]*?\[ref=(?<id>[^\]]+)\]");
+        var match = Regex.Match(text, @"^\s*#(?<id>\S+) " + Regex.Escape(description), RegexOptions.Multiline);
         Assert.True(match.Success, "the screen lists no node reading " + description + ":\n" + text);
         return new ExecutorTarget(match.Groups["id"].Value);
     }

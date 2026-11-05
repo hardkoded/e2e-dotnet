@@ -46,7 +46,7 @@ A redacted, size-bounded observation an executor may show its model.
 
 | Name | Type | Description |
 | --- | --- | --- |
-| `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The screen as the model reads it, already secret-redacted. |
+| `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) | One node per line as `#id role "name" ...`, already secret-redacted. |
 
 ## Properties
 
@@ -137,7 +137,7 @@ public string Text { get; init; }
 ```
 
 
-The screen as the model reads it, already secret-redacted.
+One node per line as `#id role "name" ...`, already secret-redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

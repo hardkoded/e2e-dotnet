@@ -138,10 +138,10 @@ public static class DefaultAgent
         // The opening look is tree-only, unless no listed interactive node exists at all: then the opening prompt carries a screenshot,
         // because the tree describes a canvas, a game, or a semantics-free native screen too poorly to act on, and the model would only
         // spend a turn asking for one. One listed control is enough to leave the decision to the model; a small page is not a blind one.
-        var screen = context.ListedStart ?? await context.ObserveListedAsync().ConfigureAwait(false);
+        var screen = context.Start ?? await context.ObserveAsync().ConfigureAwait(false);
         if (screen.Pixels is null && AgentObservation.InteractiveNodeCount(screen.Text) == 0)
         {
-            screen = await context.ObserveListedAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false);
+            screen = await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false);
         }
 
         var opening = PresenterFor(context).Open(screen);

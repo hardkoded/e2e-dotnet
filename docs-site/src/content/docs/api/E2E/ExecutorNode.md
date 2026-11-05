@@ -20,7 +20,7 @@ public sealed class ExecutorNode
 
 
 One node of the redacted semantic tree. Names, text, values, and attribute values are secret-redacted, and a secure
-node carries no value at all. [Id](#E2E_ExecutorNode_Id) is the node's ref in the observation, which an action names it by.
+node carries no value at all. [Id](#E2E_ExecutorNode_Id) is the node's id in the observation, which an action names it by.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

@@ -793,18 +793,18 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         if (_session)
         {
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), options), null);
+            return new ScreenText(_screen.Update(_feed.View(observation, _scope), options), null);
         }
 
         // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
-        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = pixels || _screen.ShowingPixels }, true, token).ConfigureAwait(false);
+        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = pixels || _screen.ShowingPixels }, token).ConfigureAwait(false);
         var output = _screen.Present(view, options);
         return new ScreenText(output.Text, output.Pixels);
     }
 
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
     private async Task<string> WholeScreenAsync(CancellationToken token) =>
-        _screen.Initial(_feed.ListedView(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
+        _screen.Initial(_feed.View(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
 
     // Keys whose whole effect is where the focus or the caret sits, which the tree does not record: an unchanged screen after one
     // of these is the normal outcome, not a control that did nothing (upstream's `movesFocusOnly`).

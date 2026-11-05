@@ -49,7 +49,7 @@ internal static partial class AgentObservation
     /// <summary>Poll interval for shape-stability settling.</summary>
     private static readonly TimeSpan SettlePoll = TimeSpan.FromMilliseconds(75);
 
-    private static readonly Regex Reference = new(@" \[ref=[^\]]*\]", RegexOptions.CultureInvariant);
+    private static readonly Regex Reference = new(@"^( *)#\S+ ", RegexOptions.CultureInvariant | RegexOptions.Multiline);
 
     private static readonly Regex Focus = new(@" \[focused\]", RegexOptions.CultureInvariant);
 
@@ -95,7 +95,7 @@ internal static partial class AgentObservation
     private static partial Regex ListedRole();
 
     /// <summary>The shape of a screen already rendered as text.</summary>
-    public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, ""), ""), "<time>");
+    public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, "$1"), ""), "<time>");
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,

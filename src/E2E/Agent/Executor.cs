@@ -104,16 +104,6 @@ public class StepExecutorContext
     /// <summary>The screen the step began on, settled once for the replay and the recording, which the built-in executor reads instead of a second look. No upstream equivalent.</summary>
     internal ExecutorObservation? Start { get; init; }
 
-    /// <summary><see cref="Start"/> as the presenter lists it (<c>#id</c> lines). No upstream equivalent.</summary>
-    internal ExecutorObservation? ListedStart { get; init; }
-
-    /// <summary>
-    /// <see cref="ObserveAsync"/> as the built-in agent's presenter reads it: the screen as <c>#id</c> lines. .NET-only: upstream's
-    /// <c>observe</c> returns those lines to every executor.
-    /// </summary>
-    internal virtual Task<ExecutorObservation> ObserveListedAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("This context does not observe.");
-
     /// <summary>
     /// Captures one fresh, redacted observation. The text is always present; the tree and the pixels are opt-in, so an
     /// executor that renders its own view of the screen asks for exactly what it uses.
@@ -290,7 +280,7 @@ public sealed class ExecutorObserveOptions
 
 /// <summary>
 /// One node of the redacted semantic tree. Names, text, values, and attribute values are secret-redacted, and a secure
-/// node carries no value at all. <see cref="Id"/> is the node's ref in the observation, which an action names it by.
+/// node carries no value at all. <see cref="Id"/> is the node's id in the observation, which an action names it by.
 /// </summary>
 public sealed class ExecutorNode
 {
@@ -327,7 +317,7 @@ public sealed class ExecutorNode
 public sealed record ExecutorPixels(byte[] Data, string MediaType, int Width, int Height, double Scale, int MaskedRegionCount);
 
 /// <summary>A redacted, size-bounded observation an executor may show its model.</summary>
-/// <param name="Text">The screen as the model reads it, already secret-redacted.</param>
+/// <param name="Text">One node per line as <c>#id role "name" ...</c>, already secret-redacted.</param>
 public sealed record ExecutorObservation(string Text)
 {
     /// <summary>Semantic capture failed: use the accompanying pixels, and never read the listing as evidence of absence.</summary>
@@ -362,7 +352,7 @@ public sealed record ExecutorObservation(string Text)
 }
 
 /// <summary>
-/// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's ref in the text and in
+/// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's id after the <c>#</c> in the text and in
 /// <see cref="ExecutorNode.Id"/>. A ref the screen no longer lists fails the action instead of acting on the wrong node.
 /// </summary>
 public sealed class ExecutorTarget
