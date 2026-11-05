@@ -353,7 +353,10 @@ lines you changed:
   frame is `LOCATOR_AMBIGUOUS`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
   `ACTION_FAILED`, and read `InnerException` for the engine code. `CANCELLED`
   and `ENGINE_FAILURE` keep their codes, and `UNSUPPORTED_CAPABILITY` is a
-  `ConfigurationException`. A `locator.WaitForAsync` that runs out fails with
+  `ConfigurationException`. A caller's cancel on a web session is an
+  `EngineException` `CANCELLED`; on a persistent session (`cdpEndpoint`) it stays
+  an `OperationCanceledException`, because it waits on a reconnect that the cancel
+  also ends. Catch both. A `locator.WaitForAsync` that runs out fails with
   `LOCATOR_NOT_FOUND` (`locator did not become <state>: <locator>`), not `TIMEOUT`, and a pass verifies the
   acts before it. A stale node found by an action is looked up again
   within the action timeout before the action fails.
