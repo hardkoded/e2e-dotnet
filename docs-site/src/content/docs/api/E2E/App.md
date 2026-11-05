@@ -147,6 +147,7 @@ public Task<string> ScreenshotAsync(string? label = null, CancellationToken canc
 
 Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
 `screenshots/`, and the returned path is absolute (upstream's `app.screenshot`, `createApp` in `run/fixtures.ts`).
+A screenshot taken while the page navigates captures the document showing.
 Throws `UNSUPPORTED_CAPABILITY` on an engine that keeps no screenshots.
 
 **Parameters**

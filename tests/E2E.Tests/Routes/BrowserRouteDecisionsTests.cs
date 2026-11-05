@@ -450,6 +450,25 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
+    public Task Fails_a_navigation_its_route_aborted_as_an_action_failure_not_an_engine_fault() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/aborted", route => route.AbortAsync());
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/aborted"));
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Contains("navigation failed: a route aborted the request for " + routes.Site.Origin + "/aborted", failure.Message, StringComparison.Ordinal);
+    });
+
+    [Fact]
+    public Task Fails_a_navigation_with_the_route_error_that_aborted_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/refused", route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["bad name"] = "x" } }));
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/refused"));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("invalid header name: \"bad name\"", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(routes.Site.Origin + "/", await routes.Browser.UrlAsync());
+    });
+
+    [Fact]
     public Task Takes_the_decision_the_moment_fulfill_is_called_awaited_or_not() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/quote", route =>

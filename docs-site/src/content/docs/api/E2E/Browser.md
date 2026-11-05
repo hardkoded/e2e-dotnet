@@ -465,7 +465,9 @@ the glob &lt;code class="paramref"&gt;pattern&lt;/code&gt; that `WaitForResponse
 takes. The route registered last runs first. &lt;code class="paramref"&gt;handler&lt;/code&gt; must take
 exactly one decision on the [WebRoute](/api/E2E/WebRoute/). A handler that takes none,
 takes two, or throws fails the next step with that error, and an undecided
-request is aborted.
+request is aborted. A step the handler made fail, such as the `GotoAsync` whose
+request it left aborted, fails with the handler's error. A `GotoAsync` whose
+request a handler aborted on purpose fails with `ACTION_FAILED`.
 
 **Parameters**
 

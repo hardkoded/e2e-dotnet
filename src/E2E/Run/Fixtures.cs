@@ -121,6 +121,7 @@ public sealed class App
     /// <summary>
     /// Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
     /// <c>screenshots/</c>, and the returned path is absolute (upstream's <c>app.screenshot</c>, <c>createApp</c> in <c>run/fixtures.ts</c>).
+    /// A screenshot taken while the page navigates captures the document showing.
     /// Throws <c>UNSUPPORTED_CAPABILITY</c> on an engine that keeps no screenshots.
     /// </summary>
     /// <param name="label">Names the step and joins the file name.</param>
