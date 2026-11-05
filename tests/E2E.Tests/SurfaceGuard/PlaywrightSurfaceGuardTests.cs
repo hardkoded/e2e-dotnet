@@ -78,6 +78,38 @@ public sealed class PlaywrightSurfaceGuardTests
         });
     }
 
+    /// <summary>.NET-only: upstream's guard has no grace, which exists because the port's work follows the token and undoes itself.</summary>
+    [Fact]
+    public async Task Gives_work_that_honours_the_token_a_moment_to_undo_itself_before_it_reports_CANCELLED()
+    {
+        await WithSurfaceAsync(async session =>
+        {
+            using var controller = new CancellationTokenSource();
+            var undone = false;
+            var started = new TaskCompletionSource();
+            var pending = WebEngine.Guard<int>(session.Engine, "step", controller.Token, async () =>
+            {
+                started.SetResult();
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, controller.Token);
+                }
+                finally
+                {
+                    await Task.Delay(200);
+                    undone = true;
+                }
+
+                return 1;
+            });
+            await started.Task;
+            await controller.CancelAsync();
+            var failure = await Assert.ThrowsAsync<EngineException>(() => pending);
+            Assert.Equal("CANCELLED", failure.Code);
+            Assert.True(undone, "the step reported after the work undid itself");
+        });
+    }
+
     private static async Task WithSurfaceAsync(Func<E2ESession, Task> body)
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body></body></html>");
