@@ -17,7 +17,14 @@ public static class ObservationLimits
 /// <summary>Boolean states a platform can report for one node.</summary>
 public sealed class NodeStates
 {
-    public bool Checked { get; init; }
+    public bool Checked { get; init { field = value; CheckedReported = true; } }
+
+    /// <summary>
+    /// The platform reported a checked state for the node, true or false. Setting <see cref="Checked"/> reports it; a node with none
+    /// (a button, a heading) leaves it false, and <c>IsChecked</c> fails on it unless its role carries a checked state. List it after
+    /// <see cref="Checked"/> in an initializer to override that (.NET-only; upstream reads the state as nullable).
+    /// </summary>
+    public bool CheckedReported { get; init; }
 
     public bool Disabled { get; init; }
 

@@ -55,6 +55,23 @@ public bool Checked { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_NodeStates_CheckedReported_"></a>
+<a id="E2E_Engine_NodeStates_CheckedReported"></a>
+
+### CheckedReported
+
+
+```csharp
+public bool CheckedReported { get; init; }
+```
+
+
+The platform reported a checked state for the node, true or false. Setting [Checked](#E2E_Engine_NodeStates_Checked) reports it; a node with none
+(a button, a heading) leaves it false, and `IsChecked` fails on it unless its role carries a checked state. List it after
+[Checked](#E2E_Engine_NodeStates_Checked) in an initializer to override that (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_NodeStates_Disabled_"></a>
 <a id="E2E_Engine_NodeStates_Disabled"></a>
 

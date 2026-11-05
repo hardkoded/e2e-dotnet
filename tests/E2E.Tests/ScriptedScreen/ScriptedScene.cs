@@ -68,6 +68,7 @@ internal sealed class ScriptedScene : IDisposable
         States = new NodeStates
         {
             Checked = node.Checked,
+            CheckedReported = node.Checked,
             Disabled = node.Disabled,
             Expanded = node.Expanded,
             Focused = node.Focused,

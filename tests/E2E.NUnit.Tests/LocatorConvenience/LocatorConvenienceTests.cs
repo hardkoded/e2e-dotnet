@@ -24,25 +24,21 @@ public sealed class LocatorConvenienceTests : PlaywrightTest
         Assert.That(await locator.GetAttributeAsync("foo"), Is.Null);
     }
 
-    // Upstream: { fail: '`inputValue()` on an element that is no input reads "" instead of throwing' }.
     [Test]
     public async Task InputValue_should_work()
     {
-        await ExpectedToFailAsync("no input", async () =>
-        {
-            await Browser.GotoAsync("/dom.html");
+        await Browser.GotoAsync("/dom.html");
 
-            await Browser.Locator("#select").SelectOptionAsync("foo");
-            Equal("foo", await Browser.Locator("#select").InputValueAsync());
+        await Browser.Locator("#select").SelectOptionAsync("foo");
+        Equal("foo", await Browser.Locator("#select").InputValueAsync());
 
-            await Browser.Locator("#textarea").FillAsync("text value");
-            Equal("text value", await Browser.Locator("#textarea").InputValueAsync());
+        await Browser.Locator("#textarea").FillAsync("text value");
+        Equal("text value", await Browser.Locator("#textarea").InputValueAsync());
 
-            await Browser.Locator("#input").FillAsync("input value");
-            Equal("input value", await Browser.Locator("#input").InputValueAsync());
+        await Browser.Locator("#input").FillAsync("input value");
+        Equal("input value", await Browser.Locator("#input").InputValueAsync());
 
-            await ExpectErrorAsync(() => Browser.Locator("#inner").InputValueAsync(), "no input");
-        });
+        Assert.That(await Assert.CatchAsync(() => Browser.Locator("#inner").InputValueAsync()), Is.Not.Null);
     }
 
     // Upstream: { fail: '`textContent()` normalizes whitespace, where Playwright keeps the raw text' }.
@@ -76,19 +72,15 @@ public sealed class LocatorConvenienceTests : PlaywrightTest
         Assert.That(await button2.IsDisabledAsync(), Is.False);
     }
 
-    // Upstream: { fail: '`isChecked()` on an element that is no checkbox reads false instead of throwing' }.
     [Test]
     public async Task IsChecked_should_work()
     {
-        await ExpectedToFailAsync("no checkbox", async () =>
-        {
-            await Browser.GotoAsync(Content("<input type='checkbox' checked><div>Not a checkbox</div>"));
-            var element = Browser.Locator("input");
-            Equal(true, await element.IsCheckedAsync());
-            await Browser.EvaluateAsync<object>("() => { document.querySelector('input').checked = false; }");
-            Equal(false, await element.IsCheckedAsync());
-            await ExpectErrorAsync(() => Browser.Locator("div").IsCheckedAsync(), "no checkbox");
-        });
+        await Browser.GotoAsync(Content("<input type='checkbox' checked><div>Not a checkbox</div>"));
+        var element = Browser.Locator("input");
+        Equal(true, await element.IsCheckedAsync());
+        await Browser.EvaluateAsync<object>("() => { document.querySelector('input').checked = false; }");
+        Equal(false, await element.IsCheckedAsync());
+        Assert.That(await Assert.CatchAsync(() => Browser.Locator("div").IsCheckedAsync()), Is.Not.Null);
     }
 
     [Test]
@@ -111,20 +103,5 @@ public sealed class LocatorConvenienceTests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<div>A</div><div>B</div><div>C</div>"));
         Assert.That(await Browser.Locator("div").AllTextContentsAsync(), Is.EqualTo(new[] { "A", "B", "C" }));
-    }
-
-    // Upstream's `catch((e) => e)` then `toEqual(expect.any(Error))`. Throws, so a body run by ExpectedToFailAsync can fail with it.
-    private static async Task ExpectErrorAsync(Func<Task> action, string what)
-    {
-        try
-        {
-            await action().ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return;
-        }
-
-        throw new InvalidOperationException($"Expected an error for an element that is {what}.");
     }
 }

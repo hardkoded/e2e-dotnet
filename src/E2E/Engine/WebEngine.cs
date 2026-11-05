@@ -3478,14 +3478,16 @@ public sealed partial class WebEngine : IEngine
                 return;
             }
 
-            if (!@checked && await element.EvaluateAsync<bool>(PageScript.IsRadio).ConfigureAwait(false))
+            var radio = @checked ? null : await element.EvaluateAsync<string?>(PageScript.RadioKind).ConfigureAwait(false);
+            if (radio == "native")
             {
                 throw new EngineException(EngineErrorCodes.NotActionable, "uncheck cannot clear a radio button; select another radio in its group", retryable: false);
             }
 
             await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            var hint = radio == "aria" ? "; a radio usually clears only when another radio in its group is selected" : "";
             EngineException Unchanged(string detail = "") =>
-                new(EngineErrorCodes.NotActionable, verb + " clicked the control but its checked state did not change" + detail, retryable: false);
+                new(EngineErrorCodes.NotActionable, verb + " clicked the control but its checked state did not change" + detail + hint, retryable: false);
             var firstRead = true;
             while (true)
             {
@@ -3576,6 +3578,7 @@ public sealed partial class WebEngine : IEngine
                 States = new NodeStates
                 {
                     Checked = dto.Checked,
+                    CheckedReported = dto.CheckedReported,
                     Disabled = dto.Disabled,
                     Expanded = dto.Expanded,
                     ExpandedAbsent = dto.ExpandedAbsent,
@@ -3878,6 +3881,8 @@ public sealed partial class WebEngine : IEngine
         public bool Disabled { get; set; }
 
         public bool Checked { get; set; }
+
+        public bool CheckedReported { get; set; }
 
         public bool Expanded { get; set; }
 

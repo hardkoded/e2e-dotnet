@@ -180,6 +180,35 @@ public sealed class ThroughTheLocatorTargetTests
     }
 
     [Fact]
+    public async Task Unchecks_an_ARIA_radio_by_clicking_it_leaving_the_radio_behavior_to_its_script()
+    {
+        await RunWithScreenAsync(
+            """
+            <div role="radio" id="pro" aria-checked="true" tabindex="0"
+              onclick="this.setAttribute('aria-checked', 'false')">Pro</div>
+            """,
+            async session =>
+            {
+                await session.Screen.GetByRole("radio", "Pro").UncheckAsync();
+                Assert.Equal("false", await session.Browser.EvaluateAsync<string>("() => document.getElementById('pro').getAttribute('aria-checked')"));
+            });
+    }
+
+    [Fact]
+    public async Task Fails_an_ARIA_radio_whose_click_keeps_it_checked_naming_the_radio_group()
+    {
+        await RunWithScreenAsync(
+            """<div role="radio" id="pro" aria-checked="true" tabindex="0">Pro</div>""",
+            async session =>
+            {
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("radio", "Pro").UncheckAsync());
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("NOT_ACTIONABLE", error.Code);
+                Assert.Contains("another radio in its group", error.Message);
+            });
+    }
+
+    [Fact]
     public async Task Refuses_a_control_that_cannot_be_checked()
     {
         await RunWithScreenAsync(

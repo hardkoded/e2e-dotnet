@@ -818,9 +818,9 @@ public Task<string> InputValueAsync(CancellationToken cancellationToken = defaul
 ```
 
 
-Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
+Waits up to the action timeout for one match, then reads an input value once, the empty string for a field with none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked state. Fails with
-`POLICY_DENIED` on a secure field.
+`POLICY_DENIED` on a secure field, and with `ACTION_FAILED` on a node with no value, such as a heading or a button.
 
 **Parameters**
 
@@ -841,7 +841,7 @@ public Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Waits up to the action timeout for one match, then reads its checked state once.
+Waits up to the action timeout for one match, then reads its checked state once. A checkable role with no state reported reads false. Fails with `ACTION_FAILED` on a node with no checked state, such as a button or a heading.
 
 **Parameters**
 

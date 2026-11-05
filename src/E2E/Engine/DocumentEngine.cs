@@ -334,6 +334,7 @@ public sealed class DocumentEngine : IEngine
                 States = new NodeStates
                 {
                     Checked = element.Checked,
+                    CheckedReported = element.Checked,
                     Disabled = element.Disabled,
                     Hidden = element.Hidden,
                     Selected = element.Selected,

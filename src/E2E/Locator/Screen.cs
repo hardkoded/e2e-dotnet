@@ -806,14 +806,21 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier <c>act</c>. A checkbox or
+    /// Waits up to the action timeout for one match, then reads an input value once, the empty string for a field with none. Does not retry for a value and does not verify an earlier <c>act</c>. A checkbox or
     /// radio reads its value attribute, <c>on</c> when it has none, whatever its checked state. Fails with
-    /// <c>POLICY_DENIED</c> on a secure field.
+    /// <c>POLICY_DENIED</c> on a secure field, and with <c>ACTION_FAILED</c> on a node with no value, such as a heading or a button.
     /// </summary>
     public async Task<string> InputValueAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveReadableAsync(cancellationToken).ConfigureAwait(false);
-        return node.Value ?? "";
+        if (node.Value is not null)
+        {
+            return node.Value;
+        }
+
+        return Roles.IsValueControl(node)
+            ? ""
+            : throw new TestException("ACTION_FAILED", $"Node is not an <input>, <textarea> or <select> element: {Query.Describe()}");
     }
 
     /// <summary>Waits up to the action timeout for one match, then reads one platform attribute once, or null when the node does not have it. Fails with <c>POLICY_DENIED</c> on a secure field.</summary>
@@ -849,11 +856,13 @@ public sealed class Locator
         return !await IsEnabledAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Waits up to the action timeout for one match, then reads its checked state once.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads its checked state once. A checkable role with no state reported reads false. Fails with <c>ACTION_FAILED</c> on a node with no checked state, such as a button or a heading.</summary>
     public async Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
     {
         var node = await _screen.Engine.ReadAsync(Query, _screen.Token(cancellationToken)).ConfigureAwait(false);
-        return node.States.Checked;
+        return Roles.IsCheckable(node)
+            ? node.States.Checked
+            : throw new TestException("ACTION_FAILED", $"Not a checkbox or radio button: {Query.Describe()}");
     }
 
     /// <summary>
