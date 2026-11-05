@@ -57,14 +57,19 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         await _teardown.CancelAsync();
         await Task.WhenAll(_starting.Select(Settled));
         await Task.WhenAll(_launching.Select(Settled));
-        foreach (var processes in _started)
+        try
         {
-            await processes.StopAsync(_ => { });
+            foreach (var processes in _started)
+            {
+                await processes.StopAsync(_ => { });
+            }
         }
-
-        foreach (var scope in _scopes)
+        finally
         {
-            scope.Dispose();
+            foreach (var scope in _scopes)
+            {
+                scope.Dispose();
+            }
         }
     }
 
@@ -145,7 +150,7 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
 
         // Nobody holds the abandoned start, so the pool stops what it spawned.
         await Task.WhenAll(_launching.Select(Settled));
-        Assert.False(await Serving());
+        await Poll(false);
 
         // The next attempt starts it afresh rather than waiting on the abandoned start.
         using var retry = new CancellationTokenSource();
@@ -154,7 +159,7 @@ public sealed class SharedAppProcessesTests : IAsyncLifetime
         await retry.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => again);
         await Task.WhenAll(_launching.Select(Settled));
-        Assert.False(await Serving());
+        await Poll(false);
         Assert.Equal("app\napp\n", StartupLog());
     }
 

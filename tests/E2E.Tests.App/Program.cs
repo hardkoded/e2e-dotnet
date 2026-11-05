@@ -152,7 +152,9 @@ static async Task<int> ServeHold(int port)
     {
         context.Cancel = true;
         File.WriteAllText("stopping", "started");
-        while (!File.Exists("release-stop"))
+        // A test that died before it released the stop must not leave this process holding its port.
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (!File.Exists("release-stop") && DateTime.UtcNow < deadline)
         {
             Thread.Sleep(10);
         }
