@@ -167,7 +167,9 @@ Members of `E2ETest` in both frameworks:
 `UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label, or a `SelectOption` with one of
 `Label`, `Value`, or `Index`),
 `FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
-the action timeout for exactly one enabled, visible match.
+the action timeout for exactly one enabled, visible match. `UncheckAsync` on a
+checked native radio fails with `ACTION_FAILED`; a `role="radio"` is clicked,
+and fails only if it stays checked.
 
 `ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
 `DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
@@ -227,12 +229,14 @@ when a value has to settle.
 (`display: none` on it or an ancestor, or any `display: contents`
 element). `InputValueAsync` on a checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked
-state; `IsCheckedAsync` reads the state.
+state; `IsCheckedAsync` reads the state. `IsCheckedAsync` on a node that cannot
+be checked (a button), and `InputValueAsync` on one that holds no value (a
+heading), throw `ACTION_FAILED`, so query checkable controls by role.
 
 `TextContentAsync` is `null` for a node with no text and never falls back to
 the node's name: an image reads `null`, not its alt text. `InputValueAsync`
-returns a `string`, `""` for a node with no value (a heading, a cleared
-field), never `null`. A caller that tested it for null tests for `""` now.
+returns a `string`, `""` for a field with no value (a cleared field), never
+`null`. A node that holds no value at all, such as a heading, throws instead.
 
 Text reads (`ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and
 `AllTextContentsAsync`) read the node's rendered text, whitespace
