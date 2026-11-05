@@ -260,9 +260,11 @@ public Task<T?> EvaluateAsync<T>(string expression, CancellationToken cancellati
 
 
 Evaluates trusted test code in the page: an expression, or a function
-source that is called. The result must be JSON-safe and is deserialized to
-&lt;code class="typeparamref"&gt;T&lt;/code&gt;. A throwing script fails with `EVALUATE_FAILED`, and a
-script that does not finish within the action timeout with `OPERATION_TIMEOUT`.
+source that is called. The result must be plain JSON, `null` when the code returns nothing, and is deserialized to
+&lt;code class="typeparamref"&gt;T&lt;/code&gt;. A class instance, such as a `DOMRect` or an element, fails with `INVALID_ARGUMENT`: return
+`rect.toJSON()` or the fields you need. A throwing script fails with `EVALUATE_FAILED`, and so does a page that replaced
+a JavaScript built-in (such as `Map`) that the engine's in-page code needs. A script that does not finish within the action
+timeout fails with `OPERATION_TIMEOUT`.
 
 **Type parameters**
 

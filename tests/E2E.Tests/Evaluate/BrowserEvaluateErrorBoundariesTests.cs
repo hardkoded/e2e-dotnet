@@ -108,7 +108,82 @@ public sealed class BrowserEvaluateErrorBoundariesTests
             Assert.Equal("EVALUATE_FAILED", syntax.Code);
             var withArgument = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("() => {", null));
             Assert.Equal("EVALUATE_FAILED", withArgument.Code);
+            await AssertInvalidAsync(session, "() => new Date()", "evaluate result must be JSON-safe");
+            await AssertInvalidAsync(session, """() => { try { document.querySelector("!!"); } catch (error) { return error; } }""", "evaluate result must be JSON-safe");
+            await AssertInvalidAsync(session, "() => ({ missing: undefined })", null);
+            await AssertInvalidAsync(session, "() => { const cart = {}; cart.self = cart; return cart; }", "evaluate result contains a cycle");
         });
+    }
+
+    [Fact]
+    public async Task Returns_JSON_only()
+    {
+        await AttemptAsync(async session =>
+        {
+            await SetContentAsync(session, "<div></div>");
+            await AssertInvalidAsync(session, """() => document.querySelector("div").getBoundingClientRect()""", "evaluate result must be JSON-safe");
+            await AssertInvalidAsync(session, "() => document.body", null);
+            var box = await session.Browser.EvaluateAsync<Dictionary<string, double>>("""() => document.querySelector("div").getBoundingClientRect().toJSON()""");
+            Assert.True(box!.ContainsKey("width"));
+            Assert.Equal(
+                [new Item("a"), new Item("a")],
+                (await session.Browser.EvaluateAsync<Item[]>("""() => { const item = { sku: "a" }; return [item, item]; }"""))!);
+            Assert.Equal(
+                "quote \" line\n\u2028 \ud83d\ude00",
+                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00" """));
+        });
+    }
+
+    [Fact]
+    public async Task Returns_a_result_after_the_page_deletes_or_replaces_the_globals_the_transport_could_use()
+    {
+        await AttemptAsync(async session =>
+        {
+            var result = await session.Browser.EvaluateAsync<Basket>(
+                "() => { delete window.Array; window.Map = 1; window.JSON = 1; window.Object = 1; window.String = 1; return { items: [1, \"two\"], ok: true }; }");
+            Assert.True(result!.Ok);
+            Assert.Equal(2, result.Items.Length);
+        });
+    }
+
+    [Fact]
+    public async Task Fails_a_later_evaluate_and_a_locate_as_EVALUATE_FAILED_once_the_page_replaced_Map()
+    {
+        await AttemptAsync(async session =>
+        {
+            await SetContentAsync(session, "<div>cart</div><script>window.Map = 1;</script>");
+            var evaluate = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<int>("() => 1"));
+            Assert.Equal("EVALUATE_FAILED", evaluate.Code);
+            var locate = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByText("cart").CountAsync());
+            Assert.Equal("EVALUATE_FAILED", locate.Code);
+        });
+    }
+
+    [Fact]
+    public async Task Keeps_returning_results_on_a_page_that_deleted_Array_and_JSON_and_hid___proto__()
+    {
+        await AttemptAsync(async session =>
+        {
+            await SetContentAsync(session, "<script>delete window.Array; delete window.JSON; delete Object.prototype.__proto__;</script>");
+            var basket = await session.Browser.EvaluateAsync<Basket>("(n) => ({ items: [n, 'two'], ok: true })", 1);
+            Assert.Equal(2, basket!.Items.Length);
+            var pair = await session.Browser.EvaluateAsync<int[]>("() => [1, 2]");
+            Assert.Equal(new[] { 1, 2 }, pair);
+        });
+    }
+
+    private static Task SetContentAsync(E2ESession session, string html) =>
+        WebEngine.SurfaceOf(session.Engine)!.Page().SetContentAsync(html);
+
+    /// <summary>Evaluates <paramref name="source"/> and expects <c>INVALID_ARGUMENT</c>, with <paramref name="message"/> when given.</summary>
+    private static async Task AssertInvalidAsync(E2ESession session, string source, string? message)
+    {
+        var error = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>(source));
+        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        if (message is not null)
+        {
+            Assert.Equal(message, error.Message);
+        }
     }
 
     /// <summary>Starts a script that never ends, waits until it runs, then lets <paramref name="close"/> take the browser from under it.</summary>
@@ -152,6 +227,10 @@ public sealed class BrowserEvaluateErrorBoundariesTests
             Assert.Null(error);
         }
     }
+
+    private sealed record Item(string Sku);
+
+    private sealed record Basket(object[] Items, bool Ok);
 
     private sealed record Counter(int Count);
 
