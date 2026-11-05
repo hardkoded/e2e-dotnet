@@ -137,7 +137,7 @@ public sealed class Browser
     /// <summary>
     /// Waits until the current URL equals <paramref name="url"/>, resolved
     /// against the base URL, as <see cref="BrowserExpect.ToHaveURLAsync(string, bool?, TimeSpan?, CancellationToken)"/>.
-    /// The default timeout is the assertion timeout.
+    /// The default timeout is the assertion timeout; zero waits for the test timeout.
     /// </summary>
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
@@ -149,7 +149,7 @@ public sealed class Browser
         }, verifies: true);
     }
 
-    /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout.</summary>
+    /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout; zero waits for the test timeout.</summary>
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);

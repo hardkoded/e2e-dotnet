@@ -435,14 +435,14 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task PerformAsync(LocatorExpression expression, Func<Deadline, CancellationToken, Task<LocatorAction>> build, TimeSpan? timeout, CancellationToken token, bool anyState = false)
     {
         var started = Clock.GetUtcNow();
-        var deadline = started + TimeoutOf(timeout);
+        var window = DeadlineFor(timeout);
+        var deadline = window.EndsAt;
         var startedAt = DateTimeOffset.UtcNow;
         var stamp = Stopwatch.GetTimestamp();
         // Each resolve counts its own rounds and wait, as upstream's resolveCounted does: a stale retry starts them over.
         var resolveStamp = stamp;
         var rounds = 0;
         var stale = 0;
-        var window = new Deadline(deadline);
         var reads = Reads(window);
         while (true)
         {
@@ -556,7 +556,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task PerformAtAsync(Point point, PointerAction action, TimeSpan? timeout, CancellationToken token)
     {
         CheckPointerAction(action);
-        await DispatchAtAsync(point, action, new Deadline(TimeoutOf(timeout), Clock), token).ConfigureAwait(false);
+        await DispatchAtAsync(point, action, DeadlineFor(timeout), token).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -567,7 +567,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task PerformWithinAsync(LocatorExpression expression, Point offset, PointerAction action, TimeSpan? timeout, CancellationToken token)
     {
         CheckPointerAction(action);
-        var deadline = new Deadline(TimeoutOf(timeout), Clock);
+        var deadline = DeadlineFor(timeout);
         var started = Clock.GetTimestamp();
         if (ActionKinds is not { } declared || declared.Contains("scrollIntoView"))
         {
