@@ -15,6 +15,17 @@ internal static class UploadPage
         () => Array.from(document.querySelector('#avatar').files ?? [], (picked) => picked.name).join(', ') + '|' + window.clicks
         """;
 
+    /// <summary>Starts recording the <c>input</c> and <c>change</c> events of the file input in <c>window.events</c>.</summary>
+    public const string ListenForInputAndChange = """
+        () => {
+            window.events = [];
+            const input = document.querySelector('#avatar');
+            input.addEventListener('input', () => window.events.push('input'));
+            input.addEventListener('change', () => window.events.push('change'));
+            return '';
+        }
+        """;
+
     private static string Create()
     {
         var directory = Directory.CreateTempSubdirectory("e2e-upload-");

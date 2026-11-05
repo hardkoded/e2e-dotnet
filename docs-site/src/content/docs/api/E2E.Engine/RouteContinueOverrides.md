@@ -29,6 +29,23 @@ What [ContinueAsync(RouteContinueOverrides)](/api/E2E/WebRoute/#E2E_WebRoute_Con
 
 ## Properties
 
+<a id="E2E_Engine_RouteContinueOverrides_DropHeaders_"></a>
+<a id="E2E_Engine_RouteContinueOverrides_DropHeaders"></a>
+
+### DropHeaders
+
+
+```csharp
+public IReadOnlyCollection<string>? DropHeaders { get; init; }
+```
+
+
+Names of request headers to send without (upstream sets such a header to `undefined` in `headers`). .NET-only name: a
+`string?` value in [Headers](#E2E_Engine_RouteContinueOverrides_Headers) would make every caller that passes a `Dictionary<string, string>` a nullable
+warning. It applies to the request's own headers when [Headers](#E2E_Engine_RouteContinueOverrides_Headers) is unset, and also on a redirect.
+
+**Value:** [IReadOnlyCollection&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlycollection-1)
+
 <a id="E2E_Engine_RouteContinueOverrides_Headers_"></a>
 <a id="E2E_Engine_RouteContinueOverrides_Headers"></a>
 

@@ -248,6 +248,26 @@ public sealed class BrowserRouteDecisionsTests
         Assert.Equal("open-sesame", echo.Headers["x-gate"]);
     });
 
+    [Theory]
+    [InlineData("the request", "/echo")]
+    [InlineData("a redirect", "/redirect")]
+    public Task Continue_drops_a_header_set_to_undefined_on(string name, string target) => WithRoutesAsync(async routes =>
+    {
+        _ = name;
+        await routes.Browser.RouteAsync("**" + target, route => route.ContinueAsync(new RouteContinueOverrides
+        {
+            Headers = new Dictionary<string, string>(route.Request.Headers) { ["x-keep"] = "yes" },
+            DropHeaders = ["x-drop"],
+        }));
+        var echo = JsonSerializer.Deserialize<Echo>(
+            (await routes.Browser.EvaluateAsync<string>("(url) => fetch(url, { headers: { 'x-drop': 'a' } }).then((reply) => reply.text())", routes.Site.Origin + target))!,
+            JsonOptions)!;
+        Assert.Equal("/echo", echo.Path);
+        Assert.False(echo.Headers.ContainsKey("x-drop"));
+        Assert.Equal("yes", echo.Headers["x-keep"]);
+        Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+    });
+
     [Fact]
     public Task Continue_sends_a_rewritten_url_method_and_body_without_touching_the_original() => WithRoutesAsync(async routes =>
     {
@@ -292,6 +312,41 @@ public sealed class BrowserRouteDecisionsTests
         Assert.Null(routes.Site.HitsOf("/api/quote"));
     });
 
+    [Theory]
+    [InlineData("a Buffer")]
+    [InlineData("a Uint8Array view")]
+    public Task Partial_Fulfills_the_body_byte_for_byte(string name) => WithRoutesAsync(async routes =>
+    {
+        // Partial: a byte[] is the one kind of bytes in C#, so the view case is a slice of a larger array, copied out, not a view over it.
+        var body = name == "a Buffer" ? CountingSite.AllBytes : new byte[] { 0xff }.Concat(CountingSite.AllBytes).Concat(new byte[] { 0xff }).ToArray()[1..257];
+        await routes.Browser.RouteAsync("**/api/quote", route => route.FulfillAsync(new RouteFulfillResponse { BodyBytes = body }));
+        Assert.Equal(CountingSite.AllBytes, await routes.FetchBytesAsync(routes.Site.Origin + "/api/quote"));
+    });
+
+    [Fact]
+    public Task Fetches_upstream_bytes_and_fulfills_them_unchanged() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/binary", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            await route.FulfillAsync(new RouteFulfillResponse { Headers = upstream.Headers, BodyBytes = await upstream.BodyAsync() });
+        });
+        Assert.Equal(CountingSite.AllBytes, await routes.FetchBytesAsync(routes.Site.Origin + "/binary"));
+    });
+
+    [Fact]
+    public Task Fulfills_a_newline_joined_set_cookie_as_one_cookie_per_line() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/api/quote", route => route.FulfillAsync(new RouteFulfillResponse
+        {
+            Headers = new Dictionary<string, string> { ["Set-Cookie"] = "a=b\nc=d; Path=/" },
+            Body = "",
+        }));
+        await routes.FetchTextAsync(routes.Site.Origin + "/api/quote");
+        var cookies = (await routes.Browser.CookiesAsync()).Select(cookie => cookie.Name + "=" + cookie.Value).Order().ToList();
+        Assert.Equal(["a=b", "c=d"], cookies);
+    });
+
     [Fact]
     public Task Fulfills_under_the_given_contentType_or_a_content_type_header() => WithRoutesAsync(async routes =>
     {
@@ -306,14 +361,17 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     // Not portable, because the C# types refuse them at compile time: an unknown
-    // fulfill key, an unknown continue key, non-string continue headers, and an
-    // abort error code.
+    // fulfill key, an unknown continue key, non-string continue headers, an
+    // abort error code, an undefined fulfill header, and a fulfill body that is
+    // neither text nor bytes.
     [Theory]
     [InlineData("two fulfill sources")]
     [InlineData("a missing fulfill file")]
     [InlineData("a fulfill status out of range")]
     [InlineData("a continue header name outside the token grammar")]
     [InlineData("a line break in a fulfill header value")]
+    [InlineData("a carriage return in a set-cookie line")]
+    [InlineData("a line break in a continue header value")]
     public Task Rejects_before_deciding_and_aborts_the_request(string name) => WithRoutesAsync(async routes =>
     {
         var (decide, message) = name switch
@@ -330,9 +388,15 @@ public sealed class BrowserRouteDecisionsTests
             "a continue header name outside the token grammar" => (
                 route => route.ContinueAsync(new RouteContinueOverrides { Headers = new Dictionary<string, string> { ["x a"] = "b" } }),
                 "route.continue has an invalid header name: \"x a\""),
-            _ => (
+            "a line break in a fulfill header value" => (
                 (Func<WebRoute, Task>)(route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["x-a"] = "b\r\nset-cookie: c=d" } })),
                 "route.fulfill header \"x-a\" must not contain a control character"),
+            "a carriage return in a set-cookie line" => (
+                route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["set-cookie"] = "a=b\r\nx-a: c" } }),
+                "route.fulfill header \"set-cookie\" must not contain a control character"),
+            _ => (
+                route => route.ContinueAsync(new RouteContinueOverrides { Headers = new Dictionary<string, string> { ["set-cookie"] = "a=b\nc=d" } }),
+                "route.continue header \"set-cookie\" must not contain a control character"),
         };
         await routes.Browser.RouteAsync("**/api/quote", decide);
         Assert.Equal("failed", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
@@ -509,6 +573,10 @@ public sealed class BrowserRouteDecisionsTests
         /// <summary>Fetches <paramref name="url"/> from the page; a failed fetch reads as <c>failed</c>.</summary>
         public async Task<string> FetchTextAsync(string url) =>
             (await Browser.EvaluateAsync<string>("(target) => fetch(target).then((reply) => reply.text(), () => 'failed')", url))!;
+
+        /// <summary>Fetches <paramref name="url"/> from the page and returns its body bytes.</summary>
+        public async Task<byte[]> FetchBytesAsync(string url) =>
+            (await Browser.EvaluateAsync<int[]>("(target) => fetch(target).then(async (reply) => [...new Uint8Array(await reply.arrayBuffer())])", url))!.Select(value => (byte)value).ToArray();
 
         /// <summary>Fetches <paramref name="url"/> from the page and returns its content type and body.</summary>
         public async Task<Reply> FetchReplyAsync(string url) =>
