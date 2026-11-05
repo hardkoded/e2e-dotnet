@@ -480,7 +480,7 @@ public sealed class PageKeyboardTests : PlaywrightTest
               const frame = document.createElement('iframe');
               frame.id = 'emoji-test';
               frame.src = '/input/textarea.html';
-              frame.onload = resolve;
+              frame.onload = () => resolve();
               document.body.appendChild(frame);
             })
             """);

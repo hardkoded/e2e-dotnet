@@ -177,6 +177,35 @@ public sealed class ThroughTheElementTargetTests
     }
 
     [Fact]
+    public async Task Unchecks_an_ARIA_radio_by_clicking_it_leaving_the_radio_behavior_to_its_script()
+    {
+        await RunAsync(
+            """
+            <div role="radio" id="pro" aria-checked="true" tabindex="0"
+              onclick="this.setAttribute('aria-checked', 'false')">Pro</div>
+            """,
+            async session =>
+            {
+                await session.PerformAsync(await FindAsync(session, "radio", "Pro"), new LocatorAction.Uncheck(), CancellationToken.None);
+                Assert.Equal("false", await EvaluateAsync<string>(session, "() => document.getElementById('pro').getAttribute('aria-checked')"));
+            });
+    }
+
+    [Fact]
+    public async Task Fails_an_ARIA_radio_whose_click_keeps_it_checked_naming_the_radio_group()
+    {
+        await RunAsync(
+            """<div role="radio" id="pro" aria-checked="true" tabindex="0">Pro</div>""",
+            async session =>
+            {
+                var pro = await FindAsync(session, "radio", "Pro");
+                var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(pro, new LocatorAction.Uncheck(), CancellationToken.None));
+                Assert.Equal("NOT_ACTIONABLE", error.Code);
+                Assert.Contains("another radio in its group", error.Message);
+            });
+    }
+
+    [Fact]
     public async Task Refuses_a_control_that_cannot_be_checked()
     {
         await RunAsync(

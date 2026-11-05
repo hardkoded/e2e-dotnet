@@ -25,7 +25,10 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         Assert.Equal("Dashboard", await screen.GetByRole("heading", new RoleOptions { Level = 1 }).TextContentAsync());
         Assert.Null(await screen.GetByRole("image", "Map").TextContentAsync());
         Assert.Equal("hello-value", await screen.GetByLabel("Search").InputValueAsync());
-        Assert.Equal("", await screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync());
+        var noValue = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync());
+        Assert.Equal("ACTION_FAILED", noValue.Code);
+        var noState = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Submit").IsCheckedAsync());
+        Assert.Equal("ACTION_FAILED", noState.Code);
         Assert.Equal("card active", await screen.GetByTestId("card").GetAttributeAsync("class"));
         Assert.Null(await screen.GetByTestId("card").GetAttributeAsync("missing"));
         Assert.True(await screen.GetByRole("button", "Submit").IsVisibleAsync());
@@ -62,7 +65,6 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         // A secure field still answers state reads.
         var password = screen.GetByLabel("Password");
         Assert.True(await password.IsEnabledAsync());
-        Assert.False(await password.IsCheckedAsync());
         Assert.True(await password.IsVisibleAsync());
         Assert.Equal(new BoundingBox(10, 140, 200, 30), await password.BoundingBoxAsync());
     }

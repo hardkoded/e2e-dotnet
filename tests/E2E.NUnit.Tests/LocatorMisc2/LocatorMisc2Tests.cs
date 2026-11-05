@@ -111,13 +111,13 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
         await promise;
     }
 
-    // Upstream: { fail: '`browser.evaluate` and the in-page readers run in the main world, so a page that deletes `Map` breaks them;
-    // Playwright runs its own in a utility world' }. In the port, `EvaluateAsync` itself throws "Nullable object must have a value" once the
-    // page has replaced `Map`.
+    // Upstream: { fail: 'locators resolve in Playwright\'s main world, which a page that replaces `Map` breaks; Playwright resolves its own in a
+    // utility world, but e2e\'s closed-shadow reach and locate reads need the main world' }. In the port, `EvaluateAsync` works on that page
+    // and the locator fails with `EVALUATE_FAILED`.
     [Test]
     public async Task Locator_count_should_work_with_deleted_Map_in_main_world()
     {
-        await ExpectedToFailAsync("Nullable object must have a value", async () =>
+        await ExpectedToFailAsync("the page deleted or replaced a JavaScript built-in", async () =>
         {
             await Browser.GotoAsync("/empty.html");
             await Browser.EvaluateAsync<object>("() => { window.Map = 1; }");

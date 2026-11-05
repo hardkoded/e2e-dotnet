@@ -11,11 +11,19 @@ namespace E2E.Tests.LocatorBasics;
 public sealed class IsCheckedAndIsEnabledTests
 {
     [Fact]
-    public async Task IsChecked_reads_the_checked_state_true_false_and_no_state_at_all_as_false()
+    public async Task IsChecked_reads_the_checked_state_and_a_checkable_role_with_no_state_as_unchecked()
     {
         Assert.True(await ScreenFixture.Create(Item("on", "On", new NodeStates { Checked = true })).GetByRole("listitem").IsCheckedAsync());
         Assert.False(await ScreenFixture.Create(Item("off", "Off", new NodeStates { Checked = false })).GetByRole("listitem").IsCheckedAsync());
-        Assert.False(await ScreenFixture.Create(Shown).GetByRole("listitem").IsCheckedAsync());
+        var toggle = new SemanticNode { Ref = "toggle", Role = "switch", Name = "Wi-Fi" };
+        Assert.False(await ScreenFixture.Create(toggle).GetByRole("switch").IsCheckedAsync());
+    }
+
+    [Fact]
+    public async Task IsChecked_fails_on_a_node_with_no_checked_state_as_Playwright_does()
+    {
+        var error = await FailsWith("ACTION_FAILED", () => ScreenFixture.Create(Shown).GetByRole("listitem").IsCheckedAsync());
+        Assert.Contains("Not a checkbox or radio button", error.Message);
     }
 
     [Fact]
