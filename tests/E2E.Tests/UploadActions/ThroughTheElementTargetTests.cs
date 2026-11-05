@@ -73,6 +73,26 @@ public sealed class ThroughTheElementTargetTests
             });
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Clears_a_file_input_or_a_button_over_a_hidden_input_with_an_empty_list_and_fires_input_and_change(bool button)
+    {
+        await RunAsync(
+            (button
+                ? """<button id="pick" type="button" onclick="document.getElementById('avatar').click()">Choose avatar</button><input id="avatar" type="file" hidden>"""
+                : """<input id="avatar" type="file" aria-label="Avatar">""") + CountClicks,
+            async session =>
+            {
+                var target = await FindByNameAsync(session, button ? "Choose avatar" : "Avatar");
+                await session.PerformAsync(target, new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None);
+                await EvaluateAsync<string>(session, ListenForInputAndChange);
+                await session.PerformAsync(target, new LocatorAction.SetInputFiles([]), CancellationToken.None);
+                Assert.Equal("", await FilesAsync(session));
+                Assert.Equal("input,change", await EvaluateAsync<string>(session, "() => window.events.join(',')"));
+            });
+    }
+
     /// <summary>The names of the files the input holds.</summary>
     private static async Task<string> FilesAsync(IEngineSession session) => (await EvaluateAsync<string>(session, State)).Split('|')[0];
 

@@ -127,6 +127,9 @@ public sealed class SemanticNode
     internal string? AttributeOf(string name) =>
         name == "href" && WholeHref is not null ? WholeHref : Attributes.TryGetValue(name, out var value) ? value : name == TestIdAttribute ? TestId : null;
 
+    /// <summary>Whether the node is a frame element, whose children are its own document's nodes. A query under another node stops at it.</summary>
+    internal bool Frame { get; init; }
+
     /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
     public BoundingBox? Rect { get; init; }
 

@@ -761,7 +761,7 @@ public sealed class Locator
 
     /// <summary>
     /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
-    /// On the web it also takes a button that opens a file chooser. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
+    /// On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires <c>input</c> and <c>change</c>. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
     /// </summary>
     public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -770,14 +770,14 @@ public sealed class Locator
     }
 
     /// <inheritdoc cref="SetInputFilesAsync(string, ActionOptions, CancellationToken)"/>
-    /// <exception cref="ArgumentException"><paramref name="paths"/> is empty or has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
+    /// <exception cref="ArgumentException"><paramref name="paths"/> has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
     public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(paths);
         var list = paths.ToList();
-        if (list.Count == 0 || list.Any(string.IsNullOrWhiteSpace))
+        if (list.Any(string.IsNullOrWhiteSpace))
         {
-            throw new ArgumentException("setInputFiles requires one or more non-empty paths", nameof(paths));
+            throw new ArgumentException("setInputFiles paths must be non-empty strings", nameof(paths));
         }
 
         var root = _screen.ProjectRoot;
@@ -973,17 +973,17 @@ public sealed class Locator
     /// More than one match fails at once.
     /// </summary>
     private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
-        ActAsync("locator." + LocatorEngine.ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.Engine.CheckAction(action), cancellationToken);
+        ActAsync("locator." + LocatorEngine.ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.Engine.CheckAction(action), cancellationToken, anyState: action is LocatorAction.ScrollIntoView);
 
     /// <summary>
     /// <see cref="ActAsync(LocatorAction, ActionOptions, CancellationToken)"/> for an action built once the node is found, with the step's
     /// label and a check that runs inside the step before the node is resolved.
     /// </summary>
-    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken) =>
+    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken, bool anyState = false) =>
         _screen.RunStepAsync(StepKind.Locator, api, label ?? Query.Describe(), () =>
         {
             check?.Invoke();
-            return _screen.Engine.PerformAsync(Query, build, options?.Timeout, _screen.Token(cancellationToken));
+            return _screen.Engine.PerformAsync(Query, build, options?.Timeout, _screen.Token(cancellationToken), anyState);
         });
 
     /// <summary>
@@ -1578,9 +1578,24 @@ internal static class LocatorResolver
                         ? candidates
                         : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
                     var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
-                    return query.Kind is "text" or "label" ? tree.InnermostOnly(matches) : matches;
+                    return query.Kind switch
+                    {
+                        "text" => tree.InnermostOnly(BoxedFirst(matches)),
+                        "label" => tree.InnermostOnly(matches),
+                        _ => matches,
+                    };
                 }
         }
+    }
+
+    /// <summary>
+    /// The matches with a box when there are any (a node that reports no <c>Rect</c> counts as boxed). Upstream's web tree lists no node that has no box, so a zero-sized control inside a shown
+    /// label never stands in for the label as its innermost match; this tree lists such a node, so it is left out here instead.
+    /// </summary>
+    private static List<SemanticNode> BoxedFirst(List<SemanticNode> matches)
+    {
+        static bool Boxed(SemanticNode node) => node.Rect is not { Width: <= 0 } and not { Height: <= 0 };
+        return matches.Any(Boxed) ? matches.Where(Boxed).ToList() : matches;
     }
 
     private static bool UsesDisplayValue(LocatorExpression query) =>
@@ -1658,7 +1673,8 @@ internal static class LocatorResolver
         }
 
         // DOM text holds every descendant's text already; a child's alone would match a pattern anchored to the whole.
-        if (node.DomText is not null)
+        // A frame node's children are another document's, which an element's text does not include.
+        if (node.DomText is not null || node.Frame)
         {
             return false;
         }
@@ -1689,7 +1705,10 @@ internal static class LocatorResolver
 
         public List<SemanticNode> All { get; } = [];
 
-        /// <summary>The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order.</summary>
+        /// <summary>
+        /// The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order. A frame node's children are
+        /// its own document's, so a candidate under a nested frame is no descendant of a node above that frame, as in a locator chain.
+        /// </summary>
         public List<SemanticNode> DescendantsOf(IReadOnlyCollection<SemanticNode> ancestors, IReadOnlyList<SemanticNode> candidates)
         {
             if (ancestors.Count == 0)
@@ -1698,7 +1717,25 @@ internal static class LocatorResolver
             }
 
             var set = new HashSet<SemanticNode>(ancestors, ReferenceEqualityComparer.Instance);
-            return candidates.Where(node => Ancestors(node).Any(set.Contains)).ToList();
+            return candidates.Where(node => InsideAny(node, set)).ToList();
+        }
+
+        private bool InsideAny(SemanticNode node, HashSet<SemanticNode> ancestors)
+        {
+            foreach (var ancestor in Ancestors(node))
+            {
+                if (ancestors.Contains(ancestor))
+                {
+                    return true;
+                }
+
+                if (ancestor.Frame)
+                {
+                    return false;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1710,7 +1747,7 @@ internal static class LocatorResolver
             var containers = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
             foreach (var match in matches)
             {
-                containers.UnionWith(Ancestors(match));
+                containers.UnionWith(Ancestors(match).TakeWhile(ancestor => !ancestor.Frame));
             }
 
             return matches.Where(node => !containers.Contains(node)).ToList();

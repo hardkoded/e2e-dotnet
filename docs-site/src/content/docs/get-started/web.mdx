@@ -184,7 +184,7 @@ await Browser.RouteAsync("**/api/quote", async route =>
 });
 ```
 
-`FetchAsync()` returns `{ Url, Status, Headers, TextAsync(), JsonAsync<T>() }` with the site's configured headers sent, under the action timeout. It takes no options, and it does not follow redirects, which could take it past the navigation rule: a redirect comes back as its `3xx` status and `location` header. A body the browser could not read fails `TextAsync` and `JsonAsync` with `ACTION_FAILED` naming `route.fetch`, and the metadata stays readable.
+`FetchAsync()` returns `{ Url, Status, Headers, BodyAsync(), TextAsync(), JsonAsync<T>() }` with the site's configured headers sent, under the action timeout. Hand a binary body on with `BodyAsync()`, never `TextAsync()`: `FulfillAsync(new RouteFulfillResponse { Headers = upstream.Headers, BodyBytes = await upstream.BodyAsync() })`. `ContinueAsync` drops the request headers named in `DropHeaders`, also on a redirect. It takes no options, and it does not follow redirects, which could take it past the navigation rule: a redirect comes back as its `3xx` status and `location` header. A body the browser could not read fails `BodyAsync`, `TextAsync`, and `JsonAsync` with `ACTION_FAILED` naming `route.fetch`, and the metadata stays readable.
 
 ## Next
 

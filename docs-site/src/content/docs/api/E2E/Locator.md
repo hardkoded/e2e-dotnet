@@ -1199,7 +1199,7 @@ public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options
 
 
 Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
-On the web it also takes a button that opens a file chooser. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
+On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires `input` and `change`. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
 
 **Parameters**
 
@@ -1215,7 +1215,7 @@ On the web it also takes a button that opens a file chooser. A button that opens
 
 | Type | Condition |
 | --- | --- |
-| [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; is empty or has a blank entry (upstream's `INVALID_ARGUMENT`). |
+| [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; has a blank entry (upstream's `INVALID_ARGUMENT`). |
 
 <a id="E2E_Locator_SetInputFilesAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -1228,7 +1228,7 @@ public Task SetInputFilesAsync(string path, ActionOptions? options = null, Cance
 
 
 Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
-On the web it also takes a button that opens a file chooser. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
+On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires `input` and `change`. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
 
 **Parameters**
 
