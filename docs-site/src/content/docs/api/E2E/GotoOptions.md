@@ -40,7 +40,7 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-The navigation budget. Defaults to the action timeout.
+The navigation budget. Defaults to the action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is `INVALID_ARGUMENT`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 

@@ -62,6 +62,12 @@ public sealed class Browser
 
     internal TimeSpan AssertionTimeout => _assertionTimeout;
 
+    /// <summary>The deadline of the running phase, which a call with <c>Timeout = TimeSpan.Zero</c> waits for; null when nothing bounds the test.</summary>
+    internal Deadline? BudgetDeadline { get; set; }
+
+    /// <summary>The budget of a call on its own <paramref name="timeout"/>, the action timeout by default (upstream's <c>context.operation(stepTimeout(timeout, api))</c>); zero is what is left of the test.</summary>
+    private TimeSpan StepBudget(TimeSpan? timeout, string api) => Time.StepBudget(timeout, api, _actionTimeout, BudgetDeadline, TimeProvider.System);
+
     internal string? BaseUrl => _baseUrl;
 
     internal void NotifyVerified() => _verified();
@@ -92,15 +98,11 @@ public sealed class Browser
     public Task GotoAsync(string url, GotoOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        if (options?.Timeout is { } budget)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(options));
-        }
-
         return RunStepAsync(StepKind.Resource, "browser.goto", url, () =>
         {
+            var budget = StepBudget(options?.Timeout, "browser.goto");
             var resolved = Routes.Resolve(_baseUrl, url);
-            return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, options?.Timeout ?? _actionTimeout, Token(cancellationToken)));
+            return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, budget, Token(cancellationToken)));
         });
     }
 
@@ -135,7 +137,7 @@ public sealed class Browser
     /// <summary>
     /// Waits until the current URL equals <paramref name="url"/>, resolved
     /// against the base URL, as <see cref="BrowserExpect.ToHaveURLAsync(string, bool?, TimeSpan?, CancellationToken)"/>.
-    /// The default timeout is the assertion timeout.
+    /// The default timeout is the assertion timeout; zero waits for the test timeout.
     /// </summary>
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
@@ -147,7 +149,7 @@ public sealed class Browser
         }, verifies: true);
     }
 
-    /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout.</summary>
+    /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout; zero waits for the test timeout.</summary>
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
@@ -207,7 +209,7 @@ public sealed class Browser
     /// Waits for a response whose complete URL matches the glob <paramref name="pattern"/>:
     /// <c>*</c> matches within one path segment, <c>**</c> crosses <c>/</c>, <c>?</c>
     /// matches one character, and <c>\</c> escapes the next one. The timeout bounds
-    /// the match only, and defaults to the action timeout.
+    /// the match only, and defaults to the action timeout; zero waits for the test timeout.
     /// </summary>
     public Task<WebResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
@@ -215,7 +217,7 @@ public sealed class Browser
         return WaitForResponseCoreAsync(pattern, () => Routes.CompilePattern(pattern).IsMatch, timeout, cancellationToken);
     }
 
-    /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout.</summary>
+    /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout; zero waits for the test timeout.</summary>
     public Task<WebResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
@@ -388,7 +390,7 @@ public sealed class Browser
 
     /// <summary>
     /// Runs <paramref name="trigger"/> and waits for the download it starts, within <paramref name="timeout"/> (the action timeout by
-    /// default). The file is kept under the attempt's <c>downloads</c> artifact folder, as an artifact of this step. A text download
+    /// default; zero waits for the test timeout). The file is kept under the attempt's <c>downloads</c> artifact folder, as an artifact of this step. A text download
     /// (<c>text/*</c> or <c>application/json</c>) is rewritten in place through the session's secrets when it holds any, and the report
     /// labels it <c>complete</c>; any other download stays as the app served it, <c>incomplete</c>. A trigger that
     /// throws fails the call with its own error, and one that starts no download fails with <c>ACTION_FAILED</c>, naming the wait and
@@ -397,16 +399,12 @@ public sealed class Browser
     public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(trigger);
-        if (timeout is { } budget)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(timeout));
-        }
-
         var session = Require("waitForDownload");
         BrowserDownload? download = null;
         await RunStepAsync(StepKind.Resource, "browser.waitForDownload", "", async () =>
         {
-            download = await AppNotOpen.GuardAsync(() => session.WaitForDownloadAsync(trigger, timeout ?? _actionTimeout, Token(cancellationToken))).ConfigureAwait(false);
+            var budget = StepBudget(timeout, "browser.waitForDownload");
+            download = await AppNotOpen.GuardAsync(() => session.WaitForDownloadAsync(trigger, budget, Token(cancellationToken))).ConfigureAwait(false);
             Attach("download", download.Path);
         }).ConfigureAwait(false);
         return download!;
@@ -414,7 +412,7 @@ public sealed class Browser
 
     /// <summary>
     /// Runs <paramref name="trigger"/> once and waits for the first <paramref name="count"/> downloads it starts, within
-    /// <paramref name="timeout"/> (the action timeout by default), and returns them in start order. Each file is kept under the attempt's
+    /// <paramref name="timeout"/> (the action timeout by default; zero waits for the test timeout), and returns them in start order. Each file is kept under the attempt's
     /// <c>downloads</c> artifact folder as its own artifact of this step, and a text download is rewritten through the session's secrets
     /// as <c>WaitForDownloadAsync</c> does. One timeout bounds the start, completion and
     /// save of every file. When fewer start in time the call fails with <c>ACTION_FAILED</c> naming both counts; extra downloads are
@@ -424,11 +422,6 @@ public sealed class Browser
     public async Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(trigger);
-        if (timeout is { } budget)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(timeout));
-        }
-
         var session = Require("waitForDownloads");
         IReadOnlyList<BrowserDownload> downloads = [];
         await RunStepAsync(StepKind.Resource, "browser.waitForDownloads", "", async () =>
@@ -438,7 +431,8 @@ public sealed class Browser
                 throw new TestException("INVALID_ARGUMENT", "waitForDownloads: count must be a positive safe integer");
             }
 
-            downloads = await AppNotOpen.GuardAsync(() => session.WaitForDownloadsAsync(trigger, count, timeout ?? _actionTimeout, Token(cancellationToken))).ConfigureAwait(false);
+            var budget = StepBudget(timeout, "browser.waitForDownloads");
+            downloads = await AppNotOpen.GuardAsync(() => session.WaitForDownloadsAsync(trigger, count, budget, Token(cancellationToken))).ConfigureAwait(false);
             foreach (var download in downloads)
             {
                 Attach("download", download.Path);
@@ -516,7 +510,8 @@ public sealed class Browser
         RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.PatternLabel(pattern), async () =>
         {
             var session = Require("waitForResponse");
-            var response = await session.WaitForResponseAsync(matcher(), timeout ?? _actionTimeout, Token(cancellationToken)).ConfigureAwait(false);
+            var budget = StepBudget(timeout, "browser.waitForResponse");
+            var response = await session.WaitForResponseAsync(matcher(), budget, Token(cancellationToken)).ConfigureAwait(false);
             return new WebResponse(response, _actionTimeout, _token);
         });
 

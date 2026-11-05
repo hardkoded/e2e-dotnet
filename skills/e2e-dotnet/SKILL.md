@@ -226,6 +226,12 @@ lines you changed:
   step, so keep it longer than the slowest screen takes to load. A call's own
   timeout still wins. An `Expect` already gives up after 5 s by default
   (`assertionTimeout`).
+- A call's `Timeout` of `TimeSpan.Zero` sets no deadline of its own: the call
+  waits until the test timeout instead of failing at once. It works on locator
+  actions, `WaitForAsync`, `Expect` matchers, `ToHaveScreenshotAsync`,
+  `Browser.GotoAsync`, `WaitForResponseAsync`, and `WaitForDownloadAsync`. A
+  negative `TimeSpan` fails with `INVALID_ARGUMENT`. `Expect.Poll` with a zero
+  `Timeout` polls until the cancellation token you pass ends.
 - Keep the replay cache on. A failed run keeps the recording of every goal
   whose check passed, and the next run replays those with no model call. New,
   changed, and failed goals run live, and so does a replay the trace page

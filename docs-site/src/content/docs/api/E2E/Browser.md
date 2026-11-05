@@ -664,7 +664,7 @@ public Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan? 
 
 
 Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; and waits for the download it starts, within &lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by
-default). The file is kept under the attempt's `downloads` artifact folder, as an artifact of this step. A text download
+default; zero waits for the test timeout). The file is kept under the attempt's `downloads` artifact folder, as an artifact of this step. A text download
 (`text/*` or `application/json`) is rewritten in place through the session's secrets when it holds any, and the report
 labels it `complete`; any other download stays as the app served it, `incomplete`. A trigger that
 throws fails the call with its own error, and one that starts no download fails with `ACTION_FAILED`, naming the wait and
@@ -692,7 +692,7 @@ public Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> tri
 
 
 Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; once and waits for the first &lt;code class="paramref"&gt;count&lt;/code&gt; downloads it starts, within
-&lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by default), and returns them in start order. Each file is kept under the attempt's
+&lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by default; zero waits for the test timeout), and returns them in start order. Each file is kept under the attempt's
 `downloads` artifact folder as its own artifact of this step, and a text download is rewritten through the session's secrets
 as `WaitForDownloadAsync` does. One timeout bounds the start, completion and
 save of every file. When fewer start in time the call fails with `ACTION_FAILED` naming both counts; extra downloads are
@@ -724,7 +724,7 @@ public Task<WebResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout 
 Waits for a response whose complete URL matches the glob &lt;code class="paramref"&gt;pattern&lt;/code&gt;:
 `*` matches within one path segment, `**` crosses `/`, `?`
 matches one character, and `\` escapes the next one. The timeout bounds
-the match only, and defaults to the action timeout.
+the match only, and defaults to the action timeout; zero waits for the test timeout.
 
 **Parameters**
 
@@ -746,7 +746,7 @@ public Task<WebResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout =
 ```
 
 
-Waits for a response whose URL matches &lt;code class="paramref"&gt;pattern&lt;/code&gt;. The timeout bounds the match only, and defaults to the action timeout.
+Waits for a response whose URL matches &lt;code class="paramref"&gt;pattern&lt;/code&gt;. The timeout bounds the match only, and defaults to the action timeout; zero waits for the test timeout.
 
 **Parameters**
 
