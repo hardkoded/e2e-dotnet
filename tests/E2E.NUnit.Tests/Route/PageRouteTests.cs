@@ -17,7 +17,8 @@ namespace E2E.NUnit.Tests.Route;
 /// should not fulfill with redirect status (WebKit only), the four tests with the <c>times</c> parameter (no <c>times</c>),
 /// should contain sec-fetch headers in route (no <c>allHeaders()</c>), should contain raw response header and
 /// should contain raw response header after fulfill (no <c>request.response()</c>), should be able to intercept every navigation
-/// to a page controlled by service worker (service workers), should respect URLPattern ignoreCase (no URLPattern).
+/// to a page controlled by service worker (service workers), should respect URLPattern ignoreCase (no URLPattern), should not support ? in glob pattern
+/// (a <c>?</c> in a route glob matches one character on purpose, where Playwright reads it literally).
 /// </summary>
 public sealed class PageRouteTests : PlaywrightTest
 {
@@ -79,40 +80,6 @@ public sealed class PageRouteTests : PlaywrightTest
         await Browser.UnrouteAsync("**/empty.html");
         await Browser.GotoAsync(EmptyPage);
         Assert.That(intercepted, Is.EqualTo(new[] { 1 }));
-    }
-
-    [Test]
-    public async Task Should_not_support_question_mark_in_glob_pattern()
-    {
-        await ExpectedToFailAsync("index1hello", async () =>
-        {
-            await Browser.RouteAsync(new Regex(@"/index"), async route =>
-            {
-                var url = new Uri(route.Request.Url);
-                var body = url.AbsolutePath switch
-                {
-                    "/index" => "index-no-hello",
-                    "/index123hello" => "index123hello",
-                    "/index1hello" => "index1hello",
-                    _ => url.AbsolutePath[1..] + url.Query,
-                };
-                await route.FulfillAsync(new RouteFulfillResponse { Body = body, ContentType = "text/html" });
-            });
-            await Browser.RouteAsync("**/index?hello", route => route.FulfillAsync(new RouteFulfillResponse { Body = "intercepted any character" }));
-            await Browser.RouteAsync(@"**/index\?hello", route => route.FulfillAsync(new RouteFulfillResponse { Body = "intercepted question mark" }));
-
-            await Browser.GotoAsync($"{PREFIX}/index?hello");
-            Contain("intercepted question mark", (await Browser.EvaluateAsync<string>("document.documentElement.outerHTML"))!);
-
-            await Browser.GotoAsync($"{PREFIX}/index");
-            Contain("index-no-hello", (await Browser.EvaluateAsync<string>("document.documentElement.outerHTML"))!);
-
-            await Browser.GotoAsync($"{PREFIX}/index1hello");
-            Contain("index1hello", (await Browser.EvaluateAsync<string>("document.documentElement.outerHTML"))!);
-
-            await Browser.GotoAsync($"{PREFIX}/index123hello");
-            Contain("index123hello", (await Browser.EvaluateAsync<string>("document.documentElement.outerHTML"))!);
-        });
     }
 
     [Test]

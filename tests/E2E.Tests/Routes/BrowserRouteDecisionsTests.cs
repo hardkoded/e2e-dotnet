@@ -78,6 +78,25 @@ public sealed class BrowserRouteDecisionsTests
 
     // Not portable, because the C# signature refuses them at compile time (upstream's tests/types/downloads.ts): a batch with no count,
     // and a trigger that is not asynchronous.
+    // Partial: upstream hands a recording operation the timeouts and checks the budgets it was asked for (Infinity for 0). The port has no
+    // operation to record, so this runs real calls: 0 waits for the test deadline instead of failing, and a negative timeout is refused.
+    [Fact]
+    public Task Partial_Hands_timeout_0_to_the_operation_as_a_budget_only_the_test_deadline_caps_and_refuses_a_negative_one() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = TimeSpan.Zero });
+        await routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", TimeSpan.Zero);
+        var negative = TimeSpan.FromMilliseconds(-1);
+        foreach (var call in new Func<Task>[]
+        {
+            () => routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = negative }),
+            () => routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", negative),
+            () => routes.Browser.WaitForDownloadAsync(() => Task.CompletedTask, negative),
+        })
+        {
+            Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(call)).Code);
+        }
+    });
+
     [Fact]
     public Task Rejects_an_invalid_download_count_before_running_the_trigger() => WithRoutesAsync(async routes =>
     {
@@ -428,6 +447,25 @@ public sealed class BrowserRouteDecisionsTests
         Assert.Equal("first", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
         var failure = await routes.NextStepFailureAsync();
         Assert.Equal(("ACTION_FAILED", "route handler already decided; fulfill called twice"), (failure?.Code, failure?.Message));
+    });
+
+    [Fact]
+    public Task Fails_a_navigation_its_route_aborted_as_an_action_failure_not_an_engine_fault() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/aborted", route => route.AbortAsync());
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/aborted"));
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Contains("navigation failed: a route aborted the request for " + routes.Site.Origin + "/aborted", failure.Message, StringComparison.Ordinal);
+    });
+
+    [Fact]
+    public Task Fails_a_navigation_with_the_route_error_that_aborted_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/refused", route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["bad name"] = "x" } }));
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/refused"));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("invalid header name: \"bad name\"", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(routes.Site.Origin + "/", await routes.Browser.UrlAsync());
     });
 
     [Fact]

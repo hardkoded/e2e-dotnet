@@ -55,7 +55,7 @@ Check = 10
 
 
 ```csharp
-DismissKeyboard = 23
+DismissKeyboard = 22
 ```
 
 
@@ -93,7 +93,7 @@ Drag = 12
 
 
 ```csharp
-DragAt = 20
+DragAt = 19
 ```
 
 
@@ -117,7 +117,7 @@ Hover = 4
 
 
 ```csharp
-HoverAt = 19
+HoverAt = 18
 ```
 
 
@@ -165,7 +165,7 @@ Press = 8
 
 
 ```csharp
-PressKey = 22
+PressKey = 21
 ```
 
 
@@ -179,11 +179,11 @@ One key sent to whatever held focus (`pressKey`).
 
 
 ```csharp
-Resize = 17
+Resize = 24
 ```
 
 
-The viewport set to a size (`resize`).
+The viewport set to a size (`resize`). Last, so no earlier member changes its value.
 
 **Value:** [ActionName](./)
 
@@ -265,7 +265,7 @@ Tap = 0
 
 
 ```csharp
-TapAt = 18
+TapAt = 17
 ```
 
 
@@ -277,7 +277,7 @@ TapAt = 18
 
 
 ```csharp
-Tool = 24
+Tool = 23
 ```
 
 
@@ -315,7 +315,7 @@ TypeSecret = 7
 
 
 ```csharp
-TypeText = 21
+TypeText = 20
 ```
 
 

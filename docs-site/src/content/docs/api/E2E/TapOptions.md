@@ -38,7 +38,7 @@ public Point? Position { get; init; }
 ```
 
 
-Where to tap, relative to the node's top-left corner. Without it the platform picks a point of the node, usually its center, behind
+Where to tap, relative to the node's top-left corner, inside its border on a document platform. Without it the platform picks a point of the node, usually its center, behind
 its own actionability checks; with it the pointer is dispatched at that point once the node is in view and has a box, which needs
 the engine's `tap` pointer action. Not held with [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) yet.
 

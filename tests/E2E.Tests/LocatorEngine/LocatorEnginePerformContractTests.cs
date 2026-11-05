@@ -183,6 +183,37 @@ public sealed class LocatorEnginePerformContractTests
     }
 
     [Fact]
+    public async Task Offsets_a_positioned_tap_from_the_node_origin_when_it_reports_one_else_its_box_corner()
+    {
+        var boxed = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 20, 100, 40) };
+        var bordered = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 20, 100, 40), Origin = new Point(18, 28) };
+        var node = boxed;
+        var points = new List<Point>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(1000),
+            locate: (_, _, _) => Task.FromResult<IReadOnlyList<SemanticNode>>([node]),
+            performAt: (point, _, _) =>
+            {
+                points.Add(point);
+                return Task.CompletedTask;
+            })
+        {
+            PointerActionKinds = ["tap"],
+        };
+
+        await screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 6) });
+        node = bordered;
+        await screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 6) });
+
+        Assert.Equal([new Point(15, 26), new Point(23, 34)], points);
+    }
+
+    [Fact]
     public async Task Marks_every_action_it_performs_with_the_test_origin_so_an_engine_can_act_without_settling()
     {
         var scripted = ScriptedLocatorEngine.Make();

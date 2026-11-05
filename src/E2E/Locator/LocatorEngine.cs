@@ -175,21 +175,20 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     /// <summary>
     /// The timeout of one action-family operation: <paramref name="timeout"/> when given, the action timeout otherwise. Upstream's
-    /// <c>deadline(timeoutMs)</c> builds the deadline itself; <see cref="Deadline"/> is also this type's name here (.NET-only name).
+    /// <c>deadline(timeoutMs)</c> builds the deadline itself; <see cref="Deadline"/> is also this type's name here (.NET-only name). A
+    /// negative <paramref name="timeout"/> is <c>INVALID_ARGUMENT</c>. Zero sets no deadline of its own: the budget is what is left of the
+    /// running phase's deadline.
     /// </summary>
-    internal TimeSpan TimeoutOf(TimeSpan? timeout)
-    {
-        if (timeout is TimeSpan chosen)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(chosen, TimeSpan.Zero, "timeout");
-            return chosen;
-        }
+    internal TimeSpan TimeoutOf(TimeSpan? timeout) => Time.StepBudget(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
 
-        return ActionTimeout;
-    }
+    /// <summary>
+    /// Deadline for one action-family operation (upstream's <c>deadline</c>; .NET-only name, as <c>Deadline</c> is the type). Zero sets no
+    /// deadline of its own, so the running phase's alone bounds it.
+    /// </summary>
+    internal Deadline DeadlineFor(TimeSpan? timeout = null) => Time.StepDeadline(timeout, "the step", ActionTimeout, BudgetDeadline, Clock);
 
-    /// <summary>Deadline for one action-family operation (upstream's <c>deadline</c>; .NET-only name, as <c>Deadline</c> is the type).</summary>
-    internal Deadline DeadlineFor(TimeSpan? timeout = null) => new(TimeoutOf(timeout), Clock);
+    /// <summary>Deadline for one assertion on a matcher's own <paramref name="timeout"/>, the assertion timeout by default; <paramref name="api"/> names the call in a refusal.</summary>
+    internal Deadline AssertionDeadlineFor(TimeSpan? timeout, string api) => Time.StepDeadline(timeout, api, AssertionTimeout, BudgetDeadline, Clock);
 
     /// <summary>One observation of the screen, an unopened app reported as <c>APP_NOT_OPEN</c>.</summary>
     internal async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
@@ -436,14 +435,14 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task PerformAsync(LocatorExpression expression, Func<Deadline, CancellationToken, Task<LocatorAction>> build, TimeSpan? timeout, CancellationToken token, bool anyState = false)
     {
         var started = Clock.GetUtcNow();
-        var deadline = started + TimeoutOf(timeout);
+        var window = DeadlineFor(timeout);
+        var deadline = window.EndsAt;
         var startedAt = DateTimeOffset.UtcNow;
         var stamp = Stopwatch.GetTimestamp();
         // Each resolve counts its own rounds and wait, as upstream's resolveCounted does: a stale retry starts them over.
         var resolveStamp = stamp;
         var rounds = 0;
         var stale = 0;
-        var window = new Deadline(deadline);
         var reads = Reads(window);
         while (true)
         {
@@ -557,18 +556,18 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     internal async Task PerformAtAsync(Point point, PointerAction action, TimeSpan? timeout, CancellationToken token)
     {
         CheckPointerAction(action);
-        await DispatchAtAsync(point, action, new Deadline(TimeoutOf(timeout), Clock), token).ConfigureAwait(false);
+        await DispatchAtAsync(point, action, DeadlineFor(timeout), token).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Performs one pointer action at an offset from the top-left corner of exactly one match: the node is scrolled into view when the engine
+    /// Performs one pointer action at an offset from the origin of exactly one match (<see cref="SemanticNode.Origin"/>, else its box's top-left corner): the node is scrolled into view when the engine
     /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
     /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
     /// </summary>
     internal async Task PerformWithinAsync(LocatorExpression expression, Point offset, PointerAction action, TimeSpan? timeout, CancellationToken token)
     {
         CheckPointerAction(action);
-        var deadline = new Deadline(TimeoutOf(timeout), Clock);
+        var deadline = DeadlineFor(timeout);
         var started = Clock.GetTimestamp();
         if (ActionKinds is not { } declared || declared.Contains("scrollIntoView"))
         {
@@ -599,7 +598,8 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             sampled = true;
             if (node is { States.Hidden: false, Rect: { } rect })
             {
-                await DispatchAtAsync(new Point(rect.X + offset.X, rect.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
+                var origin = node.Origin ?? new Point(rect.X, rect.Y);
+                await DispatchAtAsync(new Point(origin.X + offset.X, origin.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
                 return;
             }
 

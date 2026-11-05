@@ -133,6 +133,13 @@ public sealed class SemanticNode
     /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
     public BoundingBox? Rect { get; init; }
 
+    /// <summary>
+    /// The point an offset into the node is measured from, in <see cref="Rect"/>'s space, when it is not <see cref="Rect"/>'s top-left corner: a
+    /// document element's padding box, inside its border, or the corner of a box a frame clipped <see cref="Rect"/> from.
+    /// <c>tap({ position })</c> adds the offset to it.
+    /// </summary>
+    public Point? Origin { get; init; }
+
     public IReadOnlyList<SemanticNode> Children { get; init; } = [];
 }
 

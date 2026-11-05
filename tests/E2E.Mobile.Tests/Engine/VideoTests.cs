@@ -160,6 +160,104 @@ public sealed class VideoTests : IDisposable
     }
 
     [Fact]
+    public async Task Shares_a_pending_recording_stop_with_another_caller_and_attempt_cleanup_after_cancellation()
+    {
+        var h = Harness.Create();
+        var finalizing = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.RecordingRecord, (options, _) =>
+            options!["action"]!.GetValue<string>() == "start" ? Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" }) : finalizing.Task);
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        var first = session.StopVideoAsync(controller.Token);
+        await WaitFor(() => Records(h) == 2);
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => first);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+
+        var second = session.StopVideoAsync(CancellationToken.None);
+        var ending = session.DisposeAsync().AsTask();
+        File.WriteAllText(VideoPath, "mp4 bytes");
+        finalizing.SetResult(new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true });
+        var segment = Assert.IsType<VideoFile>(Assert.Single(await second));
+        Assert.Equal("video/video.mp4", segment.Path);
+        Assert.False(string.IsNullOrEmpty(segment.StartedAt));
+        await ending;
+        Assert.Equal(2, Records(h));
+
+        // A confirmed stop leaves nothing for the next attempt to stop.
+        var next = await OpenAttempt(h, _artifactsDir);
+        await next.StartVideoAsync(CancellationToken.None);
+        await next.DisposeAsync();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task Retries_a_stop_that_rejects_promise_turns_before_cleanup_after_its_first_caller_cancels(int turns)
+    {
+        var h = Harness.Create();
+        var failing = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stops = 0;
+        h.Fake.RespondAsync(DeviceMethods.RecordingRecord, (options, _) =>
+        {
+            if (options!["action"]!.GetValue<string>() == "start")
+            {
+                return Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" });
+            }
+
+            return Interlocked.Increment(ref stops) == 1
+                ? failing.Task
+                : Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true });
+        });
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        var first = session.StopVideoAsync(controller.Token);
+        await WaitFor(() => Volatile.Read(ref stops) == 1);
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => first);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+
+        failing.SetException(new InvalidOperationException("recorder busy"));
+
+        // Cleanup may start after the device rejects, before the session processes it.
+        for (var i = 0; i < turns; i++)
+        {
+            await Task.Yield();
+        }
+
+        await session.DisposeAsync();
+        Assert.Equal(2, Volatile.Read(ref stops));
+    }
+
+    [Fact]
+    public async Task Does_not_send_a_new_recording_stop_for_a_caller_that_was_already_cancelled()
+    {
+        var h = Harness.Create();
+        Recorder(h);
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(controller.Token));
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+        Assert.Equal(1, Records(h));
+        Assert.Single(await session.StopVideoAsync(CancellationToken.None));
+        Assert.Equal(2, Records(h));
+    }
+
+    private static async Task WaitFor(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition not reached");
+            await Task.Delay(5);
+        }
+    }
+
+    [Fact]
     public async Task Stops_a_start_that_outlived_its_budget_and_keeps_a_recording_whose_stop_failed_for_endAttempt()
     {
         var h = Harness.Create();

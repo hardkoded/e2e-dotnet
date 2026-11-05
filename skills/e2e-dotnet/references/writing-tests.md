@@ -61,7 +61,8 @@ Members of `E2ETest` in both frameworks:
   screenshot artifact under `screenshots/` and returns its absolute path; the
   report records the path relative to the artifact root. It masks secure
   fields only, after a `Secret` fill too, so a secret the app shows anywhere
-  else is in the image. It is `UNSUPPORTED_CAPABILITY` only on an engine that
+  else is in the image. A screenshot taken while the page navigates captures
+  the document showing. It is `UNSUPPORTED_CAPABILITY` only on an engine that
   keeps no screenshot artifact. The web, mobile, and Windows engines keep
   screenshot artifacts.
 - `App.StartRecordingAsync(new RecordingOptions { Name = "dialog" })`, then
@@ -189,7 +190,7 @@ engine has them all; the document engine has swipe only and fails the rest with
 screen refuses another before it resolves the node.
 
 `TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
-node's box (from its top left corner), once the node is in view with a box;
+node's box (from its top left corner, inside its border), once the node is in view with a box;
 modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
 taps a viewport point with no locator, and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points
@@ -492,6 +493,9 @@ misses.
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root. An error the handler throws fails the next step; when
   no step follows, it fails the test at its end, after the teardown has run.
+  A step the handler made fail, such as the `GotoAsync` whose request it left
+  aborted, fails with the handler's error. A `GotoAsync` whose request a
+  handler aborted on purpose fails with `ACTION_FAILED`.
 - `UnrouteAllAsync()` removes every route; configured site headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within

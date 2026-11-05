@@ -40,6 +40,6 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-How long to wait for exactly one enabled match. Defaults to the configured action timeout.
+How long to wait for exactly one enabled match. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is `INVALID_ARGUMENT`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)

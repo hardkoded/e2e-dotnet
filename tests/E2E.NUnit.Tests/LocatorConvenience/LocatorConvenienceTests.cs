@@ -11,7 +11,8 @@ namespace E2E.NUnit.Tests.LocatorConvenience;
 /// <c>locator-convenience.spec.ts</c>). The <c>page.&lt;read&gt;(selector)</c> twins of each locator read are locator reads, and a
 /// <c>:text("...")</c> selector is <c>GetByText</c>. Not ported, as upstream: should have a nice preview, innerHTML should work,
 /// innerText should work, innerText should throw, innerText should produce log, isEditable should work, allInnerTexts should work,
-/// should return page, the five description tests, and the two toString() tests (the port has none of those reads).
+/// should return page, the five description tests, and the two toString() tests (the port has none of those reads); textContent should work
+/// (<c>TextContentAsync</c> reads rendered text with whitespace normalized on purpose, where Playwright keeps the raw text).
 /// </summary>
 public sealed class LocatorConvenienceTests : PlaywrightTest
 {
@@ -42,18 +43,6 @@ public sealed class LocatorConvenienceTests : PlaywrightTest
             Equal("input value", await Browser.Locator("#input").InputValueAsync());
 
             await ExpectErrorAsync(() => Browser.Locator("#inner").InputValueAsync(), "no input");
-        });
-    }
-
-    // Upstream: { fail: '`textContent()` normalizes whitespace, where Playwright keeps the raw text' }.
-    [Test]
-    public async Task TextContent_should_work()
-    {
-        await ExpectedToFailAsync("more text", async () =>
-        {
-            await Browser.GotoAsync("/dom.html");
-            var locator = Browser.Locator("#inner");
-            Equal("Text,\nmore text", await locator.TextContentAsync());
         });
     }
 
