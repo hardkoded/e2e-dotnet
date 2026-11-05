@@ -54,6 +54,8 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     {
         await AttemptAsync(async session =>
         {
+            // Upstream calls the bare surface; a recorded step maps the engine error onto ACTION_FAILED.
+            session.Browser.Steps = null;
             var error = await Assert.ThrowsAsync<EngineException>(() => session.Browser.EvaluateAsync<object>("() => new Promise(() => { })"));
             Assert.Equal("OPERATION_TIMEOUT", error.Code);
         });
