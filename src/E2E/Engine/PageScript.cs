@@ -1199,7 +1199,7 @@ internal static class PageScript
         }
         """;
 
-    // Whether each element is a frame, the only element a frame locator can enter, read without waiting for any: an element that has gone since it was counted lists nothing.
+    // Whether each element is a frame, the only element a frame locator can enter. An element gone since the count lists nothing.
     public const string AreFrameElements = """
         (els) => els.map((el) => el.tagName === "IFRAME" || el.tagName === "FRAME")
         """;
