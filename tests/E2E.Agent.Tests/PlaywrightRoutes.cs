@@ -14,11 +14,14 @@ namespace E2E.Playground;
 /// The routes of the tests ported from Playwright, a port of upstream's <c>apps/testbed/app/playwright/routes.mjs</c>:
 /// its test assets (copied from microsoft/playwright <c>tests/assets</c> at v1.64.1, Apache-2.0, under
 /// <c>Testbed/playwright/assets</c> next to the test assembly) and the dynamic routes its test server sets per test.
-/// The playground serves them for any path it has no page for. This port has <c>/content</c> and the assets so far.
+/// The playground serves them for any path it has no page for. This port has <c>/content</c>, <c>/never</c> and the assets so far.
 /// </summary>
 internal static class PlaywrightRoutes
 {
-    private static readonly string Root = Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets");
+    private static readonly string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets"));
+
+    /// <summary>Cancelled when the process exits, which releases the requests a route holds.</summary>
+    private static readonly CancellationTokenSource Shutdown = CreateShutdown();
 
     private static readonly Dictionary<string, string> Types = new(StringComparer.Ordinal)
     {
@@ -42,6 +45,23 @@ internal static class PlaywrightRoutes
             var html = context.Request.QueryString["html"] ?? "";
             response.ContentType = "text/html; charset=utf-8";
             await WriteAsync(response, FromBase64Url(html)).ConfigureAwait(false);
+            return;
+        }
+
+        if (path == "/never")
+        {
+            // Holds the response and never answers, as upstream's /never. It ends when the run ends (the testbed never stops before that)
+            // or after upstream's longest delay, so a held request cannot outlive the run.
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(30), Shutdown.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run is ending.
+            }
+
+            response.Abort();
             return;
         }
 
@@ -86,6 +106,13 @@ internal static class PlaywrightRoutes
         response.ContentType = Types.GetValueOrDefault(Path.GetExtension(file), "application/octet-stream");
         response.AddHeader("Cache-Control", "no-store");
         await WriteAsync(response, await File.ReadAllBytesAsync(file).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    private static CancellationTokenSource CreateShutdown()
+    {
+        var source = new CancellationTokenSource();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => source.Cancel();
+        return source;
     }
 
     /// <summary>Answers a multipart form with the files it carried as JSON, as upstream's <c>/upload</c>: name, filename, mimetype, size, and the bytes (base64) of a file up to 64 KB.</summary>
