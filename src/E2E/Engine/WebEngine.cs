@@ -4144,7 +4144,7 @@ internal static partial class WebErrors
         }
         catch (Exception probe) when (probe is not OperationCanceledException)
         {
-            _ = probe;
+            // The main world failed, as the page's own replaced built-in would make it: the case this method classifies.
         }
 
         // A crash or a closed target between the two probes fails this read too.
