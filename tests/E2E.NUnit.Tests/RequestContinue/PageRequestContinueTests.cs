@@ -27,35 +27,6 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     private async Task<Served> FetchedAsync(string url, string init = "{}") =>
         Served.Parse((await Browser.EvaluateAsync<string>($"(url) => fetch(url, {init}).then((response) => response.text())", url))!);
 
-    /// <summary>
-    /// Continues the requests of <paramref name="pattern"/> with <c>foo: undefined</c> among the headers, upstream's way to delete one, then fetches.
-    /// A header value is a string here, and <c>continue</c> refuses <see langword="null"/>: the refusal is thrown once the fetch is over.
-    /// </summary>
-    private async Task<Served> FetchedWithDeletedHeaderAsync(string pattern, string url, string init)
-    {
-        Exception? refused = null;
-        await Browser.RouteAsync(pattern, async route =>
-        {
-            try
-            {
-                await route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("foo", null!)) });
-            }
-            catch (Exception ex)
-            {
-                refused = ex;
-                await route.AbortAsync();
-            }
-        });
-        try
-        {
-            return await FetchedAsync(url, init);
-        }
-        catch when (refused is not null)
-        {
-            throw refused;
-        }
-    }
-
     [Test]
     public async Task Should_work()
     {
@@ -85,15 +56,12 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Should_delete_header_with_undefined_value()
     {
-        // Known difference: a header value is a string, so null cannot delete a header; `route.continue` refuses the null value.
-        await ExpectedToFailAsync("must be a string", async () =>
-        {
-            await Browser.GotoAsync("/empty.html");
-            var serverRequest = await FetchedWithDeletedHeaderAsync($"{PREFIX}/cors-echo", $"{PREFIX}/cors-echo", "{ headers: { foo: 'a', bar: 'b' } }");
-            Equal("GET", serverRequest.Method);
-            Equal(null, serverRequest.Header("foo"));
-            Equal("b", serverRequest.Header("bar"));
-        });
+        await Browser.GotoAsync("/empty.html");
+        await Browser.RouteAsync($"{PREFIX}/cors-echo", route => route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] }));
+        var serverRequest = await FetchedAsync($"{PREFIX}/cors-echo", "{ headers: { foo: 'a', bar: 'b' } }");
+        Assert.That(serverRequest.Method, Is.EqualTo("GET"));
+        Assert.That(serverRequest.Header("foo"), Is.Null);
+        Assert.That(serverRequest.Header("bar"), Is.EqualTo("b"));
     }
 
     [Test]
@@ -302,14 +270,11 @@ public sealed class PageRequestContinueTests : PlaywrightTest
     [Test]
     public async Task Continue_should_delete_headers_on_redirects()
     {
-        // Known difference: a header value is a string, so null cannot delete a header; `route.continue` refuses the null value.
-        await ExpectedToFailAsync("must be a string", async () =>
-        {
-            await Browser.GotoAsync("/empty.html");
-            var serverRequest = await FetchedWithDeletedHeaderAsync("**/redirect?**", $"{PREFIX}/redirect?to=/cors-echo", "{ headers: { foo: 'a' } }");
-            Equal("GET", serverRequest.Method);
-            Equal(null, serverRequest.Header("foo"));
-        });
+        await Browser.GotoAsync("/empty.html");
+        await Browser.RouteAsync("**/redirect?**", route => route.ContinueAsync(new RouteContinueOverrides { Headers = route.Request.Headers, DropHeaders = ["foo"] }));
+        var serverRequest = await FetchedAsync($"{PREFIX}/redirect?to=/cors-echo", "{ headers: { foo: 'a' } }");
+        Assert.That(serverRequest.Method, Is.EqualTo("GET"));
+        Assert.That(serverRequest.Header("foo"), Is.Null);
     }
 
     [Test]

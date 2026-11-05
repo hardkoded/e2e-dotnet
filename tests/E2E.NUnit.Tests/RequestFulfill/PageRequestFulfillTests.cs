@@ -10,16 +10,13 @@ namespace E2E.NUnit.Tests.RequestFulfill;
 
 /// <summary>
 /// <c>test.describe('page request fulfill')</c> of upstream's <c>apps/testbed/tests/request-fulfill.e2e.ts</c> (Playwright's
-/// <c>page-request-fulfill.spec.ts</c>). Not ported, as upstream: should work with buffer as body (a string body only), should allow
-/// mocking binary responses, should fulfill with global fetch result, should fulfill with fetch result, should fulfill with fetch
+/// <c>page-request-fulfill.spec.ts</c>). Not ported, as upstream: should allow
+/// mocking binary responses (needs a snapshot match), should fulfill with global fetch result, should fulfill with fetch result, should fulfill with fetch
 /// result and overrides (no <c>fulfill({ response })</c>), headerValue should return set-cookie from intercepted response (Playwright
 /// expects it to fail on Chromium), should fulfill with har response (HAR), should fulfill with gzip and readback.
 /// </summary>
 public sealed class PageRequestFulfillTests : PlaywrightTest
 {
-    private const string SkipMultipleSetCookie =
-        "`route.fulfill` refuses a header value with a newline, so the request is aborted and the navigation fails as an engine failure, which `fail` does not cover";
-
     private static string EmptyPage => $"{PREFIX}/empty.html";
 
     /// <summary>Polls the page until <paramref name="expression"/> is truthy, Playwright's <c>page.waitForFunction</c>.</summary>
@@ -39,6 +36,15 @@ public sealed class PageRequestFulfillTests : PlaywrightTest
         var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.GotoAsync(EmptyPage));
         Assert.That(response.Status, Is.EqualTo(201));
         Assert.That(response.Headers["foo"], Is.EqualTo("bar"));
+        Assert.That(await Browser.EvaluateAsync<string>("() => document.body.textContent"), Is.EqualTo("Yo, page!"));
+    }
+
+    [Test]
+    public async Task Should_work_with_buffer_as_body()
+    {
+        await Browser.RouteAsync("**/*", route => route.FulfillAsync(new RouteFulfillResponse { Status = 200, ContentType = "text/plain", BodyBytes = "Yo, page!"u8.ToArray() }));
+        var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.GotoAsync(EmptyPage));
+        Assert.That(response.Status, Is.EqualTo(200));
         Assert.That(await Browser.EvaluateAsync<string>("() => document.body.textContent"), Is.EqualTo("Yo, page!"));
     }
 
@@ -206,7 +212,6 @@ public sealed class PageRequestFulfillTests : PlaywrightTest
     }
 
     [Test]
-    [Ignore(SkipMultipleSetCookie)]
     public async Task Should_fulfill_with_multiple_set_cookie()
     {
         string[] cookies = ["a=b", "c=d"];
@@ -229,7 +234,6 @@ public sealed class PageRequestFulfillTests : PlaywrightTest
     }
 
     [Test]
-    [Ignore(SkipMultipleSetCookie)]
     public async Task Should_fulfill_with_fetch_response_that_has_multiple_set_cookie()
     {
         await Browser.RouteAsync("**/respond?*", async route =>
