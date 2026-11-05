@@ -10,8 +10,8 @@ namespace E2E.NUnit.Tests.RequestFulfill;
 
 /// <summary>
 /// <c>test.describe('page request fulfill')</c> of upstream's <c>apps/testbed/tests/request-fulfill.e2e.ts</c> (Playwright's
-/// <c>page-request-fulfill.spec.ts</c>). Not ported, as upstream: should allow
-/// mocking binary responses (needs a snapshot match), should fulfill with global fetch result, should fulfill with fetch result, should fulfill with fetch
+/// <c>page-request-fulfill.spec.ts</c>). Not ported, as upstream: should allow mocking binary
+/// responses (needs a snapshot match), should fulfill with global fetch result, should fulfill with fetch result, should fulfill with fetch
 /// result and overrides (no <c>fulfill({ response })</c>), headerValue should return set-cookie from intercepted response (Playwright
 /// expects it to fail on Chromium), should fulfill with har response (HAR), should fulfill with gzip and readback.
 /// </summary>
