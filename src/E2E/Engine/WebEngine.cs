@@ -1478,14 +1478,18 @@ public sealed partial class WebEngine : IEngine
             RequireObservation();
             var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
-            var element = await FindElementAsync(node, action, budget).ConfigureAwait(false);
+            var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
+
+            // The lists behind both nodes stay alive until the action ends, whatever observation publishes meanwhile.
+            using var keepElement = pin;
             try
             {
                 if (action is LocatorAction.DragTo drag)
                 {
                     // The drop target is a node of the same observation, found like the source.
                     await RequireNoNewTwinAsync(drag.Target, budget).ConfigureAwait(false);
-                    var drop = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
+                    var (drop, dropPin) = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
+                    using var keepDrop = dropPin;
                     await budget.WithinAsync(DragAsync(element, drop, budget)).ConfigureAwait(false);
                     return;
                 }
@@ -1502,12 +1506,12 @@ public sealed partial class WebEngine : IEngine
         /// The page's element for an observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made it owns the
         /// handle: it stays valid until the next observation replaces the generation.
         /// </summary>
-        private async Task<IElementHandle> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
+        private async Task<(IElementHandle Element, IDisposable Pin)> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
         {
             try
             {
-                var target = await budget.WithinAsync(_refs.LookupAsync(node.Ref)).ConfigureAwait(false);
-                return ((ElementTarget)target).Element;
+                var (target, pin) = await budget.WithinAsync(_refs.LookupPinnedAsync(node.Ref)).ConfigureAwait(false);
+                return (((ElementTarget)target).Element, pin);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {

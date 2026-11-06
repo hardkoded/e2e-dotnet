@@ -21,6 +21,8 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
     private readonly Lock _gate = new();
     private readonly Dictionary<int, Task<IElementHandle>> _resolved = [];
     private bool _disposed;
+    private int _pins;
+    private bool _releasePending;
 
     /// <summary>The in-page array of the elements the walk read.</summary>
     public IJSHandle Handle { get; } = handle;
@@ -75,10 +77,28 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
         return source.Task;
     }
 
+    /// <summary>
+    /// Keeps the list's handles alive until the returned pin is disposed, even if the list is disposed meanwhile: the release then waits
+    /// for the last pin. .NET-only (see <see cref="RefRegistry.LookupPinnedAsync"/>); a list nobody pins is released at once, as upstream's.
+    /// </summary>
+    public IDisposable Pin()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                throw StaleList();
+            }
+
+            _pins++;
+        }
+
+        return new Pinned(this);
+    }
+
     /// <summary>Releases the array and every element made from it; safe to call again.</summary>
     public void Dispose()
     {
-        Task<IElementHandle>[] made;
         lock (_gate)
         {
             if (_disposed)
@@ -87,6 +107,36 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
             }
 
             _disposed = true;
+            if (_pins > 0)
+            {
+                _releasePending = true;
+                return;
+            }
+        }
+
+        Release();
+    }
+
+    private void Unpin()
+    {
+        lock (_gate)
+        {
+            if (--_pins > 0 || !_releasePending)
+            {
+                return;
+            }
+
+            _releasePending = false;
+        }
+
+        Release();
+    }
+
+    private void Release()
+    {
+        Task<IElementHandle>[] made;
+        lock (_gate)
+        {
             made = [.. _resolved.Values];
             _resolved.Clear();
         }
@@ -106,8 +156,9 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
             var made = await FetchAsync(index).ConfigureAwait(false);
             lock (_gate)
             {
-                // Completed under the lock, so a disposal cannot slip between the check and the result.
-                if (!_disposed)
+                // Completed under the lock, so a disposal cannot slip between the check and the result. A pinned list still delivers:
+                // its action holds it until the release.
+                if (!_disposed || _pins > 0)
                 {
                     source.SetResult(made);
                     return;
@@ -128,6 +179,19 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
                 }
 
                 source.SetException(_disposed ? StaleList() : cause);
+            }
+        }
+    }
+
+    private sealed class Pinned(ElementList list) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                list.Unpin();
             }
         }
     }

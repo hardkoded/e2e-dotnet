@@ -100,6 +100,43 @@ internal sealed class RefRegistry
         return new ElementTarget(await observed.List.AtAsync(observed.Index).ConfigureAwait(false));
     }
 
+    /// <summary>
+    /// <see cref="LookupAsync"/>, and the list behind an observed node is kept from being released until the returned pin is disposed. An
+    /// action holds its element handle for as long as it runs, and a concurrent observation publishing a new generation must not release
+    /// that handle under it. .NET-only: the port's <c>Browser</c> and locators run operations concurrently (a click, a read and an assertion on
+    /// one page at once), so an observation can publish while a click runs.
+    /// </summary>
+    public async Task<(ActionTarget Target, IDisposable Pin)> LookupPinnedAsync(string id)
+    {
+        ListedTarget observed;
+        IDisposable pin;
+        lock (_gate)
+        {
+            if (_located.TryGetValue(id, out var located))
+            {
+                return (located, NoPin.Instance);
+            }
+
+            if (!_observation.TryGetValue(id, out var listed))
+            {
+                throw new EngineException(EngineErrorCodes.NodeStale, $"node reference {id} is stale", retryable: true);
+            }
+
+            observed = listed;
+            pin = observed.List.Pin();
+        }
+
+        try
+        {
+            return (new ElementTarget(await observed.List.AtAsync(observed.Index).ConfigureAwait(false)), pin);
+        }
+        catch
+        {
+            pin.Dispose();
+            throw;
+        }
+    }
+
     /// <summary>Starts a capture, preventing older in-flight observations from publishing afterward.</summary>
     public int BeginCapture()
     {
@@ -165,6 +202,15 @@ internal sealed class RefRegistry
         foreach (var list in lists)
         {
             list.Dispose();
+        }
+    }
+
+    private sealed class NoPin : IDisposable
+    {
+        public static readonly NoPin Instance = new();
+
+        public void Dispose()
+        {
         }
     }
 
