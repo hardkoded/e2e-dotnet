@@ -9,7 +9,7 @@ namespace E2E.Tests.LocatorBasics;
 
 public sealed class TheListFormOfToHaveTextAndToContainTextTests
 {
-    private const string AllThree = "observed text [\"Item Alpha\", \"Item Beta\", \"Item Gamma\"] (match count 3)";
+    private const string AllThree = "observed: text [\"Item Alpha\", \"Item Beta\", \"Item Gamma\"] (match count 3)";
 
     private static Locator ListItems() => ScreenFixture.Create(List).GetByRole("listitem");
 
@@ -33,7 +33,7 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     {
         var locator = ListItems();
         var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToHaveTextAsync(["Item Beta", "Item Alpha", "Item Gamma"]));
-        Assert.Contains("expected text [\"Item Beta\", \"Item Alpha\", \"Item Gamma\"]", error.Message, StringComparison.Ordinal);
+        Assert.Contains("expected: text [\"Item Beta\", \"Item Alpha\", \"Item Gamma\"]", error.Message, StringComparison.Ordinal);
         await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToHaveTextAsync(["Alpha", "Beta", "Gamma"]));
     }
 
@@ -65,7 +65,7 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     public async Task Negated_toContainText_fails_when_one_entry_is_contained_by_some_match()
     {
         var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(ListItems()).Not.ToContainTextAsync(["Beta"]));
-        Assert.Contains("expected not text containing [\"Beta\"]", error.Message, StringComparison.Ordinal);
+        Assert.Contains("expected: not text containing [\"Beta\"]", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

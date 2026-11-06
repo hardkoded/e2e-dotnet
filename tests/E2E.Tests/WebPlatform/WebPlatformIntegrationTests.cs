@@ -215,7 +215,7 @@ public sealed class WebPlatformIntegrationTests
         // The web engine reports the value raw, and the matcher neither collapses the newlines to match nor prints a string it never compared.
         var error = Assert.IsType<TestException>(await RunAsync(Scenarios["a textarea value is never normalized to match"]));
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Contains("observed value \"line1\\n\\nline2  \"", error.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: value \"line1\\n\\nline2  \"", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -232,7 +232,7 @@ public sealed class WebPlatformIntegrationTests
 
         var control = Assert.IsType<TestException>(await RunAsync(Scenarios["a negated toHaveAttribute fails on a plain field that holds the same marker"]));
         Assert.Equal("ASSERTION_FAILED", control.Code);
-        Assert.Contains("observed attribute \"value\" \"marker-5e0c\"", control.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: attribute \"value\" \"marker-5e0c\"", control.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class WebPlatformIntegrationTests
         Assert.DoesNotContain("marker-9b1f", error.ToString(), StringComparison.Ordinal);
         var control = Assert.IsType<TestException>(await RunAsync(Scenarios["toHaveValue reads a plain field that holds the same marker"]));
         Assert.Equal("ASSERTION_FAILED", control.Code);
-        Assert.Contains("observed value \"marker-9b1f\"", control.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: value \"marker-9b1f\"", control.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -449,8 +449,12 @@ public sealed class LocatorExpect
     {
         var name = (_negated ? "not." : "") + matcher;
         var code = verdict.StrictCount > 1 ? "LOCATOR_AMBIGUOUS" : "ASSERTION_FAILED";
-        var message = "expect(" + _locator.Query.Describe() + ")." + name + " failed: expected " + (_negated ? "not " : "") + describeExpected
-            + "; observed " + verdict.Observed + " (match count " + Number(matches.Count) + ")";
+        var message = string.Join(
+            "\n",
+            "expect." + name + " failed",
+            "locator: " + _locator.Query.Describe(),
+            "expected: " + (_negated ? "not " : "") + describeExpected,
+            "observed: " + verdict.Observed + " (match count " + Number(matches.Count) + ")");
         // The same facts, one per field, for a reporter that lays them out.
         var details = new ErrorDetails
         {

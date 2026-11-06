@@ -60,8 +60,8 @@ public sealed class AttributeAndFocusExpectationsTests
         await Expect.That(plain).ToHaveAttributeAsync("value", "synthetic");
         await Expect.That(blank).Not.ToHaveAttributeAsync("value");
         var error = await ToHaveValueTests.Fails("ASSERTION_FAILED", () => Expect.That(plain).Not.ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(50)));
-        Assert.Contains("observed attribute \"value\" \"synthetic\"", error.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: attribute \"value\" \"synthetic\"", error.Message, StringComparison.Ordinal);
         error = await ToHaveValueTests.Fails("ASSERTION_FAILED", () => Expect.That(blank).ToHaveAttributeAsync("value", TimeSpan.FromMilliseconds(50)));
-        Assert.Contains("observed attribute \"value\" absent", error.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: attribute \"value\" absent", error.Message, StringComparison.Ordinal);
     }
 }

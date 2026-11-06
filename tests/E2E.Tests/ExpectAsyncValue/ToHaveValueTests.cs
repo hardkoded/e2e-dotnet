@@ -27,7 +27,7 @@ public sealed class ToHaveValueTests
     {
         var locator = ScreenFixture.Create(Textarea).GetByRole("textbox");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("line1 line2"));
-        Assert.True(error.Message.Contains("observed value \"line1\\n\\nline2  \"", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: value \"line1\\n\\nline2  \"", StringComparison.Ordinal), error.Message);
     }
 
     [Theory]
@@ -43,7 +43,7 @@ public sealed class ToHaveValueTests
         var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = role, TestId = "field" }).GetByTestId("field");
         await Expect.That(locator).ToHaveValueAsync("");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("x"));
-        Assert.True(error.Message.Contains("observed value \"\"", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: value \"\"", StringComparison.Ordinal), error.Message);
     }
 
     [Fact]
@@ -51,9 +51,9 @@ public sealed class ToHaveValueTests
     {
         var locator = ScreenFixture.Create(Heading).GetByRole("heading");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync(""));
-        Assert.True(error.Message.Contains("observed no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
         error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).Not.ToHaveValueAsync("Title"));
-        Assert.True(error.Message.Contains("observed no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public sealed class ToHaveValueTests
     {
         var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = "link", Name = "Docs", Text = "Docs" }).GetByRole("link");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("Docs"));
-        Assert.True(error.Message.Contains("observed no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
         error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).Not.ToHaveValueAsync(""));
-        Assert.True(error.Message.Contains("observed no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class ToHaveValueTests
         var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = "button", Name = " Save  now " }).GetByRole("button");
         await Expect.That(locator).ToHaveAccessibleNameAsync("Save now");
         var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(locator).ToHaveAccessibleNameAsync("Save"));
-        Assert.True(error.Message.Contains("observed accessible name \"Save now\"", StringComparison.Ordinal), error.Message);
+        Assert.True(error.Message.Contains("observed: accessible name \"Save now\"", StringComparison.Ordinal), error.Message);
     }
 
     internal static async Task<TestException> Fails(string code, Func<Task> run)

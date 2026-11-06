@@ -32,8 +32,8 @@ public sealed class ARuntimeSkipAfterAFailureTests
         var result = NestedRun.Run(nameof(SkippingFixture.Soft_then_skip));
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the version\""));
+        Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\""));
+        Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the version\""));
         Assert.That(result.Message, Does.Contain("feature disabled"));
         Assert.That(SkippingFixture.TeardownRan, Is.True);
     }
@@ -55,7 +55,7 @@ public sealed class ARuntimeSkipAfterAFailureTests
         Assert.That(SkippingFixture.Attempts, Is.EqualTo(2));
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
         // NUnit retries only a failed attempt, so the second attempt shows the first one failed.
-        Assert.That(SkippingFixture.Messages[0], Does.Contain("toHaveText failed: expected text \"the count\"").And.Contain("feature disabled"));
+        Assert.That(SkippingFixture.Messages[0], Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\"").And.Contain("feature disabled"));
         Assert.That(SkippingFixture.Messages[1], Is.EqualTo("feature disabled"));
     }
 
