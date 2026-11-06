@@ -33,6 +33,22 @@ internal static class Ids
         return CanonicalDigest(value);
     }
 
+    /// <summary>Validates one raw title (1..512 UTF-8 bytes after NFC, no NUL); null when it is valid, else the reason (upstream's <c>validateTitle</c>).</summary>
+    public static string? ValidateTitle(string title)
+    {
+        var normalized = title.Normalize(NormalizationForm.FormC);
+        var bytes = Encoding.UTF8.GetByteCount(normalized);
+        if (bytes is < 1 or > 512)
+        {
+            return $"title must be 1 through 512 UTF-8 bytes after NFC, got {bytes}";
+        }
+
+        return normalized.Contains('\0', StringComparison.Ordinal) ? "title must not contain NUL" : null;
+    }
+
+    /// <summary>Generates one lowercase UUIDv7 string for a time (upstream's <c>uuidv7</c>).</summary>
+    public static string Uuidv7(DateTimeOffset? now = null) => Guid.CreateVersion7(now ?? DateTimeOffset.UtcNow).ToString();
+
     /// <summary>RFC 3339 UTC timestamp with exactly millisecond precision (upstream's <c>timestamp</c>, <c>toISOString</c>).</summary>
     public static string Timestamp(DateTimeOffset date) => date.UtcDateTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'", CultureInfo.InvariantCulture);
 

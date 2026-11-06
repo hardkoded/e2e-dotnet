@@ -10,6 +10,18 @@ namespace E2E;
 internal readonly record struct GuardToolResult(bool Failed);
 
 /// <summary>
+/// Guard thresholds (upstream's <c>LoopGuardThresholds</c>). Identical-call (period 1) counts are consecutive repetitions of one call;
+/// cycle (period 2 to 4) counts are whole repetitions of the sequence. Each warns first, then forces the conclusion.
+/// </summary>
+/// <param name="RepeatWarn">Consecutive identical calls that warn.</param>
+/// <param name="RepeatStop">Consecutive identical calls that force the conclusion.</param>
+/// <param name="CycleWarn">Repetitions of a 2 to 4 call sequence that warn.</param>
+/// <param name="CycleStop">Repetitions of a 2 to 4 call sequence that force the conclusion.</param>
+/// <param name="FailureWarn">Consecutive failed tool results that warn.</param>
+/// <param name="FailureStop">Consecutive failed tool results that force the conclusion.</param>
+internal sealed record LoopGuardThresholds(int RepeatWarn, int RepeatStop, int CycleWarn, int CycleStop, int FailureWarn, int FailureStop);
+
+/// <summary>
 /// Detects a model going in circles: the same call again and again, a short sequence of calls
 /// repeated, or a run of failed calls. Identity is the tool name plus its exact arguments, so two taps on different targets are
 /// never a repeat. A warning lets the model react; a stop forces the verdict.
@@ -17,12 +29,9 @@ internal readonly record struct GuardToolResult(bool Failed);
 internal static class LoopGuards
 {
     private const int MaxCyclePeriod = 4;
-    private const int RepeatWarn = 3;
-    private const int RepeatStop = 5;
-    private const int CycleWarn = 2;
-    private const int CycleStop = 3;
-    private const int FailureWarn = 3;
-    private const int FailureStop = 5;
+
+    /// <summary>The thresholds the built-in agent ships with (upstream's <c>DEFAULT_LOOP_GUARD_THRESHOLDS</c>).</summary>
+    public static readonly LoopGuardThresholds DefaultLoopGuardThresholds = new(RepeatWarn: 3, RepeatStop: 5, CycleWarn: 2, CycleStop: 3, FailureWarn: 3, FailureStop: 5);
 
     /// <summary>The calls of a transcript in order, without the verdict tool: ending the step is never a loop.</summary>
     public static IReadOnlyList<(string Name, string Input)> ExtractGuardCalls(IEnumerable<ModelMessage> messages) =>
@@ -37,13 +46,14 @@ internal static class LoopGuards
     /// Checks the trailing calls for exact repetition (period 1) and short exact cycles (periods 2 to 4).
     /// Returns no reason when the calls are clear.
     /// </summary>
-    public static (bool Stop, string? Reason) CheckLoopGuards(IReadOnlyList<(string Name, string Input)> calls)
+    public static (bool Stop, string? Reason) CheckLoopGuards(IReadOnlyList<(string Name, string Input)> calls, LoopGuardThresholds? thresholds = null)
     {
+        thresholds ??= DefaultLoopGuardThresholds;
         (bool Stop, string? Reason) warning = (false, null);
         for (var period = 1; period <= MaxCyclePeriod; period++)
         {
             var repeats = TrailingRepeats(calls, period);
-            var (warnAt, stopAt) = period == 1 ? (RepeatWarn, RepeatStop) : (CycleWarn, CycleStop);
+            var (warnAt, stopAt) = period == 1 ? (thresholds.RepeatWarn, thresholds.RepeatStop) : (thresholds.CycleWarn, thresholds.CycleStop);
             if (repeats >= stopAt)
             {
                 return (true, Describe(calls, period, repeats));
@@ -63,8 +73,9 @@ internal static class LoopGuards
     /// streak: five failures in a row say the approach is wrong, not that the last id was. Warns first, then forces the conclusion.
     /// Returns no reason when the results are clear.
     /// </summary>
-    public static (bool Stop, string? Reason) CheckFailureStreak(IReadOnlyList<GuardToolResult> results)
+    public static (bool Stop, string? Reason) CheckFailureStreak(IReadOnlyList<GuardToolResult> results, LoopGuardThresholds? thresholds = null)
     {
+        thresholds ??= DefaultLoopGuardThresholds;
         var streak = 0;
         for (var index = results.Count - 1; index >= 0 && results[index].Failed; index--)
         {
@@ -72,7 +83,7 @@ internal static class LoopGuards
         }
 
         var reason = "the last " + streak.ToString(CultureInfo.InvariantCulture) + " actions failed in a row";
-        return streak >= FailureStop ? (true, reason) : streak >= FailureWarn ? (false, reason) : (false, null);
+        return streak >= thresholds.FailureStop ? (true, reason) : streak >= thresholds.FailureWarn ? (false, reason) : (false, null);
     }
 
     /// <summary>How many times the last <paramref name="period"/> calls repeat one after the other.</summary>
