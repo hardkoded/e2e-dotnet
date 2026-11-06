@@ -89,6 +89,28 @@ internal sealed class McpOutput
     }
 
     /// <summary>
+    /// A line about an error that ends the process, so nothing will release it later: redacted and written now. A
+    /// config load in flight means its secrets are unknown, so the line is withheld with the rest. .NET-only:
+    /// upstream's process exits through its own handler, which runs <c>end</c>.
+    /// </summary>
+    public void ReportFatal(string line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        lock (_gate)
+        {
+            var text = (_atLineStart ? "" : "\n") + line + "\n";
+            if (_loading > 0)
+            {
+                _held.Add(text);
+                Withhold();
+                return;
+            }
+
+            Emit(_redactor.Push(text) + _redactor.Flush());
+        }
+    }
+
+    /// <summary>
     /// Runs <paramref name="load"/>, a config load that registers the config's secrets, holding what anyone prints
     /// until it ends: the load may print a value before the process knows it is one. Released redacted once every
     /// load in flight succeeded; withheld when one failed, since the secrets of a config that did not load are unknown.

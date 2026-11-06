@@ -35,6 +35,7 @@ internal static class McpCommand
         var protocol = Console.OpenStandardOutput();
         var stdin = Console.OpenStandardInput();
         var stderr = Console.Error;
+        var stdoutWriter = Console.Out;
         var ledger = new SecretLedger();
         var output = new McpOutput(text => stderr.Write(text), ledger);
         Console.SetOut(new McpOutputWriter(output, OutputStream.Stdout));
@@ -53,7 +54,7 @@ internal static class McpCommand
         void OnUncaught(object? cause)
         {
             crashed = true;
-            ReportUncaught(output, cause);
+            ReportUncaught(output, cause, fatal: true);
             stop.Cancel();
         }
 
@@ -98,16 +99,26 @@ internal static class McpCommand
         finally
         {
             output.End();
+            Console.SetOut(stdoutWriter);
+            Console.SetError(stderr);
             TaskScheduler.UnobservedTaskException -= OnUnobserved;
             AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
         }
     }
 
     /// <summary>Logs an error nobody caught, redacted and held like what user code prints. Upstream's <c>onUncaught</c>.</summary>
-    internal static void ReportUncaught(McpOutput output, object? cause)
+    internal static void ReportUncaught(McpOutput output, object? cause, bool fatal = false)
     {
         ArgumentNullException.ThrowIfNull(output);
         var text = cause is AggregateException aggregate ? aggregate.Flatten().ToString() : cause?.ToString();
-        output.Report("e2e mcp: [error] uncaught: " + text);
+        var line = "e2e mcp: [error] uncaught: " + text;
+        if (fatal)
+        {
+            output.ReportFatal(line);
+        }
+        else
+        {
+            output.Report(line);
+        }
     }
 }

@@ -103,6 +103,22 @@ public sealed class McpOutputTests
         Assert.Equal("<secret:apiToken>\n", text());
     }
 
+    // .NET-only: ReportFatal has no upstream counterpart (the process dies in the handler, so nothing releases a held line later).
+    [Fact]
+    public void Writes_a_fatal_report_redacted_at_once_and_withholds_it_while_a_load_is_in_flight()
+    {
+        var (output, ledger, text) = Output();
+        ledger.Add([Secret.Create("apiToken", Token)]);
+        output.ReportFatal($"e2e mcp: [error] uncaught: {Token}");
+        Assert.Equal("e2e mcp: [error] uncaught: <secret:apiToken>\n", text());
+
+        var (loading, _, loadingText) = Output();
+        _ = loading.WithholdDuringAsync(() => new TaskCompletionSource<int>().Task);
+        loading.ReportFatal($"e2e mcp: [error] uncaught: {Token}");
+        Assert.DoesNotContain(Token, loadingText());
+        Assert.Contains("withheld", loadingText());
+    }
+
     [Fact]
     public void Puts_its_own_lines_on_a_line_of_their_own_after_an_unfinished_user_line()
     {
