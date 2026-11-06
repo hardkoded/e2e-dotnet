@@ -14,7 +14,7 @@ public sealed class TraceCacheModesTests
 {
     private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "e2e-trace-cache-modes"));
 
-    // Partial: the port has no --no-cache flag, so the run's mode is CacheMode.Off on the session rather than a run option over a read-write config; no report to read the cache field from, so the step result's Cache is read.
+    // Partial (follow-up #1286): the port has no --no-cache flag, so the run's mode is CacheMode.Off on the session rather than a run option over a read-write config; no report to read the cache field from, so the step result's Cache is read.
     [Fact]
     public async Task Partial_no_cache_overrides_the_config_nothing_is_recorded_and_an_entry_recorded_without_it_is_left_untouched()
     {
@@ -54,7 +54,7 @@ public sealed class TraceCacheModesTests
         Assert.Equal(recorded, TwoTapCounter.FileState(directory));
     }
 
-    // Partial: the legacy-entry setup is not ported (the port's entry has no recordedFor occurrence fields, and a read-write replay keeps an entry whole), so the unchanged file proves a replay under the demoted mode, not that a read-write replay would have rewritten it.
+    // Partial (follow-up #1287): the legacy-entry setup is not ported (the port's entry has no recordedFor occurrence fields, and a read-write replay keeps an entry whole), so the unchanged file proves a replay under the demoted mode, not that a read-write replay would have rewritten it.
     [Fact]
     public async Task Partial_caches_by_default_and_CI_demotes_an_unset_mode_to_read_only_it_replays_the_entry_and_never_rewrites_it()
     {
