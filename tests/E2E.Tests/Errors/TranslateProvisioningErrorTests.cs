@@ -13,7 +13,8 @@ public sealed class TranslateProvisioningErrorTests
     public void Partial_Never_yields_a_test_error_an_engine_error_of_any_code_is_infrastructure()
     {
         // PARTIAL: the port has one EngineException for upstream's EngineError and its infrastructure error, so an engine
-        // exception of any code is returned as itself; upstream rewraps it as ENGINE_FAILURE with the suffix.
+        // exception of any code is returned as itself, and so is any other E2EException (a TestException stays category test);
+        // upstream rewraps an engine error as ENGINE_FAILURE with the suffix. Tracked in #1206.
         var stale = ErrorSerializer.TranslateProvisioningError(new EngineException(EngineErrorCodes.NodeStale, "ref gone"), " while preparing", CancellationToken.None);
         Assert.Equal("infrastructure", ErrorSerializer.Classify(stale).Category);
         var plain = ErrorSerializer.TranslateProvisioningError(new InvalidOperationException("download failed"), " while preparing", CancellationToken.None);

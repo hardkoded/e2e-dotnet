@@ -20,7 +20,7 @@ public sealed class ClassifyErrorTests
     public void Partial_Appends_the_cause_chain_to_a_plain_error_the_way_fetch_reports_a_refused_connection()
     {
         // PARTIAL: the port follows InnerException only, so upstream's AggregateError check (members carrying the detail) and its
-        // non-Error cause check ("outer: text") have no counterpart.
+        // non-Error cause check ("outer: text") have no counterpart. Tracked in #1208.
         var refused = new Exception("connect ECONNREFUSED 127.0.0.1:3000");
         Assert.Equal("fetch failed: connect ECONNREFUSED 127.0.0.1:3000", ErrorSerializer.Classify(new InvalidOperationException("fetch failed", refused)).Message);
         Assert.Equal("same", ErrorSerializer.MessageWithCauses(new Exception("same", new Exception("same"))));
@@ -32,7 +32,7 @@ public sealed class ClassifyErrorTests
     public void Partial_Applies_the_canonical_driver_mapping_to_EngineErrors_from_any_surface()
     {
         // PARTIAL: the port classifies an EngineException by its own infrastructure category and applies the canonical mapping
-        // in TranslateEngineError, so the mapping is checked through it; upstream's classifyError applies it itself.
+        // in TranslateEngineError, so the mapping is checked through it; upstream's classifyError applies it itself. Tracked in #1207.
         var failure = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.EngineFailure, "engine died"));
         Assert.Equal("infrastructure", failure.Category);
         Assert.Equal("ENGINE_FAILURE", failure.Code);
