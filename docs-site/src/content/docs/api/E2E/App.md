@@ -79,7 +79,8 @@ public Task ClearStateAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_App_BaseUrl).
+Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_App_BaseUrl). The reopen, which happens when a base URL is set, throws
+`APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
 
 **Parameters**
 
@@ -126,7 +127,8 @@ public Task RestartAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). Cookies and storage are kept.
+Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). Cookies and storage are kept. The reopen, which
+happens when a base URL is set, throws `APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
 
 **Parameters**
 

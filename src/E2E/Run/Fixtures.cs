@@ -109,13 +109,19 @@ public sealed class App
         return RunStepAsync("app.back", "", () => _session.BackAsync(OperationContext.Test, Token(cancellationToken)));
     }
 
-    /// <summary>Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept.</summary>
+    /// <summary>
+    /// Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept. The reopen, which
+    /// happens when a base URL is set, throws <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// </summary>
     public Task RestartAsync(CancellationToken cancellationToken = default)
     {
         return RunStepAsync("app.restart", "", () => SteerAsync(_session.RestartAsync, Token(cancellationToken)));
     }
 
-    /// <summary>Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>.</summary>
+    /// <summary>
+    /// Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>. The reopen, which happens when a base URL is set, throws
+    /// <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// </summary>
     public Task ClearStateAsync(CancellationToken cancellationToken = default)
     {
         return RunStepAsync("app.clearState", "", () => SteerAsync(_session.ClearStateAsync, Token(cancellationToken)));
