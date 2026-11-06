@@ -89,6 +89,39 @@ internal static class PngCodec
         return output.ToArray();
     }
 
+    /// <summary>
+    /// A PNG written straight from the format, so a test can hand the code under test a color type no encoder of its own would write:
+    /// <paramref name="rows"/> hold each scanline's sample bytes as the color type and <paramref name="depth"/> pack them, with no filter.
+    /// </summary>
+    public static byte[] RawPng(int width, int height, int depth, int colorType, byte[][] rows)
+    {
+        var header = new byte[13];
+        WriteBigEndian(header, 0, width);
+        WriteBigEndian(header, 4, height);
+        header[8] = (byte)depth;
+        header[9] = (byte)colorType;
+
+        using var output = new MemoryStream();
+        output.Write(Signature);
+        WriteChunk(output, "IHDR", header);
+        using (var compressed = new MemoryStream())
+        {
+            using (var zlib = new ZLibStream(compressed, CompressionLevel.Optimal, leaveOpen: true))
+            {
+                foreach (var row in rows)
+                {
+                    zlib.WriteByte(0);
+                    zlib.Write(row);
+                }
+            }
+
+            WriteChunk(output, "IDAT", compressed.ToArray());
+        }
+
+        WriteChunk(output, "IEND", []);
+        return output.ToArray();
+    }
+
     private static int Paeth(int left, int up, int upLeft)
     {
         var estimate = left + up - upLeft;

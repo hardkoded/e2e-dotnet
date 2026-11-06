@@ -146,7 +146,7 @@ internal sealed partial class ActionDispatcher
         }
 
         var node = await TargetedAsync(control, ClickAction("tap", null), token).ConfigureAwait(false);
-        await CommitAsync(Target(node, "tap", WithinOf(node))).ConfigureAwait(false);
+        await CommitAsync(Target(node, "tap", PlacementOf(node))).ConfigureAwait(false);
     }
 
     // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to. The tap is always there; the hover and the
@@ -176,12 +176,20 @@ internal sealed partial class ActionDispatcher
     // How point results name nodes: by the line of the screen the model holds.
     private PointTap.NodeProse Prose() => node => SnapshotText.FormatNode(node, 0, _scope.Redactor, _scope.AppOrigin).TrimStart();
 
-    // Upstream's traceHandle: the listed node whose box contained the point, with where that node sat (its container key), for the recorder's
+    // Upstream's traceHandle: the listed node whose box contained the point, with where that node sat (its container key and twin position), for the recorder's
     // withinOf to place the point inside its box, so replay can follow the node when the layout shifts. Nothing for a screen without a tree.
     // The port's tree has no single root that stands for the page (it lists the page's top-level nodes), so upstream's skip of the root has
     // nothing to skip.
-    private PlacedPoint Placed(Observation observation, SemanticNode? under, Point point) =>
-        under is null || observation.TreeUnavailable ? new PlacedPoint(point) : new PlacedPoint(point, under, WithinOf(under));
+    private PlacedPoint Placed(Observation observation, SemanticNode? under, Point point)
+    {
+        if (under is null || observation.TreeUnavailable)
+        {
+            return new PlacedPoint(point);
+        }
+
+        var placement = PlacementOf(under);
+        return new PlacedPoint(point, under, placement.Within, placement.Position);
+    }
 
     private static string Num(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 }

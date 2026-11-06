@@ -775,7 +775,7 @@ public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationTo
 
 Waits until the current URL equals &lt;code class="paramref"&gt;url&lt;/code&gt;, resolved
 against the base URL, as `ToHaveURLAsync`.
-The default timeout is the assertion timeout.
+The default timeout is the assertion timeout; zero waits for the test timeout.
 
 **Parameters**
 
@@ -797,7 +797,7 @@ public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, Cancellatio
 ```
 
 
-Waits until the current URL matches &lt;code class="paramref"&gt;pattern&lt;/code&gt;. The default timeout is the assertion timeout.
+Waits until the current URL matches &lt;code class="paramref"&gt;pattern&lt;/code&gt;. The default timeout is the assertion timeout; zero waits for the test timeout.
 
 **Parameters**
 

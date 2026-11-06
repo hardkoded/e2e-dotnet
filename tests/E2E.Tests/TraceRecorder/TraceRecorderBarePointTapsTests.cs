@@ -11,7 +11,7 @@ namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
 /// <c>describe('TraceRecorder: bare-point taps')</c> of <c>trace-recorder.test.ts</c>. All four its are partial: the port keeps no summary,
-/// so the <c>summary</c> each upstream <c>toEqual</c> checks is not checked, and its stored entry is a typed object, so a field of the wrong
+/// so the <c>summary</c> each upstream <c>toEqual</c> checks is not checked (hardkoded/e2e-dotnet#1283), and its stored entry is a typed object, so a field of the wrong
 /// JSON type (upstream's <c>point.x</c> as <c>'left'</c>) cannot be built and is not checked.
 /// </summary>
 public sealed class TraceRecorderBarePointTapsTests
@@ -73,6 +73,8 @@ public sealed class TraceRecorderBarePointTapsTests
         var stored = Assert.Single(RoundTrip(TraceRecorderTests.Finalize(recorder, "/canvas")!).Actions);
         Assert.True(stored.HasValidPoints());
 
+        Assert.True(Broken(stored, action => action.Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "img" }, Fx = 0, Fy = 1 }).HasValidPoints());
+        Assert.False(Broken(stored, action => action.Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "img" }, Fx = -0.1, Fy = 0 }).HasValidPoints());
         Assert.False(Broken(stored, action => action.Viewport = new TraceViewport(0, 720)).HasValidPoints());
         Assert.False(Broken(stored, action => action.Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "img" }, Fx = 1.5, Fy = 0 }).HasValidPoints());
     }

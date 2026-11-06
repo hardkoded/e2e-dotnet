@@ -11,8 +11,7 @@ namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
 /// <c>describe('TraceRecorder: bare-point drags')</c> of <c>trace-recorder.test.ts</c>. All four its are partial: the port keeps no summary,
-/// so the <c>summary</c> upstream's <c>toEqual</c> checks is not checked; it records no twin <c>position</c>, so the place among twins is
-/// the container key only; and its stored entry is a typed object, so a field of the wrong JSON type (upstream's <c>from</c> as a bare
+/// so the <c>summary</c> upstream's <c>toEqual</c> checks is not checked (hardkoded/e2e-dotnet#1283); and its stored entry is a typed object, so a field of the wrong JSON type (upstream's <c>from</c> as a bare
 /// <c>{ x, y }</c>) cannot be built and is not checked.
 /// </summary>
 public sealed class TraceRecorderBarePointDragsTests
@@ -43,12 +42,14 @@ public sealed class TraceRecorderBarePointDragsTests
     public void Partial_Keeps_the_container_and_place_among_twins_of_the_node_at_each_end()
     {
         var recorder = MakeRecorder();
-        recorder.Record(new PlacedPoint(new Point(200, 250), Board, "Sprint 1"), new PlacedPoint(new Point(400, 350), Board, "Sprint 2"), Viewport);
+        recorder.Record(new PlacedPoint(new Point(200, 250), Board, "Sprint 1", new TracePosition { Index = 0, Of = 2 }), new PlacedPoint(new Point(400, 350), Board, "Sprint 2"), Viewport);
 
         var action = Assert.Single(TraceRecorderTests.Finalize(recorder, "/canvas")!.Actions);
 
         Assert.Equal(("img", "Board", "Sprint 1"), (action.From!.Under!.Target!.Role, action.From.Under.Target.Name, action.From.Under.Target.Within));
         Assert.Equal(("img", "Board", "Sprint 2"), (action.To!.Under!.Target!.Role, action.To.Under.Target.Name, action.To.Under.Target.Within));
+        Assert.Equal((0, 2), (action.From.Under.Target.Position!.Index, action.From.Under.Target.Position.Of));
+        Assert.Null(action.To.Under.Target.Position);
     }
 
     [Fact]

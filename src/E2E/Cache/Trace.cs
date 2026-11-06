@@ -34,6 +34,9 @@ internal static class Trace
     /// <summary>Upstream's <c>MAX_TRACE_UPLOAD_PATHS</c>: most files one upload carries; more is a script, not a form.</summary>
     public const int MaxTraceUploadPaths = 16;
 
+    /// <summary>Upstream's <c>MAX_TRACE_POSITION_OF</c>: most twins a positional recording distinguishes between; beyond it a list is data, not a control set.</summary>
+    public const int MaxTracePositionOf = 1000;
+
     /// <summary>Upstream's <c>MAX_TRACE_INPUT_CHARS</c>: the longest replay input (a typed value, an upload path) a recording may hold.</summary>
     public const int MaxTraceInputChars = 4_096;
 
@@ -124,7 +127,11 @@ internal static class Trace
     private static RecordedAction? MapActionText(RecordedAction action, Func<string, string?> map)
     {
         var mapped = action.Copy();
-        if (!TryMap(action.Name, map, out var name) || !TryMap(action.TestId, map, out var testId) || !TryMap(action.Within, map, out var within))
+        // The text of a scroll-until and the name of a tool gap are not target text: the first maps below, the second is vocabulary.
+        var targetText = action.Kind is "scrollUntil" or "tool" ? action.Text : null;
+        if (!TryMap(action.Name, map, out var name) || !TryMap(action.TestId, map, out var testId) || !TryMap(action.Within, map, out var within)
+            || !TryMap(action.Placeholder, map, out var placeholder)
+            || (action.Kind is not ("scrollUntil" or "tool") && !TryMap(action.Text, map, out targetText)))
         {
             return null;
         }
@@ -132,6 +139,8 @@ internal static class Trace
         mapped.Name = name;
         mapped.TestId = testId;
         mapped.Within = within;
+        mapped.Placeholder = placeholder;
+        mapped.Text = targetText;
         switch (action.Kind)
         {
             case "tapAt" or "hoverAt":
