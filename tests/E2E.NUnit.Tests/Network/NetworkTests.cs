@@ -7,7 +7,9 @@ namespace E2E.NUnit.Tests.Network;
 /// <summary>
 /// The tests of upstream's <c>apps/testbed/tests/network.e2e.ts</c> outside its <c>network</c>
 /// <c>describe</c>, against the playground's <c>/network</c> page.
+/// The class carries the <c>network</c> category (upstream's <c>tags: ['network']</c>).
 /// </summary>
+[Category("network")]
 public sealed class NetworkTests : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(

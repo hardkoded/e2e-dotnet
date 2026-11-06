@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E;
 using E2E.Engine;
 
@@ -189,6 +190,37 @@ public sealed class ControlsTests
         """;
 
     [Fact]
+    public Task A_secondary_tap_opens_the_context_menu() => RunAsync(async screen =>
+    {
+        var menu = screen.GetByRole("menu", "File actions");
+        var state = screen.GetByRole("status", "File state");
+        await Expect.That(menu).ToBeHiddenAsync();
+
+        await screen.GetByText("report.pdf", exact: true).SecondaryTapAsync();
+        await Expect.That(menu).ToBeVisibleAsync();
+        await Expect.That(state).ToHaveTextAsync("menu open");
+        await Expect.That(menu.GetByRole("menuitem")).ToHaveCountAsync(2);
+
+        await menu.GetByRole("menuitem", "Rename").TapAsync();
+        await Expect.That(state).ToHaveTextAsync("renamed");
+        await Expect.That(menu).ToBeHiddenAsync();
+    });
+
+    [Fact]
+    public Task A_long_press_and_a_double_tap_are_told_apart_from_a_tap() => RunAsync(async screen =>
+    {
+        var gesture = screen.GetByRole("status", "Gesture state");
+        var hold = screen.GetByRole("button", "Hold me");
+
+        await hold.TapAsync();
+        await Expect.That(gesture).ToHaveTextAsync("tapped");
+        await hold.LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(700) });
+        await Expect.That(gesture).ToHaveTextAsync("long-pressed");
+        await screen.GetByRole("button", "Tap me twice").DoubleTapAsync();
+        await Expect.That(gesture).ToHaveTextAsync("double-tapped");
+    });
+
+    [Fact]
     public Task Expanded_state_follows_the_disclosure_toggle() => RunAsync(async screen =>
     {
         var toggle = screen.GetByRole("button", "Details");
@@ -305,6 +337,25 @@ public sealed class ControlsTests
     });
 
     [Fact]
+    public Task A_link_reads_back_its_attributes_accessible_name_classes_and_text() => RunAsync(async (screen, browser) =>
+    {
+        var docs = screen.GetByRole("link", "Documentation");
+        await Expect.That(docs).ToHaveAttributeAsync("data-kind", "external");
+        await Expect.That(docs).ToHaveAttributeAsync("href");
+        await Expect.That(docs).ToHaveAttributeAsync("href", new Regex("about$"));
+        await Expect.That(docs).Not.ToHaveAttributeAsync("hidden");
+        await Expect.That(docs).ToHaveAccessibleNameAsync("Documentation");
+        await Expect.That(docs).ToHaveTextAsync("Docs");
+        await Expect.That(browser).ToHaveClassAsync(docs, "link primary");
+        await Expect.That(browser).ToHaveClassAsync(docs, new Regex("primary"));
+        await Expect.That(browser).Not.ToHaveClassAsync(docs, new Regex("secondary"));
+
+        Assert.Equal("external", await docs.GetAttributeAsync("data-kind"));
+        Assert.Null(await docs.GetAttributeAsync("data-missing"));
+        Assert.Equal("Docs", await docs.TextContentAsync());
+    });
+
+    [Fact]
     public Task A_hidden_twin_is_skipped_by_a_visible_query_and_reached_by_index() => RunAsync(async screen =>
     {
         var banner = screen.GetByTestId("banner");
@@ -418,7 +469,9 @@ public sealed class ControlsTests
     }
 
     // Upstream's beforeEach opens /controls.
-    private static async Task RunAsync(Func<Screen, Task> test)
+    private static Task RunAsync(Func<Screen, Task> test) => RunAsync((screen, _) => test(screen));
+
+    private static async Task RunAsync(Func<Screen, Browser, Task> test)
     {
         using var site = await TinySite.StartAsync(ControlsPage);
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -432,7 +485,7 @@ public sealed class ControlsTests
             AssertionTimeout = TimeSpan.FromSeconds(5),
         });
         await session.App.OpenAsync("/controls");
-        await test(session.Screen);
+        await test(session.Screen, session.Browser);
         session.Complete(null);
     }
 }
