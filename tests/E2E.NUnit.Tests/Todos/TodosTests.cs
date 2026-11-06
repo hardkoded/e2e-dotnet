@@ -9,8 +9,9 @@ namespace E2E.NUnit.Tests.Todos;
 
 /// <summary>
 /// <c>test.describe('todos')</c> of upstream's <c>apps/testbed/tests/todos.e2e.ts</c>, against the playground's
-/// <c>/todos</c> page. All seven tests are ported.
+/// <c>/todos</c> page. All seven tests are ported. The class carries the <c>todos</c> category (upstream's <c>tags: ['todos']</c>).
 /// </summary>
+[Category("todos")]
 public sealed class TodosTests : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
