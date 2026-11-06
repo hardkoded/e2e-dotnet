@@ -172,18 +172,23 @@ public sealed class PrepareObservationTests
         Assert.Equal(route, E2E.Internal.Routes.LocationOf(location));
     }
 
-    /// <summary>Partial: the port renders the name and text, with no test id, anchors, or node index to read back.</summary>
+    /// <summary>Partial: upstream also reads the name and test id from the node index. The port has none: it reads them from the rendered text, and the anchors from <c>Anchors.Project</c>.</summary>
     [Fact]
-    public void Partial_collapses_a_name_so_a_secret_its_written_form_hides_is_replaced()
+    public void Partial_collapses_a_field_whose_collapsed_form_shows_a_secret_its_written_form_hides_so_no_later_reader_brings_it_back()
     {
         var tree = new SemanticNode
         {
             Ref = "n1",
             Children = [new SemanticNode { Ref = "n2", Role = "heading", Name = "say correct\n\n  horse battery   staple now", TestId = "correct\t\thorse battery staple" }],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.For([Secret.Create("phrase", "correct horse battery staple")]));
+        var redactor = Redactor.For([Secret.Create("phrase", "correct horse battery staple")]);
+        var observation = new Observation { Route = "/", Roots = [tree] };
+        var text = SnapshotText.Render(observation, redactor);
         Assert.Contains("heading \"say <secret:phrase> now\"", text, StringComparison.Ordinal);
+        Assert.Contains("testid=\"<secret:phrase>\"", text, StringComparison.Ordinal);
         Assert.DoesNotContain("horse", text, StringComparison.Ordinal);
+        var anchors = Anchors.Describe([], Anchors.Project(observation, redactor.Redact, redactor.Redact, (value, limit) => global::E2E.AgentObservation.RedactText(value, redactor, limit)), false).Appeared;
+        Assert.DoesNotContain("horse", Json(anchors), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -191,7 +196,7 @@ public sealed class PrepareObservationTests
     /// reads the same fields from <c>prepareObservation</c>'s text, its executor tree, and its node index. The port has no node index and no
     /// <c>PreparedObservation</c>: it checks the rendered text and <c>ProjectTree</c>. It also does not compare n6 and n7 as whole nodes
     /// (<c>toEqual(tree.children[..])</c>) or that the tree's child is the node index entry; it checks their text and value, and the text line.
-    /// It asserts that the port withholds a selection upstream redacts (<c>SnapshotText.Selection</c> documents why).
+    /// Like upstream, it asserts that the selection of a textbox whose value holds the secret is withheld rather than redacted.
     /// </summary>
     [Fact]
     public void Partial_redacts_the_leading_part_of_a_secret_a_field_cut_at_its_limit_ends_with_and_leaves_a_cut_plain_value_and_a_whole_field_alone()
