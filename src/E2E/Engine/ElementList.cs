@@ -36,7 +36,7 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
         {
             made = await Handle.EvaluateHandleAsync("(elements, at) => elements[at]", index).ConfigureAwait(false);
         }
-        catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             throw WebErrors.NavigationStaleOr(ex, "resolve observed node");
         }
