@@ -49,7 +49,7 @@ internal static class TwoTapCounter
         return new ScriptedModel(_ => throw new AgentException("MODEL_PROVIDER_FAILED", "401 Unauthorized: no API key was provided"));
     }
 
-    public static Task<E2ESession> StartAsync(string directory, IAgentModel? model, IAgentModel? judge = null)
+    public static Task<E2ESession> StartAsync(string directory, IAgentModel? model, IAgentModel? judge = null, CacheMode mode = CacheMode.ReadWrite)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -59,7 +59,7 @@ internal static class TwoTapCounter
             BaseUrl = "https://counter.test",
             Cache = new FileStepCache(directory),
             CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
+            CacheMode = mode,
             TestTitle = "cached step increments twice",
             ActionTimeout = TimeSpan.FromMilliseconds(300),
             ReplayTimeout = TimeSpan.FromMilliseconds(300),
