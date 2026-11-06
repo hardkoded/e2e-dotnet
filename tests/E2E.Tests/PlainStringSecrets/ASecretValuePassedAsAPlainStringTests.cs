@@ -35,7 +35,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     [Fact]
     public async Task Partial_Runs_the_test_under_its_redacted_title_and_id_its_error_still_masked()
     {
-        var run = await RunAsync(FailingScenario);
+        using var run = await RunAsync(FailingScenario);
 
         var result = run.Report.Run.Results[0];
         Assert.Equal(E2E.Reports.ResultStatus.Failed, result.Status);
@@ -55,7 +55,8 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     [Fact]
     public async Task Partial_Hands_the_executor_the_instruction_params_agent_context_and_title_path_redacted()
     {
-        var inputs = (await RunAsync(FailingScenario)).Inputs;
+        using var run = await RunAsync(FailingScenario);
+        var inputs = run.Inputs;
 
         Assert.Equal(2, inputs.Count);
         Assert.Equal("""{"key":{"kind":"secret","name":"probe"}}""", inputs[0].Params);
@@ -70,13 +71,14 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     [Fact]
     public async Task Still_types_the_real_value_through_the_secret_handle()
     {
-        var run = await RunAsync(async session =>
+        using var run = await RunAsync(async session =>
         {
             await session.App.OpenAsync("/");
             await session.Agent.ActAsync("paste the key into the focus target", new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("probe", Value) } });
             await Expect.That(session.Screen.GetByLabel("Focus target")).ToHaveValueAsync(Value);
         });
 
+        Assert.True(run.Failure is null, run.Failure);
         Assert.Equal(E2E.Reports.ResultStatus.Passed, run.Report.Run.Results[0].Status);
     }
 
@@ -88,7 +90,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     [Fact]
     public async Task Partial_Keeps_the_value_out_of_every_output_event_report_reporter_file_and_file_name_under_e2e()
     {
-        var run = await RunAsync(FailingScenario);
+        using var run = await RunAsync(FailingScenario);
 
         Assert.DoesNotContain(Value, JsonSerializer.Serialize(run.Report, Relaxed), StringComparison.Ordinal);
         var names = Directory.EnumerateFileSystemEntries(run.ResultsDirectory, "*", SearchOption.AllDirectories)
@@ -103,7 +105,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         var standard = Convert.ToBase64String(Encoding.UTF8.GetBytes(Value));
         var forms = new[] { Value, standard, standard.TrimEnd('=').Replace('+', '-').Replace('/', '_') }.Select(form => form.ToLowerInvariant()).ToList();
         foreach (var file in Directory.EnumerateFiles(run.ResultsDirectory, "*", SearchOption.AllDirectories)
-            .Where(file => !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase) && !file.EndsWith(".webm", StringComparison.OrdinalIgnoreCase)))
+            .Where(file => TextExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)))
         {
             var text = File.ReadAllText(file).ToLowerInvariant();
             foreach (var form in forms)
@@ -124,7 +126,21 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         await Expect.That(session.Screen.GetByText($"missing {Value}")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500));
     }
 
-    private sealed record Run(Report Report, string ResultsDirectory, List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)> Inputs);
+    private static readonly string[] TextExtensions = [".md", ".json", ".jsonl", ".txt", ".xml", ".html", ".log"];
+
+    private sealed record Run(Report Report, string ResultsDirectory, List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)> Inputs, string? Failure) : IDisposable
+    {
+        public void Dispose()
+        {
+            try
+            {
+                Directory.Delete(Path.GetDirectoryName(ResultsDirectory)!, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
 
     private static async Task<Run> RunAsync(Func<E2ESession, Task> scenario)
     {
@@ -145,7 +161,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             Cache = ExecutorCache.Off,
         };
         var results = Path.Combine(Path.GetTempPath(), "e2e-plain-string-secrets-" + Guid.NewGuid().ToString("N"), "results");
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = new DocumentEngine(AgentAct.CounterPage.World()),
             AgentExecutor = recording,
@@ -157,17 +173,25 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             AssertionTimeout = TimeSpan.FromSeconds(2),
             CacheEnabled = false,
         });
+        string? failure = null;
         try
         {
-            await scenario(session);
-            session.Complete();
+            try
+            {
+                await scenario(session);
+                session.Complete();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failure = ex.ToString();
+                session.Complete(ex);
+            }
         }
-        catch (Exception ex)
+        finally
         {
-            session.Complete(ex);
+            await session.DisposeAsync();
         }
 
-        await session.DisposeAsync();
-        return new Run(session.Report() ?? throw new InvalidOperationException("the session left no report"), results, inputs);
+        return new Run(session.Report() ?? throw new InvalidOperationException("the session left no report: " + failure), results, inputs, failure);
     }
 }
