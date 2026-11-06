@@ -34,7 +34,7 @@ For the fix of a code, see [Error codes](https://github.com/hardkoded/e2e-dotnet
 
 - In a mixed run the highest-precedence code present wins, `130 > 4 > 3 > 2 > 1 > 0`.
 - The `internal` class and exit code 4 are reserved for runner invariant violations. No first-party code raises a code in that class today.
-- Under NUnit or xUnit the test runner decides the process exit code. The class is what `e2e explore`, `e2e doctor`, and the report record.
+- Under NUnit or xUnit the test runner decides the process exit code. Only the `e2e` CLI commands exit with these numbers, so a CI job that runs `dotnet test` sees the runner's own exit code. The class still shows in the message and the report.
 
 | Codes | Description |
 | --- | --- |
@@ -79,6 +79,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 ### Session codes
 
 These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see [Signing in](/features/signing-in)).
+
 | Code | When it happens | Class | Exit |
 | --- | --- | --- | ---: |
 | `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity | configuration | 2 |
@@ -87,13 +88,17 @@ These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see
 | `SESSION_UNAVAILABLE` | A test requires a session no selected setup test produced | configuration | 2 |
 | `SESSION_CONTRACT` | A setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | test | 1 |
 
+### Engine codes
+
+Engine faults (`ENGINE_FAILURE`, infrastructure, exit 3; `UNSUPPORTED_CAPABILITY`, configuration, exit 2; and the codes an `IEngine` throws) are listed in the [engine contract](/reference/engine#errors).
+
 ### Not in the port
 
 The port raises no code for these upstream codes. It has no runner, no suite scheduler, and no `test.only`.
 
 | Code | Upstream | Why the port has none |
 | --- | --- | --- |
-| `ONLY_IN_CI` | A focused test (`test.only`) reached a CI run (configuration, exit 2) | NUnit and xUnit have no `test.only`. The selection step carries the check, but nothing sets a focused test, so it cannot fire |
+| `ONLY_IN_CI` | A focused test (`test.only`) reached a CI run (configuration, exit 2) | NUnit and xUnit have no `test.only`. The selection step carries the check, but no public path marks a test as focused, so it is not reachable from a test |
 | `RUNNER_BUSY` | A suite overlapped another suite, an opening or open host, or a live attempt; or an `e2e mcp` `run_tests` started while another was running (configuration, exit 2) | The port has no suite runner and no `run_tests` tool. The iOS device layer has a code with the same name, for an automation runner still finishing a command; it is a device code, not this one |
 
 The runner codes upstream lists besides these (`CONFIG_*`, `WORKER_*`, `TEST_TIMEOUT`, the `e2e mcp` session codes, and so on) belong to features the port does not have, or that NUnit and xUnit own. [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md) lists them.
