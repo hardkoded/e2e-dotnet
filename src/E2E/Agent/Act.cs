@@ -177,6 +177,7 @@ public sealed partial class Agent
                         Cache = cache,
                         Write = _scope.CacheWrite,
                         Strict = _scope.CacheStrict,
+                        StrictAdvice = _scope.CacheStrict ? _scope.StrictAdvice : "",
                         ReplayEligible = _scope.ReplayEligible,
                         Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name, keyContext)),
                         StepIndex = _scope.Steps.CurrentStepIndex,

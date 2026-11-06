@@ -246,7 +246,8 @@ lines you changed:
   whatever reason (`action-failed` and `action-uncertain` included), is a
   miss, not a hand-off: outside `cache.strict` the goal runs live from the top
   with no notice, and under `cache.strict` it fails with `REPLAY_STALE`
-  (except for `gap`). A `gap` is an action the cache can't repeat: a mutating
+  (except for `gap`), and the message says how to re-record: a `read-write` run with
+  `cache.strict` set to false, then commit the changed entry under the cache directory. A `gap` is an action the cache can't repeat: a mutating
   project tool, or a value the agent read off the screen, typed after it saw a
   screenshot, or worked out from the date (the recording's `derived` field
   names the rule: `whole-node`, `minted-token`, `date`, or `pixels`). Values

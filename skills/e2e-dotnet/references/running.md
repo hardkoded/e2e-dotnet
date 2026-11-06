@@ -115,7 +115,12 @@ changed when the entry recorded its key context (`the engine contract (1 -> 2)`,
 checked this way. A step never recorded (a new or edited instruction or
 params) and a retry still run live. Re-record with a `read-write` run
 without `cache.strict`, commit the changed entry, and delete the old file
-once nothing replays it.
+once nothing replays it. The error message ends with that advice: it names
+`cache.strict` as the knob to turn off and the cache directory (from `cache.dir`
+or `E2E_CACHE_DIR`) relative to the project, as the place to commit the changed
+entry. A cache directory outside the project is named by its absolute path with
+no commit to ask for, and a custom `cache.store` is named as the place the new
+entry is written.
 
 Each entry records the step it was made for: the test title, the engine,
 the instruction, a params digest, the repeat index, and the agent name. A

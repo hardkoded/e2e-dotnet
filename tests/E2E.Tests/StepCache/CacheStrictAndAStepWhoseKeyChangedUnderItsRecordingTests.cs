@@ -40,8 +40,8 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         var error = await Assert.ThrowsAsync<AgentException>(session.BeginAsync);
 
         Assert.Equal("REPLAY_STALE", error.Code);
-        Assert.Contains("sits under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
-        Assert.EndsWith("re-record it without cache.strict.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("holds it under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
         Assert.Equal(("missed", "no-entry"), (session.CacheInfo?.Mode, session.CacheInfo?.Reason));
     }
 

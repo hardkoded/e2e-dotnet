@@ -38,6 +38,10 @@ internal static class Paths
     /// </summary>
     public static string RealPathOfExisting(string target) => RealPathOfExisting(target, 0);
 
+    /// <summary><paramref name="target"/> as a message shows it, with <c>/</c> separators: relative to the project root when strictly below it (see <see cref="RelativeToProjectRoot"/>), else absolute (upstream's <c>displayPath</c>).</summary>
+    public static string DisplayPath(string projectRoot, string target) =>
+        (RelativeToProjectRoot(projectRoot, target) ?? target).Replace(Path.DirectorySeparatorChar, '/');
+
     /// <summary>Whether <paramref name="target"/> is a path strictly below the project root; see <see cref="RelativeToProjectRoot"/>.</summary>
     public static bool InsideProjectRoot(string projectRoot, string target) => RelativeToProjectRoot(projectRoot, target) is not null;
 
