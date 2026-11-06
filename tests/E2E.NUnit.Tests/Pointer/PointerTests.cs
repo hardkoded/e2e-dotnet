@@ -47,6 +47,8 @@ public sealed class PointerTests : E2ETest
         await Expect.That(Screen.GetByLabel("Pad state")).ToHaveTextAsync("tapped at 0,0");
     }
 
+    // Known difference (#1235): upstream hands the call's timeout to the engine's scrollIntoView as the operation timeout, so it fails after about 1 s.
+    // The port's engine waits its own action timeout (about 30 s) before it reports the same ACTION_FAILED.
     [Test]
     public async Task A_position_tap_on_a_node_the_engine_cannot_bring_into_view_fails_as_the_engine_reports()
     {
