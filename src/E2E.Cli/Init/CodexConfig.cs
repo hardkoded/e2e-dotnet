@@ -188,6 +188,7 @@ internal static class CodexConfig
         string text => JsonValue.Create(text),
         bool flag => JsonValue.Create(flag),
         long number => JsonValue.Create(number),
+        double number when !double.IsFinite(number) => JsonValue.Create(number.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         double number => JsonValue.Create(number),
         _ => JsonValue.Create(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)),
     };
