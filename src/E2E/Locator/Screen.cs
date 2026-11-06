@@ -716,11 +716,8 @@ public sealed class Locator
         return ActAsync(new LocatorAction.PressSequentially(text, options?.Delay), options, cancellationToken);
     }
 
-    public Task PressAsync(string key, ActionOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        return ActAsync(new LocatorAction.Press(key), options, cancellationToken);
-    }
+    public Task PressAsync(string key, ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        ActAsync(new LocatorAction.Press(key), options, cancellationToken);
 
     public Task CheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
