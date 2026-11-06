@@ -227,6 +227,7 @@ public sealed class ModelProviderTests
         Assert.Equal(2, first.ReasoningItems.Count);
         Assert.Equal("sig-1", first.ReasoningItems[0].GetProperty("signature").GetString());
         Assert.Equal("enc-1", first.ReasoningItems[1].GetProperty("data").GetString());
+        Assert.Equal("planunsigned", first.ReasoningText);
 
         await model.CompleteAsync(
             new ModelRequest
@@ -270,6 +271,8 @@ public sealed class ModelProviderTests
 
         Assert.Equal("step by step", first.ReasoningItems.Single().GetString());
         Assert.Equal("other spelling", second.ReasoningItems.Single().GetString());
+        Assert.Equal("step by step", first.ReasoningText);
+        Assert.Equal("other spelling", second.ReasoningText);
 
         await model.CompleteAsync(
             new ModelRequest
@@ -357,6 +360,7 @@ public sealed class ModelProviderTests
 
         Assert.Equal("tapping", first.Content);
         Assert.Equal("c2ln", first.ReasoningItems.Single().GetProperty("thoughtSignature").GetString());
+        Assert.Equal("plan", first.ReasoningText);
         await model.CompleteAsync(
             new ModelRequest
             {
@@ -455,6 +459,7 @@ public sealed class ModelProviderTests
 
         Assert.Equal("tapping", first.Content);
         Assert.Equal(2, first.ReasoningItems.Count);
+        Assert.Equal("plan", first.ReasoningText);
         await model.CompleteAsync(
             new ModelRequest
             {

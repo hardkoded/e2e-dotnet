@@ -536,6 +536,7 @@ internal sealed class StepRecorder
                 Count = tokens,
                 InputTokens = fields.InputTokens,
                 OutputTokens = fields.OutputTokens,
+                Reasoning = ModelUsage.ReasoningField(call?.Reasoning, RedactText),
             });
     }
 

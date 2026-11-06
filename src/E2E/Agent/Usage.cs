@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E;
@@ -103,6 +104,19 @@ internal sealed class ModelUsage
     /// <summary>The per-call token split for a model event, each side present only when the provider reported it as a representable count (upstream's <c>tokenFields</c>).</summary>
     public static (long? InputTokens, long? OutputTokens) TokenFields(Usage usage = default) =>
         (TokenCount(usage.InputTokens), TokenCount(usage.OutputTokens));
+
+    /// <summary>Longest reasoning excerpt a <c>model</c> step event carries (upstream's <c>MAX_REASONING_CHARS</c>); the AI trace keeps the full text.</summary>
+    public const int MaxReasoningChars = 600;
+
+    /// <summary>
+    /// The <c>Reasoning</c> of one model event, null when the turn produced none (upstream's <c>reasoningField</c>). The attempt
+    /// redactor runs over the text, which came from a provider, and the excerpt is bounded to <see cref="MaxReasoningChars"/>.
+    /// </summary>
+    public static string? ReasoningField(string? text, Func<string, string> redact)
+    {
+        var trimmed = text?.Trim() ?? "";
+        return trimmed.Length == 0 ? null : TextRules.Bound(redact(trimmed), MaxReasoningChars);
+    }
 
     // Rejects counters that cannot be represented in the report schema.
     private static long? TokenCount(long? value) => value is >= 0 and <= MaxSafeInteger ? value : null;

@@ -627,7 +627,10 @@ public sealed class ExecutorModelCall
     /// <summary>The billed cost of the call in US dollars, when the provider reports one.</summary>
     public double? EstimatedCostUsd { get; init; }
 
-    /// <summary>The model's own reasoning for the turn, when it produced one.</summary>
+    /// <summary>
+    /// The model's own reasoning for the turn, when it produced one. Reported so the step's <c>model</c> event can show why the model
+    /// acted; the harness redacts and bounds the excerpt, and the AI trace keeps the full text.
+    /// </summary>
     public string? Reasoning { get; init; }
 }
 

@@ -148,7 +148,8 @@ public string? Reasoning { get; init; }
 ```
 
 
-The model's own reasoning for the turn, when it produced one.
+The model's own reasoning for the turn, when it produced one. Reported so the step's `model` event can show why the model
+acted; the harness redacts and bounds the excerpt, and the AI trace keeps the full text.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

@@ -60,6 +60,13 @@ internal static class ModelHttp
     internal static string? OptionalString(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
+    /// <summary>The reasoning text of a turn (upstream's <c>StepResult.reasoningText</c>): its parts joined, or null when it has none.</summary>
+    internal static string? ReasoningText(IEnumerable<string> parts)
+    {
+        var text = string.Concat(parts);
+        return text.Length == 0 ? null : text;
+    }
+
     /// <summary>The most characters of a provider's finish reason a refusal message quotes.</summary>
     private const int MaxFinishReasonChars = 128;
 
@@ -347,6 +354,7 @@ internal static class ModelHttp
             Content = call.Arguments.GetRawText(),
             Usage = response.Usage,
             ReasoningItems = response.ReasoningItems,
+            ReasoningText = response.ReasoningText,
             FinishReason = response.FinishReason,
             RawFinishReason = response.RawFinishReason,
         };
@@ -372,6 +380,7 @@ internal static class ModelHttp
             ToolCalls = response.ToolCalls,
             Usage = response.Usage,
             ReasoningItems = response.ReasoningItems,
+            ReasoningText = response.ReasoningText,
             Warnings = [.. response.Warnings, warning],
             FinishReason = response.FinishReason,
             RawFinishReason = response.RawFinishReason,

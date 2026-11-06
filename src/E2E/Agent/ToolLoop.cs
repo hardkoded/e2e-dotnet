@@ -600,6 +600,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 StartedAt = started,
                 DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
                 ModelId = model.Name,
+                Reasoning = response.ReasoningText,
             });
             return traced;
         }

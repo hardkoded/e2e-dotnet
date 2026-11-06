@@ -838,6 +838,7 @@ public sealed partial class Agent
             StartedAt = started,
             DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
             ModelId = model.Name,
+            Reasoning = response.ReasoningText,
         });
         if (response.Usage is { } usage)
         {

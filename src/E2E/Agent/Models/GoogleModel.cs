@@ -283,6 +283,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             reasoning.Add(JsonSerializer.SerializeToElement(item));
         }
 
+        var reasoningText = ModelHttp.ReasoningText(items.Where(item => item.ContainsKey("thought")).Select(item => (string?)item["text"] ?? ""));
         ModelCallUsage? usage = null;
         if (root.TryGetProperty("usageMetadata", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
@@ -299,7 +300,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var blocked = finish is null && root.TryGetProperty("promptFeedback", out var feedback) ? ModelHttp.OptionalString(feedback, "blockReason") : null;
         if (blocked is not (null or "" or "BLOCK_REASON_UNSPECIFIED" or "BLOCKED_REASON_UNSPECIFIED"))
         {
-            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
+            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, ReasoningText = reasoningText, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
         }
 
         return new ModelResponse
@@ -308,6 +309,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = reasoningText,
             FinishReason = ModelHttp.FinishReason(finish, "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"),
             RawFinishReason = finish,
         };
