@@ -132,14 +132,25 @@ internal sealed record ResolvedConfig
 
         if (credentials.ValueKind == JsonValueKind.Object)
         {
-            sanitized["credentials"] = new JsonObject(credentials.EnumerateObject().Select(credential => KeyValuePair.Create(
-                credential.Name,
-                (JsonNode?)DigestCredential(credential))));
+            // The indexer, not the constructor: JSON tolerates a repeated key, and the last one wins as it does when the config is read.
+            var digested = new JsonObject();
+            foreach (var credential in credentials.EnumerateObject())
+            {
+                digested[credential.Name] = DigestCredential(credential);
+            }
+
+            sanitized["credentials"] = digested;
         }
 
         if (secrets.ValueKind == JsonValueKind.Object)
         {
-            sanitized["secrets"] = new JsonObject(secrets.EnumerateObject().Select(secret => KeyValuePair.Create(secret.Name, (JsonNode?)SecretName(secret.Name))));
+            var digested = new JsonObject();
+            foreach (var secret in secrets.EnumerateObject())
+            {
+                digested[secret.Name] = SecretName(secret.Name);
+            }
+
+            sanitized["secrets"] = digested;
         }
 
         // Targets enter as resolved: see DigestTargets.
@@ -224,7 +235,13 @@ internal sealed record ResolvedConfig
 
             if (entry.ProviderOptions is not null)
             {
-                options["providerOptions"] = new JsonObject(entry.ProviderOptions.Select(pair => KeyValuePair.Create(pair.Key, JsonNode.Parse(pair.Value.GetRawText()))));
+                var providerOptions = new JsonObject();
+                foreach (var (provider, value) in entry.ProviderOptions)
+                {
+                    providerOptions[provider] = value.ValueKind == JsonValueKind.Undefined ? null : JsonNode.Parse(value.GetRawText());
+                }
+
+                options["providerOptions"] = providerOptions;
             }
 
             if (entry.Tools is not null)
