@@ -81,7 +81,7 @@ providers and their logins):
   supported for this model`), answers a forced turn in prose, or returns the
   `toolChoice` warning above, the loop sends the request again (or continues
   the step) with `Auto` under the same instructions, and starts later steps on
-  that model object in `Auto`. A custom `IAgentModel` that fails a forced
+  that model in `Auto` (a built-in provider model is remembered by its class and model id for the process; any other model by object). A custom `IAgentModel` that fails a forced
   choice should fail with a message that says so, so the loop can read it.
 - A custom `IAgentModel` reports each call's tokens, cache tokens, and cost in
   `ModelResponse.Usage` (a `ModelCallUsage`; it was `ModelUsage`, which is now
