@@ -119,5 +119,5 @@ changed UI unless `cache.strict` is enabled. See
 
 ## Next
 
-- [Core concepts](/get-started/core-concepts/): write goals, assertions, and locator steps.
+- [Core concepts](/get-started/core-concepts/): see a test that mixes agent steps and locator checks, and how config names the app and the model.
 - [Self-healing tests](/features/caching/#self-healing-tests): see how an agent recovers when a recorded flow changes.
