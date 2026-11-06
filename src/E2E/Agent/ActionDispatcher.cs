@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Text.Json.Nodes;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
@@ -33,15 +34,25 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private readonly StepAccounting _accounting;
     private readonly Func<IReadOnlyList<Secret>> _secrets;
     private readonly ActionHook? _onAction;
+    private readonly string _instruction;
+
+    // The action the newest commit ran. A typed value recorded as a derived gap is still described as the fill it was
+    // (upstream describes the committed action, not what the trace holds).
+    private RecordedAction? _committed;
+    private readonly JsonObject? _params;
 
     // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction: the test's hook for each completed action.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null)
+    // instruction and parameters: the step's literal input (upstream's options.instruction and options.params), which a typed value is
+    // checked against before it is recorded.
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null)
     {
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
         _secrets = secrets;
         _onAction = onAction;
+        _instruction = instruction;
+        _params = parameters;
     }
 
     public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
@@ -176,7 +187,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitAsync("fill", node, value: value).ConfigureAwait(false);
+                await CommitTypedAsync(Target(node, "fill", WithinOf(node)), value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -250,7 +261,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.TypeTextAsync(value, replace, token).ConfigureAwait(false);
-                await CommitAsync(new RecordedAction { Kind = "typeText", Value = value, Replace = replace }).ConfigureAwait(false);
+                await CommitTypedAsync(new RecordedAction { Kind = "typeText", Replace = replace }, value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -498,7 +509,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     await body(linked.Token).ConfigureAwait(false);
                     return before;
                 },
-                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
+                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(_committed ?? actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
         }
         catch (Exception) when (CheckStep())
         {
@@ -697,9 +708,26 @@ internal sealed partial class ActionDispatcher : IExecutorActions
 
     private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
 
+    // Upstream's recordTrace for a typed value: one the step read off the screen (its tree, or a screenshot it was shown) or reckoned
+    // from the date is this run's data, not the flow's. It is recorded as a gap so replay hands over before it rather than typing a
+    // value the app may not issue again. A replay commits through the replay host, so a value a replay types is the recording's own
+    // data and stays: an app that kept the last run's value shows it on the first screen, and no model chose it.
+    private Task CommitTypedAsync(RecordedAction action, string value)
+    {
+        action.Value = value;
+        if (Derived.DerivedReason(value, _instruction, _params, new StepEvidence(_feed.ShownText(), _feed.PixelsShown)) is { } derived)
+        {
+            _accounting.Recorder.RecordDerivedGap(derived);
+            return ArmAndNotifyAsync(action);
+        }
+
+        return CommitAsync(action);
+    }
+
     // A recorded action arms the next look, then goes to the test's hook.
     private Task ArmAndNotifyAsync(RecordedAction recorded)
     {
+        _committed = recorded;
         _feed.ArmAfter(recorded);
         return NotifyAsync(recorded, ActionSource.Model);
     }

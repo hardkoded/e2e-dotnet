@@ -39,6 +39,19 @@ public sealed class CredentialsUserTests
         Assert.DoesNotContain("super-secret-password", JsonSerializer.Serialize(handle.Password), StringComparison.Ordinal);
     }
 
+    // .NET-only: upstream's credentials.user reads no variable outside a session; the port's fallback maps a name as upstream's envName does.
+    [Fact]
+    public void Reads_the_variables_envName_maps_a_name_with_punctuation_to()
+    {
+        using var username = ProcessEnvironment.Set("E2E_USER_SECRETS_TEST_SVC_A_B_USERNAME", "svc@example.com");
+        using var password = ProcessEnvironment.Set("E2E_USER_SECRETS_TEST_SVC_A_B_PASSWORD", "svc-secret-password");
+
+        var handle = Credentials.User("secrets-test.svc a-b");
+
+        Assert.Equal("svc@example.com", handle.Username);
+        Assert.Equal("secrets-test.svc a-b.password", handle.Password.Name);
+    }
+
     // .NET-only: a session holds the config's accounts for its lifetime, where upstream's runner installs the registry.
     [Fact]
     public async Task A_session_resolves_the_accounts_it_was_given_until_it_is_disposed()

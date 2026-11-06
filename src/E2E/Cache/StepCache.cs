@@ -168,6 +168,12 @@ public sealed class RecordedAction
     public bool? Replace { get; set; }
 
     /// <summary>
+    /// Upstream's <c>derived</c> of a <c>tool</c> gap: the rule that made a typed value this run's data (<see cref="DerivedReason"/>), set only
+    /// on the gap a fill recorded in place of its value. A replay stops at the gap whatever its rule, which only names the hand-off.
+    /// </summary>
+    public DerivedReason? Derived { get; set; }
+
+    /// <summary>
     /// Whether the keyboard fields are well formed: a <c>typeText</c> holds a bounded <see cref="Value"/> and <see cref="Replace"/>, a
     /// <c>pressKey</c> holds a <see cref="Key"/> of one to 64 characters, and no other action holds a <see cref="Replace"/>. Upstream's
     /// <c>readAction</c>, which makes a malformed entry a miss.
@@ -408,21 +414,39 @@ public interface IStepCache
     void Delete(string key);
 }
 
-/// <summary>JSON files in a directory, one per cache key. Entries over 1 MiB are ignored.</summary>
+/// <summary>JSON files in a directory, one per cache key. An entry over the byte cap is ignored on read and not written.</summary>
 public sealed class FileStepCache : IStepCache
 {
     public const int SchemaVersion = 1;
 
+    /// <summary>Hard wire ceiling on one entry, on both the read and the write path (upstream's <c>MAX_CACHE_WIRE_BYTES</c>).</summary>
+    public const int MaxCacheWireBytes = 1_048_576;
+
     private readonly string _directory;
+    private readonly int _maxBytes;
 
     // Key hashes by the step each entry was recorded for, read once on the first strict miss that asks.
     private Dictionary<string, List<string>>? _recordings;
 
     public FileStepCache(string directory)
+        : this(directory, MaxCacheWireBytes, true)
+    {
+    }
+
+    /// <summary>
+    /// Upstream's <c>FileCacheStoreOptions</c> as arguments: <paramref name="maxBytes"/> is the entry size cap for tests (production passes
+    /// the wire ceiling, which clamps it); a store that is not <paramref name="writable"/> never writes and never deletes.
+    /// </summary>
+    public FileStepCache(string directory, int maxBytes, bool writable)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         _directory = directory;
+        _maxBytes = Math.Min(maxBytes, MaxCacheWireBytes);
+        Writable = writable;
     }
+
+    /// <summary>False when the store never writes or deletes (upstream's <c>CacheStore.writable</c>; <see cref="IStepCache"/> has no such member, the mode decides).</summary>
+    public bool Writable { get; }
 
     /// <summary>The directory the entry files are in, where a trace page names a step's entry.</summary>
     internal string CacheDirectory => _directory;
@@ -436,7 +460,7 @@ public sealed class FileStepCache : IStepCache
         }
 
         var info = new FileInfo(path);
-        if (info.Length > 1024 * 1024)
+        if (info.Length > _maxBytes)
         {
             return new CacheLookup { Reason = "invalid-entry" };
         }
@@ -461,15 +485,41 @@ public sealed class FileStepCache : IStepCache
         }
     }
 
-    public void Write(string key, CacheEntry entry)
+    void IStepCache.Write(string key, CacheEntry entry) => Write(key, entry);
+
+    /// <summary>
+    /// Persists one entry, returning its size in bytes, or null when not written: the store is not writable, or the entry is over the byte cap.
+    /// (.NET-only shape: <see cref="IStepCache.Write"/> returns nothing, so this overload is public beside it; upstream's <c>write</c> returns <c>{ bytes } | undefined</c>.)
+    /// </summary>
+    public int? Write(string key, CacheEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
+        if (!Writable)
+        {
+            return null;
+        }
+
+        var path = PathFor(key);
+
+        var serialized = JsonSerializer.Serialize(entry, JsonDefaults.Options);
+        var bytes = Encoding.UTF8.GetByteCount(serialized);
+        if (bytes > _maxBytes)
+        {
+            return null;
+        }
+
         Directory.CreateDirectory(_directory);
-        AtomicWrite.WriteFileAtomic(PathFor(key), JsonSerializer.Serialize(entry, JsonDefaults.Options));
+        AtomicWrite.WriteFileAtomic(path, serialized);
+        return bytes;
     }
 
     public void Delete(string key)
     {
+        if (!Writable)
+        {
+            return;
+        }
+
         try
         {
             // A missing file is no error; a missing directory is the same absence. Anything else throws, so the caller

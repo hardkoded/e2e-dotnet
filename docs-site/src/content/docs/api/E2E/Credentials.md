@@ -41,7 +41,8 @@ public static UserCredential User(string name)
 
 The named account. A name the session's config declares in `credentials` resolves with its password as the secret
 `<name>.password`. .NET-only: a name the config does not declare, or a call outside a session, reads the
-`E2E_USER_*` variables alone, as the port did before it read the config.
+`E2E_USER_*` variables alone, as the port did before it read the config. The name maps to a variable as in the config
+(uppercased, every character outside A-Z and 0-9 as `_`).
 
 **Parameters**
 
