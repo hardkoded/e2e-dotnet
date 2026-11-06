@@ -27,7 +27,15 @@ internal static class ShadowFocusPage
     internal static async Task<(IEngineSession Session, IPage Page)> OpenAsync()
     {
         var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
-        return (session, WebEngine.SurfaceOf(session)!.Page());
+        try
+        {
+            return (session, WebEngine.SurfaceOf(session)!.Page());
+        }
+        catch
+        {
+            await session.DisposeAsync();
+            throw;
+        }
     }
 
     internal static Task FocusShadowAsync(IPage page, string shadowMode, string markup) =>
