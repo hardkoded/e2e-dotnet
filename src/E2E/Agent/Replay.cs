@@ -435,7 +435,13 @@ internal static class Replay
                 }
 
                 await Task.Delay(pause < EndWaitPoll ? pause : EndWaitPoll, host.Time, host.Signal).ConfigureAwait(false);
-                if (holds(await host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false)))
+                var screen = await host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
+                if (!host.TraceEligible)
+                {
+                    return false;
+                }
+
+                if (holds(screen))
                 {
                     return true;
                 }
@@ -458,6 +464,11 @@ internal static class Replay
         var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
         for (var attempt = 0; ; attempt++)
         {
+            if (!host.TraceEligible)
+            {
+                return false;
+            }
+
             if (probe(screen))
             {
                 return true;
