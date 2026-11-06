@@ -188,7 +188,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through done.";
 
     // Upstream's TEXT_REPLY_NOTICE, with the port's done: sent when a turn came back as text without a tool call.
-    internal const string TextReplyNotice =
+    private const string TextReplyNotice =
         "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
 
     // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
