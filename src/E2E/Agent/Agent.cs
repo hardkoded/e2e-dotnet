@@ -1713,7 +1713,7 @@ internal sealed class AttemptScope
             return agent;
         }
 
-        throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + name + "\"; configured: " + string.Join(", ", Agents.Keys));
+        throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + name + "\"; configured: " + string.Join(", ", Agents.Keys) + Suggestions.DidYouMean(name, [.. Agents.Keys]));
     }
 
     public void Remember(IReadOnlyDictionary<string, object?>? parameters)
