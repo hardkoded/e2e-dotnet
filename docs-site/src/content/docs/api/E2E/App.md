@@ -102,7 +102,9 @@ public Task OpenAsync(string? url = null, CancellationToken cancellationToken = 
 
 Opens a path or URL, resolved against the base URL. No URL opens the base URL itself.
 Throws `APP_URL_REQUIRED` for a relative URL when the test declares no base URL, and `POLICY_DENIED`
-for a malformed URL or a scheme other than `http:` or `https:` (the exact `about:blank` is admitted).
+for a malformed URL or a scheme other than `http:` or `https:` (the exact `about:blank` is admitted). Throws
+`APP_UNREACHABLE`, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
+name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is `ENGINE_FAILURE`.
 
 **Parameters**
 

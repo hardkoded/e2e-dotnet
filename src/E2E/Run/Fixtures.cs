@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 using E2E.Reports;
@@ -68,7 +69,9 @@ public sealed class App
     /// <summary>
     /// Opens a path or URL, resolved against the base URL. No URL opens the base URL itself.
     /// Throws <c>APP_URL_REQUIRED</c> for a relative URL when the test declares no base URL, and <c>POLICY_DENIED</c>
-    /// for a malformed URL or a scheme other than <c>http:</c> or <c>https:</c> (the exact <c>about:blank</c> is admitted).
+    /// for a malformed URL or a scheme other than <c>http:</c> or <c>https:</c> (the exact <c>about:blank</c> is admitted). Throws
+    /// <c>APP_UNREACHABLE</c>, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
+    /// name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is <c>ENGINE_FAILURE</c>.
     /// </summary>
     public Task OpenAsync(string? url = null, CancellationToken cancellationToken = default)
     {
@@ -77,7 +80,7 @@ public sealed class App
             return LaunchPinnedAppAsync(url, cancellationToken);
         }
 
-        return RunStepAsync("app.open", url ?? "/", () => _session.OpenAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
+        return RunStepAsync("app.open", url ?? "/", () => OpenAtAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
     }
 
     /// <summary>
@@ -210,7 +213,45 @@ public sealed class App
         await hook(cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(_baseUrl))
         {
-            await _session.OpenAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
+            await OpenAtAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Network-level failures a browser or device reports when nothing is listening where the app should be. Anything else that fails a
+    /// navigation (a certificate, a 500, a crash mid-load) stays an engine failure. Upstream's <c>NOTHING_LISTENING</c>.
+    /// </summary>
+    private static readonly Regex NothingListening = new(
+        "ERR_CONNECTION_REFUSED|ECONNREFUSED|ERR_NAME_NOT_RESOLVED|ENOTFOUND|ERR_ADDRESS_UNREACHABLE|EHOSTUNREACH|ERR_CONNECTION_TIMED_OUT|ETIMEDOUT",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(2));
+
+    /// <summary>
+    /// A navigation the network refused means the app is down, which is the first thing a new project runs into and the last thing an engine
+    /// failure message suggests. Named by its own code, with the URL and the three ways to fix it. Upstream's <c>unreachableApp</c>.
+    /// </summary>
+    private static EngineException? UnreachableApp(Exception cause, string url)
+    {
+        var match = NothingListening.Match(cause.Message);
+        return match.Success
+            ? new EngineException(
+                "APP_UNREACHABLE",
+                $"nothing answered at {url} ({match.Value}); start the app there, point the target's app.url at where it runs, or give the target an app.command so the runner starts it",
+                cause)
+            { Mapped = true }
+            : null;
+    }
+
+    /// <summary>Opens one resolved URL; a refused connection is reported as the app being down (upstream's <c>openAt</c>).</summary>
+    private async Task OpenAtAsync(string resolved, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _session.OpenAsync(resolved, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception cause) when (cause is not (OperationCanceledException or (E2EException and not EngineException)) && UnreachableApp(cause, resolved) is { } unreachable)
+        {
+            throw unreachable;
         }
     }
 
