@@ -83,7 +83,7 @@ The test host has no `e2e run` command, so these variables stand in for upstream
 | `E2E_LAST_FAILED` | `E2E_LAST_FAILED=1` | flag | Reruns only the tests the last report failed, upstream's `--last-failed` |
 | `E2E_TRACE` | `E2E_TRACE=on` | value | Which attempts write `trace.md`, upstream's `--trace`. See [Caching and self-healing](/features/caching/) |
 | `E2E_VIDEO` | `E2E_VIDEO=retain-on-failure` | value | Which attempts record a video, upstream's `--video`. See [Video and screenshots](/features/video/) |
-| `E2E_UPDATE_SNAPSHOTS` | `E2E_UPDATE_SNAPSHOTS=1` | `1` only | Writes missing or different stored screenshots, upstream's `--update-snapshots`. See [Soft assertions and evidence](/features/assertions/) |
+| `E2E_UPDATE_SNAPSHOTS` | `E2E_UPDATE_SNAPSHOTS=1` | `1` only | Writes missing or different stored screenshots, upstream's `--update-snapshots`. Under `CI`, a missing stored screenshot is written only with it; otherwise the assertion fails. See [Soft assertions and evidence](/features/assertions/) |
 | `E2E_DEBUG` | `E2E_DEBUG=1` | flag | Prints the phase timings and the agent step table to stderr, upstream's `--debug` |
 | `E2E_AI_TRACE` | `E2E_AI_TRACE=1` | flag | Records every model call to `ai-trace-<process id>.json`, upstream's `--ai-trace` |
 
@@ -138,7 +138,7 @@ See [Pull request comments](/integrations/github/).
 | --- | --- | --- | --- |
 | `E2E_HEADLESS` | `E2E_HEADLESS=0` | value | `0` or `false` shows the browser window when `WebEngineOptions.Headless` is not set. Headless otherwise. .NET-only |
 | `E2E_SKIP_BROWSER_INSTALL` | `E2E_SKIP_BROWSER_INSTALL=1` | `1` or `true` | Skips the Chromium install the first run starts. Install the browser yourself, with `e2e install`. See [Web](/get-started/web/) |
-| `PLAYWRIGHT_BROWSERS_PATH` | `PLAYWRIGHT_BROWSERS_PATH=~/.cache/ms-playwright` | value | Playwright's browser cache. The web engine installs into it and `e2e doctor` checks it. `0` places the browsers inside the driver. A relative path resolves against `INIT_CWD`, else the working directory |
+| `PLAYWRIGHT_BROWSERS_PATH` | `PLAYWRIGHT_BROWSERS_PATH=~/.cache/ms-playwright` | value | Playwright's browser cache. The web engine's install passes it to the Playwright driver, and `e2e doctor` reads it to check the cache: there, `0` means the browsers live inside the driver (nothing to check) and a relative path resolves against `INIT_CWD`, else the working directory |
 | `PLAYWRIGHT_SKIP_BROWSER_GC` | `PLAYWRIGHT_SKIP_BROWSER_GC=0` | value | Defaults to `1` for the engine's browser install, which keeps other browsers in the cache. `0` lets the install remove them |
 | `LOCALAPPDATA`, `XDG_CACHE_HOME` | `XDG_CACHE_HOME=~/.cache` | value | Where `e2e doctor` looks for Playwright's default browser cache (`%LOCALAPPDATA%\ms-playwright` on Windows, `$XDG_CACHE_HOME/ms-playwright` or `~/.cache/ms-playwright` on Linux, `~/Library/Caches/ms-playwright` on macOS) |
 | `KERNEL_API_KEY` | `KERNEL_API_KEY=<key>` | value | The API key `KernelProvider` creates browsers with. Unset, the browser lease fails |
@@ -157,6 +157,7 @@ See [Pull request comments](/integrations/github/).
 | `E2E_MOBILE_DEVICE` | `E2E_MOBILE_DEVICE="iPhone 16"` | value | The simulator or emulator to drive. Unset, the booted device of the platform. .NET-only |
 | `E2E_AGENT_DEVICE_BIN` | `E2E_AGENT_DEVICE_BIN=/opt/agent-device/bin.js` | value | An agent-device build to run under `node`, in place of the pinned release through `npx`. .NET-only |
 | `E2E_DEVFLOW_PORT`, `E2E_DEVFLOW_APP` | `E2E_DEVFLOW_PORT=9223` | value | The port and app name of the MAUI DevFlow agent (`E2E_MOBILE_PROVIDER=devflow`). A port that is not a number from 1 to 65535 fails the run. .NET-only |
+| `E2E_DEVFLOW_TRACE` | `E2E_DEVFLOW_TRACE=1` | `1` or `true` | Prints each call to the MAUI DevFlow agent. .NET-only |
 | `E2E_WINAPP_APP_PATH` | `E2E_WINAPP_APP_PATH=C:\apps\App.exe` | value | Replaces a Windows target's `app.appPath`. .NET-only |
 | `EXPO_TOKEN` | `EXPO_TOKEN=<token>` | value | The Expo access token `ExpoSimulators` starts and stops simulator sessions with |
 | `HOME`, `USERPROFILE` | `HOME=/home/ada` | value | Where `ExpoSimulators` finds the eas-cli login (`.expo/state.json`) without `EXPO_TOKEN`: `USERPROFILE` on Windows, `HOME` elsewhere |
