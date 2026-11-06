@@ -179,7 +179,7 @@ public sealed class WebEngineLifecycleTests
     public async Task Partial_Treats_endAttempt_before_startAttempt_and_dispose_on_a_cold_engine_as_no_ops()
     {
         using var site = await FixtureApp.StartAsync();
-        // The port has no endAttempt: a session is the attempt. The cold engine's dispose, and a session that serves the page after it, are ported.
+        // The port has no endAttempt: a session is the attempt (a deliberate .NET design, see COMPATIBILITY.md). The cold engine's dispose, and a session that serves the page after it, are ported.
         var cold = new WebEngine(new WebEngineOptions { Headless = true });
         await cold.DisposeAsync();
         await cold.DisposeAsync();
@@ -335,12 +335,14 @@ public sealed class WebEngineLifecycleTests
     private static List<VideoFile> VideoFiles(IReadOnlyList<VideoSegment> segments) =>
         [.. segments.Select(segment => segment as VideoFile ?? throw new InvalidOperationException("expected a video file, got a link"))];
 
-    // Upstream waits for a painted frame its spy on the screencast saw. The port cannot spy, so it paints the page and waits past the
-    // recorder's own first-frame wait, which ends a segment only after its first frame or that bound.
+    // Upstream waits for a painted frame its spy on page.screencast.start saw. The port cannot spy, and the recorder exposes no frame signal, so
+    // the wait is on what the page shows: it has loaded and has produced two animation frames, and a screenshot forces the repaint that makes
+    // the screencast deliver a frame. The recorder itself then waits for that first frame (bounded by VideoRecorder.FirstFrameWait) before it ends the segment.
     private static async Task SettleAsync(IPage page)
     {
+        await page.WaitForLoadStateAsync(LoadState.Load);
+        await page.EvaluateAsync("() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
         await page.ScreenshotAsync();
-        await Task.Delay(VideoRecorder.FirstFrameWait + TimeSpan.FromMilliseconds(500));
     }
 
     private static async Task AssertSegmentAtViewportAsync(IPage viewer, string dir, VideoFile segment, int width, int height)

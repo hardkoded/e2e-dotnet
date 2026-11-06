@@ -392,6 +392,8 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
+    // Not ported: 'reports a drag whose drop target turns ambiguous after the press as possibly committed'. The port finds the drop target before
+    // the press, so the drag succeeds; tracked in https://github.com/hardkoded/e2e-dotnet/issues/1226.
     public async Task Refuses_to_swipe_a_node_with_no_box_even_when_its_child_is_under_aim()
     {
         using var site = await FixtureApp.StartAsync();
