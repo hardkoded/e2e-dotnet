@@ -27,6 +27,8 @@
     <ProjectReference Include="..\E2E.WinApp\E2E.WinApp.csproj" />
     <Compile Include="..\Shared\HostedDeviceProviders.cs" Link="HostedDeviceProviders.cs" />
     <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <!-- BSD-2-Clause. A TOML 1.0 parser with source spans: updateCodexConfig edits the file in place and needs the ranges. -->
+    <PackageReference Include="Tomlyn" Version="2.10.2" />
     <!-- The tool never compares screenshots, so it ships none of the SkiaSharp native libraries E2E brings in. -->
     <PackageReference Include="SkiaSharp" Version="4.153.1" ExcludeAssets="native;runtime" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" ExcludeAssets="all" />

@@ -532,6 +532,10 @@ internal static partial class Init
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(registration.Absolute)!);
             WriteFile(registration.Absolute, registration.Content);
             log.Success((registration.Existing ? "Updated " : "Created ") + registration.Relative + " (e2e mcp server)");
+            if (registration.Relative == ".codex/config.toml")
+            {
+                log.Info("Codex loads project MCP settings only in trusted projects; start a new Codex session after installing dependencies.");
+            }
         }
 
         if (mcpFiles.Count == 0)
