@@ -131,7 +131,12 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = "auto";
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["name"] = request.ToolChoice.ToolName },
+                _ => "auto",
+            };
         }
 
         // A reasoning model hands its reasoning back encrypted only when asked. The AI SDK asks every model but the chat ones.
@@ -147,7 +152,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                 : ModelHttp.PromptCacheKey(request.System);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions", "tool_choice");
 
         // The format joins the text options a provider option may have set (verbosity). Not strict: strict mode refuses keywords
         // such as maxLength, and the agent validates the answer itself.

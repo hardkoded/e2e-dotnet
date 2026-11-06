@@ -49,6 +49,13 @@ public sealed class ModelRequest
     /// <summary>Upstream's <c>ModelCall.maxRetries</c>: provider transport retries for this call. Null keeps <see cref="ModelHttp.TransportRetries"/>.</summary>
     public int? MaxRetries { get; init; }
 
+    /// <summary>
+    /// Upstream's <c>ModelCall.toolChoice</c> (the AI SDK's <c>toolChoice</c>): how the model must use the tools it is offered. Null leaves
+    /// the choice to the provider, which is <see cref="ModelToolChoice.Auto"/>. The act tool loop asks for <see cref="ModelToolChoice.Required"/>
+    /// and names <c>done</c> on its forced-conclusion turns. A custom <see cref="IAgentModel"/> that cannot force a tool may ignore it.
+    /// </summary>
+    public ModelToolChoice? ToolChoice { get; init; }
+
     /// <summary>Redacts the secrets of the step from a provider failure that quotes the response body.</summary>
     internal Redactor Redactor { get; init; } = Redactor.None;
 }
@@ -78,6 +85,51 @@ public sealed class ModelMessage
 /// <param name="Width">Width in image pixels.</param>
 /// <param name="Height">Height in image pixels.</param>
 public sealed record ModelImage(byte[] Data, string MediaType, int Width, int Height);
+
+/// <summary>
+/// The AI SDK's <c>ToolChoice</c>: <c>auto</c> lets the model answer in prose or call any offered tool, <c>required</c> makes it call some
+/// tool, and a named tool makes it call that one. Each provider sends its own form of it (Anthropic's <c>any</c>, Bedrock's <c>any</c>,
+/// OpenAI's <c>required</c>, Gemini's <c>ANY</c>).
+/// </summary>
+public sealed record ModelToolChoice
+{
+    private ModelToolChoice(string type, string? toolName = null)
+    {
+        Type = type;
+        ToolName = toolName;
+    }
+
+    /// <summary>The model decides whether to call a tool (<c>auto</c>).</summary>
+    public static ModelToolChoice Auto { get; } = new("auto");
+
+    /// <summary>The model must call some tool (<c>required</c>).</summary>
+    public static ModelToolChoice Required { get; } = new("required");
+
+    /// <summary>The model must call the tool named <paramref name="toolName"/> (the SDK's <c>{ type: 'tool', toolName }</c>).</summary>
+    public static ModelToolChoice Tool(string toolName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
+        return new("tool", toolName);
+    }
+
+    /// <summary><c>auto</c>, <c>required</c>, or <c>tool</c>.</summary>
+    public string Type { get; }
+
+    /// <summary>The tool a <c>tool</c> choice names. Null for the other two.</summary>
+    public string? ToolName { get; }
+
+    /// <summary>Whether the choice makes the model call a tool (anything but <c>auto</c>).</summary>
+    public bool Forced => Type != "auto";
+}
+
+/// <summary>
+/// One of upstream's call warnings (<c>CallWarning</c>): the provider changed the request instead of failing it. A provider that sends
+/// <c>auto</c> in place of the forced tool choice it was asked for says so with <c>Type</c> <c>unsupported</c> and <c>Feature</c> <c>toolChoice</c>.
+/// </summary>
+/// <param name="Type">The kind of warning, such as <c>unsupported</c>.</param>
+/// <param name="Feature">The request feature it is about, such as <c>toolChoice</c>.</param>
+/// <param name="Details">What the provider did about it. Provider text: redact it before it reaches a message.</param>
+public sealed record ModelWarning(string Type, string? Feature = null, string? Details = null);
 
 public sealed class ModelTool
 {
@@ -123,6 +175,9 @@ public sealed class ModelResponse
 
     /// <summary>The reasoning of the turn that the model can take back, to replay on the next turn. Empty when the model gave none.</summary>
     public IReadOnlyList<JsonElement> ReasoningItems { get; init; } = [];
+
+    /// <summary>Upstream's call <c>warnings</c> (<c>StepResult.warnings</c>): what the provider changed in the request without failing it. Empty when it changed nothing.</summary>
+    public IReadOnlyList<ModelWarning> Warnings { get; init; } = [];
 
     /// <summary>The AI SDK finish reason that matters to the agent: <see cref="ContentFilter"/> when the provider stopped the turn because it refused the request, or <see cref="ErrorFinish"/> when it ended on an error. Null for any other turn.</summary>
     public string? FinishReason { get; init; }

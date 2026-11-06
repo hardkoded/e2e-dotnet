@@ -151,7 +151,12 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = "auto";
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["function"] = new JsonObject { ["name"] = request.ToolChoice.ToolName } },
+                _ => "auto",
+            };
         }
 
         // Not strict: strict mode refuses keywords such as maxLength, and the agent validates the answer itself.
@@ -178,7 +183,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         }
 
         // Provider options ride the request body as given, so a field such as reasoning_effort reaches the server.
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "tool_choice");
 
         // The AI SDK spells the effort reasoningEffort and sends it as reasoning_effort.
         if (payload.Remove("reasoningEffort", out var effort))

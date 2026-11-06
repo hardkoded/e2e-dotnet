@@ -16,8 +16,7 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
     private static DocumentWorld Page() => new DocumentWorld().Map("/start", page => page.Button("Peek"));
 
     /// <summary>
-    /// Partial: the port has no <c>toolChoice</c> in a request and no provider metadata on a tool call, so it checks the results the next
-    /// request carries and the turns billed.
+    /// Partial: the port has no provider metadata on a tool call, so it leaves out upstream's <c>toolCallOptions</c> check.
     /// </summary>
     [Fact]
     public async Task Partial_Sends_the_call_back_as_an_error_and_asks_again_on_the_same_turn_budget()
@@ -48,6 +47,8 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
             agentTools: ToolLoopForcedToolChoiceTests.Peek());
 
         Assert.Null(attempt.Error);
+        // Interim: the loop starts with auto until the forced-choice retry lands, so no turn forces a tool yet.
+        Assert.Equal(["auto", "auto", "auto"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
         // The first turn offers every tool; the last two are the forced-conclusion turns, which offer only done.
         Assert.Contains(model.Requests[0].Tools, tool => tool.Name == "peek");
         Assert.Equal(["done"], model.Requests[1].Tools.Select(tool => tool.Name));

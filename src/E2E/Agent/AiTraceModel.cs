@@ -41,7 +41,13 @@ internal static class AiTraceModel
         var provider = typeName.Length > "Model".Length && typeName.EndsWith("Model", StringComparison.Ordinal) ? typeName[..^"Model".Length] : null;
         var instructions = redactor.Redact(request.System);
         var messages = request.Messages.Select(message => Message(message, redactor)).ToList();
-        var toolChoice = Obj(null, ("type", "auto"));
+        // The AI SDK reports the choice as it was asked for: { type: 'required' }, or { type: 'tool', toolName }.
+        var toolChoice = request.ToolChoice switch
+        {
+            { Type: "tool" } choice => Obj("tool", ("toolName", choice.ToolName)),
+            { } choice => Obj(choice.Type),
+            _ => Obj("auto"),
+        };
         recorder.OnStart(new AiTraceStartEvent(callId, "ai.generateText"));
         recorder.OnStepStart(new AiTraceStepStartEvent(callId, 0, provider, model.Name, instructions, messages, toolChoice));
         recorder.OnLanguageModelCallStart(new AiTraceModelCallStartEvent(callId, instructions, messages, request.Tools.Select(Tool).ToList(), toolChoice));

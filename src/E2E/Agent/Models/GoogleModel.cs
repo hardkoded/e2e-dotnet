@@ -61,6 +61,14 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         }
     }
 
+    // The AI SDK's mapping: required is mode ANY, a named tool is mode ANY limited to that function.
+    private static JsonObject FunctionCalling(ModelToolChoice? choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["mode"] = "ANY" },
+        { Type: "tool" } => new JsonObject { ["mode"] = "ANY", ["allowedFunctionNames"] = new JsonArray(choice.ToolName) },
+        _ => new JsonObject { ["mode"] = "AUTO" },
+    };
+
     internal JsonObject BuildBody(ModelRequest request)
     {
         var names = ModelHttp.ToolNames(request.Messages);
@@ -157,10 +165,10 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         if (declarations.Count > 0)
         {
             payload["tools"] = new JsonArray { new JsonObject { ["functionDeclarations"] = declarations } };
-            payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = new JsonObject { ["mode"] = "AUTO" } };
+            payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = FunctionCalling(request.ToolChoice) };
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction", "toolConfig");
 
         // The format joins the generation options a provider option may have set (thinking).
         if (request.Schema is { } schema)

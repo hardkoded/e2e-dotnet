@@ -43,7 +43,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var region = _options.ResolveRegion();
         var baseUrl = _options.BaseUrl ?? "https://bedrock-runtime." + region + ".amazonaws.com";
         var url = new Uri(baseUrl.TrimEnd('/') + "/model/" + Uri.EscapeDataString(_options.Model) + "/converse");
-        var payload = BuildBody(request).ToJsonString();
+        var built = BuildBody(request);
+        var payload = built.ToJsonString();
         using var message = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(payload, Encoding.UTF8),
@@ -78,6 +79,11 @@ public sealed class BedrockModel : IAgentModel, IDisposable
 
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign, request.MaxRetries).ConfigureAwait(false);
         var response = ModelHttp.Parse(body, Parse);
+        if (ModelHttp.DowngradesToolChoice(request, Thinks(built)))
+        {
+            response = ModelHttp.WithToolChoiceDowngrade(response, request.ToolChoice!);
+        }
+
         return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
@@ -108,6 +114,16 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             _http.Dispose();
         }
     }
+
+    private static bool Thinks(JsonObject payload) => ModelHttp.Thinks(payload["additionalModelRequestFields"]?["thinking"]);
+
+    // The AI SDK's mapping for Converse: required is any, a named tool is a tool choice with its name.
+    private static JsonObject ToolChoice(ModelToolChoice choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["any"] = new JsonObject() },
+        { Type: "tool" } => new JsonObject { ["tool"] = new JsonObject { ["name"] = choice.ToolName } },
+        _ => new JsonObject { ["auto"] = new JsonObject() },
+    };
 
     internal JsonObject BuildBody(ModelRequest request)
     {
@@ -210,9 +226,19 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["toolConfig"] = new JsonObject { ["tools"] = tools };
+            if (request.ToolChoice is { } choice)
+            {
+                payload["toolConfig"]!["toolChoice"] = ToolChoice(choice);
+            }
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "messages", "system", "toolConfig");
+
+        // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
+        if (ModelHttp.DowngradesToolChoice(request, Thinks(payload)))
+        {
+            payload["toolConfig"]!["toolChoice"] = ToolChoice(ModelToolChoice.Auto);
+        }
 
         // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
         if (request.Schema is not null && payload["additionalModelRequestFields"]?["thinking"] is null)

@@ -226,6 +226,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         string? noticed = null;
         var shrunkOnce = false;
         var noticedLowClock = false;
+
+        // Upstream's LoopRun.toolChoice: how the step asks for tool calls. Upstream starts with 'required'; the port starts with auto
+        // until the retry for a model that refuses a forced choice lands (#1157, next PR), since a model such as Claude Fable 5.1 answers
+        // HTTP 400 to it and the port cannot yet fall back.
+        var toolChoice = ModelToolChoice.Auto;
         var clockWindDownMs = Math.Min(ClockWindDownMs, budget.RemainingMs() / ClockWindDownFraction);
         string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
@@ -321,11 +326,14 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             // so a rejected verdict (blocked without a code) can be repaired.
             var forced = turnsLeft <= ForcedConclusionTurns || stopped || lowClock;
             var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
+
+            // Upstream's prepareStep: every turn asks for a tool call, and a forced turn names the conclusion tool.
+            var turnToolChoice = forced && toolChoice.Type == "required" ? ModelToolChoice.Tool("done") : toolChoice;
             AiTraceTurn traced;
             try
             {
                 lastShape = [.. messages.Select(MessageShape.ShapeOf)];
-                traced = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
+                traced = await CompleteAsync(model, system, messages, offered, turnToolChoice, context, redactor, token).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
@@ -483,6 +491,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         string system,
         List<ModelMessage> messages,
         IReadOnlyList<ModelTool> tools,
+        ModelToolChoice toolChoice,
         StepExecutorContext context,
         Redactor redactor,
         CancellationToken token)
@@ -498,6 +507,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     System = redactor.Redact(system),
                     Messages = messages,
                     Tools = tools,
+                    ToolChoice = toolChoice,
                     ProviderOptions = options.ProviderOptions ?? context.ProviderOptions,
                     MarkLatest = true,
                     Redactor = redactor,
