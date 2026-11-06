@@ -203,28 +203,43 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
         public async Task InitializeAsync()
         {
             _app = await FlowsApp.StartAsync();
-            var recorded = new Counter();
-            Recorded = await RunAsync(_app, Directory, Flows, Variant.Record, recorded);
-            RecordedModelCalls = recorded.Value;
-            RecordedArchive = Assert.Single(EntriesFor(Directory, "archives a record"));
-            RecordedCounter = CounterEntryFile();
+            try
+            {
+                var recorded = new Counter();
+                Recorded = await RunAsync(_app, Directory, Flows, Variant.Record, recorded);
+                RecordedModelCalls = recorded.Value;
+                RecordedArchive = Assert.Single(EntriesFor(Directory, "archives a record"));
+                RecordedCounter = CounterEntryFile();
 
-            // The twins form moves every node, and the offers reverse, under the URL the recording saw.
-            _app.Variant = "b";
-            var replayed = new Counter();
-            Replayed = await RunAsync(_app, Directory, Flows, Variant.Replay, replayed);
-            ReplayModelCalls = replayed.Value;
+                // The twins form moves every node, and the offers reverse, under the URL the recording saw.
+                _app.Variant = "b";
+                var replayed = new Counter();
+                Replayed = await RunAsync(_app, Directory, Flows, Variant.Replay, replayed);
+                ReplayModelCalls = replayed.Value;
+            }
+            catch
+            {
+                await DisposeAsync();
+                throw;
+            }
         }
 
         public Task DisposeAsync()
         {
-            _app?.Dispose();
             try
             {
-                System.IO.Directory.Delete(Directory, recursive: true);
+                _app?.Dispose();
             }
-            catch (DirectoryNotFoundException)
+            finally
             {
+                try
+                {
+                    System.IO.Directory.Delete(Directory, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A temp directory a browser still holds is left for the OS to clear.
+                }
             }
 
             return Task.CompletedTask;

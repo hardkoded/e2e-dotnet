@@ -64,6 +64,11 @@ internal static class TraceCacheFlows
     {
         var lines = prompt.Split('\n');
         var row = Array.FindIndex(lines, line => line.Contains("Offer " + offer, StringComparison.Ordinal));
+        if (row < 0)
+        {
+            throw new InvalidOperationException("No row for offer " + offer + " in the screen:\n" + prompt);
+        }
+
         var button = lines.Skip(row + 1).First(line => line.Contains("button \"Reserve now\"", StringComparison.Ordinal));
         return Regex.Match(button, @"#(e\d+)").Groups[1].Value;
     }
@@ -241,7 +246,7 @@ internal static class TraceCacheFlows
     {
         calls.Increment();
         var prompt = request.Messages[0].Content!;
-        var key = flow.Script.Keys.FirstOrDefault(candidate => prompt.Contains(candidate, StringComparison.Ordinal))
+        var key = flow.Script.Keys.Where(candidate => prompt.Contains(candidate, StringComparison.Ordinal)).OrderByDescending(candidate => candidate.Length).FirstOrDefault()
             ?? throw new InvalidOperationException("unscripted instruction in:\n" + prompt);
         return request.Messages.Any(message => message.Role == "tool")
             ? ModelResponses.Done("passed", "done: " + key)
@@ -318,7 +323,7 @@ internal static class TraceCacheFlows
         }
 
         var cache = new FileStepCache(directory);
-        return [.. Directory.GetFiles(directory, "*.json").Order(StringComparer.Ordinal).Select(file => (file, cache.Read(Path.GetFileNameWithoutExtension(file)).Entry!))];
+        return [.. Directory.GetFiles(directory, "*.json").Order(StringComparer.Ordinal).Select(file => (file, cache.Read(Path.GetFileNameWithoutExtension(file)).Entry ?? throw new InvalidOperationException("Unreadable cache entry: " + file)))];
     }
 
     /// <summary>The entries recorded for one test, by its title, in file order.</summary>

@@ -16,6 +16,7 @@ namespace E2E.Tests.TraceCacheReplay;
 internal sealed partial class FlowsApp : IDisposable
 {
     private TinySite _site = null!;
+    private string? _variant;
     private int _searches;
     private int _feedRequests;
 
@@ -24,7 +25,11 @@ internal sealed partial class FlowsApp : IDisposable
     }
 
     /// <summary>The variant every page renders as from now on, or null for the plain one (upstream's <c>setVariant</c>).</summary>
-    public string? Variant { get; set; }
+    public string? Variant
+    {
+        get => Volatile.Read(ref _variant);
+        set => Volatile.Write(ref _variant, value);
+    }
 
     public string Url => _site.Url;
 
@@ -63,12 +68,13 @@ internal sealed partial class FlowsApp : IDisposable
         else if (path == "/search")
         {
             var q = query["q"];
+            var searches = Volatile.Read(ref _searches);
             if (q is not null)
             {
-                Interlocked.Increment(ref _searches);
+                searches = Interlocked.Increment(ref _searches);
             }
 
-            html = Search(q, Volatile.Read(ref _searches));
+            html = Search(q, searches);
         }
         else if (path == "/feed")
         {
@@ -95,10 +101,10 @@ internal sealed partial class FlowsApp : IDisposable
         return TinySite.RespondAsync(context, html);
     }
 
-    [GeneratedRegex("^/(records|drafts)/([^/]+)$")]
+    [GeneratedRegex(@"^/(records|drafts)/([^/]+)\z")]
     private static partial Regex RecordPath();
 
-    [GeneratedRegex("^/companies/([^/]+)$")]
+    [GeneratedRegex(@"^/companies/([^/]+)\z")]
     private static partial Regex CompanyPath();
 
     private static string Escape(string text) => text.Replace("&", "&amp;", StringComparison.Ordinal).Replace("<", "&lt;", StringComparison.Ordinal).Replace(">", "&gt;", StringComparison.Ordinal).Replace("\"", "&quot;", StringComparison.Ordinal);
