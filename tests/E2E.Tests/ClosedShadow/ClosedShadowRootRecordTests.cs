@@ -10,7 +10,7 @@ namespace E2E.Tests.ClosedShadow;
 /// <summary>
 /// The closed-root record the init script installs and the <c>e2e-closed=</c> mask engine built on it. Not ported:
 /// "answers a semantic query with the root alone, without walking, while no closed root was attached". The port's page
-/// script walks the document itself, so it registers no <c>e2e-roots=</c> engine.
+/// script walks the document itself, so it registers no <c>e2e-roots=</c> engine (issue #1221).
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>

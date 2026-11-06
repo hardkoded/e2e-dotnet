@@ -98,6 +98,16 @@ public sealed class NamesWithCssGeneratedContentTests
         });
     }
 
+    [Fact]
+    public async Task Keeps_generated_content_out_of_label_text_as_getByLabel_reads_it_and_drops_a_glyph_from_it()
+    {
+        await WithScreenAsync(async screen =>
+        {
+            Assert.Equal(["→Email"], await NamesAsync(screen.GetByLabel("Email")));
+            Assert.Equal(["Phone"], await NamesAsync(screen.GetByLabel("Phone")));
+        });
+    }
+
     private static async Task WithScreenAsync(Func<Screen, Task> body)
     {
         using var site = await TinySite.StartAsync(Page);

@@ -10,7 +10,7 @@ namespace E2E.Tests.ClosedShadowLocators;
 public sealed class MatchOrderAcrossOneClosedRootTests
 {
     [Fact]
-    public async Task Lists_a_closed_root_match_in_tree_order_where_its_host_stands()
+    public async Task Partial_Lists_light_DOM_matches_first_and_the_closed_root_after_where_the_observed_tree_lists_them_in_place()
     {
         using var site = await FixtureApp.StartAsync();
         await using (var engine = await WebSemanticsTests.OpenAsync(site.Url + "closed-order", new WebEngineOptions { Headless = true }))
@@ -24,7 +24,7 @@ public sealed class MatchOrderAcrossOneClosedRootTests
         await WebSemanticsTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/closed-order");
-            // Not ported: upstream's locator searches the light DOM as one root and the closed root as the next,
+            // Partial (issue #1222): upstream's locator searches the light DOM as one root and the closed root as the next,
             // so it answers Beta before Alpha. The port resolves a locator against the observed tree, so it
             // answers in the tree's order, Alpha first.
             var buttons = session.Screen.GetByRole("button");

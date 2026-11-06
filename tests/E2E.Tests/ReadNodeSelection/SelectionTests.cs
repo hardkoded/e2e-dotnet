@@ -8,7 +8,7 @@ namespace E2E.Tests.ReadNodeSelection;
 public sealed class SelectionTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
     [Fact]
-    public async Task Reads_the_selection_of_the_focused_field_and_editing_host()
+    public async Task Reports_the_selected_text_of_the_focused_input_or_editing_host_and_nothing_for_a_caret_an_unfocused_field_or_a_secure_one()
     {
         await chromium.Page.SetContentAsync("""
             <input data-testid="field" value="release approved">
@@ -38,6 +38,8 @@ public sealed class SelectionTests(ChromiumPage chromium) : IClassFixture<Chromi
         await chromium.Page.Keyboard.PressAsync("End");
         nodes = await chromium.CaptureAsync();
         var editor = Node(nodes, "editor");
+        Assert.Equal("textbox", editor.Role);
+        Assert.Equal("release approved", editor.Value);
         Assert.True(editor.Focused);
         Assert.Null(editor.Selection);
 
