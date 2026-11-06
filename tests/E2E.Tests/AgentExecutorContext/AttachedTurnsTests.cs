@@ -48,7 +48,8 @@ public sealed class AttachedTurnsTests
     public async Task The_tool_loop_records_each_turn_with_its_calls_and_results_and_notes_a_reply_without_a_tool_call()
     {
         var calls = 0;
-        var model = new ScriptedModel(_ => ++calls switch
+        // A model that refuses a forced choice, so the loop asks under auto and the prose reply is the text-reply path, not a skipped forced call.
+        var model = new ScriptedModel(request => request.ToolChoice!.Forced ? throw ToolLoopToolChoice.FakeLoopModel.Rejection : ++calls switch
         {
             1 => new ModelResponse { Content = "I will look around first." },
             2 => ModelResponses.Tap("button", "Increment"),

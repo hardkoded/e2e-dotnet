@@ -47,8 +47,7 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
             agentTools: ToolLoopForcedToolChoiceTests.Peek());
 
         Assert.Null(attempt.Error);
-        // Interim: the loop starts with auto until the forced-choice retry lands, so no turn forces a tool yet.
-        Assert.Equal(["auto", "auto", "auto"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
+        Assert.Equal(["required", "tool:done", "tool:done"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
         // The first turn offers every tool; the last two are the forced-conclusion turns, which offer only done.
         Assert.Contains(model.Requests[0].Tools, tool => tool.Name == "peek");
         Assert.Equal(["done"], model.Requests[1].Tools.Select(tool => tool.Name));
