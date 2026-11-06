@@ -13,12 +13,12 @@ namespace E2E.Tests.ToolLoopToolChoice;
 /// </summary>
 public sealed class IsForcedToolChoiceRejectedTests
 {
-    /// <summary>Partial: the port has no retry-chain error with a <c>lastError</c>; <c>ModelHttp</c> throws the last attempt's failure itself, so that one check is left out.</summary>
     [Fact]
-    public void Partial_Reads_the_provider_message_through_a_gateway_wrapper_and_a_spent_retry_chain()
+    public void Reads_the_provider_message_through_a_gateway_wrapper_and_a_spent_retry_chain()
     {
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Rejection));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("wrapped", Rejection)));
+        Assert.True(ToolChoice.IsForcedToolChoiceRejected(new RetryError("retries spent", [Rejection])));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400("""{"error":{"message":"tool_choice is not supported"}}""")));
     }
 

@@ -121,6 +121,7 @@ internal static class ModelHttp
         // A request message can be sent once, so each attempt sends a copy of the same bytes.
         var payload = message.Content is null ? null : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var backoff = InitialRetryDelay;
+        var attempts = new List<Exception>();
         for (var retry = 0; ; retry++)
         {
             using var attempt = CopyRequest(message, payload);
@@ -139,12 +140,13 @@ internal static class ModelHttp
                 // The AI SDK retries a fetch that failed before an answer (a refused or reset connection).
                 if (retry < retries)
                 {
+                    attempts.Add(ex);
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
                     continue;
                 }
 
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex);
+                throw Spent(new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex), attempts);
             }
             catch (OAuth.OAuthException ex)
             {
@@ -162,25 +164,49 @@ internal static class ModelHttp
 
                 if (retry < retries && IsRetryableStatus((int)response.StatusCode))
                 {
+                    attempts.Add(ProviderFailed(response, body, redactor));
                     await Task.Delay(RetryDelay(response, backoff), cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
                     continue;
                 }
 
-                var failure = FailureText(response, body, redactor);
                 // A request too big is not an outage: the step's observations are what must shrink, and the code says so.
                 if (ContextOverflow.DescribesOverflow((int)response.StatusCode, null, body))
                 {
-                    throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + failure, blocked: true);
+                    throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + FailureText(response, body, redactor), blocked: true);
                 }
 
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: " + failure)
-                {
-                    ProviderStatus = (int)response.StatusCode,
-                    ProviderErrorCode = ErrorCode(body),
-                };
+                throw Spent(ProviderFailed(response, body, redactor), attempts);
             }
         }
+    }
+
+    private static AgentException ProviderFailed(HttpResponseMessage response, string body, Redactor redactor) =>
+        new("MODEL_PROVIDER_FAILED", "The model provider failed: " + FailureText(response, body, redactor))
+        {
+            ProviderStatus = (int)response.StatusCode,
+            ProviderErrorCode = ErrorCode(body),
+        };
+
+    /// <summary>
+    /// The AI SDK throws a <c>RetryError</c> (<c>reason: 'maxRetriesExceeded'</c>) once its retries are spent. The port keeps the
+    /// <see cref="AgentException"/> callers match (its code, <c>ProviderStatus</c>, and message are the last attempt's) and carries the
+    /// <see cref="RetryError"/> with every attempt as its <see cref="Exception.InnerException"/>, so <see cref="ToolChoice.IsForcedToolChoiceRejected"/>
+    /// reads <c>lastError</c> through it. A request that failed on its first attempt has no chain and throws the failure itself.
+    /// </summary>
+    private static AgentException Spent(AgentException last, List<Exception> attempts)
+    {
+        if (attempts.Count == 0)
+        {
+            return last;
+        }
+
+        var chain = new RetryError("Failed after " + (attempts.Count + 1) + " attempts. Last error: " + last.Message, [.. attempts, last]);
+        return new AgentException(last.Code, last.Message, chain)
+        {
+            ProviderStatus = last.ProviderStatus,
+            ProviderErrorCode = last.ProviderErrorCode,
+        };
     }
 
     /// <summary>
