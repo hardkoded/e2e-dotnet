@@ -13,12 +13,12 @@ namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
 /// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, truncation
-/// flag, action cap, secret names, or entry validation, and no point verbs. So
+/// flag, action cap, secret names, or entry validation. So
 /// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
 /// "poisons the trace instead of bending a replay
 /// input", "truncates past the action cap
-/// instead of dropping the flag", "rejects a stored check or upload that lost a field", and every it of "TraceRecorder:
-/// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
+/// instead of dropping the flag", "rejects a stored check or upload that lost a field". The bare-point its are in
+/// <see cref="TraceRecorderBarePointTapsTests"/> and <see cref="TraceRecorderBarePointDragsTests"/>. The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
 /// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
 /// </summary>
 public sealed class TraceRecorderTests
@@ -31,15 +31,15 @@ public sealed class TraceRecorderTests
 
     private static CacheEntry Step => new() { Test = "tests/billing::upgrade", Engine = "web" };
 
-    private static Recorder MakeRecorder(params Secret[] secrets)
+    internal static Recorder MakeRecorder(params Secret[] secrets)
     {
         var redactor = Redactor.For(secrets);
         return new Recorder(() => redactor);
     }
 
-    private static CacheEntry? Finalize(Recorder recorder, string route = "/settings") => recorder.Finalize(Step, route, route, [], []);
+    internal static CacheEntry? Finalize(Recorder recorder, string route = "/settings") => recorder.Finalize(Step, route, route, [], []);
 
-    private static CacheEntry RoundTrip(CacheEntry entry)
+    internal static CacheEntry RoundTrip(CacheEntry entry)
     {
         var store = new FileStepCache(CoreTests.TempCache());
         store.Write("abc123", entry);
@@ -216,7 +216,7 @@ public sealed class TraceRecorderTests
         Assert.Null(Finalize(MakeRecorder()));
     }
 
-    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port has no point verb, and no summary. The resize step is recorded and read back as upstream's is.</summary>
+    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port keeps no summary. The resize step is recorded and read back as upstream's is.</summary>
     [Fact]
     public void Records_every_node_verb_a_state_a_drag_with_its_destination_and_a_back_step_and_reads_them_back()
     {
@@ -230,17 +230,19 @@ public sealed class TraceRecorderTests
         drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
         recorder.Record(new RecordedAction { Kind = "back" });
         recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
+        recorder.Record("hoverAt", new PlacedPoint(new Point(10, 20)), new TraceViewport(1280, 720));
         var entry = Finalize(recorder)!;
 
         var read = RoundTrip(entry);
 
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back", "resize"], entry.Actions.Select(action => action.Kind));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back", "resize", "hoverAt"], entry.Actions.Select(action => action.Kind));
+        Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[11].Point!.Value, read.Actions[11].Viewport));
         Assert.Equal(("region", "Done column", "Board"), (read.Actions[8].Destination?.Role, read.Actions[8].Destination?.Name, read.Actions[8].Destination?.Within));
         Assert.Equal(new TraceViewport(390, 844), read.Actions[10].Size);
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
     }
 
-    /// <summary>Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the drag's destination and the resize's size, which the port checks on the action itself.</summary>
+    /// <summary>Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the upload's paths, the drag's destination, and the resize's size, which the port checks on the action itself. The check's <c>checked</c> (a typed bool) and the resize's non-integer side (a typed int) cannot be malformed in a typed entry, and the unknown name is a store concern.</summary>
     [Fact]
     public void Partial_Rejects_a_stored_check_upload_drag_or_resize_that_lost_a_field()
     {
@@ -260,6 +262,15 @@ public sealed class TraceRecorderTests
         Assert.False(resize.HasValidSize());
 
         Assert.False(new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Size = new TraceViewport(390, 844) }.HasValidSize());
+
+        var upload = new RecordedAction { Kind = "upload", Role = "button", Name = "Upgrade", Paths = ["fixtures/a.txt"] };
+        Assert.True(upload.HasValidPaths());
+
+        upload.Paths = [];
+        Assert.False(upload.HasValidPaths());
+
+        upload.Paths = [""];
+        Assert.False(upload.HasValidPaths());
 
         var drag = new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
         Assert.True(drag.HasValidDestination());
