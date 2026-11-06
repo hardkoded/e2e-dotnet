@@ -32,7 +32,7 @@ public sealed class VideoTests
         Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Run), off.Target.Video);
     }
 
-    /// <summary>Partial: the flag is the E2E_VIDEO variable.</summary>
+    /// <summary>Partial: the flag is the E2E_VIDEO variable (#1309).</summary>
     [Fact]
     public void Partial_Keeps_the_mode_at_the_top_and_on_a_target_out_of_the_digest()
     {
