@@ -138,15 +138,12 @@ internal static class CodexConfig
         }
         else
         {
-            // Upstream moves an offset of 0 to the end of the text, which also sends a first table at offset 0 there; only a missing newline does that here.
-            if (container is TableSyntaxBase table)
+            offset = container is TableSyntaxBase table
+                ? text.IndexOf('\n', table.Name!.Span.Offset + table.Name.Span.Length) + 1
+                : root.Tables.FirstOrDefault()?.Span.Offset ?? text.Length;
+            if (offset == 0)
             {
-                var headerEnd = text.IndexOf('\n', table.Name!.Span.Offset + table.Name.Span.Length);
-                offset = headerEnd < 0 ? text.Length : headerEnd + 1;
-            }
-            else
-            {
-                offset = root.Tables.FirstOrDefault()?.Span.Offset ?? text.Length;
+                offset = text.Length;
             }
 
             insertion = (offset > 0 && text[offset - 1] != '\n' ? newline : "") + assignment + newline;
