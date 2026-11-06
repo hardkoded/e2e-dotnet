@@ -107,9 +107,8 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                 dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
                 await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), OperationContext.Agent, token).ConfigureAwait(false);
             }).ConfigureAwait(false);
-        var recorded = Target(node, "drag", WithinOf(node));
-        var end = Target(dropped!, "drag", WithinOf(dropped!));
-        recorded.Destination = new RecordedTarget { Role = end.Role, Name = end.Name, TestId = end.TestId, Within = end.Within };
+        var recorded = Target(node, "drag", PlacementOf(node));
+        recorded.Destination = DescribePlaced(dropped!);
         await CommitAsync(recorded).ConfigureAwait(false);
     }
 
@@ -123,7 +122,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, ClickAction(kind, modifiers), token).ConfigureAwait(false);
-                var recorded = Target(node, kind, WithinOf(node));
+                var recorded = Target(node, kind, PlacementOf(node));
                 recorded.Modifiers = modifiers?.Select(modifier => modifier.ToString()).ToList();
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
@@ -188,7 +187,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitTypedAsync(Target(node, "fill", WithinOf(node)), value).ConfigureAwait(false);
+                await CommitTypedAsync(Target(node, "fill", PlacementOf(node)), value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -228,6 +227,9 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         {
             throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
+
+        // Checked before the action is committed, as the locator tier does, so a bad argument is INVALID_ARGUMENT to the executor and never a failed action.
+        Keys.RequireKey(key);
 
         // A key with no node is upstream's pressKey.
         if (target is null)
@@ -274,6 +276,8 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         {
             throw new TestException("INVALID_ARGUMENT", "pressKey requires a key");
         }
+
+        Keys.RequireKey(key);
 
         return RunAsync(
             "pressKey",
@@ -335,7 +339,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
-                var recorded = Target(node, "upload", WithinOf(node));
+                var recorded = Target(node, "upload", PlacementOf(node));
                 recorded.Paths = [.. authorized.Given];
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
@@ -676,23 +680,42 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     }
 
     // The node as the target an action names it by, not yet recorded.
-    private RecordedAction Target(SemanticNode node, string kind, string? within = null)
+    private RecordedAction Target(SemanticNode node, string kind, Placement placement = default) =>
+        TraceRecorder.ActionOf(kind, DescribePlaced(node, placement));
+
+    // Upstream's describePlaced: the node's descriptor with the placement it was acted on in.
+    private RecordedTarget DescribePlaced(SemanticNode node) => DescribePlaced(node, PlacementOf(node));
+
+    private RecordedTarget DescribePlaced(SemanticNode node, Placement placement) =>
+        TraceRecorder.DescribeTarget(node, _scope.Redactor, placement.Within, placement.Position);
+
+    // Upstream's placementOf: where a node sat when it was acted on, for the trace. The container it sits in is what tells this row's "Delete"
+    // from the next row's when the flow replays; when the description still matches several controls, its position among them lets a replay
+    // that finds the same number pick the same one. The screen is the newest one that listed the node, and the node is the one that screen
+    // lists under its ref: a look taken since the node was resolved holds new node objects.
+    private Placement PlacementOf(SemanticNode node)
     {
-        var target = TraceRecorder.DescribeTarget(node, _scope.Redactor, within);
-        return new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within };
+        if (_feed.LastSeen(node.Ref) is not { } seen)
+        {
+            return default;
+        }
+
+        var within = AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor);
+        return new Placement(within, Relocate.DescribePosition(seen.Node, within, seen.Observation, _scope.Redactor));
     }
 
-    // Upstream's placementOf (its container key): the container the node sat in on the screen it was acted on. That is what tells this
-    // row's "Delete" from the next row's when the flow replays. The screen is the newest one that listed the node, and the node is the
-    // one that screen lists under its ref: a look taken since the node was resolved holds new node objects.
-    private string? WithinOf(SemanticNode node) =>
-        _feed.LastSeen(node.Ref) is { } seen ? AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor) : null;
-
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
-    private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null) =>
-        ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key, WithinOf(node)));
+    private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null)
+    {
+        var placement = PlacementOf(node);
+        return ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key, placement.Within, placement.Position));
+    }
 
     private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
+
+    private Task CommitAsync(string kind, PlacedPoint point, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(kind, point, viewport));
+
+    private Task CommitAsync(PlacedPoint from, PlacedPoint to, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(from, to, viewport));
 
     // Upstream's recordTrace for a typed value: one the step read off the screen (its tree, or a screenshot it was shown) or reckoned
     // from the date is this run's data, not the flow's. It is recorded as a gap so replay hands over before it rather than typing a

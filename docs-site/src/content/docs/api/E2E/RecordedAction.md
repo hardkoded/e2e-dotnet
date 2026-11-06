@@ -87,6 +87,21 @@ The start of a `dragAt`, placed the way a point action's one point is.
 
 **Value:** [RecordedPointEnd](/api/E2E/RecordedPointEnd/)
 
+<a id="E2E_RecordedAction_InputPurpose_"></a>
+<a id="E2E_RecordedAction_InputPurpose"></a>
+
+### InputPurpose
+
+
+```csharp
+public string? InputPurpose { get; set; }
+```
+
+
+Upstream's `inputPurpose` of the target descriptor, such as `password`. Null for `none` and for a target that is no field.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_RecordedAction_Key_"></a>
 <a id="E2E_RecordedAction_Key"></a>
 
@@ -157,6 +172,22 @@ typed value, expanded with the call's params and authorized against the project 
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
+<a id="E2E_RecordedAction_Placeholder_"></a>
+<a id="E2E_RecordedAction_Placeholder"></a>
+
+### Placeholder
+
+
+```csharp
+public string? Placeholder { get; set; }
+```
+
+
+Upstream's `placeholder` of the target descriptor: the placeholder of the field the action named, with secrets redacted. A field
+named only by its placeholder relocates by it. Null when the target has none.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_RecordedAction_Point_"></a>
 <a id="E2E_RecordedAction_Point"></a>
 
@@ -172,6 +203,22 @@ The viewport point of a `tapAt` or `hoverAt`, in CSS pixels, where the model aim
 given on a viewport of [Viewport](#E2E_RecordedAction_Viewport)'s size, or at [Under](#E2E_RecordedAction_Under)'s place in the live node.
 
 **Value:** `Point?`
+
+<a id="E2E_RecordedAction_Position_"></a>
+<a id="E2E_RecordedAction_Position"></a>
+
+### Position
+
+
+```csharp
+public TracePosition? Position { get; set; }
+```
+
+
+Upstream's `position` of the target descriptor: where the target stood among the controls its own description matched on the screen it
+was acted on (`DescribePosition`). Null when the description named it alone.
+
+**Value:** [TracePosition](/api/E2E/TracePosition/)
 
 <a id="E2E_RecordedAction_Replace_"></a>
 <a id="E2E_RecordedAction_Replace"></a>
@@ -258,7 +305,8 @@ public string? Text { get; set; }
 ```
 
 
-The text a `scrollUntil` paged toward.
+The text a `scrollUntil` paged toward and the name of a project tool a `tool` gap ran; on every other action, upstream's
+`text` of the target descriptor: the text of the node when it differs from its name, with secrets redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

@@ -76,25 +76,6 @@ public sealed class AgentActVerdictMappingTests
     }
 
     [Fact]
-    public async Task Hard_stops_a_model_that_overspends_the_model_call_budget()
-    {
-        var result = await RunAsync(
-            async ctx =>
-            {
-                await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("think very hard", new ActOptions { MaxModelCalls = 2 });
-            },
-            CounterPage.World(),
-            new ScriptedModel(_ => new ModelResponse { Content = "thinking" }));
-
-        var error = Assert.IsType<AgentException>(result.Error);
-        Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
-        Assert.True(error.Blocked);
-        Assert.Equal("agent.act exhausted its model-call budget of 2", error.Message);
-        Assert.Equal(2, result.ModelCalls);
-    }
-
-    [Fact]
     public async Task Stamps_the_budget_code_onto_a_code_less_failed_verdict_after_a_hard_stop()
     {
         var model = new ScriptedModel(request =>

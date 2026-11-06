@@ -182,6 +182,9 @@ internal sealed class StepHost : IStepCacheHost
 
     public IExecutorActions Actions { get; }
 
+    /// <summary>Upstream's host <c>traceEligible</c>: false once a look has lost its semantic evidence, which a test flips as upstream's getter does.</summary>
+    public bool TraceEligible { get; set; } = true;
+
     public CancellationToken Signal => CancellationToken.None;
 
     public Redactor Redact { get; set; } = Redactor.None;

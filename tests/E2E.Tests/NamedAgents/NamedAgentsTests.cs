@@ -12,7 +12,7 @@ namespace E2E.Tests.NamedAgents;
 /// </summary>
 public sealed class NamedAgentsTests
 {
-    // Upstream also reads the agent each step ran with from its report, and the error adds a did-you-mean hint.
+    // Upstream also reads the agent each step ran with from its report.
     [Fact]
     public async Task Routes_each_call_to_the_agent_it_names_and_fails_a_call_naming_an_unknown_agent()
     {
@@ -43,7 +43,7 @@ public sealed class NamedAgentsTests
         // A call naming nothing configured fails before it reaches any model.
         var error = await Assert.ThrowsAsync<TestException>(() => session.Agent.ActAsync("x", new ActOptions { Agent = "buyr" }));
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Equal("unknown agent \"buyr\"; configured: default, buyer, admin", error.Message);
+        Assert.Equal("unknown agent \"buyr\"; configured: default, buyer, admin; did you mean \"buyer\"?", error.Message);
         Assert.Equal((1, 1, 2), (house.CallCount, admin.CallCount, buyer.CallCount));
         session.Complete(error);
     }

@@ -135,6 +135,8 @@ public sealed partial class Agent
 
         public async Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
         {
+            // Upstream's `keyboard.press` session guard (engine/session.ts).
+            Keys.RequireKey(key);
             await scope.Session.PressAsync(key, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
         }
@@ -249,6 +251,12 @@ public sealed partial class Agent
 
         private async Task PerformAsync(ExecutorTarget target, LocatorAction action, string kind, CancellationToken cancellationToken, string? value = null)
         {
+            // Upstream's session guard (`perform` in engine/session.ts) checks a press key before the engine is asked, on a replay too.
+            if (action is LocatorAction.Press press)
+            {
+                Keys.RequireKey(press.Key);
+            }
+
             await scope.Session.PerformAsync(Resolve(target), action, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = kind, Value = value });
         }

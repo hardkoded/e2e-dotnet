@@ -68,13 +68,13 @@ internal sealed partial class ActionDispatcher
                     "the point (" + Num(clamped.X) + ", " + Num(clamped.Y) + ") is on nothing the screen lists and this engine " + nodeVerb + "s listed nodes only; " + nodeVerb + " a node by id instead");
             }
 
-            var recorded = new RecordedAction { Kind = verb, Point = clamped, Viewport = viewport, Under = Place(observation, hit.Under, clamped) };
+            var placed = Placed(observation, hit.Under, clamped);
             await RunNowAsync(
                 verb,
                 async token =>
                 {
                     await _scope.Session.PerformAtAsync(clamped, nodeVerb == "tap" ? new PointerAction.Tap() : new PointerAction.Hover(), OperationContext.Agent, token).ConfigureAwait(false);
-                    await CommitAsync(recorded).ConfigureAwait(false);
+                    await CommitAsync(verb, placed, viewport).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
             return new PointTapResult(clamped, hit.Control is null ? null : new ExecutorTarget(hit.Control), summary);
@@ -116,19 +116,14 @@ internal sealed partial class ActionDispatcher
                     + ") does not join two different controls the screen lists and this engine drags listed nodes only; drag a node onto another by id instead");
             }
 
-            var recorded = new RecordedAction
-            {
-                Kind = "dragAt",
-                Viewport = viewport,
-                From = new RecordedPointEnd { Point = start, Under = Place(observation, fromHit.Under, start) },
-                To = new RecordedPointEnd { Point = end, Under = Place(observation, toHit.Under, end) },
-            };
+            var placedFrom = Placed(observation, fromHit.Under, start);
+            var placedTo = Placed(observation, toHit.Under, end);
             await RunNowAsync(
                 "dragAt",
                 async token =>
                 {
                     await _scope.Session.PerformAtAsync(start, new PointerAction.DragTo(end), OperationContext.Agent, token).ConfigureAwait(false);
-                    await CommitAsync(recorded).ConfigureAwait(false);
+                    await CommitAsync(placedFrom, placedTo, viewport).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
             return new PointDragResult(
@@ -151,7 +146,7 @@ internal sealed partial class ActionDispatcher
         }
 
         var node = await TargetedAsync(control, ClickAction("tap", null), token).ConfigureAwait(false);
-        await CommitAsync(Target(node, "tap", WithinOf(node))).ConfigureAwait(false);
+        await CommitAsync(Target(node, "tap", PlacementOf(node))).ConfigureAwait(false);
     }
 
     // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to. The tap is always there; the hover and the
@@ -181,28 +176,20 @@ internal sealed partial class ActionDispatcher
     // How point results name nodes: by the line of the screen the model holds.
     private PointTap.NodeProse Prose() => node => SnapshotText.FormatNode(node, 0, _scope.Redactor, _scope.AppOrigin).TrimStart();
 
-    // Upstream's traceHandle with withinOf: the listed node whose box contained the point, with where that node sat and the point's place
-    // inside its box, so replay can follow the node when the layout shifts. Nothing for a screen without a tree, or for a node a replay could
-    // not re-find. The port's tree has no single root that stands for the page (it lists the page's top-level nodes), so upstream's skip of
-    // the root has nothing to skip.
-    private RecordedPointPlace? Place(Observation observation, SemanticNode? under, Point point)
+    // Upstream's traceHandle: the listed node whose box contained the point, with where that node sat (its container key and twin position), for the recorder's
+    // withinOf to place the point inside its box, so replay can follow the node when the layout shifts. Nothing for a screen without a tree.
+    // The port's tree has no single root that stands for the page (it lists the page's top-level nodes), so upstream's skip of the root has
+    // nothing to skip.
+    private PlacedPoint Placed(Observation observation, SemanticNode? under, Point point)
     {
-        if (under is null || observation.TreeUnavailable || under.Rect is not { Width: > 0, Height: > 0 } box)
+        if (under is null || observation.TreeUnavailable)
         {
-            return null;
+            return new PlacedPoint(point);
         }
 
-        var target = TraceRecorder.DescribeTarget(under, _scope.Redactor, WithinOf(under));
-        if (target.Name is null && target.TestId is null)
-        {
-            return null;
-        }
-
-        return new RecordedPointPlace { Target = target, Fx = Fraction((point.X - box.X) / box.Width), Fy = Fraction((point.Y - box.Y) / box.Height) };
+        var placement = PlacementOf(under);
+        return new PlacedPoint(point, under, placement.Within, placement.Position);
     }
-
-    // A place inside a box as a fraction of its side, clamped to the box and rounded so the entry stays small.
-    private static double Fraction(double value) => Math.Round(Math.Clamp(value, 0, 1) * 10_000, MidpointRounding.AwayFromZero) / 10_000;
 
     private static string Num(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 }

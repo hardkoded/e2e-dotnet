@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using E2E.Cache;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -188,6 +189,11 @@ public static class DefaultAgent
         ["hover"] = "hover over",
     };
 
+    // Upstream's describeForSummary, after the label: the container the target sat in, then its place among its twins, (2 of 3).
+    private static string PlacedSuffix(string? within, TracePosition? position) =>
+        (within is null ? "" : " in " + UploadPaths.Quote(TextRules.Bound(within, 40)))
+        + (position is null ? "" : " (" + (position.Index + 1).ToString(CultureInfo.InvariantCulture) + " of " + position.Of.ToString(CultureInfo.InvariantCulture) + ")");
+
     internal static string Describe(RecordedAction action)
     {
         // Upstream's summaries of the keyboard actions: no node, so the focused field stands for it. The caller redacts the text.
@@ -222,6 +228,8 @@ public static class DefaultAgent
             {
                 builder.Append(" testId=").Append(action.TestId);
             }
+
+            builder.Append(PlacedSuffix(action.Within, action.Position));
         }
 
         // Upstream's summary of a drag: the node it was dropped on, in the container it sat in.
@@ -237,10 +245,7 @@ public static class DefaultAgent
                 builder.Append(" testId=").Append(destination.TestId);
             }
 
-            if (destination.Within is not null)
-            {
-                builder.Append(" in \"").Append(destination.Within).Append('"');
-            }
+            builder.Append(PlacedSuffix(destination.Within, destination.Position));
         }
 
         if (action.Modifiers is { Count: > 0 })
@@ -253,7 +258,8 @@ public static class DefaultAgent
             builder.Append(' ').Append(action.Url);
         }
 
-        if (action.Text is not null)
+        // The text of a scroll-until; on any other action it is the target's text, which the label above already says.
+        if (action.Text is not null && action.Kind is "scrollUntil" or "tool")
         {
             builder.Append(" \"").Append(action.Text).Append('"');
         }

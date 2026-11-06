@@ -96,7 +96,7 @@ public class CheckoutTests : E2ETest
 
 `E2E_AGENT=thorough dotnet test` sets the run's agent for tests that pin none.
 It takes one name; a pin is never replaced. An unknown name, on a pin, a call,
-or `E2E_AGENT`, is `INVALID_ARGUMENT`. There is no list of agents that runs
+or `E2E_AGENT`, is `INVALID_ARGUMENT`, naming the configured agents and the nearest one (`did you mean "ux"?`). There is no list of agents that runs
 one test once per persona. Each agent records its own replay entries, keyed by
 its name and context.
 
@@ -141,7 +141,8 @@ pass returns an `ActResult` with `Summary`, `ModelCalls`, `Actions`, and
 `AUTH_CREDENTIAL_UNAVAILABLE`, `AUTH_CREDENTIAL_INVALID`,
 `SECRET_UNAVAILABLE`, `ENVIRONMENT_UNAVAILABLE`, `SEED_DATA_MISSING`,
 `TEST_SETUP_FAILED`, `AUTOMATION_UNSUPPORTED`, `POLICY_DENIED` (blocked from
-outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
+outside, `Blocked` is true); `STEP_NO_CONCLUSION` (the turns ran out without a
+`done` call); `MODEL_OUTPUT_INVALID` (unusable answer),
 `MODEL_REFUSED` (the model refused the prompt). Full list: topic `debugging`.
 
 `ActOptions`:
@@ -440,7 +441,8 @@ viewport of another size hands the step over (`viewport-changed`).
 The loop watches for a run of failed calls too, of any tools and with any
 inputs: three in a row add a notice that asks the model to change approach,
 and five in a row leave it only `done`. A call that worked starts the count
-over. A turn with no tool call counts as a failure.
+over. A turn with no tool call counts as a failure and is answered with a
+notice that asks for a tool call or `done`.
 
 ## Budgets and cost
 
@@ -702,7 +704,13 @@ public sealed class TapOnlyTests : E2ETest
 }
 ```
 
-The loop runs at most `MaxModelCalls` model turns per step. A tool that throws
+The loop runs at most `MaxModelCalls` model turns per step. With five turns left
+it asks the model to wrap up, and on the last two turns, after a loop-guard stop,
+or when the step is nearly out of time, it offers only `done`. A step whose turns
+run out without a `done` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
+not a hard stop). The instructions tell the model, from the first turn, to reply
+with tool calls only; a reply without one is kept in the history, the model is
+told to act, and the turn counts. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the

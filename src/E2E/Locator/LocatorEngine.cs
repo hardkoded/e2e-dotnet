@@ -238,6 +238,11 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 EngineErrorCodes.UnsupportedCapability,
                 $"the \"{kind}\" action is not available on this target: its engine declares {(declared.Count == 0 ? "no actions" : string.Join(", ", declared))}");
         }
+
+        if (action is LocatorAction.Press press)
+        {
+            Keys.RequireKey(press.Key);
+        }
     }
 
     /// <summary>Refuses a pointer action the engine did not declare: <c>UNSUPPORTED_CAPABILITY</c>. Upstream's <c>checkPointerAction</c>.</summary>

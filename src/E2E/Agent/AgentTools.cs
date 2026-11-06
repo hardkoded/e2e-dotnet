@@ -337,6 +337,12 @@ public static class AgentTools
                 definition,
                 async (call, token) =>
                 {
+                    // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
+                    if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
+                    {
+                        return new ToolLoopResult(refusal, Failed: true);
+                    }
+
                     ToolOutcome? outcome = null;
                     async Task<string> Body()
                     {
@@ -351,6 +357,39 @@ public static class AgentTools
                     return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
                 }))
             .ToList();
+    }
+
+    /// <summary>
+    /// Upstream's <c>schemaTool</c>: a grammar tool's schema is closed, so a field it does not declare fails validation and the call never runs.
+    /// Returns the refusal the model reads in the call's place (the AI SDK's <c>Invalid input for tool</c> error over a zod <c>unrecognized_keys</c>
+    /// issue), or null when the call declares nothing but what the tool does. Only undeclared fields are checked: the tools read their own values.
+    /// </summary>
+    private static string? SchemaTool(ModelTool definition, ModelToolCall call)
+    {
+        if (call.Arguments.ValueKind != JsonValueKind.Object
+            || !definition.Parameters.TryGetProperty("properties", out var declared)
+            || declared.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var keys = call.Arguments.EnumerateObject().Select(property => property.Name).Where(name => !declared.TryGetProperty(name, out _)).ToList();
+        if (keys.Count == 0)
+        {
+            return null;
+        }
+
+        var issue = JsonSerializer.Serialize(new object[]
+        {
+            new Dictionary<string, object>
+            {
+                ["code"] = "unrecognized_keys",
+                ["keys"] = keys,
+                ["path"] = Array.Empty<string>(),
+                ["message"] = "Unrecognized key" + (keys.Count > 1 ? "s" : "") + ": " + string.Join(", ", keys.Select(key => "\"" + key + "\"")),
+            },
+        });
+        return "failed: Invalid input for tool " + definition.Name + ": Type validation failed: Value: " + call.Arguments.GetRawText() + ".\nError message: " + issue;
     }
 
     /// <summary>

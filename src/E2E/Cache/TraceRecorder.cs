@@ -33,11 +33,81 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public IReadOnlyList<RecordedAction> Actions => _actions;
 
     /// <summary>Records one committed grammar action on <paramref name="node"/>, described now. Returns the action as recorded.</summary>
-    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null)
+    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null, TracePosition? position = null)
     {
-        var target = DescribeTarget(node, redactor(), within);
-        return Record(new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within, Value = value, Key = key });
+        var action = ActionOf(kind, DescribeTarget(node, redactor(), within, position));
+        action.Value = value;
+        action.Key = key;
+        return Record(action);
     }
+
+    /// <summary>
+    /// Records one committed <c>tapAt</c> or <c>hoverAt</c> (upstream's <c>record</c> of a point action): the point and the viewport it was placed in,
+    /// and, when a node with a durable descriptor contained it, its place inside that node's box. Returns the action as recorded.
+    /// </summary>
+    public RecordedAction Record(string kind, PlacedPoint point, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(viewport);
+        return Record(new RecordedAction { Kind = kind, Point = point.Point, Viewport = viewport, Under = WithinOf(point) });
+    }
+
+    /// <summary>Records one committed <c>dragAt</c> (upstream's <c>record</c> of a <c>dragAt</c>): both points with the viewport, each placed inside its node.</summary>
+    public RecordedAction Record(PlacedPoint from, PlacedPoint to, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        ArgumentNullException.ThrowIfNull(viewport);
+        return Record(new RecordedAction
+        {
+            Kind = "dragAt",
+            Viewport = viewport,
+            From = new RecordedPointEnd { Point = from.Point, Under = WithinOf(from) },
+            To = new RecordedPointEnd { Point = to.Point, Under = WithinOf(to) },
+        });
+    }
+
+    /// <summary>
+    /// Upstream's <c>withinOf</c>: a bare point's place inside the box of the listed node that contained it. The point replays as given on a
+    /// same-sized viewport; when a node with a durable descriptor contained it, its place inside that node's box lets replay follow the node
+    /// instead. An anonymous container, a group among groups on a screen merged into one accessibility node, could not be re-found and is not
+    /// kept: the point alone is the honest record. The twin position the node sat at among look-alikes is kept with the container key.
+    /// </summary>
+    private RecordedPointPlace? WithinOf(PlacedPoint placed)
+    {
+        if (placed.Under is not { Rect: { Width: > 0, Height: > 0 } box } under)
+        {
+            return null;
+        }
+
+        var target = DescribeTarget(under, redactor(), placed.Within, placed.Position);
+        if (target.Name is null && target.TestId is null)
+        {
+            return null;
+        }
+
+        return new RecordedPointPlace { Target = target, Fx = Fraction((placed.Point.X - box.X) / box.Width), Fy = Fraction((placed.Point.Y - box.Y) / box.Height) };
+    }
+
+    /// <summary>Upstream's <c>fraction</c>: a place inside a box as a fraction of its side, clamped to the box and rounded so the entry stays small.</summary>
+    private static double Fraction(double value) => Math.Round(Math.Clamp(value, 0, 1) * 10_000, MidpointRounding.AwayFromZero) / 10_000;
+
+    /// <summary>
+    /// An action on <paramref name="target"/>, not yet recorded: the descriptor's fields flat on the action. No upstream counterpart: upstream
+    /// nests the descriptor as <c>target</c>; the port's actions carry its fields (.NET-only shape, kept so stored recordings stay readable).
+    /// </summary>
+    internal static RecordedAction ActionOf(string kind, RecordedTarget target) => new()
+    {
+        Kind = kind,
+        Role = target.Role,
+        Name = target.Name,
+        TestId = target.TestId,
+        Within = target.Within,
+        Text = target.Text,
+        Placeholder = target.Placeholder,
+        InputPurpose = target.InputPurpose,
+        Position = target.Position,
+    };
 
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
     public RecordedAction Record(RecordedAction action)
@@ -127,18 +197,29 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
 
     /// <summary>
     /// Upstream's <c>describeTarget</c> (<c>agent/actions.ts</c>): how a replay will find the node again, by its role, its label,
-    /// and its test id, redacted. Never the text the node holds or the value a field holds. <paramref name="within"/> is the key of the
-    /// container it sat in (upstream's <c>describePlaced</c>), redacted again and bounded.
+    /// its text when that differs from the label, its test id, its placeholder, and its input purpose, redacted. Never the value a field
+    /// holds. <paramref name="within"/> is the key of the container it sat in and <paramref name="position"/> its place among its twins
+    /// (upstream's <c>describePlaced</c>); the key is redacted again and bounded.
     /// </summary>
-    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null)
+    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null, TracePosition? position = null)
     {
         ArgumentNullException.ThrowIfNull(node);
+        var name = RedactLabel(node, redactor);
+        // The label of a node with no name is its text (upstream records that text as the name's absence and a text), so a text is a second
+        // field only beside a name of its own, and only when it says something else.
+        var text = node.Name is null ? null : NonEmpty(RedactField(node.Text, ObservationLimits.Text, redactor));
         return new RecordedTarget
         {
             Role = node.Role,
-            Name = RedactLabel(node, redactor),
+            Name = name,
+            Text = text == name ? null : text,
             TestId = Redact(node.TestId, redactor),
+            Placeholder = NonEmpty(RedactField(node.Placeholder, ObservationLimits.Text, redactor)),
+            InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
             Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
+            Position = position,
         };
     }
+
+    private static string? NonEmpty(string? text) => string.IsNullOrEmpty(text) ? null : text;
 }

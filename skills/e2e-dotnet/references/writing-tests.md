@@ -171,6 +171,15 @@ the action timeout for exactly one enabled, visible match. `UncheckAsync` on a
 checked native radio fails with `ACTION_FAILED`; a `role="radio"` is clicked,
 and fails only if it stays checked.
 
+`PressAsync(key)` takes zero or more modifiers (`Shift`, `Control`, `Alt`, `Meta`,
+`ControlOrMeta`) and one key joined by `+`, where the key is a single character
+or a name (`Enter`, `Escape`, `Tab`, `Backspace`, `Delete`, `Insert`, `Space`,
+the arrows, `Home`, `End`, `PageUp`, `PageDown`, `F1` through `F12`): `"Enter"`,
+`"Control+a"`, `"Shift+Tab"`, `"Shift++"` (`+` with Shift). Any other key,
+such as `"Ctrl+a"`, `"ab"`, or `""`, fails with `INVALID_ARGUMENT` before the
+locator is resolved, on every engine; the agent's `press` is checked the same way
+before any action is performed.
+
 `ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
 `DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
 own step: `locator.click` and `locator.dblclick`, as in a report or trace.

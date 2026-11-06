@@ -32,12 +32,6 @@ internal interface IStepCacheHost : IReplayHost
 {
     /// <summary>The screen the step's first committed action was resolved against, if it took one.</summary>
     Observation? FirstActedOn { get; }
-
-    /// <summary>
-    /// False once the step has seen a screen with no semantic tree (upstream's <c>traceEligible</c>): a recording may only describe a step
-    /// observed with semantic evidence throughout, and a replay cannot prove its end state against pixels.
-    /// </summary>
-    bool TraceEligible => true;
 }
 
 /// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, which an entry records as its provenance.</summary>
@@ -290,7 +284,7 @@ internal sealed class StepTraceSession
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value; this call's values fill it (upstream's expandTrace). One this call cannot fill is an entry recorded
         // for another shape, which the key should have kept apart.
-        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
+        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
             || CacheKeys.ExpandTrace(entry, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
         {
             return new EntryRead(null, "invalid-entry");
@@ -675,6 +669,8 @@ internal sealed class StepTraceSession
         public int RemainingMs() => inner.RemainingMs();
 
         public TimeProvider Time => inner.Time;
+
+        public bool TraceEligible => inner.TraceEligible;
 
         public async Task<Observation> ObserveAsync(SettleMode mode)
         {

@@ -171,6 +171,26 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
+    // Upstream's WIND_DOWN_TURNS: turns remaining when the loop warns the model to wrap up.
+    private const int WindDownTurns = 5;
+
+    // Upstream's CLOCK_WIND_DOWN_MS and CLOCK_WIND_DOWN_FRACTION: the remaining step time under which the loop takes the verdict it can
+    // get. A slow provider turn runs tens of seconds, and concluding with the model's own summary beats a verdict-less STEP_TIMEOUT.
+    // The effective window is a quarter of the step's budget, capped here, so a short step keeps most of its clock for work.
+    private const int ClockWindDownMs = 60_000;
+    private const int ClockWindDownFraction = 4;
+
+    // Upstream's FORCED_CONCLUSION_TURNS: turns from the budget ceiling at which only the conclusion tool is offered.
+    private const int ForcedConclusionTurns = 2;
+
+    // Upstream's TOOL_CALLS_ONLY_RULE, with the port's done: part of every step's instructions from the first turn.
+    internal const string ToolCallsOnlyRule =
+        "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through done.";
+
+    // Upstream's TEXT_REPLY_NOTICE, with the port's done: sent when a turn came back as text without a tool call.
+    private const string TextReplyNotice =
+        "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
+
     // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
@@ -205,6 +225,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var stopped = false;
         string? noticed = null;
         var shrunkOnce = false;
+        var noticedLowClock = false;
+        var clockWindDownMs = Math.Min(ClockWindDownMs, budget.RemainingMs() / ClockWindDownFraction);
         string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
         for (var call = 0; call < maxCalls; call++)
@@ -233,6 +255,21 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     messages.Clear();
                     messages.AddRange(rebound);
                 }
+            }
+
+            var turnsLeft = maxCalls - call;
+
+            // Never on the very first turn: a deliberately short step timeout still deserves one working turn before the clock takes the verdict.
+            var lowClock = call > 0 && budget.RemainingMs() < clockWindDownMs;
+            if (lowClock && !noticedLowClock)
+            {
+                noticedLowClock = true;
+                turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": the step is nearly out of time, asking for a verdict");
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with a code) if something outside the application stopped you.",
+                });
             }
 
             // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
@@ -270,7 +307,20 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
-            var offered = stopped ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
+            if (turnsLeft == WindDownTurns && !stopped)
+            {
+                turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain, asking to wrap up");
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you.",
+                });
+            }
+
+            // Near the budget, after a loop guard stop, or on a low clock only the conclusion tool is offered. Two forced turns, not one,
+            // so a rejected verdict (blocked without a code) can be repaired.
+            var forced = turnsLeft <= ForcedConclusionTurns || stopped || lowClock;
+            var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
             AiTraceTurn traced;
             try
             {
@@ -317,7 +367,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
-                messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
+                messages.Add(new ModelMessage { Role = "user", Content = TextReplyNotice });
                 results.Add(new GuardToolResult(Failed: true));
                 previous = [];
                 continue;
@@ -328,8 +378,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             var screenshots = new List<(string Tool, ExecutorPixels Pixels)>();
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = ToolOutcome.Fail("The loop guard stopped the step. Only done is available.");
-                if (!stopped || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
+                var outcome = ToolOutcome.Fail(toolCall.Name + " did not run: only done is available now. Call done with your verdict.");
+                if (!forced || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
                 {
                     await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
@@ -381,8 +431,16 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             }
         }
 
-        // Asking for one more call than the budget allows is a hard stop, as upstream: blocked, not a verdict.
-        throw hardStop ?? new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
+        if (hardStop is not null)
+        {
+            throw hardStop;
+        }
+
+        // Upstream's end of LoopRun.run: the turns ran out without a verdict, so the step fails, as any step that never concluded.
+        return new StepVerdict(
+            StepVerdictStatus.Failed,
+            "the agent used " + turns.Used.ToString(CultureInfo.InvariantCulture) + " of " + maxCalls.ToString(CultureInfo.InvariantCulture) + " turn(s) without calling done",
+            "STEP_NO_CONCLUSION");
     }
 
     // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that
@@ -415,7 +473,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             parts.Add("Project context:\n" + context.AgentContext);
         }
 
-        parts.Add(AgentTools.VerdictRules);
+        parts.Add(AgentTools.VerdictRules + "\n- " + ToolCallsOnlyRule);
         return string.Join("\n\n", parts);
     }
 
@@ -526,6 +584,9 @@ internal sealed class TurnLog(StepExecutorContext context)
 
     /// <summary>The number of the turn that runs next.</summary>
     public int Next => _turns.Count + 1;
+
+    /// <summary>The number of turns that ran (upstream's <c>turnsUsed</c>).</summary>
+    public int Used => _turns.Count;
 
     /// <summary>Records one turn: what the model said and called. The tool results are added as each lands.</summary>
     public LoopTurn Begin(ModelResponse response)
