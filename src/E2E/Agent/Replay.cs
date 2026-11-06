@@ -6,6 +6,7 @@ using System.Globalization;
 using E2E.Engine;
 using E2E.Internal;
 using static E2E.Agent;
+using RelocateRules = E2E.Relocate;
 
 namespace E2E;
 
@@ -506,40 +507,84 @@ internal static class Replay
         action.Modifiers is { } names ? new ClickOptions { Modifiers = [.. names.Select(name => KeyModifiers.TryParse(name, out var modifier) ? modifier : throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay modifier " + name + "."))] } : null;
 
     /// <summary>
-    /// Re-finds a recorded target. The first look is the one in hand, or a capture settled as far as the previous action
-    /// requires; the looks after it read the screen as it is. Exactly one match is the target: several are ambiguity, which
-    /// is never worth another look, and none is worth looking again until the replay timeout runs out.
+    /// Upstream's <c>relocate</c> for a recorded action: re-finds the node the action named (<see cref="DescriptorOf"/>), looking again while
+    /// the failure may pass.
     /// </summary>
-    private static async Task<(SemanticNode? Node, ReplayHandOffReason Failure)> Relocate(IReplayHost host, RecordedAction action, Look look)
+    private static Task<Relocated> Relocate(IReplayHost host, RecordedAction action, Look look) => Relocate(host, DescriptorOf(action), look);
+
+    /// <summary>
+    /// The descriptor a recorded action carries. Upstream's actions nest it as <c>target</c>; the port's carry its fields flat (.NET-only
+    /// shape, see <c>TraceRecorder.ActionOf</c>), so a replay reads them back into one.
+    /// </summary>
+    private static RecordedTarget DescriptorOf(RecordedAction action) => new()
     {
-        var name = action.Name;
-        var testId = action.TestId;
+        Role = action.Role,
+        Name = action.Name,
+        TestId = action.TestId,
+        Within = action.Within,
+        Text = action.Text,
+        Placeholder = action.Placeholder,
+        InputPurpose = action.InputPurpose,
+        Position = action.Position,
+    };
+
+    /// <summary>
+    /// Upstream's <c>relocate</c>: relocates one descriptor against the settling screen, looking again while <see cref="Retryable"/> says the
+    /// failure may pass. The first look is the one in hand, or a capture settled as far as the previous action requires; the looks after it
+    /// read the screen as it is, until the replay timeout runs out. Exactly one match, or the recorded position picking one of several, is the
+    /// target.
+    /// </summary>
+    private static async Task<Relocated> Relocate(IReplayHost host, RecordedTarget descriptor, Look look)
+    {
+        var last = new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
         var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
         var first = true;
         while (true)
         {
             var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
-            var matches = Find(observation, action.Role, name, testId, null, host.Redact, action.Within);
-            if (matches.Count == 1)
+            var result = RelocateRules.RelocateDescriptor(descriptor, observation, host.Redact);
+            if (result is RelocationResult.Found found && RelocateRules.NodeOf(observation, found.Id) is { } node)
             {
                 host.MarkActing();
-                return (matches[0], default);
+                return new Relocated(node, default, [], observation);
             }
 
-            if (matches.Count > 1)
+            if (result is RelocationResult.Failed failed)
             {
-                return (null, ReplayHandOffReason.TargetAmbiguous);
+                last = Failure(failed, observation);
+                if (!Retryable(last.Failure, descriptor))
+                {
+                    return last;
+                }
             }
 
             if (host.Time.GetUtcNow() >= deadline)
             {
-                return (null, ReplayHandOffReason.TargetNotFound);
+                return last;
             }
 
             await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
         }
     }
+
+    // A failed relocation as the replay reads it: a missing node carries nothing, an ambiguous one the look-alikes and the screen they are on.
+    private static Relocated Failure(RelocationResult.Failed failed, Observation observation) =>
+        failed.Failure == RelocationFailure.TargetAmbiguous
+            ? new Relocated(null, ReplayHandOffReason.TargetAmbiguous, [.. (failed.Candidates ?? []).Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>()], observation)
+            : new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
+
+    /// <summary>
+    /// Upstream's <c>retryable</c>: whether a failed relocation is worth another look. A missing target is: the screen may still be settling.
+    /// So is ambiguity for a descriptor that recorded its position among twins: a form still rendering shows fewer of them than the recording
+    /// counted, and the count catches up. Ambiguity for a descriptor without a position never is: two matching nodes will not become one by
+    /// waiting, and acting on either would be a guess.
+    /// </summary>
+    private static bool Retryable(ReplayHandOffReason failure, RecordedTarget descriptor) =>
+        failure == ReplayHandOffReason.TargetNotFound || descriptor.Position is not null;
+
+    // A relocation that keeps the look-alikes it found with the screen they are on, for a replay that needs boxes.
+    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, Observation? Screen);
 
     /// <summary>Whether a recorded action acts on a bare viewport point, which takes its own look and reads its viewport.</summary>
     private static bool IsPointAction(RecordedAction action) => action.Kind is "tapAt" or "hoverAt" or "dragAt";
@@ -549,11 +594,13 @@ internal static class Replay
 
     /// <summary>
     /// Upstream's <c>placePoint</c>: where one recorded bare point lands on the live screen: inside its re-found node's live box when it sat
-    /// in one, else as recorded once the viewport is the recorded size. A failure names the hand-off.
+    /// in one, else as recorded once the viewport is the recorded size. A failure names the hand-off. A node the replay cannot re-find
+    /// (<c>Relocate.IsRelocatableDescriptor</c>: an anonymous container recorded without a place) places the point as no node was
+    /// recorded, which is upstream's <c>pointEnd</c>.
     /// </summary>
     private static async Task<Placed> PlacePoint(IReplayHost host, Point point, RecordedPointPlace? within, TraceViewport viewport, Look look)
     {
-        if (within is null)
+        if (within?.Target is not { } recordedNode || !RelocateRules.IsRelocatableDescriptor(recordedNode))
         {
             var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
             if (screen.TreeUnavailable)
@@ -575,53 +622,17 @@ internal static class Replay
             return new Placed(point);
         }
 
-        var target = within.Target!;
-        var relocated = await RelocateAmong(host, target, look).ConfigureAwait(false);
+        var relocated = await Relocate(host, recordedNode, look).ConfigureAwait(false);
         var at = PlaceWithin(relocated, within, point, viewport);
         return at is { } placedAt ? new Placed(placedAt) : new Placed(default, relocated.Node is null ? relocated.Failure : ReplayHandOffReason.TargetNotFound);
     }
 
     private static string Size(TraceViewport viewport) => viewport.Width.ToString(CultureInfo.InvariantCulture) + "x" + viewport.Height.ToString(CultureInfo.InvariantCulture);
 
-    // A relocation that keeps the look-alikes it found with the screen they are on, for a replay that needs boxes.
-    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, Observation? Screen);
-
-    // Upstream's relocate for a point end: re-finds the node a point sat in, looking again while the failure may pass.
-    private static async Task<Relocated> RelocateAmong(IReplayHost host, RecordedTarget target, Look look)
-    {
-        var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
-        var first = true;
-        while (true)
-        {
-            var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
-            first = false;
-            var matches = Find(observation, target.Role, target.Name, target.TestId, null, host.Redact, target.Within);
-            if (matches.Count == 1)
-            {
-                host.MarkActing();
-                return new Relocated(matches[0], default, matches, observation);
-            }
-
-            // Several look-alikes are worth another look only when a place among them could tell them apart; the port records none, so
-            // ambiguity is final, as it is for a node action.
-            if (matches.Count > 1)
-            {
-                return new Relocated(null, ReplayHandOffReason.TargetAmbiguous, matches, observation);
-            }
-
-            if (host.Time.GetUtcNow() >= deadline)
-            {
-                return new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
-            }
-
-            await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
-        }
-    }
-
     /// <summary>
     /// Upstream's <c>relocatePair</c>: re-finds a drag's two nodes on one screen, so the nodes the drag joins come from the same look
-    /// at the app. Waits like <see cref="Relocate"/> and gives up the same way: a missing end is worth another look, an end that matches
-    /// several nodes is not.
+    /// at the app. Waits like <c>Relocate</c> and gives up the same way: a missing node or a positioned twin is worth another look, an
+    /// unpositioned ambiguity is not (<see cref="Retryable"/>).
     /// </summary>
     private static async Task<(SemanticNode? Source, SemanticNode? Destination, ReplayHandOffReason Failure)> RelocatePair(IReplayHost host, RecordedAction action, Look look)
     {
@@ -630,28 +641,37 @@ internal static class Replay
             return (null, null, ReplayHandOffReason.TargetNotFound);
         }
 
+        var source = DescriptorOf(action);
+        var last = ReplayHandOffReason.TargetNotFound;
         var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
         var first = true;
         while (true)
         {
             var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
-            var from = Find(observation, action.Role, action.Name, action.TestId, null, host.Redact, action.Within);
-            var to = Find(observation, destination.Role, destination.Name, destination.TestId, null, host.Redact, destination.Within);
-            if (from.Count > 1 || to.Count > 1)
-            {
-                return (null, null, ReplayHandOffReason.TargetAmbiguous);
-            }
-
-            if (from.Count == 1 && to.Count == 1)
+            // The end that fails decides: a missing node or a positioned twin is worth another look, an unpositioned ambiguity is not.
+            var from = RelocateRules.RelocateDescriptor(source, observation, host.Redact);
+            var to = from is RelocationResult.Failed ? null : RelocateRules.RelocateDescriptor(destination, observation, host.Redact);
+            if (from is RelocationResult.Found foundFrom && to is RelocationResult.Found foundTo
+                && RelocateRules.NodeOf(observation, foundFrom.Id) is { } sourceNode
+                && RelocateRules.NodeOf(observation, foundTo.Id) is { } destinationNode)
             {
                 host.MarkActing();
-                return (from[0], to[0], default);
+                return (sourceNode, destinationNode, default);
+            }
+
+            if ((from as RelocationResult.Failed ?? to as RelocationResult.Failed) is { } failed)
+            {
+                last = Failure(failed, observation).Failure;
+                if (!Retryable(last, from is RelocationResult.Failed ? source : destination))
+                {
+                    return (null, null, last);
+                }
             }
 
             if (host.Time.GetUtcNow() >= deadline)
             {
-                return (null, null, ReplayHandOffReason.TargetNotFound);
+                return (null, null, last);
             }
 
             await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);

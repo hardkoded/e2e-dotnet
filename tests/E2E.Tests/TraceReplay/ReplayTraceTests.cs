@@ -9,14 +9,10 @@ namespace E2E.Tests.TraceReplay;
 
 /// <summary>
 /// <c>describe('replayTrace')</c> of <c>trace-replay.test.ts</c>, against <c>Replay.ReplayTrace</c> and a <see cref="TestHost"/>.
-/// The port's recording has no drag, bare point (<c>tapAt</c>, <c>hoverAt</c>), <c>hover</c>, <c>longPress</c>,
-/// <c>secondaryTap</c>, <c>upload</c>, recorded position, or <c>derived</c> reason, and its relocation finds a
-/// test id exactly, so these <c>it</c>s are not ported: "names the rule behind a run-time value gap, so the report can cite
-/// it", "re-finds both ends of a drag on one screen before dragging", "hands a drag off when either end cannot be re-found,
-/// never dragging half of it", "replays a bare-point hover through hoverAt, on the recorded viewport only", "keeps looking
-/// while a positioned target is ambiguous, since a form still rendering shows fewer twins", and "relocates by semantic
-/// identity when a recorded test id churned". The port records no <c>derived</c>, so "ends the prefix at a gap without
-/// executing it" has nothing to check there.
+/// Replay relocates a target with <c>Relocate.RelocateDescriptor</c> (upstream's <c>relocateDescriptor</c>), so "keeps looking
+/// while a positioned target is ambiguous, since a form still rendering shows fewer twins" and "relocates by semantic identity
+/// when a recorded test id churned" are ported here. "Names the rule behind a run-time value gap, so the report can cite it" is
+/// not ported; it is not part of this change.
 /// </summary>
 public sealed class ReplayTraceTests
 {
@@ -213,6 +209,49 @@ public sealed class ReplayTraceTests
         Assert.Equal(ReplayHandOffReason.TargetAmbiguous, outcome.StopReason);
         Assert.Empty(host.Calls);
         Assert.True(host.Observations < 3);
+    }
+
+    [Fact]
+    public async Task Keeps_looking_while_a_positioned_target_is_ambiguous_since_a_form_still_rendering_shows_fewer_twins()
+    {
+        static SemanticNode Unnamed(string id) => new() { Ref = id, Role = "textbox" };
+        // Unnamed twins are told apart by their place only inside a named container.
+        static SemanticNode[] Row(params SemanticNode[] fields) => [new() { Ref = "row", Role = "listitem", Name = "Shipping", Children = fields }];
+        var host = MakeHost(Row(Unnamed("a")));
+        // The form finishes rendering on the third look; the wait is generous so a loaded machine cannot run it out first.
+        host.ReplayTimeout = TimeSpan.FromSeconds(30);
+        var captures = 0;
+        host.Capture = () =>
+        {
+            captures++;
+            // The first look shows one unnamed textbox where the recording counted two; the form finishes rendering after that.
+            return Screen(captures < 3 ? Row(Unnamed("a")) : Row(Unnamed("a"), Unnamed("b")));
+        };
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [new RecordedAction { Kind = "fill", Role = "textbox", Within = "Shipping", Position = new TracePosition { Index = 1, Of = 2 }, Value = "x" }]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["type"], host.Calls);
+        // The retries between the backoff delays read the screen raw.
+        Assert.Equal([SettleMode.HeldStill, SettleMode.Raw, SettleMode.Raw], host.Looks);
+    }
+
+    [Fact]
+    public async Task Relocates_by_semantic_identity_when_a_recorded_test_id_churned()
+    {
+        var churned = new SemanticNode { Ref = "n5", Role = "button", Name = "Activate plan", TestId = "toggle-zz9-r4-0" };
+        var host = MakeHost([churned, Email]);
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [new RecordedAction { Kind = "tap", Role = "button", Name = "Activate plan", TestId = "toggle-aa1-r0-0" }]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["tap"], host.Calls);
     }
 
     [Fact]

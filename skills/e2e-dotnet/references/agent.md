@@ -479,9 +479,15 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `AssertAsync`, `WaitForAsync`, or `locator.WaitForAsync` passes, so an
   unchecked act never replays. Locator reads and `ExtractAsync` verify
   nothing.
-- A replay re-finds each control by role, name, test id, and path, and
-  needs the recorded start route unless the recording opens with a
-  navigation. A location on the app's own origin (the `App.Url`'s) is
+- A replay re-finds each control by role, name, test id, placeholder, input
+  purpose, and its named row (an unnamed control with twins and no named
+  container hands off with `target-not-found`, and so does one known only by
+  a generated test id once that id is gone), and needs the recorded start
+  route unless the recording opens with a navigation. A test id the app
+  generates is forgiven when the other fields still identify the control.
+  Twins are told apart by the place the recording noted, at the same count
+  only; a form still rendering shows fewer of them, so the replay looks
+  again before it hands off with `target-ambiguous`. A location on the app's own origin (the `App.Url`'s) is
   compared by its path, query, and fragment, so a recording follows the app
   to another port or host; a screen on any other origin is another route.
   An agent `navigate` to a full URL on the app is recorded as its path, query,
