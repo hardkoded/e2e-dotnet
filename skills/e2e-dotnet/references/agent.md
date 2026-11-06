@@ -96,7 +96,7 @@ public class CheckoutTests : E2ETest
 
 `E2E_AGENT=thorough dotnet test` sets the run's agent for tests that pin none.
 It takes one name; a pin is never replaced. An unknown name, on a pin, a call,
-or `E2E_AGENT`, is `INVALID_ARGUMENT`. There is no list of agents that runs
+or `E2E_AGENT`, is `INVALID_ARGUMENT`, naming the configured agents and the nearest one (`did you mean "ux"?`). There is no list of agents that runs
 one test once per persona. Each agent records its own replay entries, keyed by
 its name and context.
 

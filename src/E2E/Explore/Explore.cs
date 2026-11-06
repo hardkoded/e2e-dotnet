@@ -202,7 +202,7 @@ public static class Explore
         var agentName = options.Agent ?? "default";
         if (!entries.TryGetValue(agentName, out var entry))
         {
-            throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"" + agentName + "\"; configured: " + string.Join(", ", entries.Keys));
+            throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"" + agentName + "\"; configured: " + string.Join(", ", entries.Keys) + Suggestions.DidYouMean(agentName, [.. entries.Keys]));
         }
 
         if (!string.Equals(agentName, "default", StringComparison.Ordinal))

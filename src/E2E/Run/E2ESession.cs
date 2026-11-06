@@ -173,7 +173,7 @@ public sealed class E2ESession : IAsyncDisposable
         var runLimits = ResolvedAgent.RunLimits(agents.Values);
         if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
         {
-            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys));
+            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys) + Suggestions.DidYouMean(pinned, [.. agents.Keys]));
         }
 
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
