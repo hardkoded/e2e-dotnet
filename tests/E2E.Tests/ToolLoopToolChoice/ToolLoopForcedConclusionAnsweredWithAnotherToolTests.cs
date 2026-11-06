@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using E2E.Engine;
 using static E2E.Tests.CoreTests;
 
@@ -15,23 +16,24 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
 {
     private static DocumentWorld Page() => new DocumentWorld().Map("/start", page => page.Button("Peek"));
 
-    /// <summary>
-    /// Partial: the port has no provider metadata on a tool call, so it leaves out upstream's <c>toolCallOptions</c> check.
-    /// </summary>
     [Fact]
-    public async Task Partial_Sends_the_call_back_as_an_error_and_asks_again_on_the_same_turn_budget()
+    public async Task Sends_the_call_back_as_an_error_and_asks_again_on_the_same_turn_budget()
     {
         var turn = 0;
         List<string?> results = [];
+        List<IReadOnlyDictionary<string, JsonElement>?> toolCallOptions = [];
+        var signed = new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = "sig-2" }) };
         var model = new ScriptedModel(request =>
         {
             if (++turn != 3)
             {
-                return ModelResponses.Call("peek", new { });
+                var call = ModelResponses.Call("peek", new { }).ToolCalls[0];
+                return new ModelResponse { ToolCalls = [turn == 2 ? new ModelToolCall { Id = call.Id, Name = call.Name, Arguments = call.Arguments, ProviderMetadata = signed } : call] };
             }
 
             // The history is kept by reference, so it is read as the third request sees it.
             results = [.. request.Messages.Where(message => message.Role == "tool").Select(message => message.Content)];
+            toolCallOptions = [.. request.Messages.SelectMany(message => message.ToolCalls ?? []).Select(call => call.ProviderMetadata)];
             return ModelResponses.Done("passed", "Done.");
         });
         ActResult? result = null;
@@ -55,6 +57,8 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
         Assert.Equal(2, results.Count);
         Assert.Equal("looked", results[0]);
         Assert.Contains("peek did not run", results[1], StringComparison.Ordinal);
+        // The refused call goes back with its provider metadata, as the SDK's own history keeps it.
+        Assert.Equal<IReadOnlyDictionary<string, JsonElement>?>([null, signed], toolCallOptions);
         // The wrong-tool reply was answered and billed.
         Assert.Equal(3, result!.ModelCalls);
     }

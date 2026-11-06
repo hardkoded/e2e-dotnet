@@ -63,3 +63,19 @@ public required string Name { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_ModelToolCall_ProviderMetadata_"></a>
+<a id="E2E_ModelToolCall_ProviderMetadata"></a>
+
+### ProviderMetadata
+
+
+```csharp
+public IReadOnlyDictionary<string, JsonElement>? ProviderMetadata { get; init; }
+```
+
+
+What the provider attached to the call, keyed by provider (such as `google`: `{ "thoughtSignature": "..." }`), which the
+call carries back on the next turn (upstream's `providerMetadata` of a tool call part). null when it attached none.
+
+**Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
