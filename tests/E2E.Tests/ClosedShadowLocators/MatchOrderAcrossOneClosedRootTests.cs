@@ -24,7 +24,7 @@ public sealed class MatchOrderAcrossOneClosedRootTests
         await WebSemanticsTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/closed-order");
-            // Not ported: upstream's locator searches the light DOM as one root and the closed root as the next,
+            // Partial (issue #1222): upstream's locator searches the light DOM as one root and the closed root as the next,
             // so it answers Beta before Alpha. The port resolves a locator against the observed tree, so it
             // answers in the tree's order, Alpha first.
             var buttons = session.Screen.GetByRole("button");

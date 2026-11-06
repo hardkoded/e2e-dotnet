@@ -8,8 +8,8 @@ namespace E2E.Tests.ReadNodeNames;
 
 /// <remarks>
 /// Not ported: upstream's "does not count an off-site frame it leaves out by design, even with no budget left" (the
-/// port's web engine reads every iframe's document, off-site or not, so no frame is left out by design) and "reports an
-/// on-site frame past the depth limit as truncation" (the port's walk has no frame depth limit).
+/// port's web engine reads every iframe's document, off-site or not, so no frame is left out by design; issue #1224) and "reports an
+/// on-site frame past the depth limit as truncation" (the port's walk has no frame depth limit; issue #1220).
 /// </remarks>
 [Collection(BrowserCollection.Name)]
 public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
