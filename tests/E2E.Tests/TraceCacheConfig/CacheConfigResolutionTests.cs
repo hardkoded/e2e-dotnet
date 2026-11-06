@@ -23,6 +23,14 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(CacheMode.Off, Parse("""{ "cache": { "mode": "off" } }""").Cache.Mode);
     }
 
+    [Fact]
+    public void Lets_the_no_cache_override_win_over_the_config_even_in_CI()
+    {
+        Assert.Equal(CacheMode.Off, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "1"))).Cache.Mode);
+        Assert.Equal(CacheMode.Off, Parse("{}", Env(("CI", "1"), ("E2E_NO_CACHE", "true"))).Cache.Mode);
+        Assert.Equal(CacheMode.ReadWrite, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "0"))).Cache.Mode);
+    }
+
     // Partial: without --cache-dir, which the port has no command line for.
     [Fact]
     public void Takes_the_directory_from_E2E_CACHE_DIR_then_cache_dir_from_the_project_root()
@@ -34,11 +42,12 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(Path.GetFullPath(Path.Combine(Root, "../shared/e2e")), Parse("{}", env).Cache.Directory);
     }
 
-    // Partial: without --no-cache, which the port has no command line for.
+    // Partial: without --cache-dir, which the port has no command line for; --no-cache is E2E_NO_CACHE.
     [Fact]
-    public void Leaves_the_mode_to_the_config_when_the_directory_is_overridden()
+    public void Leaves_the_mode_to_the_config_and_no_cache_when_the_directory_is_overridden()
     {
         var env = Env(("E2E_CACHE_DIR", "/abs/shared"));
+        Assert.Equal((CacheMode.Off, Path.GetFullPath("/abs/shared")), CacheOf(Parse("{}", Env(("E2E_CACHE_DIR", "/abs/shared"), ("E2E_NO_CACHE", "1")))));
         var resolved = Parse("""{ "cache": { "mode": "read-only" } }""", env).Cache;
         Assert.Equal(CacheMode.ReadOnly, resolved.Mode);
         Assert.Equal(Path.GetFullPath("/abs/shared"), resolved.Directory);
@@ -127,6 +136,8 @@ public sealed class CacheConfigResolutionTests
         {
         }
     }
+
+    private static (CacheMode Mode, string Directory) CacheOf(E2EConfig config) => (config.Cache.Mode, config.Cache.Directory);
 
     private static E2EConfig Parse(string json, Func<string, string?>? environment = null) => E2EConfig.Parse(json, Root, environment ?? Env());
 

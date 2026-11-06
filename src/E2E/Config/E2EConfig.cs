@@ -368,6 +368,9 @@ public sealed class E2EConfig
             && !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Whether a flag variable's value is <c>1</c> or <c>true</c>.</summary>
+    private static bool IsFlagOn(string? value) => value?.Trim() is { } trimmed && (trimmed == "1" || trimmed.Equals("true", StringComparison.OrdinalIgnoreCase));
+
     private static E2EConfig Parse(string json, string projectRoot, string? configPath, Func<string, string?>? environment)
     {
         environment ??= Environment.GetEnvironmentVariable;
@@ -890,9 +893,12 @@ public sealed class E2EConfig
         var shared = store is null && environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
         var sharedDirectory = shared is null ? null : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
         var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
+
+        // E2E_NO_CACHE is the port's --no-cache (upstream's `cli.cache = 'off'`, `noCache` of the run options): it turns the cache off whatever the config says, even a store.
+        var noCache = IsFlagOn(environment("E2E_NO_CACHE"));
         if (raw is null)
         {
-            return new CacheConfig { Mode = ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -942,7 +948,7 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = mode, Directory = directory, Strict = strict, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>

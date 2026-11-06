@@ -92,6 +92,7 @@ The test host has no `e2e run` command, so these variables stand in for upstream
 | Variable | Example | Reading | Effect |
 | --- | --- | --- | --- |
 | [`E2E_CACHE_DIR`](#e2e_cache_dir) | `E2E_CACHE_DIR=~/.cache/e2e` | value | Replaces `cache.dir` |
+| [`E2E_NO_CACHE`](#e2e_no_cache) | `E2E_NO_CACHE=1` | flag | Runs with the replay cache off, whatever the config says, upstream's `--no-cache`. .NET-only name |
 
 #### `E2E_CACHE_DIR`
 
@@ -100,6 +101,16 @@ Replaces `cache.dir` for the test host and `e2e explore`, resolved from the proj
 - `~` or a leading `~/` is the home directory.
 - A custom `cache.store` ignores it.
 - The cache mode stays as configured.
+
+See [Caching and self-healing](/features/caching/).
+
+#### `E2E_NO_CACHE`
+
+Upstream's `--no-cache`, for one run. Set to `1` or `true`, it turns the cache `off`: nothing replays and nothing is recorded or evicted, so the live agent runs every step.
+
+- It overrides `cache.mode`, including an explicit `read-write`, and applies in CI.
+- It overrides a custom `cache.store` too.
+- Use it to evaluate a new model, or to run a test once against the live agent after it passes.
 
 See [Caching and self-healing](/features/caching/).
 

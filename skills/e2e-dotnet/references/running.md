@@ -71,6 +71,10 @@ Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key
 (`<64 hex digits>.json`), relative to the config file. `E2E_CACHE_DIR` replaces `cache.dir`, so worktrees can share one directory;
 it resolves from the config file's directory, a leading `~` or `~/` is the
 home directory, a blank value is ignored, and the mode stays as configured.
+`E2E_NO_CACHE=1` (or `true`) is upstream's `--no-cache`: it runs with the cache
+`off` whatever the config says, in CI too, so every step runs on the live agent
+and nothing is recorded or evicted. Use it to evaluate a new model, or for the
+one live run after a test passes.
 Parallel runs can share the directory: each write replaces its entry file
 atomically, and two runs that write one key leave the last write. On Windows,
 a write that the file system refuses while another write replaces the same

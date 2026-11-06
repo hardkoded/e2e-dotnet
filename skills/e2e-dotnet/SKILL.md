@@ -254,7 +254,10 @@ lines you changed:
   from the instruction or `Params`, and values the agent composed itself,
   replay, so put stable values in `Params`. `AssertAsync`, `WaitForAsync`,
   and `ExtractAsync` always call the model. Leave `cache.mode` at `read-write` rather than
-  `off`: `off` sends every goal to the model again. Only a `read-write` cache
+  `off`: `off` sends every goal to the model again. To run once against the live
+  agent (a new model, or the one live run after a test passes), set
+  `E2E_NO_CACHE=1` for that run: it turns the cache `off` over the config, in CI
+  too, and records nothing. Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
   config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your
   tool's timeout kills) saves nothing, so give the command a timeout longer
