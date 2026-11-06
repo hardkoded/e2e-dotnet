@@ -87,6 +87,7 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [InlineData("# My settings\nmcp_servers = { e2e = { command = \"npx\", env = { APP_ENV = \"staging\" } }, other = { command = \"other\" } }\n")]
     [InlineData("# My settings\nmcp_servers.e2e.env.APP_ENV = \"staging\"\n")]
     [InlineData("# My settings\n[mcp_servers.e2e.env]\nAPP_ENV = \"staging\"\n")]
+    [InlineData("# My settings\nmcp_servers = { e2e = { env = { APP_ENV = \"staging\" }, }, }\n")]
     [InlineData("# My settings\n[[profiles]]\nname = \"a\"\n")]
     [InlineData("# My settings\r\n[mcp_servers.e2e]\r\ncommand = \"npx\" # launch\r\n")]
     public void Preserves_Codex_settings_and_comments_when_repairing_or_adding_a_server(string original)

@@ -4,6 +4,8 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace E2E.Cli.Tests.CliInit;
 
@@ -18,13 +20,43 @@ namespace E2E.Cli.Tests.CliInit;
 public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
 {
     [Fact]
-    // Partial: checks the generated Codex entry only. Upstream starts the server from it through npx with an empty npm cache offline; the port launches the installed e2e tool, which a test cannot put on the PATH.
+    // Partial: the port has no npm and no npm cache. The installed e2e tool is stood in for by a shim on the PATH, as upstream links a .bin shim, and the server starts without network access.
     public async Task Partial_Starts_the_installed_MCP_server_from_the_generated_Codex_config_with_an_empty_npm_cache_offline()
     {
         var code = await Program.RunAsync(["init", Dir, "--yes", "--mcp", ".codex/config.toml"], new StringWriter(), new StringWriter(), new StringReader(""), interactive: false, CancellationToken.None);
         Assert.Equal(0, code);
-        var document = CodexConfig.ReadCodexConfig(Read(".codex/config.toml"));
-        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "command": "e2e", "args": ["mcp"] }"""), document["mcp_servers"]!["e2e"]));
+        // Linking the package alone does not create the executable an install provides.
+        var bin = Directory.CreateDirectory(Path_("tool-bin")).FullName;
+        var cli = Path.Combine(AppContext.BaseDirectory, "E2E.Cli.dll");
+        if (OperatingSystem.IsWindows())
+        {
+            await File.WriteAllTextAsync(Path.Combine(bin, "e2e.cmd"), "@dotnet \"" + cli + "\" %*" + Environment.NewLine);
+        }
+        else
+        {
+            var shim = Path.Combine(bin, "e2e");
+            await File.WriteAllTextAsync(shim, $"#!/bin/sh{'\n'}exec dotnet \"{cli}\" \"$@\"{'\n'}");
+            File.SetUnixFileMode(shim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+
+        var server = CodexConfig.ReadCodexConfig(Read(".codex/config.toml"))["mcp_servers"]!["e2e"]!;
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "command": "e2e", "args": ["mcp"] }"""), server));
+        var transport = new StdioClientTransport(new StdioClientTransportOptions
+        {
+            Name = "init-codex-test",
+            Command = (string)server["command"]!,
+            Arguments = [.. server["args"]!.AsArray().Select(arg => (string)arg!)],
+            WorkingDirectory = Dir,
+            EnvironmentVariables = new Dictionary<string, string?>
+            {
+                ["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"),
+                ["CI"] = "",
+                ["HTTP_PROXY"] = "http://127.0.0.1:9",
+                ["HTTPS_PROXY"] = "http://127.0.0.1:9",
+            },
+        });
+        await using var client = await McpClient.CreateAsync(transport, new McpClientOptions { ClientInfo = new Implementation { Name = "init-codex-test", Version = "1.0.0" } });
+        Assert.Contains("open_session", (await client.ListToolsAsync()).Select(tool => tool.Name));
     }
 
     [Fact]

@@ -48,7 +48,9 @@ Text downloads are redacted only when they are UTF-8 without NUL bytes; other fi
 
 `e2e init [directory]` writes `e2e.config.json`, a test project (a `.csproj` and
 an `ExampleTests.cs`; or only the missing package references in an existing
-`.csproj`), installs this skill, registers the `e2e mcp` server, and updates
+`.csproj`), installs this skill, registers the `e2e mcp` server (in `.mcp.json`,
+`.cursor/mcp.json`, and Codex's `.codex/config.toml`, which Codex loads in a
+trusted project and a new session), and updates
 `.gitignore`, skipping files that exist. `--framework nunit|xunit` picks the
 framework, `--install` runs `dotnet restore`, and `--example <name>` copies a
 sample. In a

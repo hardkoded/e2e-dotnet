@@ -126,7 +126,9 @@ internal static class CodexConfig
         if (container is InlineTableSyntax inlineTable)
         {
             offset = inlineTable.CloseBrace!.Span.Offset;
-            insertion = (inlineTable.Items.ChildrenCount > 0 ? ", " : "") + assignment;
+            // A table that already ends with a comma (TOML 1.1) keeps it; a second one would be invalid.
+            var before = text.AsSpan(0, offset).TrimEnd();
+            insertion = (inlineTable.Items.ChildrenCount > 0 ? before.EndsWith(",") ? " " : ", " : "") + assignment;
         }
         else
         {
