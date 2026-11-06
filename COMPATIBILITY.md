@@ -204,6 +204,8 @@ Left for other work:
 
 - `detectVcs` and the `error stacks` test: covered by #496
 
+`tests/unit/ids.test.ts` (#1153) ports to `tests/E2E.Tests/Ids/`. `Ids.ValidateTitle` is `validateTitle` and `Ids.Uuidv7` is `uuidv7` (`internal/ids.ts`); nothing in `src/` calls `ValidateTitle` yet. `ResultIdTests` pins upstream's bytes through `Ids.ResultId`. `TestIdsTests` has two `Partial_` tests, since a .NET test has one title and not a title path (`AttemptReport.TestId` is `testId`); `prefixes setup IDs` is not ported (no `setupTestId`, no setup tests), and `drops undefined object members` of `canonicalJson` is not ported (a `JsonNode` has no undefined).
+
 ## Debug
 
 Upstream's `--debug` prints the run's phase timings and a table of agent steps on stderr, and keeps each planned step's transcript. A test run has no `--debug` flag, so the .NET-only variable `E2E_DEBUG=1` (or `true`) stands in for it, and a fixture can override the `Debug` property. `e2e explore --debug` is the flag itself (`ExploreOptions.Debug`; the variable turns it on too). `E2ESessionOptions.Debug` carries it to the session.
