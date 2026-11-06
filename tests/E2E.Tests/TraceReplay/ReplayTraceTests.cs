@@ -9,11 +9,11 @@ namespace E2E.Tests.TraceReplay;
 
 /// <summary>
 /// <c>describe('replayTrace')</c> of <c>trace-replay.test.ts</c>, against <c>Replay.ReplayTrace</c> and a <see cref="TestHost"/>.
-/// The port's recording has no drag, bare point (<c>tapAt</c>, <c>hoverAt</c>), <c>hover</c>, <c>longPress</c>,
+/// The port's recording has no drag, <c>hover</c>, <c>longPress</c>,
 /// <c>secondaryTap</c>, <c>upload</c>, recorded position, or <c>derived</c> reason, and its relocation finds a
 /// test id exactly, so these <c>it</c>s are not ported: "names the rule behind a run-time value gap, so the report can cite
 /// it", "re-finds both ends of a drag on one screen before dragging", "hands a drag off when either end cannot be re-found,
-/// never dragging half of it", "replays a bare-point hover through hoverAt, on the recorded viewport only", "keeps looking
+/// never dragging half of it", "keeps looking
 /// while a positioned target is ambiguous, since a form still rendering shows fewer twins", and "relocates by semantic
 /// identity when a recorded test id churned". The port records no <c>derived</c>, so "ends the prefix at a gap without
 /// executing it" has nothing to check there.
@@ -186,6 +186,24 @@ public sealed class ReplayTraceTests
         Assert.Equal(0, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
         Assert.Empty(host.Calls);
+    }
+
+    [Fact]
+    public async Task Replays_a_bare_point_hover_through_hoverAt_on_the_recorded_viewport_only()
+    {
+        var host = MakeHost();
+        var hoverAt = new RecordedAction { Kind = "hoverAt", Point = new Point(300, 60), Viewport = Viewport };
+
+        var outcome = await Replay.ReplayTrace(host, [hoverAt]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["hoverAt"], host.Calls);
+        var other = MakeHost(viewport: new TraceViewport(800, 600));
+        var changed = await Replay.ReplayTrace(other, [hoverAt]);
+        Assert.False(changed.Completed);
+        Assert.Equal(ReplayHandOffReason.ViewportChanged, changed.StopReason);
+        Assert.Empty(other.Calls);
     }
 
     [Fact]

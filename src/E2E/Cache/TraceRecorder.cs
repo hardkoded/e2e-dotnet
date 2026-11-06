@@ -39,6 +39,57 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         return Record(new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within, Value = value, Key = key });
     }
 
+    /// <summary>
+    /// Records one committed <c>tapAt</c> or <c>hoverAt</c> (upstream's <c>record</c> of a point action): the point and the viewport it was placed in,
+    /// and, when a node with a durable descriptor contained it, its place inside that node's box. Returns the action as recorded.
+    /// </summary>
+    public RecordedAction Record(string kind, PlacedPoint point, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        ArgumentNullException.ThrowIfNull(viewport);
+        return Record(new RecordedAction { Kind = kind, Point = point.Point, Viewport = viewport, Under = WithinOf(point) });
+    }
+
+    /// <summary>Records one committed <c>dragAt</c> (upstream's <c>record</c> of a <c>dragAt</c>): both points with the viewport, each placed inside its node.</summary>
+    public RecordedAction Record(PlacedPoint from, PlacedPoint to, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        ArgumentNullException.ThrowIfNull(viewport);
+        return Record(new RecordedAction
+        {
+            Kind = "dragAt",
+            Viewport = viewport,
+            From = new RecordedPointEnd { Point = from.Point, Under = WithinOf(from) },
+            To = new RecordedPointEnd { Point = to.Point, Under = WithinOf(to) },
+        });
+    }
+
+    /// <summary>
+    /// Upstream's <c>withinOf</c>: a bare point's place inside the box of the listed node that contained it. The point replays as given on a
+    /// same-sized viewport; when a node with a durable descriptor contained it, its place inside that node's box lets replay follow the node
+    /// instead. An anonymous container, a group among groups on a screen merged into one accessibility node, could not be re-found and is not
+    /// kept: the point alone is the honest record. The port records no twin position among look-alikes.
+    /// </summary>
+    private RecordedPointPlace? WithinOf(PlacedPoint placed)
+    {
+        if (placed.Under is not { Rect: { Width: > 0, Height: > 0 } box } under)
+        {
+            return null;
+        }
+
+        var target = DescribeTarget(under, redactor(), placed.Within);
+        if (target.Name is null && target.TestId is null)
+        {
+            return null;
+        }
+
+        return new RecordedPointPlace { Target = target, Fx = Fraction((placed.Point.X - box.X) / box.Width), Fy = Fraction((placed.Point.Y - box.Y) / box.Height) };
+    }
+
+    /// <summary>Upstream's <c>fraction</c>: a place inside a box as a fraction of its side, clamped to the box and rounded so the entry stays small.</summary>
+    private static double Fraction(double value) => Math.Round(Math.Clamp(value, 0, 1) * 10_000, MidpointRounding.AwayFromZero) / 10_000;
+
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
     public RecordedAction Record(RecordedAction action)
     {

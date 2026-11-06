@@ -699,6 +699,10 @@ internal sealed partial class ActionDispatcher : IExecutorActions
 
     private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
 
+    private Task CommitAsync(string kind, PlacedPoint point, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(kind, point, viewport));
+
+    private Task CommitAsync(PlacedPoint from, PlacedPoint to, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(from, to, viewport));
+
     // Upstream's recordTrace for a typed value: one the step read off the screen (its tree, or a screenshot it was shown) or reckoned
     // from the date is this run's data, not the flow's. It is recorded as a gap so replay hands over before it rather than typing a
     // value the app may not issue again. A replay commits through the replay host, so a value a replay types is the recording's own

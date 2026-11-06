@@ -299,7 +299,10 @@ public sealed class RecordedPointPlace
 
     internal static bool IsFinite(Point point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
 
-    internal bool IsValid() => Target is not null && double.IsFinite(Fx) && double.IsFinite(Fy);
+    internal bool IsValid() => Target is not null && IsFraction(Fx) && IsFraction(Fy);
+
+    // Upstream's isFraction: a place inside a box is a number from 0 to 1.
+    private static bool IsFraction(double value) => value is >= 0 and <= 1;
 
     internal RecordedPointPlace Copy() => (RecordedPointPlace)MemberwiseClone();
 }
