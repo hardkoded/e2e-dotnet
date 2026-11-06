@@ -148,8 +148,8 @@ public sealed class DeviceActions : IDeviceActions
                 await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsFill, Args(settle, DeviceSession.ActionTarget(target), ("text", JsonValue.Create(""))), cancellationToken), cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Check or LocatorAction.Uncheck:
-                // A toggle whose state the tree does not expose (Android switches) cannot be set, only flipped.
-                // Flipping blind could undo a correct state.
+                // A toggle whose state the tree does not expose (a radio or checkbox the app gives no checked state)
+                // cannot be set, only flipped. Flipping blind could undo a correct state.
                 if (!target.States.TryGetValue("checked", out var isChecked))
                 {
                     throw DeviceSupport.Unsupported($"agent-device cannot read whether node {target.Id} is checked; tap it instead");
