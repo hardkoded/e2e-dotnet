@@ -325,7 +325,7 @@ public sealed class PrepareObservationTests
             ("hex with a line break", "0f3a9c71e4b2d85601aa7c3e", "\n", "9b84f0c2d17e6a35b9f04c8d2e71a6b3c95d08f4e2a7b61c3d9e0f5"),
             ("letters with a tab", Letters, "\t", LettersTail),
             ("letters with a CRLF", Letters, "\r\n", LettersTail),
-            ("letters with a no-break space", Letters, " ", LettersTail),
+            ("letters with a no-break space", Letters, "\u00A0", LettersTail),
             ("letters with repeated spaces", Letters, "   ", LettersTail),
         ];
         var data = new TheoryData<string, string, string, string, string, int>();
