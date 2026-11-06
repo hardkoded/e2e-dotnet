@@ -9,9 +9,10 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.RelocateWithin;
 
 /// <summary>
-/// Ports <c>relocate-within.test.ts</c>'s "container keys". The port records no position and no action summary, so "records the
-/// key with the action and reads it back in the prose" and "keys an icon button by its row's own label" are partial, and the
-/// relocation cases run through <see cref="E2E.Agent.Find"/>, the port's descriptor match.
+/// Ports <c>relocate-within.test.ts</c>'s "container keys". The port records no action summary, so the prose is
+/// <see cref="DefaultAgent.Describe"/>, the one the hand-off and the <c>OnAction</c> event read. The relocation case of "relocates a
+/// same-named control by its row instead of diverging as ambiguous" and the windowed list run through <see cref="E2E.Agent.Find"/>, the
+/// descriptor match replay uses today.
 /// </summary>
 public sealed class ContainerKeysTests
 {
@@ -47,15 +48,15 @@ public sealed class ContainerKeysTests
         Assert.Null(KeyOf(table, cell1));
     }
 
-    /// <summary>Partial port of "records the key with the action and reads it back in the prose": the port has no summary to read it back in, so only the recorded key is checked.</summary>
     [Fact]
-    public void Partial_records_the_key_with_the_action()
+    public void Records_the_key_with_the_action_and_reads_it_back_in_the_prose()
     {
         var (_, _, delete1, _) = Table();
 
-        var described = Recorder.DescribeTarget(delete1, Redactor.None, "Budget draft");
+        var recorded = new Recorder(() => Redactor.None).Record("tap", delete1, within: "Budget draft");
 
-        Assert.Equal("Budget draft", described.Within);
+        Assert.Equal("Budget draft", recorded.Within);
+        Assert.Equal("tap button \"Delete\" in \"Budget draft\"", DefaultAgent.Describe(recorded));
     }
 
     [Fact]
@@ -70,12 +71,8 @@ public sealed class ContainerKeysTests
         Assert.Empty(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Offsite plan"));
     }
 
-    /// <summary>
-    /// Partial port of "keys an icon button by its row's own label when the row has no other text, and finds it after the rows
-    /// reorder": the port records no position, so the button is found by its role and row.
-    /// </summary>
     [Fact]
-    public void Partial_keys_an_icon_button_by_its_rows_own_label_and_finds_it_after_the_rows_reorder()
+    public void Keys_an_icon_button_by_its_rows_own_label_when_the_row_has_no_other_text_and_finds_it_after_the_rows_reorder()
     {
         // <li>Alpha <button><svg/></button></li>: the list item is named from its content, the button by nothing.
         static (SemanticNode List, SemanticNode Alpha) List(params string[] order)
@@ -97,10 +94,13 @@ public sealed class ContainerKeysTests
         var (recorded, recordedAlpha) = List("Alpha", "Beta");
         var within = KeyOf(recorded, recordedAlpha);
         Assert.Equal("Alpha", within);
+        var position = Relocate.DescribePosition(recordedAlpha, within, Screen(recorded), Redactor.None);
+        Assert.Equal((0, 1), (position?.Index, position?.Of));
 
         var (live, liveAlpha) = List("Beta", "Alpha");
 
-        Assert.Same(liveAlpha, Assert.Single(E2E.Agent.Find(Screen(live), "button", null, null, null, Redactor.None, within)));
+        var found = Relocate.RelocateDescriptor(new RecordedTarget { Role = "button", Within = within, Position = position }, Screen(live), Redactor.None);
+        Assert.Equal(new RelocationResult.Found(liveAlpha.Ref), found);
     }
 
     [Fact]

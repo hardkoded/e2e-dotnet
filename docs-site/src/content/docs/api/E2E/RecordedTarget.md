@@ -68,6 +68,21 @@ An anchor's placeholder.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedTarget_Position_"></a>
+<a id="E2E_RecordedTarget_Position"></a>
+
+### Position
+
+
+```csharp
+public TracePosition? Position { get; set; }
+```
+
+
+Upstream's `position`: where the target stood among the controls its own description matched. See [Position](/api/E2E/RecordedAction/#E2E_RecordedAction_Position).
+
+**Value:** [TracePosition](/api/E2E/TracePosition/)
+
 <a id="E2E_RecordedTarget_Role_"></a>
 <a id="E2E_RecordedTarget_Role"></a>
 

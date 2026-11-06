@@ -33,11 +33,30 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public IReadOnlyList<RecordedAction> Actions => _actions;
 
     /// <summary>Records one committed grammar action on <paramref name="node"/>, described now. Returns the action as recorded.</summary>
-    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null)
+    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null, TracePosition? position = null)
     {
-        var target = DescribeTarget(node, redactor(), within);
-        return Record(new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within, Value = value, Key = key });
+        var action = ActionOf(kind, DescribeTarget(node, redactor(), within, position));
+        action.Value = value;
+        action.Key = key;
+        return Record(action);
     }
+
+    /// <summary>
+    /// An action on <paramref name="target"/>, not yet recorded: the descriptor's fields flat on the action. No upstream counterpart: upstream
+    /// nests the descriptor as <c>target</c>; the port's actions carry its fields (.NET-only shape, kept so stored recordings stay readable).
+    /// </summary>
+    internal static RecordedAction ActionOf(string kind, RecordedTarget target) => new()
+    {
+        Kind = kind,
+        Role = target.Role,
+        Name = target.Name,
+        TestId = target.TestId,
+        Within = target.Within,
+        Text = target.Text,
+        Placeholder = target.Placeholder,
+        InputPurpose = target.InputPurpose,
+        Position = target.Position,
+    };
 
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
     public RecordedAction Record(RecordedAction action)
@@ -127,18 +146,29 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
 
     /// <summary>
     /// Upstream's <c>describeTarget</c> (<c>agent/actions.ts</c>): how a replay will find the node again, by its role, its label,
-    /// and its test id, redacted. Never the text the node holds or the value a field holds. <paramref name="within"/> is the key of the
-    /// container it sat in (upstream's <c>describePlaced</c>), redacted again and bounded.
+    /// its text when that differs from the label, its test id, its placeholder, and its input purpose, redacted. Never the value a field
+    /// holds. <paramref name="within"/> is the key of the container it sat in and <paramref name="position"/> its place among its twins
+    /// (upstream's <c>describePlaced</c>); the key is redacted again and bounded.
     /// </summary>
-    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null)
+    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null, TracePosition? position = null)
     {
         ArgumentNullException.ThrowIfNull(node);
+        var name = RedactLabel(node, redactor);
+        // The label of a node with no name is its text (upstream records that text as the name's absence and a text), so a text is a second
+        // field only beside a name of its own, and only when it says something else.
+        var text = node.Name is null ? null : NonEmpty(RedactField(node.Text, ObservationLimits.Text, redactor));
         return new RecordedTarget
         {
             Role = node.Role,
-            Name = RedactLabel(node, redactor),
+            Name = name,
+            Text = text == name ? null : text,
             TestId = Redact(node.TestId, redactor),
+            Placeholder = NonEmpty(RedactField(node.Placeholder, ObservationLimits.Text, redactor)),
+            InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
             Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
+            Position = position,
         };
     }
+
+    private static string? NonEmpty(string? text) => string.IsNullOrEmpty(text) ? null : text;
 }

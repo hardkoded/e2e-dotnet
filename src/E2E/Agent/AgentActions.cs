@@ -9,6 +9,12 @@ using static E2E.Agent;
 namespace E2E;
 
 /// <summary>
+/// Upstream's <c>Placement</c>: where a node sat when it was acted on, for the trace. The container it sat in, and its place among the
+/// controls its own description matched.
+/// </summary>
+internal readonly record struct Placement(string? Within, TracePosition? Position);
+
+/// <summary>
 /// Upstream's <c>agent/actions.ts</c>, the part that names the container a node sits in: the key a trace records with an action
 /// (<c>within</c>) and a replay requires of the node it re-finds.
 /// </summary>
