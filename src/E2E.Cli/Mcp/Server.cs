@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using E2E.Internal;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -38,6 +39,12 @@ internal sealed class ServeOptions
 
     /// <summary>Diagnostics for the operator, normally stderr.</summary>
     public required Action<string> Log { get; init; }
+
+    /// <summary>What user code in this process prints: held while a config loads, and its unfinished lines released once no tool call is in flight.</summary>
+    public McpOutput? Output { get; init; }
+
+    /// <summary>Every secret value the process knows; the one <see cref="Output"/> redacts with.</summary>
+    public SecretLedger? Secrets { get; init; }
 }
 
 /// <summary>
@@ -73,6 +80,8 @@ internal static class Server
             Headed = options.Headed,
             DefaultTarget = options.Target,
             MaxSessions = options.MaxSessions,
+            Secrets = options.Secrets,
+            WithholdOutput = options.Output is { } output ? load => output.WithholdDuringAsync(load) : static load => load(),
             Log = (level, message) => Log(server, options, ParseLevel(level), message),
         });
         var specs = host.ToolSpecs();
@@ -84,7 +93,7 @@ internal static class Server
             Handlers = new McpServerHandlers
             {
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = [.. specs.Select(ToTool)] }),
-                CallToolHandler = (request, cancel) => CallAsync(specs, request.Params, cancel),
+                CallToolHandler = (request, cancel) => CallAsync(specs, request.Params, options.Output, cancel),
                 ListResourcesHandler = (_, _) => ValueTask.FromResult(ListGuide()),
                 ListResourceTemplatesHandler = (_, _) => ValueTask.FromResult(ListGuideTemplates()),
                 ReadResourceHandler = (request, _) => ValueTask.FromResult(ReadGuide(request.Params?.Uri)),
@@ -175,7 +184,7 @@ internal static class Server
     /// Checks the arguments against the tool's closed schema, then runs it. A refusal or a failure is an error
     /// result the agent can react to. Only a tool the server does not have is a protocol error, as upstream.
     /// </summary>
-    private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, McpOutput? output, CancellationToken cancellationToken)
     {
         var name = request?.Name ?? "";
         var spec = specs.FirstOrDefault(candidate => candidate.Name == name)
@@ -190,7 +199,9 @@ internal static class Server
 
         try
         {
-            return await spec.Call(args, cancellationToken).ConfigureAwait(false);
+            return output is null
+                ? await spec.Call(args, cancellationToken).ConfigureAwait(false)
+                : await output.DuringCallAsync(() => spec.Call(args, cancellationToken)).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Any failure is the agent's to read, as a test would have reported it.
         catch (Exception ex)
