@@ -11,8 +11,9 @@ namespace E2E.Tests.AgentObservation;
 /// The port renders the screen as one text block in its own format, with no PreparedObservation (kind, node index, tree, path, bytes), no
 /// pixel evidence beside the tree, and no <c>redactNodesAgain</c>. So these upstream its are not ported: "keeps unavailable semantics separate from
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without repeating capture" (the settle loop
-/// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". The three
-/// <c>Partial_</c> redaction tests at the end port the others against the rendered text, <c>ProjectTree</c>, and the anchors. The pixel tests
+/// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". Every
+/// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, cut-secret field, every string field, collapsed-secret
+/// cut matrix) checks part of its upstream it; the last three read the rendered text, <c>ProjectTree</c>, and the anchors. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
@@ -280,8 +281,7 @@ public sealed class PrepareObservationTests
     [MemberData(nameof(CollapsedSecretCuts))]
     public void Partial_keeps_no_part_of_a_secret_an_engine_collapsed_then_cut_at_the_name_and_text_limits(string kind, string lead, string separator, string tail, string where, int kept)
     {
-        Assert.NotEmpty(kind);
-        Assert.NotEmpty(where);
+        var label = $"a secret of {kind} an engine collapsed, then cut {where}";
         var redactor = Redactor.For([Secret.Create("multi", lead + separator + tail)]);
         var collapsed = lead + " " + tail;
         string Cut(int limit) => new string('x', limit - kept - 1) + " " + collapsed[..kept];
@@ -296,6 +296,7 @@ public sealed class PrepareObservationTests
             ],
         };
         Assert.Equal(ObservationLimits.Name, Cut(ObservationLimits.Name).Length);
+        Assert.Equal(ObservationLimits.Text, Cut(ObservationLimits.Text).Length);
         var observation = new Observation { Route = "/", Roots = [tree] };
         var text = SnapshotText.Render(observation, redactor);
         var projected = global::E2E.AgentObservation.ProjectTree([tree], redactor, null);
@@ -303,14 +304,14 @@ public sealed class PrepareObservationTests
             [],
             Anchors.Project(observation, redactor.Redact, redactor.Redact, (value, limit) => global::E2E.AgentObservation.RedactText(value, redactor, limit)),
             false).Appeared;
-        Assert.Contains("<secret:multi>", string.Join(' ', anchors.Select(anchor => anchor.Name ?? anchor.Text)), StringComparison.Ordinal);
+        Assert.True(string.Join(' ', anchors.Select(anchor => anchor.Name ?? anchor.Text)).Contains("<secret:multi>", StringComparison.Ordinal), label + ": the anchors lose the secret's name");
         string[] fragments = [lead, lead[..8], collapsed[..30], tail[..8]];
         foreach (var shown in new[] { text, Json(projected), Json(anchors) })
         {
-            Assert.Contains("<secret:multi>", shown, StringComparison.Ordinal);
+            Assert.True(shown.Contains("<secret:multi>", StringComparison.Ordinal), label + ": no marker in " + shown);
             foreach (var fragment in fragments)
             {
-                Assert.DoesNotContain(fragment, shown, StringComparison.Ordinal);
+                Assert.True(!shown.Contains(fragment, StringComparison.Ordinal), $"{label}: '{fragment}' survives in {shown}");
             }
         }
     }
