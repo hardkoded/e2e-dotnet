@@ -25,7 +25,7 @@ unlocked desktop for keys and clicks (see [windows.md](windows.md)); it launches
 the app before the first observation and has no `navigate` tool either. The catalog is the testing agent's own actions plus `locate`,
 `test_lines`, and `screenshot`. `start_recording` and `stop_recording` join them when the engine records video. Not ported: the project's own tools,
 and the tap, hover, and type at a point. `e2e init --yes` registers the
-server in `.mcp.json` and `.cursor/mcp.json`; to do it yourself, see below.
+server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml` (Codex); to do it yourself, see below.
 
 ## Contents
 
@@ -50,6 +50,16 @@ Or declare it in the client's project config (`.mcp.json` for Claude Code,
 ```json
 { "mcpServers": { "e2e": { "command": "e2e", "args": ["mcp"] } } }
 ```
+
+Codex reads `.codex/config.toml` in a trusted project:
+
+```toml
+[mcp_servers.e2e]
+command = "e2e"
+args = ["mcp"]
+```
+
+Start a new Codex session from the project directory after the tool is installed. To add Codex to an existing setup, run `e2e init --yes --skills none --mcp .codex/config.toml`. Re-running `init` keeps the comments and the other settings of the file and repairs only `command` and `args`.
 
 In a clone of the e2e-dotnet repo, run it as
 `dotnet run --project src/E2E.Cli -- mcp`.

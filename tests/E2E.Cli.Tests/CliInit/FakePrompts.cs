@@ -7,6 +7,9 @@ namespace E2E.Cli.Tests.CliInit;
 /// <summary>A <see cref="IInitPrompts.Select"/> question as it was asked.</summary>
 internal sealed record SelectCall(string Message, IReadOnlyList<PromptOption> Options, string InitialValue);
 
+/// <summary>A <see cref="IInitPrompts.MultiSelect"/> question as it was asked.</summary>
+internal sealed record MultiSelectCall(string Message, IReadOnlyList<PromptOption> Options, IReadOnlyList<string> InitialValues);
+
 /// <summary>A <see cref="IInitPrompts.Text"/> question as it was asked.</summary>
 internal sealed record TextCall(string Message, string Placeholder, Func<string?, string?> Validate);
 
@@ -32,9 +35,12 @@ internal sealed class FakePrompts : IInitPrompts
     public IReadOnlyList<string>? Skills { get; set; } = [".agents/skills", ".claude/skills"];
 
     /// <summary>What the MCP question answers; null cancels.</summary>
-    public IReadOnlyList<string>? Mcp { get; set; } = [".mcp.json", ".cursor/mcp.json"];
+    public IReadOnlyList<string>? Mcp { get; set; } = [".mcp.json", ".cursor/mcp.json", ".codex/config.toml"];
 
     public List<string> MultiSelectCalls { get; } = [];
+
+    /// <summary>Every multiselect question as it was asked, with its options and initial values.</summary>
+    public List<MultiSelectCall> MultiSelects { get; } = [];
 
     public List<SelectCall> SelectCalls { get; } = [];
 
@@ -60,6 +66,7 @@ internal sealed class FakePrompts : IInitPrompts
     public IReadOnlyList<string>? MultiSelect(string message, IReadOnlyList<PromptOption> options, IReadOnlyList<string> initialValues)
     {
         MultiSelectCalls.Add(message);
+        MultiSelects.Add(new MultiSelectCall(message, options, initialValues));
         return message.Contains("MCP", StringComparison.Ordinal) ? Mcp : message.Contains("Which engines", StringComparison.Ordinal) ? Engines : Skills;
     }
 

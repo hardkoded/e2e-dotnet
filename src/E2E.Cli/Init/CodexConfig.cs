@@ -22,7 +22,7 @@ internal static class CodexConfig
     /// <summary>Reads Codex project settings as TOML 1.0. Throws when the text is not TOML or <c>mcp_servers</c> / <c>mcp_servers.e2e</c> is not a table.</summary>
     public static JsonObject ReadCodexConfig(string text)
     {
-        var document = ToJson(Toml.ToModel(text)) as JsonObject ?? new JsonObject();
+        var document = ToJson(TomlSerializer.Deserialize<TomlTable>(text)) as JsonObject ?? new JsonObject();
         if (document["mcp_servers"] is { } servers)
         {
             if (servers is not JsonObject table)

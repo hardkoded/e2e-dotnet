@@ -37,7 +37,7 @@ and asks to apply them; a coding agent has no terminal, so it passes `--yes`,
 which asks nothing. `--yes` writes `e2e.config.json`
 (the web engine and the Vercel AI Gateway as provider `gateway`), installs this
 skill in `.agents/skills/e2e-dotnet` (`.claude/skills/e2e-dotnet` symlinks to
-it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and
+it), registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and
 updates `.gitignore`. A flag per question overrides one default: `--engine`
 (`web` or `mobile`), `--gateway` (`vercel`, `openrouter`, `openai-compatible`,
 `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`), `--endpoint`,

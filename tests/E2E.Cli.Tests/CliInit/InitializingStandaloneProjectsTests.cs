@@ -9,7 +9,7 @@ namespace E2E.Cli.Tests.CliInit;
 
 /// <summary>
 /// Upstream's <c>describe('initializing standalone projects')</c> of <c>tests/integration/cli-init.test.ts</c>. Only its
-/// first <c>it</c> has a port. The others load the generated TypeScript scaffold and run <c>e2e run</c> or <c>e2e list</c> on
+/// first two <c>it</c>s have a port. The others load the generated TypeScript scaffold and run <c>e2e run</c> or <c>e2e list</c> on
 /// it (the engine-less HTTP example, the web and mobile scaffold as two targets, the generated browser example, the
 /// <c>type</c> of the package.json, <c>.ts</c> and <c>.js</c> test collection, a typeless workspace package, the missing
 /// config message of <c>e2e run</c>, and the look-alike test files), and the port has no runner, no TypeScript, and no
@@ -17,6 +17,16 @@ namespace E2E.Cli.Tests.CliInit;
 /// </summary>
 public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
 {
+    [Fact]
+    // Partial: checks the generated Codex entry only. Upstream starts the server from it through npx with an empty npm cache offline; the port launches the installed e2e tool, which a test cannot put on the PATH.
+    public async Task Partial_Starts_the_installed_MCP_server_from_the_generated_Codex_config_with_an_empty_npm_cache_offline()
+    {
+        var code = await Program.RunAsync(["init", Dir, "--yes", "--mcp", ".codex/config.toml"], new StringWriter(), new StringWriter(), new StringReader(""), interactive: false, CancellationToken.None);
+        Assert.Equal(0, code);
+        var document = CodexConfig.ReadCodexConfig(Read(".codex/config.toml"));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "command": "e2e", "args": ["mcp"] }"""), document["mcp_servers"]!["e2e"]));
+    }
+
     [Fact]
     // Partial: the process is the in-process command, not a spawned CLI, and the directory is an argument, not the working directory.
     public async Task Partial_Preserves_configured_MCP_server_settings_when_reinitializing_a_project()
