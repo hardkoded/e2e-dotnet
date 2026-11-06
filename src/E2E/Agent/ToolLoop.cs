@@ -299,7 +299,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with a code) if something outside the application stopped you.",
+                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
                 });
             }
 
@@ -311,12 +311,13 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             {
                 noticed = repeat;
                 stopped = stop;
+                turns.Note((stop ? "the step was stopped before turn " : "loop guard warned before turn ") + turns.Next.ToString(CultureInfo.InvariantCulture) + ": " + repeat);
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
                     Content = stop
-                        ? "Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
-                        : "You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
+                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                        : "[SYSTEM NOTICE] You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
                 });
             }
 
@@ -328,12 +329,13 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 {
                     noticed = streak;
                     stopped = streakStop;
+                    turns.Note((streakStop ? "the step was stopped before turn " : "loop guard warned before turn ") + turns.Next.ToString(CultureInfo.InvariantCulture) + ": " + streak);
                     messages.Add(new ModelMessage
                     {
                         Role = "user",
                         Content = streakStop
-                            ? "Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
-                            : streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
+                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                            : "[SYSTEM NOTICE] " + streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
                     });
                 }
             }
@@ -344,7 +346,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you.",
+                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
                 });
             }
 

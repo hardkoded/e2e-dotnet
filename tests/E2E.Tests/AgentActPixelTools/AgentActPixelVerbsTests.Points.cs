@@ -400,10 +400,14 @@ public sealed partial class AgentActPixelVerbsTests
         // Every refusal reads `select_at (x, y) failed: ...` beside a fresh screenshot: pixel mode held.
         Assert.Contains("select_at (400, 190) failed: ACTION_FAILED: nothing the screen lists is at", Result(run, 2), StringComparison.Ordinal);
         Assert.Equal(1, run.Requests[2].Messages[^1].Images?.Count);
-        Assert.Contains(run.Requests, request => request.Messages.Any(message => message.Role == "user" && message.Content?.Contains("the last 3 actions failed in a row", StringComparison.Ordinal) == true));
+        Assert.Contains(run.Requests, request => request.Messages.Any(message => message.Role == "user" && message.Content?.Contains("[SYSTEM NOTICE] the last 3 actions failed in a row", StringComparison.Ordinal) == true));
         var last = run.Requests[^1];
         Assert.Equal(["done"], last.Tools.Select(tool => tool.Name));
-        Assert.Contains("Loop guard: the last 5 actions failed in a row", last.Messages[^1].Content, StringComparison.Ordinal);
+        Assert.Contains("[SYSTEM] Loop guard: the last 5 actions failed in a row", last.Messages[^1].Content, StringComparison.Ordinal);
+        // The loop notes the warning and the stop on the turn they followed, as upstream's note() does.
+        var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(run.Step.Turns);
+        Assert.Contains(turns, turn => turn.Outcome.Contains("[loop] loop guard warned before turn", StringComparison.Ordinal) && turn.Outcome.Contains(": the last 3 actions failed in a row", StringComparison.Ordinal));
+        Assert.Contains(turns, turn => turn.Outcome.Contains("[loop] the step was stopped before turn", StringComparison.Ordinal) && turn.Outcome.Contains(": the last 5 actions failed in a row", StringComparison.Ordinal));
     }
 
     [Fact]
