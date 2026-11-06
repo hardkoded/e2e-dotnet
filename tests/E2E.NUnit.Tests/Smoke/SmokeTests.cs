@@ -6,7 +6,7 @@ namespace E2E.NUnit.Tests.Smoke;
 
 /// <summary>
 /// The tests of upstream's <c>apps/testbed/tests/smoke.e2e.ts</c> (all four outside a <c>describe</c>), against the playground's landing page.
-/// All four are ported and carry the <c>smoke</c> category (upstream's <c>tags: ['smoke']</c>). The port has no value matchers on <c>Expect</c>,
+/// All four are ported (the value matchers one as <c>Partial_</c>, tracked by hardkoded/e2e-dotnet#1248) and carry the <c>smoke</c> category (upstream's <c>tags: ['smoke']</c>). Upstream's <c>expect</c> has value matchers (<c>expect/values.ts</c>) that the port's <c>Expect</c> lacks,
 /// so the two value checks of "value matchers name their check and compare numbers loosely" use NUnit's constraints with a message and
 /// <c>Within</c> (Jest's <c>toBeCloseTo(1)</c> is 5 digits, a difference under 0.005).
 /// </summary>
@@ -46,7 +46,7 @@ public sealed class SmokeTests : E2ETest
     }
 
     [Test]
-    public async Task Value_matchers_name_their_check_and_compare_numbers_loosely()
+    public async Task Partial_Value_matchers_name_their_check_and_compare_numbers_loosely()
     {
         await App.OpenAsync();
         var links = await Screen.GetByRole("link").CountAsync();
