@@ -306,3 +306,28 @@ internal sealed class KeyContextConverter : JsonConverter<TraceKeyContext>
         writer.WriteEndObject();
     }
 }
+
+/// <summary>
+/// Upstream's <c>DerivedReason</c> (<c>cache/trace.ts</c>): why a typed value was this run's data rather than the flow's, by the rule
+/// that flagged it (<c>agent/derived.ts</c>): read off a screenshot, the whole name or text of a node, a token with a digit shown as a
+/// word of its own, or a date or time reckoned from today. An entry stores it as <c>pixels</c>, <c>whole-node</c>,
+/// <c>minted-token</c>, or <c>date</c> on a <c>tool</c> action.
+/// </summary>
+[JsonConverter(typeof(DerivedReasonConverter))]
+public enum DerivedReason
+{
+    /// <summary>The model was shown a screenshot this step, so a value that is not literal may have been read off the image.</summary>
+    Pixels,
+
+    /// <summary>The value is the whole of what some node said.</summary>
+    WholeNode,
+
+    /// <summary>The value is data-shaped and some node showed it as a word of its own.</summary>
+    MintedToken,
+
+    /// <summary>A date or a clock time, which the model reckons from today.</summary>
+    Date,
+}
+
+/// <summary>Writes a <see cref="DerivedReason"/> as upstream spells it (<c>whole-node</c>) and refuses a number or a name it lacks (upstream's <c>isDerivedReason</c>).</summary>
+internal sealed class DerivedReasonConverter() : JsonStringEnumConverter<DerivedReason>(JsonNamingPolicy.KebabCaseLower, allowIntegerValues: false);

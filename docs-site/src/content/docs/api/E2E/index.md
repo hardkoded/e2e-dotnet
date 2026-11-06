@@ -212,6 +212,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AppLogSource](/api/E2E/AppLogSource/) | Where a line the app logged came from (upstream's AppLogSource). |
 | [AppPermissionState](/api/E2E/AppPermissionState/) | What a permission is set to before a launch (upstream's AppPermissionState): held, refused, or not asked for yet, so the OS asks again. |
 | [CacheMode](/api/E2E/CacheMode/) | How the replay cache is used. |
+| [DerivedReason](/api/E2E/DerivedReason/) | Upstream's DerivedReason (cache/trace.ts): why a typed value was this run's data rather than the flow's, by the rule that flagged it (agent/derived.ts): read off a screenshot, the whole name or text of a node, a token with a digit shown as a word of its own, or a date or time reckoned from today. An entry stores it as pixels, whole-node, minted-token, or date on a tool action. |
 | [ExecutorCache](/api/E2E/ExecutorCache/) | Trace-cache participation for an executor's steps. Upstream's cache: 'inherit' \| 'off'. |
 | [ExecutorStepKind](/api/E2E/ExecutorStepKind/) | Upstream's ExecutorStep.kind. |
 | [ExecutorVerb](/api/E2E/ExecutorVerb/) | One verb of IExecutorActions. The port has the verbs its engines can perform. |
