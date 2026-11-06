@@ -8,7 +8,7 @@ namespace E2E.Tests.StepCache;
 
 /// <summary>
 /// Upstream's <c>describe('cache.strict and a step whose key changed under its recording')</c> at the session seam. Not ported,
-/// as the port has no such case: a truncated recording, and a secret masked in the claimed step (the act masks it before the
+/// as the port has no such case: a secret masked in the claimed step (the act masks it before the
 /// session sees it, which the pipeline version covers).
 /// </summary>
 public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
@@ -59,6 +59,34 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
             MakeHost(["/"]));
 
         Assert.Null(await session.BeginAsync());
+    }
+
+    [Fact]
+    public async Task Runs_live_when_the_only_recording_is_truncated_or_records_no_step()
+    {
+        Action<CacheEntry>[] changes =
+        [
+            entry =>
+            {
+                entry.Actions = [.. Enumerable.Range(0, 50).Select(_ => Tap("button", "Upgrade"))];
+                entry.Truncated = true;
+            },
+            entry =>
+            {
+                entry.Test = null;
+                entry.Instruction = null;
+                entry.Engine = null;
+                entry.ParamsDigest = null;
+                entry.CallIndex = null;
+                entry.Agent = null;
+            },
+        ];
+        foreach (var change in changes)
+        {
+            var session = MakeSession(Rekeyed(change), MakeHost(["/"]));
+
+            Assert.Null(await session.BeginAsync());
+        }
     }
 
     [Fact]

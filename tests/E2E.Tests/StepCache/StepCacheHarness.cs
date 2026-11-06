@@ -69,7 +69,8 @@ internal static class StepCacheHarness
         RecordedTarget[]? endAnchors = null,
         RecordedTarget[]? goneAnchors = null,
         RecordedAction[]? actions = null,
-        int? endWaitMs = null)
+        int? endWaitMs = null,
+        bool truncated = false)
     {
         var entry = new CacheEntry
         {
@@ -77,6 +78,7 @@ internal static class StepCacheHarness
             Route = startPath,
             EndRoute = endPath,
             EndWaitMs = endWaitMs,
+            Truncated = truncated ? true : null,
             Actions = [.. actions ?? [Navigate("/customers")]],
             Appeared = [.. endAnchors ?? []],
             Gone = [.. goneAnchors ?? []],

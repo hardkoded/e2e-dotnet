@@ -11,7 +11,7 @@ namespace E2E.Tests.StepCache;
 
 /// <summary>
 /// Upstream's <c>describe('StepTraceSession')</c> of <c>step-cache.test.ts</c>, driven at the session seam. Not ported, because the
-/// port has no such feature: "misses a truncated entry" (no truncated entries), "never stages a trace with no start anchor" (every
+/// port has no such feature: "never stages a trace with no start anchor" (every
 /// screen has a route), and "takes the step for the live progress" (no live progress). The three tests of an observation that loses
 /// semantic evidence are ported through <c>StepHost.TraceEligible</c>: the port reads no pixel-only screens, so the host flips the
 /// flag where upstream's look returns pixels.
@@ -83,6 +83,23 @@ public sealed class StepTraceSessionTests
         Settle(context, session, verified: true);
         Assert.Null(session.Pending.Entry);
         Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Misses_a_truncated_entry_without_replaying_any_of_its_actions_so_the_executor_runs_from_the_top()
+    {
+        var context = EntryContext(actions: [.. Enumerable.Range(0, 50).Select(index => Navigate("/page" + index))], startPath: "/pricing", truncated: true);
+        var visited = new List<string>();
+        var host = MakeHost(["/pricing"]);
+        host.OnNavigate = visited.Add;
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Empty(visited);
+        Assert.Null(session.ReplayedPrefix);
+        Assert.Equal(("missed", "truncated", 0, 50), Info(session));
+        Assert.Equal(Key, session.CacheInfo?.Entry);
     }
 
     [Fact]

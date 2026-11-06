@@ -287,7 +287,7 @@ internal sealed class StepTraceSession
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value; this call's values fill it (upstream's expandTrace). One this call cannot fill is an entry recorded
         // for another shape, which the key should have kept apart.
-        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
+        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.HasValidCaps() || !entry.Actions.All(action => action.HasValidInputs() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
             || CacheKeys.ExpandTrace(entry, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
         {
             return new EntryRead(null, "invalid-entry");
@@ -303,11 +303,11 @@ internal sealed class StepTraceSession
 
     // Under strict mode, ends a step whose recording exists but no longer replays, rather than handing it to the executor: a
     // committed recording that went stale is a change to re-record in review, not a model call to absorb on every run.
-    // A recording that is absent, or that stops at a project tool, is no stale recording.
+    // A recording that is absent, that stops at a project tool, or that was withheld as truncated is no stale recording.
     private void FailIfStale()
     {
         var reason = _info?.Reason;
-        if (!_options.Strict || reason is null or "no-entry" or "gap")
+        if (!_options.Strict || reason is null or "no-entry" or "gap" or "truncated")
         {
             return;
         }
@@ -552,7 +552,7 @@ internal sealed class StepTraceSession
         // How long the app took to show its end state after the last action, plus room for a slower day: the budget a replay waits
         // for the recorded end state to return. Measured from the last action, not the step's start: the model's thinking time before
         // that action is no reason for a replay, which does not think, to wait.
-        var entry = _recorder.Finalize(Pending.Step!, Redacted(ScreenPath(_start!)), Redacted(ScreenPath(end)), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs);
+        var entry = _recorder.Finalize(Pending.Step!, ScreenPath(_start!), ScreenPath(end), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs);
 
         // Stored with a placeholder where each unique() value appeared, so the next run's values, a fresh timestamped name, replay the
         // same flow. A recording that cannot be templated safely is not written at all (upstream's templateTrace).
@@ -576,9 +576,6 @@ internal sealed class StepTraceSession
 
     // Upstream's ObservedScreen.path: where the screen is, as the cache compares it (CacheRoute.AppLocation).
     private string ScreenPath(Observation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
-
-    // A route is recorded redacted.
-    private string Redacted(string route) => _host.Redact.Redact(route);
 
     // Anchors as the recording records them: every field has secrets redacted. The secrets are read as they are now, so an unchanged node is no delta.
     private List<AnchorNode> Project(Observation observation)

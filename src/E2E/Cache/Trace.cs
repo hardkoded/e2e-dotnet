@@ -28,6 +28,15 @@ internal static class Trace
     /// <summary>Upstream's <c>TRACE_SCHEMA_VERSION</c>.</summary>
     public const string TraceSchemaVersion = "trace-1";
 
+    /// <summary>Upstream's <c>MAX_TRACE_ACTIONS</c>: mirrors the default step action budget; overflow marks the trace truncated.</summary>
+    public const int MaxTraceActions = 50;
+
+    /// <summary>Upstream's <c>MAX_TRACE_ANCHORS</c>: the most anchors one side of the recorded delta holds.</summary>
+    public const int MaxTraceAnchors = 8;
+
+    /// <summary>Upstream's <c>TRACE_ANCHOR_STATES</c>: the node states an anchor records, the ones a step sets on a control it leaves on screen.</summary>
+    public static readonly IReadOnlyList<string> TraceAnchorStates = ["checked", "expanded", "pressed", "selected"];
+
     /// <summary>Upstream's <c>MAX_TRACE_END_WAIT_MS</c>: the longest end wait a recording may ask a replay for.</summary>
     public const int MaxTraceEndWaitMs = 120_000;
 
@@ -37,7 +46,11 @@ internal static class Trace
     /// <summary>Upstream's <c>MAX_TRACE_POSITION_OF</c>: most twins a positional recording distinguishes between; beyond it a list is data, not a control set.</summary>
     public const int MaxTracePositionOf = 1000;
 
-    /// <summary>Upstream's <c>MAX_TRACE_INPUT_CHARS</c>: the longest replay input (a typed value, an upload path) a recording may hold.</summary>
+    /// <summary>
+    /// Upstream's <c>MAX_TRACE_INPUT_CHARS</c>: the longest replay input (a typed value, an upload path, a location) a recording may hold.
+    /// Inputs are never truncated to fit, since a trimmed URL or half a typed value would replay a different action than the one recorded,
+    /// so an oversized input poisons the trace (<see cref="CacheEntry.Truncated"/>) instead of bending the value.
+    /// </summary>
     public const int MaxTraceInputChars = 4_096;
 
     /// <summary>
@@ -250,7 +263,7 @@ internal static class Trace
         return true;
     }
 
-    private static bool IsSecretMarker(RecordedAction action) =>
+    internal static bool IsSecretMarker(RecordedAction action) =>
         action.Kind == "fill" && action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>');
 
     /// <summary>Upstream's <c>KEY_CONTEXT_FIELDS</c>, in upstream's order, each with the value it holds.</summary>

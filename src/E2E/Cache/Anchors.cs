@@ -19,10 +19,10 @@ namespace E2E;
 internal static class Anchors
 {
     /// <summary>The most anchors one side of the delta records.</summary>
-    public const int Max = 8;
+    public const int Max = Trace.MaxTraceAnchors;
 
     /// <summary>The states a step sets on a control. Focus is where the pointer went, not what the step did.</summary>
-    private static readonly string[] States = ["checked", "expanded", "pressed", "selected"];
+    private static readonly IReadOnlyList<string> States = Trace.TraceAnchorStates;
 
     /// <summary>
     /// Roles an app announces an outcome in: the live regions a screen reader reads out on change, and

@@ -12,14 +12,19 @@ namespace E2E.Cache;
 /// Upstream's <c>TraceRecorder</c> (<c>cache/recorder.ts</c>): records every grammar action a step commits, with the target
 /// described at commit time, the moment the harness resolved the node, so replay can find it again in a fresh look. A scroll
 /// repeated in the same direction on the same target is one action that ran several times. Every string that could carry screen
-/// content passes through the redactor as it is recorded. The port records no truncation flag, action cap, or summary, and keeps
-/// the recorded actions in the order they ran for <see cref="Finalize"/>.
+/// content passes through the redactor as it is recorded. Replay inputs are verbatim or nothing: a value the redactor would alter, or
+/// one over <see cref="Trace.MaxTraceInputChars"/>, poisons the trace (<see cref="CacheEntry.Truncated"/>) instead of being bent to fit, and so does an
+/// action past the action cap and a target no replay could re-find. A poisoned trace still documents what happened; it never replays.
+/// The port records no summary, and keeps the recorded actions in the order they ran for <see cref="Finalize"/>.
 /// </summary>
 /// <param name="redactor">The step's redactor, read at each record: a secret the step resolves late masks what it recorded after.</param>
 /// <param name="time">The clock <see cref="LastActionAtMs"/> reads. No upstream counterpart: upstream reads <c>Date.now()</c>.</param>
-internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time = null)
+/// <param name="maxActions">Upstream's <c>maxActions</c> option: the action cap, at most <see cref="Trace.MaxTraceActions"/>.</param>
+internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time = null, int? maxActions = null)
 {
     private readonly List<RecordedAction> _actions = [];
+    private readonly int _maxActions = Math.Min(maxActions ?? Trace.MaxTraceActions, Trace.MaxTraceActions);
+    private bool _truncated;
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private long? _lastActionAtMs;
 
@@ -113,9 +118,108 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public RecordedAction Record(RecordedAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
-        _actions.Add(action);
+        var recorded = Stored(action);
+        Push(recorded);
         _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
-        return action;
+        return recorded;
+    }
+
+    /// <summary>
+    /// Upstream's <c>toRecorded</c>: the stored variant of one action. A targeted commit whose node yields no descriptor a replay could re-find
+    /// it by (none at all, or an unnamed twin with no named row to tell it apart) cannot replay, so the trace stays honest by poisoning instead
+    /// of guessing; and a replay input is kept by <see cref="Verbatim"/>. A secret fill holds its marker, a name, and is not an input.
+    /// </summary>
+    private RecordedAction Stored(RecordedAction action)
+    {
+        var stored = action.Copy();
+        if (TargetedKinds.Contains(action.Kind))
+        {
+            Require(TargetOf(action));
+            if (action.Kind == "drag")
+            {
+                Require(action.Destination);
+            }
+        }
+
+        switch (action.Kind)
+        {
+            case "fill" when Trace.IsSecretMarker(action):
+                break;
+            case "fill" or "select" or "typeText":
+                stored.Value = action.Value is null ? null : Verbatim(action.Value);
+                break;
+            case "press" or "pressKey":
+                stored.Key = action.Key is null ? null : Verbatim(action.Key);
+                break;
+            case "navigate":
+                stored.Url = action.Url is null ? null : Verbatim(action.Url);
+                break;
+            case "scrollUntil":
+                stored.Text = action.Text is null ? null : Verbatim(action.Text);
+                break;
+            case "upload" when action.Paths is { } paths:
+                stored.Paths = [.. paths.Select(Verbatim)];
+                break;
+        }
+
+        return stored;
+    }
+
+    /// <summary>Upstream's node verbs: the actions that name the node they act on, so they replay only by re-finding it.</summary>
+    private static readonly HashSet<string> TargetedKinds =
+        ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag"];
+
+    /// <summary>The descriptor an action holds flat (the port's shape; upstream nests it as <c>target</c>).</summary>
+    private static RecordedTarget TargetOf(RecordedAction action) => new()
+    {
+        Role = action.Role,
+        Name = action.Name,
+        TestId = action.TestId,
+        Within = action.Within,
+        Text = action.Text,
+        Placeholder = action.Placeholder,
+        InputPurpose = action.InputPurpose,
+        Position = action.Position,
+    };
+
+    /// <summary>Upstream's <c>require</c>: poisons the trace when <paramref name="descriptor"/> is missing or is one no replay could re-find a node by.</summary>
+    private void Require(RecordedTarget? descriptor)
+    {
+        if (descriptor is null || !Relocate.IsRelocatableDescriptor(descriptor))
+        {
+            _truncated = true;
+        }
+    }
+
+    /// <summary>
+    /// Upstream's <c>verbatim</c>: a replay input, verbatim or poisoned. A value the redactor alters carried a registered secret; an oversized
+    /// one cannot be stored whole. Either way the trace is marked non-replayable and a redacted, bounded copy is kept for documentation only.
+    /// </summary>
+    private string Verbatim(string value)
+    {
+        var redacted = redactor().Redact(value);
+        if (string.Equals(redacted, value, StringComparison.Ordinal) && value.Length <= Trace.MaxTraceInputChars)
+        {
+            return value;
+        }
+
+        _truncated = true;
+        return TextRules.Bound(redacted, Trace.MaxTraceInputChars);
+    }
+
+    /// <summary>
+    /// Upstream's <c>push</c>, past the fold of a scroll: an action past the cap is not kept, and the trace is marked truncated so it never replays,
+    /// instead of the flag being dropped with the action.
+    /// </summary>
+    private void Push(RecordedAction action)
+    {
+        if (_actions.Count >= _maxActions)
+        {
+            _truncated = true;
+            return;
+        }
+
+        _actions.Add(action);
     }
 
     /// <summary>
@@ -141,7 +245,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
             return;
         }
 
-        _actions.Add(scroll);
+        Push(scroll);
         _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
     }
 
@@ -167,13 +271,16 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public void Clear()
     {
         _actions.Clear();
+        _truncated = false;
         _lastActionAtMs = null;
     }
 
     /// <summary>
     /// Concludes recording into the entry of <paramref name="step"/>, or null when nothing was recorded: a step that committed no
-    /// actions has no flow worth replaying. The texts are recorded raw, as the step saw them (the routes redacted), and the caller
-    /// templates the finished entry with <see cref="CacheKeys.TemplateTrace"/>.
+    /// actions has no flow worth replaying. The texts are recorded raw, as the step saw them, and the caller templates the finished entry with
+    /// <see cref="CacheKeys.TemplateTrace"/>. The routes are replay preconditions, so they follow the input rule (upstream's <c>anchorPath</c>): a
+    /// route the redactor alters carried a secret (a token in a query string), and one too long to keep whole cannot be compared, so either marks
+    /// the trace non-replayable rather than storing it bent.
     /// </summary>
     public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null)
     {
@@ -186,14 +293,17 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         var entry = new CacheEntry { Schema = step.Schema };
         entry.SetStep(step);
         entry.RecordedBy = CacheEntry.ReadRecordedBy(recordedBy is null ? null : redactor().Redact(recordedBy));
-        entry.Route = route;
-        entry.EndRoute = endRoute;
+        entry.Route = AnchorPath(route);
+        entry.EndRoute = AnchorPath(endRoute);
         entry.Actions = [.. _actions];
         entry.Appeared = appeared;
         entry.Gone = gone;
         entry.EndWaitMs = endWaitMs is { } wait ? (int)Math.Min(Trace.MaxTraceEndWaitMs, Math.Max(0, wait)) : null;
+        entry.Truncated = _truncated ? true : null;
         return entry;
     }
+
+    private string AnchorPath(string value) => value.Length == 0 ? value : Verbatim(value);
 
     /// <summary>
     /// Upstream's <c>describeTarget</c> (<c>agent/actions.ts</c>): how a replay will find the node again, by its role, its label,
