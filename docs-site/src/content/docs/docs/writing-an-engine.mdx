@@ -60,7 +60,7 @@ public sealed class HyperdriveSession(HyperdriveClient client, string bundleId) 
 {
     public string Route => client.Title;
 
-    public IReadOnlyCollection<string> ActionKinds => ["tap", "fill", "swipe"];
+    public IReadOnlyCollection<string> ActionKinds => ["tap", "fill", "swipe", "scrollIntoView"];
 
     public Task OpenAsync(string url, CancellationToken cancellationToken) => client.RelaunchAsync(bundleId, cancellationToken);
 
@@ -79,6 +79,8 @@ public sealed class HyperdriveSession(HyperdriveClient client, string bundleId) 
     {
         LocatorAction.Tap => client.TapAsync(node.Ref, cancellationToken),
         LocatorAction.Fill fill => client.TypeAsync(node.Ref, fill.Value, cancellationToken),
+        LocatorAction.Swipe swipe => client.ScrollAsync(node.Ref, swipe.Direction, cancellationToken),
+        LocatorAction.ScrollIntoView => client.RevealAsync(node.Ref, cancellationToken),
         _ => throw new EngineException(EngineErrorCodes.UnsupportedCapability, "hyperdrive cannot " + EngineActionKinds.Of(action)),
     };
 
@@ -117,10 +119,11 @@ To open a session from your own runner, set `OpenHostOptions.EngineFactory` (see
 | `History` + `BackAsync` | `App.BackAsync()` and the agent's `back` verb |
 | `Resize` + `ResizeAsync` | The agent's `resize_viewport` verb |
 | `Screenshot` + `ScreenshotAsync` | `ToHaveScreenshotAsync` |
+| `Keyboard` + `TypeTextAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target (`PressAsync` is always required) |
 | `State` + `CaptureStateAsync` + `RestoreStateAsync` | Saved sessions |
 | `Video` + `StartVideoAsync` + `StopVideoAsync` | Attempt video and `App.StartRecordingAsync()` |
 
-Pointer actions, the keyboard, tap modifiers, uploads, and a pinned app are capabilities too. The [engine reference](/reference/engine/#capabilities) lists every flag and which tool each unlocks.
+The keyboard, tap modifiers, uploads, and a pinned app are capabilities too, and pointer actions come from `PointerActionKinds` with `PerformAtAsync`, not from a flag. The [engine reference](/reference/engine/#capabilities) lists every flag and which tool each unlocks.
 
 Agent and locator actions both reach `PerformAsync` as a `LocatorAction`. When one node can't do a declared action, throw `UNSUPPORTED_CAPABILITY`.
 
