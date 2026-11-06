@@ -225,12 +225,24 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var thinking = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var block in root.GetProperty("content").EnumerateArray())
         {
             switch (block.GetProperty("type").GetString())
             {
-                // A thinking block can only be sent back with its signature, and a redacted one with its data.
-                case "thinking" when block.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String:
+                // A thinking block can only be sent back with its signature, and a redacted one with its data. Its text is reported either way.
+                case "thinking":
+                    if (ModelHttp.OptionalString(block, "thinking") is { } thought)
+                    {
+                        reasoningText.Add(thought);
+                    }
+
+                    if (block.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String)
+                    {
+                        thinking.Add(block.Clone());
+                    }
+
+                    break;
                 case "redacted_thinking" when block.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String:
                     thinking.Add(block.Clone());
                     break;
@@ -269,6 +281,7 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = thinking,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(stop, "refusal"),
             RawFinishReason = stop,
         };

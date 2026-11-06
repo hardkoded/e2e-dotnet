@@ -285,11 +285,16 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var block in root.GetProperty("output").GetProperty("message").GetProperty("content").EnumerateArray())
         {
             if (block.TryGetProperty("reasoningContent", out var thinking) && thinking.ValueKind == JsonValueKind.Object)
             {
                 reasoning.Add(thinking.Clone());
+                if (thinking.TryGetProperty("reasoningText", out var shown) && ModelHttp.OptionalString(shown, "text") is { } thought)
+                {
+                    reasoningText.Add(thought);
+                }
             }
             else if (block.TryGetProperty("text", out var value))
             {
@@ -327,6 +332,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(stop, "guardrail_intervened", "content_filtered"),
             RawFinishReason = stop,
         };

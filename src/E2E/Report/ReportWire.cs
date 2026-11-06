@@ -159,7 +159,8 @@ internal static partial class ReportWire
         ("bytes", step.Bytes),
         ("decision", step.Decision?.ToString().ToLowerInvariant()),
         ("code", ClipOrNull(step.Code, 128)),
-        ("detail", ClipOrNull(step.Detail, 300)));
+        ("detail", ClipOrNull(step.Detail, 300)),
+        ("reasoning", ClipOrNull(step.Reasoning, ModelUsage.MaxReasoningChars)));
 
     private static JsonObject Compose(params (string Name, object? Value)[] fields)
     {

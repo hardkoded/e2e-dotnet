@@ -119,6 +119,12 @@ internal sealed record StepEvent
 
     /// <summary>Redacted human prose for what the event did, bounded. Secret values never appear: the name stands in.</summary>
     public string? Detail { get; init; }
+
+    /// <summary>
+    /// A <c>model</c> event's bounded, redacted excerpt of the reasoning the turn produced, when the provider returned one. The full
+    /// text lives in the AI trace, never here.
+    /// </summary>
+    public string? Reasoning { get; init; }
 }
 
 /// <summary>The accounting of one agent step. The port does not measure the pixel bytes upstream also keeps.</summary>

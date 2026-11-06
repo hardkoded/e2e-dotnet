@@ -176,6 +176,12 @@ public sealed class ModelResponse
     /// <summary>The reasoning of the turn that the model can take back, to replay on the next turn. Empty when the model gave none.</summary>
     public IReadOnlyList<JsonElement> ReasoningItems { get; init; } = [];
 
+    /// <summary>
+    /// The reasoning text of the turn (upstream's <c>StepResult.reasoningText</c>), null when the model gave none. Provider text: the
+    /// step's <c>model</c> event carries it only after the redactor and a 600-character bound.
+    /// </summary>
+    public string? ReasoningText { get; init; }
+
     /// <summary>Upstream's call <c>warnings</c> (<c>StepResult.warnings</c>): what the provider changed in the request without failing it. Empty when it changed nothing.</summary>
     public IReadOnlyList<ModelWarning> Warnings { get; init; } = [];
 
@@ -290,7 +296,7 @@ public sealed class ScriptedModel : IAgentModel
             "failed" when code != "ASSERTION_INCONCLUSIVE" => "fails",
             _ => "inconclusive",
         };
-        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage };
+        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage, ReasoningText = response.ReasoningText };
     }
 }
 

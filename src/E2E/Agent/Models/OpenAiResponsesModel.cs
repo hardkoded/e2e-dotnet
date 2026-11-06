@@ -219,11 +219,18 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var item in root.GetProperty("output").EnumerateArray())
         {
             var type = item.TryGetProperty("type", out var kind) ? kind.GetString() : null;
             if (type == "reasoning")
             {
+                // The summary parts are the reasoning text the model shows; the encrypted content is what it takes back.
+                if (item.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array)
+                {
+                    reasoningText.AddRange(summary.EnumerateArray().Select(part => ModelHttp.OptionalString(part, "text") ?? ""));
+                }
+
                 // Without encrypted content the item cannot be replayed: its id means nothing to a backend that stored nothing.
                 if (item.TryGetProperty("encrypted_content", out var encrypted) && encrypted.ValueKind == JsonValueKind.String)
                 {
@@ -269,6 +276,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(incomplete, "content_filter"),
             RawFinishReason = incomplete,
         };

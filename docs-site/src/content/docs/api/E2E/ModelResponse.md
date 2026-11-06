@@ -113,6 +113,22 @@ The reasoning of the turn that the model can take back, to replay on the next tu
 
 **Value:** [IReadOnlyList&lt;JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_ModelResponse_ReasoningText_"></a>
+<a id="E2E_ModelResponse_ReasoningText"></a>
+
+### ReasoningText
+
+
+```csharp
+public string? ReasoningText { get; init; }
+```
+
+
+The reasoning text of the turn (upstream's `StepResult.reasoningText`), null when the model gave none. Provider text: the
+step's `model` event carries it only after the redactor and a 600-character bound.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_ModelResponse_ToolCalls_"></a>
 <a id="E2E_ModelResponse_ToolCalls"></a>
 

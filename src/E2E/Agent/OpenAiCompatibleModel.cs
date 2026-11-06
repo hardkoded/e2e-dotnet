@@ -267,6 +267,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoning.Select(item => item.GetString() ?? "")),
             FinishReason = ModelHttp.FinishReason(finish, "content_filter"),
             RawFinishReason = finish,
         };
