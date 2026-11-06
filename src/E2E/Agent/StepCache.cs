@@ -52,6 +52,9 @@ internal sealed class StepCacheOptions
     /// <summary>Upstream's <c>cache.strict</c>.</summary>
     public bool Strict { get; init; }
 
+    /// <summary>Upstream's <c>strict.advice</c>: how to re-record a recording strict mode failed on. Empty when <see cref="Strict"/> is off.</summary>
+    public string StrictAdvice { get; init; } = "";
+
     /// <summary>Whether this attempt may replay: a first attempt, or any attempt under strict mode.</summary>
     public bool ReplayEligible { get; init; }
 
@@ -311,7 +314,7 @@ internal sealed class StepTraceSession
 
         throw new AgentException(
             "REPLAY_STALE",
-            "The recording for '" + _options.Instruction + "' no longer matches (" + reason + "). Strict cache mode does not run it live; re-record it without cache.strict.");
+            _host.Redact.Redact("the recording of this step no longer replays (" + reason + "), and cache.strict hands no step to the agent; " + _options.StrictAdvice));
     }
 
     // Under strict mode, ends a step whose key found no entry while the cache directory holds a recording made for the same
@@ -331,7 +334,7 @@ internal sealed class StepTraceSession
 
         throw new AgentException(
             "REPLAY_STALE",
-            "The recording for '" + _options.Instruction + "' sits under another cache key (" + previous.Key + ".json), since " + why + " after it was recorded. Strict cache mode does not run it live; re-record it without cache.strict.");
+            _host.Redact.Redact("the recording of this step no longer replays: the store holds it under another cache key (" + previous.Key + ".json), since " + why + " after it was recorded, and cache.strict hands no step to the agent; " + _options.StrictAdvice));
     }
 
     // Replays one hit: decides it against the start route, runs the recorded actions, then checks the postcondition. Actions

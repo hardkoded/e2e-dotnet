@@ -575,7 +575,9 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
 - Commit `.e2e/cache/` to share replays with CI and teammates.
 - `cache.strict` fails a recording that no longer replays with
   `REPLAY_STALE`, also when the recording sits under an old key (topic
-  `running`). Re-record with a run without it, then commit. A version that
+  `running`). The message says how to re-record: a `read-write` run with
+  `cache.strict` set to false, then commit the changed entry under the cache
+  directory. A version that
   changed the cache key (the one with the `trace-1` key) invalidated every
   earlier recording: re-record them all once.
 

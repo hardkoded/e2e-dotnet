@@ -60,7 +60,7 @@ When no model answered, the entry stays as it is, unless a failure on the app im
 
 The agent heals toward the goal in the instruction, not toward the recorded clicks. If the discount button moved, the agent finds it. If discounts stop working, the step or the check after it fails. A goal can still pass in a way you didn't intend, for example with a different discount, so follow each `ActAsync` with a deterministic check of the result, such as the `ToHaveTextAsync("10% off")` above. That check runs on every run, replayed or healed.
 
-With `CI` set and `cache.mode` unset, the cache is `read-only`, so a healed step isn't saved. It hands off again on every CI run and pays for model calls each time. Record it again in a local `read-write` run, then commit `.e2e/cache/`. To fail instead of heal, run CI with `cache.strict`. A step whose recording no longer replays fails with `REPLAY_STALE` and makes no model call.
+With `CI` set and `cache.mode` unset, the cache is `read-only`, so a healed step isn't saved. It hands off again on every CI run and pays for model calls each time. Record it again in a local `read-write` run, then commit `.e2e/cache/`. To fail instead of heal, run CI with `cache.strict`. A step whose recording no longer replays fails with `REPLAY_STALE` and makes no model call. The message ends with how to re-record it: a `read-write` run with `cache.strict` set to false, then commit the changed entry under the cache directory (`.e2e/cache`, `cache.dir`, or `E2E_CACHE_DIR`, relative to the project). A cache directory outside the project is named by its absolute path with no commit to ask for, and a custom `cache.store` is named as the place the run writes the new entry.
 
 ## Rerun a test while you fix it
 

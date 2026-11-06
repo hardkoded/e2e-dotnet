@@ -1680,6 +1680,32 @@ internal sealed class AttemptScope
     }
 
     /// <summary>
+    /// Upstream's <c>strict.advice</c> on <c>AgentCacheContext</c> (<c>cache/context.ts</c>): how to re-record a recording
+    /// <c>cache.strict</c> failed on. .NET-only name: the port has no <c>strict</c> object on a cache context.
+    /// </summary>
+    public string StrictAdvice => StaleAdvice(Cache!, ProjectRoot ?? Directory.GetCurrentDirectory());
+
+    /// <summary>
+    /// Upstream's <c>staleAdvice</c> (<c>cache/context.ts</c>): a read-write run with the knob that turned strict on turned off, and where
+    /// the new entry lands, as the project names it. The port has no <c>--strict-cache</c> flag, so <c>cache.strict</c> is the only knob.
+    /// Upstream reads the store and directory off <c>ResolvedCacheConfig</c>; the port reads them off the store the attempt runs on, where
+    /// anything but a <see cref="FileStepCache"/> is a configured <c>cache.store</c>.
+    /// </summary>
+    internal static string StaleAdvice(IStepCache cache, string projectRoot)
+    {
+        const string run = "re-record it with a read-write run with cache.strict set to false";
+        if (cache is not FileStepCache files)
+        {
+            return run + "; the run writes the new entry to the configured cache.store";
+        }
+
+        var where = Paths.DisplayPath(projectRoot, files.CacheDirectory);
+        return Paths.InsideProjectRoot(projectRoot, files.CacheDirectory)
+            ? run + " and commit the changed entry under " + where
+            : run + "; the run writes the new entry under " + where;
+    }
+
+    /// <summary>
     /// The project id a key is scoped by. The port has no <c>projectId</c> config key, so every project keys under the empty id,
     /// and a cache directory belongs to one project.
     /// </summary>

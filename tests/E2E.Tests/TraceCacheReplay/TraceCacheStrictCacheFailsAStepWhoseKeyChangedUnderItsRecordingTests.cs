@@ -24,9 +24,9 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
             await session.App.OpenAsync("/settings/billing");
             var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
             Assert.Equal("REPLAY_STALE", error.Code);
-            Assert.Contains("sits under another cache key (" + oldEntry + ")", error.Message, StringComparison.Ordinal);
+            Assert.Contains("holds it under another cache key (" + oldEntry + ")", error.Message, StringComparison.Ordinal);
             Assert.Contains("since the agent's context (its context, or the test's agentContext) changed after it was recorded", error.Message, StringComparison.Ordinal);
-            Assert.EndsWith("re-record it without cache.strict.", error.Message, StringComparison.Ordinal);
+            Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
             Assert.Equal(1, session.Missed);
             session.Complete(error);
         }
