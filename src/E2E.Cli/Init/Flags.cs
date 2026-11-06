@@ -28,7 +28,7 @@ internal static class InitFlags
           --gateway <id>    model gateway for agent steps in a new config: vercel, openrouter, openai-compatible, chatgpt, copilot, opencode-console, grok, or none
           --endpoint <url>  base URL of the API for --gateway openai-compatible, which it implies
           --skills <dirs>   where to install the agent skill, comma-separated: .agents/skills, .claude/skills, or none
-          --mcp <files>     where to register the MCP server, comma-separated: .mcp.json, .cursor/mcp.json, or none
+          --mcp <files>     where to register the MCP server, comma-separated: .mcp.json, .cursor/mcp.json, .codex/config.toml, or none
         """;
 
     /// <summary>Parses the arguments after <c>init</c>; a usage error is returned in <c>Error</c> for exit 2.</summary>

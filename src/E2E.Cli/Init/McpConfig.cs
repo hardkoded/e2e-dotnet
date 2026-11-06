@@ -32,8 +32,8 @@ internal sealed record McpPlan(IReadOnlyList<McpRegistration> Registrations, IRe
 
 /// <summary>
 /// Upstream's <c>cli/init/mcp-config.ts</c>: the <c>e2e init</c> step that registers the <c>e2e mcp</c> server with the coding
-/// agents that read a project-level MCP config file. Each file is JSON with a <c>mcpServers</c> map; the entry is merged in and
-/// every other server is left exactly as it was. A file reached through a symlink, or under a linked directory, is never read
+/// agents that read a project-level MCP config file. JSON clients use a <c>mcpServers</c> map; Codex uses TOML. Every other
+/// server is left exactly as it was. A file reached through a symlink, or under a linked directory, is never read
 /// or written through: init reports the link and skips it.
 /// </summary>
 internal static partial class McpConfig
@@ -43,6 +43,7 @@ internal static partial class McpConfig
     [
         new(".mcp.json", "Claude Code"),
         new(".cursor/mcp.json", "Cursor"),
+        new(".codex/config.toml", "Codex"),
     ];
 
     private const string McpServerName = "e2e";
@@ -50,9 +51,15 @@ internal static partial class McpConfig
     private static readonly JsonDocumentOptions Strict = new();
 
     /// <summary>The line that registers the server by hand, for a project that skipped it.</summary>
-    public const string RegisterCommand = "claude mcp add --scope project e2e -- e2e mcp";
+    public const string RegisterCommand = "e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json";
 
-    private static JsonObject ServerEntry() => new() { ["command"] = "e2e", ["args"] = new JsonArray("mcp") };
+    private const string ServerCommand = "e2e";
+
+    private static readonly string[] ServerArgs = ["mcp"];
+
+    private static JsonObject ServerEntry() => new() { ["command"] = ServerCommand, ["args"] = new JsonArray([.. ServerArgs.Select(arg => (JsonNode?)JsonValue.Create(arg))]) };
+
+    private static bool IsToml(string file) => file.EndsWith(".toml", StringComparison.Ordinal);
 
     private static JsonObject? ReadDocument(string absolute)
     {
@@ -63,13 +70,14 @@ internal static partial class McpConfig
 
         var text = File.ReadAllText(absolute);
         JsonNode? parsed;
+        var toml = IsToml(absolute);
         try
         {
-            parsed = text.Trim().Length == 0 ? new JsonObject() : JsonNode.Parse(text, null, Strict);
+            parsed = toml ? CodexConfig.ReadCodexConfig(text) : text.Trim().Length == 0 ? new JsonObject() : JsonNode.Parse(text, null, Strict);
         }
-        catch (JsonException cause)
+        catch (Exception cause) when (cause is JsonException or InvalidOperationException or Tomlyn.TomlException)
         {
-            throw new InvalidOperationException(absolute + " is not valid JSON; fix it or remove it before registering the MCP server", cause);
+            throw new InvalidOperationException(absolute + " is not valid " + (toml ? "TOML" : "JSON") + "; fix it or remove it before registering the MCP server", cause);
         }
 
         return parsed as JsonObject ?? throw new InvalidOperationException(absolute + " must hold a JSON object with a \"mcpServers\" map");
@@ -116,7 +124,7 @@ internal static partial class McpConfig
 
             try
             {
-                return ReadDocument(Path.Combine(cwd, file))?["mcpServers"] is JsonObject servers && servers.ContainsKey(McpServerName);
+                return ReadDocument(Path.Combine(cwd, file))?[IsToml(file) ? "mcp_servers" : "mcpServers"] is JsonObject servers && servers.ContainsKey(McpServerName);
             }
             catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
             {
@@ -143,7 +151,8 @@ internal static partial class McpConfig
             }
 
             var document = ReadDocument(absolute) ?? new JsonObject();
-            var servers = document["mcpServers"] as JsonObject ?? new JsonObject();
+            var serverKey = IsToml(file) ? "mcp_servers" : "mcpServers";
+            var servers = document[serverKey] as JsonObject ?? new JsonObject();
             var existing = servers[McpServerName];
             JsonObject entry;
             if (existing is JsonObject current)
@@ -170,7 +179,7 @@ internal static partial class McpConfig
             mergedServers[McpServerName] = entry;
             merged["mcpServers"] = mergedServers;
             var original = File.Exists(absolute) ? File.ReadAllText(absolute) : null;
-            registrations.Add(new McpRegistration(file, original is not null, absolute, Serialize(merged, original) + "\n"));
+            registrations.Add(new McpRegistration(file, original is not null, absolute, IsToml(file) ? CodexConfig.UpdateCodexConfig(original ?? "", ServerCommand, ServerArgs) : Serialize(merged, original) + "\n"));
         }
 
         return new McpPlan(registrations, links);

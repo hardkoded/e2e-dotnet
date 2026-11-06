@@ -65,6 +65,9 @@ public sealed partial class E2eInitTests : CliInitTestBase
         var server = JsonNode.Parse("""{ "mcpServers": { "e2e": { "command": "e2e", "args": ["mcp"] } } }""")!;
         Assert.True(JsonNode.DeepEquals(server, Json(".mcp.json")));
         Assert.True(JsonNode.DeepEquals(server, Json(".cursor/mcp.json")));
+        Assert.Contains("[mcp_servers.e2e]", Read(".codex/config.toml"), StringComparison.Ordinal);
+        Assert.Contains("command = \"e2e\"", Read(".codex/config.toml"), StringComparison.Ordinal);
+        Assert.Contains("trusted projects", Output, StringComparison.Ordinal);
         Assert.Contains(".e2e/results/", Read(".gitignore"), StringComparison.Ordinal);
         Assert.Contains(".e2e/cache/", Read(".gitignore"), StringComparison.Ordinal);
         Assert.Contains(".e2e/report.json", Read(".gitignore"), StringComparison.Ordinal);
@@ -596,11 +599,14 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
         Assert.Empty(Prompts.SelectCalls);
         Assert.Equal(2, Prompts.MultiSelectCalls.Count);
+        var mcpQuestion = Prompts.MultiSelects.Single(call => call.Message.Contains("MCP", StringComparison.Ordinal));
+        Assert.Equal([".mcp.json", ".cursor/mcp.json", ".codex/config.toml"], mcpQuestion.Options.Select(option => option.Value));
+        Assert.Equal([".mcp.json", ".cursor/mcp.json", ".codex/config.toml"], mcpQuestion.InitialValues);
         Assert.False(Exists(".agents"));
         Assert.False(Exists(".claude"));
         Assert.False(Exists(".mcp.json"));
         Assert.Contains("e2e guide", Output, StringComparison.Ordinal);
-        Assert.Contains("claude mcp add --scope project e2e -- e2e mcp", Output, StringComparison.Ordinal);
+        Assert.Contains("e2e init --yes --skills none --mcp .codex/config.toml,.mcp.json,.cursor/mcp.json", Output, StringComparison.Ordinal);
     }
 
     [Fact]

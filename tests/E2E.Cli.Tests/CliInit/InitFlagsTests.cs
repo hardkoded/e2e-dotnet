@@ -65,6 +65,18 @@ public sealed class InitFlagsTests : CliInitTestBase
     }
 
     [Fact]
+    public void Merges_repeated_mcp_flags_like_comma_separated_ones_and_names_the_codex_file_in_the_unknown_value_error()
+    {
+        var (options, error) = InitFlags.Parse(["--mcp", ".cursor/mcp.json", "--mcp", ".mcp.json,.codex/config.toml"]);
+        Assert.Null(error);
+        Assert.Equal([".cursor/mcp.json", ".mcp.json", ".codex/config.toml"], options!.Mcp);
+
+        (options, error) = InitFlags.Parse(["--mcp", "claude"]);
+        Assert.Null(options);
+        Assert.Equal("error: --mcp: unknown MCP config file \"claude\"; expected .mcp.json, .cursor/mcp.json, .codex/config.toml, none", error);
+    }
+
+    [Fact]
     public void Reads_values_in_both_forms_and_the_directory()
     {
         var (options, error) = InitFlags.Parse(["apps/web", "--yes", "--engine=web", "--skills", ".claude/skills/"]);
