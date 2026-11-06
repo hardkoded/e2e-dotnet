@@ -57,10 +57,11 @@ internal static class McpCommand
             stop.Cancel();
         }
 
+        // A task nobody awaited (a cancelled engine call) is logged, redacted; it does not end the server.
         void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs args)
         {
             args.SetObserved();
-            OnUncaught(args.Exception);
+            ReportUncaught(output, args.Exception);
         }
 
         void OnUnhandled(object sender, UnhandledExceptionEventArgs args) => OnUncaught(args.ExceptionObject);
@@ -106,7 +107,7 @@ internal static class McpCommand
     internal static void ReportUncaught(McpOutput output, object? cause)
     {
         ArgumentNullException.ThrowIfNull(output);
-        var text = cause is AggregateException aggregate ? aggregate.Flatten().InnerException?.ToString() ?? aggregate.ToString() : cause?.ToString();
+        var text = cause is AggregateException aggregate ? aggregate.Flatten().ToString() : cause?.ToString();
         output.Report("e2e mcp: [error] uncaught: " + text);
     }
 }

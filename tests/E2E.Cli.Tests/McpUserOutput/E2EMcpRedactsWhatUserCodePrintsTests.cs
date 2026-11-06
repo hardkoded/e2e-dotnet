@@ -4,23 +4,24 @@
 
 using E2E.Cli.Mcp;
 using E2E.Internal;
+using McpOutputType = E2E.Cli.Mcp.McpOutput;
 
 namespace E2E.Cli.Tests.McpUserOutput;
 
 /// <summary>
 /// <c>describe('e2e mcp redacts what user code prints')</c> of upstream's <c>mcp-user-output.test.ts</c>. Upstream spawns a
 /// real server on a TypeScript config whose top-level code prints, and on a <c>defineTool</c> tool. The port's config is
-/// JSON and has no project tools, so both tests run the server's output layer (<see cref="McpOutput"/>) in process.
+/// JSON and has no project tools, so both tests run the server's output layer (<see cref="McpOutputType"/>) in process.
 /// </summary>
 public sealed class E2EMcpRedactsWhatUserCodePrintsTests
 {
     private const string Token = "tok-secret-9";
 
-    private static (McpOutput Output, E2E.Internal.SecretLedger Ledger, Func<string> Text) Create()
+    private static (McpOutputType Output, E2E.Internal.SecretLedger Ledger, Func<string> Text) Create()
     {
         var ledger = new E2E.Internal.SecretLedger();
         var sink = new System.Text.StringBuilder();
-        var output = new McpOutput(text => sink.Append(text), ledger);
+        var output = new McpOutputType(text => sink.Append(text), ledger);
         return (output, ledger, () => sink.ToString());
     }
 

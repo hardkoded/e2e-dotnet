@@ -730,9 +730,10 @@ internal sealed class StreamRedactor(Func<Redactor> current)
     private string PushText(string chunk)
     {
         var text = _held + chunk;
-        var cut = current().HoldFrom(text);
+        var redactor = current();
+        var cut = redactor.HoldFrom(text);
         _held = text[cut..];
-        return current().Redact(text[..cut]);
+        return redactor.Redact(text[..cut]);
     }
 }
 
