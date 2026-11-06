@@ -14,7 +14,7 @@ namespace E2E.Tests.EngineSecrets;
 /// has no <c>e2e.config.ts</c> to call <c>secrets.get()</c>. The two redaction <c>it</c>s are <c>Partial_</c>: the port has no
 /// reporters (<c>markdown</c>, <c>junit</c>), so they read every file the session wrote under its results directory instead of the
 /// reporters' files. Not ported, because the port has no such feature: "hands the engine a declared value and refuses one it did not
-/// declare" (the engine has no declared-secrets API).
+/// declare" (the engine has no declared-secrets API; issue #1246). The reporters are listed under "Not ported" in COMPATIBILITY.md.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ASecretInAnEngineOptionTests
@@ -28,7 +28,7 @@ public sealed class ASecretInAnEngineOptionTests
     /// in the request, which an engine-held secret does not withhold, and the credential in none of it.
     /// </summary>
     [Fact]
-    public async Task Sends_the_tree_without_the_credential_and_its_pixels_as_with_no_secret()
+    public async Task Partial_Sends_the_tree_without_the_credential_and_its_pixels_as_with_no_secret()
     {
         using var site = await TinySite.StartAsync(async context =>
         {
