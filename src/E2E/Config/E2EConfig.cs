@@ -965,8 +965,8 @@ public sealed class E2EConfig
             throw Invalid("credentials must be an object of { username, password } by name");
         }
 
-        var entries = raw is null ? [] : raw.Value.EnumerateObject().ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
-        List<string> names = [.. entries.Keys, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
+        var (entries, fileNames) = ObjectEntries(raw);
+        List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
         CheckEnvNameCollisions("E2E_USER", "credentials", names);
         foreach (var name in names)
         {
@@ -1073,6 +1073,23 @@ public sealed class E2EConfig
             + ", so one value set there would replace all of them; rename all but one");
     }
 
+    /// <summary>The properties of a JSON object by name and in file order. A name written twice stays in the list, so the variable collision check refuses it.</summary>
+    private static (Dictionary<string, JsonElement> Entries, List<string> Names) ObjectEntries(JsonElement? raw)
+    {
+        Dictionary<string, JsonElement> entries = new(StringComparer.Ordinal);
+        List<string> names = [];
+        if (raw is { } value)
+        {
+            foreach (var property in value.EnumerateObject())
+            {
+                entries[property.Name] = property.Value;
+                names.Add(property.Name);
+            }
+        }
+
+        return (entries, names);
+    }
+
     private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, ResolvedCredential> credentials, IReadOnlyDictionary<string, SecretProvider> providers)
     {
         if (raw is not null && raw.Value.ValueKind != JsonValueKind.Object)
@@ -1080,8 +1097,8 @@ public sealed class E2EConfig
             throw Invalid("secrets must be an object of secret values by name");
         }
 
-        var entries = raw is null ? [] : raw.Value.EnumerateObject().ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
-        List<string> names = [.. entries.Keys, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
+        var (entries, fileNames) = ObjectEntries(raw);
+        List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
         if (names.Count == 0)
         {
             return Secrets.Empty;

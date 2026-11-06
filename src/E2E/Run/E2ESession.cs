@@ -376,6 +376,7 @@ public sealed class E2ESession : IAsyncDisposable
             browser.BudgetDeadline = budgetDeadline;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
+            screen.RegisterSecretValue = scope.Register;
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;
             screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, runLimits.MaxObservationBytes);

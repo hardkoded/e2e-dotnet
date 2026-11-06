@@ -172,6 +172,17 @@ public sealed class ResolveConfigTests
         Assert.Null(config.Secrets.Get("rotated").Provider);
     }
 
+    /// <summary>.NET-only: JSON allows a name twice, which a TypeScript object cannot hold; the config refuses it as <c>INVALID_CONFIG</c>, not as a crash.</summary>
+    [Fact]
+    public void Refuses_a_secret_or_credential_written_twice_in_the_file()
+    {
+        var secret = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "secrets": { "key": "value-one", "key": "value-two" } }""", Root, Env()));
+        Assert.Equal("INVALID_CONFIG", secret.Code);
+        var credential = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "a": { "username": "u", "password": "password-1" }, "a": { "username": "u", "password": "password-2" } } }""", Root, Env()));
+        Assert.Equal("INVALID_CONFIG", credential.Code);
+    }
+
     [Fact]
     public async Task Asks_a_provider_for_its_value_each_time_and_refuses_one_under_6_code_points()
     {
