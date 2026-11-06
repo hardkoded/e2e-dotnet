@@ -191,6 +191,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     private const string TextReplyNotice =
         "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
 
+    // Upstream's FREE_TOOL_CHOICE_MODELS: models that refused a forced tool choice once. A model that answers HTTP 400 to that request
+    // shape gets auto for the rest of the process, so the refusal costs one round trip per model, not one per step. Held weakly by the
+    // model object, like upstream's WeakSet.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IAgentModel, object> FreeToolChoiceModels = new();
+
     // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
@@ -227,10 +232,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var shrunkOnce = false;
         var noticedLowClock = false;
 
-        // Upstream's LoopRun.toolChoice: how the step asks for tool calls. Upstream starts with 'required'; the port starts with auto
-        // until the retry for a model that refuses a forced choice lands (#1157, next PR), since a model such as Claude Fable 5.1 answers
-        // HTTP 400 to it and the port cannot yet fall back.
-        var toolChoice = ModelToolChoice.Auto;
+        // Upstream's LoopRun.toolChoice: how the step asks for tool calls. 'required' unless the model refused a forced choice before;
+        // it flips to auto when the model rejects one (FreeToolChoiceRetry) or the provider downgrades one (NoticeToolChoiceDowngrade).
+        var toolChoice = FreeToolChoiceModels.TryGetValue(model, out _) ? ModelToolChoice.Auto : ModelToolChoice.Required;
         var clockWindDownMs = Math.Min(ClockWindDownMs, budget.RemainingMs() / ClockWindDownFraction);
         string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
@@ -333,7 +337,20 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             try
             {
                 lastShape = [.. messages.Select(MessageShape.ShapeOf)];
-                traced = await CompleteAsync(model, system, messages, offered, turnToolChoice, context, redactor, token).ConfigureAwait(false);
+                for (; ; )
+                {
+                    try
+                    {
+                        traced = await CompleteAsync(model, system, messages, offered, turnToolChoice, context, redactor, token).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (Exception rejected) when (turnToolChoice.Forced && !token.IsCancellationRequested && ToolChoice.IsForcedToolChoiceRejected(rejected))
+                    {
+                        // The refused request was no turn, so it spends no call of the budget: the same request goes out again under auto.
+                        toolChoice = FreeToolChoiceRetry(model, turns, "the model rejected a forced tool choice before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": retrying with auto");
+                        turnToolChoice = toolChoice;
+                    }
+                }
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
@@ -365,12 +382,22 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             using var generation = traced;
             var response = traced.Response;
             var turn = turns.Begin(response);
+            toolChoice = NoticeToolChoiceDowngrade(model, toolChoice, response, turns);
             if (response.ToolCalls.Count == 0)
             {
                 // A refusal is a verdict on the prompt, not a turn to coax a tool call out of.
                 if (string.Equals(response.FinishReason, ModelResponse.ContentFilter, StringComparison.Ordinal))
                 {
                     throw ModelHttp.ModelRefusalError(model.Name, response.RawFinishReason, redactor);
+                }
+
+                // A finished reply without a tool call under a forced choice is a provider that downgraded the choice to auto and a model
+                // that answered in prose. The turn was answered and billed; the same request goes out again under auto, and the reply is
+                // not kept in the history.
+                if (turnToolChoice.Forced && ToolChoice.IsForcedToolCallSkipped(new ToolChoiceViolationException(response.FinishReason ?? "stop")))
+                {
+                    toolChoice = FreeToolChoiceRetry(model, turns, "turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " answered without the forced tool call: retrying with auto");
+                    continue;
                 }
 
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
@@ -449,6 +476,31 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             StepVerdictStatus.Failed,
             "the agent used " + turns.Used.ToString(CultureInfo.InvariantCulture) + " of " + maxCalls.ToString(CultureInfo.InvariantCulture) + " turn(s) without calling done",
             "STEP_NO_CONCLUSION");
+    }
+
+    // Upstream's LoopRun.freeToolChoiceRetry: a model that refuses a forced tool choice (an HTTP 400 naming tool_choice), or answers a
+    // forced turn in prose, is asked again with auto on the same turn budget. The instructions already hold the tool-calls-only rule, so
+    // nothing else in the request changes. The model is remembered, so later steps start in auto.
+    private static ModelToolChoice FreeToolChoiceRetry(IAgentModel model, TurnLog turns, string note)
+    {
+        turns.Note(note);
+        FreeToolChoiceModels.AddOrUpdate(model, new object());
+        return ModelToolChoice.Auto;
+    }
+
+    // Upstream's LoopRun.noticeToolChoiceDowngrade: a provider that downgraded a forced choice to auto on its own (a toolChoice warning
+    // on a turn that otherwise succeeded) is treated like one that refused it: the rest of the step asks with auto under the
+    // tool-calls-only rule, and the model is remembered, so later steps start in auto.
+    private static ModelToolChoice NoticeToolChoiceDowngrade(IAgentModel model, ModelToolChoice toolChoice, ModelResponse response, TurnLog turns)
+    {
+        if (!toolChoice.Forced || !response.Warnings.Any(ToolChoice.IsForcedToolChoiceDowngraded))
+        {
+            return toolChoice;
+        }
+
+        turns.Note("the provider sent auto in place of a forced tool choice on turn " + turns.Used.ToString(CultureInfo.InvariantCulture) + ": continuing with auto");
+        FreeToolChoiceModels.AddOrUpdate(model, new object());
+        return ModelToolChoice.Auto;
     }
 
     // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that

@@ -65,10 +65,9 @@ providers and their logins):
   (chat completions), `text.format` (Responses), or `responseJsonSchema`
   (Google), and make Anthropic and Bedrock call a forced `json` tool.
 - The act tool loop sets `ModelRequest.ToolChoice` (a `ModelToolChoice`:
-  `Auto`, `Required`, or `Tool(name)`) on every turn. For now the loop always
-  sends `Auto`; it will send `Required`, and `Tool("done")` on the forced
-  conclusion turns, once refusals of a forced choice are retried. A null
-  choice means `Auto`. The built-in providers send
+  `Auto`, `Required`, or `Tool(name)`) on every turn: `Required`, and
+  `Tool("done")` on the forced conclusion turns. A null choice means `Auto`.
+  The built-in providers send
   their own form of it: `tool_choice` (`auto`, `any`, or a named tool) for
   Anthropic, `"auto"`, `"required"`, or a named function for chat completions
   and Responses, `functionCallingConfig` mode `AUTO` or `ANY` (with
@@ -77,7 +76,13 @@ providers and their logins):
   send `auto` and return a `ModelWarning` (`Type` `unsupported`, `Feature`
   `toolChoice`) in `ModelResponse.Warnings`. A custom `IAgentModel` may ignore
   the choice, since the loop offers only `done` on a forced turn either way.
-  Refusals of a forced choice are not retried with `auto` yet.
+  When a model answers a forced choice with an HTTP 4xx naming `tool_choice`
+  (for example Claude Fable 5.1's `tool_choice: type "tool" and "any" are not
+  supported for this model`), answers a forced turn in prose, or returns the
+  `toolChoice` warning above, the loop sends the request again (or continues
+  the step) with `Auto` under the same instructions, and starts later steps on
+  that model object in `Auto`. A custom `IAgentModel` that fails a forced
+  choice should fail with a message that says so, so the loop can read it.
 - A custom `IAgentModel` reports each call's tokens, cache tokens, and cost in
   `ModelResponse.Usage` (a `ModelCallUsage`; it was `ModelUsage`, which is now
   the step's internal accumulator, as upstream's). The step's report sums
