@@ -8,7 +8,7 @@ namespace E2E.Tests.AgentConfig;
 
 // Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported for
 // report_finding alone: the port has none of the other tools it names (complete_step, locate, the recording tools). Neither has
-// "digests tools by name and live values by identity", a model instance as the entry, or the config digest.
+// a model instance as the entry.
 public sealed class TheBuiltInAgentOptionsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -29,6 +29,37 @@ public sealed class TheBuiltInAgentOptionsTests
         Assert.Same(lookup, Assert.Single(agent.Tools!).Value);
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "agents": { "default": { "system": 5 } } }""", Root, _ => null));
         Assert.Equal("agents.default.system must be a string", error.Message);
+    }
+
+    /// <summary>The recursive schema is a JSON Schema whose <c>$ref</c> points at itself, and the circular store is an <see cref="IStepCache"/> that holds a client pointing back at itself.</summary>
+    [Fact]
+    public void Digests_tools_by_name_and_live_values_by_identity_so_a_recursive_tool_schema_loads()
+    {
+        var schema = JsonNode.Parse(
+            """
+            { "type": "object", "properties": { "root": { "$ref": "#/$defs/Node" } },
+              "$defs": { "Node": { "type": "object", "properties": { "name": { "type": "string" }, "children": { "type": "array", "items": { "$ref": "#/$defs/Node" } } } } } }
+            """)!.AsObject();
+        var tree = new AgentTool("walks a tree", schema, false, (_, _) => Task.FromResult("ok"));
+        var config = E2EConfig.Parse("{}", Root, _ => null).WithCacheStore(new CircularStore());
+        string Of(string name) => ResolvedConfig.ComputeConfigDigest(config, new Dictionary<string, AgentOptions> { ["default"] = new() { Tools = new Dictionary<string, AgentTool> { [name] = tree } } });
+
+        var agent = ResolvedAgent.From("default", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["tree"] = tree } });
+        Assert.Same(tree, Assert.Single(agent.Tools!).Value);
+        Assert.Equal(Of("tree"), Of("tree"));
+        Assert.NotEqual(Of("tree"), Of("walk"));
+    }
+
+    /// <summary>A store whose client points back at itself: JSON cannot clone it.</summary>
+    private sealed class CircularStore : IStepCache
+    {
+        public Config.ResolveConfigTests.Cycle Client { get; } = new();
+
+        public CacheLookup Read(string key) => throw new InvalidOperationException("not called");
+
+        public void Write(string key, CacheEntry entry) => throw new InvalidOperationException("not called");
+
+        public void Delete(string key) => throw new InvalidOperationException("not called");
     }
 
     /// <summary>Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": only report_finding exists here, and the list of those tools is not compared with what the surfaces add.</summary>

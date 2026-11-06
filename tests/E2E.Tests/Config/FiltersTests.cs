@@ -7,8 +7,7 @@ namespace E2E.Tests.Config;
 /// <summary>
 /// <c>describe('filters')</c> of <c>config.test.ts</c>, through <c>ResolvedConfig.ResolveTestFilters</c> (upstream's <c>resolveTestFilters</c>).
 /// Not ported: "refuses filters that are not a list" and "says to call a function in the list, naming it by its index and its name", since
-/// the list and its items are typed (an <c>IReadOnlyList&lt;ITestFilter?&gt;</c> cannot hold a function or a non-list). Not ported: "leaves the
-/// config digest alone when a filter is added, changed, or removed, even one holding a cyclic client", since the port has no config digest.
+/// the list and its items are typed (an <c>IReadOnlyList&lt;ITestFilter?&gt;</c> cannot hold a function or a non-list).
 /// </summary>
 public sealed class FiltersTests
 {
@@ -83,12 +82,25 @@ public sealed class FiltersTests
         Assert.Contains("filters has two filters named \"jev\"", Refused(jev, jev).Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Leaves_the_config_digest_alone_when_a_filter_is_added_changed_or_removed_even_one_holding_a_cyclic_client()
+    {
+        var config = E2EConfig.Parse("{}", Path.Combine(Path.GetTempPath(), "e2e-config-root"));
+        var plain = HostTestFilters.Resolve(config, []).ConfigDigest;
+        Assert.NotEmpty(plain);
+        Assert.Equal(plain, HostTestFilters.Resolve(config, [Filter("areas"), Filter("jev")]).ConfigDigest);
+        Assert.Equal(plain, HostTestFilters.Resolve(config, [new NamedFilter("jev") { Client = new ResolveConfigTests.Cycle() }]).ConfigDigest);
+    }
+
     /// <summary>A filter that leaves nothing out, with a key of its own (upstream's <c>{ name, filter: decide, model }</c>).</summary>
     private sealed class NamedFilter(string name) : ITestFilter
     {
         public string Name { get; } = name;
 
         public string? Model { get; init; }
+
+        /// <summary>A client that points back at itself (upstream's <c>client</c>): JSON cannot clone it.</summary>
+        public ResolveConfigTests.Cycle? Client { get; init; }
 
         public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
             Task.FromResult(new TestFilterResult { Exclude = new Dictionary<string, string>() });
