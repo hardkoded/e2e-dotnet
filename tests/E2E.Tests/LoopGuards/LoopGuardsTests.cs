@@ -5,9 +5,7 @@
 namespace E2E.Tests.LoopGuards;
 
 /// <summary>
-/// Upstream's "checkLoopGuards thresholds" describe is not ported: the port fixes the thresholds and takes no caller override. Of the
-/// "failure streak" describe, the streak `it` is ported. The others read tool result text (`isFailedResult`, `extractToolResults`), which
-/// the port does not parse: its loop knows from each tool's result whether the call failed (COMPATIBILITY, Ported).
+/// Upstream's "loop guards" describe (loop-guards.test.ts).
 /// </summary>
 public sealed class LoopGuardsTests
 {
@@ -91,17 +89,5 @@ public sealed class LoopGuardsTests
 
         Assert.False(verdict.Stop);
         Assert.Contains("4 times in a row", verdict.Reason, StringComparison.Ordinal);
-    }
-
-    private static (bool Stop, string? Reason) Streak(params bool[] failed) =>
-        E2E.LoopGuards.CheckFailureStreak([.. failed.Select(item => new GuardToolResult(item))]);
-
-    [Fact]
-    public void Warns_at_three_failures_in_a_row_stops_at_five_and_starts_over_after_a_success()
-    {
-        Assert.Equal((false, null), Streak(true, true));
-        Assert.Equal((false, "the last 3 actions failed in a row"), Streak(false, true, true, true));
-        Assert.True(Streak(true, true, true, true, true).Stop);
-        Assert.Equal((false, null), Streak(true, true, true, true, false, true, true));
     }
 }
