@@ -462,7 +462,7 @@ public sealed partial class WebEngine : IEngine
             {
                 await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 var credentials = _options.BasicAuth is { } basicAuth
-                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
+                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? (async (secret, _) => (await secret.ResolveAsync(cancellationToken).ConfigureAwait(false)).Value)).ConfigureAwait(false)
                     : null;
                 if (connect is not null)
                 {
