@@ -15,7 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
-    <!-- Shared with the mobile engine: the press key grammar and the cleanup budget, owned by E2E.Mobile. -->
+    <!-- Shared with the mobile engine: the cleanup budget, owned by E2E.Mobile. -->
     <Compile Include="..\E2E.Mobile\CleanupBudget.cs" Link="CleanupBudget.cs" />
     <!-- The engine behind `winapp ui`, as a library. It ships Windows assets only, which AssetTargetFallback admits under net10.0. -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp.UIAutomation" Version="0.7.1" />

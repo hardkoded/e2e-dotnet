@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using E2E.Mobile;
 
 namespace E2E.WinApp;
 
@@ -12,7 +11,7 @@ public sealed record WinAppKeys(string Text, bool Verbatim);
 
 /// <summary>
 /// The spelling of a <c>press</c> key in the winapp library's grammar. The key grammar itself is <see cref="KeyGrammar"/> (upstream's <c>parseKey</c>), shared with
-/// the mobile engine (compiled into this assembly from <c>E2E.Mobile</c>) so a test's key names are portable: zero or more modifiers
+/// the mobile engine (it lives in the core, <c>E2E.Engine</c>) so a test's key names are portable: zero or more modifiers
 /// and one key, joined by <c>+</c>. A bare character goes out as literal text; one held with a modifier goes out as a chord.
 /// </summary>
 public static class WindowKeys
