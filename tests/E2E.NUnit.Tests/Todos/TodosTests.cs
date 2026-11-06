@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
-using E2E;
 
 namespace E2E.NUnit.Tests.Todos;
 
@@ -23,6 +22,7 @@ public sealed class TodosTests : E2ETest
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
 
+    // Upstream's beforeEach. NUnit runs the base class's SetUp (which starts the session) before this one.
     [SetUp]
     public async Task OpenTodos()
     {
