@@ -49,6 +49,30 @@ internal static class WebSupport
         _ = DisposeWhenSettledAsync(read);
     }
 
+    /// <summary>
+    /// Releases the pin of a lookup that settles after the operation abandoned it, so the list is not held for good. .NET-only, as
+    /// <see cref="DisposeWhenSettled"/>: the pin is the port's own (see <see cref="RefRegistry.LookupPinnedAsync"/>).
+    /// </summary>
+    public static void DisposePinWhenSettled(Task<(ActionTarget Target, IDisposable Pin)> lookup)
+    {
+        _ = lookup.ContinueWith(
+            static done =>
+            {
+                if (done.IsCompletedSuccessfully)
+                {
+                    done.Result.Pin.Dispose();
+                }
+                else
+                {
+                    // The lookup failed: nothing is pinned, and its error was the caller's.
+                    _ = done.Exception;
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
     private static async Task DisposeQuietlyAsync(IAsyncDisposable handle)
     {
         try

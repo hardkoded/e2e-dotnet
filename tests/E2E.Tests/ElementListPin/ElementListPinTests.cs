@@ -44,6 +44,28 @@ public sealed class ElementListPinTests
     }
 
     [Fact]
+    public async Task A_lookup_the_deadline_abandoned_releases_its_pin_when_it_settles()
+    {
+        var registry = new RefRegistry();
+        var open = new TaskCompletionSource();
+        var scripted = new ScriptedList(gate: open.Task);
+        var list = new EngineElementList(scripted.Handle);
+        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, new Dictionary<string, ListedTarget> { ["n1"] = new(list, 0) }));
+        var lookup = registry.LookupPinnedAsync("n1");
+        WebSupport.DisposePinWhenSettled(lookup);
+
+        // The caller gave up; the list is then replaced while the lookup is still pending.
+        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, []));
+        open.SetResult();
+        await lookup;
+        await Task.Yield();
+        await Task.Yield();
+
+        Assert.Equal(1, scripted.Disposed);
+        Assert.Equal(1, scripted.Made[0].Disposed);
+    }
+
+    [Fact]
     public async Task A_publish_during_a_pinned_lookup_leaves_the_handle_usable()
     {
         var registry = new RefRegistry();

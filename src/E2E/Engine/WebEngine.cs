@@ -1508,15 +1508,24 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task<(IElementHandle Element, IDisposable Pin)> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
         {
+            var lookup = _refs.LookupPinnedAsync(node.Ref);
             try
             {
-                var (target, pin) = await budget.WithinAsync(_refs.LookupPinnedAsync(node.Ref)).ConfigureAwait(false);
+                var (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
                 return (((ElementTarget)target).Element, pin);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
+                // A lookup the deadline abandoned still pins its list when it settles.
+                WebSupport.DisposePinWhenSettled(lookup);
+
                 // As upstream, the deadline cutting off any part of an action is the action's cut-off.
                 throw WebErrors.ClassifyAction(ex, action);
+            }
+            catch
+            {
+                WebSupport.DisposePinWhenSettled(lookup);
+                throw;
             }
         }
 
