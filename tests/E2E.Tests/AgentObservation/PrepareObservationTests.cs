@@ -13,7 +13,7 @@ namespace E2E.Tests.AgentObservation;
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without repeating capture" (the settle loop
 /// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". Every
 /// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, collapsed name, cut-secret field, every string field)
-/// checks part of its upstream it; the last two read the rendered text and <c>ProjectTree</c>. The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
+/// checks part of its upstream it; the collapsed-field test reads the rendered text and the anchors, and the cut-secret and every-string-field tests read the rendered text and <c>ProjectTree</c>. The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
