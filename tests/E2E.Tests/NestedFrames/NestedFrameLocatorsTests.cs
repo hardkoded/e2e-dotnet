@@ -55,7 +55,7 @@ public sealed class NestedFrameLocatorsTests
     {
         await using var host = await HostAsync();
 
-        // The inner document's one button, whatever an earlier test renamed it to.
+        // The inner document's one button, by role alone (upstream's test shares a page where an earlier test renamed it).
         var button = new LocatorExpression { Kind = "role", Role = "button" };
         var node = (await host.Session.LocateAsync(WithinFrames(["#outer", "#inner"], button), Timeout, CancellationToken.None))[0];
 
