@@ -12,8 +12,8 @@ namespace E2E.Tests.AgentObservation;
 /// pixel evidence beside the tree, and no <c>redactNodesAgain</c>. So these upstream its are not ported: "keeps unavailable semantics separate from
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without repeating capture" (the settle loop
 /// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". Every
-/// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, cut-secret field, every string field, collapsed-secret
-/// cut matrix) checks part of its upstream it; the last three read the rendered text and <c>ProjectTree</c>, and the matrix reads the anchors too. The pixel tests
+/// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, collapsed name, cut-secret field, every string field)
+/// checks part of its upstream it; the last two read the rendered text and <c>ProjectTree</c>. The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
@@ -21,6 +21,7 @@ public sealed class PrepareObservationTests
 {
     private static readonly System.Text.Json.JsonSerializerOptions Relaxed = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    // Relaxed escaping keeps "<secret:name>" readable in the serialized tree.
     private static string Json<T>(T value) => System.Text.Json.JsonSerializer.Serialize(value, Relaxed);
 
     /// <summary>Partial: upstream "carries an engine-reported cut through as truncated" checks its own marker and format. The port renders the screen in its own format and marker, and counts no bytes or nodes beside the text.</summary>
@@ -277,73 +278,5 @@ public sealed class PrepareObservationTests
             Assert.DoesNotContain(Token, shown, StringComparison.Ordinal);
             Assert.DoesNotContain(Token[..12], shown, StringComparison.Ordinal);
         }
-    }
-
-    /// <summary>
-    /// Partial: upstream <c>describe.each</c> "a secret of %s an engine collapsed, then cut at the name and text limits" (6 secrets x 3 cut positions = 18 cases) reads the
-    /// text, the executor tree and the anchors from <c>prepareObservation</c> and <c>describeDelta</c>. The port has no <c>PreparedObservation</c>:
-    /// it renders the text, projects the tree with <c>ProjectTree</c>, and projects the anchors with <c>Anchors.Project</c> as the step cache does.
-    /// </summary>
-    [Theory]
-    [MemberData(nameof(CollapsedSecretCuts))]
-    public void Partial_keeps_no_part_of_a_secret_an_engine_collapsed_then_cut_at_the_name_and_text_limits(string kind, string lead, string separator, string tail, string where, int kept)
-    {
-        var label = $"a secret of {kind} an engine collapsed, then cut {where}";
-        var redactor = Redactor.For([Secret.Create("multi", lead + separator + tail)]);
-        var collapsed = lead + " " + tail;
-        string Cut(int limit) => new string('x', limit - kept - 1) + " " + collapsed[..kept];
-        var tree = new SemanticNode
-        {
-            Ref = "n1",
-            Role = "document",
-            Children =
-            [
-                new SemanticNode { Ref = "n2", Role = "heading", Name = Cut(ObservationLimits.Name) },
-                new SemanticNode { Ref = "n3", Text = Cut(ObservationLimits.Text) },
-            ],
-        };
-        Assert.Equal(ObservationLimits.Name, Cut(ObservationLimits.Name).Length);
-        Assert.Equal(ObservationLimits.Text, Cut(ObservationLimits.Text).Length);
-        var observation = new Observation { Route = "/", Roots = [tree] };
-        var text = SnapshotText.Render(observation, redactor);
-        var projected = global::E2E.AgentObservation.ProjectTree([tree], redactor, null);
-        var anchors = Anchors.Describe(
-            [],
-            Anchors.Project(observation, redactor.Redact, redactor.Redact, (value, limit) => global::E2E.AgentObservation.RedactText(value, redactor, limit)),
-            false).Appeared;
-        Assert.True(string.Join(' ', anchors.Select(anchor => anchor.Name ?? anchor.Text)).Contains("<secret:multi>", StringComparison.Ordinal), label + ": the anchors lose the secret's name");
-        string[] fragments = [lead, lead[..8], collapsed[..30], tail[..8]];
-        foreach (var shown in new[] { text, Json(projected), Json(anchors) })
-        {
-            Assert.True(shown.Contains("<secret:multi>", StringComparison.Ordinal), label + ": no marker in " + shown);
-            foreach (var fragment in fragments)
-            {
-                Assert.True(!shown.Contains(fragment, StringComparison.Ordinal), $"{label}: '{fragment}' survives in {shown}");
-            }
-        }
-    }
-
-    public static TheoryData<string, string, string, string, string, int> CollapsedSecretCuts()
-    {
-        const string Letters = "leadqzrtmwxplkdsnvbhcjfg";
-        const string LettersTail = "tailyqaeuoirktywzxnumbvcxzlkjhgfdsapoiuytrewqmnbvcxzlkj";
-        (string Kind, string Lead, string Separator, string Tail)[] secrets =
-        [
-            ("letters with a line break", Letters, "\n", LettersTail),
-            ("hex with a line break", "0f3a9c71e4b2d85601aa7c3e", "\n", "9b84f0c2d17e6a35b9f04c8d2e71a6b3c95d08f4e2a7b61c3d9e0f5"),
-            ("letters with a tab", Letters, "\t", LettersTail),
-            ("letters with a CRLF", Letters, "\r\n", LettersTail),
-            ("letters with a no-break space", Letters, "\u00A0", LettersTail),
-            ("letters with repeated spaces", Letters, "   ", LettersTail),
-        ];
-        var data = new TheoryData<string, string, string, string, string, int>();
-        foreach (var (kind, lead, separator, tail) in secrets)
-        {
-            data.Add(kind, lead, separator, tail, "in the second part", lead.Length + 15);
-            data.Add(kind, lead, separator, tail, "on the collapsed space", lead.Length + 1);
-            data.Add(kind, lead, separator, tail, "in the first part", 10);
-        }
-
-        return data;
     }
 }
