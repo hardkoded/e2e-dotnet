@@ -190,7 +190,7 @@ internal static class HostTestFilters
         try
         {
             var target = new ReportTarget(config.Target.Name, 0, config.Target.Platform, BuildReport.DescribeTarget(null));
-            await ReportFile.WriteLeftOutAsync(selection, target, config.ProjectRoot, OutputLayout.Of(config.Output).Results, cancellationToken).ConfigureAwait(false);
+            await ReportFile.WriteLeftOutAsync(selection, target, config.ProjectRoot, OutputLayout.Of(config.Output).Results, Resolve(config, []), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

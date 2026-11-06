@@ -53,6 +53,9 @@ internal static class ReportFile
 
         public Task<VcsInfo?> Vcs { get; } = vcs;
 
+        /// <summary>The resolved config the run holds, once the host passes one (<see cref="WriteLeftOutAsync"/>); the document's <c>project.configDigest</c> reads it.</summary>
+        public ResolvedConfig? Config { get; set; }
+
         public Dictionary<string, Entry> Results { get; } = new(StringComparer.Ordinal);
 
         public List<ReportTarget> Targets { get; } = [];
@@ -223,7 +226,7 @@ internal static class ReportFile
     /// unselected result of each test left out, <c>run.filters</c>, and <c>run.changes</c> (.NET-only: upstream's runner holds them when it builds the report;
     /// a test left out starts no session, so no session would add it). The run exists from here, so a run whose every test was left out still has its document.
     /// </summary>
-    public static async Task WriteLeftOutAsync(HostSelection selection, ReportTarget target, string projectRoot, string resultsRoot, CancellationToken cancellationToken = default)
+    public static async Task WriteLeftOutAsync(HostSelection selection, ReportTarget target, string projectRoot, string resultsRoot, ResolvedConfig? config = null, CancellationToken cancellationToken = default)
     {
         resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
         var state = StateOf(resultsRoot, AttemptReport.RunId, projectRoot, DateTimeOffset.UtcNow);
@@ -243,6 +246,7 @@ internal static class ReportFile
                 state.Results[result.Id] = new Entry(result with { TargetId = named.Id, Platform = named.Platform });
             }
 
+            state.Config = config ?? state.Config;
             state.Changes = selection.Changes;
             state.Filters = selection.Filters;
             state.Previous = selection.Previous;
@@ -328,6 +332,7 @@ internal static class ReportFile
         {
             RunId = state.RunId,
             ProjectRoot = state.ProjectRoot,
+            Config = state.Config,
             ReportTargets = state.Targets,
             StartedAt = state.StartedAt,
             Status = status,

@@ -287,7 +287,7 @@ internal sealed record ReportTarget(string Id, int Index, string Platform, Targe
 /// <param name="ConfigDigest">The digest of the resolved config.</param>
 internal sealed record ReportProject(string Id, string ConfigDigest)
 {
-    /// <summary>What upstream reports without a resolved config. The port has no project id or config digest.</summary>
+    /// <summary>What upstream reports without a resolved config. The port has no project id, and a run whose config was not resolved here has no config digest.</summary>
     public static ReportProject Unknown { get; } = new("unknown", new string('0', 64));
 }
 
