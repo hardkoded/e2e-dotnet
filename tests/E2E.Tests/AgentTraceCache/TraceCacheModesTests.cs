@@ -68,8 +68,9 @@ public sealed class TraceCacheModesTests
 
         Assert.Single(Directory.GetFiles(directory));
 
+        Assert.Equal(CacheMode.ReadOnly, ResolvedMode(ci: true));
         var recorded = TwoTapCounter.FileState(directory);
-        var inCi = TwoTapCounter.Model();
+        var inCi =TwoTapCounter.Model();
         ActResult second;
         await using (var session = await TwoTapCounter.StartAsync(directory, inCi, mode: ResolvedMode(ci: true)))
         {
@@ -77,7 +78,6 @@ public sealed class TraceCacheModesTests
             session.Complete();
         }
 
-        Assert.Equal(CacheMode.ReadOnly, ResolvedMode(ci: true));
         Assert.Equal(0, inCi.CallCount);
         Assert.Equal(("self-finalized", 2, 2), (second.Cache?.Mode, second.Cache?.ReplayedActions, second.Cache?.TotalActions));
         Assert.Matches(new Regex("^[0-9a-f]{64}$"), second.Cache?.Entry);
