@@ -8,11 +8,35 @@ using static E2E.Tests.StepCache.StepCachePipelineTests;
 namespace E2E.Tests.StepCache;
 
 /// <summary>
-/// "still runs live a step with no recording and a recording too long to replay" is not ported: the port has no truncated entries.
 /// "fails a step whose recording diverged instead of handing it off, and keeps the cache detail" is covered by <c>ConfigTests.Strict_mode_fails_a_stale_recording</c>.
 /// </summary>
 public sealed class CacheStrictPipelineTests
 {
+    [Fact]
+    public async Task Still_runs_live_a_step_with_no_recording_and_a_recording_too_long_to_replay_through_the_pipeline()
+    {
+        Assert.Null((await StepAsync(StorageWorld(), new FileStepCache(CoreTests.TempCache()), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")), strict: true)).Error);
+
+        var truncated = new CacheEntry { Route = "/storage", Truncated = true, Actions = [.. Enumerable.Range(0, 50).Select(_ => new RecordedAction { Kind = "tap", Role = "button", Name = "Save marker" })] };
+        var step = await StepAsync(StorageWorld(), new FixedEntryCache(truncated), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")), strict: true);
+
+        Assert.Null(step.Error);
+        Assert.Equal(("missed", "truncated", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+    }
+
+    private sealed class FixedEntryCache(CacheEntry entry) : IStepCache
+    {
+        public CacheLookup Read(string key) => new() { Entry = entry };
+
+        public void Write(string key, CacheEntry written)
+        {
+        }
+
+        public void Delete(string key)
+        {
+        }
+    }
+
     [Fact]
     public async Task Fails_an_entry_it_cannot_read_and_a_recording_made_on_another_screen_through_the_pipeline()
     {

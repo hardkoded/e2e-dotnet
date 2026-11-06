@@ -81,6 +81,28 @@ public sealed class CacheEntry
     /// </summary>
     internal bool HasValidEndWait() => EndWaitMs is null or >= 0 and <= Trace.MaxTraceEndWaitMs;
 
+    /// <summary>
+    /// Upstream's <c>truncated</c>: the recording is withheld from replay because it cannot be stored faithfully: it passed the action cap
+    /// (<see cref="Trace.MaxTraceActions"/>), a replay input held a secret or passed <see cref="Trace.MaxTraceInputChars"/>, or a target had no
+    /// descriptor a replay could re-find it by. It still documents what happened; a replay never takes it (<c>decideTraceReplay</c>). Null when whole.
+    /// </summary>
+    public bool? Truncated { get; set; }
+
+    /// <summary>
+    /// Whether the entry is within the caps a recording keeps: at most <see cref="Trace.MaxTraceActions"/> actions, locations within
+    /// <see cref="Trace.MaxTraceInputChars"/>, at most <see cref="Trace.MaxTraceAnchors"/> anchors on each side of the delta, and anchor states that
+    /// are known, sorted, and unrepeated. Upstream's <c>readActionTrace</c>, <c>readAnchors</c>, and <c>readStates</c>, which make an entry over a
+    /// cap a miss.
+    /// </summary>
+    internal bool HasValidCaps() =>
+        Actions.Count <= Trace.MaxTraceActions
+        && Route is not { Length: > Trace.MaxTraceInputChars }
+        && EndRoute is not { Length: > Trace.MaxTraceInputChars }
+        && Appeared.Count <= Trace.MaxTraceAnchors
+        && Gone.Count <= Trace.MaxTraceAnchors
+        && Appeared.All(anchor => anchor.HasValidStates())
+        && Gone.All(anchor => anchor.HasValidStates());
+
     private const int MaxRecordedByChars = 300;
 
     /// <summary>
@@ -289,6 +311,16 @@ public sealed class RecordedAction
             ? Destination is { } destination && (destination.Role is not null || destination.Name is not null || destination.TestId is not null)
             : Destination is null;
 
+    /// <summary>
+    /// Whether the replay inputs are within <see cref="Trace.MaxTraceInputChars"/>: a typed or selected <see cref="Value"/>, a navigated <see cref="Url"/>,
+    /// and the <see cref="Text"/> a <c>scrollUntil</c> pages toward. Upstream's <c>readTypedValue</c> and <c>readInputText</c>, which make an oversized
+    /// input a miss: a recording never holds one, since it poisons the trace instead (<see cref="CacheEntry.Truncated"/>).
+    /// </summary>
+    internal bool HasValidInputs() =>
+        Value is not { Length: > Trace.MaxTraceInputChars }
+        && Url is not { Length: > Trace.MaxTraceInputChars }
+        && (Kind != "scrollUntil" || Text is not { Length: > Trace.MaxTraceInputChars });
+
     /// <summary>A shallow copy of this action, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
     internal RecordedAction Copy() => (RecordedAction)MemberwiseClone();
 
@@ -391,6 +423,16 @@ public sealed class RecordedTarget
 
     /// <summary>An anchor's <c>checked</c>, <c>expanded</c>, <c>pressed</c>, and <c>selected</c> states that are on. Null for none.</summary>
     public List<string>? States { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="States"/> is well formed: absent, or a non-empty list of <see cref="Trace.TraceAnchorStates"/>, each once, in sorted order, as
+    /// the anchors write them. Upstream's <c>readStates</c>, which makes an anchor with any other states a miss.
+    /// </summary>
+    internal bool HasValidStates() =>
+        States is null
+        || (States.Count > 0
+            && States.All(state => state is not null && Trace.TraceAnchorStates.Contains(state))
+            && States.Zip(States.Skip(1)).All(pair => string.CompareOrdinal(pair.First, pair.Second) < 0));
 
     /// <summary>A shallow copy of this node, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
     internal RecordedTarget Copy() => (RecordedTarget)MemberwiseClone();
@@ -592,9 +634,9 @@ public sealed class FileStepCache : IStepCache
                 continue;
             }
 
-            // An entry with no actions never replays under any key, so it is never the reason a step is stale.
+            // An entry with no actions, and a truncated one, never replays under any key, so neither is ever the reason a step is stale.
             var entry = TryRead(key);
-            var stepKey = entry is { Actions.Count: > 0 } ? StepKey(entry) : null;
+            var stepKey = entry is { Actions.Count: > 0, Truncated: not true } ? StepKey(entry) : null;
             if (stepKey is not null)
             {
                 if (!recordings.TryGetValue(stepKey, out var keys))

@@ -8,12 +8,11 @@ using static E2E.Tests.StepCache.StepCachePipelineTests;
 namespace E2E.Tests.TraceCache;
 
 /// <summary>
-/// The stored entry, <c>FileStepCache</c> and its schema 1. The port has no <c>createdAt</c>, summaries, executor, action cap,
-/// input cap, anchor cap, anchor state check, path cap, or <c>typeSecret</c> action, so "missing createdAt", "unparseable createdAt",
-/// "too many actions", "unknown action name", "tap without a target", "type without a value", "select with an empty value",
-/// "oversized input value", "empty summary", "oversized summary", "empty descriptor", "missing executor name",
-/// "empty anchor descriptor", "too many anchors", "too many gone anchors", "unknown anchor state", "unsorted anchor states",
-/// "repeated anchor state", "empty anchor states", and "oversized start path" are not ported.
+/// The stored entry, <c>FileStepCache</c> and its schema 1. The port has no <c>createdAt</c>, summaries, executor, or
+/// <c>typeSecret</c> action, so "missing createdAt", "unparseable createdAt", "unknown action name", "tap without a target",
+/// "type without a value", "select with an empty value", "empty summary", "oversized summary", "empty descriptor",
+/// "missing executor name", and "empty anchor descriptor" are not ported. The caps and the anchor states are checked where the
+/// replay reads the entry, so their its run at the session seam like the resize ones.
 /// </summary>
 public sealed class Trace1EntryTests
 {
@@ -199,6 +198,67 @@ public sealed class Trace1EntryTests
         var cache = new FixedCache(new CacheEntry { Route = "/storage", Actions = [.. actions] });
 
         var step = await StepAsync(StorageWorld(), cache, "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+
+        Assert.True(step.Error is null, label);
+        Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+    }
+
+    public static TheoryData<string> OverCap =>
+    [
+        "too many actions",
+        "oversized input value",
+        "oversized start path",
+        "too many anchors",
+        "too many gone anchors",
+        "unknown anchor state",
+        "unsorted anchor states",
+        "repeated anchor state",
+        "empty anchor states",
+    ];
+
+    /// <summary>
+    /// Port of the "rejects %s" cases that name a cap or an anchor state. Difference: the port reads the entry at the replay, not in the
+    /// file store, so each is a miss with the reason <c>invalid-entry</c>, as the resize cases are.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(OverCap))]
+    public async Task Rejects_an_entry_over_a_cap_or_with_malformed_anchor_states_as_a_miss(string label)
+    {
+        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Save marker" };
+        var entry = new CacheEntry { Route = "/storage", Actions = [tap] };
+        RecordedTarget Switch(params string[] states) => new() { Role = "switch", Name = "On", States = [.. states] };
+        switch (label)
+        {
+            case "too many actions":
+                entry.Actions = [.. Enumerable.Range(0, Trace.MaxTraceActions + 1).Select(_ => tap)];
+                break;
+            case "oversized input value":
+                entry.Actions = [new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = new string('v', Trace.MaxTraceInputChars + 1) }];
+                break;
+            case "oversized start path":
+                entry.Route = "/" + new string('x', Trace.MaxTraceInputChars + 1);
+                break;
+            case "too many anchors":
+                entry.Appeared = [.. Enumerable.Range(0, Trace.MaxTraceAnchors + 1).Select(index => new RecordedTarget { Text = "a" + index })];
+                break;
+            case "too many gone anchors":
+                entry.Gone = [.. Enumerable.Range(0, Trace.MaxTraceAnchors + 1).Select(index => new RecordedTarget { Text = "a" + index })];
+                break;
+            case "unknown anchor state":
+                entry.Appeared = [Switch("focused")];
+                break;
+            case "unsorted anchor states":
+                entry.Appeared = [Switch("selected", "checked")];
+                break;
+            case "repeated anchor state":
+                entry.Appeared = [Switch("checked", "checked")];
+                break;
+            case "empty anchor states":
+                entry.Appeared = [Switch()];
+                break;
+        }
+
+        var step = await StepAsync(StorageWorld(), new FixedCache(entry), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
 
         Assert.True(step.Error is null, label);
         Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));

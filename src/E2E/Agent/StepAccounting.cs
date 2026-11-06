@@ -36,7 +36,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
     public int MaxModelCalls => maxModelCalls;
 
-    public TraceRecorder Recorder => LazyInitializer.EnsureInitialized(ref _recorder, () => new TraceRecorder(() => _scope?.Redactor ?? Redactor.None));
+    public TraceRecorder Recorder => LazyInitializer.EnsureInitialized(ref _recorder, () => new TraceRecorder(() => _scope?.Redactor ?? Redactor.None, maxActions: maxActions));
 
     /// <summary>The one queue the step's observations and actions run in, in call order.</summary>
     public OperationQueue Queue { get; } = new();

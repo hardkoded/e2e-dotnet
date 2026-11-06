@@ -288,7 +288,10 @@ yet), `invalid-entry` (an old or broken file, or a store that could not be
 read), `target-not-found` (the control's role or name changed),
 `target-ambiguous`, `action-failed` or `action-uncertain` (the first
 recorded action threw, or may have reached the app; a later action hands off
-instead), `wrong-context` (the app was on another origin, path, or query), or
+instead), `truncated` (the recording hit a limit: more than 50 actions, a typed
+value or URL over 4,096 characters or one that holds a registered secret, or a
+control with no usable description; split the step or pass the secret as a
+`Secret`), `wrong-context` (the app was on another origin, path, or query), or
 `end-mismatch` (every action ran, but the recorded route, a control that
 should have appeared or gone away, or a recorded state did not come back;
 the outcome was already on screen before the replay; or the replay raised

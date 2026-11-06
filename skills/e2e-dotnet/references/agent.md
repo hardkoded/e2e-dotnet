@@ -538,8 +538,11 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
   `target-ambiguous`, `action-failed`, `action-uncertain` (the replay stopped
   before any action; after one it hands off; under `cache.strict` a miss other
-  than `no-entry`, `gap`, and an unreadable store fails with `REPLAY_STALE`), `end-mismatch`, `gap` (the recording stops at a
-  project tool, see below).
+  than `no-entry`, `gap`, `truncated`, and an unreadable store fails with `REPLAY_STALE`), `end-mismatch`, `gap` (the recording stops at a
+  project tool, see below), `truncated` (the recording hit a limit and never
+  replays: more than 50 actions, a typed value or URL over 4,096 characters or
+  one that holds a registered secret, or a control with no usable description;
+  split the step, or pass the secret as a `Secret`).
   `ActResult.Cache.Detail` says where the replay stopped and why
   (`at action 2 of 3, tap button "Apply": ...`). After an `end-mismatch` it
   names what did not hold: the recorded nodes that did not show, the ones that did not go away, and

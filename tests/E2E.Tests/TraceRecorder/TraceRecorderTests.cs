@@ -12,12 +12,8 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, truncation
-/// flag, action cap, secret names, or entry validation. So
-/// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
-/// "poisons the trace instead of bending a replay
-/// input", "truncates past the action cap
-/// instead of dropping the flag", "rejects a stored check or upload that lost a field". The bare-point its are in
+/// The port's recorder keeps a plain action list: no summaries, CSS selectors, secret names, or entry validation. So
+/// upstream's "rejects a stored check or upload that lost a field" is not ported whole. The bare-point its are in
 /// <see cref="TraceRecorderBarePointTapsTests"/> and <see cref="TraceRecorderBarePointDragsTests"/>. The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
 /// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
 /// </summary>
@@ -35,6 +31,13 @@ public sealed class TraceRecorderTests
     {
         var redactor = Redactor.For(secrets);
         return new Recorder(() => redactor);
+    }
+
+    /// <summary>Upstream's <c>makeRecorder({ maxActions })</c>.</summary>
+    internal static Recorder MakeRecorder(int maxActions, params Secret[] secrets)
+    {
+        var redactor = Redactor.For(secrets);
+        return new Recorder(() => redactor, maxActions: maxActions);
     }
 
     internal static CacheEntry? Finalize(Recorder recorder, string route = "/settings") => recorder.Finalize(Step, route, route, [], []);
@@ -59,6 +62,7 @@ public sealed class TraceRecorderTests
 
         Assert.NotNull(entry);
         Assert.Equal("/settings", entry.Route);
+        Assert.Null(entry.Truncated);
         Assert.Equal(
             [("navigate", "/billing", null, null, null, null), ("tap", null, "button", "Upgrade", "upgrade-cta", null), ("fill", null, "button", "Upgrade", "upgrade-cta", "yearly")],
             entry.Actions.Select(action => (action.Kind, action.Url, action.Role, action.Name, action.TestId, action.Value)));
@@ -77,7 +81,7 @@ public sealed class TraceRecorderTests
         Assert.Equal(2, read.Actions.Count);
     }
 
-    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no <c>secret</c> field, and has no truncation flag to leave unset.</summary>
+    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no <c>secret</c> field.</summary>
     [Fact]
     public void Records_a_secret_fill_as_its_marker_with_page_strings_redacted()
     {
@@ -93,6 +97,8 @@ public sealed class TraceRecorderTests
         Assert.Equal("<secret:member-password>", entry.Actions[0].Value);
         Assert.Equal("Greeting <secret:member-password>", entry.Actions[1].Name);
         Assert.Equal("example/<secret:member-password>", entry.RecordedBy);
+        // Descriptor redaction alone never poisons the trace.
+        Assert.Null(entry.Truncated);
     }
 
     [Fact]
@@ -151,11 +157,10 @@ public sealed class TraceRecorderTests
         Assert.Contains("Code <secret:token>", serialized, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial port of "folds consecutive identical scrolls into one action with a repeat count": the port has no action cap to stay under and no truncation flag to leave unset.</summary>
     [Fact]
     public void Folds_consecutive_identical_scrolls_into_a_repeat_count_that_reads_back()
     {
-        var recorder = MakeRecorder();
+        var recorder = MakeRecorder(3);
         for (var i = 0; i < 5; i++)
         {
             recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down" });
@@ -166,6 +171,7 @@ public sealed class TraceRecorderTests
         var entry = Finalize(recorder)!;
 
         Assert.Equal([("down", (int?)5), ("up", null)], entry.Actions.Select(action => (action.Direction, action.Times)));
+        Assert.Null(entry.Truncated);
         var read = RoundTrip(entry);
         Assert.Equal(("scroll", "down", (int?)5), (read.Actions[0].Kind, read.Actions[0].Direction, read.Actions[0].Times));
     }
@@ -211,6 +217,87 @@ public sealed class TraceRecorderTests
     }
 
     [Fact]
+    public void Poisons_a_trace_whose_target_is_an_unnamed_twin_no_named_row_tells_apart_and_keeps_one_that_a_row_does()
+    {
+        var icon = new SemanticNode { Ref = "i", Role = "button" };
+        var orphan = MakeRecorder();
+        orphan.Record("tap", icon, position: new TracePosition { Index = 1, Of = 2 });
+        Assert.True(Finalize(orphan)?.Truncated);
+
+        var rowed = MakeRecorder();
+        rowed.Record("tap", icon, within: "Alpha", position: new TracePosition { Index = 0, Of = 1 });
+        Assert.Null(Finalize(rowed)?.Truncated);
+    }
+
+    /// <summary>Port of "poisons the trace instead of bending a replay input". Difference: the port's typed value is a <c>fill</c> where upstream's is a <c>type</c>.</summary>
+    [Fact]
+    public void Poisons_the_trace_instead_of_bending_a_replay_input()
+    {
+        // A typed value carrying a registered secret would be altered by redaction; a value over the cap cannot be stored whole. Both poison.
+        var leaking = MakeRecorder(Secret.Create("pw", "hunter2", "password"));
+        leaking.Record("fill", UpgradeButton, value: "say hunter2");
+        var leaked = Finalize(leaking);
+        Assert.True(leaked?.Truncated);
+        Assert.DoesNotContain("hunter2", JsonSerializer.Serialize(leaked, Relaxed), StringComparison.Ordinal);
+
+        var oversized = MakeRecorder();
+        oversized.Record(new RecordedAction { Kind = "navigate", Url = "/callback?token=" + new string('x', Trace.MaxTraceInputChars) });
+        Assert.True(Finalize(oversized)?.Truncated);
+
+        // Every other replay input, and a location, is kept or poisoned the same way (upstream's one `verbatim`).
+        Action<Recorder>[] inputs =
+        [
+            recorder => recorder.Record("press", UpgradeButton, key: "hunter2"),
+            recorder => recorder.Record("select", UpgradeButton, value: "hunter2"),
+            recorder => recorder.Record(new RecordedAction { Kind = "upload", Role = "button", Name = "Upgrade", Paths = ["fixtures/hunter2.txt"] }),
+            recorder => recorder.Record(new RecordedAction { Kind = "scrollUntil", Text = "hunter2", Direction = "down" }),
+            recorder => recorder.Record(new RecordedAction { Kind = "typeText", Value = "hunter2", Replace = false }),
+            recorder => recorder.Record(new RecordedAction { Kind = "pressKey", Key = "hunter2" }),
+        ];
+        foreach (var record in inputs)
+        {
+            var other = MakeRecorder(Secret.Create("pw", "hunter2", "password"));
+            record(other);
+            var poisoned = Finalize(other);
+            Assert.True(poisoned?.Truncated);
+            Assert.DoesNotContain("hunter2", JsonSerializer.Serialize(poisoned, Relaxed), StringComparison.Ordinal);
+        }
+
+        var located = MakeRecorder(Secret.Create("pw", "hunter2", "password"));
+        located.Record("tap", UpgradeButton);
+        var path = located.Finalize(Step, "/pay?token=hunter2", "/settings", [], []);
+        Assert.True(path?.Truncated);
+        Assert.DoesNotContain("hunter2", JsonSerializer.Serialize(path, Relaxed), StringComparison.Ordinal);
+    }
+
+    /// <summary>A secret fill holds its marker, a name, so it never poisons the trace, even when the secret's value is a piece of the marker. No upstream <c>it</c>: upstream's <c>typeSecret</c> holds the name in its own field.</summary>
+    [Fact]
+    public void Keeps_a_secret_fill_marker_without_poisoning_the_trace()
+    {
+        var recorder = MakeRecorder(Secret.Create("password", "secret", "password"));
+        recorder.Record("fill", PasswordField, value: "<secret:password>");
+
+        var entry = Finalize(recorder)!;
+
+        Assert.Null(entry.Truncated);
+        Assert.Equal("<secret:password>", entry.Actions[0].Value);
+    }
+
+    [Fact]
+    public void Truncates_past_the_action_cap_instead_of_dropping_the_flag()
+    {
+        var recorder = MakeRecorder(2);
+        recorder.Record("tap", UpgradeButton);
+        recorder.Record("tap", UpgradeButton);
+        recorder.Record("tap", UpgradeButton);
+
+        var entry = Finalize(recorder);
+
+        Assert.Equal(2, entry?.Actions.Count);
+        Assert.True(entry?.Truncated);
+    }
+
+    [Fact]
     public void Returns_no_trace_for_a_step_that_committed_nothing()
     {
         Assert.Null(Finalize(MakeRecorder()));
@@ -226,8 +313,9 @@ public sealed class TraceRecorderTests
             recorder.Record(kind, UpgradeButton);
         }
 
-        var drag = recorder.Record("drag", UpgradeButton);
+        var drag = Recorder.ActionOf("drag", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
         drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
+        recorder.Record(drag);
         recorder.Record(new RecordedAction { Kind = "back" });
         recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
         recorder.Record("hoverAt", new PlacedPoint(new Point(10, 20)), new TraceViewport(1280, 720));
@@ -235,6 +323,7 @@ public sealed class TraceRecorderTests
 
         var read = RoundTrip(entry);
 
+        Assert.Null(entry.Truncated);
         Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back", "resize", "hoverAt"], entry.Actions.Select(action => action.Kind));
         Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[11].Point!.Value, read.Actions[11].Viewport));
         Assert.Equal(("region", "Done column", "Board"), (read.Actions[8].Destination?.Role, read.Actions[8].Destination?.Name, read.Actions[8].Destination?.Within));

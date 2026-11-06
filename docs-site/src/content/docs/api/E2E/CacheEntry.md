@@ -250,3 +250,20 @@ public string? Test { get; set; }
 The test title. A secret value in it is masked.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_CacheEntry_Truncated_"></a>
+<a id="E2E_CacheEntry_Truncated"></a>
+
+### Truncated
+
+
+```csharp
+public bool? Truncated { get; set; }
+```
+
+
+Upstream's `truncated`: the recording is withheld from replay because it cannot be stored faithfully: it passed the action cap
+(`MaxTraceActions`), a replay input held a secret or passed `MaxTraceInputChars`, or a target had no
+descriptor a replay could re-find it by. It still documents what happened; a replay never takes it (`decideTraceReplay`). Null when whole.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
