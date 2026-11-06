@@ -68,7 +68,8 @@ internal static class ToolChoice
                 return true;
             }
 
-            current = current.InnerException;
+            // Upstream's `cause ?? lastError`: the last attempt of a spent retry chain stands in for a missing cause.
+            current = current.InnerException ?? (current as RetryException)?.LastError;
         }
 
         return false;
@@ -98,4 +99,19 @@ internal sealed class ToolChoiceViolationException(string finishReason)
 {
     /// <summary>The finish reason of the reply: <c>stop</c> for a finished one, anything else for a reply cut off or filtered.</summary>
     public string FinishReason { get; } = finishReason;
+}
+
+/// <summary>
+/// The AI SDK's <c>RetryError</c> (<c>reason: 'maxRetriesExceeded'</c>): a request whose retries are spent, carrying every attempt's
+/// failure and the last one. <see cref="ToolChoice.IsForcedToolChoiceRejected"/> follows <see cref="LastError"/> as upstream follows
+/// <c>cause ?? lastError</c>. .NET-only: <c>ModelHttp.SendAsync</c> throws the last attempt's failure itself (callers match its
+/// <c>AgentException</c> code), so nothing in the port throws this today; a caller that wraps a spent chain can.
+/// </summary>
+internal sealed class RetryException(string message, IReadOnlyList<Exception> errors) : Exception(message)
+{
+    /// <summary>Upstream's <c>errors</c>: the failure of each attempt, oldest first.</summary>
+    public IReadOnlyList<Exception> Errors { get; } = errors;
+
+    /// <summary>Upstream's <c>lastError</c>: the failure of the final attempt.</summary>
+    public Exception? LastError => Errors.Count > 0 ? Errors[^1] : null;
 }
