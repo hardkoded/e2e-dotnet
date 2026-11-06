@@ -155,7 +155,10 @@ no viewer. It tells, in this order:
 `Agent turns of step N` shows the last 12 turns the model took in the step
 that ended the attempt, oldest first: the tool calls (arguments cut to 200
 characters) and what came back (cut to 600), with the loop's own notes after
-them (`[loop] turn 2 made no tool call: asking for one`). The built-in agent and
+them (`[loop] turn 2 made no tool call: asking for one`). The loop-guard notes
+are among them: `[loop] loop guard warned before turn 5: ...` when the loop
+warned the model it was going in circles, and `[loop] the step was stopped
+before turn 7: ...` when it left the model only `done`. The built-in agent and
 any `ToolLoop.CreateToolLoopExecutor` executor record them. An executor of
 your own records them with `AttachTurns`.
 
