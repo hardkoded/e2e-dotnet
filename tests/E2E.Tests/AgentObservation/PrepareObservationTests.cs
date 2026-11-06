@@ -173,7 +173,7 @@ public sealed class PrepareObservationTests
 
     /// <summary>Partial: the port renders the name and text, with no test id, anchors, or node index to read back.</summary>
     [Fact]
-    public void Collapses_a_name_so_a_secret_its_written_form_hides_is_replaced()
+    public void Partial_collapses_a_name_so_a_secret_its_written_form_hides_is_replaced()
     {
         var tree = new SemanticNode
         {
@@ -188,7 +188,9 @@ public sealed class PrepareObservationTests
     /// <summary>
     /// Partial: upstream "redacts the leading part of a secret a field cut at its limit ends with, and leaves a cut plain value and a whole field alone"
     /// reads the same fields from <c>prepareObservation</c>'s text, its executor tree, and its node index. The port has no node index and no
-    /// <c>PreparedObservation</c>: it checks the rendered text and <c>ProjectTree</c>.
+    /// <c>PreparedObservation</c>: it checks the rendered text and <c>ProjectTree</c>. It also does not compare n6 and n7 as whole nodes
+    /// (<c>toEqual(tree.children[..])</c>) or that the tree's child is the node index entry; it checks their text and value, and the text line.
+    /// It asserts that the port withholds a selection upstream redacts (<c>SnapshotText.Selection</c> documents why).
     /// </summary>
     [Fact]
     public void Partial_redacts_the_leading_part_of_a_secret_a_field_cut_at_its_limit_ends_with_and_leaves_a_cut_plain_value_and_a_whole_field_alone()
@@ -238,7 +240,9 @@ public sealed class PrepareObservationTests
     /// <summary>
     /// Partial: upstream "redacts every string field a node carries, in the text, the executor tree, and the node index alike" also checks
     /// <c>selector</c>, <c>framePath</c>, an unknown extra field, and a secret used as a role, in a node index. The port has no node index, no
-    /// selectors and no frame paths, and renders a node's role as the engine reported it. It checks the test id, the attributes and the placeholder in the text and the executor tree.
+    /// selectors and no frame paths. Two omissions are redaction gaps in src (#1303), not design: a secret used as a role is rendered unredacted
+    /// (<c>SnapshotText.Describe</c>), and an attribute key such as <c>data-SECRET</c> is kept as written by <c>ProjectTree</c>, where upstream
+    /// redacts both. It checks the test id in the text, and the attribute values in the executor tree.
     /// </summary>
     [Fact]
     public void Partial_redacts_every_string_field_a_node_carries_in_the_text_the_executor_tree_and_the_node_index_alike()
