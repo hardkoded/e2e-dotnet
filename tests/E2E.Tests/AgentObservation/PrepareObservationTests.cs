@@ -13,7 +13,7 @@ namespace E2E.Tests.AgentObservation;
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without repeating capture" (the settle loop
 /// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". Every
 /// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, cut-secret field, every string field, collapsed-secret
-/// cut matrix) checks part of its upstream it; the last three read the rendered text, <c>ProjectTree</c>, and the anchors. The pixel tests
+/// cut matrix) checks part of its upstream it; the last three read the rendered text and <c>ProjectTree</c>, and the matrix reads the anchors too. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
@@ -228,7 +228,10 @@ public sealed class PrepareObservationTests
         Assert.Equal(CutText("plain-control-plain"), projected[3].Text);
         // A field under its limit was not cut, so a fragment inside it is only app text.
         Assert.Equal("whole " + Token[..20], projected[4].Text);
-        // A value longer than the limit is a native control's, which no engine cuts.
+        Assert.Contains(CutText("plain-control-plain"), text, StringComparison.Ordinal);
+        Assert.Contains("whole " + Token[..20], text, StringComparison.Ordinal);
+        Assert.Contains("0" + CutText(Token[..20]), text, StringComparison.Ordinal);
+        // A value longer than the limit is a native control's, which no engine cuts (upstream: expect(prepared.nodes.get('n7')).toEqual(tree.children?.[5])).
         Assert.Equal("0" + CutText(Token[..20]), projected[5].Value);
     }
 
