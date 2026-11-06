@@ -132,7 +132,7 @@ internal static class CodexConfig
         {
             offset = container is TableSyntaxBase table
                 ? text.IndexOf('\n', table.Name!.Span.Offset + table.Name.Span.Length) + 1
-                : root.Tables.OfType<TableSyntax>().FirstOrDefault()?.Span.Offset ?? text.Length;
+                : root.Tables.FirstOrDefault()?.Span.Offset ?? text.Length;
             if (offset == 0)
             {
                 offset = text.Length;
