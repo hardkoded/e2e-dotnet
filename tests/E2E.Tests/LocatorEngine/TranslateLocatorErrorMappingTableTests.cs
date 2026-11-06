@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using Locators = global::E2E.LocatorEngine;
+using LocatorEngineType = global::E2E.LocatorEngine;
 
 namespace E2E.Tests.LocatorEngine;
 
@@ -36,7 +36,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var engineError = new EngineException(engineCode, "boom", retryable: false);
 
-        var translated = Locators.TranslateLocatorError(engineError);
+        var translated = LocatorEngineType.TranslateLocatorError(engineError);
 
         var classified = ErrorSerializer.Classify(translated);
         Assert.Equal(category, classified.Category);
@@ -49,13 +49,13 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var original = new ConfigurationException("INVALID_CONFIG", "bad config");
 
-        Assert.Same(original, Locators.TranslateLocatorError(original));
+        Assert.Same(original, LocatorEngineType.TranslateLocatorError(original));
     }
 
     [Fact]
     public void Wraps_unknown_errors_as_infrastructure_ENGINE_FAILURE()
     {
-        var translated = Locators.TranslateLocatorError(new InvalidOperationException("socket hangup"));
+        var translated = LocatorEngineType.TranslateLocatorError(new InvalidOperationException("socket hangup"));
 
         var classified = ErrorSerializer.Classify(translated);
         Assert.Equal("infrastructure", classified.Category);
@@ -66,7 +66,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     [Fact]
     public void Appends_the_locator_description_when_an_expression_is_provided()
     {
-        var translated = Locators.TranslateLocatorError(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), Button);
+        var translated = LocatorEngineType.TranslateLocatorError(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), Button);
 
         Assert.Contains("stale", translated.Message, StringComparison.Ordinal);
         Assert.EndsWith(": getByRole(\"button\")", translated.Message, StringComparison.Ordinal);
@@ -77,7 +77,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var cancel = new OperationCanceledException();
 
-        Assert.Same(cancel, Locators.TranslateLocatorError(cancel, Button));
+        Assert.Same(cancel, LocatorEngineType.TranslateLocatorError(cancel, Button));
     }
 
     [Fact]
