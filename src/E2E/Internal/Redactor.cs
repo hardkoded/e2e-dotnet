@@ -689,6 +689,11 @@ internal sealed class StreamRedactor(Redactor ledger)
     /// <summary>Redacts and returns what the bytes complete, decoded as UTF-8; the rest waits for the next piece or <see cref="Flush"/>.</summary>
     public string Push(ReadOnlySpan<byte> chunk)
     {
+        if (chunk.Length == 0)
+        {
+            return "";
+        }
+
         var chars = new char[Encoding.UTF8.GetMaxCharCount(chunk.Length)];
         var count = _decoder.GetChars(chunk, chars, flush: false);
         return PushText(new string(chars, 0, count));
