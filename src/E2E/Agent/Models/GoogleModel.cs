@@ -168,7 +168,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = FunctionCalling(request.ToolChoice) };
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction", "toolConfig");
 
         // The format joins the generation options a provider option may have set (thinking).
         if (request.Schema is { } schema)

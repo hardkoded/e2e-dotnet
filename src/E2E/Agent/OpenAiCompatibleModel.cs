@@ -183,7 +183,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         }
 
         // Provider options ride the request body as given, so a field such as reasoning_effort reaches the server.
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "tool_choice");
 
         // The AI SDK spells the effort reasoningEffort and sends it as reasoning_effort.
         if (payload.Remove("reasoningEffort", out var effort))

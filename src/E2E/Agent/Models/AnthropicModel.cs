@@ -166,7 +166,7 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             payload["tool_choice"] = ToolChoice(request.ToolChoice);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system", "tool_choice");
 
         // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
         if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))

@@ -120,6 +120,21 @@ public sealed class ModelRequestToolChoiceTests
     }
 
     [Fact]
+    public void A_provider_option_cannot_replace_the_tool_choice_the_client_sets()
+    {
+        using var anthropic = new AnthropicModel(new AnthropicModelOptions { Model = "m", ApiKey = "k" });
+        using var google = new GoogleModel(new GoogleModelOptions { Model = "m", ApiKey = "k" });
+        using var chat = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" });
+        using var responses = new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" });
+        var choice = """{ "tool_choice": "none" }""";
+
+        Assert.Throws<ConfigurationException>(() => anthropic.BuildBody(With(null, Options("anthropic", choice))));
+        Assert.Throws<ConfigurationException>(() => chat.BuildBody(With(null, Options("openai", choice))));
+        Assert.Throws<ConfigurationException>(() => responses.BuildBody(With(null, Options("openai", choice))));
+        Assert.Throws<ConfigurationException>(() => google.BuildBody(With(null, Options("google", """{ "toolConfig": {} }"""))));
+    }
+
+    [Fact]
     public async Task Records_the_choice_in_the_ai_trace_as_the_sdk_reports_it()
     {
         var recorder = new E2E.Internal.AiTraceRecorder();

@@ -152,7 +152,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                 : ModelHttp.PromptCacheKey(request.System);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions", "tool_choice");
 
         // The format joins the text options a provider option may have set (verbosity). Not strict: strict mode refuses keywords
         // such as maxLength, and the agent validates the answer itself.
