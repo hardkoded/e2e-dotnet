@@ -39,6 +39,11 @@ public sealed class ResolveConfigTests
             Assert.Contains("maxDuration must be a positive safe integer of milliseconds", error.Message, StringComparison.Ordinal);
         }
 
+        // JS numbers: 1e3 is 1000, and a value past 2^53 - 1 is no safe integer (these two lines pin the .NET parsing of that, not an upstream line).
+        Assert.Equal(TimeSpan.FromMilliseconds(1000), E2EConfig.Parse("""{ "maxDuration": 1e3 }""", Root, Env()).MaxDuration);
+        var unsafeInt = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "maxDuration": 9007199254740993 }""", Root, Env()));
+        Assert.Contains("must be a positive safe integer of milliseconds", unsafeInt.Message, StringComparison.Ordinal);
+
         Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), E2EConfig.Parse("""{ "maxDuration": 2147483647 }""", Root, Env()).MaxDuration);
         var tooLong = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "maxDuration": 2147483648 }""", Root, Env()));
         Assert.Equal("maxDuration must be at most 2147483647 milliseconds, got 2147483648", tooLong.Message);
