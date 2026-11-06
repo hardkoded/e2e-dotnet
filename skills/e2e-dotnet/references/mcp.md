@@ -84,6 +84,8 @@ tool with the same name, use the `e2e` server's.
 | `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "n42"}}`, where `n42` is the node id that starts a line of the newest observation (`#n42 button "Save"`). Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session, disposes the browser or device engine, and releases a hosted device the session leased, each within the config's `cleanupTimeout`. A cleanup that fails or times out is a `Cleanup:` line in the result, with the error's code when it has one (`CLEANUP_TIMEOUT` for a release that outlived the budget). With no session open and no `session` argument, it says `No session is open.` |
 
+There is no `run_tests` tool (upstream's runs `e2e run` and returns its command, exit code, and output). The port has no `e2e run`: run the suite or a test in your own shell with `dotnet test` (`--filter` picks tests), and use `open_session {test}` to stop on the screen where one NUnit test passed or failed.
+
 Every fixed tool takes only the arguments it declares. An unknown one fails
 before anything runs, with `Invalid arguments for tool <name>: Unrecognized
 key: "<key>"`.
