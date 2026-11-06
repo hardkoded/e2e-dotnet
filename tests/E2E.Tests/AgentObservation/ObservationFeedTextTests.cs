@@ -46,6 +46,27 @@ public sealed class ObservationFeedTextTests
     }
 
     [Fact]
+    public void Remembers_the_text_a_screen_showed_redacted_and_leaves_out_the_fields_that_echo_input()
+    {
+        var scope = Scope();
+        scope.Register("CARD", Value);
+        var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
+
+        feed.NoteShown(new Observation
+        {
+            Route = "/",
+            Roots =
+            [
+                new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value },
+                new SemanticNode { Ref = "n2", Role = "textbox", Name = "typed-by-the-model" },
+                new SemanticNode { Ref = "n3", Role = "text", Text = "Ready", Value = "echo" },
+            ],
+        });
+
+        Assert.Equal(["Pay with <secret:CARD>"], feed.ShownText());
+    }
+
+    [Fact]
     public void Reuses_the_rendering_of_a_look_while_no_secret_is_registered()
     {
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = Scope() };

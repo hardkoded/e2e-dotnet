@@ -81,6 +81,15 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// </summary>
     public RecordedAction RecordGap(string toolName) => Record(new RecordedAction { Kind = "tool", Text = redactor().Redact(toolName) });
 
+    /// <summary>The summary a run-time value gap records (upstream's <c>DERIVED_GAP_SUMMARY</c>, <c>tool type (run-time value)</c>), as the text after <c>tool</c>.</summary>
+    private const string DerivedGapSummary = "type (run-time value)";
+
+    /// <summary>
+    /// Upstream's <c>recordDerivedGap</c>: records a fill whose value was this run's data as a gap, with the rule that said so
+    /// (<c>agent/derived.ts</c>). Replay hands the step over before it, so the executor derives the value afresh, and the report can say why.
+    /// </summary>
+    public RecordedAction RecordDerivedGap(DerivedReason reason) => Record(new RecordedAction { Kind = "tool", Text = DerivedGapSummary, Derived = reason });
+
     /// <summary>
     /// Forgets every recorded action. No upstream equivalent: a replay that misses before it ran an action leaves nothing to
     /// keep, and the port's replay commits through this recorder.

@@ -104,6 +104,7 @@ export default defineConfig({
                 {
                     label: "Reference",
                     items: [
+                        { label: "Environment variables", slug: "reference/environment" },
                         {
                             label: "API",
                             collapsed: true,

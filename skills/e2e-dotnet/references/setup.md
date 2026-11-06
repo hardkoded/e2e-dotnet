@@ -180,7 +180,7 @@ secrets included, so keep it `off` unless you need it. A `video` mode on a
 target is required of its engine (`UNSUPPORTED_ARTIFACT` when it cannot
 record); one at the config root or in `E2E_VIDEO` skips an engine that cannot.
 
-There are no `tests` or `workers` keys; each is `INVALID_CONFIG`. A host store for artifacts is code (upstream's `artifacts.store`; the `artifacts` key itself holds no `store`): call `E2EConfig.WithArtifactStore(store)` on the config (a fixture and `E2EHost.OpenAsync` read it), override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore`, to an `IArtifactStore`. The replay cache store is code too (upstream's `cache.store`): `E2EConfig.WithCacheStore(store)` takes an `IStepCache` that replaces the file store at `cache.dir`; like upstream it ignores `E2E_CACHE_DIR`, and CI does not demote an unset mode (the store states its own trust). Its `PutAsync(StoredArtifact)` receives each artifact an attempt registers (a download, a video file, a screenshot or log the test attaches) as it is produced, with `Bytes`, `Sha256`, `Path` (report-relative), `Redaction` (`Complete` or `Incomplete`; a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite), and `RunId`, `TestId`, `AttemptId`, `StepId`, `StartedAt`, and returns the reference the report records as the artifact's `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` receives a video a provider keeps, a link with no bytes (a passed attempt's link under `retain-on-failure` is never handed over). A failed call never fails the run; the record just carries no `ref`. Accounts
+There are no `tests` or `workers` keys; each is `INVALID_CONFIG`. A host store for artifacts is code (upstream's `artifacts.store`; the `artifacts` key itself holds no `store`): call `E2EConfig.WithArtifactStore(store)` on the config (a fixture and `E2EHost.OpenAsync` read it), override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore`, to an `IArtifactStore`. The replay cache store is code too (upstream's `cache.store`): `E2EConfig.WithCacheStore(store)` takes an `IStepCache` that replaces the file store at `cache.dir`; like upstream it ignores `E2E_CACHE_DIR`, and CI does not demote an unset mode (the store states its own trust). The file store takes upstream's `maxBytes` and `writable` as `new FileStepCache(directory, maxBytes, writable)`: it does not write an entry over the byte cap (at most `FileStepCache.MaxCacheWireBytes`, 1 MiB) and never writes or deletes when not writable. Its `PutAsync(StoredArtifact)` receives each artifact an attempt registers (a download, a video file, a screenshot or log the test attaches) as it is produced, with `Bytes`, `Sha256`, `Path` (report-relative), `Redaction` (`Complete` or `Incomplete`; a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite), and `RunId`, `TestId`, `AttemptId`, `StepId`, `StartedAt`, and returns the reference the report records as the artifact's `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` receives a video a provider keeps, a link with no bytes (a passed attempt's link under `retain-on-failure` is never handed over). A failed call never fails the run; the record just carries no `ref`. Accounts
 come from `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, read
 with `Credentials.User(name)`. The `credentials` key declares accounts in the
 config too (see the table); a test does not read them yet.
@@ -427,7 +427,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | Variable | Effect |
 | --- | --- |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ... | The provider's key, or the variable `apiKeyEnv` names. |
-| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and `-` becomes `_`. |
+| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and every character outside A-Z and 0-9 becomes `_`. |
 | `E2E_SECRET_<NAME>` | Overrides `secrets.<name>`. |
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
 | `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |
@@ -435,6 +435,11 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. `E2E_VIDEO` records on the web engine. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
+| `NO_COLOR` | A non-empty value turns colors off in the list reporter, `e2e explore`, and `e2e doctor`. |
+| `PLAYWRIGHT_BROWSERS_PATH` | Playwright's browser cache, used by the web engine's install and by `e2e doctor`. |
+| `E2E_AGENT_DEVICE_POOL_<TARGET>_<digest>`, `E2E_WEB_BROWSERS_<TARGET>_<digest>` | Internal: `PrepareAsync` writes them for the workers. Never set them by hand. |
+
+The full list, with each variable's default and effect, is the docs site's "Environment variables" page (`docs-site/src/content/docs/reference/environment.mdx`).
 
 ## App identity and environment
 
