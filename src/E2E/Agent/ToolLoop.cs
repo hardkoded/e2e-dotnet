@@ -192,9 +192,31 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
 
     // Upstream's FREE_TOOL_CHOICE_MODELS: models that refused a forced tool choice once. A model that answers HTTP 400 to that request
-    // shape gets auto for the rest of the process, so the refusal costs one round trip per model, not one per step. Held weakly by the
-    // model object, like upstream's WeakSet.
+    // shape gets auto for the rest of the process, so the refusal costs one round trip per model, not one per step. Upstream's WeakSet
+    // is keyed by the SDK model object, which a worker builds once and shares across tests. The port builds a provider model per
+    // session, so a model object is the key for a model the caller owns (a ScriptedModel, a custom IAgentModel), and the provider
+    // type with the model id is the key for the built-in provider models, whose objects do not outlive a session. .NET-only.
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IAgentModel, object> FreeToolChoiceModels = new();
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> FreeToolChoiceProviderModels = new(StringComparer.Ordinal);
+
+    private static string? ProviderModelKey(IAgentModel model) =>
+        model is IDisposable ? model.GetType().FullName + ":" + model.Name : null;
+
+    private static bool IsFreeToolChoiceModel(IAgentModel model) =>
+        ProviderModelKey(model) is { } key ? FreeToolChoiceProviderModels.ContainsKey(key) : FreeToolChoiceModels.TryGetValue(model, out _);
+
+    private static void RememberFreeToolChoiceModel(IAgentModel model)
+    {
+        if (ProviderModelKey(model) is { } key)
+        {
+            FreeToolChoiceProviderModels[key] = 0;
+        }
+        else
+        {
+            FreeToolChoiceModels.AddOrUpdate(model, new object());
+        }
+    }
 
     // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
@@ -234,7 +256,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
         // Upstream's LoopRun.toolChoice: how the step asks for tool calls. 'required' unless the model refused a forced choice before;
         // it flips to auto when the model rejects one (FreeToolChoiceRetry) or the provider downgrades one (NoticeToolChoiceDowngrade).
-        var toolChoice = FreeToolChoiceModels.TryGetValue(model, out _) ? ModelToolChoice.Auto : ModelToolChoice.Required;
+        var toolChoice = IsFreeToolChoiceModel(model) ? ModelToolChoice.Auto : ModelToolChoice.Required;
         var clockWindDownMs = Math.Min(ClockWindDownMs, budget.RemainingMs() / ClockWindDownFraction);
         string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
@@ -484,7 +506,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     private static ModelToolChoice FreeToolChoiceRetry(IAgentModel model, TurnLog turns, string note)
     {
         turns.Note(note);
-        FreeToolChoiceModels.AddOrUpdate(model, new object());
+        RememberFreeToolChoiceModel(model);
         return ModelToolChoice.Auto;
     }
 
@@ -499,7 +521,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         }
 
         turns.Note("the provider sent auto in place of a forced tool choice on turn " + turns.Used.ToString(CultureInfo.InvariantCulture) + ": continuing with auto");
-        FreeToolChoiceModels.AddOrUpdate(model, new object());
+        RememberFreeToolChoiceModel(model);
         return ModelToolChoice.Auto;
     }
 
