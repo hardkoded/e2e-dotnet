@@ -104,8 +104,8 @@ internal sealed class ToolChoiceViolationException(string finishReason)
 /// <summary>
 /// The AI SDK's <c>RetryError</c> (<c>reason: 'maxRetriesExceeded'</c>): a request whose retries are spent, carrying every attempt's
 /// failure and the last one. <see cref="ToolChoice.IsForcedToolChoiceRejected"/> follows <see cref="LastError"/> as upstream follows
-/// <c>cause ?? lastError</c>. .NET-only: <c>ModelHttp.SendAsync</c> throws the last attempt's failure itself (callers match its
-/// <c>AgentException</c> code), so nothing in the port throws this today; a caller that wraps a spent chain can.
+/// <c>cause ?? lastError</c>. <c>ModelHttp.SendAsync</c> attaches it as the inner exception of the <c>AgentException</c> it throws once
+/// its retries are spent (an <c>AgentException</c> stays the type callers match; it is sealed and public).
 /// </summary>
 internal sealed class RetryError(string message, IReadOnlyList<Exception> errors) : Exception(message)
 {

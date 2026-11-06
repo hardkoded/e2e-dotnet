@@ -49,4 +49,20 @@ public sealed class ModelCallRetriesTests
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
         Assert.Equal(sent, handler.Requests);
     }
+
+    [Fact]
+    public async Task A_spent_retry_chain_keeps_the_last_failure_and_carries_every_attempt()
+    {
+        var handler = new Overloaded();
+        using var http = new HttpClient(handler);
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt", ApiKey = "k" }, http);
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Request(1), CancellationToken.None));
+
+        Assert.Equal(503, error.ProviderStatus);
+        var chain = Assert.IsType<E2E.Internal.RetryError>(error.InnerException);
+        Assert.Equal(2, chain.Errors.Count);
+        Assert.Same(chain.LastError, chain.Errors[^1]);
+        Assert.Equal(error.Message, chain.LastError!.Message);
+    }
 }
