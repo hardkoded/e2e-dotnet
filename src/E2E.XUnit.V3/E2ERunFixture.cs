@@ -68,6 +68,8 @@ public class E2ERunFixture : IAsyncLifetime
         try
         {
             HostRun.Started(config);
+            // Upstream resolves the filters with every config, so a bad list is refused on an ordinary run too.
+            ResolvedConfig.ResolveTestFilters(Filters);
             var discovered = HostRun.Collect(() => RunSelection.Discover(testAssembly));
             IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
             var changedSince = HostTestFilters.ResolveChangedSince(ChangedSince);
