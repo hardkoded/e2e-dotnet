@@ -29,6 +29,7 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(CacheMode.Off, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "1"))).Cache.Mode);
         Assert.Equal(CacheMode.Off, Parse("{}", Env(("CI", "1"), ("E2E_NO_CACHE", "true"))).Cache.Mode);
         Assert.Equal(CacheMode.ReadWrite, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "0"))).Cache.Mode);
+        Assert.Equal(CacheMode.Off, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "1"))).WithCacheStore(new EmptyStore()).Cache.Mode);
     }
 
     // Partial: without --cache-dir, which the port has no command line for.

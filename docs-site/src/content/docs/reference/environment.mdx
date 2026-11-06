@@ -110,6 +110,7 @@ Upstream's `--no-cache`, for one run. Set to `1` or `true`, it turns the cache `
 
 - It overrides `cache.mode`, including an explicit `read-write`, and applies in CI.
 - It overrides a custom `cache.store` too.
+- It is read when the config loads, so set it before the test host starts.
 - Use it to evaluate a new model, or to run a test once against the live agent after it passes.
 
 See [Caching and self-healing](/features/caching/).
