@@ -110,8 +110,8 @@ public sealed class App
     }
 
     /// <summary>
-    /// Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept. The reopen throws
-    /// <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept. The reopen, which
+    /// happens when a base URL is set, throws <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
     /// </summary>
     public Task RestartAsync(CancellationToken cancellationToken = default)
     {
@@ -119,8 +119,8 @@ public sealed class App
     }
 
     /// <summary>
-    /// Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>. The reopen throws <c>APP_UNREACHABLE</c> when
-    /// nothing answers, as <see cref="OpenAsync"/> does.
+    /// Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>. The reopen, which happens when a base URL is set, throws
+    /// <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
     /// </summary>
     public Task ClearStateAsync(CancellationToken cancellationToken = default)
     {
