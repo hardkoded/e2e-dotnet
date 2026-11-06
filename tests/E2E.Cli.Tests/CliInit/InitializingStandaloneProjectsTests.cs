@@ -55,8 +55,9 @@ public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
                 ["HTTPS_PROXY"] = "http://127.0.0.1:9",
             },
         });
-        await using var client = await McpClient.CreateAsync(transport, new McpClientOptions { ClientInfo = new Implementation { Name = "init-codex-test", Version = "1.0.0" } });
-        Assert.Contains("open_session", (await client.ListToolsAsync()).Select(tool => tool.Name));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        await using var client = await McpClient.CreateAsync(transport, new McpClientOptions { ClientInfo = new Implementation { Name = "init-codex-test", Version = "1.0.0" } }, cancellationToken: timeout.Token);
+        Assert.Contains("open_session", (await client.ListToolsAsync(cancellationToken: timeout.Token)).Select(tool => tool.Name));
     }
 
     [Fact]

@@ -128,7 +128,13 @@ internal static class CodexConfig
             offset = inlineTable.CloseBrace!.Span.Offset;
             // A table that already ends with a comma (TOML 1.1) keeps it; a second one would be invalid.
             var before = text.AsSpan(0, offset).TrimEnd();
-            insertion = (inlineTable.Items.ChildrenCount > 0 ? before.EndsWith(",") ? " " : ", " : "") + assignment;
+            var trailingComma = inlineTable.Items.ChildrenCount > 0 && before.EndsWith(',');
+            if (trailingComma)
+            {
+                offset = before.Length;
+            }
+
+            insertion = (inlineTable.Items.ChildrenCount > 0 ? trailingComma ? " " : ", " : "") + assignment;
         }
         else
         {
