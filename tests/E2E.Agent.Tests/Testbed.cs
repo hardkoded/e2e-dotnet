@@ -670,6 +670,10 @@ internal static class Testbed
                    <section id="done" aria-label="Done column">Done column</section>
                    <output aria-label="Board state">Design review is in todo</output>
 
+                   <label for="attachment">Attachment</label>
+                   <input id="attachment" type="file" />
+                   <output aria-label="Attachment state">none</output>
+
                    <script>
                      const boardState = document.querySelector('output[aria-label="Board state"]');
                      document.getElementById('card-menu').addEventListener('mouseenter', () => {
@@ -683,6 +687,10 @@ internal static class Testbed
                      done.addEventListener('drop', (event) => {
                        event.preventDefault();
                        boardState.textContent = 'Design review is done';
+                     });
+                     document.getElementById('attachment').addEventListener('change', (event) => {
+                       document.querySelector('output[aria-label="Attachment state"]').textContent =
+                         event.target.files[0] ? event.target.files[0].name : 'none';
                      });
                    </script>
             """),

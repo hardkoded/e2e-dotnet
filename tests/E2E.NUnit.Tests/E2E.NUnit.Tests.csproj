@@ -17,6 +17,7 @@
   <ItemGroup>
     <None Include="Testbed\control-inventory.html" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Testbed\playwright\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="fixtures\**" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\E2E.Agent.Tests\Testbed.cs" Link="Testbed\Playground.cs" />
     <Compile Include="..\E2E.Agent.Tests\PlaywrightRoutes.cs" Link="Testbed\PlaywrightRoutes.cs" />
   </ItemGroup>
