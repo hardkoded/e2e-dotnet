@@ -52,7 +52,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
     private static ModelResponse Call(string tool, string name, params string[]? modifiers) =>
         ModelResponses.Call(tool, modifiers is null ? new { role = "button", name } : (object)new { role = "button", name, modifiers });
 
-    /// <summary>Partial: the port's schemas are not closed, so what the schema accepts is checked by the property it declares, and what it refuses by running the tool.</summary>
+    /// <summary>Partial: upstream parses each tool's zod schema; the port reads the property its JSON schema declares, and checks the refusal by running the tool.</summary>
     [Fact]
     public async Task Partial_offers_modifiers_on_the_tap_family_only_when_the_engine_declares_tapModifiers()
     {
@@ -83,7 +83,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
         Assert.All(results, result => Assert.Matches("^(tap|right_click) #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result));
     }
 
-    /// <summary>Partial: the port's schemas are not closed, so the engine that does not declare tapModifiers is shown to refuse the field instead.</summary>
+    /// <summary>Partial: upstream parses each tool's zod schema, so it covers right_click too; the port runs the tools through the loop, and the document engine offers no right_click, so only tap and double_tap are run.</summary>
     [Fact]
     public async Task Partial_keeps_modifiers_out_of_the_vocabulary_when_the_engine_does_not_declare_tapModifiers()
     {
@@ -95,8 +95,16 @@ public sealed class TapModifiersInTheGrammarToolsTests
             Assert.False(properties.TryGetProperty("modifiers", out _), name + " refuses the undeclared field");
         }
 
-        var (results, _) = await ActAsync(declared: false, Call("tap", "Save", "Shift"));
-        Assert.StartsWith("tap #e", Assert.Single(results), StringComparison.Ordinal);
+        // The loop's closed schema refuses the field the same way upstream's parse does.
+        string[] offered = ["tap", "double_tap"];
+        var (results, _) = await ActAsync(declared: false, [.. offered.Select(name => Call(name, "Save", "Shift"))]);
+        Assert.Equal(offered.Length, results.Count);
+        Assert.All(results, result =>
+        {
+            Assert.StartsWith("failed: Invalid input for tool ", result, StringComparison.Ordinal);
+            Assert.Contains("\"code\":\"unrecognized_keys\"", result, StringComparison.Ordinal);
+            Assert.Contains("\"modifiers\"", result, StringComparison.Ordinal);
+        });
     }
 
     [Fact]
