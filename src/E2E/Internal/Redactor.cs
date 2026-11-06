@@ -668,8 +668,20 @@ internal sealed class Redactor
 /// Bytes are decoded as UTF-8 with a character split across pieces kept whole. <c>Flush</c> releases what is held,
 /// redacted, when the stream ends. The pieces together redact to exactly what the whole text would.
 /// </summary>
-internal sealed class StreamRedactor(Redactor ledger)
+internal sealed class StreamRedactor(Func<Redactor> current)
 {
+    /// <summary>A redactor over one fixed ledger.</summary>
+    public StreamRedactor(Redactor ledger)
+        : this(() => ledger)
+    {
+    }
+
+    /// <summary>A redactor over a ledger that learns values while the stream is open (upstream passes its <c>SecretLedger</c>).</summary>
+    public StreamRedactor(SecretLedger ledger)
+        : this(() => ledger.Current)
+    {
+    }
+
     private readonly Decoder _decoder = Encoding.UTF8.GetDecoder();
     private string _held = "";
 
@@ -704,7 +716,7 @@ internal sealed class StreamRedactor(Redactor ledger)
     {
         var text = _held + DecoderEnd();
         _held = "";
-        return ledger.Redact(text);
+        return current().Redact(text);
     }
 
     /// <summary>What the decoder holds of an unfinished character, as the replacement character (upstream's <c>decoder.end()</c>).</summary>
@@ -718,9 +730,9 @@ internal sealed class StreamRedactor(Redactor ledger)
     private string PushText(string chunk)
     {
         var text = _held + chunk;
-        var cut = ledger.HoldFrom(text);
+        var cut = current().HoldFrom(text);
         _held = text[cut..];
-        return ledger.Redact(text[..cut]);
+        return current().Redact(text[..cut]);
     }
 }
 
@@ -753,6 +765,18 @@ internal sealed class SecretLedger
             if (_secrets.Count != before)
             {
                 _redactor = Redactor.For(_secrets);
+            }
+        }
+    }
+
+    /// <summary>The redactor over every secret registered so far.</summary>
+    internal Redactor Current
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _redactor;
             }
         }
     }

@@ -23,7 +23,8 @@ internal sealed class McpCommandOptions
 /// <summary>
 /// The <c>e2e mcp</c> command: claims stdout for the protocol, then serves. Over stdio, stdout is the JSON-RPC
 /// stream, so anything else that writes there would corrupt the handshake. The transport keeps the process's
-/// own stdout stream, and every other write to <see cref="Console.Out"/> goes to stderr.
+/// own stdout stream, and everything else that reaches <see cref="Console.Out"/> or <see cref="Console.Error"/>
+/// goes to stderr, redacted, for the whole process: user code runs here and may print a secret.
 /// </summary>
 internal static class McpCommand
 {
@@ -34,7 +35,10 @@ internal static class McpCommand
         var protocol = Console.OpenStandardOutput();
         var stdin = Console.OpenStandardInput();
         var stderr = Console.Error;
-        Console.SetOut(stderr);
+        var ledger = new SecretLedger();
+        var output = new McpOutput(text => stderr.Write(text), ledger);
+        Console.SetOut(new McpOutputWriter(output, OutputStream.Stdout));
+        Console.SetError(new McpOutputWriter(output, OutputStream.Stderr));
 
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
@@ -42,9 +46,30 @@ internal static class McpCommand
             context.Cancel = true;
             stop.Cancel();
         });
+
+        // An error nobody caught (an unobserved task of user code) is logged redacted, and held like user output
+        // while a config loads, and the server shuts down as on a signal.
+        var crashed = false;
+        void OnUncaught(object? cause)
+        {
+            crashed = true;
+            ReportUncaught(output, cause);
+            stop.Cancel();
+        }
+
+        void OnUnobserved(object? sender, UnobservedTaskExceptionEventArgs args)
+        {
+            args.SetObserved();
+            OnUncaught(args.Exception);
+        }
+
+        void OnUnhandled(object sender, UnhandledExceptionEventArgs args) => OnUncaught(args.ExceptionObject);
+
+        TaskScheduler.UnobservedTaskException += OnUnobserved;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
         try
         {
-            return await Server.ServeAsync(
+            var code = await Server.ServeAsync(
                 new ServeOptions
                 {
                     Cwd = Environment.CurrentDirectory,
@@ -55,16 +80,33 @@ internal static class McpCommand
                     Version = ModelHttp.PackageVersion(),
                     Stdin = stdin,
                     Stdout = protocol,
-                    Log = line => stderr.WriteLine("e2e mcp: " + line),
+                    Log = line => output.Log("e2e mcp: " + line),
+                    Output = output,
+                    Secrets = ledger,
                 },
                 stop.Token).ConfigureAwait(false);
+            return crashed ? 1 : code;
         }
 #pragma warning disable CA1031 // An uncaught error is reported on stderr and ends the server with exit code 1.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
-            await stderr.WriteLineAsync("e2e mcp: [error] uncaught: " + Tools.CodedMessage(ex)).ConfigureAwait(false);
+            output.Report("e2e mcp: [error] uncaught: " + Tools.CodedMessage(ex));
             return 1;
         }
+        finally
+        {
+            output.End();
+            TaskScheduler.UnobservedTaskException -= OnUnobserved;
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+        }
+    }
+
+    /// <summary>Logs an error nobody caught, redacted and held like what user code prints. Upstream's <c>onUncaught</c>.</summary>
+    internal static void ReportUncaught(McpOutput output, object? cause)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        var text = cause is AggregateException aggregate ? aggregate.Flatten().InnerException?.ToString() ?? aggregate.ToString() : cause?.ToString();
+        output.Report("e2e mcp: [error] uncaught: " + text);
     }
 }
