@@ -165,6 +165,19 @@ internal static class FixtureApp
         </html>
         """;
 
+    // A user field and a password field, both white on white.
+    public const string Login = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture Login</title></head>
+        <body style="margin:0;background:#fff">
+        <h1>Login</h1>
+        <label>User <input name="user" value="ada" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>
+        <label>Password <input type="password" name="password" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>
+        </body>
+        </html>
+        """;
+
     private static readonly Dictionary<string, string> Pages = new(StringComparer.Ordinal)
     {
         ["/"] = Home,
@@ -175,6 +188,7 @@ internal static class FixtureApp
         ["/closed-login"] = ClosedLogin,
         ["/twins"] = Twins,
         ["/state"] = State,
+        ["/login"] = Login,
     };
 
     /// <summary>Starts the app. <c>/slow</c> answers with the home page after five seconds, long enough to cancel first.</summary>

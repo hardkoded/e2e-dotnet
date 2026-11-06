@@ -94,7 +94,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Exposes_every_attribute_on_node_reads()
+    public async Task Partial_Keeps_tree_attributes_bounded_while_node_reads_expose_every_attribute()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -103,11 +103,13 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             await session.App.OpenAsync("/");
             var screen = session.Screen;
 
-            var card = screen.GetByText("Card");
+            // Not ported: the tree's bounded attributes. The port's tree carries every attribute (the node reads below come from it), so
+            // class, readonly, and data-extra are all in the observed tree.
+            var card = session.Browser.Locator("#class-card");
             Assert.Equal("card active", await card.GetAttributeAsync("class"));
             Assert.Equal("node-only", await card.GetAttributeAsync("data-extra"));
             Assert.Null(await card.GetAttributeAsync("readonly"));
-            Assert.Equal("", await screen.GetByRole("textbox").GetAttributeAsync("readonly"));
+            Assert.Equal("", await session.Browser.Locator("#readonly").GetAttributeAsync("readonly"));
         });
     }
 
@@ -195,7 +197,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Applies_visible_before_an_index_filter_or_scope_without_the_has_filters_on_body_and_live()
+    public async Task Applies_visible_before_an_index_filter_or_scope_so_a_hidden_twin_is_never_selected()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -220,7 +222,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             Assert.Equal(2, await Text("Decorative twin", false).Filter("Decorative").CountAsync());
             Assert.False(await Text("Decorative twin", true).Filter("Decorative").IsHiddenAsync());
 
-            // Not ported: the has-filters on `body` and `#live`; the port has no CSS selector locator.
+            // As a has-filter, only the shown twin's ancestor qualifies: the body holds both, so it still matches,
+            // while a section that holds neither does not.
+            Assert.Equal(1, await session.Browser.Locator("body").Filter(has: Text("Decorative twin", true)).CountAsync());
+            Assert.Equal(0, await session.Browser.Locator("#live").Filter(has: Text("Decorative twin", true)).CountAsync());
 
             // As a scope, a visible test-id query drops the hidden panel before the child query runs.
             var inAnyPanel = screen.GetByTestId("memory-panel").GetByText("Open");
@@ -363,7 +368,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Stamps_element_ids_in_the_page_and_swipes_the_viewport()
+    public async Task Partial_Mints_one_root_id_that_survives_navigation_and_swipes_the_viewport_when_it_is_the_target()
     {
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true });
@@ -384,6 +389,23 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         Assert.Equal(540, await page.EvaluateAsync<int>("() => window.scrollY"));
         await session.SwipeAsync(ScrollDirection.Up, CancellationToken.None);
         await page.WaitForFunctionAsync("() => window.scrollY === 0");
+    }
+
+    [Fact]
+    // Not ported: 'reports a drag whose drop target turns ambiguous after the press as possibly committed'. The port finds the drop target before
+    // the press, so the drag succeeds; tracked in https://github.com/hardkoded/e2e-dotnet/issues/1226.
+    public async Task Refuses_to_swipe_a_node_with_no_box_even_when_its_child_is_under_aim()
+    {
+        using var site = await FixtureApp.StartAsync();
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync("""
+            <body style="margin: 0"><ul aria-label="Feed" style="display: contents"><li style="display: block; height: 400px">Item</li></ul></body>
+            """);
+        var feed = (await session.LocateAsync(LocatorExpression.ForRole("list", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+
+        var refused = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(feed, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None));
+        Assert.Equal("NOT_ACTIONABLE", refused.Code);
     }
 
     [Fact]
