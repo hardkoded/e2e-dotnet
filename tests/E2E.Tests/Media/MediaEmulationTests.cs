@@ -89,7 +89,10 @@ public sealed class MediaEmulationTests
         Assert.Equal((false, true), (opener.Dark, opener.Reduce));
     }
 
-    /// <summary>Partial: a .NET enum takes no feature or value outside its members, so only a cast value and a null media are refused.</summary>
+    /// <summary>
+    /// Partial: a .NET <c>WebMedia</c> has no key for an unemulated feature (upstream's <c>forcedColors</c> case), and an enum takes
+    /// no value outside its members, so only a cast value and a null media are refused.
+    /// </summary>
     [Fact]
     public async Task Partial_Refuses_a_feature_it_does_not_emulate_and_a_value_outside_the_ones_it_takes_changing_nothing()
     {
