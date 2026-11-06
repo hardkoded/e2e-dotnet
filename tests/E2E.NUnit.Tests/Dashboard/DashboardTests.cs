@@ -9,8 +9,10 @@ namespace E2E.NUnit.Tests.Dashboard;
 /// <summary>
 /// The playground's sign-in and dashboard pages, ported from upstream's <c>apps/testbed/tests/dashboard.e2e.ts</c>
 /// (<c>describe('dashboard')</c>). The three tests that open with <c>{ session }</c> restore the sessions that <c>AuthSetup/AuthSetupTests</c> saves;
-/// NUnit runs that namespace first, and the port does not run a setup test for its dependents.
+/// NUnit runs that namespace first, and the port does not run a setup test for its dependents (#1244). Upstream's
+/// <c>tags: ['auth']</c> is <c>[Category("auth")]</c>.
 /// </summary>
+[Category("auth")]
 public sealed class DashboardTests : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
