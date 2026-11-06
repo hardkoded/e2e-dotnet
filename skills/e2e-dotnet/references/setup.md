@@ -435,6 +435,11 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. `E2E_VIDEO` records on the web engine. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
+| `NO_COLOR` | A non-empty value turns colors off in the list reporter, `e2e explore`, and `e2e doctor`. |
+| `PLAYWRIGHT_BROWSERS_PATH` | Playwright's browser cache, used by the web engine's install and by `e2e doctor`. |
+| `E2E_AGENT_DEVICE_POOL_<TARGET>_<digest>`, `E2E_WEB_BROWSERS_<TARGET>_<digest>` | Internal: `PrepareAsync` writes them for the workers. Never set them by hand. |
+
+The full list, with each variable's default and effect, is the docs site's "Environment variables" page (`docs-site/src/content/docs/reference/environment.mdx`).
 
 ## App identity and environment
 
