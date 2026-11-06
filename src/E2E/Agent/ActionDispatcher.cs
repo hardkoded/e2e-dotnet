@@ -562,7 +562,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
 
     // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons: a secret the attempt
     // knows, an enabled editable field, and a password field for a password. There is no origin check.
-    private void AuthorizeSecretFill(Secret secret, SemanticNode node)
+    internal void AuthorizeSecretFill(Secret secret, SemanticNode node)
     {
         if (!_scope.Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal)))
         {
