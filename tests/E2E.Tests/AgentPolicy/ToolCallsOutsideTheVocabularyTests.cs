@@ -81,9 +81,9 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Contains("[tap] " + refused.Split('\n')[0], turn.Outcome, StringComparison.Ordinal);
     }
 
-    // Upstream also reads the verdict turn from its report, with the note that the code was ignored.
+    // PARTIAL (#1253): upstream also reads the verdict turn from its report, with the note that the code was ignored.
     [Fact]
-    public async Task Drops_the_error_code_a_passed_verdict_carries_and_ends_the_step_on_that_call_with_no_repair_turn()
+    public async Task Partial_Drops_the_error_code_a_passed_verdict_carries_and_ends_the_step_on_that_call_with_no_repair_turn()
     {
         var model = new ScriptedModel(request =>
         {
@@ -106,9 +106,9 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Equal(("the counter shows 1", 2, 1), (act?.Summary, act?.ModelCalls, act?.Actions));
     }
 
-    // Upstream also checks that the refusal lists the available tools and that the report records the turn. The port's refusal names the tool only.
+    // PARTIAL (#1253): upstream also checks that the refusal lists the available tools and that the report records the turn. The port's refusal names the tool only.
     [Fact]
-    public async Task Refuses_a_tool_the_step_does_not_offer_and_runs_nothing()
+    public async Task Partial_Refuses_a_tool_the_step_does_not_offer_and_runs_nothing()
     {
         var model = new ScriptedModel(request =>
         {
