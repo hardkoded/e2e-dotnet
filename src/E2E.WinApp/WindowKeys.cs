@@ -2,7 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using E2E.Mobile;
+using E2E.Engine;
 
 namespace E2E.WinApp;
 
@@ -10,8 +10,8 @@ namespace E2E.WinApp;
 public sealed record WinAppKeys(string Text, bool Verbatim);
 
 /// <summary>
-/// The spelling of a <c>press</c> key in the winapp library's grammar. The key grammar itself is <see cref="DeviceKeys"/>, shared with
-/// the mobile engine (compiled into this assembly from <c>E2E.Mobile</c>) so a test's key names are portable: zero or more modifiers
+/// The spelling of a <c>press</c> key in the winapp library's grammar. The key grammar itself is <see cref="KeyGrammar"/> (upstream's <c>parseKey</c>), shared with
+/// the mobile engine (it lives in the core, <c>E2E.Engine</c>) so a test's key names are portable: zero or more modifiers
 /// and one key, joined by <c>+</c>. A bare character goes out as literal text; one held with a modifier goes out as a chord.
 /// </summary>
 public static class WindowKeys
@@ -54,8 +54,8 @@ public static class WindowKeys
     public static WinAppKeys ToWinApp(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        var parsed = DeviceKeys.Parse(key)
-            ?? throw WinAppSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", DeviceKeys.Names)}) or one character");
+        var parsed = KeyGrammar.Parse(key)
+            ?? throw WinAppSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.Names)}) or one character");
         if (parsed.Modifiers.Count == 0 && parsed.Character is { } typed)
         {
             return new WinAppKeys(typed, Verbatim: true);

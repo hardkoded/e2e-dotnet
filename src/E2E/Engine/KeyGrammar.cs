@@ -5,20 +5,21 @@
 using System.Globalization;
 using System.Text;
 
-namespace E2E.Mobile;
+namespace E2E.Engine;
 
-/// <summary>One parsed <c>press</c> key: its modifiers, and either a named key or a single character.</summary>
+/// <summary>Upstream's <c>ParsedKey</c> (<c>engine/contract.ts</c>): one parsed <c>press</c> key: its modifiers, and either a named key or a single character.</summary>
 internal sealed record ParsedKey(IReadOnlyList<string> Modifiers, string? Name, string? Character);
 
 /// <summary>
+/// .NET-only holder name (C# has no free functions): upstream's <c>KEY_MODIFIERS</c>, <c>KEY_NAMES</c> and <c>parseKey</c> in <c>engine/contract.ts</c>.
 /// The key grammar of <c>press</c>, shared by every engine so a test's key names are portable: zero or more modifiers
 /// and one key, joined by <c>+</c>. A modifier is <c>Shift</c>, <c>Control</c>, <c>Alt</c>, <c>Meta</c>, or
 /// <c>ControlOrMeta</c>. A named key is one of <see cref="Names"/>. Any single printable character is typed as itself.
-/// A platform without a key refuses it. It never reinterprets the spelling.
+/// The harness refuses a key outside it with <c>INVALID_ARGUMENT</c> (<c>Keys.RequireKey</c>); an engine without a grammar-valid key refuses it with <c>UNSUPPORTED_CAPABILITY</c>. It never reinterprets the spelling.
 /// </summary>
-internal static class DeviceKeys
+internal static class KeyGrammar
 {
-    public static IReadOnlyList<string> Modifiers { get; } = ["Shift", "Control", "Alt", "Meta", "ControlOrMeta"];
+    public static IReadOnlyList<string> Modifiers => KeyModifiers.Names;
 
     public static IReadOnlyList<string> Names { get; } =
     [
