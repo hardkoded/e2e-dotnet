@@ -44,7 +44,8 @@ public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
         var transport = new StdioClientTransport(new StdioClientTransportOptions
         {
             Name = "init-codex-test",
-            Command = (string)server["command"]!,
+            // .NET looks a bare command up in this process's PATH, not the child's, so on POSIX the shim is named by its path.
+            Command = OperatingSystem.IsWindows() ? (string)server["command"]! : Path.Combine(bin, (string)server["command"]!),
             Arguments = [.. server["args"]!.AsArray().Select(arg => (string)arg!)],
             WorkingDirectory = Dir,
             EnvironmentVariables = new Dictionary<string, string?>
