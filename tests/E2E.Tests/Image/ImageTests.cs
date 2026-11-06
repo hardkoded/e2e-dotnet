@@ -132,25 +132,46 @@ public sealed class ImageTests
         Assert.Equal(image.Data, decoded.Data);
     }
 
+    private static bool Wide(string label) => label.StartsWith("16-bit", StringComparison.Ordinal);
+
+    public static TheoryData<string, byte[], byte[]> ExactDecodeCases() => Cases(label => !Wide(label));
+
+    public static TheoryData<string, byte[], byte[]> SixteenBitDecodeCases() => Cases(Wide);
+
+    private static TheoryData<string, byte[], byte[]> Cases(Func<string, bool> pick)
+    {
+        var data = new TheoryData<string, byte[], byte[]>();
+        foreach (var row in DecodeCases().Where(row => pick((string)row[0]!)))
+        {
+            data.Add((string)row[0]!, (byte[])row[1]!, (byte[])row[2]!);
+        }
+
+        return data;
+    }
+
     [Theory]
-    [MemberData(nameof(DecodeCases))]
-    public void Partial_Decodes_to_8_bit_RGBA(string label, byte[] bytes, byte[] rgba)
+    [MemberData(nameof(ExactDecodeCases))]
+    public void Decodes_to_8_bit_RGBA(string label, byte[] bytes, byte[] rgba)
     {
         var decoded = ImageOps.DecodePng(bytes);
         Assert.Equal([3, 2], [decoded.Width, decoded.Height]);
-        if (!label.StartsWith("16-bit", StringComparison.Ordinal))
-        {
-            Assert.Equal(rgba, decoded.Data);
-            return;
-        }
+        Assert.True(rgba.AsSpan().SequenceEqual(decoded.Data), $"{label}: expected {Convert.ToHexString(rgba)}, got {Convert.ToHexString(decoded.Data)}");
+    }
 
-        // Partial: Skia scales a 16-bit sample to 8 bits itself, which can land one level from upstream's rounding, so a
-        // channel is checked within one level. The alpha a transparent color gives (compared at 16 bits) is exact.
-        Assert.Equal(rgba.Length, decoded.Data.Length);
+    [Theory]
+    [MemberData(nameof(SixteenBitDecodeCases))]
+    public void Partial_Decodes_16_bit_to_8_bit_RGBA(string label, byte[] bytes, byte[] rgba)
+    {
+        var decoded = ImageOps.DecodePng(bytes);
+        Assert.Equal([3, 2], [decoded.Width, decoded.Height]);
+
+        // Partial: Skia scales a 16-bit sample to 8 bits itself, which can land one level from upstream's rounding, so a sample is
+        // checked within one level. An expected 0 or 255 is exact (a transparent color gives alpha 0 or 255 only by the 16-bit comparison).
+        Assert.True(rgba.Length == decoded.Data.Length, label);
         for (var at = 0; at < rgba.Length; at++)
         {
-            var keyed = label.Contains("transparent color", StringComparison.Ordinal) && at % 4 == 3;
-            Assert.InRange(Math.Abs(decoded.Data[at] - rgba[at]), 0, keyed ? 0 : 1);
+            var tolerance = rgba[at] is 0 or 255 ? 0 : 1;
+            Assert.True(Math.Abs(decoded.Data[at] - rgba[at]) <= tolerance, $"{label}: sample {at} expected {rgba[at]}, got {decoded.Data[at]}");
         }
     }
 

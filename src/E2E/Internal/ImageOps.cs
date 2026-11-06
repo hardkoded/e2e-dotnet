@@ -74,7 +74,8 @@ internal static class ImageOps
 
             if (bytes.AsSpan(at + 4, 4).SequenceEqual("IEND"u8))
             {
-                return true;
+                // A whole end chunk: no data, and the CRC every IEND carries.
+                return length == 0 && bytes.AsSpan(at + 8, 4).SequenceEqual(new byte[] { 0xae, 0x42, 0x60, 0x82 });
             }
 
             at += 12 + (int)length;

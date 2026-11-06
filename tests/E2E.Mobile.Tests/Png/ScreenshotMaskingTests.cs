@@ -41,14 +41,12 @@ public sealed class ScreenshotMaskingTests
     [MemberData(nameof(ColorTypes))]
     public void Masks_a_screenshot_and_writes_the_rest_of_it_as_RGBA(string label, byte[] bytes, byte[] color)
     {
-        Assert.NotEmpty(label);
         var masked = Decode(ScreenshotMasking.MaskPng(bytes, [new Rect(0, 0, 2, 2)]));
         byte[] At(int x, int y) => masked.Pixels[(((y * 4) + x) * 4)..(((y * 4) + x) * 4 + 4)];
 
-        Assert.Equal([0, 0, 0, 255], At(0, 0));
-        Assert.Equal([0, 0, 0, 255], At(1, 1));
-        Assert.Equal(color, At(2, 0));
-        Assert.Equal(color, At(3, 3));
+        byte[] black = [0, 0, 0, 255];
+        Assert.True(black.AsSpan().SequenceEqual(At(0, 0)) && black.AsSpan().SequenceEqual(At(1, 1)), $"{label}: the rectangle is not black");
+        Assert.True(color.AsSpan().SequenceEqual(At(2, 0)) && color.AsSpan().SequenceEqual(At(3, 3)), $"{label}: the rest is not {Convert.ToHexString(color)}");
     }
 
     [Fact]
