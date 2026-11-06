@@ -367,10 +367,11 @@ public sealed class WebEngineLifecycleTests
     {
         var result = await page.EvaluateAsync<System.Text.Json.JsonElement>(
             """
-            async (bytes) => {
+            async (encoded) => {
+              const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
               const video = document.createElement('video');
               video.muted = true;
-              video.src = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'video/webm' }));
+              video.src = URL.createObjectURL(new Blob([bytes], { type: 'video/webm' }));
               await new Promise((resolve, reject) => {
                 video.addEventListener('loadedmetadata', () => resolve(), { once: true });
                 video.addEventListener('error', () => reject(new Error('the recording did not decode')), { once: true });
@@ -399,7 +400,7 @@ public sealed class WebEngineLifecycleTests
               return { width: canvas.width, height: canvas.height, padded: padded / total, inked: inked / total };
             }
             """,
-            webm.Select(value => (int)value).ToArray());
+            Convert.ToBase64String(webm));
         return new Frame(result.GetProperty("width").GetInt32(), result.GetProperty("height").GetInt32(), result.GetProperty("padded").GetDouble(), result.GetProperty("inked").GetDouble());
     }
 
@@ -413,7 +414,17 @@ public sealed class WebEngineLifecycleTests
     {
         public string Path { get; } = Directory.CreateTempSubdirectory("e2e-lifecycle-").FullName;
 
-        public void Dispose() => Directory.Delete(Path, recursive: true);
+        public void Dispose()
+        {
+            try
+            {
+                Directory.Delete(Path, recursive: true);
+            }
+            catch (IOException)
+            {
+                // A recording the browser still flushes (Windows) must not hide the test's own result.
+            }
+        }
     }
 
     /// <summary>Starts an attempt on <paramref name="engine"/> and opens the home page.</summary>
