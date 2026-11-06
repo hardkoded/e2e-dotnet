@@ -9,7 +9,7 @@ internal static class PageScript
     // Each element keeps its ref under a registry symbol for the life of the
     // document, so a ref the model saw stays valid in the next observation.
     // The host passes the next free number, so refs never repeat across
-    // documents. The latest observation's elements are kept for Find. The
+    // documents. The latest observation's elements are kept for RefsOrForce. The
     // walk reads one document: it goes through open shadow roots and closed
     // ones the init script recorded, and lists an iframe as a boundary node
     // the host fills with that frame's own observation. When the document has
@@ -1108,7 +1108,14 @@ internal static class PageScript
           // A read for the trace leaves the elements the test and the model act on as the last real observation set them.
           if (publish) window[Symbol.for("e2e.observation.elements")] = elements;
           // The object itself, not JSON.stringify of it: the application may have replaced that, or added a toJSON.
-          return { next, count, truncated: truncated || full || textCut, scroll, viewport: { width: innerWidth, height: innerHeight }, roots };
+          const result = { next, count, truncated: truncated || full || textCut, scroll, viewport: { width: innerWidth, height: innerHeight }, roots };
+          // The elements the walk read, in one array beside their ids (upstream's `elements` and `ids`): the host keeps the array behind
+          // one handle and makes an element handle only when an action reaches for a node.
+          if (publish) {
+            result.ids = [...elements.keys()];
+            result.elements = [...elements.values()];
+          }
+          return result;
         }
         """;
 
@@ -1298,12 +1305,5 @@ internal static class PageScript
     // Whether a document ran RecordClosedShadowRoots.
     public const string TracksClosedShadowRoots = """
         () => Symbol.for("e2e.closedShadowRoots") in globalThis
-        """;
-
-    public const string Find = """
-        (id) => {
-          const el = window[Symbol.for("e2e.observation.elements")]?.get(id);
-          return el && el.isConnected ? el : null;
-        }
         """;
 }

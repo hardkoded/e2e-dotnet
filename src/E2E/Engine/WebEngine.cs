@@ -1082,8 +1082,9 @@ public sealed partial class WebEngine : IEngine
 
         // The emulation each page got as it appeared, so the attempt's own page is ready before it shows.
         private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IPage, Task> _emulated = new();
-        private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
-        private int _nextRef = 1;
+
+        // The refs of the attempt: minted ids, and the generation of observed nodes behind the latest observation.
+        private readonly RefRegistry _refs = new();
 
         // The locator that matched each located node alone, the way upstream keeps a single match on the strict Playwright locator.
         // Keyed by the node a locate returned, so a node the observation listed (same ref) is never strict.
@@ -1184,20 +1185,31 @@ public sealed partial class WebEngine : IEngine
         /// <summary>One read of the page into a tree, publishing its refs. Callers hold their turn (<see cref="ObserveInTurnAsync"/>).</summary>
         private async Task<Observation> ReadObservationAsync(OperationBudget budget)
         {
+            var capture = _refs.BeginCapture();
             var walk = new FrameWalk();
-            List<WebNode> roots;
             try
             {
-                roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-            {
-                throw WebErrors.NavigationStaleOr(ex, "observe");
-            }
+                List<WebNode> roots;
+                try
+                {
+                    roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    throw WebErrors.NavigationStaleOr(ex, "observe");
+                }
 
-            _frames = walk.Frames;
-            _observed = true;
-            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+                var observation = new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+                _refs.Publish(capture, new CapturedObservation(observation, walk.Generation));
+                _observed = true;
+                return observation;
+            }
+            catch
+            {
+                // A read that failed leaves no reachable ids behind.
+                walk.Release();
+                throw;
+            }
         }
 
         // Settles when the latest observation in line has finished; never faults.
@@ -1466,16 +1478,18 @@ public sealed partial class WebEngine : IEngine
             RequireObservation();
             var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
-            var element = await FindElementAsync(node, action, budget).ConfigureAwait(false);
-            await using var disposeElement = element.ConfigureAwait(false);
+            var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
+
+            // The lists behind both nodes stay alive until the action ends, whatever observation publishes meanwhile.
+            using var keepElement = pin;
             try
             {
                 if (action is LocatorAction.DragTo drag)
                 {
                     // The drop target is a node of the same observation, found like the source.
                     await RequireNoNewTwinAsync(drag.Target, budget).ConfigureAwait(false);
-                    var drop = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
-                    await using var disposeDrop = drop.ConfigureAwait(false);
+                    var (drop, dropPin) = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
+                    using var keepDrop = dropPin;
                     await budget.WithinAsync(DragAsync(element, drop, budget)).ConfigureAwait(false);
                     return;
                 }
@@ -1488,39 +1502,31 @@ public sealed partial class WebEngine : IEngine
             }
         }));
 
-        /// <summary>The page's element for an observed node, or <c>NODE_STALE</c> when the page no longer has it.</summary>
-        private async Task<IElementHandle> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
+        /// <summary>
+        /// The page's element for an observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made it owns the
+        /// handle: it stays valid until the next observation replaces the generation.
+        /// </summary>
+        private async Task<(IElementHandle Element, IDisposable Pin)> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
         {
-            var frame = _frames.GetValueOrDefault(node.Ref) ?? Page.MainFrame;
-            if (frame.IsDetached)
-            {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
-            }
-
-            IJSHandle handle;
+            var lookup = _refs.LookupPinnedAsync(node.Ref);
             try
             {
-                handle = await budget.WithinAsync(frame.EvaluateHandleAsync(PageScript.Find, node.Ref)).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-            {
-                throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
+                var (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                return (((ElementTarget)target).Element, pin);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
+                // A lookup the deadline abandoned still pins its list when it settles.
+                WebSupport.DisposePinWhenSettled(lookup);
+
                 // As upstream, the deadline cutting off any part of an action is the action's cut-off.
                 throw WebErrors.ClassifyAction(ex, action);
             }
-
-            // A frame's handle to a missing ref is a plain JSHandle, which
-            // AsElement rejects instead of returning null.
-            if (handle is IElementHandle element)
+            catch
             {
-                return element;
+                WebSupport.DisposePinWhenSettled(lookup);
+                throw;
             }
-
-            await handle.DisposeAsync().ConfigureAwait(false);
-            throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
         }
 
         /// <summary>A pointer drag between two elements, as Playwright's <c>dragTo</c> does it: hover the source, press, hover the target, release.</summary>
@@ -1784,6 +1790,9 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
             await VideoPageClosingAsync().ConfigureAwait(false);
+
+            // The old page's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             foreach (var page in context.Pages.ToList())
             {
@@ -1816,6 +1825,9 @@ public sealed partial class WebEngine : IEngine
             await VideoPageClosingAsync().ConfigureAwait(false);
             var context = _context;
             _context = null;
+
+            // The old context's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             if (context is not null)
             {
@@ -2655,6 +2667,7 @@ public sealed partial class WebEngine : IEngine
 
             // Late recovery and page work can only reach this retired session.
             _disposed = true;
+            _refs.Clear();
             var connected = _lease is not null && _browser.IsConnected;
             await _lifetime.CancelAsync().ConfigureAwait(false);
             try
@@ -2721,31 +2734,51 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            // A read the budget abandons keeps minting refs in the page. The trace's read reserves the most it can mint up front,
-            // so the next read never starts from a number the abandoned one is still handing out.
-            var seed = _nextRef;
-            if (!walk.Publish)
-            {
-                _nextRef = seed + walk.Remaining;
-            }
+            // A read the budget abandons keeps minting refs in the page, so the ids it can mint are reserved before it starts: the next
+            // read never starts from a number the abandoned one is still handing out.
+            var seed = _refs.ReserveIds(walk.Remaining);
 
-            System.Text.Json.JsonElement json;
+            WebObservation? dto;
+            ElementList? list;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish })).ConfigureAwait(false);
+                (dto, list) = await ReadDocumentAsync(frame, walk, seed, budget).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
                 return [];
             }
 
-            var dto = System.Text.Json.JsonSerializer.Deserialize<WebObservation>(json, JsonDefaults.Options);
             if (dto is null)
             {
                 return [];
             }
 
-            _nextRef = Math.Max(_nextRef, dto.Next);
+            // The reader may stamp more refs than the walk reserved (nodes a selector forced past the cut), so what it minted past the
+            // reservation is taken too: the next document never starts inside this one's range. Port only; upstream reserves the budget alone.
+            var overrun = dto.Next - (seed + walk.Remaining);
+            if (overrun > 0)
+            {
+                _refs.ReserveIds(overrun);
+            }
+
+            if (list is not null)
+            {
+                if (dto.Ids is not { Count: > 0 })
+                {
+                    // A document that listed nothing leaves no id to reach its array by.
+                    list.Dispose();
+                }
+                else
+                {
+                    walk.Lists.Add(list);
+                    for (var index = 0; index < dto.Ids.Count; index++)
+                    {
+                        walk.Generation[dto.Ids[index]] = new ListedTarget(list, index);
+                    }
+                }
+            }
+
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
             if (frame.ParentFrame is null)
@@ -2756,7 +2789,7 @@ public sealed partial class WebEngine : IEngine
 
             var roots = dto.Roots ?? [];
             var owners = new Dictionary<string, WebNode>(StringComparer.Ordinal);
-            Index(roots, frame, walk, owners);
+            Index(roots, owners);
             foreach (var child in frame.ChildFrames.ToArray())
             {
                 var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
@@ -2807,9 +2840,13 @@ public sealed partial class WebEngine : IEngine
                 return;
             }
 
+            // The twin check reads the page to count its matches and publishes nothing: the lists it makes are released with it.
+            var walks = new List<FrameWalk>();
             try
             {
-                var roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                var walk = new FrameWalk();
+                walks.Add(walk);
+                var roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
                 var projected = expression;
                 if (WebLocators.NeedsPage(expression))
                 {
@@ -2818,7 +2855,9 @@ public sealed partial class WebEngine : IEngine
                     if (forcing.Marked)
                     {
                         // The twin check keeps the page's elements as the located node's observation set them, forced ones included.
-                        roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                        var again = new FrameWalk();
+                        walks.Add(again);
+                        roots = await CollectAsync(Page.MainFrame, again, budget).ConfigureAwait(false);
                         projected = await ProjectAsync(expression, budget, new Forcing { Mark = false }).ConfigureAwait(false);
                     }
                 }
@@ -2832,6 +2871,13 @@ public sealed partial class WebEngine : IEngine
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
+            }
+            finally
+            {
+                foreach (var each in walks)
+                {
+                    each.Release();
+                }
             }
         }
 
@@ -2991,18 +3037,72 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private static void Index(List<WebNode> nodes, IFrame frame, FrameWalk walk, Dictionary<string, WebNode> owners)
+        private static void Index(List<WebNode> nodes, Dictionary<string, WebNode> owners)
         {
             foreach (var node in nodes)
             {
-                walk.Frames[node.Ref] = frame;
                 if (node.Frame)
                 {
                     owners[node.Ref] = node;
                 }
 
-                Index(node.Children ?? [], frame, walk, owners);
-                Index(node.Inline ?? [], frame, walk, owners);
+                Index(node.Children ?? [], owners);
+                Index(node.Inline ?? [], owners);
+            }
+        }
+
+        /// <summary>
+        /// Runs the reader on one document. A publishing read leaves its elements in one in-page array, kept behind the returned
+        /// <see cref="ElementList"/>; a handle abandoned by the deadline is released when it arrives.
+        /// </summary>
+        private async Task<(WebObservation? Observation, ElementList? List)> ReadDocumentAsync(IFrame frame, FrameWalk walk, int seed, OperationBudget budget)
+        {
+            var pending = frame.EvaluateHandleAsync(PageScript.Collect, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish });
+            IJSHandle result;
+            try
+            {
+                result = await budget.WithinAsync(pending).ConfigureAwait(false);
+            }
+            catch
+            {
+                WebSupport.DisposeWhenSettled(pending);
+                throw;
+            }
+
+            IJSHandle? elements = null;
+            try
+            {
+                // The metadata is data and the elements are handles: reading them apart keeps a property handle from outliving the result.
+                var json = await budget.WithinAsync(result.EvaluateAsync<System.Text.Json.JsonElement>("(read) => ({ ...read, elements: undefined })")).ConfigureAwait(false);
+                var dto = System.Text.Json.JsonSerializer.Deserialize<WebObservation>(json, JsonDefaults.Options);
+                if (dto is null || !walk.Publish)
+                {
+                    return (dto, null);
+                }
+
+                var reading = result.GetPropertyAsync("elements");
+                try
+                {
+                    elements = await budget.WithinAsync(reading).ConfigureAwait(false);
+                }
+                catch
+                {
+                    WebSupport.DisposeWhenSettled(reading);
+                    throw;
+                }
+
+                var list = new ElementList(elements);
+                elements = null;
+                return (dto, list);
+            }
+            finally
+            {
+                if (elements is not null)
+                {
+                    WebSupport.DisposeQuietly(elements);
+                }
+
+                WebSupport.DisposeQuietly(result);
             }
         }
 
@@ -3275,7 +3375,7 @@ public sealed partial class WebEngine : IEngine
             var previous = (_contextId!, _target);
             var size = _page?.ViewportSize is { } current ? new ViewportSize { Width = current.Width, Height = current.Height } : _viewport;
             _observed = false;
-            _frames = new(StringComparer.Ordinal);
+            _refs.Clear();
             _strict.Clear();
             try
             {
@@ -4028,7 +4128,22 @@ public sealed partial class WebEngine : IEngine
 
         public TraceViewport? Viewport { get; set; }
 
-        public Dictionary<string, IFrame> Frames { get; } = new(StringComparer.Ordinal);
+        /// <summary>The observed nodes of every document the walk read, by ref: the generation a publishing read hands the registry.</summary>
+        public Dictionary<string, ListedTarget> Generation { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The element lists the walk made, one per document read.</summary>
+        public List<ElementList> Lists { get; } = [];
+
+        /// <summary>Releases every list the walk made; safe to call again.</summary>
+        public void Release()
+        {
+            foreach (var list in Lists)
+            {
+                list.Dispose();
+            }
+
+            Generation.Clear();
+        }
     }
 
     private sealed class WebViewportDto
@@ -4041,6 +4156,9 @@ public sealed partial class WebEngine : IEngine
     private sealed class WebObservation
     {
         public int Next { get; set; }
+
+        /// <summary>The ref of each element in the in-page array, in order (upstream's <c>ids</c>).</summary>
+        public List<string>? Ids { get; set; }
 
         public int Count { get; set; }
 

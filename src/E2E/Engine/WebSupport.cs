@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.ExceptionServices;
+using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
@@ -30,6 +31,71 @@ internal static class WebSupport
         }
 
         return safe.Length == 0 ? "artifact" : safe;
+    }
+
+    /// <summary>
+    /// Releases a handle without waiting and without failing: a page that is gone has nothing left to release (upstream's inline
+    /// <c>void handle.dispose().catch(() =&gt; undefined)</c>). .NET-only helper; C# has no such one-line idiom.
+    /// </summary>
+    public static void DisposeQuietly(IAsyncDisposable handle)
+    {
+        _ = DisposeQuietlyAsync(handle);
+    }
+
+    /// <summary>Releases the handle a read yields once it settles, for a read the deadline abandoned. .NET-only, as <see cref="DisposeQuietly"/>.</summary>
+    public static void DisposeWhenSettled<T>(Task<T> read)
+        where T : IAsyncDisposable
+    {
+        _ = DisposeWhenSettledAsync(read);
+    }
+
+    /// <summary>
+    /// Releases the pin of a lookup that settles after the operation abandoned it, so the list is not held for good. .NET-only, as
+    /// <see cref="DisposeWhenSettled"/>: the pin is the port's own (see <see cref="RefRegistry.LookupPinnedAsync"/>).
+    /// </summary>
+    public static void DisposePinWhenSettled(Task<(ActionTarget Target, IDisposable Pin)> lookup)
+    {
+        _ = lookup.ContinueWith(
+            static done =>
+            {
+                if (done.IsCompletedSuccessfully)
+                {
+                    done.Result.Pin.Dispose();
+                }
+                else
+                {
+                    // The lookup failed: nothing is pinned, and its error was the caller's.
+                    _ = done.Exception;
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private static async Task DisposeQuietlyAsync(IAsyncDisposable handle)
+    {
+        try
+        {
+            await handle.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The page or connection is gone, and the handle with it.
+        }
+    }
+
+    private static async Task DisposeWhenSettledAsync<T>(Task<T> read)
+        where T : IAsyncDisposable
+    {
+        try
+        {
+            await DisposeQuietlyAsync(await read.ConfigureAwait(false)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The read failed: no handle arrived.
+        }
     }
 }
 
@@ -149,3 +215,16 @@ internal sealed class ErrorLatch
         }
     }
 }
+
+/// <summary>
+/// What a node reference stands for: an <see cref="ActionTarget"/> or a <see cref="ListedTarget"/>. .NET-only base type: upstream types
+/// <c>ActionTarget | ListedTarget</c> as a union, which C# has no syntax for.
+/// </summary>
+internal abstract record RefTarget;
+
+/// <summary>What an action runs on (upstream's <c>ActionTarget</c>, <c>web/src/support.ts</c>). The port has no strict locator target: it pins no node to a Playwright locator.</summary>
+internal abstract record ActionTarget : RefTarget;
+
+/// <summary>An action target that is already an element handle (upstream's <c>{ kind: 'element' }</c>).</summary>
+internal sealed record ElementTarget(IElementHandle Element) : ActionTarget;
+

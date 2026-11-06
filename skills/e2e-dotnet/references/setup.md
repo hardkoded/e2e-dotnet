@@ -359,7 +359,9 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `App.ClearStateAsync`. Each attempt needs a fresh browser from `CdpEndpoint`;
   one an earlier attempt rode is refused. Recovery never repeats a dispatched
   operation, and exhausting the action timeout is `OPERATION_TIMEOUT`. After a
-  reconnect, observe again before acting on an observed node. Without
+  reconnect, observe again before acting on an observed node. A ref names the element
+  the walk read; a gone element, a replaced document, a newer observation, an app restart,
+  or a state reset makes it a retryable `NODE_STALE`. Without
   `ReconnectEndpoint` each attempt attaches and creates a new context.
 
 - A provider implements `Name`, `AcquireAsync(BrowserRequest, ct)` returning a
