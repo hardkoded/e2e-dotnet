@@ -1683,7 +1683,7 @@ internal sealed class AttemptScope
     /// Upstream's <c>strict.advice</c> on <c>AgentCacheContext</c> (<c>cache/context.ts</c>): how to re-record a recording
     /// <c>cache.strict</c> failed on. .NET-only name: the port has no <c>strict</c> object on a cache context.
     /// </summary>
-    public string StrictAdvice => StaleAdvice(Cache!, ProjectRoot ?? Directory.GetCurrentDirectory());
+    public string StrictAdvice => Cache is null ? "" : StaleAdvice(Cache, ProjectRoot ?? Directory.GetCurrentDirectory());
 
     /// <summary>
     /// Upstream's <c>staleAdvice</c> (<c>cache/context.ts</c>): a read-write run with the knob that turned strict on turned off, and where
