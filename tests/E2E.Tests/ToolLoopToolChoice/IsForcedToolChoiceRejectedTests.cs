@@ -18,7 +18,7 @@ public sealed class IsForcedToolChoiceRejectedTests
     {
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Rejection));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(new InvalidOperationException("wrapped", Rejection)));
-        Assert.True(ToolChoice.IsForcedToolChoiceRejected(new RetryException("retries spent", [Rejection])));
+        Assert.True(ToolChoice.IsForcedToolChoiceRejected(new RetryError("retries spent", [Rejection])));
         Assert.True(ToolChoice.IsForcedToolChoiceRejected(Http400("""{"error":{"message":"tool_choice is not supported"}}""")));
     }
 
