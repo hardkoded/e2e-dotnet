@@ -139,10 +139,16 @@ internal sealed class TraceCacheStatePages : IDisposable
         }
 
         var body = Encoding.UTF8.GetBytes(json);
-        context.Response.ContentType = "application/json";
-        context.Response.ContentLength64 = body.Length;
-        await context.Response.OutputStream.WriteAsync(body);
-        context.Response.Close();
+        try
+        {
+            context.Response.ContentType = "application/json";
+            context.Response.ContentLength64 = body.Length;
+            await context.Response.OutputStream.WriteAsync(body);
+        }
+        finally
+        {
+            context.Response.Close();
+        }
     }
 
     private static Task NotFoundAsync(HttpListenerContext context)

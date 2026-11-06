@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Tests.AgentAct;
@@ -73,18 +74,16 @@ public sealed class TraceCacheAReplayedTypedValueIsTheFlowsDataOnAnAppThatKeepsS
 
         // The list now shows "Buy milk" before the step starts: the start-path probe puts it among the texts the screen showed, where a
         // live type of the same value would count as read off the screen.
-        foreach (var run in new[] { 2, 3 })
+        foreach (var _ in new[] { 2, 3 })
         {
             runs = 0;
             var (result, step) = await RunAsync(directory, pages.Url, () => runs++);
 
-            Assert.True(runs == 0, $"run {run}");
-            Assert.True(result.Cache is { Mode: "self-finalized", ReplayedActions: 2, TotalActions: 2 }, $"run {run}: {result.Cache?.Mode} {result.Cache?.Reason}");
+            Assert.Equal(0, runs);
+            Assert.Equal(("self-finalized", 2, 2), (result.Cache?.Mode, result.Cache?.ReplayedActions, result.Cache?.TotalActions));
             Assert.Equal(0, step.Metrics!.ModelCalls);
             var restaged = TwoTapCounter.OnlyEntry(directory).Actions;
-            Assert.True(
-                Serialized(recorded) == Serialized(restaged),
-                $"run {run}: the entry was rewritten");
+            Assert.Equal(Serialized(recorded), Serialized(restaged));
         }
     }
 
@@ -114,5 +113,5 @@ public sealed class TraceCacheAReplayedTypedValueIsTheFlowsDataOnAnAppThatKeepsS
         Assert.Equal(("missed", "gap", 2), (second.Cache?.Mode, second.Cache?.Reason, second.Cache?.TotalActions));
     }
 
-    private static string Serialized(List<RecordedAction> actions) => System.Text.Json.JsonSerializer.Serialize(actions);
+    private static string Serialized(List<RecordedAction> actions) => JsonSerializer.Serialize(actions);
 }

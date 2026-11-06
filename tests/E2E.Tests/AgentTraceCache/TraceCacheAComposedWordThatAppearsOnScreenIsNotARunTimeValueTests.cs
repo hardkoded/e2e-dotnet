@@ -25,6 +25,7 @@ public sealed class TraceCacheAComposedWordThatAppearsOnScreenIsNotARunTimeValue
             onRun();
             var observation = await context.ObserveAsync(cancellationToken: token);
             var fields = Regex.Matches(observation.Text, @"^\s*#(?<id>\S+) textbox\b", RegexOptions.Multiline).Select(match => match.Groups["id"].Value).ToList();
+            Assert.Equal(2, fields.Count);
             await context.Actions.TypeAsync(new ExecutorTarget(fields[0]), "one", token);
             await context.Actions.TypeAsync(new ExecutorTarget(fields[1]), "two", token);
             return Passed("filled both fields");
