@@ -34,11 +34,11 @@ For the fix of a code, see [Error codes](https://github.com/hardkoded/e2e-dotnet
 
 - In a mixed run the highest-precedence code present wins, `130 > 4 > 3 > 2 > 1 > 0`.
 - The `internal` class and exit code 4 are reserved for runner invariant violations. No first-party code raises a code in that class today.
-- Under NUnit or xUnit the test runner decides the process exit code. Only the `e2e` CLI commands exit with these numbers, so a CI job that runs `dotnet test` sees the runner's own exit code. The class still shows in the message and the report.
+- The exit numbers apply to the `e2e` CLI commands. A test run under NUnit or xUnit reports through its runner, which decides the process exit code. The class is kept in the report.
 
 | Codes | Description |
 | --- | --- |
-| [Agent codes](#agent-codes) | The `Code` of an `AgentException`, or of the `TestException` an agent step raises |
+| [Agent codes](#agent-codes) | The `Code` of the exception a step raises. The Class column is the code's class, not the .NET type |
 | [Session codes](#session-codes) | Saved sessions |
 | [Not in the port](#not-in-the-port) | Upstream codes the port does not raise |
 
@@ -74,11 +74,11 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `ASSERTION_INCONCLUSIVE` | `AssertAsync` could not judge: the screen did not show enough to decide either way. `ExtractAsync` raises it when the model answers that the screen does not show the requested data. A failure, never a pass | test | 1 |
 | `AUTHENTICATION_FAILED` | The executor concluded that signing in failed inside the app: a product verdict. `AUTH_CREDENTIAL_INVALID` is the blocked counterpart, for a configured credential the app rejects | test | 1 |
 | `STEP_NO_CONCLUSION` | The executor used every turn without calling `done` (upstream's `complete_step`). The step fails with the agent's last summary | test | 1 |
-| `REPLAY_STALE` | Under `cache.strict`, the step's recording exists but no longer replays, so the step fails with no model call instead of handing off to the agent. See [Caching](/features/caching) | configuration | 2 |
+| `REPLAY_STALE` | Under `cache.strict`, the step's recording exists but no longer replays, so the step fails with no model call instead of handing off to the agent. See [Caching](/features/caching/) | configuration | 2 |
 
 ### Session codes
 
-These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see [Signing in](/features/signing-in)).
+These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see [Signing in](/features/signing-in/)).
 
 | Code | When it happens | Class | Exit |
 | --- | --- | --- | ---: |
@@ -90,11 +90,11 @@ These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see
 
 ### Engine codes
 
-Engine faults (`ENGINE_FAILURE`, infrastructure, exit 3; `UNSUPPORTED_CAPABILITY`, configuration, exit 2; and the codes an `IEngine` throws) are listed in the [engine contract](/reference/engine#errors).
+Engine faults (`ENGINE_FAILURE`, infrastructure, exit 3; `UNSUPPORTED_CAPABILITY`, usually configuration, exit 2, though a step can raise it as a test failure, exit 1; and the codes an `IEngine` throws) are listed in the [engine contract](/reference/engine/#errors).
 
 ### Not in the port
 
-The port raises no code for these upstream codes. It has no runner, no suite scheduler, and no `test.only`.
+A user cannot hit these upstream codes in the port. It has no suite runner and no `test.only`.
 
 | Code | Upstream | Why the port has none |
 | --- | --- | --- |
