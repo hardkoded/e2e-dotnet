@@ -427,7 +427,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | Variable | Effect |
 | --- | --- |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ... | The provider's key, or the variable `apiKeyEnv` names. |
-| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and `-` becomes `_`. |
+| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and every character outside A-Z and 0-9 becomes `_`. |
 | `E2E_SECRET_<NAME>` | Overrides `secrets.<name>`. |
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
 | `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |

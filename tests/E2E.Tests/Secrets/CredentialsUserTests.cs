@@ -49,6 +49,7 @@ public sealed class CredentialsUserTests
         var handle = Credentials.User("secrets-test.svc a-b");
 
         Assert.Equal("svc@example.com", handle.Username);
+        Assert.Equal("secrets-test.svc a-b.password", handle.Password.Name);
     }
 
     // .NET-only: a session holds the config's accounts for its lifetime, where upstream's runner installs the registry.
