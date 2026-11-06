@@ -182,10 +182,18 @@ public sealed class E2EConfig
     /// </summary>
     internal JsonElement RawConfig { get; private init; }
 
-    public Secrets Secrets { get; private init; } = Secrets.Empty;
+    public Secrets Secrets { get; private set; } = Secrets.Empty;
 
     /// <summary>The <c>credentials</c> entries by name, each with its password as the secret <c>&lt;name&gt;.password</c> (upstream's <c>ResolvedConfig.credentials</c>).</summary>
-    public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; private init; } = ReadOnlyDictionary<string, ResolvedCredential>.Empty;
+    public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; private set; } = ReadOnlyDictionary<string, ResolvedCredential>.Empty;
+
+    private JsonElement? _rawCredentials;
+    private JsonElement? _rawSecrets;
+    private IReadOnlyDictionary<string, CredentialProvider> _credentialProviders = ReadOnlyDictionary<string, CredentialProvider>.Empty;
+    private IReadOnlyDictionary<string, SecretProvider> _secretProviders = ReadOnlyDictionary<string, SecretProvider>.Empty;
+
+    /// <summary>A <c>credentials</c> entry the code declares: the username (null reads <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> alone) and the provider of its password.</summary>
+    private sealed record CredentialProvider(string? Username, SecretProvider Password);
 
     /// <summary>Every secret the run holds: each credential's password, then the <c>secrets</c> entries (upstream's <c>allSecrets</c>). Redaction reads it.</summary>
     internal IReadOnlyList<Secret> AllSecrets =>
@@ -205,6 +213,44 @@ public sealed class E2EConfig
         ArgumentNullException.ThrowIfNull(store);
         var copy = (E2EConfig)MemberwiseClone();
         copy.Cache = ReadCache(_rawCache, ProjectRoot, Ci, _environment, store);
+        return copy;
+    }
+
+    /// <summary>
+    /// A copy of the config with the <c>secrets</c> entry <paramref name="name"/> computed by <paramref name="provider"/> on every fill, in place
+    /// of a value baked at load (upstream's <c>secrets: { name: () =&gt; string | Promise&lt;string&gt; }</c>, <c>SecretConfig</c>). .NET-only: the
+    /// config file cannot hold a function, so code sets it, as it sets <see cref="WithCacheStore"/>. It replaces a file entry of the same name.
+    /// <c>E2E_SECRET_&lt;NAME&gt;</c> still wins, as it does over a file value, and then the secret is that static value. The provider's value
+    /// must be a string of at least six code points when it is asked for: a shorter one fails the fill.
+    /// </summary>
+    public E2EConfig WithSecretProvider(string name, SecretProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(provider);
+        return WithProviders(_credentialProviders, new Dictionary<string, SecretProvider>(_secretProviders, StringComparer.Ordinal) { [name] = provider });
+    }
+
+    /// <summary>
+    /// A copy of the config with the <c>credentials</c> entry <paramref name="name"/> whose password <paramref name="password"/> computes on
+    /// every fill (upstream's <c>credentials: { name: { username, password: () =&gt; string | Promise&lt;string&gt; } }</c>,
+    /// <c>CredentialConfig</c>; only the password may be a provider). .NET-only: the config file cannot hold a function. It replaces a file entry
+    /// of the same name. <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> and <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> still win. A null
+    /// <paramref name="username"/> leaves it to <c>E2E_USER_&lt;NAME&gt;_USERNAME</c>.
+    /// </summary>
+    public E2EConfig WithCredential(string name, string? username, SecretProvider password)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(password);
+        return WithProviders(new Dictionary<string, CredentialProvider>(_credentialProviders, StringComparer.Ordinal) { [name] = new CredentialProvider(username, password) }, _secretProviders);
+    }
+
+    private E2EConfig WithProviders(IReadOnlyDictionary<string, CredentialProvider> credentialProviders, IReadOnlyDictionary<string, SecretProvider> secretProviders)
+    {
+        var copy = (E2EConfig)MemberwiseClone();
+        copy._credentialProviders = credentialProviders;
+        copy._secretProviders = secretProviders;
+        copy.Credentials = ReadCredentials(_rawCredentials, _environment, credentialProviders);
+        copy.Secrets = ReadSecrets(_rawSecrets, _environment, copy.Credentials, secretProviders);
         return copy;
     }
 
@@ -347,7 +393,7 @@ public sealed class E2EConfig
             var ci = IsCi(environment);
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
-            var credentials = ReadCredentials(Property(root, "credentials"), environment);
+            var credentials = ReadCredentials(Property(root, "credentials"), environment, ReadOnlyDictionary<string, CredentialProvider>.Empty);
             var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null);
             ReadArtifacts(Property(root, "artifacts"));
             return new E2EConfig
@@ -368,8 +414,10 @@ public sealed class E2EConfig
                 Reporters = ReadReporters(Property(root, "reporters")),
                 _rawOutput = Property(root, "output")?.Clone(),
                 RawConfig = root.Clone(),
-                Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
+                Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials, ReadOnlyDictionary<string, SecretProvider>.Empty),
                 Credentials = credentials,
+                _rawCredentials = Property(root, "credentials")?.Clone(),
+                _rawSecrets = Property(root, "secrets")?.Clone(),
                 _rawCache = Property(root, "cache")?.Clone(),
                 _environment = environment,
             };
@@ -916,44 +964,55 @@ public sealed class E2EConfig
     /// <c>resolveSecrets</c>). <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> and <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> win over the config. A
     /// message never holds a username or a password.
     /// </summary>
-    private static Dictionary<string, ResolvedCredential> ReadCredentials(JsonElement? raw, Func<string, string?> environment)
+    private static Dictionary<string, ResolvedCredential> ReadCredentials(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, CredentialProvider> providers)
     {
         var credentials = new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal);
-        if (raw is null)
-        {
-            return credentials;
-        }
-
-        if (raw.Value.ValueKind != JsonValueKind.Object)
+        if (raw is not null && raw.Value.ValueKind != JsonValueKind.Object)
         {
             throw Invalid("credentials must be an object of { username, password } by name");
         }
 
-        CheckEnvNameCollisions("E2E_USER", "credentials", [.. raw.Value.EnumerateObject().Select(property => property.Name)]);
-        foreach (var property in raw.Value.EnumerateObject())
+        var (entries, fileNames) = ObjectEntries(raw);
+        List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
+        CheckEnvNameCollisions("E2E_USER", "credentials", names);
+        foreach (var name in names)
         {
-            var name = property.Name;
-            CheckCredentialShape(name, property.Value);
             var prefix = ConfigSecrets.EnvName("E2E_USER", name);
-            var username = environment(prefix + "_USERNAME") ?? Property(property.Value, "username")?.GetString();
+            var provided = providers.GetValueOrDefault(name);
+            string? username;
+            string? password;
+            if (provided is null)
+            {
+                var entry = entries[name];
+                CheckCredentialShape(name, entry);
+                username = environment(prefix + "_USERNAME") ?? Property(entry, "username")?.GetString();
+                // An env override always wins: the operator rotating a credential must not need to know how it was configured.
+                password = environment(prefix + "_PASSWORD") ?? (Property(entry, "password") is { ValueKind: JsonValueKind.String } text ? text.GetString() : null);
+            }
+            else
+            {
+                username = environment(prefix + "_USERNAME") ?? provided.Username;
+                password = environment(prefix + "_PASSWORD");
+            }
+
             if (username is null)
             {
                 throw Invalid("credential \"" + name + "\" has no username; set username or " + prefix + "_USERNAME");
             }
 
-            // An env override always wins: the operator rotating a credential must not need to know how it was configured.
-            var password = environment(prefix + "_PASSWORD") ?? (Property(property.Value, "password") is { ValueKind: JsonValueKind.String } text ? text.GetString() : null);
-            if (password is null)
+            var handle = ConfigSecrets.CredentialSecretName(name);
+            if (provided is not null && password is null)
             {
-                throw Invalid("credential \"" + name + "\" password must be a non-empty string");
+                credentials[name] = new ResolvedCredential(name, username, Secret.Create(handle, provided.Password, "password"));
+                continue;
             }
 
-            if (Secret.Problem(password) is { } problem)
+            if (!ConfigSecrets.IsSecretValue(password))
             {
-                throw Invalid("credential \"" + name + "\" password " + problem);
+                throw Invalid("credential \"" + name + "\" password " + ConfigSecrets.SecretValueProblem(password));
             }
 
-            credentials[name] = new ResolvedCredential(name, username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
+            credentials[name] = new ResolvedCredential(name, username, Secret.Create(handle, password!, "password"));
         }
 
         return credentials;
@@ -981,7 +1040,7 @@ public sealed class E2EConfig
 
         if (Property(credential, "username") is { ValueKind: not JsonValueKind.String } username)
         {
-            throw Invalid("credential \"" + name + "\" username must be a string, got " + KindOf(username));
+            throw Invalid("credential \"" + name + "\" username must be a string, got " + KindOf(username) + "; only password may be a provider function");
         }
     }
 
@@ -1021,55 +1080,83 @@ public sealed class E2EConfig
             + ", so one value set there would replace all of them; rename all but one");
     }
 
-    private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, ResolvedCredential> credentials)
+    /// <summary>The properties of a JSON object by name and in file order. A name written twice stays in the list, so the variable collision check refuses it.</summary>
+    private static (Dictionary<string, JsonElement> Entries, List<string> Names) ObjectEntries(JsonElement? raw)
     {
-        if (raw is null)
+        Dictionary<string, JsonElement> entries = new(StringComparer.Ordinal);
+        List<string> names = [];
+        if (raw is { } value)
         {
-            return Secrets.Empty;
+            foreach (var property in value.EnumerateObject())
+            {
+                entries[property.Name] = property.Value;
+                names.Add(property.Name);
+            }
         }
 
-        if (raw.Value.ValueKind != JsonValueKind.Object)
+        return (entries, names);
+    }
+
+    private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, ResolvedCredential> credentials, IReadOnlyDictionary<string, SecretProvider> providers)
+    {
+        if (raw is not null && raw.Value.ValueKind != JsonValueKind.Object)
         {
             throw Invalid("secrets must be an object of secret values by name");
         }
 
-        var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
-        foreach (var property in raw.Value.EnumerateObject())
+        var (entries, fileNames) = ObjectEntries(raw);
+        List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
+        if (names.Count == 0)
         {
-            if (property.Name.Trim().Length == 0)
-            {
-                throw Invalid("secret names must be non-empty");
-            }
+            return Secrets.Empty;
         }
 
-        CheckEnvNameCollisions("E2E_SECRET", "secrets", [.. raw.Value.EnumerateObject().Select(property => property.Name)]);
-        foreach (var property in raw.Value.EnumerateObject())
+        var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
+        if (names.Any(name => name.Trim().Length == 0))
         {
-            var name = property.Name;
+            throw Invalid("secret names must be non-empty");
+        }
+
+        CheckEnvNameCollisions("E2E_SECRET", "secrets", names);
+        foreach (var name in names)
+        {
             if (credentials.Values.FirstOrDefault(credential => credential.Password.Name == name) is { } owner)
             {
                 throw Invalid("secret \"" + name + "\" has the name of credential \"" + owner.Name + "\"'s password handle; rename the secret");
             }
 
             var variable = Secrets.EnvironmentVariable(name);
-            string? entry = property.Value.ValueKind switch
+            var provided = providers.GetValueOrDefault(name);
+            string? entry = null;
+            if (provided is null)
             {
-                JsonValueKind.String => property.Value.GetString(),
-                JsonValueKind.Null => null,
-                _ => throw Invalid("secret \"" + name + "\" must be a non-empty string, or null to read only " + variable),
-            };
+                entry = entries[name].ValueKind switch
+                {
+                    JsonValueKind.String => entries[name].GetString(),
+                    JsonValueKind.Null => null,
+                    _ => throw Invalid("secret \"" + name + "\" must be a non-empty string, or null to read only " + variable),
+                };
+            }
+
+            // An env override always wins over the file entry, a provider included.
             var value = environment(variable) ?? entry;
+            if (value is null && provided is not null)
+            {
+                values[name] = Secret.Create(name, provided, "generic-secret");
+                continue;
+            }
+
             if (value is null)
             {
                 throw Invalid("secret \"" + name + "\" has no value; set " + variable);
             }
 
-            if (Secret.Problem(value) is { } problem)
+            if (!ConfigSecrets.IsSecretValue(value))
             {
-                throw Invalid("secret \"" + name + "\" " + problem);
+                throw Invalid("secret \"" + name + "\" " + ConfigSecrets.SecretValueProblem(value));
             }
 
-            values[name] = Secret.Create(name, value);
+            values[name] = Secret.Create(name, value, "generic-secret");
         }
 
         return new Secrets(values);

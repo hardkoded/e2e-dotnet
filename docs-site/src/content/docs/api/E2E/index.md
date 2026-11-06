@@ -239,3 +239,4 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | --- | --- |
 | [ActionHook](/api/E2E/ActionHook/) | The onAction hook of an agent.act call. |
 | [ExploreListener](/api/E2E/ExploreListener/) | Receives every change of the exploration, in order. |
+| [SecretProvider](/api/E2E/SecretProvider/) | Resolves a secret's plaintext at fill time (a vault lookup, a freshly computed TOTP) instead of a value baked at config load (upstream's SecretProvider, config/secrets.ts: () => string \| Promise<string>). Called on every fill after the full authorization policy passes; the resolved value goes straight to the trusted driver, joins redaction, and is never logged, cached, or sent to a model. The token is .NET's cancellation: upstream's provider takes none. |

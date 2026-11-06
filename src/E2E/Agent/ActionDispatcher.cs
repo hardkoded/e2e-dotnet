@@ -203,7 +203,21 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var node = Resolve(target);
-                node = await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token, found => AuthorizeSecretFill(secret, found)).ConfigureAwait(false);
+                // The provider, if any, is asked once the policy has passed for the node as it is now (upstream's authorizeSecretFill resolves last).
+                node = await TargetedAsync(
+                    node,
+                    token,
+                    async (found, _) =>
+                    {
+                        var resolved = await secret.ResolveAsync(token).ConfigureAwait(false);
+                        if (secret.Provider is not null)
+                        {
+                            _scope.Register(resolved.Name, resolved.Value);
+                        }
+
+                        await _scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), OperationContext.Agent, token).ConfigureAwait(false);
+                    },
+                    found => AuthorizeSecretFill(secret, found)).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
             },

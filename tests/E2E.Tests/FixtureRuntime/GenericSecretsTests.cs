@@ -35,7 +35,7 @@ public sealed class GenericSecretsTests
             ScreenFixture.Timeout);
     }
 
-    /// <summary>Partial: the port has no step records to redact the value from, and its config secret has no <c>generic-secret</c> purpose.</summary>
+    /// <summary>Partial: the port has no step records to redact the value from.</summary>
     [Fact]
     public async Task Fills_a_config_secrets_value_into_a_plain_textbox_without_the_handle_showing_it()
     {
@@ -47,6 +47,7 @@ public sealed class GenericSecretsTests
         await ScreenAt("https://app.test/", performed).GetByRole("textbox", "API key").FillAsync(handle);
 
         Assert.Equal("stripe-key", handle.Name);
+        Assert.Equal("generic-secret", handle.Purpose);
         Assert.DoesNotContain(apiKey, handle.ToString(), StringComparison.Ordinal);
         Assert.Equal(new LocatorAction.Fill(apiKey, Sensitive: true), Assert.Single(performed));
     }

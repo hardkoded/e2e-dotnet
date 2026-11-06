@@ -506,3 +506,56 @@ the store states its own trust.
 | `store` | [IStepCache](/api/E2E/IStepCache/) |  |
 
 **Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithCredential_"></a>
+<a id="E2E_E2EConfig_WithCredential_System_String_System_String_E2E_SecretProvider_"></a>
+
+### WithCredential(string, string?, SecretProvider)
+
+
+```csharp
+public E2EConfig WithCredential(string name, string? username, SecretProvider password)
+```
+
+
+A copy of the config with the `credentials` entry &lt;code class="paramref"&gt;name&lt;/code&gt; whose password &lt;code class="paramref"&gt;password&lt;/code&gt; computes on
+every fill (upstream's `credentials: { name: { username, password: () => string | Promise<string> } }`,
+`CredentialConfig`; only the password may be a provider). .NET-only: the config file cannot hold a function. It replaces a file entry
+of the same name. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` still win. A null
+&lt;code class="paramref"&gt;username&lt;/code&gt; leaves it to `E2E_USER_<NAME>_USERNAME`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `username` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `password` | [SecretProvider](/api/E2E/SecretProvider/) |  |
+
+**Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithSecretProvider_"></a>
+<a id="E2E_E2EConfig_WithSecretProvider_System_String_E2E_SecretProvider_"></a>
+
+### WithSecretProvider(string, SecretProvider)
+
+
+```csharp
+public E2EConfig WithSecretProvider(string name, SecretProvider provider)
+```
+
+
+A copy of the config with the `secrets` entry &lt;code class="paramref"&gt;name&lt;/code&gt; computed by &lt;code class="paramref"&gt;provider&lt;/code&gt; on every fill, in place
+of a value baked at load (upstream's `secrets: { name: () => string | Promise<string> }`, `SecretConfig`). .NET-only: the
+config file cannot hold a function, so code sets it, as it sets [WithCacheStore(IStepCache)](#E2E_E2EConfig_WithCacheStore_E2E_IStepCache_). It replaces a file entry of the same name.
+`E2E_SECRET_<NAME>` still wins, as it does over a file value, and then the secret is that static value. The provider's value
+must be a string of at least six code points when it is asked for: a shorter one fails the fill.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `provider` | [SecretProvider](/api/E2E/SecretProvider/) |  |
+
+**Returns:** [E2EConfig](./)

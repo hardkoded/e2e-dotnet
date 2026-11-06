@@ -241,8 +241,8 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `MODEL_UNAVAILABLE` | No model is set and no replay finished the step, or GitHub Copilot does not serve the model to the account (`model_not_supported`, a plan or settings limit `e2e models` cannot show) | Set `agents.default.model`; for Copilot, pick an id the plan serves |
 | `INVALID_CONFIG` | Unknown key or bad value in `e2e.config.json` | Fix the key the message names |
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
-| `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |
-| `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` | Set both variables |
+| `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare, or the secret's provider returned less than 6 code points | Add it under `secrets`; fix the provider |
+| `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD`, or the password's provider returned less than 6 code points | Set both variables; fix the provider |
 | `LOCATOR_NOT_FOUND` | Wrong role or name, inexact text, element off screen, page not open, or a `locator.WaitForAsync` state that never held (`locator did not become <state>`) | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first. For a filtered locator the message lists how many nodes each filter step left, counted after the failure |
 | `LOCATOR_AMBIGUOUS` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)`. For a filtered locator the message lists how many nodes each step left (`candidates left after each filter step, counted after the failure:`): the step where the count jumps or drops to 0 is the one to change |
 | `APP_NOT_OPEN` | A `Screen` call before `App.OpenAsync()` | Open the app first |

@@ -20,6 +20,7 @@ public class Screen
     private readonly Func<LocatorExpression, LocatorExpression>? _wrap;
     private ScreenshotContext? _screenshots;
     private Action<Secret>? _rememberSecret;
+    private Action<string, string>? _registerSecretValue;
     private Func<Observation, string>? _renderTree;
     private string? _projectRoot;
     private Action _failed = static () => { };
@@ -126,6 +127,9 @@ public class Screen
 
     /// <summary>Makes the attempt know a secret filled through this screen, so every message it redacts covers it.</summary>
     internal Action<Secret>? RememberSecret { get => Root._rememberSecret; set => Root._rememberSecret = value; }
+
+    /// <summary>Makes the attempt redact one value a provider computed under the secret's name, without making it a secret the agent may fill.</summary>
+    internal Action<string, string>? RegisterSecretValue { get => Root._registerSecretValue; set => Root._registerSecretValue = value; }
 
     /// <summary>Replaces the secrets the attempt knows in text a failure quotes from the screen; the text as it is for a screen outside a session.</summary>
     internal Func<string, string> Redact { get => Engine.Redact; set => Engine.Redact = value; }
@@ -693,12 +697,31 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Fill(value), options, cancellationToken);
     }
 
-    /// <summary>Fills a secret. The engine marks the value sensitive and never reports it.</summary>
+    /// <summary>
+    /// Fills a secret. The engine marks the value sensitive and never reports it. A secret whose value a provider computes is asked
+    /// for it inside the step, before the node is looked for, and the value joins redaction before it is filled. A provider that returns less than
+    /// six code points fails the step with <c>AUTH_CREDENTIAL_UNAVAILABLE</c> (a password) or <c>SECRET_UNAVAILABLE</c>.
+    /// </summary>
     public Task FillAsync(Secret value, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(value);
-        _screen.MarkSecretFilled(value);
-        return ActAsync(new LocatorAction.Fill(value.Value, Sensitive: true), options, cancellationToken);
+        if (value.Provider is null)
+        {
+            _screen.MarkSecretFilled(value);
+            return ActAsync(new LocatorAction.Fill(value.Value, Sensitive: true), options, cancellationToken);
+        }
+
+        return _screen.RunStepAsync(StepKind.Locator, "locator.fill", Query.Describe(), async () =>
+        {
+            _screen.Engine.CheckAction(new LocatorAction.Fill(string.Empty, Sensitive: true));
+            var token = _screen.Token(cancellationToken);
+            var resolved = await value.ResolveAsync(token).ConfigureAwait(false);
+            // The handle stays the secret the attempt knows; the fresh value is only redacted, so a later agent step still asks the provider.
+            _screen.MarkSecretFilled(value);
+            _screen.RegisterSecretValue?.Invoke(resolved.Name, resolved.Value);
+            var action = new LocatorAction.Fill(resolved.Value, Sensitive: true);
+            await _screen.Engine.PerformAsync(Query, (_, _) => Task.FromResult<LocatorAction>(action), options?.Timeout, token).ConfigureAwait(false);
+        });
     }
 
     /// <summary>

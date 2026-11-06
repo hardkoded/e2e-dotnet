@@ -402,7 +402,13 @@ lines you changed:
   and the runner redacts it. While a test runs, `Credentials.User(name)`
   returns the account the config declares (a name the config does not
   declare reads the `E2E_USER_*` variables alone), and `e2e explore` carries
-  every configured account into its steps.
+  every configured account into its steps. A secret or a credential's
+  password may be a provider the code sets, `config.WithSecretProvider(name,
+  ct => ...)` or `config.WithCredential(name, username, ct => ...)` (a
+  `SecretProvider`, a `Task<string>`): the runner asks it on every fill, and a
+  value under 6 code points fails the fill with `SECRET_UNAVAILABLE` (a
+  credential's password: `AUTH_CREDENTIAL_UNAVAILABLE`). The `E2E_SECRET_*`
+  and `E2E_USER_*` variables still win over it.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`

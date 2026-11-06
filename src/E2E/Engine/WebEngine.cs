@@ -312,6 +312,9 @@ public sealed partial class WebEngine : IEngine
 
     public string Platform => "web";
 
+    /// <summary>The secret the options hold: the <see cref="WebBasicAuth"/> password when it is a <see cref="Secret"/>. Upstream's <c>web()</c> declares it as <c>secrets</c>.</summary>
+    public IReadOnlyList<Secret> Secrets => _options.BasicAuth?.Password is Secret password ? [password] : [];
+
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
 
@@ -459,7 +462,7 @@ public sealed partial class WebEngine : IEngine
             {
                 await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 var credentials = _options.BasicAuth is { } basicAuth
-                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
+                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? (async (secret, _) => (await secret.ResolveAsync(cancellationToken).ConfigureAwait(false)).Value)).ConfigureAwait(false)
                     : null;
                 if (connect is not null)
                 {

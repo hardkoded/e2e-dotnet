@@ -106,11 +106,18 @@ public sealed partial class Agent
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) =>
             TypeSecretAsync(target, secretName, cancellationToken, armed: "<secret:" + secretName + ">");
 
-        private Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
+        private async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
         {
             var secret = scope.Secrets.FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
                 ?? throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "Replay needs secret '" + secretName + "', and this step did not declare it.");
-            return PerformAsync(target, new LocatorAction.Fill(secret.Value, false), "fill", cancellationToken, armed);
+            // A provider's value is computed for this fill and joins redaction before it is typed.
+            var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
+            if (secret.Provider is not null)
+            {
+                scope.Register(resolved.Name, resolved.Value);
+            }
+
+            await PerformAsync(target, new LocatorAction.Fill(resolved.Value, false), "fill", cancellationToken, armed).ConfigureAwait(false);
         }
 
         public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
