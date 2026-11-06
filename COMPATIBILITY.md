@@ -196,7 +196,7 @@ Not ported, because the feature is not in the port:
 - No `withStallGuard` or `realmSlot`: the `tool-loop-stall` and `realm-slot` tests
 - The streak guard (#632, see Point tools): the pixel-evidence messages of `agent-screen-update`, and `act-validation`'s `names schema and vision as capabilities act does not have` (`ActOptions` cannot carry them). Judgments (`assert`, `waitFor`, `extract`) do not ask for the pixel fallback
 - No module-error explainer (`diagnose`), no `defineEngine` (`binds validateApp, prepare, finish, and fixture factories to the spec`)
-- No stalled-reader pixel fallback in `semantic-fallback`
+- No stalled-reader pixel fallback in `semantic-fallback` (#1230): the eight its of the unit `describe('semantic capture fallback')` and `reserves capture time and takes fresh masked pixels` are not ported; `keeps abandoned reader IDs distinct from new nodes, frames, and located refs` is `Partial_` (no abandoned reader; a located ref is the observation's own, so the check that it differs from a fresh id is dropped). No handle-owning capture in `observation-capture` (#1231): its seven unit its (the stalled-stage theory, the budget its, the cancelled mask probe, the concurrent publish order, and the replaced page) are not ported
 - The MCP config has no project tools: the three `mcp-server` and `mcp-session-host` tests about several targets and project tools, which need a custom engine handle in the config. The declared-verbs part is covered by `SessionHostTests.Catalogs_only_the_verbs_the_engine_declares`
 - No `--trace` flag or retry runner, so the `trace-modes` test (`records retries only under on-all-retries, --trace wins`) cannot run. No runner or report, so the report-schema parts of `trace-cache-replay` cannot run either
 
