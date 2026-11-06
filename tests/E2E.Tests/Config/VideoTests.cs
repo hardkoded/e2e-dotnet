@@ -34,6 +34,16 @@ public sealed class VideoTests
 
     /// <summary>Partial: the flag is the E2E_VIDEO variable.</summary>
     [Fact]
+    public void Partial_Keeps_the_mode_at_the_top_and_on_a_target_out_of_the_digest()
+    {
+        const string Plain = """{ "targets": [{ "name": "web", "platform": "web" }] }""";
+        var plain = ResolveConfigTests.Digest(Plain, Env());
+        Assert.Equal(plain, ResolveConfigTests.Digest("""{ "targets": [{ "name": "web", "platform": "web", "video": "on" }], "video": "retain-on-failure" }""", Env()));
+        Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(("E2E_VIDEO", "on"))));
+    }
+
+    /// <summary>Partial: the flag is the E2E_VIDEO variable.</summary>
+    [Fact]
     public void Refuses_a_mode_it_does_not_know_wherever_it_is_set()
     {
         const string Modes = "off, on, retain-on-failure, on-first-retry, on-all-retries";

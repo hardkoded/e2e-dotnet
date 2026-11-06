@@ -176,6 +176,12 @@ public sealed class E2EConfig
 
     private JsonElement? _rawOutput;
 
+    /// <summary>
+    /// The config as written, the JSON object <see cref="Parse(string, string, Func{string, string?}?)"/> read. .NET-only: upstream's
+    /// <c>computeConfigDigest</c> reads the declared <c>raw</c> config, and the port's resolved members hold defaults the file did not write.
+    /// </summary>
+    internal JsonElement RawConfig { get; private init; }
+
     public Secrets Secrets { get; private set; } = Secrets.Empty;
 
     /// <summary>The <c>credentials</c> entries by name, each with its password as the secret <c>&lt;name&gt;.password</c> (upstream's <c>ResolvedConfig.credentials</c>).</summary>
@@ -407,6 +413,7 @@ public sealed class E2EConfig
                 Cache = cache,
                 Reporters = ReadReporters(Property(root, "reporters")),
                 _rawOutput = Property(root, "output")?.Clone(),
+                RawConfig = root.Clone(),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials, ReadOnlyDictionary<string, SecretProvider>.Empty),
                 Credentials = credentials,
                 _rawCredentials = Property(root, "credentials")?.Clone(),

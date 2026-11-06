@@ -7,8 +7,8 @@ using System.Text.Json;
 namespace E2E.Tests.Config;
 
 /// <summary>
-/// Upstream <c>describe('output')</c> of config.test.ts. Not ported: <c>stays out of the digest</c> (the port has no config digest). The
-/// checks against the <c>tests</c> globs are left out of the partial ports: the port has no <c>tests</c> key.
+/// Upstream <c>describe('output')</c> of config.test.ts. The checks against the <c>tests</c> globs are left out of the partial ports: the
+/// port has no <c>tests</c> key.
 /// </summary>
 public sealed class OutputConfigTests
 {
@@ -146,6 +146,12 @@ public sealed class OutputConfigTests
     private static string Json(string key, object value) => JsonSerializer.Serialize(new Dictionary<string, object> { [key] = value });
 
     private static E2EConfig Parse(string json, string root) => E2EConfig.Parse(json, root, Env());
+
+    [Fact]
+    public void Stays_out_of_the_digest()
+    {
+        Assert.Equal(ResolveConfigTests.Digest(Resolve("""{ "output": "results" }""")), ResolveConfigTests.Digest(Resolve("{}")));
+    }
 
     private static E2EConfig Resolve(string json) => Parse(json, Root);
 

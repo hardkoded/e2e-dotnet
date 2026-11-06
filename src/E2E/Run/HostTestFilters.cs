@@ -206,6 +206,7 @@ internal static class HostTestFilters
         Ci = config.Ci,
         Targets = [new ResolvedTarget(config.Target.Name, config.Target.Platform, config.Target.App)],
         Filters = ResolvedConfig.ResolveTestFilters(filters),
+        ConfigDigest = ResolvedConfig.ComputeConfigDigest(config),
         AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
     };
 

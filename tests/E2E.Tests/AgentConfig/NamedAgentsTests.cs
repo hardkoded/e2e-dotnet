@@ -6,8 +6,7 @@ using E2E.Engine;
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's `--agent` is E2E_AGENT here (E2ESessionOptions.Agent), one name. The configDigest case has no port: the port has no
-// digest (see COMPATIBILITY.md, Agents).
+// Upstream's `--agent` is E2E_AGENT here (E2ESessionOptions.Agent), one name.
 public sealed class NamedAgentsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -83,6 +82,20 @@ public sealed class NamedAgentsTests
         return new ScriptedModel(request => request.Tools.Any(tool => tool.Name == "tap")
             ? ModelResponses.Done("passed", "done by " + name)
             : ModelResponses.Done("passed", "ready"));
+    }
+
+    /// <summary>A live model is code, so the digest is computed from the options the agents are built from (<see cref="ResolvedConfig.ComputeConfigDigest"/>'s <c>agents</c>).</summary>
+    [Fact]
+    public void Digests_every_named_agent_so_changing_one_changes_the_digest_and_a_live_model_is_reduced_to_its_identity()
+    {
+        var config = E2EConfig.Parse("{}", Root, _ => null);
+        string Of(Dictionary<string, AgentOptions> agents) => ResolvedConfig.ComputeConfigDigest(config, agents);
+        var baseline = Of(new() { ["default"] = new() { Model = new NamedModel("gpt-5.4-mini") }, ["ux"] = new() { Context = "a" } });
+        var changed = Of(new() { ["default"] = new() { Model = new NamedModel("gpt-5.4-mini") }, ["ux"] = new() { Context = "b" } });
+        Assert.NotEqual(baseline, changed);
+        var first = Of(new() { ["ux"] = new() { Model = new NamedModel("gpt-5.4-mini") } });
+        var again = Of(new() { ["ux"] = new() { Model = new NamedModel("gpt-5.4-mini") } });
+        Assert.Equal(first, again);
     }
 
     [Fact]

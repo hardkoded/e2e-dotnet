@@ -4,6 +4,11 @@
 
 namespace E2E.Tests.Config;
 
+/// <summary>
+/// <c>describe('resolveConfig')</c> of <c>config.test.ts</c>. Not ported: "validates the opt-in skip failure policy without invalidating
+/// recordings" and "validates maxDuration as milliseconds without invalidating recordings", since the port has no <c>failOnSkippedFailure</c>
+/// or <c>maxDuration</c> option (<see cref="E2EConfig"/> refuses both keys), so neither the option nor its digest half exists.
+/// </summary>
 public sealed class ResolveConfigTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
@@ -579,11 +584,11 @@ public sealed class ResolveConfigTests
         Assert.Null(Resolved("{}").Site);
     }
 
-    /// <summary>Partial: the port has no config digest to compare, so it compares the digest of the target app (<c>DigestTargetApp</c>), which the config digest holds.</summary>
+    /// <summary>The bundle id cases declare an ios target, since the port's web app takes no <c>bundleId</c>.</summary>
     [Fact]
-    public void Partial_Digests_the_app_a_target_declares_replacing_command_env_values_by_name()
+    public void Digests_the_app_a_target_declares_replacing_command_env_values_by_name()
     {
-        static string Declare(string platform, string app) => E2E.Internal.Ids.CanonicalDigest(TargetApps.DigestTargetApp(AppOn(platform, app).Target.App));
+        static string Declare(string platform, string app) => Digest(AppOn(platform, app));
         var a = Declare("web", """{ "url": "http://localhost:3000", "command": { "executable": "x", "env": { "TOKEN": "aaa" } } }""");
         var b = Declare("web", """{ "url": "http://localhost:3000", "command": { "executable": "x", "env": { "TOKEN": "bbb" } } }""");
         Assert.Equal(a, b);
@@ -591,6 +596,102 @@ public sealed class ResolveConfigTests
         Assert.NotEqual(Declare("web", """{ "url": "http://localhost:3000" }"""), Declare("web", """{ "url": "http://localhost:4000" }"""));
         Assert.NotEqual(Declare("ios", """{ "bundleId": "a" }"""), Declare("ios", """{ "bundleId": "b" }"""));
         Assert.NotEqual(Declare("ios", """{ "bundleId": "a", "launchArguments": ["-x"] }"""), Declare("ios", """{ "bundleId": "a" }"""));
+    }
+
+    /// <summary>Partial: the port has no engine to declare a platform, so the target's own <c>platform</c> is what the digest reads and none is inherited.</summary>
+    [Fact]
+    public void Partial_Digests_the_platform_an_engine_declares_which_a_named_target_inherits()
+    {
+        static string Of(string platform) => Digest($$"""{ "targets": [{ "name": "app", "platform": "{{platform}}" }] }""");
+        Assert.Equal(Of("web"), Of("web"));
+        Assert.NotEqual(Of("web"), Of("ios"));
+    }
+
+    [Fact]
+    public void Replaces_secret_values_in_the_config_digest()
+    {
+        var a = Digest("""{ "secrets": { "key": "secret-1" } }""");
+        var b = Digest("""{ "secrets": { "key": "secret-2" } }""");
+        Assert.Equal(a, b);
+        var c = Digest("""{ "secrets": { "other": "secret-1" } }""");
+        Assert.NotEqual(a, c);
+    }
+
+    [Fact]
+    public void Replaces_credential_passwords_in_the_config_digest()
+    {
+        var a = Digest("""{ "credentials": { "member": { "username": "u", "password": "secret-1" } } }""");
+        var b = Digest("""{ "credentials": { "member": { "username": "u", "password": "secret-2" } } }""");
+        Assert.Equal(a, b);
+        var c = Digest("""{ "credentials": { "member": { "username": "other", "password": "secret-1" } } }""");
+        Assert.NotEqual(a, c);
+    }
+
+    /// <summary>Partial: a target has no engine to hold a <c>secrets.get()</c> handle, so only the configured secret's value is shown to stay out.</summary>
+    [Fact]
+    public void Partial_Keeps_an_engine_options_secret_out_of_the_config_digest()
+    {
+        static string Of(string value) => Digest($$"""{ "secrets": { "key": "{{value}}" }, "targets": [{ "name": "web", "platform": "web" }] }""");
+        Assert.Equal(Of("first-value"), Of("second-value"));
+    }
+
+    /// <summary>
+    /// Partial: a reporter in the config file is a type name or <c>{ type, options }</c> of plain data, so the cyclic client of an SDK-backed
+    /// reporter object cannot be written. The artifact store is code and holds one.
+    /// </summary>
+    [Fact]
+    public void Partial_Keeps_reporter_objects_and_artifact_stores_out_of_the_config_digest_whatever_they_hold()
+    {
+        Assert.Equal(Digest("""{ "reporters": ["list"] }"""), Digest("""{ "reporters": ["list", { "type": "upload", "options": { "bucket": "b" } }] }"""));
+        Assert.NotEqual(Digest("""{ "reporters": ["list"] }"""), Digest("""{ "reporters": ["list", "github"] }"""));
+        var plain = E2EConfig.Parse("{}", Root, Env());
+        Assert.Equal(Digest(plain), Digest(plain.WithArtifactStore(new CyclicStore())));
+    }
+
+    [Fact]
+    public void Reduces_every_model_instance_in_an_agent_entry_to_its_identity_judge_and_a_custom_executors_own_included()
+    {
+        // A provider client with a cycle: JSON cannot clone it, and its settings must never enter the digest anyway.
+        var config = E2EConfig.Parse("{}", Root, Env());
+        string Of(AgentOptions entry) => ResolvedConfig.ComputeConfigDigest(config, new Dictionary<string, AgentOptions> { ["default"] = entry });
+        AgentOptions Models(string model, string judge) => new() { Model = new ClientModel(model), Judge = new ClientModel(judge) };
+        var withJudge = Of(Models("actor", "verifier"));
+        Assert.Equal(withJudge, Of(Models("actor", "verifier")));
+        Assert.NotEqual(withJudge, Of(Models("actor", "other")));
+        AgentOptions Brain(string judge) => new()
+        {
+            Executor = new E2E.Tests.AgentAct.TestExecutor("brain", (_, _) => throw new InvalidOperationException("not called")) { Model = new ClientModel("actor"), Judge = new ClientModel(judge) },
+        };
+        var asExecutor = Of(Brain("verifier"));
+        Assert.Equal(asExecutor, Of(Brain("verifier")));
+        Assert.NotEqual(asExecutor, Of(Brain("other")));
+    }
+
+    /// <summary>The digest of the config <paramref name="json"/> declares (upstream's <c>resolve(...).configDigest</c>).</summary>
+    internal static string Digest(string json, Func<string, string?>? environment = null) => Digest(E2EConfig.Parse(json, Root, environment ?? Env()));
+
+    internal static string Digest(E2EConfig config) => ResolvedConfig.ComputeConfigDigest(config);
+
+    /// <summary>A model holding a client that points back at itself, the way a provider's does: JSON cannot clone it.</summary>
+    private sealed class ClientModel(string name) : IAgentModel
+    {
+        public string Name => name;
+
+        public Cycle Client { get; } = new();
+
+        public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) => throw new InvalidOperationException("not called");
+    }
+
+    internal sealed class Cycle
+    {
+        public Cycle Self => this;
+    }
+
+    private sealed class CyclicStore : IArtifactStore
+    {
+        public Cycle Client { get; } = new();
+
+        public Task<string> PutAsync(StoredArtifact artifact, CancellationToken cancellationToken = default) => Task.FromResult("r");
     }
 
     /// <summary>The config with one target of <paramref name="platform"/> declaring <paramref name="app"/>.</summary>

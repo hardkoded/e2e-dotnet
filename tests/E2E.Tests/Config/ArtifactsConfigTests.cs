@@ -13,9 +13,9 @@ public sealed class ArtifactsConfigTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
 
-    /// <summary>Partial: the port has no digest, and a store is set with <see cref="E2EConfig.WithArtifactStore"/>, not by the config file.</summary>
+    /// <summary>A store is set with <see cref="E2EConfig.WithArtifactStore"/>, not by the config file.</summary>
     [Fact]
-    public void Partial_Holds_only_the_store_and_keeps_it_out_of_the_digest()
+    public void Holds_only_the_store_and_keeps_it_out_of_the_digest()
     {
         Assert.Null(E2EConfig.Parse("{}", Root).ArtifactStore);
         Assert.Null(E2EConfig.Parse("{ \"artifacts\": {} }", Root).ArtifactStore);
@@ -24,6 +24,7 @@ public sealed class ArtifactsConfigTests
         var withStore = config.WithArtifactStore(store);
         Assert.Same(store, withStore.ArtifactStore);
         Assert.Null(config.ArtifactStore);
+        Assert.Equal(ResolveConfigTests.Digest(E2EConfig.Parse("{}", Root)), ResolveConfigTests.Digest(withStore));
     }
 
     /// <summary>Partial: a store is code, so the key itself is refused; a store of another type does not compile, and the message for a non-object names an object.</summary>
