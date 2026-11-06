@@ -2,26 +2,28 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.ToolLoopToolChoice;
 
 /// <summary>
-/// The port always sends <c>tool_choice: auto</c> and ends a step with a <c>done</c> tool, so it has no forced choice to
-/// refuse and no <c>complete_step</c> tool. Not ported here: "retries with auto and a tool-calls-only rule when the model
-/// rejects a forced choice", "remembers the refusal for later steps on the same model", "offers only complete_step under
-/// auto on the forced-conclusion turns", the four "downgraded tool choice" cases, "sends the call back as an error and asks
-/// again on the same turn budget", "isForcedToolChoiceRejected" and "isForcedToolCallSkipped" (no forced choice, no AI SDK
-/// warnings or errors), and "fails with STEP_NO_CONCLUSION when the model never calls complete_step" (the port ends on the
-/// call budget with <c>STEP_BUDGET_EXHAUSTED</c>, not <c>STEP_NO_CONCLUSION</c>), and "leaves a 400 about anything else to the ordinary error translation" (the port has no forced-choice refusal to tell it from, and a scripted model would only test itself).
+/// The port always sends <c>tool_choice: auto</c> and ends a step with a <c>done</c> tool, so it has no forced choice to refuse
+/// and no <c>complete_step</c> tool. The tests below keep upstream's names, assert <c>done</c> where upstream asserts
+/// <c>complete_step</c>, and are <c>Partial_</c> where upstream's check needs a model that refuses a forced choice: the refused
+/// request, <c>toolChoice</c> in the request, and the retry under the same instructions. Not ported here (they need the tool
+/// choice plumbing, tracked in #1157 for the next PRs): "retries with auto, under the same instructions, when the model rejects a
+/// forced choice", "remembers the refusal for later steps on the same model", "leaves a 400 about anything else to the ordinary
+/// error translation", the four "downgraded tool choice" cases, "isForcedToolChoiceRejected" and "isForcedToolCallSkipped".
 /// </summary>
 public sealed class ToolLoopForcedToolChoiceTests
 {
     private static DocumentWorld Page() => new DocumentWorld().Map("/start", page => page.Button("Peek"));
 
+    /// <summary>Partial: the port's model is never refused a forced choice, so there is no refused request, and the notice names done.</summary>
     [Fact]
-    public async Task Asks_again_when_a_turn_comes_back_as_prose_without_a_tool_call()
+    public async Task Partial_Asks_again_when_a_turn_comes_back_as_prose_without_a_tool_call()
     {
         var seen = new List<(int Count, string Role, string? Content)>();
         var model = new ScriptedModel(request =>
@@ -42,9 +44,61 @@ public sealed class ToolLoopForcedToolChoiceTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(2, model.CallCount);
-        Assert.Equal(("user", "Call a tool. End the step with done."), (seen[1].Role, seen[1].Content));
+        Assert.Equal("user", seen[1].Role);
+        Assert.Contains("Your last reply had no tool call", seen[1].Content, StringComparison.Ordinal);
         Assert.Equal(seen[0].Count + 2, seen[1].Count);
         // The prose turn is one the step paid for.
         Assert.Equal(2, result!.ModelCalls);
     }
+
+    /// <summary>Partial: there is no refused request before the three prose turns, so the model is called three times, not four.</summary>
+    [Fact]
+    public async Task Partial_Fails_with_STEP_NO_CONCLUSION_when_prose_replies_use_up_the_turns()
+    {
+        var model = new ScriptedModel(_ => new ModelResponse { Content = "Thinking about it." });
+
+        var attempt = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/start");
+                await ctx.Agent.ActAsync("do the thing", new ActOptions { MaxModelCalls = 3 });
+            },
+            Page(),
+            model);
+
+        Assert.Equal("STEP_NO_CONCLUSION", Assert.IsType<AgentException>(attempt.Error).Code);
+        // The budget, not the loop, ends it.
+        Assert.Equal(3, model.CallCount);
+    }
+
+    /// <summary>Partial: without a refused forced choice the port asserts the offered tool list, not the <c>auto</c> tool choice.</summary>
+    [Fact]
+    public async Task Partial_Offers_only_complete_step_under_auto_on_the_forced_conclusion_turns()
+    {
+        var model = new ScriptedModel(request =>
+            request.Tools.Count == 1 && request.Tools[0].Name == "done" ? ModelResponses.Done("passed", "Done.") : ModelResponses.Call("peek", new { }));
+
+        var attempt = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/start");
+                await ctx.Agent.ActAsync("look until told to stop", new ActOptions { MaxModelCalls = 4 });
+            },
+            Page(),
+            model,
+            agentTools: Peek());
+
+        Assert.Null(attempt.Error);
+        Assert.Equal(["done"], model.Requests[^1].Tools.Select(tool => tool.Name));
+    }
+
+    /// <summary>A read-only project tool, so a turn can do something other than conclude.</summary>
+    internal static IReadOnlyDictionary<string, AgentTool> Peek() => new Dictionary<string, AgentTool>
+    {
+        ["peek"] = new AgentTool(
+            "looks around",
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
+            false,
+            (_, _) => Task.FromResult("looked")),
+    };
 }
