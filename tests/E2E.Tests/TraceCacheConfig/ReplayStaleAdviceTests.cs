@@ -7,7 +7,7 @@ namespace E2E.Tests.TraceCacheConfig;
 /// <summary>
 /// <c>REPLAY_STALE advice</c> (<c>trace-cache-config.test.ts</c>). Each <c>it</c> is partial: upstream reads
 /// <c>createAgentCacheContext(...).strict.advice</c>, which the port does not have, so these call <c>AttemptScope.StaleAdvice</c> on the store
-/// <c>cache.dir</c> and <c>E2E_CACHE_DIR</c> resolve to; the port has no <c>--strict-cache</c> or <c>--cache-dir</c> flag.
+/// <c>cache.dir</c> and <c>E2E_CACHE_DIR</c> resolve to; the port has no <c>--strict-cache</c> or <c>--cache-dir</c> flag. Extracting <c>createAgentCacheContext</c> so these port whole is tracked in #1300.
 /// </summary>
 public sealed class ReplayStaleAdviceTests
 {
