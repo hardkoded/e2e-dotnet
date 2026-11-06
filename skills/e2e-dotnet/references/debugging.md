@@ -28,7 +28,7 @@
    credentials, the environment, test setup, or the step's budget stopped
    the step rather than the app.
 2. A failed locator expectation says what it expected and the last value it
-   read, with the match count, one fact per line: `expect.ToHaveText failed`
+   read, with the match count, one fact per line: `expect.toHaveText failed`
    is followed by `locator: ...`, `expected: ...` and `observed: ... (match count 1)`.
    Compare that value with the expectation
    before you change either. The exception's `Details` holds the same facts
