@@ -43,6 +43,12 @@ internal interface IReplayHost
     TimeProvider Time { get; }
 
     /// <summary>
+    /// False once the step has seen a screen with no semantic tree (upstream's <c>traceEligible</c>): a recording may only describe a step
+    /// observed with semantic evidence throughout, and a replay cannot prove its end state against pixels.
+    /// </summary>
+    bool TraceEligible => true;
+
+    /// <summary>
     /// Takes one action slot. False when the step's budget is spent, and the replay hands the step over: upstream's dispatcher
     /// throws <c>STEP_BUDGET_EXHAUSTED</c> from the action instead.
     /// </summary>
@@ -148,6 +154,12 @@ internal static class Replay
         RecordedAction? previous = null;
         foreach (var action in trace)
         {
+            // An earlier look (or action) lost the semantic evidence: no further recorded action can be placed or proven.
+            if (!host.TraceEligible)
+            {
+                return Stop(ReplayHandOffReason.ActionFailed);
+            }
+
             // A project tool ran here, and the grammar cannot reproduce it: the replay ends and the model takes over.
             if (string.Equals(action.Kind, "tool", StringComparison.Ordinal))
             {

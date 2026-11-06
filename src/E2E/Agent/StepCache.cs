@@ -32,12 +32,6 @@ internal interface IStepCacheHost : IReplayHost
 {
     /// <summary>The screen the step's first committed action was resolved against, if it took one.</summary>
     Observation? FirstActedOn { get; }
-
-    /// <summary>
-    /// False once the step has seen a screen with no semantic tree (upstream's <c>traceEligible</c>): a recording may only describe a step
-    /// observed with semantic evidence throughout, and a replay cannot prove its end state against pixels.
-    /// </summary>
-    bool TraceEligible => true;
 }
 
 /// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, which an entry records as its provenance.</summary>
@@ -675,6 +669,8 @@ internal sealed class StepTraceSession
         public int RemainingMs() => inner.RemainingMs();
 
         public TimeProvider Time => inner.Time;
+
+        public bool TraceEligible => inner.TraceEligible;
 
         public async Task<Observation> ObserveAsync(SettleMode mode)
         {

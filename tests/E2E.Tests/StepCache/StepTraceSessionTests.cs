@@ -11,13 +11,80 @@ namespace E2E.Tests.StepCache;
 
 /// <summary>
 /// Upstream's <c>describe('StepTraceSession')</c> of <c>step-cache.test.ts</c>, driven at the session seam. Not ported, because the
-/// port has no such feature: the three tests of an observation that loses semantic evidence (the port reads no pixel-only
-/// screens), "misses a truncated entry" (no truncated entries), "never stages a trace with no start anchor" (every screen has a
-/// route), and "takes the step for the live progress" (no live progress).
+/// port has no such feature: "misses a truncated entry" (no truncated entries), "never stages a trace with no start anchor" (every
+/// screen has a route), and "takes the step for the live progress" (no live progress). The three tests of an observation that loses
+/// semantic evidence are ported through <c>StepHost.TraceEligible</c>: the port reads no pixel-only screens, so the host flips the
+/// flag where upstream's look returns pixels.
 /// "keys on the params with each unique() value as a placeholder" is the dispatcher's and the attempt's key claim in the port.
 /// </summary>
 public sealed class StepTraceSessionTests
 {
+    [Fact]
+    public async Task Does_not_replay_or_stage_after_an_observation_loses_semantic_evidence()
+    {
+        var context = EntryContext();
+        var actions = new List<string>();
+        var host = MakeHost(["/pricing"]);
+        host.OnNavigate = actions.Add;
+        host.Capture = _ =>
+        {
+            host.TraceEligible = false;
+            return new Observation { Route = "/pricing", Roots = [] };
+        };
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Equal("missed", session.CacheInfo?.Mode);
+        Assert.Empty(actions);
+        Assert.Single(host.Looks);
+        session.Record(Navigate("/customers"));
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Never_stages_a_passing_step_after_missing_semantics_even_when_the_final_tree_recovers()
+    {
+        var context = NoEntry();
+        var host = MakeHost(["/start", "/end"]);
+        var session = MakeSession(context, host);
+        await session.BeginAsync();
+
+        session.Record(Navigate("/end"));
+        host.TraceEligible = false;
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Hands_off_before_another_cached_action_when_an_action_loses_semantic_evidence()
+    {
+        var context = EntryContext(actions: [Navigate("/first"), Navigate("/second")]);
+        var host = MakeHost(["/start"]);
+        var visited = new List<string>();
+        host.OnNavigate = url =>
+        {
+            visited.Add(url);
+            host.TraceEligible = false;
+        };
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Equal(["/first"], visited);
+        Assert.Single(session.ReplayedPrefix!.ReplayedActions);
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
     [Fact]
     public async Task Turns_a_rejecting_store_read_into_a_miss_instead_of_failing_the_step()
     {
