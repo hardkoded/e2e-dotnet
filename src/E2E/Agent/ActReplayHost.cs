@@ -110,6 +110,9 @@ public sealed partial class Agent
         {
             var secret = scope.Secrets.FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
                 ?? throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "Replay needs secret '" + secretName + "', and this step did not declare it.");
+            // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
+            // It runs before the provider is asked, for the node as it is now.
+            dispatcher.AuthorizeSecretFill(secret, Resolve(target));
             // A provider's value is computed for this fill and joins redaction before it is typed.
             var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
             if (secret.Provider is not null)
@@ -117,7 +120,7 @@ public sealed partial class Agent
                 scope.Register(resolved.Name, resolved.Value);
             }
 
-            await PerformAsync(target, new LocatorAction.Fill(resolved.Value, false), "fill", cancellationToken, armed).ConfigureAwait(false);
+            await PerformAsync(target, new LocatorAction.Fill(resolved.Value, true), "fill", cancellationToken, armed).ConfigureAwait(false);
         }
 
         public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
