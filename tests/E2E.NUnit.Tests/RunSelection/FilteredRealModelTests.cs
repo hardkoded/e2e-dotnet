@@ -92,9 +92,14 @@ public sealed class FilteredRealModelTests
     // Git stores its objects read-only, which Directory.Delete refuses on Windows.
     internal static void RemoveRepo(string dir)
     {
+        if (!Directory.Exists(dir))
+        {
+            return;
+        }
+
         foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
         {
-            entry.Attributes = entry is DirectoryInfo ? FileAttributes.Directory : FileAttributes.Normal;
+            entry.Attributes &= ~FileAttributes.ReadOnly;
         }
 
         Directory.Delete(dir, true);
