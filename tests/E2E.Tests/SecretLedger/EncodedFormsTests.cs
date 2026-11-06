@@ -4,7 +4,6 @@
 
 namespace E2E.Tests.SecretLedger;
 
-/// <summary>"measures the longest spelling a registered value can take" is not ported: the port has no stream redactor to size.</summary>
 public sealed class EncodedFormsTests
 {
     private const string Member = "p@ss \"w\\rd\" & <x>";
@@ -79,5 +78,13 @@ public sealed class EncodedFormsTests
     public void Redacts_a_slash_escaped_the_way_PHP_writes_JSON()
     {
         Assert.Equal("""{"p":"<secret:path>"}""", Ledger.Of(("path", "a/b/c")).Redact("""{"p":"a\/b\/c"}"""));
+    }
+
+    [Fact]
+    public void Measures_the_longest_spelling_a_registered_value_can_take()
+    {
+        Assert.Equal(0, Ledger.Of().MaxFormLength);
+        Assert.Equal(7, Ledger.Of(("plain", "hunter2")).MaxFormLength);
+        Assert.Equal(1 + "\\\\u0022".Length + 1, Ledger.Of(("quoted", "a\"b")).MaxFormLength);
     }
 }

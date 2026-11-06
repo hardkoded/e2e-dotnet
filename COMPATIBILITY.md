@@ -864,7 +864,6 @@ Differences:
 
 - An interrupt surfaces as an `OperationCanceledException`, where upstream rejects with `INTERRUPTED`. The context's `Signal` follows the interrupt only while the call runs. The work a timed-out or interrupted call leaves behind is not recorded (upstream's `leaveWorkBehind` keeps the CLI from waiting for it; the port has no CLI process to keep).
 - A result is typed, so the refusals of a result that is not `{ exclude, note? }` (an array, a string, an unknown key, a map, a numeric note, a value that cannot be shown as text, and a reason that is not a string) cannot happen. A null result, a null `Exclude`, an empty reason, and an id no collected test has are refused, with the port's wording for the first two.
-- The redactor reads a newline and a space alike in a run it masks, so it takes the space before a key's text into the marker in a diff line, where upstream keeps it. Nothing leaks.
 
 Not ported:
 
