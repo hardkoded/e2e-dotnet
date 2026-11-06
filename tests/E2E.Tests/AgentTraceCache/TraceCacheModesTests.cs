@@ -70,7 +70,7 @@ public sealed class TraceCacheModesTests
 
         Assert.Equal(CacheMode.ReadOnly, ResolvedMode(ci: true));
         var recorded = TwoTapCounter.FileState(directory);
-        var inCi =TwoTapCounter.Model();
+        var inCi = TwoTapCounter.Model();
         ActResult second;
         await using (var session = await TwoTapCounter.StartAsync(directory, inCi, mode: ResolvedMode(ci: true)))
         {
