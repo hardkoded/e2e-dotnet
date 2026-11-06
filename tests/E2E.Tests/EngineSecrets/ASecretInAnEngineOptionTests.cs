@@ -21,6 +21,8 @@ public sealed class ASecretInAnEngineOptionTests
 {
     private const string Password = "basic-Pa55-7Qz";
 
+    private static readonly JsonSerializerOptions Unescaped = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     /// <summary>
     /// Partial: the port has no step record, so it cannot read <c>visionInput</c> and <c>visionDegraded</c>. It reads the image
     /// in the request, which an engine-held secret does not withhold, and the credential in none of it.
@@ -115,7 +117,7 @@ public sealed class ASecretInAnEngineOptionTests
 
         var error = run.Report.Run.Results[0].Attempts[0].Error!;
         Assert.Contains("<secret:stagingPassword>", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(Password, JsonSerializer.Serialize(run.Report), StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, JsonSerializer.Serialize(run.Report, Unescaped), StringComparison.Ordinal);
         foreach (var (file, text) in ContentsUnder(run.ResultsDirectory))
         {
             Assert.False(text.Contains(Password, StringComparison.Ordinal), file);
@@ -145,9 +147,9 @@ public sealed class ASecretInAnEngineOptionTests
 
         var error = run.Report.Run.Results[0].Attempts[0].Error!;
         Assert.Contains("Basic <secret:stagingPassword>", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(credential, JsonSerializer.Serialize(run.Report), StringComparison.Ordinal);
+        Assert.DoesNotContain(credential, JsonSerializer.Serialize(run.Report, Unescaped), StringComparison.Ordinal);
         var contents = ContentsUnder(run.ResultsDirectory).Concat(ContentsUnder(downloaded.ResultsDirectory)).ToList();
-        foreach (var written in new[] { "screen-at-failure.txt", "trace.md", "downloads" })
+        foreach (var written in new[] { "/screen-at-failure.txt", "/trace.md", "/downloads/" })
         {
             Assert.True(contents.Any(entry => entry.Name.Contains(written, StringComparison.Ordinal)), written);
         }
