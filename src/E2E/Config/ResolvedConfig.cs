@@ -2,6 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using E2E.Internal;
+
 namespace E2E;
 
 /// <summary>One <c>config.credentials</c> entry, resolved (upstream's <c>ResolvedCredential</c>, <c>config/resolve.ts</c>): an account whose password is the secret <c>{name}.password</c>.</summary>
@@ -37,8 +41,245 @@ internal sealed record ResolvedConfig
     /// <summary>Every secret the run holds, by name: the <c>config.secrets</c> entries and every credential's password.</summary>
     public IReadOnlyList<(string Name, string Value)> AllSecrets { get; init; } = [];
 
+    /// <summary>
+    /// The digest of the resolved config (upstream's <c>configDigest</c>, <c>config/resolve.ts</c>), SHA-256 over the canonical JSON of the
+    /// declared config with credential material replaced by <c>{ secretName }</c> and env values by <c>{ envName }</c>. Empty when
+    /// the resolver did not compute one.
+    /// </summary>
+    public string ConfigDigest { get; init; } = "";
+
     /// <summary>The longest a filter's name may be (upstream's <c>MAX_FILTER_NAME</c>, <c>config/resolve.ts</c>).</summary>
     internal const int MaxFilterName = 256;
+
+    // Upstream's computeConfigDigest takes these out of `raw` before the plain rest is cloned: they are reduced below, or never enter.
+    // `failOnSkippedFailure`, `maxDuration`, `filters`, `artifacts`, and `output` stay out, as do `trace` and `video` at the top
+    // (a target's own enter nowhere, since a target digests by name, platform, and app).
+    private static readonly HashSet<string> DigestedApart = new(StringComparer.Ordinal)
+    {
+        "failOnSkippedFailure", "maxDuration", "filters", "artifacts", "output", "trace", "video", "targets", "credentials", "secrets", "agents", "cache", "reporters",
+    };
+
+    /// <summary>
+    /// Upstream's <c>computeConfigDigest</c>. Only plain data enters: a live value is reduced to its identity first. <c>agents</c> digest
+    /// their tools by name, an executor by its name, version, and models, and a model anywhere by its identity; <c>cache.store</c> digests as
+    /// whether it is writable; targets digest by declaration; credentials and secrets keep their names and lose their values. An <c>artifacts</c> store,
+    /// <c>output</c>, <c>trace</c> and <c>video</c> (at the top or on a target), and the reporters that are no type name never enter, so
+    /// adding one leaves the replays valid. Differences: the config is the one <see cref="E2EConfig.RawConfig"/> holds, and
+    /// <paramref name="agents"/> are the agents' options in code (the fixture's), else the <c>agents</c> the file declares; the port has no
+    /// <c>projectId</c> or engine on a target, so neither enters.
+    /// </summary>
+    internal static string ComputeConfigDigest(E2EConfig config, IReadOnlyDictionary<string, AgentOptions>? agents = null)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        var raw = config.RawConfig;
+        var sanitized = new JsonObject();
+        JsonElement credentials = default;
+        JsonElement secrets = default;
+        JsonElement declaredAgents = default;
+        JsonElement cache = default;
+        JsonElement reporters = default;
+        if (raw.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in raw.EnumerateObject())
+            {
+                switch (property.Name)
+                {
+                    case "credentials":
+                        credentials = property.Value;
+                        break;
+                    case "secrets":
+                        secrets = property.Value;
+                        break;
+                    case "agents":
+                        declaredAgents = property.Value;
+                        break;
+                    case "cache":
+                        cache = property.Value;
+                        break;
+                    case "reporters":
+                        reporters = property.Value;
+                        break;
+                    default:
+                        if (!DigestedApart.Contains(property.Name))
+                        {
+                            sanitized[property.Name] = JsonNode.Parse(property.Value.GetRawText());
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        // A reporter object changes nothing about what a run records, so only a type name enters: the built-in ids digest as they always have.
+        if (reporters.ValueKind == JsonValueKind.Array)
+        {
+            sanitized["reporters"] = new JsonArray([.. reporters.EnumerateArray().Where(reporter => reporter.ValueKind == JsonValueKind.String).Select(reporter => (JsonNode?)JsonValue.Create(reporter.GetString()))]);
+        }
+
+        if (agents is not null)
+        {
+            sanitized["agents"] = DigestAgents(agents);
+        }
+        else if (declaredAgents.ValueKind != JsonValueKind.Undefined)
+        {
+            sanitized["agents"] = JsonNode.Parse(declaredAgents.GetRawText());
+        }
+
+        if (cache.ValueKind != JsonValueKind.Undefined || config.Cache.Store is not null)
+        {
+            sanitized["cache"] = DigestCache(cache, config.Cache);
+        }
+
+        if (credentials.ValueKind == JsonValueKind.Object)
+        {
+            sanitized["credentials"] = new JsonObject(credentials.EnumerateObject().Select(credential => KeyValuePair.Create(
+                credential.Name,
+                (JsonNode?)DigestCredential(credential))));
+        }
+
+        if (secrets.ValueKind == JsonValueKind.Object)
+        {
+            sanitized["secrets"] = new JsonObject(secrets.EnumerateObject().Select(secret => KeyValuePair.Create(secret.Name, (JsonNode?)SecretName(secret.Name))));
+        }
+
+        // Targets enter as resolved: see DigestTargets.
+        sanitized["targets"] = DigestTargets(config.Targets);
+        return Ids.CanonicalDigest(sanitized);
+    }
+
+    // A credential keeps its username as written and loses its password for the name of the secret.
+    private static JsonObject DigestCredential(JsonProperty credential)
+    {
+        var digest = new JsonObject();
+        if (credential.Value.ValueKind == JsonValueKind.Object && credential.Value.TryGetProperty("username", out var username))
+        {
+            digest["username"] = JsonNode.Parse(username.GetRawText());
+        }
+
+        digest["password"] = SecretName(credential.Name);
+        return digest;
+    }
+
+    private static JsonObject SecretName(string name) => new() { ["secretName"] = name };
+
+    /// <summary>
+    /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, and the app
+    /// as declared, env values reduced to their names and the run's port never. Differences: a port target has no engine handle, so
+    /// no engine declaration enters.
+    /// </summary>
+    internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
+        new([.. targets.Select(target => (JsonNode?)new JsonObject
+        {
+            ["name"] = target.Name,
+            ["platform"] = target.Platform,
+            ["app"] = TargetApps.DigestTargetApp(target.App),
+        })]);
+
+    /// <summary>
+    /// The agents as the digest records them (upstream's <c>digestAgents</c>): the plain options, the tools named, and the executor reduced
+    /// to what identifies it. Differences: an option the entry leaves unset enters at its default, since a property cannot tell a default from a
+    /// written value.
+    /// </summary>
+    internal static JsonObject DigestAgents(IReadOnlyDictionary<string, AgentOptions> agents)
+    {
+        ArgumentNullException.ThrowIfNull(agents);
+        var digest = new JsonObject();
+        foreach (var (name, entry) in agents)
+        {
+            var options = new JsonObject
+            {
+                ["judgmentTimeout"] = (long)entry.JudgmentTimeout.TotalMilliseconds,
+                ["maxObservationBytes"] = entry.MaxObservationBytes,
+                ["maxInputTokens"] = entry.MaxInputTokens,
+            };
+            if (entry.System is not null)
+            {
+                options["system"] = entry.System;
+            }
+
+            if (entry.Context is not null)
+            {
+                options["context"] = entry.Context;
+            }
+
+            if (entry.MaxSteps is { } maxSteps)
+            {
+                options["maxSteps"] = maxSteps;
+            }
+
+            if (entry.MaxModelCalls is { } maxModelCalls)
+            {
+                options["maxModelCalls"] = maxModelCalls;
+            }
+
+            if (entry.Model is not null)
+            {
+                options["model"] = ModelIdentity(entry.Model);
+            }
+
+            if (entry.Judge is not null)
+            {
+                options["judge"] = ModelIdentity(entry.Judge);
+            }
+
+            if (entry.ProviderOptions is not null)
+            {
+                options["providerOptions"] = new JsonObject(entry.ProviderOptions.Select(pair => KeyValuePair.Create(pair.Key, JsonNode.Parse(pair.Value.GetRawText()))));
+            }
+
+            if (entry.Tools is not null)
+            {
+                options["tools"] = new JsonArray([.. entry.Tools.Keys.Order(StringComparer.Ordinal).Select(tool => (JsonNode?)JsonValue.Create(tool))]);
+            }
+
+            if (entry.Executor is { } executor)
+            {
+                var identity = new JsonObject { ["name"] = executor.Name };
+                if (executor.Version is not null)
+                {
+                    identity["version"] = executor.Version;
+                }
+
+                identity["cache"] = executor.Cache == ExecutorCache.Off ? "off" : "inherit";
+                if (executor.Model is not null)
+                {
+                    identity["model"] = ModelIdentity(executor.Model);
+                }
+
+                if (executor.Judge is not null)
+                {
+                    identity["judge"] = ModelIdentity(executor.Judge);
+                }
+
+                options["executor"] = identity;
+            }
+
+            digest[name] = options;
+        }
+
+        return digest;
+    }
+
+    /// <summary>
+    /// <c>cache</c> as the digest records it (upstream's <c>digestCache</c>): the options as written, with the store reduced to whether it writes.
+    /// Differences: a store has no <c>writable</c> member here, so the cache mode decides, as it does for the run.
+    /// </summary>
+    internal static JsonObject DigestCache(JsonElement declared, CacheConfig cache)
+    {
+        var digest = declared.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(declared.GetRawText())! : [];
+        if (cache.Store is not null)
+        {
+            digest["store"] = new JsonObject { ["writable"] = cache.Mode == CacheMode.ReadWrite };
+        }
+
+        return digest;
+    }
+
+    /// <summary>
+    /// The digest-stable identity of a live model (upstream's <c>modelIdentity</c>). Differences: a model here is its name alone
+    /// (<see cref="IAgentModel.Name"/>), where upstream's carries a provider, a model id, and a specification version.
+    /// </summary>
+    internal static JsonObject ModelIdentity(IAgentModel model) => new() { ["name"] = model.Name };
 
     /// <summary>
     /// Resolves the test filters (upstream's <c>resolveTestFilters</c>, <c>config/resolve.ts</c>): the list in declaration order, empty when

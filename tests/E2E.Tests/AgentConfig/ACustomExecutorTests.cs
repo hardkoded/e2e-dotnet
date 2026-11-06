@@ -10,7 +10,7 @@ namespace E2E.Tests.AgentConfig;
 
 /// <summary>
 /// The agents entry that names a custom brain. Not ported, because the port has no such feature or the types leave nothing to
-/// reject: "digests a custom agent by name and version, deterministically" (the port has no config digest), "ignores a context
+/// reject: "ignores a context
 /// member on the executor, string or not" (an <see cref="IStepExecutor"/> has no such member), "rejects a bare StepExecutor, pointing
 /// at { executor }" and "rejects maxTurns on createToolLoopExecutor, naming maxModelCalls" (an entry is an <see cref="AgentOptions"/>,
 /// and <see cref="ToolLoopExecutorOptions"/> has no such option).
@@ -30,6 +30,19 @@ public sealed class ACustomExecutorTests
         Assert.Null(agent.Model);
         Assert.Equal(E2EDefaults.MaxSteps, agent.MaxSteps);
         Assert.Null(agent.Tools);
+    }
+
+    /// <summary>The executor is code, so the digest is computed from the options the agent is built from (<see cref="ResolvedConfig.ComputeConfigDigest"/>'s <c>agents</c>).</summary>
+    [Fact]
+    public void Digests_a_custom_agent_by_name_and_version_deterministically()
+    {
+        var config = E2EConfig.Parse("{}", Path.Combine(Path.GetTempPath(), "e2e-agent-config-project"), _ => null);
+        string Of(IStepExecutor executor) => ResolvedConfig.ComputeConfigDigest(config, new Dictionary<string, AgentOptions> { ["default"] = new() { Executor = executor } });
+        var first = Of(Brain());
+        var again = Of(Brain());
+        Assert.Equal(first, again);
+        var renamed = Of(new TestExecutor("other-brain", (_, _) => throw new InvalidOperationException("not called")) { Version = "1" });
+        Assert.NotEqual(first, renamed);
     }
 
     [Fact]
