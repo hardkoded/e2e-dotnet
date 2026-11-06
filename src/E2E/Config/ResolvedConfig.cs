@@ -64,7 +64,7 @@ internal sealed record ResolvedConfig
 
     /// <summary>
     /// Upstream's <c>computeConfigDigest</c>. Only plain data enters: a live value is reduced to its identity first. <c>agents</c> digest
-    /// their tools by name, an executor by its name, version, and models, and a model anywhere by its identity; <c>cache.store</c> digests as
+    /// their tools by name, an executor by its name, version, cache, and models, and a model anywhere by its identity; <c>cache.store</c> digests as
     /// whether it is writable; targets digest by declaration; credentials and secrets keep their names and lose their values. An <c>artifacts</c> store,
     /// <c>output</c>, <c>trace</c> and <c>video</c> (at the top or on a target), and the reporters that are no type name never enter, so
     /// adding one leaves the replays valid. Differences: the config is the one <see cref="E2EConfig.RawConfig"/> holds, and

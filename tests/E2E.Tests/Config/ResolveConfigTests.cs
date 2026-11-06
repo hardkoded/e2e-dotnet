@@ -7,7 +7,7 @@ namespace E2E.Tests.Config;
 /// <summary>
 /// <c>describe('resolveConfig')</c> of <c>config.test.ts</c>. Not ported: "validates the opt-in skip failure policy without invalidating
 /// recordings" and "validates maxDuration as milliseconds without invalidating recordings", since the port has no <c>failOnSkippedFailure</c>
-/// or <c>maxDuration</c> option (<see cref="E2EConfig"/> refuses both keys), so neither the option nor its digest half exists.
+/// or <c>maxDuration</c> option (<see cref="E2EConfig"/> refuses both keys), so neither the option nor its digest half exists (#1307).
 /// </summary>
 public sealed class ResolveConfigTests
 {
@@ -598,7 +598,7 @@ public sealed class ResolveConfigTests
         Assert.NotEqual(Declare("ios", """{ "bundleId": "a", "launchArguments": ["-x"] }"""), Declare("ios", """{ "bundleId": "a" }"""));
     }
 
-    /// <summary>Partial: the port has no engine to declare a platform, so the target's own <c>platform</c> is what the digest reads and none is inherited.</summary>
+    /// <summary>Partial: the port has no engine to declare a platform, so the target's own <c>platform</c> is what the digest reads and none is inherited (#1308).</summary>
     [Fact]
     public void Partial_Digests_the_platform_an_engine_declares_which_a_named_target_inherits()
     {
@@ -627,7 +627,7 @@ public sealed class ResolveConfigTests
         Assert.NotEqual(a, c);
     }
 
-    /// <summary>Partial: a target has no engine to hold a <c>secrets.get()</c> handle, so only the configured secret's value is shown to stay out.</summary>
+    /// <summary>Partial: a target has no engine to hold a <c>secrets.get()</c> handle, so only the configured secret's value is shown to stay out (#1308, #1246).</summary>
     [Fact]
     public void Partial_Keeps_an_engine_options_secret_out_of_the_config_digest()
     {
@@ -637,7 +637,7 @@ public sealed class ResolveConfigTests
 
     /// <summary>
     /// Partial: a reporter in the config file is a type name or <c>{ type, options }</c> of plain data, so the cyclic client of an SDK-backed
-    /// reporter object cannot be written. The artifact store is code and holds one.
+    /// reporter object cannot be written (#1309). The artifact store is code and holds one.
     /// </summary>
     [Fact]
     public void Partial_Keeps_reporter_objects_and_artifact_stores_out_of_the_config_digest_whatever_they_hold()
