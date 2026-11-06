@@ -86,6 +86,12 @@ public sealed class DialogHandler
 /// </summary>
 internal sealed class DialogRouter(ErrorLatch latch)
 {
+    /// <summary>A router with a latch of its own (upstream's default <c>new ErrorLatch()</c>).</summary>
+    public DialogRouter()
+        : this(new ErrorLatch())
+    {
+    }
+
     private readonly Lock _gate = new();
     private List<object> _registrations = [];
     private readonly Dictionary<object, DialogHandler> _handlers = new(ReferenceEqualityComparer.Instance);
@@ -112,6 +118,9 @@ internal sealed class DialogRouter(ErrorLatch latch)
             }
         };
     }
+
+    /// <summary>Rethrows an error latched by an unhandled or failing dialog handler.</summary>
+    public void ThrowPending() => latch.ThrowPending();
 
     /// <summary>Routes one native dialog to the newest registered handler; the attempt end waits for it.</summary>
     public Task DispatchAsync(IDialog dialog)
