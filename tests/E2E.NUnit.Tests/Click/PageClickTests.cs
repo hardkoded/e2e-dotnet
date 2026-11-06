@@ -790,7 +790,9 @@ public sealed class PageClickTests : PlaywrightTest
         await Browser.GotoAsync(Content("<button id=\"target\">Click me</button>"));
         await Browser.EvaluateAsync<object>("() => { window.entries = []; const log = (event) => window.entries.push(event.type); for (const type of ['mousedown', 'mouseup', 'contextmenu']) document.addEventListener(type, log); }");
         await Screen.GetByRole("button", "Click me").SecondaryTapAsync();
-        await Expect.Poll(() => Browser.EvaluateAsync<string[]>("entries")).ToMatchAsync(Is.EqualTo(new[] { "mousedown", "contextmenu", "mouseup" }));
+        // Chromium on Windows opens the context menu on mouse release, so it fires contextmenu after mouseup (the same split Playwright's own page-click spec makes).
+        string[] expected = OperatingSystem.IsWindows() ? ["mousedown", "mouseup", "contextmenu"] : ["mousedown", "contextmenu", "mouseup"];
+        await Expect.Poll(() => Browser.EvaluateAsync<string[]>("entries")).ToMatchAsync(Is.EqualTo(expected));
     }
 
     [Test]

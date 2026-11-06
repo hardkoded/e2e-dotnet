@@ -89,7 +89,16 @@ public sealed class FilteredRealModelTests
         Assert.That(process.ExitCode, Is.Zero, $"git {string.Join(' ', args)}");
     }
 
-    internal static void RemoveRepo(string dir) => Directory.Delete(dir, true);
+    // Git stores its objects read-only, which Directory.Delete refuses on Windows.
+    internal static void RemoveRepo(string dir)
+    {
+        foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+        {
+            entry.Attributes = entry is DirectoryInfo ? FileAttributes.Directory : FileAttributes.Normal;
+        }
+
+        Directory.Delete(dir, true);
+    }
 
     [Test]
     public async Task Starts_the_kept_test_and_ignores_the_one_the_filter_left_out()
