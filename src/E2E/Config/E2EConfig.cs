@@ -1222,7 +1222,7 @@ public sealed class E2EConfig
         return number;
     }
 
-    private static bool ValidName(string name)
+    internal static bool ValidName(string name)
     {
         return name.Length > 0
             && name.Any(ch => ch != '.')
