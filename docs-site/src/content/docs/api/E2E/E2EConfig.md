@@ -190,6 +190,22 @@ The `credentials` entries by name, each with its password as the secret `<name>.
 
 **Value:** [IReadOnlyDictionary&lt;string, ResolvedCredential&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_E2EConfig_FailOnSkippedFailure_"></a>
+<a id="E2E_E2EConfig_FailOnSkippedFailure"></a>
+
+### FailOnSkippedFailure
+
+
+```csharp
+public bool FailOnSkippedFailure { get; }
+```
+
+
+Upstream `failOnSkippedFailure`, false by default. Recorded and validated only: the port has no runner, so nothing reads it
+(upstream's runner decides the exit code from it). It stays out of `ComputeConfigDigest`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_E2EConfig_LaunchTimeout_"></a>
 <a id="E2E_E2EConfig_LaunchTimeout"></a>
 
@@ -204,6 +220,22 @@ public TimeSpan LaunchTimeout { get; }
 Engine start timeout. Upstream `launchTimeout`, 60 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
+
+<a id="E2E_E2EConfig_MaxDuration_"></a>
+<a id="E2E_E2EConfig_MaxDuration"></a>
+
+### MaxDuration
+
+
+```csharp
+public TimeSpan? MaxDuration { get; }
+```
+
+
+Upstream `maxDuration`: the run's duration limit, unset by default. Recorded and validated only: the port has no runner to stop
+(the test framework owns the run). It stays out of `ComputeConfigDigest`.
+
+**Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
 <a id="E2E_E2EConfig_Output_"></a>
 <a id="E2E_E2EConfig_Output"></a>

@@ -268,7 +268,7 @@ internal static partial class Command
         return text;
     }
 
-    private static TimeSpan? PositiveMs(JsonElement? value, string label)
+    internal static TimeSpan? PositiveMs(JsonElement? value, string label)
     {
         if (value is not { } raw)
         {
