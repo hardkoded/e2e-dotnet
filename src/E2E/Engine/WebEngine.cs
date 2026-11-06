@@ -1777,6 +1777,9 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
             await VideoPageClosingAsync().ConfigureAwait(false);
+
+            // The old page's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             foreach (var page in context.Pages.ToList())
             {
@@ -1809,6 +1812,9 @@ public sealed partial class WebEngine : IEngine
             await VideoPageClosingAsync().ConfigureAwait(false);
             var context = _context;
             _context = null;
+
+            // The old context's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             if (context is not null)
             {
@@ -2735,12 +2741,28 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
+            // The reader may stamp more refs than the walk reserved (nodes a selector forced past the cut), so what it minted past the
+            // reservation is taken too: the next document never starts inside this one's range. Port only; upstream reserves the budget alone.
+            var overrun = dto.Next - (seed + walk.Remaining);
+            if (overrun > 0)
+            {
+                _refs.ReserveIds(overrun);
+            }
+
             if (list is not null)
             {
-                walk.Lists.Add(list);
-                for (var index = 0; index < dto.Ids?.Count; index++)
+                if (dto.Ids is not { Count: > 0 })
                 {
-                    walk.Generation[dto.Ids[index]] = new ListedTarget(list, index);
+                    // A document that listed nothing leaves no id to reach its array by.
+                    list.Dispose();
+                }
+                else
+                {
+                    walk.Lists.Add(list);
+                    for (var index = 0; index < dto.Ids.Count; index++)
+                    {
+                        walk.Generation[dto.Ids[index]] = new ListedTarget(list, index);
+                    }
                 }
             }
 

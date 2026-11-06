@@ -104,16 +104,14 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
         try
         {
             var made = await FetchAsync(index).ConfigureAwait(false);
-            bool disposed;
             lock (_gate)
             {
-                disposed = _disposed;
-            }
-
-            if (!disposed)
-            {
-                source.SetResult(made);
-                return;
+                // Completed under the lock, so a disposal cannot slip between the check and the result.
+                if (!_disposed)
+                {
+                    source.SetResult(made);
+                    return;
+                }
             }
 
             WebSupport.DisposeQuietly(made);
