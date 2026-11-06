@@ -120,7 +120,8 @@ public static class Credentials
     /// <summary>
     /// The named account. A name the session's config declares in <c>credentials</c> resolves with its password as the secret
     /// <c>&lt;name&gt;.password</c>. .NET-only: a name the config does not declare, or a call outside a session, reads the
-    /// <c>E2E_USER_*</c> variables alone, as the port did before it read the config.
+    /// <c>E2E_USER_*</c> variables alone, as the port did before it read the config. The name maps to a variable as in the config
+    /// (uppercased, every character outside A-Z and 0-9 as <c>_</c>).
     /// </summary>
     public static UserCredential User(string name)
     {
@@ -130,19 +131,20 @@ public static class Credentials
             return new UserCredential(configured.Username, configured.Password);
         }
 
-        var key = name.ToUpperInvariant().Replace('-', '_');
-        var username = Environment.GetEnvironmentVariable("E2E_USER_" + key + "_USERNAME");
-        var password = Environment.GetEnvironmentVariable("E2E_USER_" + key + "_PASSWORD");
+        // The same mapping as the config path (upstream's envName): uppercase, every character outside A-Z0-9 as '_'.
+        var prefix = ConfigSecrets.EnvName("E2E_USER", name);
+        var username = Environment.GetEnvironmentVariable(prefix + "_USERNAME");
+        var password = Environment.GetEnvironmentVariable(prefix + "_PASSWORD");
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
             throw new TestException(
                 "AUTH_CREDENTIAL_UNAVAILABLE",
-                "Credential '" + name + "' is not configured. Set E2E_USER_" + key + "_USERNAME and E2E_USER_" + key + "_PASSWORD.");
+                "Credential '" + name + "' is not configured. Set " + prefix + "_USERNAME and " + prefix + "_PASSWORD.");
         }
 
         if (Secret.Problem(password) is { } problem)
         {
-            throw new TestException("INVALID_CONFIG", "E2E_USER_" + key + "_PASSWORD " + problem + ".");
+            throw new TestException("INVALID_CONFIG", prefix + "_PASSWORD " + problem + ".");
         }
 
         return new UserCredential(username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
