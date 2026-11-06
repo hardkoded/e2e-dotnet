@@ -61,7 +61,8 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
     }
 
     [Fact]
-    public async Task Fail_a_positive_count_as_a_count_mismatch_not_a_missing_locator()
+    // Partial: asserts the port wording "observed count 0", not upstream "observed: count 0" (#1215).
+    public async Task Partial_Fail_a_positive_count_as_a_count_mismatch_not_a_missing_locator()
     {
         var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveCountAsync(1, TimeSpan.FromMilliseconds(300)));
         Assert.Equal("ASSERTION_FAILED", failure.Code);
@@ -70,7 +71,8 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
     }
 
     [Fact]
-    public async Task Fail_a_text_list_as_a_text_mismatch_not_a_missing_locator()
+    // Partial: asserts the port wording "observed text []", not upstream "observed: text []" (#1215).
+    public async Task Partial_Fail_a_text_list_as_a_text_mismatch_not_a_missing_locator()
     {
         var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveTextAsync(new TextMatch[] { "Pay" }, timeout: TimeSpan.FromMilliseconds(300)));
         Assert.Equal("ASSERTION_FAILED", failure.Code);
