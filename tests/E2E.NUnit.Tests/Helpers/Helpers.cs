@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using E2E.Engine;
 
 namespace E2E.NUnit.Tests;
 
@@ -52,6 +53,13 @@ internal static class Helpers
             return ex;
         }
     }
+
+    /// <summary>Upstream's <c>boxOf</c>: the box a node paints, for pointer maths; a node without one is a test bug, not a pointer case.</summary>
+    public static async Task<BoundingBox> BoxOf(Locator locator) =>
+        await locator.BoundingBoxAsync().ConfigureAwait(false) ?? throw new InvalidOperationException("node has no box");
+
+    /// <summary>Upstream's <c>centerOf</c>: the center of a box, the point a finger would aim for.</summary>
+    public static Point CenterOf(BoundingBox box) => new(box.X + (box.Width / 2), box.Y + (box.Height / 2));
 
     /// <summary>A path of <c>/respond</c> answering with <paramref name="headers"/> and <paramref name="body"/> (upstream's <c>respond</c>).</summary>
     public static string Respond(Dictionary<string, string> headers, string body = "Hello world") =>
