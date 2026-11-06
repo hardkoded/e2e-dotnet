@@ -574,10 +574,13 @@ internal sealed class Redactor
                 end++;
             }
 
+            // A whitespace run at either end stays outside the marker, and the scan resumes on it.
+            var from = key[start] == ' ' ? start + 1 : start;
+            var to = key[end - 1] == ' ' ? end - 1 : end;
             builder ??= new StringBuilder(text.Length);
-            builder.Append(text, kept, reading.At(start) - kept).Append(_markers[owner]);
-            kept = reading.At(end);
-            start = end;
+            builder.Append(text, kept, reading.At(from) - kept).Append(_markers[owner]);
+            kept = reading.At(to);
+            start = to;
         }
 
         return builder?.Append(text, kept, text.Length - kept).ToString() ?? text;
@@ -674,7 +677,13 @@ internal sealed class StreamRedactor(Redactor ledger)
     public string Push(string chunk)
     {
         ArgumentNullException.ThrowIfNull(chunk);
-        return PushText(chunk);
+        if (chunk.Length == 0)
+        {
+            return "";
+        }
+
+        // A character left unfinished by an earlier piece is released before the string passes it.
+        return PushText(DecoderEnd() + chunk);
     }
 
     /// <summary>Redacts and returns what the bytes complete, decoded as UTF-8; the rest waits for the next piece or <see cref="Flush"/>.</summary>
@@ -688,11 +697,17 @@ internal sealed class StreamRedactor(Redactor ledger)
     /// <summary>Redacts and returns whatever is held, an unfinished character included; nothing more will follow.</summary>
     public string Flush()
     {
-        var chars = new char[Encoding.UTF8.GetMaxCharCount(4)];
-        var count = _decoder.GetChars([], chars, flush: true);
-        var text = _held + new string(chars, 0, count);
+        var text = _held + DecoderEnd();
         _held = "";
         return ledger.Redact(text);
+    }
+
+    /// <summary>What the decoder holds of an unfinished character, as the replacement character (upstream's <c>decoder.end()</c>).</summary>
+    private string DecoderEnd()
+    {
+        var chars = new char[Encoding.UTF8.GetMaxCharCount(4)];
+        var count = _decoder.GetChars([], chars, flush: true);
+        return new string(chars, 0, count);
     }
 
     private string PushText(string chunk)

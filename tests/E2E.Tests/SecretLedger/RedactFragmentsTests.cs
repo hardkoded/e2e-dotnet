@@ -37,6 +37,31 @@ public sealed class RedactFragmentsTests
     }
 
     [Fact]
+    public void Leaves_the_whitespace_at_either_end_of_a_fragment_so_a_plus_minus_line_prefix_that_splits_a_multi_line_value_keeps_its_line_break()
+    {
+        var value = string.Join(
+            "\n",
+            "-----BEGIN KEY-----",
+            "xKeHYQKKYmUIHQUvbL7GD750SXH0WBXc",
+            "S6zifhBTNEGyB9oJAIa5tz5ysBf2KeiK",
+            "CWRxVgjsPQIi0i7ipQkTw1bSSj4Do4fN",
+            "-----END KEY-----");
+        var ledger = Ledger.Of(("k", value));
+        var diff = "@@ -2,3 +2,3 @@ xKeHYQKKYmUIHQUvbL7GD750SXH0WBXc\n S6zifhBTNEGyB9oJAIa5tz5ysBf2KeiK\n-CWRxVgjsPQIi0i7ipQkTw1bSSj4Do4fN\n+rotated\n other line\n";
+        Assert.Equal("@@ -2,3 +2,3 @@ <secret:k>\n-<secret:k>\n+rotated\n other line\n", ledger.RedactFragments(diff));
+    }
+
+    [Fact]
+    public void Rewrites_a_fragment_that_starts_on_the_whitespace_left_after_another_so_a_second_pass_changes_nothing()
+    {
+        var ledger = Ledger.Of(("phrase", "alpha bravo charlie delta"));
+        var once = ledger.RedactFragments("note: bravo charlie\nbravo c\n");
+        Assert.Equal("note: <secret:phrase>\n<secret:phrase>\n", once);
+        Assert.Equal(once, ledger.RedactFragments(once));
+        Assert.Equal("<secret:k> <secret:k>", Ledger.Of(("k", "PQRSTUVW zzz abcdefghij")).RedactFragments("PQRSTUVW abcdefg"));
+    }
+
+    [Fact]
     public void Names_a_run_two_values_share_after_the_longer_and_a_whole_shorter_value_after_itself()
     {
         const string Short = "ovl-secret-AbCdEfGhIjKlMnOpQrSt";
