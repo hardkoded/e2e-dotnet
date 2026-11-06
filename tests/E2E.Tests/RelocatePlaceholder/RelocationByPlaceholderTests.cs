@@ -5,9 +5,9 @@
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
-using Recorder = E2E.Cache.TraceRecorder;
 using static E2E.Tests.RelocatePosition.DescribePositionTests;
 using static E2E.Tests.RelocatePosition.RelocationWithARecordedPositionTests;
+using Recorder = E2E.Cache.TraceRecorder;
 
 namespace E2E.Tests.RelocatePlaceholder;
 
