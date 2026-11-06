@@ -236,8 +236,18 @@ internal static class Relocate
         fields.All(field => string.Equals(Field(candidate, field), Field(recorded, field), StringComparison.Ordinal));
 
     /// <summary>Whether the projection of a node names anything at all. Upstream's <c>describeTarget</c> returns nothing for such a node.</summary>
-    private static bool NamesAnything(RecordedTarget described) =>
+    internal static bool NamesAnything(RecordedTarget described) =>
         described.Role is not null || described.Name is not null || described.Text is not null || described.TestId is not null || described.Placeholder is not null || described.InputPurpose is not null;
+
+    /// <summary>
+    /// The node of an observation a relocation named by its reference. No upstream counterpart: upstream's result names a key of the map of
+    /// nodes it was given (<c>nodes.get(id)</c>); the port names nodes by their <see cref="SemanticNode.Ref"/>.
+    /// </summary>
+    internal static SemanticNode? NodeOf(Observation observation, string id)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        return LocatorResolver.Walk(observation.Roots).FirstOrDefault(node => string.Equals(node.Ref, id, StringComparison.Ordinal));
+    }
 
     /// <summary>Projects every node of an observation the way the recorder described its targets, once per observation and redactor. Hidden nodes are not candidates.</summary>
     private static Projection Project(Observation observation, Redactor redactor)

@@ -2,8 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
+using RelocateRules = E2E.Relocate;
 
 namespace E2E;
 
@@ -380,8 +382,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return null;
         }
 
-        var matches = FindLike(latest, earlier.Node, scope.Redactor);
-        return matches.Count == 1 ? matches[0] : null;
+        return RefindOne(latest, earlier.Node, scope.Redactor);
     }
 
     /// <summary>
@@ -409,27 +410,48 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     /// <summary>
     /// Upstream's <c>relocate</c>: finds a node that went stale in one fresh look, exactly one match or null. The look is
-    /// taken directly, as upstream's is, because this runs inside an action. Upstream matches with the trace recorder's
-    /// descriptor rules (<c>cache/relocate.ts</c>), which also read placeholder and input purpose, and forgive a
-    /// changed test id. The port matches the role, name, and test id it records. Neither looks at the container: upstream describes
-    /// the stale node with <c>describeTarget</c>, which carries no container key.
+    /// taken directly, as upstream's is, because this runs inside an action. The stale node is matched with the trace recorder's
+    /// own descriptor rules (<c>cache/relocate.ts</c>): role, name, text, test id, placeholder, and input purpose, with a changed test id
+    /// forgiven when the rest still identifies it. Like upstream's <c>describeTarget</c> it carries no container key and no position.
     /// </summary>
     public async Task<SemanticNode?> Relocate(SemanticNode stale, Redactor redactor, CancellationToken token)
     {
+        if (!RelocateRules.NamesAnything(TraceRecorder.DescribeTarget(stale, redactor)))
+        {
+            return null;
+        }
+
         var observation = await ObserveAsync(SettleMode.Raw, "relocate", token).ConfigureAwait(false);
+        return RefindOne(observation, stale, redactor);
+    }
+
+    // The one node of the observation that reads as the stale node did, by the recorder's descriptor rules, or null (upstream's relocateDescriptor on describeTarget).
+    private static SemanticNode? RefindOne(Observation observation, SemanticNode stale, Redactor redactor)
+    {
         var matches = FindLike(observation, stale, redactor);
         return matches.Count == 1 ? matches[0] : null;
     }
 
     /// <summary>
-    /// The nodes that read as <paramref name="node"/> did. A node with no name and no test id has nothing to tell it
-    /// from its twins, so it is never found again: a wrong match would act on the wrong control.
+    /// The nodes that read as <paramref name="node"/> did, by the descriptor rules of <c>cache/relocate.ts</c>: the one it relocates to, or
+    /// the several it cannot tell apart. A node with nothing to tell it from its twins is never found again: a wrong match would act on the
+    /// wrong control. No upstream counterpart: upstream's callers read the <c>RelocationResult</c>; the port's <c>ResolveIn</c> also names the
+    /// candidates of an ambiguity (.NET-only act tools).
     /// </summary>
     public static List<SemanticNode> FindLike(Observation observation, SemanticNode node, Redactor redactor)
     {
-        var name = Agent.Redact(Agent.LabelOf(node), redactor);
-        var testId = Agent.Redact(node.TestId, redactor);
-        return name is null && testId is null ? [] : Agent.Find(observation, node.Role, name, testId, null, redactor);
+        var descriptor = TraceRecorder.DescribeTarget(node, redactor);
+        if (!RelocateRules.NamesAnything(descriptor))
+        {
+            return [];
+        }
+
+        return RelocateRules.RelocateDescriptor(descriptor, observation, redactor) switch
+        {
+            RelocationResult.Found found => RelocateRules.NodeOf(observation, found.Id) is { } relocated ? [relocated] : [],
+            RelocationResult.Failed { Candidates: { } candidates } => [.. candidates.Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>()],
+            _ => [],
+        };
     }
 }
 
