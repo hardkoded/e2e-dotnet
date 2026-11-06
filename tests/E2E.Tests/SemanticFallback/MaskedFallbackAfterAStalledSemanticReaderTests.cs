@@ -60,10 +60,12 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         var observed = Flatten(fresh.Roots).ToList();
         var ids = observed.Select(node => node.Ref).ToList();
         Assert.Equal(ids.Count, ids.Distinct().Count());
-        Assert.NotNull(located);
+        Assert.Equal("Button A", Assert.Single(observed, node => node.Ref == located.Ref).Name);
         foreach (var name in new[] { "Button B", "Button C", "Button D" })
         {
             var target = Assert.Single(observed, node => node.Name == name);
+            await page.Locator("body").EvaluateAsync("body => { delete body.dataset.clicked; }");
+            await page.FrameLocator("iframe").Locator("body").EvaluateAsync("body => { delete body.dataset.clicked; }");
             await session.PerformAsync(target, new LocatorAction.Tap(), CancellationToken.None);
             var clicked = name == "Button D"
                 ? await page.FrameLocator("iframe").Locator("body").GetAttributeAsync("data-clicked")
