@@ -21,7 +21,7 @@ public sealed class ToBeAttachedTests
     {
         var locator = ScreenFixture.Create().GetByText("Gone");
         var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToBeAttachedAsync());
-        Assert.Contains("observed no node (match count 0)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: no node (match count 0)", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

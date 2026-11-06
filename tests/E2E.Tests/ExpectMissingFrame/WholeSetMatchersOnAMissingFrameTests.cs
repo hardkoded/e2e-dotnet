@@ -9,8 +9,7 @@ namespace E2E.Tests.ExpectMissingFrame;
 
 /// <summary>
 /// Upstream's expect-missing-frame.test.ts. The port runs on the real clock where upstream fakes time, so the
-/// negated matchers wait out their one-second grace for real. The port's failure message reads "observed count 0" where upstream's
-/// reads "observed: count 0" (the port joins the sentence with "; "), so the two failure tests also check the structured <see cref="ErrorDetails.Observed"/>.
+/// negated matchers wait out their one-second grace for real. The two failure tests also check the structured <see cref="ErrorDetails.Observed"/>.
 /// </summary>
 public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
 {
@@ -61,22 +60,20 @@ public sealed class WholeSetMatchersOnAMissingFrameTests : IDisposable
     }
 
     [Fact]
-    // Partial: asserts the port wording "observed count 0", not upstream "observed: count 0" (#1215).
-    public async Task Partial_Fail_a_positive_count_as_a_count_mismatch_not_a_missing_locator()
+    public async Task Fail_a_positive_count_as_a_count_mismatch_not_a_missing_locator()
     {
         var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveCountAsync(1, TimeSpan.FromMilliseconds(300)));
         Assert.Equal("ASSERTION_FAILED", failure.Code);
-        Assert.Contains("observed count 0", failure.Message);
+        Assert.Contains("observed: count 0", failure.Message);
         Assert.Equal("count 0", failure.Details?.Observed);
     }
 
     [Fact]
-    // Partial: asserts the port wording "observed text []", not upstream "observed: text []" (#1215).
-    public async Task Partial_Fail_a_text_list_as_a_text_mismatch_not_a_missing_locator()
+    public async Task Fail_a_text_list_as_a_text_mismatch_not_a_missing_locator()
     {
         var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(ClosedFrame()).ToHaveTextAsync(new TextMatch[] { "Pay" }, timeout: TimeSpan.FromMilliseconds(300)));
         Assert.Equal("ASSERTION_FAILED", failure.Code);
-        Assert.Contains("observed text []", failure.Message);
+        Assert.Contains("observed: text []", failure.Message);
         Assert.Equal("text []", failure.Details?.Observed);
     }
 
