@@ -352,6 +352,32 @@ internal static class ModelHttp
         };
     }
 
+    /// <summary>Whether a <c>thinking</c> provider option turns thinking on (present and not <c>disabled</c>).</summary>
+    public static bool Thinks(JsonNode? thinking) => thinking is not null && (string?)(thinking as JsonObject)?["type"] != "disabled";
+
+    /// <summary>
+    /// Whether a provider that refuses a forced tool while the model thinks (Anthropic, Bedrock) sends <c>auto</c> in place of the
+    /// forced choice <paramref name="request"/> asks for. Upstream's AI SDK provider does this itself and says so as a call warning.
+    /// </summary>
+    public static bool DowngradesToolChoice(ModelRequest request, bool thinks) =>
+        thinks && request.Tools.Count > 0 && request.Schema is null && request.ToolChoice is { Forced: true };
+
+    /// <summary>The call warning for a forced tool choice sent as <c>auto</c> (upstream's <c>unsupported</c> <c>toolChoice</c> warning).</summary>
+    public static ModelResponse WithToolChoiceDowngrade(ModelResponse response, ModelToolChoice asked)
+    {
+        var warning = new ModelWarning("unsupported", "toolChoice", "toolChoice '" + asked.Type + "' is not supported while the model thinks. Using 'auto' instead.");
+        return new ModelResponse
+        {
+            Content = response.Content,
+            ToolCalls = response.ToolCalls,
+            Usage = response.Usage,
+            ReasoningItems = response.ReasoningItems,
+            Warnings = [.. response.Warnings, warning],
+            FinishReason = response.FinishReason,
+            RawFinishReason = response.RawFinishReason,
+        };
+    }
+
     public static StringContent Json(JsonNode payload)
     {
         return new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");

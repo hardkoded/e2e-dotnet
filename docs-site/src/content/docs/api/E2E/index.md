@@ -108,6 +108,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelResponses](/api/E2E/ModelResponses/) | Builds the tool calls a ScriptedModel (or a test) returns. |
 | [ModelTool](/api/E2E/ModelTool/) |  |
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
+| [ModelToolChoice](/api/E2E/ModelToolChoice/) | The AI SDK's ToolChoice: auto lets the model answer in prose or call any offered tool, required makes it call some tool, and a named tool makes it call that one. Each provider sends its own form of it (Anthropic's any, Bedrock's any, OpenAI's required, Gemini's ANY). |
+| [ModelWarning](/api/E2E/ModelWarning/) | One of upstream's call warnings (CallWarning): the provider changed the request instead of failing it. A provider that sends auto in place of the forced tool choice it was asked for says so with Type unsupported and Feature toolChoice. |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |
 | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |

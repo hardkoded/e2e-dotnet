@@ -64,6 +64,20 @@ providers and their logins):
   `ModelResponse.Content`. The built-in providers send `response_format`
   (chat completions), `text.format` (Responses), or `responseJsonSchema`
   (Google), and make Anthropic and Bedrock call a forced `json` tool.
+- The act tool loop sets `ModelRequest.ToolChoice` (a `ModelToolChoice`:
+  `Auto`, `Required`, or `Tool(name)`) on every turn. For now the loop always
+  sends `Auto`; it will send `Required`, and `Tool("done")` on the forced
+  conclusion turns, once refusals of a forced choice are retried. A null
+  choice means `Auto`. The built-in providers send
+  their own form of it: `tool_choice` (`auto`, `any`, or a named tool) for
+  Anthropic, `"auto"`, `"required"`, or a named function for chat completions
+  and Responses, `functionCallingConfig` mode `AUTO` or `ANY` (with
+  `allowedFunctionNames`) for Google, and `toolConfig.toolChoice` for Bedrock.
+  Anthropic and Bedrock refuse a forced tool while the model thinks, so they
+  send `auto` and return a `ModelWarning` (`Type` `unsupported`, `Feature`
+  `toolChoice`) in `ModelResponse.Warnings`. A custom `IAgentModel` may ignore
+  the choice, since the loop offers only `done` on a forced turn either way.
+  Refusals of a forced choice are not retried with `auto` yet.
 - A custom `IAgentModel` reports each call's tokens, cache tokens, and cost in
   `ModelResponse.Usage` (a `ModelCallUsage`; it was `ModelUsage`, which is now
   the step's internal accumulator, as upstream's). The step's report sums

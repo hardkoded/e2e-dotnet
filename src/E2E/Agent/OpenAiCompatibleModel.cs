@@ -151,7 +151,12 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = "auto";
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["function"] = new JsonObject { ["name"] = request.ToolChoice.ToolName } },
+                _ => "auto",
+            };
         }
 
         // Not strict: strict mode refuses keywords such as maxLength, and the agent validates the answer itself.

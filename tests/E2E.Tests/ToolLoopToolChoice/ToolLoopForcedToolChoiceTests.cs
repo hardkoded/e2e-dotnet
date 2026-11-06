@@ -9,13 +9,13 @@ using static E2E.Tests.CoreTests;
 namespace E2E.Tests.ToolLoopToolChoice;
 
 /// <summary>
-/// The port always sends <c>tool_choice: auto</c> and ends a step with a <c>done</c> tool, so it has no forced choice to refuse
-/// and no <c>complete_step</c> tool. The tests below keep upstream's names, assert <c>done</c> where upstream asserts
-/// <c>complete_step</c>, and are <c>Partial_</c> where upstream's check needs a model that refuses a forced choice: the refused
-/// request, <c>toolChoice</c> in the request, and the retry under the same instructions. Not ported here (they need the tool
-/// choice plumbing, tracked in #1157 for the next PRs): "retries with auto, under the same instructions, when the model rejects a
-/// forced choice", "remembers the refusal for later steps on the same model", "leaves a 400 about anything else to the ordinary
-/// error translation", the four "downgraded tool choice" cases, "isForcedToolChoiceRejected" and "isForcedToolCallSkipped".
+/// The port ends a step with a <c>done</c> tool, not <c>complete_step</c>. The tests below keep upstream's names, assert <c>done</c>
+/// where upstream asserts <c>complete_step</c>, and are <c>Partial_</c> where upstream's check needs a model that refuses a forced
+/// choice: the refused request and the retry under <c>auto</c>. The port sends the tool choice (<see cref="ModelRequest.ToolChoice"/>)
+/// but does not yet recognize a refusal. Not ported here (tracked in #1157 for the next PR): "retries with auto, under the same
+/// instructions, when the model rejects a forced choice", "remembers the refusal for later steps on the same model", "leaves a 400
+/// about anything else to the ordinary error translation", the four "downgraded tool choice" cases, "isForcedToolChoiceRejected" and
+/// "isForcedToolCallSkipped".
 /// </summary>
 public sealed class ToolLoopForcedToolChoiceTests
 {
@@ -71,7 +71,7 @@ public sealed class ToolLoopForcedToolChoiceTests
         Assert.Equal(3, model.CallCount);
     }
 
-    /// <summary>Partial: without a refused forced choice the port asserts the offered tool list, not the <c>auto</c> tool choice.</summary>
+    /// <summary>Partial: without a refused forced choice the loop is on <c>auto</c> from the start (until the retry lands), so the port asserts the offered tool list and the <c>auto</c> choice without a refused request.</summary>
     [Fact]
     public async Task Partial_Offers_only_complete_step_under_auto_on_the_forced_conclusion_turns()
     {
@@ -90,6 +90,7 @@ public sealed class ToolLoopForcedToolChoiceTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(["done"], model.Requests[^1].Tools.Select(tool => tool.Name));
+        Assert.Equal(ModelToolChoice.Auto, model.Requests[^1].ToolChoice);
     }
 
     /// <summary>A read-only project tool, so a turn can do something other than conclude.</summary>

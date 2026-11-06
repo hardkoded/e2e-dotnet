@@ -138,3 +138,18 @@ public ModelCallUsage? Usage { get; init; }
 
 
 **Value:** [ModelCallUsage](/api/E2E/ModelCallUsage/)
+
+<a id="E2E_ModelResponse_Warnings_"></a>
+<a id="E2E_ModelResponse_Warnings"></a>
+
+### Warnings
+
+
+```csharp
+public IReadOnlyList<ModelWarning> Warnings { get; init; }
+```
+
+
+Upstream's call `warnings` (`StepResult.warnings`): what the provider changed in the request without failing it. Empty when it changed nothing.
+
+**Value:** [IReadOnlyList&lt;ModelWarning&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)

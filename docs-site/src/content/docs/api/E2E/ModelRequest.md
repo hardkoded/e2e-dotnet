@@ -130,6 +130,23 @@ public required string System { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_ModelRequest_ToolChoice_"></a>
+<a id="E2E_ModelRequest_ToolChoice"></a>
+
+### ToolChoice
+
+
+```csharp
+public ModelToolChoice? ToolChoice { get; init; }
+```
+
+
+Upstream's `ModelCall.toolChoice` (the AI SDK's `toolChoice`): how the model must use the tools it is offered. Null leaves
+the choice to the provider, which is [Auto](/api/E2E/ModelToolChoice/#E2E_ModelToolChoice_Auto). The act tool loop asks for [Required](/api/E2E/ModelToolChoice/#E2E_ModelToolChoice_Required)
+and names `done` on its forced-conclusion turns. A custom [IAgentModel](/api/E2E/IAgentModel/) that cannot force a tool may ignore it.
+
+**Value:** [ModelToolChoice](/api/E2E/ModelToolChoice/)
+
 <a id="E2E_ModelRequest_Tools_"></a>
 <a id="E2E_ModelRequest_Tools"></a>
 

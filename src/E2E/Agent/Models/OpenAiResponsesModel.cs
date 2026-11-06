@@ -131,7 +131,12 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = "auto";
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["name"] = request.ToolChoice.ToolName },
+                _ => "auto",
+            };
         }
 
         // A reasoning model hands its reasoning back encrypted only when asked. The AI SDK asks every model but the chat ones.

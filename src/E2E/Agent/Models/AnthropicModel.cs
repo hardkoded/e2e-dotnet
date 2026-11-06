@@ -43,9 +43,15 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
 
         message.Headers.TryAddWithoutValidation("anthropic-version", _options.Version);
         ModelEndpoint.AddHeaders(message, _options.Headers);
-        message.Content = ModelHttp.Json(BuildBody(request));
+        var payload = BuildBody(request);
+        message.Content = ModelHttp.Json(payload);
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
         var response = ModelHttp.Parse(body, Parse);
+        if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
+        {
+            response = ModelHttp.WithToolChoiceDowngrade(response, request.ToolChoice!);
+        }
+
         return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
@@ -157,10 +163,16 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = new JsonObject { ["type"] = "auto" };
+            payload["tool_choice"] = ToolChoice(request.ToolChoice);
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system");
+
+        // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
+        if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
+        {
+            payload["tool_choice"] = ToolChoice(ModelToolChoice.Auto);
+        }
 
         // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
         if (request.Schema is not null && !payload.ContainsKey("thinking"))
@@ -170,6 +182,14 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
 
         return payload;
     }
+
+    // The AI SDK's mapping: required is Anthropic's any, a named tool is a tool choice with its name.
+    private static JsonObject ToolChoice(ModelToolChoice? choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["type"] = "any" },
+        { Type: "tool" } => new JsonObject { ["type"] = "tool", ["name"] = choice.ToolName },
+        _ => new JsonObject { ["type"] = "auto" },
+    };
 
     // The thinking blocks of an earlier turn go back as they came, signature and all, ahead of its text and tool calls.
     private static JsonArray Thinking(ModelMessage message)
