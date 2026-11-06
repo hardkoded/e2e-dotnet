@@ -258,7 +258,7 @@ internal sealed partial record FailureEvidence
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             var nodeTestId = node.TestId is null ? null : redactor.Redact(node.TestId);
-            var roleMatched = role is not null && string.Equals(node.Role, role, StringComparison.OrdinalIgnoreCase);
+            var roleMatched = role is not null && node.Role is { } nodeRole && string.Equals(redactor.Redact(nodeRole), role, StringComparison.OrdinalIgnoreCase);
             var testIdMatched = testId is not null && nodeTestId is not null && (nodeTestId == testId || nodeTestId.Contains(testId, StringComparison.Ordinal) || testId.Contains(nodeTestId, StringComparison.Ordinal));
             var placeholder = node.Placeholder ?? (node.Attributes.TryGetValue("placeholder", out var attribute) ? attribute : null);
             var own = Tokens(redactor.Redact((node.Name ?? "") + " " + (node.Text ?? "") + " " + (placeholder ?? ""))).ToHashSet(StringComparer.Ordinal);

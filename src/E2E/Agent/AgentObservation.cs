@@ -43,6 +43,71 @@ internal sealed class SettleOptions<T>
 /// <summary>Whether requested pixels became model input: the image sized for the model, or why they did not.</summary>
 internal readonly record struct PixelsOutcome(EngineScreenshot? Pixels, VisionDegradation? Withheld);
 
+/// <summary>Upstream's <c>kind</c> of an <c>AgentObservation</c>: a semantic tree, or pixels alone because no tree could be read.</summary>
+internal enum PreparedKind
+{
+    Semantic,
+    Pixels,
+}
+
+/// <summary>What <see cref="AgentObservation.PrepareObservation"/> needs besides the observation (upstream's options object).</summary>
+internal sealed class PrepareObservationOptions
+{
+    /// <summary>What takes the secrets out of every string; the engine cuts a name or text at its limit, which the redactor accounts for.</summary>
+    public required Redactor Redactor { get; init; }
+
+    /// <summary>Most bytes the text may take, the truncation marker included.</summary>
+    public required int MaxBytes { get; init; }
+
+    /// <summary>Grants pixel-only evidence; false when this consumer cannot use it.</summary>
+    public bool PixelsAllowed { get; init; }
+
+    /// <summary>The app base URL's origin: link targets on it render as paths, which navigation resolves against it.</summary>
+    public string? AppOrigin { get; init; }
+}
+
+/// <summary>
+/// One raw observation as the model and the agent read it (upstream's <c>AgentObservation</c>, a type this port names for what it
+/// is, since <see cref="AgentObservation"/> is the static class of the observation functions): redacted, size-bounded, and indexed.
+/// </summary>
+internal sealed record PreparedObservation
+{
+    public required PreparedKind Kind { get; init; }
+
+    /// <summary>The route of the screen, redacted.</summary>
+    public required string Path { get; init; }
+
+    public required string Revision { get; init; }
+
+    /// <summary>Redacted, size-bounded serialization sent to the model.</summary>
+    public required string Text { get; init; }
+
+    /// <summary>The UTF-8 size of <see cref="Text"/>.</summary>
+    public required int Bytes { get; init; }
+
+    public TraceViewport? Viewport { get; init; }
+
+    /// <summary>Every redacted node by ref. Empty for pixels alone.</summary>
+    public IReadOnlyDictionary<string, SemanticNode> Nodes { get; init; } = new Dictionary<string, SemanticNode>();
+
+    /// <summary>The ref of each node's parent. Empty for pixels alone.</summary>
+    public IReadOnlyDictionary<string, string> Parents { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>The redacted roots (upstream has one <c>tree</c> root; the port's observation lists roots).</summary>
+    public IReadOnlyList<SemanticNode> Tree { get; init; } = [];
+
+    /// <summary>Whether the byte budget or the engine cut the listing.</summary>
+    public bool Truncated { get; init; }
+
+    public bool? KeyboardVisible { get; init; }
+
+    /// <summary>The screenshot sized for the model, when it is permitted and its masking is proven.</summary>
+    public EngineScreenshot? Pixels { get; init; }
+
+    /// <summary>Why pixels the observation carried are not part of it (upstream's <c>pixelsWithheld</c>).</summary>
+    public VisionDegradation? PixelsWithheld { get; init; }
+}
+
 /// <summary>An observation as the settle loop reads it: its shape, whether it is a screen in transition, and the loop itself.</summary>
 internal static partial class AgentObservation
 {
@@ -142,6 +207,154 @@ internal static partial class AgentObservation
     }
 
     /// <summary>
+    /// Turns one raw engine observation into redacted model input (upstream's <c>prepareObservation</c>). The text is the screen
+    /// as the model reads it, cut at <see cref="PrepareObservationOptions.MaxBytes"/>; the node index and the tree hold every
+    /// node with every string field redacted (<see cref="RedactNode"/>). A screen with no tree is answered with pixels alone, and
+    /// only when they are permitted and proven masked (<see cref="PixelsForModel"/>). Pixels the masking of which cannot be
+    /// proven are withheld from a semantic observation, and its tree still goes out.
+    /// </summary>
+    public static PreparedObservation PrepareObservation(Observation observation, PrepareObservationOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        ArgumentNullException.ThrowIfNull(options);
+        var path = options.Redactor.Redact(observation.Route);
+        var pixels = observation.Pixels is null ? new PixelsOutcome(null, null) : PixelsForModel(observation, observation.Pixels);
+        if (observation.TreeUnavailable)
+        {
+            if (!options.PixelsAllowed || pixels.Pixels is null)
+            {
+                throw new TestException("UNSUPPORTED_CAPABILITY", "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it");
+            }
+
+            return new PreparedObservation
+            {
+                Kind = PreparedKind.Pixels,
+                Path = path,
+                Revision = observation.Revision,
+                Text = ObservationFeed.UnavailableTreeMarker,
+                Bytes = Encoding.UTF8.GetByteCount(ObservationFeed.UnavailableTreeMarker),
+                Viewport = observation.Viewport,
+                Pixels = pixels.Pixels,
+            };
+        }
+
+        var tree = observation.Roots.Select(root => RedactNode(root, options.Redactor)).ToList();
+        var nodes = new Dictionary<string, SemanticNode>(StringComparer.Ordinal);
+        var parents = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var root in tree)
+        {
+            IndexNodes(root, nodes, parents);
+        }
+
+        var text = SnapshotText.Render(observation, options.Redactor, options.AppOrigin, options.MaxBytes, out var cut);
+        return new PreparedObservation
+        {
+            Kind = PreparedKind.Semantic,
+            Path = path,
+            Revision = observation.Revision,
+            Text = text,
+            Bytes = Encoding.UTF8.GetByteCount(text),
+            Viewport = observation.Viewport,
+            Nodes = nodes,
+            Parents = parents,
+            Tree = tree,
+            Truncated = cut || observation.Truncated,
+            KeyboardVisible = observation.KeyboardVisible,
+            Pixels = pixels.Pixels,
+            PixelsWithheld = pixels.Withheld,
+        };
+    }
+
+    private static void IndexNodes(SemanticNode node, Dictionary<string, SemanticNode> into, Dictionary<string, string> parents)
+    {
+        into[node.Ref] = node;
+        foreach (var child in node.Children)
+        {
+            parents[child.Ref] = node.Ref;
+            IndexNodes(child, into, parents);
+        }
+    }
+
+    /// <summary>
+    /// The node and its subtree with every secret taken out of every string field, before any consumer reads it: the model's text,
+    /// the executor's tree, cache descriptors and anchors, failure evidence (upstream's <c>redactNode</c>). A secure node keeps no
+    /// value or selection, and a selection that may show part of a secret is dropped, as a secure field's is.
+    /// </summary>
+    public static SemanticNode RedactNode(SemanticNode node, Redactor redactor)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+        return RedactFields(node, redactor, node.Children.Select(child => RedactNode(child, redactor)).ToList());
+    }
+
+    // The fields of one node, each redacted the way it is shown, linked to the given children. The ref and the closed-set fields are the
+    // engine's own and pass as they are; a field the port reads that upstream has no counterpart for (own text, labels, the whole href) is redacted too.
+    private static SemanticNode RedactFields(SemanticNode node, Redactor redactor, IReadOnlyList<SemanticNode> children)
+    {
+        string? Text(string? value, int? limit = null) => value is null ? null : RedactText(value, redactor, limit);
+        var attributes = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (key, value) in node.Attributes)
+        {
+            attributes[RedactText(key, redactor)] = RedactText(value, redactor);
+        }
+
+        return new SemanticNode
+        {
+            Ref = node.Ref,
+            Role = Text(node.Role),
+            Name = Text(node.Name, ObservationLimits.Name),
+            Text = Text(node.Text, ObservationLimits.Text),
+            OwnText = Text(node.OwnText, ObservationLimits.Text),
+            InlineNodes = node.InlineNodes.Select(inline => RedactNode(inline, redactor)).ToList(),
+            DomText = Text(node.DomText),
+            Labels = node.Labels?.Select(label => RedactText(label, redactor)).ToList(),
+            Value = node.States.Secure ? null : Text(node.Value, ObservationLimits.Text),
+            Selection = SnapshotText.Selection(node, redactor),
+            TestId = Text(node.TestId),
+            Placeholder = Text(node.Placeholder),
+            InputPurpose = node.InputPurpose,
+            Level = node.Level,
+            States = node.States,
+            Attributes = attributes,
+            WholeHref = Text(node.WholeHref),
+            TestIdAttribute = Text(node.TestIdAttribute),
+            Frame = node.Frame,
+            Rect = node.Rect,
+            Origin = node.Origin,
+            Children = children,
+        };
+    }
+
+    /// <summary>
+    /// An earlier capture's nodes redacted again through the redactor as it is now, each on its own fields, then linked to its
+    /// redacted-again children, so the tree keeps its shape (which nodes are leaves) without a subtree redacted once per ancestor. A
+    /// secret a provider resolved after the capture masks text the capture still shows, so the two captures read alike wherever the
+    /// screen did not change (upstream's <c>redactNodesAgain</c>).
+    /// </summary>
+    public static IReadOnlyDictionary<string, SemanticNode> RedactNodesAgain(IReadOnlyDictionary<string, SemanticNode> nodes, Redactor redactor)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        var again = new Dictionary<string, SemanticNode>(StringComparer.Ordinal);
+        SemanticNode Redo(string reference)
+        {
+            if (again.TryGetValue(reference, out var done))
+            {
+                return done;
+            }
+
+            var node = nodes[reference];
+            var children = node.Children.Where(child => nodes.ContainsKey(child.Ref)).Select(child => Redo(child.Ref)).ToList();
+            return again[reference] = RedactFields(node, redactor, children);
+        }
+
+        foreach (var reference in nodes.Keys)
+        {
+            Redo(reference);
+        }
+
+        return again;
+    }
+
+    /// <summary>
     /// Upstream's <c>projectTree</c>: the nodes the screen lists as an executor reads them. Every string field is
     /// redacted, a secure node carries no value and no selection at all, and a link target is bounded as a line bounds it:
     /// a target on <paramref name="appOrigin"/> keeps that origin and loses no more of its path than the line does. A node
@@ -162,19 +375,30 @@ internal static partial class AgentObservation
             projected.Add(new ExecutorNode
             {
                 Id = node.Ref,
-                Role = node.Role,
+                Role = node.Role is null ? null : RedactText(node.Role, redactor),
                 Name = node.Name is null ? null : RedactText(node.Name, redactor, ObservationLimits.Name),
                 Text = node.Text is null ? null : RedactText(node.Text, redactor, ObservationLimits.Text),
                 Value = node.Value is null || node.States.Secure ? null : RedactText(node.Value, redactor, ObservationLimits.Text),
                 Selection = node.States.Secure ? null : SnapshotText.Selection(node, redactor),
                 InputPurpose = node.InputPurpose,
                 States = node.States,
-                Attributes = node.Attributes.Count == 0
-                    ? null
-                    : node.Attributes.ToDictionary(pair => pair.Key, pair => string.Equals(pair.Key, "href", StringComparison.Ordinal) ? TreeHref(pair.Value, redactor, appOrigin) : RedactText(pair.Value, redactor), StringComparer.Ordinal),
+                Attributes = node.Attributes.Count == 0 ? null : TreeAttributes(node.Attributes, redactor, appOrigin),
                 Rect = node.Rect,
                 Children = children,
             });
+        }
+
+        return projected;
+    }
+
+    // The attributes of an executor node: the key is page text too, so it is redacted like the value (a later key that reads the
+    // same replaces an earlier one, as upstream's Object.fromEntries does).
+    private static Dictionary<string, string> TreeAttributes(IReadOnlyDictionary<string, string> attributes, Redactor redactor, string? appOrigin)
+    {
+        var projected = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (key, value) in attributes)
+        {
+            projected[RedactText(key, redactor)] = string.Equals(key, "href", StringComparison.Ordinal) ? TreeHref(value, redactor, appOrigin) : RedactText(value, redactor);
         }
 
         return projected;
@@ -217,13 +441,14 @@ internal static partial class AgentObservation
     /// With <see cref="SettleOptions{T}.ChangedFrom"/>, the loop has two phases: first it waits for the shape to leave
     /// the pre-action one (a navigation committing, a route swapping the body, a submit rendering), then it waits for
     /// the new shape to hold still. A screen that never leaves the pre-action shape is returned as it is once the
-    /// change wait runs out: the caller reports it unchanged rather than guessing. Upstream also returns at once on a
-    /// capture with no comparable shape, a screenshot alone; the port's observations always have one.
+    /// change wait runs out: the caller reports it unchanged rather than guessing. Evidence with no comparable shape
+    /// (<paramref name="shapeOf"/> returns null) is returned at once: another capture cannot establish stability while
+    /// semantics are unavailable.
     /// </para>
     /// </summary>
     public static async Task<T> SettleAsync<T>(
         Func<CancellationToken, Task<T>> capture,
-        Func<T, string> shapeOf,
+        Func<T, string?> shapeOf,
         SettleOptions<T> options,
         TimeProvider time,
         CancellationToken token)
@@ -232,6 +457,11 @@ internal static partial class AgentObservation
         var transitional = options.Transitional ?? (_ => false);
         var value = await capture(token).ConfigureAwait(false);
         var shape = shapeOf(value);
+        if (shape is null)
+        {
+            return value;
+        }
+
         if (options.ChangedFrom is { } changedFrom)
         {
             while ((string.Equals(shape, changedFrom.Shape, StringComparison.Ordinal) || transitional(value))
@@ -240,6 +470,10 @@ internal static partial class AgentObservation
                 await Task.Delay(poll, time, token).ConfigureAwait(false);
                 value = await capture(token).ConfigureAwait(false);
                 shape = shapeOf(value);
+                if (shape is null)
+                {
+                    return value;
+                }
             }
         }
 
@@ -249,6 +483,11 @@ internal static partial class AgentObservation
             await Task.Delay(poll, time, token).ConfigureAwait(false);
             value = await capture(token).ConfigureAwait(false);
             var next = shapeOf(value);
+            if (next is null)
+            {
+                return value;
+            }
+
             var stable = string.Equals(next, shape, StringComparison.Ordinal);
             shape = next;
             if (stable && (options.ChangedFrom is null || !transitional(value)))

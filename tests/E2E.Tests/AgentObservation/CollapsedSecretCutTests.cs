@@ -17,13 +17,12 @@ public sealed class CollapsedSecretCutTests
     private static string Json<T>(T value) => System.Text.Json.JsonSerializer.Serialize(value, Relaxed);
 
     /// <summary>
-    /// Partial: upstream <c>it.each</c> "keeps no part of it when the cut falls %s, in the text, the tree, or the anchors" in <c>describe.each</c> "a secret of %s an engine collapsed, then cut at the name and text limits" (6 secrets x 3 cut positions = 18 cases) reads the
-    /// text, the executor tree and the anchors from <c>prepareObservation</c> and <c>describeDelta</c>. The port has no <c>PreparedObservation</c>:
-    /// it renders the text, projects the tree with <c>ProjectTree</c>, and projects the anchors with <c>Anchors.Project</c> as the step cache does.
+    /// Upstream <c>it.each</c> "keeps no part of it when the cut falls %s, in the text, the tree, or the anchors" in <c>describe.each</c> "a secret of %s an engine collapsed, then cut at the name and text limits" (6 secrets x 3 cut positions = 18 cases).
+    /// The anchors are projected from the prepared (redacted) tree with <c>Anchors.Project</c>, where upstream's <c>describeDelta</c> reads the node index.
     /// </summary>
     [Theory]
     [MemberData(nameof(CollapsedSecretCuts))]
-    public void Partial_keeps_no_part_of_it_when_the_cut_falls_in_the_text_the_tree_or_the_anchors(string kind, string lead, string separator, string tail, string where, int kept)
+    public void Keeps_no_part_of_it_when_the_cut_falls_in_the_text_the_tree_or_the_anchors(string kind, string lead, string separator, string tail, string where, int kept)
     {
         var label = $"a secret of {kind} an engine collapsed, then cut {where}";
         var redactor = Redactor.For([Secret.Create("multi", lead + separator + tail)]);
@@ -41,16 +40,13 @@ public sealed class CollapsedSecretCutTests
         };
         Assert.Equal(ObservationLimits.Name, Cut(ObservationLimits.Name).Length);
         Assert.Equal(ObservationLimits.Text, Cut(ObservationLimits.Text).Length);
-        var observation = new Observation { Route = "/", Roots = [tree] };
-        var text = SnapshotText.Render(observation, redactor);
-        var projected = global::E2E.AgentObservation.ProjectTree([tree], redactor, null);
-        var anchors = Anchors.Describe(
-            [],
-            Anchors.Project(observation, redactor.Redact, redactor.Redact, (value, limit) => global::E2E.AgentObservation.RedactText(value, redactor, limit)),
-            false).Appeared;
+        var prepared = global::E2E.AgentObservation.PrepareObservation(
+            new Observation { Route = "/", Roots = [tree] },
+            new PrepareObservationOptions { Redactor = redactor, MaxBytes = 16_384 });
+        var anchors = Anchors.Describe([], Anchors.Project(new Observation { Route = "/", Roots = prepared.Tree }, value => value, value => value), false).Appeared;
         Assert.True(string.Join(' ', anchors.Select(anchor => anchor.Name ?? anchor.Text)).Contains("<secret:multi>", StringComparison.Ordinal), label + ": the anchors lose the secret's name");
         string[] fragments = [lead, lead[..8], collapsed[..30], tail[..8]];
-        foreach (var shown in new[] { text, Json(projected), Json(anchors) })
+        foreach (var shown in new[] { prepared.Text, Json(global::E2E.AgentObservation.ProjectTree(prepared.Tree, redactor, null)), Json(anchors) })
         {
             Assert.True(shown.Contains("<secret:multi>", StringComparison.Ordinal), label + ": no marker in " + shown);
             foreach (var fragment in fragments)
