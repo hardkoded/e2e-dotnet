@@ -62,6 +62,8 @@ Each node in `observe` starts its line with a node id (`#n42 button "Save"`), an
 
 When the engine records video, the catalog also has `start_recording {name?}` and `stop_recording`. The session records only between them. `stop_recording` saves the video to `.e2e/videos/<session>/<n>[-<name>].<ext>` in the project and returns each file's absolute path, or the URL where a hosted provider keeps it. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video.
 
+The server has four fixed tools: `open_session`, `tools`, `call`, and `close_session`. Upstream's `run_tests`, which runs `e2e run` and returns the command, the exit code, and the run's output, has no counterpart, because the port has no `e2e run`. The agent runs the suite with `dotnet test` in its own shell, a whole suite or one test with `--filter`, and reads the output of a failed run. To look at a failing NUnit test, it uses `open_session {test}`.
+
 See the [README](/guide/#coding-agents-mcp) and [COMPATIBILITY.md](/compatibility/#mcp-server).
 
 ## Generate a verification skill for your app

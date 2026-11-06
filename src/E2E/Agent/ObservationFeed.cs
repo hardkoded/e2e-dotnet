@@ -45,6 +45,55 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>True once a screenshot went to the model in this step; text drawn in it is not in the listing (upstream's <c>pixelsShown</c>).</summary>
     public bool PixelsShown => _pixelsSent;
 
+    // Strings the screens of a step showed, kept for telling a typed value read off the screen from one the model composed
+    // (Derived): one per node, the oldest dropped first past this many (upstream's MAX_SHOWN_TEXTS).
+    private const int MaxShownTexts = 4_096;
+
+    // What the step's screens have shown, one string per node, oldest first (upstream's `shown`).
+    private readonly HashSet<string> _shown = new(StringComparer.Ordinal);
+    private readonly Queue<string> _shownOrder = new();
+
+    /// <summary>What the step's screens have shown so far, one string per node; what a typed value is checked against (upstream's <c>shownText</c>).</summary>
+    public IReadOnlyCollection<string> ShownText() => _shown;
+
+    // Upstream's noteShown: remembers what a screen displayed, the name and text of every node but those that echo input (an editable
+    // field, whose name is its value or its placeholder example; any node carrying a value) and the wrappers that restate a field,
+    // which some platforms name after the field they hold.
+    // The text is kept redacted, as upstream keeps it: its feed remembers the prepared (redacted) capture.
+    internal void NoteShown(Observation observation)
+    {
+        var redactor = Scope?.Redactor ?? Redactor.None;
+        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        {
+            if (EchoesInput(node) || node.Children.Any(EchoesInput))
+            {
+                continue;
+            }
+
+            foreach (var text in new[] { node.Name, node.Text })
+            {
+                if (string.IsNullOrEmpty(text))
+                {
+                    continue;
+                }
+
+                var redacted = redactor.Redact(text);
+                if (_shown.Add(redacted))
+                {
+                    _shownOrder.Enqueue(redacted);
+                }
+            }
+        }
+
+        while (_shown.Count > MaxShownTexts)
+        {
+            _shown.Remove(_shownOrder.Dequeue());
+        }
+    }
+
+    // Upstream's echoesInput: a node whose name or text is what was put into it, not what the screen says.
+    private static bool EchoesInput(SemanticNode node) => Roles.IsEditable(node) || node.Value is not null;
+
     /// <summary>The step's observation and pixel record for the report (upstream's <c>reportDetails</c>).</summary>
     public StepAgentDetails ReportDetails() => new()
     {
@@ -168,6 +217,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
+        NoteShown(observation);
 
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {

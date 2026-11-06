@@ -1187,6 +1187,16 @@ public sealed class E2ESession : IAsyncDisposable
         flow.Remove("recordedBy");
         flow.Remove("endWaitMs");
         flow.Remove("keyedBy");
+        // The rule that flagged a gap's typed value follows how the agent read the value this time. A replay stops at a gap
+        // whatever its rule, which only names the hand-off in the report (upstream's flowOf).
+        foreach (var action in flow["actions"]?.AsArray().OfType<JsonObject>() ?? [])
+        {
+            if (string.Equals((action["kind"] as JsonValue)?.TryGetValue<string>(out var kind) == true ? kind : null, "tool", StringComparison.Ordinal))
+            {
+                action.Remove("derived");
+            }
+        }
+
         return flow.ToJsonString();
     }
 }
