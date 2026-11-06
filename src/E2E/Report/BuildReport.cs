@@ -9,13 +9,16 @@ using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
 
-/// <summary>What <see cref="BuildReport.Build"/> reads (upstream's <c>BuildReportOptions</c>). The port has no resolved config, so the pieces of it the report reads are here.</summary>
+/// <summary>What <see cref="BuildReport.Build"/> reads (upstream's <c>BuildReportOptions</c>). The port has no resolver, so the pieces of the resolved config the report reads are here, and <see cref="Config"/> holds the digest.</summary>
 internal sealed record BuildReportOptions
 {
     public required string RunId { get; init; }
 
     /// <summary>The project's root: sources are reported relative to it. Null keeps them as they are.</summary>
     public string? ProjectRoot { get; init; }
+
+    /// <summary>The resolved config the run ran with (upstream's <c>config</c>); the report's <c>project.configDigest</c> reads it. Null reads as a run that failed before the config resolved.</summary>
+    public ResolvedConfig? Config { get; init; }
 
     public IReadOnlyList<TargetConfig> Targets { get; init; } = [];
 
@@ -318,6 +321,7 @@ internal static class BuildReport
             Status = DeriveRunStatus(options.Status, options.Results, options.RunErrors),
             ExitCode = options.ExitCode,
             StartedAt = options.StartedAt,
+            Project = options.Config is { ConfigDigest.Length: 64 } config ? ReportProject.Unknown with { ConfigDigest = config.ConfigDigest } : ReportProject.Unknown,
             FinishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow,
             Environment = new ReportEnvironment(options.Ci, false, OperatingSystemName() + " " + OsRelease(), ArchitectureName(), RuntimeInformation.FrameworkDescription),
             Vcs = options.Vcs,

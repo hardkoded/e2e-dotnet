@@ -145,8 +145,10 @@ public sealed class ReportFileTests : IDisposable
             new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
 
         // Only the left-out tests are known: the run has its document before any test starts.
-        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results);
+        var digest = new string('c', 64);
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest });
         var before = Read()["run"]!;
+        Assert.Equal(digest, (string)before["project"]!["configDigest"]!);
         Assert.Equal("skipped", (string)before["results"]![0]!["status"]!);
         Assert.Equal("filtered", (string)before["results"]![0]!["skip"]!["cause"]!);
         Assert.Equal("changed-files", (string)before["results"]![0]!["skip"]!["filter"]!);
@@ -163,6 +165,7 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal("passed", (string)run["status"]!);
         Assert.Equal(2, run["results"]!.AsArray().Count);
         Assert.Equal(1, (int)run["summary"]!["selected"]!);
+        Assert.Equal(digest, (string)run["project"]!["configDigest"]!);
         Assert.Equal("changed-files", (string)run["filters"]![0]!["name"]!);
         Assert.Equal(1, (int)run["filters"]![0]!["excluded"]!);
         Assert.Equal(1, (int)run["changes"]!["files"]!);
