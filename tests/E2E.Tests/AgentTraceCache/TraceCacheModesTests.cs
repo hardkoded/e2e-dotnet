@@ -14,9 +14,9 @@ public sealed class TraceCacheModesTests
 {
     private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "e2e-trace-cache-modes"));
 
-    // The run's mode is what a read-write config resolves to with E2E_NO_CACHE set (upstream's runOptions: { noCache }); no report to read the cache field from, so the step result's Cache is read.
+    // Partial (follow-up #1336): the run's mode is what a read-write config resolves to with E2E_NO_CACHE set (upstream's runOptions: { noCache }); the port has no runExisting, so there is no exit code and no report to read the cache field from (the step result's Cache is read), and the scripted model's call count is 3 where upstream's executor counts 1.
     [Fact]
-    public async Task No_cache_overrides_the_config_nothing_is_recorded_and_an_entry_recorded_without_it_is_left_untouched()
+    public async Task Partial_no_cache_overrides_the_config_nothing_is_recorded_and_an_entry_recorded_without_it_is_left_untouched()
     {
         var directory = TwoTapCounter.NewDirectory();
         var readWrite = """{ "cache": { "mode": "read-write" } }""";
