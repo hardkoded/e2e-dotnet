@@ -8,8 +8,8 @@ namespace E2E.NUnit.Tests.Pointer;
 
 /// <summary>
 /// The raw mouse against the playground's <c>/pointer</c> pad, ported from upstream's
-/// <c>apps/testbed/tests/pointer.e2e.ts</c> ("raw pointer input"). Not ported: the other five tests need
-/// <c>screen.tapAt</c>, tap <c>position</c> or <c>screen.swipe</c>, which the port does not have.
+/// <c>apps/testbed/tests/pointer.e2e.ts</c> ("raw pointer input"). The five tests outside the
+/// <c>describe</c> are in <c>PointerTests</c>.
 /// </summary>
 public sealed class RawPointerInputTests : E2ETest
 {
