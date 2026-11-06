@@ -150,6 +150,12 @@ public sealed class RecordedAction
     public bool? Replace { get; set; }
 
     /// <summary>
+    /// Upstream's <c>derived</c> of a <c>tool</c> gap: the rule that made a typed value this run's data (<see cref="DerivedReason"/>), set only
+    /// on the gap a fill recorded in place of its value. A replay stops at the gap whatever its rule, which only names the hand-off.
+    /// </summary>
+    public DerivedReason? Derived { get; set; }
+
+    /// <summary>
     /// Whether the keyboard fields are well formed: a <c>typeText</c> holds a bounded <see cref="Value"/> and <see cref="Replace"/>, a
     /// <c>pressKey</c> holds a <see cref="Key"/> of one to 64 characters, and no other action holds a <see cref="Replace"/>. Upstream's
     /// <c>readAction</c>, which makes a malformed entry a miss.

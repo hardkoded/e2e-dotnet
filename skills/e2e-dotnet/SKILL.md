@@ -244,8 +244,13 @@ lines you changed:
   whatever reason (`action-failed` and `action-uncertain` included), is a
   miss, not a hand-off: outside `cache.strict` the goal runs live from the top
   with no notice, and under `cache.strict` it fails with `REPLAY_STALE`
-  (except for `gap`). `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
-  always call the model. Leave `cache.mode` at `read-write` rather than
+  (except for `gap`). A `gap` is an action the cache can't repeat: a mutating
+  project tool, or a value the agent read off the screen, typed after it saw a
+  screenshot, or worked out from the date (the recording's `derived` field
+  names the rule: `whole-node`, `minted-token`, `date`, or `pixels`). Values
+  from the instruction or `Params`, and values the agent composed itself,
+  replay, so put stable values in `Params`. `AssertAsync`, `WaitForAsync`,
+  and `ExtractAsync` always call the model. Leave `cache.mode` at `read-write` rather than
   `off`: `off` sends every goal to the model again. Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
   config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your

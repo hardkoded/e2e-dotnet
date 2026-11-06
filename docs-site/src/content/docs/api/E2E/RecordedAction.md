@@ -25,6 +25,22 @@ public sealed class RecordedAction
 
 ## Properties
 
+<a id="E2E_RecordedAction_Derived_"></a>
+<a id="E2E_RecordedAction_Derived"></a>
+
+### Derived
+
+
+```csharp
+public DerivedReason? Derived { get; set; }
+```
+
+
+Upstream's `derived` of a `tool` gap: the rule that made a typed value this run's data ([DerivedReason](/api/E2E/DerivedReason/)), set only
+on the gap a fill recorded in place of its value. A replay stops at the gap whatever its rule, which only names the hand-off.
+
+**Value:** `DerivedReason?`
+
 <a id="E2E_RecordedAction_Destination_"></a>
 <a id="E2E_RecordedAction_Destination"></a>
 
