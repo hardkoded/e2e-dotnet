@@ -154,8 +154,13 @@ public sealed class RecordedAction
     /// </summary>
     public TracePosition? Position { get; set; }
 
-    /// <summary>Whether <see cref="Position"/> is well formed: absent, or two integers with the index below the count. Upstream's <c>readPosition</c>.</summary>
-    internal bool HasValidPosition() => Position?.IsValid() ?? true;
+    /// <summary>Whether <see cref="Position"/>, and the position of every other target the action holds, is well formed: absent, or two integers with the index below the count. Upstream's <c>readPosition</c>.</summary>
+    internal bool HasValidPosition() =>
+        (Position?.IsValid() ?? true)
+        && (Destination?.Position?.IsValid() ?? true)
+        && (Under?.Target?.Position?.IsValid() ?? true)
+        && (From?.Under?.Target?.Position?.IsValid() ?? true)
+        && (To?.Under?.Target?.Position?.IsValid() ?? true);
 
     public string? Value { get; set; }
 

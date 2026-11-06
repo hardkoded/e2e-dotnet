@@ -93,15 +93,15 @@ public static class DefaultAgent
         lines.Add($"Replay stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}) after {prefix.ReplayedActions.Count} of {prefix.TotalActions} recorded actions.");
         if (prefix.StopReason == ReplayHandOffReason.EndMismatch)
         {
-            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything â€” the recorded flow may have silently failed to commit.");
+            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything — the recorded flow may have silently failed to commit.");
         }
 
         if (prefix.UncertainAction is not null)
         {
-            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state â€” its input may have reached the app. Verify the current state before doing anything like it again.");
+            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state — its input may have reached the app. Verify the current state before doing anything like it again.");
         }
 
-        lines.Add("Continue the step from the CURRENT screen state shown below â€” do NOT redo the actions above.");
+        lines.Add("Continue the step from the CURRENT screen state shown below — do NOT redo the actions above.");
         return string.Join('\n', lines);
     }
 
