@@ -63,7 +63,7 @@ internal static class ErrorSerializer
     public static Exception TranslateEngineError(Exception cause, string suffix = "")
     {
         // A caller's cancel must surface as cancellation, not as an engine failure (.NET-only).
-        if (cause is OperationCanceledException or (E2EException and not EngineException))
+        if (cause is OperationCanceledException or (E2EException and not EngineException) or EngineException { Mapped: true })
         {
             return cause;
         }
