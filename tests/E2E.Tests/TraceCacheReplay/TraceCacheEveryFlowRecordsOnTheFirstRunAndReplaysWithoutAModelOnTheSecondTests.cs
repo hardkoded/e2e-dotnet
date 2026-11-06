@@ -203,10 +203,12 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
         public async Task InitializeAsync()
         {
             _app = await FlowsApp.StartAsync();
+            // Both passes together are bounded, so a slow CI machine fails the fixture instead of hanging it.
+            using var bound = new CancellationTokenSource(TimeSpan.FromMinutes(8));
             try
             {
                 var recorded = new Counter();
-                Recorded = await RunAsync(_app, Directory, Flows, Variant.Record, recorded);
+                Recorded = await RunAsync(_app, Directory, Flows, Variant.Record, recorded, bound.Token);
                 RecordedModelCalls = recorded.Value;
                 RecordedArchive = Assert.Single(EntriesFor(Directory, "archives a record"));
                 RecordedCounter = CounterEntryFile();
@@ -214,7 +216,7 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
                 // The twins form moves every node, and the offers reverse, under the URL the recording saw.
                 _app.Variant = "b";
                 var replayed = new Counter();
-                Replayed = await RunAsync(_app, Directory, Flows, Variant.Replay, replayed);
+                Replayed = await RunAsync(_app, Directory, Flows, Variant.Replay, replayed, bound.Token);
                 ReplayModelCalls = replayed.Value;
             }
             catch

@@ -264,11 +264,13 @@ internal static class TraceCacheFlows
     }
 
     /// <summary>Runs every flow once as its own session over the cache directory, the app opened under <paramref name="variant"/>.</summary>
-    public static async Task<List<FlowOutcome>> RunAsync(FlowsApp app, string directory, IEnumerable<Flow> flows, Variant variant, Counter calls)
+    public static async Task<List<FlowOutcome>> RunAsync(FlowsApp app, string directory, IEnumerable<Flow> flows, Variant variant, Counter calls, CancellationToken cancellationToken = default)
     {
         var outcomes = new List<FlowOutcome>();
         foreach (var flow in flows)
         {
+            // Each session is bounded by its TestTimeout; the caller's token bounds the whole pass. `await using` closes the browser on any throw.
+            cancellationToken.ThrowIfCancellationRequested();
             var run = new FlowRun();
             await using var session = await E2ESession.StartAsync(new E2ESessionOptions
             {
