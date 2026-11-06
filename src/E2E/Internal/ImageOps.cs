@@ -32,13 +32,22 @@ internal abstract record ImageComparison
 /// <summary>RGBA images in memory: PNG decoding and encoding, resampling, cropping, painting boxes, and comparing two images.</summary>
 internal static class ImageOps
 {
-    /// <summary>Decodes PNG bytes to 8-bit RGBA: any color type, at 8 or 16 bits or with a palette. Throws on anything that is not a PNG.</summary>
+    /// <summary>
+    /// Decodes PNG bytes to 8-bit RGBA: any color type, at 1 to 16 bits or with a palette. Throws on anything that is not a PNG.
+    /// Skia expands the sub-byte samples, the palette, and a gray or RGB image's transparent color (alpha 0, compared at the image's own bit depth) itself.
+    /// A 16-bit sample is scaled to 8 bits by Skia, which can land one level from upstream's rounding (<c>narrow</c> in <c>internal/image.ts</c>).
+    /// </summary>
     public static RgbaImage DecodePng(byte[] bytes)
     {
         using var codec = SKCodec.Create(new MemoryStream(bytes));
         if (codec is null || codec.EncodedFormat != SKEncodedImageFormat.Png)
         {
             throw new InvalidDataException("not a PNG");
+        }
+
+        if (!EndsWithIend(bytes))
+        {
+            throw new InvalidDataException("the PNG is cut short");
         }
 
         var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
@@ -51,9 +60,37 @@ internal static class ImageOps
         return new RgbaImage(info.Width, info.Height, bitmap.GetPixelSpan().ToArray());
     }
 
-    /// <summary>Encodes an image as PNG bytes.</summary>
+    /// <summary>Whether the chunks, walked from the signature by their lengths, reach a whole IEND chunk: a PNG cut inside its last chunk does not.</summary>
+    private static bool EndsWithIend(byte[] bytes)
+    {
+        var at = 8;
+        while (at + 12 <= bytes.Length)
+        {
+            var length = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
+            if (length > bytes.Length - at - 12)
+            {
+                return false;
+            }
+
+            if (bytes.AsSpan(at + 4, 4).SequenceEqual("IEND"u8))
+            {
+                return true;
+            }
+
+            at += 12 + (int)length;
+        }
+
+        return false;
+    }
+
+    /// <summary>Encodes an image as PNG bytes. A pixel buffer that does not fill the image throws (upstream's guard, which keeps its native addon from aborting the process).</summary>
     public static byte[] EncodePng(RgbaImage image)
     {
+        if (image.Data.Length != (long)image.Width * image.Height * 4)
+        {
+            throw new ArgumentException($"a {image.Width}x{image.Height} image is {(long)image.Width * image.Height * 4} bytes of RGBA, not {image.Data.Length}");
+        }
+
         var info = new SKImageInfo(image.Width, image.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var pixels = SKImage.FromPixelCopy(info, image.Data);
         using var data = pixels?.Encode(SKEncodedImageFormat.Png, 100) ?? throw new InvalidOperationException("the image could not be encoded as a PNG");
