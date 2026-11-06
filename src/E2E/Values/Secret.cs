@@ -68,7 +68,7 @@ public sealed class Secret
             return this;
         }
 
-        var plaintext = await _provider(cancellationToken).ConfigureAwait(false);
+        var plaintext = _provider(cancellationToken) is { } pending ? await pending.ConfigureAwait(false) : null;
         if (plaintext is null || ConfigSecrets.SecretLength(plaintext) < MinLength)
         {
             throw new ConfigurationException(
