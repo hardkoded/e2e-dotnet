@@ -229,6 +229,9 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
 
+        // Checked before the action is committed, as the locator tier does, so a bad argument is INVALID_ARGUMENT to the executor and never a failed action.
+        Keys.RequireKey(key);
+
         // A key with no node is upstream's pressKey.
         if (target is null)
         {
@@ -274,6 +277,8 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         {
             throw new TestException("INVALID_ARGUMENT", "pressKey requires a key");
         }
+
+        Keys.RequireKey(key);
 
         return RunAsync(
             "pressKey",

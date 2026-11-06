@@ -51,6 +51,7 @@ export default defineConfig({
                         { label: "Introduction", slug: "docs" },
                         { label: "Quickstart", slug: "get-started" },
                         { label: "Core concepts", slug: "get-started/core-concepts" },
+                        { label: "Agentic or deterministic", slug: "get-started/agentic-vs-deterministic" },
                         { label: "Coding agents", slug: "coding-agents" },
                     ],
                 },
