@@ -215,6 +215,14 @@ public sealed class ImageTests
         }
 
         Assert.Contains("not a PNG", Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(jpeg)).Message);
+
+        // Cut inside the end chunk, or with an end chunk that is not whole: the pixels are all there, so only the chunk walk refuses them.
+        var badCrc = (byte[])valid.Clone();
+        badCrc[^1] ^= 0xff;
+        foreach (var cut in new[] { valid[..^4], valid[..^1], badCrc })
+        {
+            Assert.Contains("cut short", Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(cut)).Message);
+        }
     }
 
     [Fact]
