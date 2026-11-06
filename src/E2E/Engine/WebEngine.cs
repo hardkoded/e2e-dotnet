@@ -620,7 +620,7 @@ public sealed partial class WebEngine : IEngine
         if (exitCode != 0)
         {
             throw new EngineException(
-                "ENVIRONMENT_UNAVAILABLE",
+                "BROWSER_INSTALL_FAILED",
                 "Playwright could not install " + BrowserConnection.NameOf(name) + " (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
         }
     }
