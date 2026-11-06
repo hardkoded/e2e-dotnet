@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,7 +21,6 @@ public sealed class GoogleModel : IAgentModel, IDisposable
     private readonly GoogleModelOptions _options;
     private readonly HttpClient _http;
     private readonly bool _ownsClient;
-    private readonly ConcurrentDictionary<string, string> _signatures = new(StringComparer.Ordinal);
     private int _calls;
 
     public GoogleModel(GoogleModelOptions options, HttpClient? httpClient = null)
@@ -95,7 +93,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                     };
 
                     // Gemini 3 rejects a function call without its signature; a call from elsewhere gets the documented placeholder.
-                    if (_signatures.TryGetValue(call.Id, out var signature))
+                    if (SignatureOf(call) is { } signature)
                     {
                         part["thoughtSignature"] = signature;
                     }
@@ -182,6 +180,11 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         return payload;
     }
 
+    /// <summary>The thought signature the call's Google metadata carries, when it carries one.</summary>
+    private static string? SignatureOf(ModelToolCall call) =>
+        call.ProviderMetadata is not null && call.ProviderMetadata.TryGetValue("google", out var google)
+        && google.ValueKind == JsonValueKind.Object ? ModelHttp.OptionalString(google, "thoughtSignature") : null;
+
     // The thought parts of an earlier turn go back as they came, signature included, ahead of its text and function calls.
     private static JsonArray Reasoning(ModelMessage message)
     {
@@ -239,14 +242,12 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                     var id = call.TryGetProperty("id", out var given) && given.ValueKind == JsonValueKind.String
                         ? given.GetString()!
                         : "gemini_" + Interlocked.Increment(ref _calls).ToString(CultureInfo.InvariantCulture);
-                    if (part.TryGetProperty("thoughtSignature", out var signature) && signature.ValueKind == JsonValueKind.String)
-                    {
-                        _signatures[id] = signature.GetString()!;
-                    }
-
                     calls.Add(new ModelToolCall
                     {
                         Id = id,
+                        ProviderMetadata = ModelHttp.OptionalString(part, "thoughtSignature") is { } signature
+                            ? new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = signature }) }
+                            : null,
                         Name = call.GetProperty("name").GetString() ?? "",
                         Arguments = call.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object ? args.Clone() : ModelHttp.Arguments(null),
                     });

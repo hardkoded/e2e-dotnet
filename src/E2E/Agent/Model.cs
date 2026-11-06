@@ -147,6 +147,12 @@ public sealed class ModelToolCall
     public required string Name { get; init; }
 
     public required JsonElement Arguments { get; init; }
+
+    /// <summary>
+    /// What the provider attached to the call, keyed by provider (such as <c>google</c>: <c>{ "thoughtSignature": "..." }</c>), which the
+    /// call carries back on the next turn (upstream's <c>providerMetadata</c> of a tool call part). null when it attached none.
+    /// </summary>
+    public IReadOnlyDictionary<string, JsonElement>? ProviderMetadata { get; init; }
 }
 
 public sealed class ModelCallUsage
