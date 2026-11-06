@@ -40,7 +40,7 @@ public sealed class FileCacheStoreTests : IDisposable
     public void Round_trips_one_entry_under_the_key_digest()
     {
         Assert.True(_store.Write(Key, Payload()) > 0);
-        Assert.Equal([Key + ".json"],Directory.GetFiles(_directory).Select(Path.GetFileName));
+        Assert.Equal([Key + ".json"], Directory.GetFiles(_directory).Select(Path.GetFileName));
         var read = _store.Read(Key).Entry;
         Assert.NotNull(read);
         Assert.Equal("upgrade the plan", read.Instruction);

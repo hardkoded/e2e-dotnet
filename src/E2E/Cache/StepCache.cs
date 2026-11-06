@@ -454,7 +454,7 @@ public sealed class FileStepCache : IStepCache
         var path = PathFor(key);
 
         var serialized = JsonSerializer.Serialize(entry, JsonDefaults.Options);
-        var bytes = System.Text.Encoding.UTF8.GetByteCount(serialized);
+        var bytes = Encoding.UTF8.GetByteCount(serialized);
         if (bytes > _maxBytes)
         {
             return null;
