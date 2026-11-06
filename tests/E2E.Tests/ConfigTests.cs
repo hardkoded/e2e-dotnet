@@ -357,7 +357,7 @@ public sealed class ConfigTests
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
     }
 
-    internal static Task<E2ESession> StartAsync(string directory, CacheMode mode, bool strict, string button, Action onAct, string title = "billing > upgrades", string? context = null, int attempt = 1)
+    internal static Task<E2ESession> StartAsync(string directory, CacheMode mode, bool strict, string button, Action onAct, string title = "billing > upgrades", string? context = null, int attempt = 1, string? targetName = null)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -385,6 +385,7 @@ public sealed class ConfigTests
             ActionTimeout = TimeSpan.FromMilliseconds(300),
             TestTitle = title,
             AgentContext = context,
+            TargetName = targetName,
         });
     }
 
