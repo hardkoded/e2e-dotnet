@@ -11,9 +11,8 @@ namespace E2E.Tests.WebPlatform;
 [Collection(BrowserCollection.Name)]
 public sealed class WebPlatformIntegrationTests
 {
-    // Partial: upstream "passes" also checks the clicks that hold modifiers, and report.json. Not ported, the port has no such feature: click
-    // modifiers and secondaryTap on a locator, and report.json. The upstream tests that read the harness's step records are ported
-    // below over the session's steps.
+    // Partial: upstream "passes" also checks report.json. Not ported, the port has no such feature. The upstream tests that read the
+    // harness's step records are ported below over the session's steps.
     [Theory]
     [InlineData("deterministic queries and reads")]
     [InlineData("a textarea value compares raw")]
@@ -30,6 +29,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
+    [InlineData("clicks hold the modifiers they name")]
     [InlineData("contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value")]
     public async Task Ported_scenario_passes(string title)
     {
@@ -401,6 +401,35 @@ public sealed class WebPlatformIntegrationTests
             }
 
             Assert.Contains("a selector that captures with * (*css=article >> text=Hello) is not supported", capture, StringComparison.Ordinal);
+        },
+        ["clicks hold the modifiers they name"] = async session =>
+        {
+            await session.App.OpenAsync();
+            await session.Browser.EvaluateAsync<object?>("""
+                () => {
+                    document.body.innerHTML = '<button>Pick</button><p role="status"></p>';
+                    const button = document.querySelector('button');
+                    const status = document.querySelector('p');
+                    const held = (event) =>
+                        [event.type, event.shiftKey && 'shift', event.altKey && 'alt', event.ctrlKey && 'ctrl', event.metaKey && 'meta']
+                            .filter(Boolean)
+                            .join(' ');
+                    button.addEventListener('click', (event) => { status.textContent = held(event); });
+                    button.addEventListener('dblclick', (event) => { status.textContent = held(event); });
+                    button.addEventListener('contextmenu', (event) => { event.preventDefault(); status.textContent = held(event); });
+                    return null;
+                }
+                """);
+            var pick = session.Screen.GetByRole("button", "Pick");
+            var status = session.Screen.GetByRole("status");
+            await pick.ClickAsync(new ClickOptions { Modifiers = [KeyModifier.Shift] });
+            await Expect.That(status).ToHaveTextAsync("click shift");
+            await pick.DoubleTapAsync(new ClickOptions { Modifiers = [KeyModifier.Alt] });
+            await Expect.That(status).ToHaveTextAsync("dblclick alt");
+            await pick.SecondaryTapAsync(new ClickOptions { Modifiers = [KeyModifier.Shift, KeyModifier.Control] });
+            await Expect.That(status).ToHaveTextAsync("contextmenu shift ctrl");
+            await pick.TapAsync();
+            await Expect.That(status).ToHaveTextAsync("click");
         },
         ["toHaveURL ignoreCase folds the comparison"] = async session =>
         {

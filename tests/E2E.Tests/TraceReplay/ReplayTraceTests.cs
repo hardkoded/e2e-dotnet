@@ -185,6 +185,24 @@ public sealed class ReplayTraceTests
     }
 
     [Fact]
+    public async Task Replays_a_bare_point_hover_through_hoverAt_on_the_recorded_viewport_only()
+    {
+        var host = MakeHost();
+        var hoverAt = new RecordedAction { Kind = "hoverAt", Point = new Point(300, 60), Viewport = Viewport };
+
+        var outcome = await Replay.ReplayTrace(host, [hoverAt]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["hoverAt"], host.Calls);
+        var other = MakeHost(viewport: new TraceViewport(800, 600));
+        var changed = await Replay.ReplayTrace(other, [hoverAt]);
+        Assert.False(changed.Completed);
+        Assert.Equal(ReplayHandOffReason.ViewportChanged, changed.StopReason);
+        Assert.Empty(other.Calls);
+    }
+
+    [Fact]
     public async Task Diverges_with_target_not_found_when_relocation_never_matches()
     {
         var host = MakeHost([Email]);

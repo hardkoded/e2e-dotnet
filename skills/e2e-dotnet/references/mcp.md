@@ -68,7 +68,12 @@ sessions that do not set `headed` (sessions are headless by default),
 1 through 16). A bad value exits with code 2. The server exits with 0 when
 the client disconnects or on Ctrl+C or `SIGTERM`, and with 1 on an
 unexpected error. Stdout carries only the protocol; diagnostics go to
-stderr.
+stderr. What user code prints (a test the server runs through `open_session {test}`) goes to stderr too,
+with every configured secret value replaced by its `<secret:name>` marker, even split across writes.
+Output printed while a config loads is held until its secrets are known; if the load fails it is
+withheld and a `[warning] withheld N bytes` line takes its place.
+An error nobody caught is logged redacted; one that ends the process exits with 1. A child process that inherits
+the server's stdio writes past the redaction.
 
 ## Tools
 

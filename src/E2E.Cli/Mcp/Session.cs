@@ -37,6 +37,18 @@ internal sealed class SessionHostOptions
     /// <summary>Loads the config at an absolute path fresh for each session, so an edited config applies without a restart.</summary>
     public Func<string, Task<E2EConfig>> LoadConfig { get; init; } = path => Task.Run(() => E2EConfig.Load(path));
 
+    /// <summary>
+    /// Runs one config load that registers the config's secrets, holding what anyone prints until it ends. Upstream's
+    /// <c>withholdOutput</c>, which <c>e2e mcp</c> points at <c>McpOutput.withholdDuring</c>.
+    /// </summary>
+    public Func<Func<Task<E2EConfig>>, Task<E2EConfig>> WithholdOutput { get; init; } = static load => load();
+
+    /// <summary>
+    /// Every secret value the process knows. .NET-only: upstream's <c>processSecrets</c> is a module global; the port hands the
+    /// ledger in so <c>e2e mcp</c> redacts what user code prints with the same values the host registers.
+    /// </summary>
+    public SecretLedger? Secrets { get; init; }
+
     /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
     public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create);
 
@@ -139,7 +151,7 @@ internal sealed class SessionHost : IDisposable
 
     private readonly SessionHostOptions _options;
     private readonly SessionRegistry<LiveSession> _sessions;
-    private readonly SecretLedger _secrets = new();
+    private readonly SecretLedger _secrets;
 
     /// <summary>Aborts every open still running once the server shuts down, so none leaves a browser behind.</summary>
     private readonly CancellationTokenSource _shutdown = new();
@@ -148,6 +160,7 @@ internal sealed class SessionHost : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options;
+        _secrets = options.Secrets ?? new SecretLedger();
         _sessions = new SessionRegistry<LiveSession>(options.MaxSessions);
     }
 
@@ -296,12 +309,15 @@ internal sealed class SessionHost : IDisposable
 
         var configPath = _options.LocateConfig(options.Config);
         _sessions.ClaimConfig(id, configPath);
-        var config = await _options.LoadConfig(configPath).ConfigureAwait(false);
+        // Known to the process before anything can fail with one, so an open failure is redacted like any other text, and before what the load printed is released.
+        var config = await _options.WithholdOutput(async () =>
+        {
+            var loaded = await _options.LoadConfig(configPath).ConfigureAwait(false);
+            _secrets.Add(loaded.AllSecrets);
+            _secrets.Add(_options.Credentials());
+            return loaded;
+        }).ConfigureAwait(false);
         var secrets = config.AllSecrets;
-
-        // Known to the process before anything can fail with one, so an open failure is redacted like any other text.
-        _secrets.Add(secrets);
-        _secrets.Add(_options.Credentials());
         var target = ResolveTarget(config, options.Target);
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
         StandaloneAttempt? attempt = null;

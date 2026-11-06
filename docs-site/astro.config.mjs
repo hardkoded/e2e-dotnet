@@ -75,6 +75,7 @@ export default defineConfig({
                         { label: "Soft assertions & evidence", slug: "features/assertions" },
                         { label: "Video & screenshots", slug: "features/video" },
                         { label: "Working with the browser", slug: "features/browser" },
+                        { label: "Writing an engine", slug: "docs/writing-an-engine" },
                         { label: "Your coding agent", slug: "features/acp" },
                     ],
                 },
@@ -106,6 +107,7 @@ export default defineConfig({
                     label: "Reference",
                     items: [
                         { label: "Environment variables", slug: "reference/environment" },
+                        { label: "Engine contract", slug: "reference/engine" },
                         {
                             label: "API",
                             collapsed: true,

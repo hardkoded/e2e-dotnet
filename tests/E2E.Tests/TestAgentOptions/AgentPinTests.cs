@@ -63,7 +63,7 @@ public sealed class AgentPinTests
         var error = await Assert.ThrowsAsync<TestException>(() => StartAsync(model, agent: "buyr"));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Contains("unknown agent \"buyr\"; configured: default, buyer, admin", error.Message, StringComparison.Ordinal);
+        Assert.Contains("unknown agent \"buyr\"; configured: default, buyer, admin; did you mean \"buyer\"?", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

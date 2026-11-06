@@ -9,6 +9,13 @@ using static E2E.Agent;
 namespace E2E;
 
 /// <summary>
+/// Upstream's <c>PlacedPoint</c> (<c>agent/actions.ts</c>): a bare viewport point and the listed node that contained it, if any, with the
+/// container key (<paramref name="Within"/>) and twin <paramref name="Position"/> of that node. The recorder places the point inside the
+/// node's box.
+/// </summary>
+internal sealed record PlacedPoint(Point Point, SemanticNode? Under = null, string? Within = null, TracePosition? Position = null);
+
+/// <summary>
 /// Upstream's <c>Placement</c>: where a node sat when it was acted on, for the trace. The container it sat in, and its place among the
 /// controls its own description matched.
 /// </summary>
