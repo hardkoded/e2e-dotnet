@@ -80,11 +80,4 @@ public sealed class PointerTests : E2ETest
 
         await Expect.That(Screen.GetByLabel("Board state")).ToHaveTextAsync("Design review is done");
     }
-
-    /// <summary>Upstream's <c>boxOf</c>: the box a node paints, for pointer maths; a node without one is a test bug.</summary>
-    private static async Task<BoundingBox> BoxOf(Locator locator) =>
-        await locator.BoundingBoxAsync() ?? throw new InvalidOperationException("node has no box");
-
-    /// <summary>Upstream's <c>centerOf</c>: the center of a box, the point a finger would aim for.</summary>
-    private static Point CenterOf(BoundingBox box) => new(box.X + (box.Width / 2), box.Y + (box.Height / 2));
 }

@@ -26,10 +26,9 @@ public sealed class RawPointerInputTests : E2ETest
     public async Task Raw_mouse_input_drags_along_the_pad()
     {
         await App.OpenAsync("/pointer");
-        var box = await Screen.GetByRole("image", "Pointer pad").BoundingBoxAsync();
-        Assert.That(box, Is.Not.Null);
+        var box = await Helpers.BoxOf(Screen.GetByRole("image", "Pointer pad"));
 
-        await Browser.Mouse.MoveAsync((float)(box!.X + 10), (float)(box.Y + 20));
+        await Browser.Mouse.MoveAsync((float)(box.X + 10), (float)(box.Y + 20));
         await Browser.Mouse.DownAsync();
         await Browser.Mouse.MoveAsync((float)(box.X + 150), (float)(box.Y + 20));
         await Browser.Mouse.UpAsync();
