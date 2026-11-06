@@ -73,9 +73,10 @@ public sealed class LineTextTests
     }
 
     [Fact]
-    public async Task Separates_words_at_block_children_line_breaks_and_form_controls_and_reads_no_display_none_or_hidden_visibility_inline_text()
+    public async Task Partial_Separates_words_at_block_children_line_breaks_and_form_controls_and_reads_no_hidden_inline_text()
     {
-        // The label of a control is the control's name, not a node, so the form-control line is a div.
+        // Partial: the label of a control is the control's name, not a node, so the form-control line is a div
+        // with a named select. The port also reads the aria-hidden span ("decor") where upstream reads "Shown end".
         var nodes = await ObserveAsync("""
             <div>Intro<p>Block</p>tail</div>
             <p>one<br>two</p>

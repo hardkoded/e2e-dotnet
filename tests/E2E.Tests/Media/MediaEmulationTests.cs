@@ -91,7 +91,7 @@ public sealed class MediaEmulationTests
 
     /// <summary>Partial: a .NET enum takes no feature or value outside its members, so only a cast value and a null media are refused.</summary>
     [Fact]
-    public async Task Refuses_a_value_outside_the_ones_it_takes_and_a_null_media_changing_nothing()
+    public async Task Partial_Refuses_a_feature_it_does_not_emulate_and_a_value_outside_the_ones_it_takes_changing_nothing()
     {
         using var app = await FixtureApp.StartAsync();
         await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark });
