@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using E2E.Cache;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -92,15 +93,15 @@ public static class DefaultAgent
         lines.Add($"Replay stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}) after {prefix.ReplayedActions.Count} of {prefix.TotalActions} recorded actions.");
         if (prefix.StopReason == ReplayHandOffReason.EndMismatch)
         {
-            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything — the recorded flow may have silently failed to commit.");
+            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything â€” the recorded flow may have silently failed to commit.");
         }
 
         if (prefix.UncertainAction is not null)
         {
-            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state — its input may have reached the app. Verify the current state before doing anything like it again.");
+            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state â€” its input may have reached the app. Verify the current state before doing anything like it again.");
         }
 
-        lines.Add("Continue the step from the CURRENT screen state shown below — do NOT redo the actions above.");
+        lines.Add("Continue the step from the CURRENT screen state shown below â€” do NOT redo the actions above.");
         return string.Join('\n', lines);
     }
 
@@ -188,6 +189,11 @@ public static class DefaultAgent
         ["hover"] = "hover over",
     };
 
+    // Upstream's describeForSummary, after the label: the container the target sat in, then its place among its twins, (2 of 3).
+    private static string PlacedSuffix(string? within, TracePosition? position) =>
+        (within is null ? "" : " in " + UploadPaths.Quote(TextRules.Bound(within, 40)))
+        + (position is null ? "" : " (" + (position.Index + 1).ToString(CultureInfo.InvariantCulture) + " of " + position.Of.ToString(CultureInfo.InvariantCulture) + ")");
+
     internal static string Describe(RecordedAction action)
     {
         // Upstream's summaries of the keyboard actions: no node, so the focused field stands for it. The caller redacts the text.
@@ -222,6 +228,8 @@ public static class DefaultAgent
             {
                 builder.Append(" testId=").Append(action.TestId);
             }
+
+            builder.Append(PlacedSuffix(action.Within, action.Position));
         }
 
         // Upstream's summary of a drag: the node it was dropped on, in the container it sat in.
@@ -237,10 +245,7 @@ public static class DefaultAgent
                 builder.Append(" testId=").Append(destination.TestId);
             }
 
-            if (destination.Within is not null)
-            {
-                builder.Append(" in \"").Append(destination.Within).Append('"');
-            }
+            builder.Append(PlacedSuffix(destination.Within, destination.Position));
         }
 
         if (action.Modifiers is { Count: > 0 })
@@ -253,7 +258,8 @@ public static class DefaultAgent
             builder.Append(' ').Append(action.Url);
         }
 
-        if (action.Text is not null)
+        // The text of a scroll-until; on any other action it is the target's text, which the label above already says.
+        if (action.Text is not null && action.Kind is "scrollUntil" or "tool")
         {
             builder.Append(" \"").Append(action.Text).Append('"');
         }

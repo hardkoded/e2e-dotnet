@@ -139,6 +139,24 @@ public sealed class RecordedAction
     /// </summary>
     public string? Within { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>placeholder</c> of the target descriptor: the placeholder of the field the action named, with secrets redacted. A field
+    /// named only by its placeholder relocates by it. Null when the target has none.
+    /// </summary>
+    public string? Placeholder { get; set; }
+
+    /// <summary>Upstream's <c>inputPurpose</c> of the target descriptor, such as <c>password</c>. Null for <c>none</c> and for a target that is no field.</summary>
+    public string? InputPurpose { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>position</c> of the target descriptor: where the target stood among the controls its own description matched on the screen it
+    /// was acted on (<see cref="Relocate.DescribePosition"/>). Null when the description named it alone.
+    /// </summary>
+    public TracePosition? Position { get; set; }
+
+    /// <summary>Whether <see cref="Position"/> is well formed: absent, or two integers with the index below the count. Upstream's <c>readPosition</c>.</summary>
+    internal bool HasValidPosition() => Position?.IsValid() ?? true;
+
     public string? Value { get; set; }
 
     public string? Key { get; set; }
@@ -169,7 +187,10 @@ public sealed class RecordedAction
     /// <summary>Consecutive identical scrolls folded into one action. Null means one.</summary>
     public int? Times { get; set; }
 
-    /// <summary>The text a <c>scrollUntil</c> paged toward.</summary>
+    /// <summary>
+    /// The text a <c>scrollUntil</c> paged toward and the name of a project tool a <c>tool</c> gap ran; on every other action, upstream's
+    /// <c>text</c> of the target descriptor: the text of the node when it differs from its name, with secrets redacted.
+    /// </summary>
     public string? Text { get; set; }
 
     /// <summary>
@@ -310,6 +331,24 @@ public sealed class RecordedPointEnd
     internal RecordedPointEnd Copy() => (RecordedPointEnd)MemberwiseClone();
 }
 
+/// <summary>
+/// Upstream's <c>TracePosition</c>: the place of a target among the <see cref="Of"/> controls its description matched, counted from zero in
+/// document order. Strict number handling: a count stored as text is not a count.
+/// </summary>
+[JsonNumberHandling(JsonNumberHandling.Strict)]
+public sealed class TracePosition
+{
+    public int Index { get; set; }
+
+    public int Of { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>readPosition</c>: a well-formed position holds a count of one to <see cref="Trace.MaxTracePositionOf"/> and an index inside
+    /// it. <c>of: 1</c> is an anonymous or minted-test-id target counted alone; a named target never records a position under two.
+    /// </summary>
+    internal bool IsValid() => Of is >= 1 and <= Trace.MaxTracePositionOf && Index >= 0 && Index < Of;
+}
+
 public sealed class RecordedTarget
 {
     public string? Role { get; set; }
@@ -332,6 +371,9 @@ public sealed class RecordedTarget
 
     /// <summary>An anchor's value, with secrets redacted. Null for an empty or secure field.</summary>
     public string? Value { get; set; }
+
+    /// <summary>Upstream's <c>position</c>: where the target stood among the controls its own description matched. See <see cref="RecordedAction.Position"/>.</summary>
+    public TracePosition? Position { get; set; }
 
     /// <summary>An anchor's <c>checked</c>, <c>expanded</c>, <c>pressed</c>, and <c>selected</c> states that are on. Null for none.</summary>
     public List<string>? States { get; set; }

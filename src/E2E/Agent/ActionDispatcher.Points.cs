@@ -151,7 +151,7 @@ internal sealed partial class ActionDispatcher
         }
 
         var node = await TargetedAsync(control, ClickAction("tap", null), token).ConfigureAwait(false);
-        await CommitAsync(Target(node, "tap", WithinOf(node))).ConfigureAwait(false);
+        await CommitAsync(Target(node, "tap", PlacementOf(node))).ConfigureAwait(false);
     }
 
     // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to. The tap is always there; the hover and the
@@ -192,7 +192,7 @@ internal sealed partial class ActionDispatcher
             return null;
         }
 
-        var target = TraceRecorder.DescribeTarget(under, _scope.Redactor, WithinOf(under));
+        var target = DescribePlaced(under);
         if (target.Name is null && target.TestId is null)
         {
             return null;
