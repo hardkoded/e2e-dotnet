@@ -192,6 +192,12 @@ public interface IEngine
 
     EngineCapabilities Capabilities { get; }
 
+    /// <summary>
+    /// Every secret the engine's options hold (a <c>Secrets.Get</c> handle that went into an option such as <c>WebBasicAuth.Password</c>), so the
+    /// config can check each against <c>secrets</c>. Upstream's <c>EngineHandle.secrets</c>. The default holds none, so an engine without a secret option keeps compiling.
+    /// </summary>
+    IReadOnlyList<Secret> Secrets => [];
+
     Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken);
 }
 

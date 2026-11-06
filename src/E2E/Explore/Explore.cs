@@ -309,7 +309,7 @@ public static class Explore
             var session = attempt.Session;
 
             // The values the goal, the app, or a model may echo are redacted wherever they appear.
-            foreach (var secret in secrets)
+            foreach (var secret in secrets.Where(secret => secret.Provider is null))
             {
                 session.Register(secret.Name, secret.Value);
             }
@@ -526,7 +526,11 @@ public static class Explore
     private static Dictionary<string, UserCredential> NormalizeCredentials(IReadOnlyDictionary<string, UserCredential>? credentials) =>
         (credentials ?? new Dictionary<string, UserCredential>()).ToDictionary(
             pair => pair.Key,
-            pair => new UserCredential(pair.Value.Username, Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")),
+            pair => new UserCredential(
+                pair.Value.Username,
+                pair.Value.Password.Provider is { } provider
+                    ? Secret.Create(pair.Key + ".password", provider, "password")
+                    : Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")),
             StringComparer.Ordinal);
 
     /// <summary>

@@ -344,7 +344,9 @@ public Task FillAsync(Secret value, ActionOptions? options = null, CancellationT
 ```
 
 
-Fills a secret. The engine marks the value sensitive and never reports it.
+Fills a secret. The engine marks the value sensitive and never reports it. A secret whose value a provider computes is asked
+for it inside the step, before the node is looked for, and the value joins redaction before it is filled. A provider that returns less than
+six code points fails the step with `AUTH_CREDENTIAL_UNAVAILABLE` (a password) or `SECRET_UNAVAILABLE`.
 
 **Parameters**
 

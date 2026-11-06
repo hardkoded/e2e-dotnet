@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
+
 namespace E2E;
 
 /// <summary>One <c>config.credentials</c> entry, resolved (upstream's <c>ResolvedCredential</c>, <c>config/resolve.ts</c>): an account whose password is the secret <c>{name}.password</c>.</summary>
@@ -10,8 +12,11 @@ namespace E2E;
 /// <param name="Password">The password from <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> or the config, named <c>&lt;name&gt;.password</c>.</param>
 public sealed record ResolvedCredential(string Name, string Username, Secret Password);
 
-/// <summary>The engine of a resolved target as selection reads it: its name and the capabilities it declares (the slice of upstream's <c>Engine</c> that <c>select</c> uses). .NET-only name.</summary>
-internal sealed record ResolvedEngine(string Name, IReadOnlySet<string> Capabilities);
+/// <summary>
+/// The engine of a resolved target as selection reads it: its name, the capabilities it declares, and the secrets its options hold (the slice of
+/// upstream's <c>Engine</c> that <c>select</c> and <c>checkEngineSecrets</c> use). .NET-only name.
+/// </summary>
+internal sealed record ResolvedEngine(string Name, IReadOnlySet<string> Capabilities, IReadOnlyList<Secret>? Secrets = null);
 
 /// <summary>A target as selection reads it (upstream's <c>ResolvedTarget</c>, <c>config/resolve.ts</c>); null <see cref="Engine"/> grades no capability.</summary>
 internal sealed record ResolvedTarget(string Name, string Platform, AppConfig App, ResolvedEngine? Engine = null);
@@ -39,6 +44,34 @@ internal sealed record ResolvedConfig
 
     /// <summary>The longest a filter's name may be (upstream's <c>MAX_FILTER_NAME</c>, <c>config/resolve.ts</c>).</summary>
     internal const int MaxFilterName = 256;
+
+    /// <summary>
+    /// Every secret an engine's options hold (a <c>Secrets.Get</c> the config evaluated before any run existed) names a configured secret, so a
+    /// typo fails at load with the nearest name, not mid-run (upstream's <c>checkEngineSecrets</c>, <c>config/resolve.ts</c>). A credential's
+    /// password is not one: an engine option takes a <c>secrets</c> entry. Differences: the port's config has no engine to hold such a
+    /// handle, so no resolver calls it yet.
+    /// </summary>
+    internal static void CheckEngineSecrets(IReadOnlyList<ResolvedTarget> targets, Secrets secrets, IReadOnlyDictionary<string, ResolvedCredential> credentials)
+    {
+        foreach (var target in targets)
+        {
+            foreach (var secret in target.Engine?.Secrets ?? [])
+            {
+                if (secrets.Names.Contains(secret.Name, StringComparer.Ordinal))
+                {
+                    continue;
+                }
+
+                var credential = ConfigSecrets.CredentialNamed(secret.Name, credentials);
+                var hint = credential is null
+                    ? Suggestions.DidYouMean(secret.Name, [.. secrets.Names])
+                    : "; credential " + LocatorExpect.Quote(credential.Name) + " is not a secrets entry, and an engine option takes one: declare the value under config.secrets";
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    "target " + LocatorExpect.Quote(target.Name) + " engine " + target.Engine!.Name + " uses secrets.get(" + LocatorExpect.Quote(secret.Name) + "), which is not configured; add it to config.secrets" + hint);
+            }
+        }
+    }
 
     /// <summary>
     /// Resolves the test filters (upstream's <c>resolveTestFilters</c>, <c>config/resolve.ts</c>): the list in declaration order, empty when

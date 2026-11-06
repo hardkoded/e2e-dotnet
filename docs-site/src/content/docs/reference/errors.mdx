@@ -49,9 +49,9 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 
 | Code | When it happens | Class | Exit |
 | --- | --- | --- | ---: |
-| `AUTH_CREDENTIAL_UNAVAILABLE` | A `Secret` or `Credentials.User(name)` names a credential the config does not declare, or `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` is not set | configuration | 2 |
+| `AUTH_CREDENTIAL_UNAVAILABLE` | A `Secret` or `Credentials.User(name)` names a credential the config does not declare, or `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` is not set, or the password's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `AUTH_CREDENTIAL_INVALID` | The application rejected a configured credential (blocked: credentials) | configuration | 2 |
-| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare | configuration | 2 |
+| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `ENVIRONMENT_UNAVAILABLE` | The environment under test is down or unreachable beyond the app itself (blocked: environment) | infrastructure | 3 |
 | `SEED_DATA_MISSING` | Data the step depends on does not exist in the environment (blocked: seed_data) | configuration | 2 |
 | `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |

@@ -107,6 +107,21 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_WebEngine_Secrets_"></a>
+<a id="E2E_Engine_WebEngine_Secrets"></a>
+
+### Secrets
+
+
+```csharp
+public IReadOnlyList<Secret> Secrets { get; }
+```
+
+
+The secret the options hold: the [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/) password when it is a [Secret](/api/E2E/Secret/). Upstream's `web()` declares it as `secrets`.
+
+**Value:** [IReadOnlyList&lt;Secret&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
 

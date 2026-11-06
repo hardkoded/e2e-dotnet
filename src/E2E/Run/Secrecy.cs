@@ -18,13 +18,14 @@ internal static class Secrecy
     public static bool RedactsDownloads(Redactor ledger) => !ledger.IsEmpty;
 
     /// <summary>
-    /// The plaintext of one secret an engine option carries. The value joins <paramref name="ledger"/> before it is
-    /// returned, so it is redacted from the moment it exists, whoever it is handed to.
+    /// The plaintext of one secret an engine option carries, a provider's value computed fresh. The value joins <paramref name="ledger"/>
+    /// before it is returned, so it is redacted from the moment it exists, whoever it is handed to. Upstream's <c>resolveSecretValue</c>.
     /// </summary>
-    public static string ResolveSecretValue(Secret secret, ICollection<(string Name, string Value)> ledger)
+    public static async Task<string> ResolveSecretValueAsync(Secret secret, ICollection<(string Name, string Value)> ledger, CancellationToken cancellationToken)
     {
-        Register(ledger, secret.Name, secret.Value);
-        return secret.Value;
+        var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
+        Register(ledger, resolved.Name, resolved.Value);
+        return resolved.Value;
     }
 
     /// <summary>

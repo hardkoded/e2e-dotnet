@@ -13,11 +13,14 @@ namespace E2E;
 /// </summary>
 public sealed class Secret
 {
-    private Secret(string name, string value, string? purpose)
+    private readonly SecretProvider? _provider;
+
+    private Secret(string name, string value, string? purpose, SecretProvider? provider = null)
     {
         Name = name;
         Value = value;
         Purpose = purpose;
+        _provider = provider;
     }
 
     public string Name { get; }
@@ -30,7 +33,51 @@ public sealed class Secret
     /// </summary>
     public const int MinLength = 6;
 
+    /// <summary>The plaintext of a static secret. A provider-backed secret has none until <see cref="ResolveAsync"/> computes one, and reads empty.</summary>
     internal string Value { get; }
+
+    /// <summary>The function that computes the plaintext at fill time, or null for a static secret (upstream's <c>ResolvedSecret.value</c> as a <c>SecretProvider</c>).</summary>
+    internal SecretProvider? Provider => _provider;
+
+    /// <summary>
+    /// The code an unresolvable secret fails with: a credential's password is a credential problem, any other secret a secret problem
+    /// (upstream's <c>unavailableCode</c>, <c>secrets.ts</c>).
+    /// </summary>
+    internal string UnavailableCode => Purpose == "password" ? "AUTH_CREDENTIAL_UNAVAILABLE" : "SECRET_UNAVAILABLE";
+
+    /// <summary>
+    /// A secret whose plaintext <paramref name="provider"/> computes at fill time, on every fill. .NET-only: upstream's registry holds
+    /// the provider beside the name, and the handle looks it up; the port's handle carries it.
+    /// </summary>
+    internal static Secret Create(string name, SecretProvider provider, string? purpose = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentNullException.ThrowIfNull(provider);
+        return new Secret(name, string.Empty, purpose, provider);
+    }
+
+    /// <summary>
+    /// The secret with its plaintext known: this one when it is static, else a static copy holding what the provider returned now.
+    /// The copy is what joins redaction before it is used. A value that is not a string of at least <see cref="MinLength"/> code points
+    /// fails with <see cref="UnavailableCode"/>. Upstream's <c>resolveSecretValue</c> (<c>run/secrecy.ts</c>) without its ledger.
+    /// </summary>
+    internal async Task<Secret> ResolveAsync(CancellationToken cancellationToken)
+    {
+        if (_provider is null)
+        {
+            return this;
+        }
+
+        var plaintext = await _provider(cancellationToken).ConfigureAwait(false);
+        if (plaintext is null || ConfigSecrets.SecretLength(plaintext) < MinLength)
+        {
+            throw new ConfigurationException(
+                UnavailableCode,
+                "secret \"" + Name + "\" provider did not return a string of at least " + MinLength.ToString(CultureInfo.InvariantCulture) + " characters (code points)");
+        }
+
+        return new Secret(Name, plaintext, Purpose);
+    }
 
     public static Secret Create(string name, string value, string? purpose = null)
     {
@@ -51,7 +98,7 @@ public sealed class Secret
             return "must be a non-empty string";
         }
 
-        var length = value.EnumerateRunes().Count();
+        var length = ConfigSecrets.SecretLength(value);
         return length >= MinLength
             ? null
             : "must be at least " + MinLength.ToString(CultureInfo.InvariantCulture) + " characters (code points), not " +

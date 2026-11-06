@@ -224,11 +224,11 @@ public sealed class E2ESession : IAsyncDisposable
                     Environment = environment.Push,
                     AppLog = appLog.Push,
                     Navigation = appLog.Navigated,
-                    ResolveSecret = (secret, resolve) =>
+                    ResolveSecret = async (secret, resolve) =>
                     {
-                        var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
+                        var plaintext = await Secrecy.ResolveSecretValueAsync(secret, ledger, launch.Token).ConfigureAwait(false);
                         Secrecy.RegisterDerivedSecrets(secret.Name, resolve?.Derived?.Invoke(plaintext) ?? [], ledger);
-                        return Task.FromResult(plaintext);
+                        return plaintext;
                     },
                 },
                 launch.Token)).ConfigureAwait(false);

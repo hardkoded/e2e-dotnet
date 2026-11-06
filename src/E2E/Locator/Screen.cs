@@ -693,12 +693,29 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Fill(value), options, cancellationToken);
     }
 
-    /// <summary>Fills a secret. The engine marks the value sensitive and never reports it.</summary>
+    /// <summary>
+    /// Fills a secret. The engine marks the value sensitive and never reports it. A secret whose value a provider computes is asked
+    /// for it inside the step, before the node is looked for, and the value joins redaction before it is filled. A provider that returns less than
+    /// six code points fails the step with <c>AUTH_CREDENTIAL_UNAVAILABLE</c> (a password) or <c>SECRET_UNAVAILABLE</c>.
+    /// </summary>
     public Task FillAsync(Secret value, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(value);
-        _screen.MarkSecretFilled(value);
-        return ActAsync(new LocatorAction.Fill(value.Value, Sensitive: true), options, cancellationToken);
+        if (value.Provider is null)
+        {
+            _screen.MarkSecretFilled(value);
+            return ActAsync(new LocatorAction.Fill(value.Value, Sensitive: true), options, cancellationToken);
+        }
+
+        return _screen.RunStepAsync(StepKind.Locator, "locator.fill", Query.Describe(), async () =>
+        {
+            _screen.Engine.CheckAction(new LocatorAction.Fill(string.Empty, Sensitive: true));
+            var token = _screen.Token(cancellationToken);
+            var resolved = await value.ResolveAsync(token).ConfigureAwait(false);
+            _screen.MarkSecretFilled(resolved);
+            var action = new LocatorAction.Fill(resolved.Value, Sensitive: true);
+            await _screen.Engine.PerformAsync(Query, (_, _) => Task.FromResult<LocatorAction>(action), options?.Timeout, token).ConfigureAwait(false);
+        });
     }
 
     /// <summary>

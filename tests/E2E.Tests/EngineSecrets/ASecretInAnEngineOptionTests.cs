@@ -10,7 +10,7 @@ using E2E.Reports;
 namespace E2E.Tests.EngineSecrets;
 
 /// <summary>
-/// Ported from upstream's <c>engine-secrets.test.ts</c>. The handle comes from <see cref="Secret.Create"/>, since the port
+/// Ported from upstream's <c>engine-secrets.test.ts</c>. The handle comes from <see cref="Secret.Create(string, string, string)"/>, since the port
 /// has no <c>e2e.config.ts</c> to call <c>secrets.get()</c>. The two redaction <c>it</c>s are <c>Partial_</c>: the port has no
 /// reporters (<c>markdown</c>, <c>junit</c>), so they read every file the session wrote under its results directory instead of the
 /// reporters' files. Not ported, because the port has no such feature: "hands the engine a declared value and refuses one it did not
@@ -158,6 +158,17 @@ public sealed class ASecretInAnEngineOptionTests
         {
             Assert.False(text.Contains(credential, StringComparison.Ordinal), file);
         }
+    }
+
+    /// <summary>.NET-only: no upstream <c>it</c> reads the <c>secrets</c> list <c>web()</c> declares; <see cref="WebEngine.Secrets"/> is that list (<see cref="IEngine.Secrets"/>).</summary>
+    [Fact]
+    public void The_web_engine_declares_the_secret_its_basic_auth_password_holds_and_no_other()
+    {
+        var password = Secret.Create("stagingPassword", Password);
+
+        Assert.Same(password, Assert.Single(new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada", password) }).Secrets));
+        Assert.Empty(new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada", Password) }).Secrets);
+        Assert.Empty(new WebEngine(new WebEngineOptions()).Secrets);
     }
 
     [Fact]
