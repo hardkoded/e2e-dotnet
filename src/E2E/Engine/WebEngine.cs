@@ -3045,7 +3045,17 @@ public sealed partial class WebEngine : IEngine
                     return (dto, null);
                 }
 
-                elements = await budget.WithinAsync(result.GetPropertyAsync("elements")).ConfigureAwait(false);
+                var reading = result.GetPropertyAsync("elements");
+                try
+                {
+                    elements = await budget.WithinAsync(reading).ConfigureAwait(false);
+                }
+                catch
+                {
+                    WebSupport.DisposeWhenSettled(reading);
+                    throw;
+                }
+
                 var list = new ElementList(elements);
                 elements = null;
                 return (dto, list);
