@@ -213,6 +213,33 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
+    public Task Routes_real_native_dialogs_by_kind_even_when_their_messages_are_identical() => WithRoutesAsync(async routes =>
+    {
+        var kinds = new List<E2E.Engine.DialogType>();
+        var off = await routes.Browser.OnDialogAsync((DialogHandler)(Func<E2E.Engine.Dialog, Task>)(async dialog =>
+        {
+            kinds.Add(dialog.Type);
+            if (dialog.Type == E2E.Engine.DialogType.Prompt)
+            {
+                await dialog.AcceptAsync("typed answer");
+            }
+            else if (dialog.Type == E2E.Engine.DialogType.Confirm)
+            {
+                await dialog.DismissAsync();
+            }
+            else
+            {
+                await dialog.AcceptAsync();
+            }
+        }));
+        var answers = (await routes.Browser.EvaluateAsync<DialogAnswers>(
+            "() => { window.alert('same message'); return { confirmed: window.confirm('same message'), prompt: window.prompt('same message') }; }"))!;
+        Assert.Equal([E2E.Engine.DialogType.Alert, E2E.Engine.DialogType.Confirm, E2E.Engine.DialogType.Prompt], kinds);
+        Assert.Equal(new DialogAnswers(false, "typed answer"), answers);
+        await off();
+    });
+
+    [Fact]
     public Task Answers_with_the_route_registered_last_when_two_fulfill() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/**", route => route.FulfillAsync(new RouteFulfillResponse { Body = "earlier" }));
@@ -545,6 +572,8 @@ public sealed class BrowserRouteDecisionsTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private sealed record Reply(string? ContentType, string Body);
+
+    private sealed record DialogAnswers(bool Confirmed, string? Prompt);
 
     private sealed record Echo(string Path, string Method, Dictionary<string, string> Headers, string Body);
 
