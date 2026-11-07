@@ -265,7 +265,7 @@ internal static class AgentActions
             "dismissKeyboard" => "dismiss the keyboard",
             "tapAt" or "hoverAt" => (action.Kind == "tapAt" ? "tap" : "hover over") + " the point " + PointText(action.Point) + (target is null ? "" : " on " + where),
             "dragAt" => "drag from the point " + PointText(action.From?.Point) + (target is null ? "" : " on " + where) + " to the point " + PointText(action.To?.Point) + (destination is null ? "" : " on " + DescribeForSummary(destination)),
-            "tool" => "tool " + redactor.Redact(TextRules.SanitizeText(action.Text ?? "")),
+            "tool" => "tool " + redactor.Redact(action.Text ?? ""),
             _ => action.Kind,
         };
         return TextRules.Bound(prose, Trace.MaxTraceSummaryChars);
