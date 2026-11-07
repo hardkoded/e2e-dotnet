@@ -37,7 +37,7 @@ otherwise runs every agent step live (SKILL.md, "Rerunning a test while you fix 
 fixture instance among its tests, so a test class with `ParallelScope.Children`
 or `All` fails at setup unless it also has
 `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,
-`e2e cache`, or `e2e feedback`. `e2e init` only scaffolds (topic `setup`).
+or `e2e feedback`. `e2e init` only scaffolds (topic `setup`).
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
@@ -79,8 +79,12 @@ Parallel runs can share the directory: each write replaces its entry file
 atomically, and two runs that write one key leave the last write. On Windows,
 a write that the file system refuses while another write replaces the same
 entry, or while a reader holds it open, is retried for a moment before it
-counts as not written. There are no `cache` commands; delete the
-directory to clear it. The modes are `read-write`, `read-only`, and `off`.
+counts as not written. `e2e cache ls` prints one row per entry (`TEST`, `TARGET`,
+`INSTRUCTION` digest prefix, `AGE`, `ACTIONS`), `e2e cache stats` the directory,
+entry count and size, and `e2e cache clear` deletes the entries and the
+directory; files the runner never wrote stay. `--config <path>` and
+`--cache-dir <dir>` pick the store (`--cache-dir`, else `E2E_CACHE_DIR`, else
+`cache.dir`). A row's `AGE` is the file's last write time. The modes are `read-write`, `read-only`, and `off`.
 Topic `agent` explains what is recorded. Secret values never enter cache
 entries: a secret an act received in `Params` that shows in a control's name,
 text, value, placeholder, or test id is stored as `<secret:name>`, and the

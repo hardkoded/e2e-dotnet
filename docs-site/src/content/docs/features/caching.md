@@ -13,6 +13,33 @@ A cache entry belongs to one test, instruction, set of params, and agent. Each o
 
 A recording follows the app to another port or host that shares its `app.identity`. An agent `navigate` to a full URL on the app is recorded without the origin, as its path, query, and fragment, so the step replays on the origin the app runs on then. Re-record older entries to pick this up.
 
+## Inspect and clear the cache
+
+`e2e cache` ports upstream's `cli/cache.ts`. Each subcommand loads the nearest `e2e.config.json` (or `--config <path>`), reads the directory a run would, and exits 0 on an empty store. It exits 2 on a config or file system error.
+
+```bash
+e2e cache ls      # one row per entry: test, target, instruction digest, age, actions
+e2e cache stats   # directory, entry count, size
+e2e cache clear   # delete every entry
+```
+
+| Command | Prints |
+| --- | --- |
+| `e2e cache ls` | One row per entry (`TEST`, `TARGET`, `INSTRUCTION`, `AGE`, `ACTIONS`): the test and target it was recorded for, the first 12 characters of its instruction's digest, its age, and how many actions a replay would run (`(truncated)` when the recording hit the action cap). Rows are grouped by test, then target, oldest first. |
+| `e2e cache stats` | The store directory, the number of readable entries, their total size, and the number of unreadable files when there are any. |
+| `e2e cache clear` | Deletes every cache file, then the directory when nothing else is left in it, and reports how many files went. |
+
+| Option | Description |
+| --- | --- |
+| `--config <path>` | Explicit config path. Default: the nearest `e2e.config.json`. |
+| `--cache-dir <dir>` | The store directory, relative to the project root. Default: `E2E_CACHE_DIR`, else `cache.dir`, else `.e2e/cache/`. |
+
+- An entry recorded before entries carried a test, a target, or an instruction prints `-` in that column and still replays.
+- A file the store cannot read (truncated, over the 1 MiB ceiling, or from another schema) is counted on stderr, treated as a miss by a run, and removed by `clear`. A crashed writer's temporary file is removed by `clear` too.
+- Files the runner never wrote are left alone, and named on stderr.
+- `AGE` is the entry file's last write time: the port's entries carry no `createdAt`. The `INSTRUCTION` digest is computed from the instruction the entry stores, where upstream stores the digest.
+- A `cache.store` of your own is code, never in `e2e.config.json`, so the command reads files only and has nothing to refuse (upstream exits 2 for a custom store).
+
 ## Trace page
 
 With `trace` on for an attempt, the session writes `.e2e/results/<result>/trace.md` when it is released. The default, `retain-on-failure`, keeps the page of every attempt that did not pass. The page is markdown, for you or a coding agent to open. It names the error and the line to look at, then lists every step with its duration, model calls, the hook it ran in, the cache's decision for an agent step, and how the screen changed since the step before. Under a step it tells the node an action landed on, what an assertion read while it waited, where the page went on its own, and what the app logged meanwhile (console output, uncaught errors, failed requests); the web engine collects the app log. It ends with the screen at failure (the location, a screenshot, the screen as the agent reads it, and for a locator that matched nothing, the nodes closest to what it asked for), the video, and what the attempt ran on. A retry is another attempt in the same report. The run writes one `trace.md` for the test from that report, which still names the earlier attempts; the page's steps are the verdict attempt (a flaky test's last failure). Text from the app is escaped, and secrets are redacted. The agent's turns are not recorded yet. A failed locator or matcher also carries its facts on the exception, `E2EException.Details`: the locator, what it expected and observed, how many nodes matched, what it asked for, and how long it waited. See [COMPATIBILITY.md](/compatibility/#trace-page).

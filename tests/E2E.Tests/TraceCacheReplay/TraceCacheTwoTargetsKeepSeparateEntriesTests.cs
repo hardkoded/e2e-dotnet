@@ -9,10 +9,8 @@ namespace E2E.Tests.TraceCacheReplay;
 public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
 {
     [Fact]
-    public async Task Partial_Records_one_entry_per_target_and_lists_both()
+    public async Task Records_one_entry_per_target_and_lists_both()
     {
-        // PARTIAL: the port has no `e2e cache ls`, so the listing assertions (the test and the target in one row each) are
-        // not ported. The entries are read from the files instead, for the target each records (`recordedFor.targetId`).
         var directory = ConfigTests.TempCache();
         foreach (var target in new[] { "web", "web-b" })
         {
@@ -27,6 +25,29 @@ public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
             .Order(StringComparer.Ordinal)
             .ToArray();
         Assert.Equal(["web", "web-b"], recorded);
+        var listing = CacheLs(directory);
+        Assert.Matches(@"billing > upgrades\s+web\s+", listing);
+        Assert.Matches(@"billing > upgrades\s+web-b\s+", listing);
+    }
+
+    /// <summary>Upstream's <c>cacheCli(project, 'ls')</c>: <c>e2e cache ls</c> over the cache directory, from a project whose config names no other.</summary>
+    private static string CacheLs(string directory)
+    {
+        var project = Directory.CreateTempSubdirectory("e2e-cache-ls-").FullName;
+        try
+        {
+            var config = Path.Combine(project, "e2e.config.json");
+            File.WriteAllText(config, """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }""");
+            var stdout = new StringWriter();
+            var stderr = new StringWriter();
+            var code = E2E.Cli.CacheCommand.Run(["ls", "--config", config, "--cache-dir", directory], stdout, stderr, interactive: false, project);
+            Assert.Equal(0, code);
+            return stdout.ToString();
+        }
+        finally
+        {
+            Directory.Delete(project, recursive: true);
+        }
     }
 
     private static string TargetOf(string json)
