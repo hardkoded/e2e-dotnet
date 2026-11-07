@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using E2E.Engine;
 using E2E.Internal;
 using E2E.Reports;
 
@@ -101,6 +102,7 @@ public sealed class E2EConfig
 
     // What `WithCacheStore` re-reads the cache from: the `cache` value as written and the environment it was read against.
     private JsonElement? _rawCache;
+    private CliOverrides _cli = new();
 
     private Func<string, string?> _environment = Environment.GetEnvironmentVariable;
 
@@ -117,7 +119,7 @@ public sealed class E2EConfig
     /// <summary>True when the <c>CI</c> environment variable is set to a true value.</summary>
     public bool Ci { get; private init; }
 
-    public IReadOnlyList<TargetConfig> Targets { get; private init; } = [];
+    public IReadOnlyList<TargetConfig> Targets { get; private set; } = [];
 
     /// <summary>
     /// The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
@@ -224,7 +226,7 @@ public sealed class E2EConfig
     {
         ArgumentNullException.ThrowIfNull(store);
         var copy = (E2EConfig)MemberwiseClone();
-        copy.Cache = ReadCache(_rawCache, ProjectRoot, Ci, _environment, store);
+        copy.Cache = ReadCache(_rawCache, ProjectRoot, Ci, _environment, store, _cli);
         return copy;
     }
 
@@ -254,6 +256,29 @@ public sealed class E2EConfig
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(password);
         return WithProviders(new Dictionary<string, CredentialProvider>(_credentialProviders, StringComparer.Ordinal) { [name] = new CredentialProvider(username, password) }, _secretProviders);
+    }
+
+    /// <summary>
+    /// A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.
+    /// .NET-only: the config file cannot hold an engine, so code puts one in a target (internal until a public API exists, #1339).
+    /// </summary>
+    internal E2EConfig WithTarget(TargetConfig target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var copy = (E2EConfig)MemberwiseClone();
+        var targets = Targets.ToList();
+        var at = targets.FindIndex(existing => string.Equals(existing.Name, target.Name, StringComparison.Ordinal));
+        if (at >= 0)
+        {
+            targets[at] = target;
+        }
+        else
+        {
+            targets.Add(target);
+        }
+
+        copy.Targets = targets;
+        return copy;
     }
 
     private E2EConfig WithProviders(IReadOnlyDictionary<string, CredentialProvider> credentialProviders, IReadOnlyDictionary<string, SecretProvider> secretProviders)
@@ -293,7 +318,7 @@ public sealed class E2EConfig
             throw new ConfigurationException("INVALID_CONFIG", "Cannot read " + full + ": " + ex.Message, ex);
         }
 
-        return Parse(json, Path.GetDirectoryName(full)!, full, environment);
+        return Parse(json, Path.GetDirectoryName(full)!, full, environment, null);
     }
 
     /// <summary>Validates config JSON. <paramref name="projectRoot"/> anchors relative paths.</summary>
@@ -301,14 +326,25 @@ public sealed class E2EConfig
     {
         ArgumentNullException.ThrowIfNull(json);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        return Parse(json, Path.GetFullPath(projectRoot), null, environment);
+        return Parse(json, Path.GetFullPath(projectRoot), null, environment, null);
+    }
+
+    /// <summary>
+    /// Upstream's <c>resolveConfig(raw, { cli })</c>: the config with the flags that replace config keys applied. The port has no
+    /// command line to read them from, so only code (the tests) passes them.
+    /// </summary>
+    internal static E2EConfig Parse(string json, string projectRoot, Func<string, string?>? environment, CliOverrides cli)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
+        return Parse(json, Path.GetFullPath(projectRoot), null, environment, cli);
     }
 
     /// <summary>The config with no file: upstream defaults, a <c>web</c> target with no URL, and no model.</summary>
     public static E2EConfig Default(string projectRoot, Func<string, string?>? environment = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectRoot);
-        return Parse("{}", Path.GetFullPath(projectRoot), null, environment);
+        return Parse("{}", Path.GetFullPath(projectRoot), null, environment, null);
     }
 
     /// <summary>
@@ -383,8 +419,9 @@ public sealed class E2EConfig
     /// <summary>Whether a flag variable's value is <c>1</c> or <c>true</c>.</summary>
     private static bool IsFlagOn(string? value) => value?.Trim() is { } trimmed && (trimmed == "1" || trimmed.Equals("true", StringComparison.OrdinalIgnoreCase));
 
-    private static E2EConfig Parse(string json, string projectRoot, string? configPath, Func<string, string?>? environment)
+    private static E2EConfig Parse(string json, string projectRoot, string? configPath, Func<string, string?>? environment, CliOverrides? cli)
     {
+        cli ??= new CliOverrides();
         environment ??= Environment.GetEnvironmentVariable;
         JsonDocument document;
         try
@@ -409,7 +446,7 @@ public sealed class E2EConfig
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
             var credentials = ReadCredentials(Property(root, "credentials"), environment, ReadOnlyDictionary<string, CredentialProvider>.Empty);
-            var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null);
+            var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null, cli);
             ReadArtifacts(Property(root, "artifacts"));
             return new E2EConfig
             {
@@ -437,6 +474,7 @@ public sealed class E2EConfig
                 _rawSecrets = Property(root, "secrets")?.Clone(),
                 _rawCache = Property(root, "cache")?.Clone(),
                 _environment = environment,
+                _cli = cli,
             };
         }
     }
@@ -901,7 +939,7 @@ public sealed class E2EConfig
     private static List<string?> KindsOf(JsonElement list) =>
         list.ValueKind == JsonValueKind.Array ? [.. list.EnumerateArray().Select(kind => kind.ValueKind == JsonValueKind.String ? kind.GetString() : null)] : [];
 
-    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment, IStepCache? store)
+    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment, IStepCache? store, CliOverrides cli)
     {
         // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured. A store has no directory, so it ignores the variable.
         var shared = store is null && environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
@@ -912,7 +950,7 @@ public sealed class E2EConfig
         var noCache = IsFlagOn(environment("E2E_NO_CACHE"));
         if (raw is null)
         {
-            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Strict = cli.CacheStrict, StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -962,7 +1000,7 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict || cli.CacheStrict, StrictSource = strict || cli.CacheStrict ? new CacheStrictSource(strict, cli.CacheStrict) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
@@ -1128,7 +1166,7 @@ public sealed class E2EConfig
         List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
         if (names.Count == 0)
         {
-            return Secrets.Empty;
+            return credentials.Count == 0 ? Secrets.Empty : new Secrets(new Dictionary<string, Secret>(StringComparer.Ordinal), credentials);
         }
 
         var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
@@ -1179,7 +1217,7 @@ public sealed class E2EConfig
             values[name] = Secret.Create(name, value, "generic-secret");
         }
 
-        return new Secrets(values);
+        return new Secrets(values, credentials);
     }
 
     private static void CheckKeys(JsonElement value, string label, string[] allowed, string[] unsupported, Dictionary<string, string>? moved, Dictionary<string, string>? removed = null)
@@ -1363,7 +1401,14 @@ public sealed class TargetConfig
     public required AppConfig App { get; init; }
 
     /// <summary>This target with another app: the one resolved on the port its command was started on.</summary>
-    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video };
+    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video, Engine = Engine };
+
+    /// <summary>
+    /// The engine this target runs, built in code (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c>); null for a JSON target, whose engine
+    /// the fixture's <c>CreateEngine</c> chooses. Internal until a public engine-in-config API exists (#1339): only <see cref="ResolvedConfig.Resolve"/>
+    /// reads it, to check the secrets its options hold.
+    /// </summary>
+    internal IEngine? Engine { get; init; }
 
     /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
     public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);
@@ -1626,6 +1671,16 @@ public sealed class AgentConfig
     }
 }
 
+/// <summary>What turned <c>cache.strict</c> on for the run: the config key, the <c>--strict-cache</c> flag, or both (upstream's <c>CacheStrictSource</c>).</summary>
+internal sealed record CacheStrictSource(bool Config, bool Flag);
+
+/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c> exists in the port.</summary>
+internal sealed record CliOverrides
+{
+    /// <summary>Upstream's <c>--strict-cache</c>: turns <c>cache.strict</c> on for the run.</summary>
+    public bool CacheStrict { get; init; }
+}
+
 public sealed class CacheConfig
 {
     /// <summary>Unset, it is <see cref="CacheMode.ReadWrite"/>, or <see cref="CacheMode.ReadOnly"/> in CI.</summary>
@@ -1636,6 +1691,12 @@ public sealed class CacheConfig
 
     /// <summary>When true, a recording that no longer matches fails with <c>REPLAY_STALE</c> instead of running live.</summary>
     public bool Strict { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>ResolvedCacheConfig.strict</c> beyond the flag: which knobs turned <see cref="Strict"/> on, since a re-recording has to
+    /// turn each of them off. Null when strict is off.
+    /// </summary>
+    internal CacheStrictSource? StrictSource { get; init; }
 
     /// <summary>What named <see cref="Directory"/>, for the errors that point at it (upstream's <c>CacheDirSource</c>): <c>cache.dir</c> or <c>E2E_CACHE_DIR</c>.</summary>
     internal string DirectorySource { get; init; } = "cache.dir";
