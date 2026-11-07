@@ -490,13 +490,13 @@ public sealed partial class Agent
         return new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
-            Test = _scope.Redactor.Redact(_scope.TestTitle),
-            TargetId = _scope.Redactor.Redact(_scope.TargetName),
+            Test = TextRules.Bound(_scope.Redactor.Redact(_scope.TestTitle), Trace.MaxTraceDescriptorChars),
+            TargetId = TextRules.Bound(_scope.Redactor.Redact(_scope.TargetName), Trace.MaxTraceDescriptorChars),
             Instruction = _scope.Redactor.Redact(instruction.Trim()),
             Engine = _scope.EnginePlatform,
             ParamsDigest = CacheKeys.ParamsDigest(parameters),
             CallIndex = callIndex,
-            Agent = _scope.Redactor.Redact(agent),
+            Agent = TextRules.Bound(_scope.Redactor.Redact(agent), Trace.MaxTraceDescriptorChars),
             KeyedBy = keyContext,
         };
     }
