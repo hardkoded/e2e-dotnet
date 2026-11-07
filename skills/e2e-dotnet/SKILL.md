@@ -257,7 +257,8 @@ lines you changed:
   `off`: `off` sends every goal to the model again. To run once against the live
   agent (a new model, or the one live run after a test passes), set
   `E2E_NO_CACHE=1` for that run: it turns the cache `off` over the config, in CI
-  too, and records nothing. Only a `read-write` cache
+  too, and records nothing. `E2E_CACHE_DIR_OVERRIDE=<dir>` is upstream's `--cache-dir` for
+  that run (over `E2E_CACHE_DIR` and `cache.dir`). Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
   config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your
   tool's timeout kills) saves nothing, so give the command a timeout longer

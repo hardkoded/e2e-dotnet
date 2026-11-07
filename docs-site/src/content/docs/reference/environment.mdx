@@ -92,6 +92,7 @@ The test host has no `e2e run` command, so these variables stand in for upstream
 | Variable | Example | Reading | Effect |
 | --- | --- | --- | --- |
 | [`E2E_CACHE_DIR`](#e2e_cache_dir) | `E2E_CACHE_DIR=~/.cache/e2e` | value | Replaces `cache.dir` |
+| [`E2E_CACHE_DIR_OVERRIDE`](#e2e_cache_dir_override) | `E2E_CACHE_DIR_OVERRIDE=.e2e/other` | value | Replay cache directory for one run, upstream's `--cache-dir`. .NET-only name |
 | [`E2E_NO_CACHE`](#e2e_no_cache) | `E2E_NO_CACHE=1` | flag | Runs with the replay cache off, whatever the config says, upstream's `--no-cache`. .NET-only name |
 
 #### `E2E_CACHE_DIR`
@@ -101,6 +102,18 @@ Replaces `cache.dir` for the test host and `e2e explore`, resolved from the proj
 - `~` or a leading `~/` is the home directory.
 - A custom `cache.store` ignores it.
 - The cache mode stays as configured.
+
+See [Caching and self-healing](/features/caching/).
+
+#### `E2E_CACHE_DIR_OVERRIDE`
+
+Upstream's `--cache-dir`, for one run: the replay cache directory, resolved from the project root. It wins over `E2E_CACHE_DIR` and `cache.dir`.
+
+- `~` or a leading `~/` is the home directory.
+- A blank value is `INVALID_CONFIG` (`--cache-dir must be a non-empty path`); an empty one is ignored.
+- Beside a custom `cache.store` it is `INVALID_CONFIG`: a store has no directory.
+- An `output` that is the directory, inside it, or that would hold it under `results/` is refused.
+- The cache mode stays as configured. `e2e cache` takes the flag itself.
 
 See [Caching and self-healing](/features/caching/).
 

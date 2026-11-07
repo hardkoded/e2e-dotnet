@@ -6,7 +6,6 @@ namespace E2E.Tests.TraceCacheConfig;
 
 /// <summary>
 /// <c>REPLAY_STALE advice</c> (<c>trace-cache-config.test.ts</c>): the advice <c>CacheContexts.CreateAgentCacheContext</c> puts on <c>Strict</c>.
-/// The second <c>it</c> is partial: the port has no <c>--cache-dir</c> run option (#1337), so <c>E2E_CACHE_DIR</c> names the directory outside the project.
 /// </summary>
 public sealed class ReplayStaleAdviceTests
 {
@@ -28,12 +27,12 @@ public sealed class ReplayStaleAdviceTests
     }
 
     [Fact]
-    public void Partial_Names_a_cache_directory_outside_the_project_without_asking_for_a_commit()
+    public void Names_a_cache_directory_outside_the_project_without_asking_for_a_commit()
     {
         var outside = Path.GetFullPath("/shared/e2e");
         Assert.Equal(
             "re-record it with a read-write run without --strict-cache; the run writes the new entry under " + outside.Replace(Path.DirectorySeparatorChar, '/'),
-            AdviceFor("{}", new CliOverrides { CacheStrict = true }, Env(("E2E_CACHE_DIR", outside))));
+            AdviceFor("{}", new CliOverrides { CacheStrict = true, CacheDir = outside }));
     }
 
     [Fact]
