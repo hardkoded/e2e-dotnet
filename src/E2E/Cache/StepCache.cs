@@ -28,6 +28,12 @@ public sealed class CacheEntry
     /// <summary>The test title. A secret value in it is masked.</summary>
     public string? Test { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>recordedFor.targetId</c>: the name of the target the step ran on. Provenance, never read by a replay: the target is already in
+    /// the key. A secret value in it is masked. Null on an entry recorded before it was stored.
+    /// </summary>
+    public string? TargetId { get; set; }
+
     public string? Instruction { get; set; }
 
     /// <summary>The engine platform the step ran on. Null on an entry recorded before it was stored.</summary>
@@ -106,6 +112,17 @@ public sealed class CacheEntry
     private const int MaxRecordedByChars = 300;
 
     /// <summary>
+    /// Whether the fields that name the step are well formed: each absent, or nonblank text within <see cref="Trace.MaxTraceDescriptorChars"/> (the params digest is lowercase SHA-256 hex, the repeat index is not negative).
+    /// Upstream's <c>readProvenance</c> (<c>cache/trace-read.ts</c>), which makes a malformed <c>recordedFor</c> a miss.
+    /// </summary>
+    internal bool HasValidProvenance() =>
+        IsDescriptor(Test) && IsDescriptor(TargetId) && IsDescriptor(Agent)
+        && ParamsDigest is null or { Length: 64 } && (ParamsDigest is null || ParamsDigest.All(char.IsAsciiHexDigitLower))
+        && CallIndex is null or >= 0;
+
+    private static bool IsDescriptor(string? value) => value is null || !string.IsNullOrWhiteSpace(value) && value.Length <= Trace.MaxTraceDescriptorChars;
+
+    /// <summary>
     /// Upstream's <c>readRecordedModel</c>: the model attribution when it is nonblank text within its budget, else null. A malformed
     /// attribution never makes a recording unreadable.
     /// </summary>
@@ -119,6 +136,7 @@ public sealed class CacheEntry
     internal void SetStep(CacheEntry step)
     {
         Test = step.Test;
+        TargetId = step.TargetId;
         Instruction = step.Instruction;
         Engine = step.Engine;
         ParamsDigest = step.ParamsDigest;

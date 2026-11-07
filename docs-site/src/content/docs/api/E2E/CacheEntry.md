@@ -236,6 +236,22 @@ public int Schema { get; set; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_CacheEntry_TargetId_"></a>
+<a id="E2E_CacheEntry_TargetId"></a>
+
+### TargetId
+
+
+```csharp
+public string? TargetId { get; set; }
+```
+
+
+Upstream's `recordedFor.targetId`: the name of the target the step ran on. Provenance, never read by a replay: the target is already in
+the key. A secret value in it is masked. Null on an entry recorded before it was stored.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_CacheEntry_Test_"></a>
 <a id="E2E_CacheEntry_Test"></a>
 
