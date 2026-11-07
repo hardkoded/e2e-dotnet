@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -13,12 +14,74 @@ namespace E2E;
 
 /// <summary>
 /// Polling assertions for a <see cref="Locator"/>, <c>expect.soft</c>, and
-/// <c>expect.poll</c>. A passing locator assertion verifies the previous
-/// <c>agent.act</c>. Plain value matchers are not ported: use NUnit
-/// <c>Assert.That</c>, and <c>Assert.EnterMultipleScope</c> for soft value checks.
+/// <c>expect.poll</c>, and the value matchers of <c>expect(value)</c>
+/// (<c>Expect.That(value)</c>). A passing locator assertion verifies the previous
+/// <c>agent.act</c>.
 /// </summary>
 public static class Expect
 {
+    /// <summary>
+    /// Synchronous matchers over a plain value, such as <c>Expect.That(links, "the playground lists its pages").ToBeGreaterThanOrEqual(2)</c>.
+    /// <paramref name="message"/> opens every failure of the check.
+    /// </summary>
+    public static ValueExpectation<T> That<T>(T actual, string? message = null) => new(actual, negated: false, message);
+
+    /// <summary>
+    /// The value matchers, but a failure is kept on <paramref name="screen"/>'s session instead of thrown, as <see cref="Soft(Locator)"/>
+    /// keeps one. Upstream's <c>expect.soft(value)</c> finds the running attempt on its own; a .NET call has no ambient attempt, so it names the session
+    /// through its screen.
+    /// </summary>
+    public static SoftValueExpectation<T> Soft<T>(Screen screen, T actual, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        return new SoftValueExpectation<T>(new ValueExpectation<T>(actual, negated: false, message), screen.SoftFailures);
+    }
+
+    /// <summary>Matches any instance of <paramref name="sample"/> (any number type for a number type), inside <c>ToEqual</c> and the other structural matchers. <c>typeof(object)</c> also matches <c>null</c>, as upstream's <c>expect.any(Object)</c> does.</summary>
+    public static AsymmetricMatcher Any(Type sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new AnyMatcher(sample);
+    }
+
+    /// <summary>Matches everything but <c>null</c>.</summary>
+    public static AsymmetricMatcher Anything() => new AnythingMatcher();
+
+    /// <summary>Matches an object that has every member of <paramref name="sample"/>, equal by <c>ToEqual</c> rules.</summary>
+    public static AsymmetricMatcher ObjectContaining(object sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new ObjectContainingMatcher(sample);
+    }
+
+    /// <summary>Matches an array that holds every element of <paramref name="sample"/>, in any order.</summary>
+    public static AsymmetricMatcher ArrayContaining(IReadOnlyList<object?> sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new ArrayContainingMatcher([.. sample]);
+    }
+
+    /// <summary>Matches a string that contains <paramref name="sample"/>.</summary>
+    public static AsymmetricMatcher StringContaining(string sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringContainingMatcher(sample);
+    }
+
+    /// <summary>Matches a string that matches <paramref name="sample"/>, read as a regular expression.</summary>
+    public static AsymmetricMatcher StringMatching(string sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringMatchingMatcher(sample);
+    }
+
+    /// <summary>Matches a string that matches <paramref name="sample"/>.</summary>
+    public static AsymmetricMatcher StringMatching(Regex sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringMatchingMatcher(sample);
+    }
+
     public static LocatorExpect That(Locator locator)
     {
         ArgumentNullException.ThrowIfNull(locator);

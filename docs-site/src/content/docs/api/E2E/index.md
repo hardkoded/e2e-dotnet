@@ -32,6 +32,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [App](/api/E2E/App/) | Opens and resets the app under test. A relative URL is resolved against BaseUrl; no URL opens the base URL. |
 | [AppConfig](/api/E2E/AppConfig/) |  |
 | [AssertOptions](/api/E2E/AssertOptions/) | agent.assert: one judgment and one repair round, within Timeout. |
+| [AsymmetricMatcher](/api/E2E/AsymmetricMatcher/) | A stand-in for a value inside ToEqual, ToMatchObject, ToContain, and ToHaveProperty: Any(Type) in place of a number, ObjectContaining(object) in place of a record. The structural matchers ask it whether a value matches instead of comparing. |
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
 | [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
@@ -72,7 +73,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorStep](/api/E2E/ExecutorStep/) | One step handed to an executor. An Act plans and executes a flow. An Assert judges a condition and must not change the app. |
 | [ExecutorTarget](/api/E2E/ExecutorTarget/) | A node named by its id from the newest observation (upstream's { id }). The id is the node's id after the # in the text and in Id. An id the screen no longer lists fails the action instead of acting on the wrong node. |
 | [ExecutorTargetInfo](/api/E2E/ExecutorTargetInfo/) | The target a step runs on. Tools scope themselves by Platform, and Verbs is the part of the action grammar the engine declared, so an executor offers a model exactly the vocabulary the surface can honor. |
-| [Expect](/api/E2E/Expect/) | Polling assertions for a Locator, expect.soft, and expect.poll. A passing locator assertion verifies the previous agent.act. Plain value matchers are not ported: use NUnit Assert.That, and Assert.EnterMultipleScope for soft value checks. |
+| [Expect](/api/E2E/Expect/) | Polling assertions for a Locator, expect.soft, and expect.poll, and the value matchers of expect(value) (Expect.That(value)). A passing locator assertion verifies the previous agent.act. |
 | [Explore](/api/E2E/Explore/) | An exploration: a run whose one test is a goal. The config is loaded as a test run loads it, the exploration body runs as the run's only test, and within that test alone the explorer takes the place of the agent the run uses. The exploration's progress reaches OnProgress, and its record is Explore. |
 | [ExploreBounds&lt;T&gt;](/api/E2E/ExploreBounds-1/) | The least, the most, and the default of a bound option. Upstream's inline { min, max, default }. |
 | [ExploreBudgets](/api/E2E/ExploreBudgets/) | What an exploration was given to spend: its step cap and its wall clock. |
@@ -152,6 +153,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as LOCATOR_AMBIGUOUS, still throws. |
 | [SoftScreenExpect](/api/E2E/SoftScreenExpect/) | The screen matchers of ScreenExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
+| [SoftValueExpectation&lt;T&gt;](/api/E2E/SoftValueExpectation-1/) | The value matchers of ValueExpectation&lt;T&gt;, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as INVALID_ARGUMENT, still throws. |
 | [StepExecutorContext](/api/E2E/StepExecutorContext/) | What an executor receives for one step (upstream's StepExecutorContext). The runtime builds it. A test of an executor can build its own and override the members it reads: each one that does work throws until it is overridden. |
 | [StepExecutors](/api/E2E/StepExecutors/) | Upstream's RUNTIME_CODES, BLOCKABLE_CODES and isRuntimeHardStop (agent/executor.ts). |
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |
@@ -179,6 +181,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [TypeTextOptions](/api/E2E/TypeTextOptions/) | What TypeTextAsync is asked beside the value: upstream's typing argument of typeText, an inline object type there (.NET-only name). |
 | [UniqueValue](/api/E2E/UniqueValue/) | A value that changes every run, such as a timestamp or a fresh email. The replay cache treats every UniqueValue as the same param and substitutes the current value when it types. |
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
+| [ValueExpectation&lt;T&gt;](/api/E2E/ValueExpectation-1/) | Synchronous matchers over a plain value, from That&lt;T&gt;. A failure is an ASSERTION_FAILED TestException. The optional message of the call opens every failure, and survives Not. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
 | [VerdictTool](/api/E2E/VerdictTool/) | Upstream's VerdictTool: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it collected. Made by CreateVerdictTool(); the tool loop adds one to every vocabulary, so an executor of its own that drives a model outside the loop is the only caller of Execute(ModelToolCall). |
 | [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |

@@ -191,7 +191,7 @@ screen.
 2. Fix every line that evidence covers, not only the one that failed: the
    screen at failure shows the names the rest of that screen's lines need.
    Fix the locator, the expectation, or the app. Never add a sleep.
-3. A test stops at its first failed step (`Expect.Soft` lets it go on), and
+3. A test stops at its first failed step (`Expect.Soft` lets it go on, and `Expect.That(value, "what it checks")` checks a plain value, as upstream's `expect(value)`), and
    every wrong line after it costs another run. Before rerunning, check the
    lines after it as far as you can: against the screen at failure, the app
    source, or a live session.
