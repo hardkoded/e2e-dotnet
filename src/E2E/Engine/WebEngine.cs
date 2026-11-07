@@ -851,14 +851,14 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>The live page and context behind a web session, for tests that drive the browser out of band; null for any other session.</summary>
     internal static LiveSurface? SurfaceOf(IEngineSession session) =>
-        session is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
+        EngineSession.Unwrap(session) is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
 
     /// <summary>Runs <paramref name="work"/> through the operation entry of a web session (upstream's <c>surface.guard</c>); for tests.</summary>
     internal static Task<T> Guard<T>(IEngineSession session, string label, CancellationToken cancellationToken, Func<Task<T>> work) =>
-        ((WebSession)session).GuardAsync(label, cancellationToken, work);
+        ((WebSession)EngineSession.Unwrap(session)).GuardAsync(label, cancellationToken, work);
 
     /// <summary>Latches an error on a web session as a handler nobody awaits would (upstream's <c>surface.latch.latch</c>); for tests.</summary>
-    internal static void Latch(IEngineSession session, Exception error) => ((WebSession)session).Latch(error);
+    internal static void Latch(IEngineSession session, Exception error) => ((WebSession)EngineSession.Unwrap(session)).Latch(error);
 
     // Refuses a locale that is not a BCP 47 tag, and one an accept-language
     // header would override on the app's host while navigator.language kept

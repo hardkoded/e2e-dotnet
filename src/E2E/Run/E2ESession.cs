@@ -210,7 +210,7 @@ public sealed class E2ESession : IAsyncDisposable
                 launch.CancelAfter(options.LaunchTimeout);
             }
 
-            engine = await debug.Time("session.launch", () => options.Engine.StartAsync(
+            engine = EngineSession.Create(await debug.Time("session.launch", () => options.Engine.StartAsync(
                 new EngineStartOptions
                 {
                     BaseUrl = baseUrl,
@@ -231,7 +231,7 @@ public sealed class E2ESession : IAsyncDisposable
                         return plaintext;
                     },
                 },
-                launch.Token)).ConfigureAwait(false);
+                launch.Token)).ConfigureAwait(false));
         }
         catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
@@ -500,7 +500,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
         catch (TimeoutException ex) when (!settling.IsCompleted)
         {
-            // Only the wait timing out: a TimeoutException a handler threw (a Playwright timeout) keeps its own classification.
+            // Only the wait timing out: a TimeoutException a handler threw (a Playwright timeout) is the engine-to-session adapter's ENGINE_FAILURE, not this.
             throw new EngineException("CLEANUP_TIMEOUT", "settling the attempt timed out", ex);
         }
     }

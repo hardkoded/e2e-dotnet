@@ -101,7 +101,7 @@ public sealed class RunnerEngineContractTests : IDisposable
     }
 
     [Fact]
-    public async Task Classifies_EngineErrors_from_fixture_surfaces_app_open_with_the_canonical_mapping_PARTIAL_no_plain_Error_case_since_the_port_has_no_engine_to_session_adapter_and_a_session_stands_for_the_run()
+    public async Task Classifies_EngineErrors_from_fixture_surfaces_app_open_with_the_canonical_mapping_and_a_plain_Error_as_ENGINE_FAILURE_PARTIAL_a_session_stands_for_the_run()
     {
         var failure = Fake(onNavigate: _ => throw new EngineException("ENGINE_FAILURE", "renderer crashed"));
         var (result, run) = await FailOpeningAsync(failure, "taps a node");
@@ -117,6 +117,25 @@ public sealed class RunnerEngineContractTests : IDisposable
         Assert.Equal("UNSUPPORTED_CAPABILITY", secondResult.Attempts[0].Error!.Code);
         Assert.Equal(2, second.ExitCode);
         Assert.Equal(1, unsupported.Disposed);
+
+        var plain = Fake(onNavigate: _ => throw new InvalidOperationException("renderer gone"));
+        var (thirdResult, third) = await FailOpeningAsync(plain, "taps a node");
+        Assert.Equal(Reports.ResultStatus.Failed, thirdResult.Status);
+        Assert.Equal(Reports.ErrorCategory.Infrastructure, thirdResult.Attempts[0].Error!.Category);
+        Assert.Equal("ENGINE_FAILURE", thirdResult.Attempts[0].Error!.Code);
+        Assert.Contains("renderer gone", thirdResult.Attempts[0].Error!.Message, StringComparison.Ordinal);
+        Assert.Equal(3, third.ExitCode);
+        Assert.Equal(1, plain.Disposed);
+    }
+
+    /// <summary>.NET-only (no upstream <c>it</c>): the engine-to-session adapter keeps a cancellation a cancellation, as it keeps a plain error an ENGINE_FAILURE.</summary>
+    [Fact]
+    public async Task A_cancellation_an_engine_throws_stays_a_cancellation_and_is_not_normalized_to_ENGINE_FAILURE()
+    {
+        var fake = Fake(onNavigate: _ => throw new OperationCanceledException("cancelled"));
+        await using var session = await StartAsync(fake, "taps a node");
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.App.OpenAsync("/settings/billing"));
+        session.Complete();
     }
 
     [Fact]
