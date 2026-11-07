@@ -129,8 +129,8 @@ internal static partial class CacheCommand
         }
 
         Func<string, string?> environment = env is null ? Environment.GetEnvironmentVariable : name => env.GetValueOrDefault(name);
-        var config = E2EConfig.Load(path, environment);
-        return args.CacheDir is { } flag ? Path.GetFullPath(flag, config.ProjectRoot) : Path.GetFullPath(config.Cache.Directory);
+        var config = E2EConfig.Load(path, environment, new CliOverrides { CacheDir = args.CacheDir });
+        return Path.GetFullPath(config.Cache.Directory);
     }
 
     /// <summary>

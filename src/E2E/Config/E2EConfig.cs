@@ -310,7 +310,10 @@ public sealed class E2EConfig
     }
 
     /// <summary>Reads and validates a config file. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
-    public static E2EConfig Load(string path, Func<string, string?>? environment = null)
+    public static E2EConfig Load(string path, Func<string, string?>? environment = null) => Load(path, environment, null);
+
+    /// <summary>Upstream's <c>resolveConfig(raw, { cli })</c> for a file: the flags that replace config keys applied (<c>e2e cache --cache-dir</c>).</summary>
+    internal static E2EConfig Load(string path, Func<string, string?>? environment, CliOverrides? cli)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var full = Path.GetFullPath(path);
@@ -324,7 +327,7 @@ public sealed class E2EConfig
             throw new ConfigurationException("INVALID_CONFIG", "Cannot read " + full + ": " + ex.Message, ex);
         }
 
-        return Parse(json, Path.GetDirectoryName(full)!, full, environment, null);
+        return Parse(json, Path.GetDirectoryName(full)!, full, environment, cli);
     }
 
     /// <summary>Validates config JSON. <paramref name="projectRoot"/> anchors relative paths.</summary>
@@ -965,8 +968,31 @@ public sealed class E2EConfig
 
     private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment, IStepCache? store, CliOverrides cli)
     {
-        // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured. A store has no directory, so it ignores the variable.
-        var shared = store is null && environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
+        // Upstream's resolveCacheDir: --cache-dir (the port's E2E_CACHE_DIR_OVERRIDE, or cli.CacheDir from code), else a non-blank E2E_CACHE_DIR, replaces cache.dir
+        // and the default; the mode stays as configured. A store has no directory: the flag is refused beside it and the variable is ignored.
+        var flag = cli.CacheDir ?? (environment("E2E_CACHE_DIR_OVERRIDE") is { Length: > 0 } overridden ? overridden : null);
+        string? shared = null;
+        var sharedSource = "E2E_CACHE_DIR";
+        if (flag is not null)
+        {
+            if (string.IsNullOrWhiteSpace(flag))
+            {
+                throw Invalid("--cache-dir must be a non-empty path");
+            }
+
+            if (store is not null)
+            {
+                throw Invalid("--cache-dir names a file store directory, but cache.store replaces the file store; drop one");
+            }
+
+            shared = flag;
+            sharedSource = "--cache-dir";
+        }
+        else if (store is null && environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable))
+        {
+            shared = variable;
+        }
+
         var sharedDirectory = shared is null ? null : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
         var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
 
@@ -974,7 +1000,7 @@ public sealed class E2EConfig
         var noCache = IsFlagOn(environment("E2E_NO_CACHE"));
         if (raw is null)
         {
-            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Strict = cli.CacheStrict, StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+            return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Strict = cli.CacheStrict, StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -1024,7 +1050,7 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict || cli.CacheStrict, StrictSource = strict || cli.CacheStrict ? new CacheStrictSource(strict, cli.CacheStrict) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
+        return new CacheConfig { Mode = noCache ? CacheMode.Off : mode, Directory = directory, Strict = strict || cli.CacheStrict, StrictSource = strict || cli.CacheStrict ? new CacheStrictSource(strict, cli.CacheStrict) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
@@ -1698,7 +1724,7 @@ public sealed class AgentConfig
 /// <summary>What turned <c>cache.strict</c> on for the run: the config key, the <c>--strict-cache</c> flag, or both (upstream's <c>CacheStrictSource</c>).</summary>
 internal sealed record CacheStrictSource(bool Config, bool Flag);
 
-/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c> and <c>agents</c> exist in the port.</summary>
+/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c>, <c>cacheDir</c>, and <c>agents</c> exist in the port.</summary>
 internal sealed record CliOverrides
 {
     /// <summary>Upstream's <c>--agent</c> (<c>agents</c>): the configured agents unpinned tests run as, instead of <c>default</c> alone.</summary>
@@ -1706,6 +1732,9 @@ internal sealed record CliOverrides
 
     /// <summary>Upstream's <c>--strict-cache</c>: turns <c>cache.strict</c> on for the run.</summary>
     public bool CacheStrict { get; init; }
+
+    /// <summary>Upstream's <c>--cache-dir</c> (<c>cacheDir</c>): the replay cache directory for the run, over <c>E2E_CACHE_DIR</c> and <c>cache.dir</c>.</summary>
+    public string? CacheDir { get; init; }
 }
 
 public sealed class CacheConfig
@@ -1713,7 +1742,7 @@ public sealed class CacheConfig
     /// <summary>Unset, it is <see cref="CacheMode.ReadWrite"/>, or <see cref="CacheMode.ReadOnly"/> in CI.</summary>
     public CacheMode Mode { get; init; } = CacheMode.ReadWrite;
 
-    /// <summary>Absolute cache directory. <c>cache.dir</c> resolves against the config directory; the default is <c>.e2e/cache</c>. A non-blank <c>E2E_CACHE_DIR</c> replaces both.</summary>
+    /// <summary>Absolute cache directory. <c>cache.dir</c> resolves against the config directory; the default is <c>.e2e/cache</c>. <c>--cache-dir</c> (the environment variable <c>E2E_CACHE_DIR_OVERRIDE</c>), else a non-blank <c>E2E_CACHE_DIR</c>, replaces both.</summary>
     public string Directory { get; init; } = Path.Combine(".e2e", "cache");
 
     /// <summary>When true, a recording that no longer matches fails with <c>REPLAY_STALE</c> instead of running live.</summary>
@@ -1725,7 +1754,7 @@ public sealed class CacheConfig
     /// </summary>
     internal CacheStrictSource? StrictSource { get; init; }
 
-    /// <summary>What named <see cref="Directory"/>, for the errors that point at it (upstream's <c>CacheDirSource</c>): <c>cache.dir</c> or <c>E2E_CACHE_DIR</c>.</summary>
+    /// <summary>What named <see cref="Directory"/>, for the errors that point at it (upstream's <c>CacheDirSource</c>): <c>cache.dir</c>, <c>--cache-dir</c>, or <c>E2E_CACHE_DIR</c>.</summary>
     internal string DirectorySource { get; init; } = "cache.dir";
 
     /// <summary>

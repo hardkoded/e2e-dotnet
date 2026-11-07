@@ -75,6 +75,11 @@ home directory, a blank value is ignored, and the mode stays as configured.
 `off` whatever the config says, in CI too, so every step runs on the live agent
 and nothing is recorded or evicted. Use it to evaluate a new model, or for the
 one live run after a test passes.
+`E2E_CACHE_DIR_OVERRIDE` is upstream's `--cache-dir` for one run: it wins over
+`E2E_CACHE_DIR` and `cache.dir`, `~` is the home directory, a blank value is
+an error (`--cache-dir must be a non-empty path`), it is refused beside a
+`cache.store`, and an `output` that overlaps the directory is refused. The name
+is .NET-only; `e2e cache --cache-dir` is the flag itself.
 Parallel runs can share the directory: each write replaces its entry file
 atomically, and two runs that write one key leave the last write. On Windows,
 a write that the file system refuses while another write replaces the same

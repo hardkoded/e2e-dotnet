@@ -4,7 +4,7 @@
 
 namespace E2E.Tests.TraceCacheConfig;
 
-/// <summary><c>cache config resolution</c>: how <c>cache</c> and <c>E2E_CACHE_DIR</c> become the cache mode and directory.</summary>
+/// <summary><c>cache config resolution</c>: how <c>cache</c>, <c>--cache-dir</c>, and <c>E2E_CACHE_DIR</c> become the cache mode and directory.</summary>
 public sealed class CacheConfigResolutionTests
 {
     private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "e2e-cache-config-tests"));
@@ -32,47 +32,64 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(CacheMode.Off, Parse("""{ "cache": { "mode": "read-write" } }""", Env(("E2E_NO_CACHE", "1"))).WithCacheStore(new EmptyStore()).Cache.Mode);
     }
 
-    // Partial (follow-up #1337): without --cache-dir, which the port has no command line for.
     [Fact]
-    public void Takes_the_directory_from_E2E_CACHE_DIR_then_cache_dir_from_the_project_root()
+    public void Takes_the_directory_from_cache_dir_then_E2E_CACHE_DIR_then_cache_dir_from_the_project_root()
     {
         const string configured = """{ "cache": { "mode": "read-only", "dir": "configured" } }""";
         var env = Env(("E2E_CACHE_DIR", "../shared/e2e"));
+        Assert.Equal(Path.GetFullPath("/abs/flag"), Parse(configured, env, new CliOverrides { CacheDir = "/abs/flag" }).Cache.Directory);
         Assert.Equal(Path.GetFullPath(Path.Combine(Root, "../shared/e2e")), Parse(configured, env).Cache.Directory);
         Assert.Equal(Path.Combine(Root, "configured"), Parse(configured, Env(("E2E_CACHE_DIR", " "))).Cache.Directory);
         Assert.Equal(Path.GetFullPath(Path.Combine(Root, "../shared/e2e")), Parse("{}", env).Cache.Directory);
     }
 
-    // Partial (follow-up #1337): without --cache-dir, which the port has no command line for; --no-cache is E2E_NO_CACHE.
+    // The port's --no-cache is E2E_NO_CACHE (upstream's `cli.cache = 'off'`).
     [Fact]
-    public void Partial_Leaves_the_mode_to_the_config_and_no_cache_when_the_directory_is_overridden()
+    public void Leaves_the_mode_to_the_config_and_no_cache_when_the_directory_is_overridden()
     {
         var env = Env(("E2E_CACHE_DIR", "/abs/shared"));
-        Assert.Equal((CacheMode.Off, Path.GetFullPath("/abs/shared")), CacheOf(Parse("{}", Env(("E2E_CACHE_DIR", "/abs/shared"), ("E2E_NO_CACHE", "1")))));
-        var resolved = Parse("""{ "cache": { "mode": "read-only" } }""", env).Cache;
-        Assert.Equal(CacheMode.ReadOnly, resolved.Mode);
-        Assert.Equal(Path.GetFullPath("/abs/shared"), resolved.Directory);
+        var readOnly = Parse("""{ "cache": { "mode": "read-only" } }""", env).Cache;
+        Assert.Equal((CacheMode.ReadOnly, Path.GetFullPath("/abs/shared")), (readOnly.Mode, readOnly.Directory));
+        Assert.Equal(
+            (CacheMode.Off, Path.Combine(Root, "flag")),
+            CacheOf(Parse("{}", Env(("E2E_CACHE_DIR", "/abs/shared"), ("E2E_NO_CACHE", "1")), new CliOverrides { CacheDir = "flag" })));
         Assert.Equal(CacheMode.ReadOnly, Parse("{}", Env(("E2E_CACHE_DIR", "/abs/shared"), ("CI", "1"))).Cache.Mode);
     }
 
-    // Partial (follow-up #1337): without --cache-dir, which the port has no command line for, and without the output the variable's directory would overlap.
     [Fact]
-    public void Partial_Refuses_cache_dir_beside_a_cache_store_and_ignores_E2E_CACHE_DIR_there_even_one_the_output_would_overlap()
+    public void Refuses_cache_dir_beside_a_cache_store_and_ignores_E2E_CACHE_DIR_there_even_one_the_output_would_overlap()
     {
         var store = new EmptyStore();
-        var resolved = Parse("{}", Env(("E2E_CACHE_DIR", ".e2e"))).WithCacheStore(store).Cache;
-        Assert.Same(store, resolved.Store);
-        Assert.Equal(Path.Combine(Root, ".e2e", "cache"), resolved.Directory);
+        var refusal = Assert.Throws<ConfigurationException>(() => Parse("{}", Env(), new CliOverrides { CacheDir = "shared" }).WithCacheStore(store));
+        Assert.Equal("INVALID_CONFIG", refusal.Code);
+        Assert.Contains("--cache-dir names a file store directory, but cache.store replaces the file store; drop one", refusal.Message, StringComparison.Ordinal);
+        var resolved = Parse("{}", Env(("E2E_CACHE_DIR", ".e2e"))).WithCacheStore(store);
+        Assert.Same(store, resolved.Cache.Store);
+        Assert.Equal(Path.Combine(Root, ".e2e", "cache"), resolved.Cache.Directory);
+        Assert.Equal(Path.Combine(Root, ".e2e"), resolved.Output);
         Assert.Equal(Path.Combine(Root, "configured"), Parse("""{ "cache": { "dir": "configured" } }""", Env(("E2E_CACHE_DIR", ".e2e"))).WithCacheStore(store).Cache.Directory);
     }
 
-    // Partial (follow-up #1337): without --cache-dir, which the port has no command line for.
     [Fact]
-    public void Reads_a_leading_tilde_in_E2E_CACHE_DIR_as_the_home_directory()
+    public void Reads_a_leading_tilde_in_cache_dir_and_E2E_CACHE_DIR_as_the_home_directory()
     {
         Assert.Equal(Path.Combine(Home, "x"), Parse("{}", Env(("E2E_CACHE_DIR", "~/x"))).Cache.Directory);
-        Assert.Equal(Home, Parse("{}", Env(("E2E_CACHE_DIR", "~"))).Cache.Directory);
-        Assert.Equal(Path.Combine(Root, "~x"), Parse("{}", Env(("E2E_CACHE_DIR", "~x"))).Cache.Directory);
+        Assert.Equal(Home, Parse("{}", Env(), new CliOverrides { CacheDir = "~" }).Cache.Directory);
+        Assert.Equal(Path.Combine(Root, "~x"), Parse("{}", Env(), new CliOverrides { CacheDir = "~x" }).Cache.Directory);
+    }
+
+    [Fact]
+    public void Rejects_a_blank_cache_dir_and_an_output_the_overridden_cache_directory_overlaps()
+    {
+        Assert.Contains("--cache-dir must be a non-empty path", Assert.Throws<ConfigurationException>(() => Parse("{}", Env(), new CliOverrides { CacheDir = " " })).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "output \".e2e\" (the default) is the cache directory .e2e or inside it",
+            Assert.Throws<ConfigurationException>(() => Parse("{}", Env(("E2E_CACHE_DIR", ".e2e"))).Output).Message,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "output \".e2e\" (the default) would hold --cache-dir .e2e/results/cache under results/, which the run owns; move --cache-dir or the output",
+            Assert.Throws<ConfigurationException>(() => Parse("{}", Env(), new CliOverrides { CacheDir = ".e2e/results/cache" }).Output).Message.Replace('\\', '/'),
+            StringComparison.Ordinal);
     }
 
     // Partial: the port has no string cache mode.
@@ -140,7 +157,7 @@ public sealed class CacheConfigResolutionTests
 
     private static (CacheMode Mode, string Directory) CacheOf(E2EConfig config) => (config.Cache.Mode, config.Cache.Directory);
 
-    private static E2EConfig Parse(string json, Func<string, string?>? environment = null) => E2EConfig.Parse(json, Root, environment ?? Env());
+    private static E2EConfig Parse(string json, Func<string, string?>? environment = null, CliOverrides? cli = null) => E2EConfig.Parse(json, Root, environment ?? Env(), cli ?? new CliOverrides());
 
     private static Func<string, string?> Env(params (string Name, string Value)[] values)
     {
