@@ -132,15 +132,23 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <paramref name="name"/> tells apart when the look is not the step's own (<c>relocate</c>, <c>page</c>), and which books the
     /// observation's size.
     /// </summary>
-    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) => ObserveAsync(mode, name, false, token);
+    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) => ObserveAsync(mode, name, false, null, token);
+
+    /// <summary>
+    /// Upstream's <c>look(mode, settledWhen)</c>: <see cref="ObserveAsync(SettleMode, string?, CancellationToken)"/> where a
+    /// held-still look the caller can already vouch for (<paramref name="settledWhen"/>) returns that capture without the
+    /// proof that it holds still.
+    /// </summary>
+    public Task<Observation> ObserveAsync(SettleMode mode, string? name, Func<Observation, bool>? settledWhen, CancellationToken token) =>
+        ObserveAsync(mode, name, false, settledWhen, token);
 
     // Whether the look asks for pixels is this look's own, so a concurrent look books its size by its own ask. Pixels reserve part
     // of the token ceiling the tree is cut under.
-    private Task<Observation> ObserveAsync(SettleMode mode, string? name, bool pixels, CancellationToken token) =>
+    private Task<Observation> ObserveAsync(SettleMode mode, string? name, bool pixels, Func<Observation, bool>? settledWhen, CancellationToken token) =>
         Phases.InstrumentPhaseAsync(
             new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe, name),
-            () => LookAsync(mode, token),
+            () => LookAsync(mode, settledWhen, token),
             observation => Book(observation, pixels));
 
     /// <summary>The size in bytes of the largest observation the step read, as a model reads it (upstream's <c>metrics.observationBytes</c>).</summary>
@@ -187,7 +195,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // The agent lets the engine answer a screen it cannot read with pixels alone (upstream's `pixelFallback: true`).
     private static readonly ObserveOptions PixelFallbackLook = new() { PixelFallback = true };
 
-    private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
+    private async Task<Observation> LookAsync(SettleMode mode, Func<Observation, bool>? settledWhen, CancellationToken token)
     {
         Looks.Add(mode);
         Observation observation;
@@ -207,6 +215,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                     ChangedFrom = changedFrom,
                     Transitional = AgentObservation.IsTransitional,
                     StableWait = mode == SettleMode.HeldStill ? SettlePolicy.HeldStill : TimeSpan.Zero,
+                    SettledWhen = mode == SettleMode.HeldStill ? settledWhen : null,
                 },
                 time,
                 token).ConfigureAwait(false);
@@ -246,7 +255,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, token).ConfigureAwait(false);
+        var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, null, token).ConfigureAwait(false);
 
         var view = View(observation, scope, options);
         if (options?.Pixels != true && !observation.TreeUnavailable)

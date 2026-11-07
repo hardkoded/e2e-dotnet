@@ -599,14 +599,21 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// </summary>
     internal async Task<(SemanticNode? Node, double? Spans, int Screens)> PageUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
     {
-        string? previous = null;
+        PageReading? previous = null;
         (SemanticNode? Node, double? Spans) paged = (null, null);
         var still = 0;
         for (var screens = 0; ; screens++)
         {
             // A settled look after each page: a browser scrolls on a later frame than the wheel event, and a windowed
             // list renders its rows on a later scroll event, so a raw read right after the swipe sees the page as it was.
-            var observation = await _feed.ObserveAsync(screens == 0 ? SettleMode.Raw : SettleMode.HeldStill, "page", token).ConfigureAwait(false);
+            // A page at least a third (two lines at least) of whose lines are new and that is no sparser has landed, so it
+            // is read once; one that reads the same (not rendered yet, or the end), differs by a line or two (a counter),
+            // or is thinner (rows still drawing) is read until it holds.
+            var observation = await _feed.ObserveAsync(
+                screens == 0 ? SettleMode.Raw : SettleMode.HeldStill,
+                "page",
+                seen => previous is not null && !seen.TreeUnavailable && Reading.PageLanded(previous, Reading.ReadPage(seen)),
+                token).ConfigureAwait(false);
             if (screens == 0)
             {
                 _feed.MarkActing();
@@ -626,8 +633,8 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                 throw new TestException("LOCATOR_NOT_FOUND", "Nothing reading \"" + text + "\" came into view within " + MaxScrollUntilScreens.ToString(CultureInfo.InvariantCulture) + " screens.");
             }
 
-            var shape = Reading.ReadingShape(observation);
-            still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
+            var reading = observation.TreeUnavailable ? null : Reading.ReadPage(observation);
+            still = reading is not null && previous is not null && !Reading.PageMoved(previous, reading) ? still + 1 : 0;
             if (still >= ScrollUntilStillPages)
             {
                 throw new TestException(
@@ -641,7 +648,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                 still = 0;
             }
 
-            previous = shape;
+            previous = reading;
             var turned = await PageAsync(direction, list, token).ConfigureAwait(false);
             paged = turned.Paged;
             list = turned.Within;
