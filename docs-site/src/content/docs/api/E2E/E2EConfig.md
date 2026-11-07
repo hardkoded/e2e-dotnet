@@ -71,9 +71,25 @@ public AgentConfig Agent { get; }
 ```
 
 
-The `default` agent. It always exists; its model may be null.
+The first of `AgentNames`, `default` unless `--agent` picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.
 
 **Value:** [AgentConfig](/api/E2E/AgentConfig/)
+
+<a id="E2E_E2EConfig_AgentNames_"></a>
+<a id="E2E_E2EConfig_AgentNames"></a>
+
+### AgentNames
+
+
+```csharp
+public IReadOnlyList<string> AgentNames { get; }
+```
+
+
+The agents unpinned tests run as (upstream's `agentNames`): `default`, or the names `--agent` gave, in order and
+deduplicated. Never empty.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_E2EConfig_Agents_"></a>
 <a id="E2E_E2EConfig_Agents"></a>

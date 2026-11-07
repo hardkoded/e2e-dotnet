@@ -157,8 +157,14 @@ public sealed class E2EConfig
 
     public IReadOnlyDictionary<string, AgentConfig> Agents { get; private init; } = ReadOnlyDictionary<string, AgentConfig>.Empty;
 
-    /// <summary>The <c>default</c> agent. It always exists; its model may be null.</summary>
-    public AgentConfig Agent => Agents["default"];
+    /// <summary>
+    /// The agents unpinned tests run as (upstream's <c>agentNames</c>): <c>default</c>, or the names <c>--agent</c> gave, in order and
+    /// deduplicated. Never empty.
+    /// </summary>
+    public IReadOnlyList<string> AgentNames { get; private init; } = ["default"];
+
+    /// <summary>The first of <see cref="AgentNames"/>, <c>default</c> unless <c>--agent</c> picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.</summary>
+    public AgentConfig Agent => Agents[AgentNames[0]];
 
     /// <summary>
     /// The absolute path of the test assembly <c>e2e mcp</c> runs a test from (<c>open_session {test}</c>), or null. .NET-only: upstream
@@ -448,6 +454,9 @@ public sealed class E2EConfig
             var credentials = ReadCredentials(Property(root, "credentials"), environment, ReadOnlyDictionary<string, CredentialProvider>.Empty);
             var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null, cli);
             ReadArtifacts(Property(root, "artifacts"));
+            // The port's `--agent` is one name in E2E_AGENT; flags passed by code win over it.
+            var selected = cli.Agents ?? (environment("E2E_AGENT")?.Trim() is { Length: > 0 } run ? [run] : null);
+            var agents = ResolveAgents(Property(root, "agents"), selected);
             return new E2EConfig
             {
                 ConfigPath = configPath,
@@ -462,7 +471,8 @@ public sealed class E2EConfig
                 FailOnSkippedFailure = ReadFailOnSkippedFailure(Property(root, "failOnSkippedFailure")),
                 MaxDuration = Command.PositiveMs(Property(root, "maxDuration"), "maxDuration"),
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
-                Agents = ReadAgents(Property(root, "agents")),
+                Agents = agents.Agents,
+                AgentNames = agents.AgentNames,
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
                 Cache = cache,
                 Reporters = ReadReporters(Property(root, "reporters")),
@@ -665,7 +675,11 @@ public sealed class E2EConfig
         throw Invalid(where + " must be one of " + RecordingModes.List + ", got " + value.GetRawText());
     }
 
-    private static ReadOnlyDictionary<string, AgentConfig> ReadAgents(JsonElement? raw)
+    /// <summary>
+    /// Upstream's <c>resolveAgents</c>: every named entry, and <c>default</c> even when the config names none. The run's agents are
+    /// <c>default</c> alone unless <c>--agent</c> named others; an unknown name is a config error before anything starts.
+    /// </summary>
+    private static (ReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyList<string> AgentNames) ResolveAgents(JsonElement? raw, IReadOnlyList<string>? selected)
     {
         var agents = new Dictionary<string, AgentConfig>(StringComparer.Ordinal);
         if (raw is not null)
@@ -736,7 +750,17 @@ public sealed class E2EConfig
         }
 
         agents.TryAdd("default", new AgentConfig());
-        return new ReadOnlyDictionary<string, AgentConfig>(agents);
+        // `--agent a --agent a` is one agent, not two results per test.
+        IReadOnlyList<string> agentNames = selected is null || selected.Count == 0 ? ["default"] : [.. selected.Distinct(StringComparer.Ordinal)];
+        foreach (var name in agentNames)
+        {
+            if (!agents.ContainsKey(name))
+            {
+                throw Invalid("unknown agent \"" + name + "\"; configured: " + string.Join(", ", agents.Keys) + Suggestions.DidYouMean(name, [.. agents.Keys]));
+            }
+        }
+
+        return (new ReadOnlyDictionary<string, AgentConfig>(agents), agentNames);
     }
 
     private static ReadOnlyDictionary<string, JsonElement>? ReadProviderOptions(JsonElement? raw, string label)
@@ -1674,9 +1698,12 @@ public sealed class AgentConfig
 /// <summary>What turned <c>cache.strict</c> on for the run: the config key, the <c>--strict-cache</c> flag, or both (upstream's <c>CacheStrictSource</c>).</summary>
 internal sealed record CacheStrictSource(bool Config, bool Flag);
 
-/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c> exists in the port.</summary>
+/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c> and <c>agents</c> exist in the port.</summary>
 internal sealed record CliOverrides
 {
+    /// <summary>Upstream's <c>--agent</c> (<c>agents</c>): the configured agents unpinned tests run as, instead of <c>default</c> alone.</summary>
+    public IReadOnlyList<string>? Agents { get; init; }
+
     /// <summary>Upstream's <c>--strict-cache</c>: turns <c>cache.strict</c> on for the run.</summary>
     public bool CacheStrict { get; init; }
 }
