@@ -31,6 +31,9 @@ internal static class Trace
     /// <summary>Upstream's <c>MAX_TRACE_ACTIONS</c>: mirrors the default step action budget; overflow marks the trace truncated.</summary>
     public const int MaxTraceActions = 50;
 
+    /// <summary>Upstream's <c>MAX_TRACE_SUMMARY_CHARS</c>: the longest summary a recorded action keeps.</summary>
+    public const int MaxTraceSummaryChars = 300;
+
     /// <summary>Upstream's <c>MAX_TRACE_ANCHORS</c>: the most anchors one side of the recorded delta holds.</summary>
     public const int MaxTraceAnchors = 8;
 
@@ -60,8 +63,8 @@ internal static class Trace
     /// Upstream's <c>mapTraceText</c>: applies <paramref name="map"/> to every recorded string a screen value can appear in: typed and
     /// selected values, navigated URLs, both routes, target and anchor text, and the upload paths. Keys (<c>press</c>), secret names,
     /// roles, executor identity, and provenance are vocabulary and are left alone. The one list of text-bearing fields lives here,
-    /// beside the entry it walks; a null from <paramref name="map"/> makes the whole result null. The port records no action
-    /// summaries and no verdict summary, so it has none to map. Returns a copy; the entry is not changed.
+    /// beside the entry it walks; a null from <paramref name="map"/> makes the whole result null. Each action's summary
+    /// maps too (<see cref="RecordedAction.Summary"/>); the port records no verdict summary, so it has none to map. Returns a copy; the entry is not changed.
     /// </summary>
     public static CacheEntry? MapTraceText(CacheEntry trace, Func<string, string?> map)
     {
@@ -152,6 +155,12 @@ internal static class Trace
             return null;
         }
 
+        if (!TryMap(action.Summary, map, out var summary))
+        {
+            return null;
+        }
+
+        mapped.Summary = summary;
         mapped.Name = name;
         mapped.TestId = testId;
         mapped.Within = within;

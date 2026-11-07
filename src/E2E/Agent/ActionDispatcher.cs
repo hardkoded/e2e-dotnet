@@ -397,7 +397,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "scrollUntil",
             async token =>
             {
-                var (paged, spans) = await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                var (paged, spans, screens) = await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
                 var recorded = paged is null ? null : Target(paged, "scrollUntil");
                 await CommitAsync(new RecordedAction
                 {
@@ -408,6 +408,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     Direction = DirectionName(direction),
                     Text = text,
                     Spans = spans,
+                    Screens = screens,
                 }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -596,7 +597,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// list that does not move hands the paging to the viewport. The list is re-found before
     /// every page.
     /// </summary>
-    internal async Task<(SemanticNode? Node, double? Spans)> PageUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
+    internal async Task<(SemanticNode? Node, double? Spans, int Screens)> PageUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
     {
         string? previous = null;
         (SemanticNode? Node, double? Spans) paged = (null, null);
@@ -617,7 +618,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             if (found is not null)
             {
                 await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), OperationContext.Agent, token).ConfigureAwait(false);
-                return paged;
+                return (paged.Node, paged.Spans, screens);
             }
 
             if (screens >= MaxScrollUntilScreens)

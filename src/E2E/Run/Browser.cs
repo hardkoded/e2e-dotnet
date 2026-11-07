@@ -449,7 +449,7 @@ public sealed class Browser
 
     internal IBrowserSession Require(string operation)
     {
-        return _session as IBrowserSession
+        return EngineSession.Unwrap(_session) as IBrowserSession
             ?? throw new EngineException(
                 "UNSUPPORTED_CAPABILITY",
                 "browser." + operation + " needs a browser engine; the " + _platform + " engine does not provide one.");

@@ -73,7 +73,7 @@ public sealed class Trace1EntryTests
     /// <summary>
     /// Partial port of "round-trips every action variant through JSON": the port's actions are <c>fill</c>, <c>check</c>,
     /// <c>uncheck</c>, <c>clear</c>, <c>scrollTo</c>, and <c>scrollUntil</c> beside the shared ones, with no <c>typeSecret</c>
-    /// and no summary, and the entry carries no executor.
+    /// and no verdict summary, and the entry carries no executor.
     /// </summary>
     [Fact]
     public void Round_trips_every_action_kind_the_port_records_through_the_file_store()

@@ -9,8 +9,9 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.RelocateWithin;
 
 /// <summary>
-/// Ports <c>relocate-within.test.ts</c>'s "container keys". The port records no action summary, so the prose is
-/// <see cref="DefaultAgent.Describe"/>, the one the hand-off and the <c>OnAction</c> event read. The relocation case of "relocates a
+/// Ports <c>relocate-within.test.ts</c>'s "container keys". The prose is
+/// <see cref="DefaultAgent.Describe"/>, the one the hand-off and the <c>OnAction</c> event read; it is not yet the recorded
+/// <see cref="RecordedAction.Summary"/> (<c>AgentActions.DescribeAction</c>) that upstream shares between them. The relocation case of "relocates a
 /// same-named control by its row instead of diverging as ambiguous" and the windowed list run through <see cref="E2E.Agent.Find"/>, the
 /// descriptor match replay uses today.
 /// </summary>
