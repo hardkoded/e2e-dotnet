@@ -214,3 +214,75 @@ internal sealed class SoftFailures
         return ErrorRedaction.Failure("ASSERTION_FAILED", string.Join('\n', lines), failures[0], Redact);
     }
 }
+
+/// <summary>
+/// The value matchers of <see cref="ValueExpectation{T}"/>, but an <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, and the
+/// test body runs on. Any other error, such as <c>INVALID_ARGUMENT</c>, still throws.
+/// </summary>
+public sealed class SoftValueExpectation<T>
+{
+    private readonly ValueExpectation<T> _expect;
+    private readonly SoftFailures _failures;
+
+    internal SoftValueExpectation(ValueExpectation<T> expect, SoftFailures failures)
+    {
+        _expect = expect;
+        _failures = failures;
+    }
+
+    /// <summary>Inverts the matcher, as <see cref="ValueExpectation{T}.Not"/>. A failure is still kept, not thrown.</summary>
+    public SoftValueExpectation<T> Not => new(_expect.Not, _failures);
+
+    public void ToBe(T expected) => Keep(() => _expect.ToBe(expected));
+
+    public void ToEqual(object? expected) => Keep(() => _expect.ToEqual(expected));
+
+    public void ToMatchObject(object expected) => Keep(() => _expect.ToMatchObject(expected));
+
+    public void ToBeTruthy() => Keep(_expect.ToBeTruthy);
+
+    public void ToBeFalsy() => Keep(_expect.ToBeFalsy);
+
+    public void ToBeNull() => Keep(_expect.ToBeNull);
+
+    public void ToBeUndefined() => Keep(_expect.ToBeUndefined);
+
+    public void ToBeDefined() => Keep(_expect.ToBeDefined);
+
+    public void ToHaveLength(int expected) => Keep(() => _expect.ToHaveLength(expected));
+
+    public void ToHaveProperty(string path) => Keep(() => _expect.ToHaveProperty(path));
+
+    public void ToHaveProperty(string path, object? expected) => Keep(() => _expect.ToHaveProperty(path, expected));
+
+    public void ToHaveProperty(IReadOnlyList<object> path) => Keep(() => _expect.ToHaveProperty(path));
+
+    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) => Keep(() => _expect.ToHaveProperty(path, expected));
+
+    public void ToContain(object? expected) => Keep(() => _expect.ToContain(expected));
+
+    public void ToMatch(string expected) => Keep(() => _expect.ToMatch(expected));
+
+    public void ToMatch(Regex expected) => Keep(() => _expect.ToMatch(expected));
+
+    public void ToBeGreaterThan(double expected) => Keep(() => _expect.ToBeGreaterThan(expected));
+
+    public void ToBeGreaterThanOrEqual(double expected) => Keep(() => _expect.ToBeGreaterThanOrEqual(expected));
+
+    public void ToBeLessThan(double expected) => Keep(() => _expect.ToBeLessThan(expected));
+
+    public void ToBeLessThanOrEqual(double expected) => Keep(() => _expect.ToBeLessThanOrEqual(expected));
+
+    public void ToBeCloseTo(double expected, int digits = 2) => Keep(() => _expect.ToBeCloseTo(expected, digits));
+
+    private void Keep(Action matcher)
+    {
+        try
+        {
+            matcher();
+        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex))
+        {
+        }
+    }
+}

@@ -121,6 +121,9 @@ public sealed class Dashboard : E2ETest
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record each failure on the NUnit result, as inside
   `Assert.EnterMultipleScope`. The test body runs on, and the test fails
   when it ends, with every failure listed.
+- `Expect.That(value, "message")` checks a plain value at once (`ToBeGreaterThanOrEqual`, `ToBeCloseTo`,
+  `ToEqual`, and the rest, as upstream's `expect(value)`), and `Expect.Soft(Screen, value)` keeps its failure
+  as `Expect.Soft(locator)` does. Topic `writing-tests` lists the matchers.
 - `Expect.Poll(read)` retries a value. `E2E.NUnit` adds `ToMatchAsync` with
   any NUnit constraint: `await Expect.Poll(() => ReadCountAsync()).ToMatchAsync(Is.GreaterThan(3));`.
   `ToBeAsync` and `ToSatisfyAsync(predicate)` work too.

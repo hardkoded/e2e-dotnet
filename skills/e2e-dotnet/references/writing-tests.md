@@ -312,7 +312,15 @@ matcher.
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
   string), is one failing sample, not the end of the poll. At the deadline
   the last one is reported.
-- For plain values, use the framework's asserts (`Assert.That`).
+- For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
+  retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,
+  `ToBeDefined`, `ToHaveLength`, `ToHaveProperty`, `ToContain`, `ToMatch`, `ToBeGreaterThan`,
+  `ToBeGreaterThanOrEqual`, `ToBeLessThan`, `ToBeLessThanOrEqual`, and `ToBeCloseTo`, each with `.Not`.
+  The message opens every failure. `Expect.Any(typeof(int))`, `Anything()`, `ObjectContaining`,
+  `ArrayContaining`, `StringContaining`, and `StringMatching` stand in for a value inside
+  `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(Screen, value)` keeps a
+  failure. `null` is both `null` and `undefined`, and there is no `ToMatchSchema`. The framework's
+  asserts (`Assert.That`) still work.
 
 ## Sign-in
 
