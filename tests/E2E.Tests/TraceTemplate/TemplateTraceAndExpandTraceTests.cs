@@ -32,28 +32,23 @@ public sealed class TemplateTraceAndExpandTraceTests
     {
         Actions =
         [
-            new RecordedAction { Kind = "navigate", Url = "/companies/create" },
-            new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = name },
-            new RecordedAction { Kind = "fill", Role = "textbox", Name = "Password", Value = "<secret:admin>" },
-            new RecordedAction { Kind = "tap", Role = "option", Name = name, Within = name },
-            new RecordedAction { Kind = "press", Role = "textbox", Name = "Name", Key = "Enter" },
+            new RecordedAction { Kind = "navigate", Summary = "navigate to \"/companies/create\"", Url = "/companies/create" },
+            new RecordedAction { Kind = "fill", Summary = $"type \"{name}\" into textbox \"Name\"", Role = "textbox", Name = "Name", Value = name },
+            new RecordedAction { Kind = "fill", Summary = "fill secret \"admin\" into textbox \"Password\"", Role = "textbox", Name = "Password", Value = "<secret:admin>" },
+            new RecordedAction { Kind = "tap", Summary = $"tap option \"{name}\" in row \"{name}\"", Role = "option", Name = name, Within = name },
+            new RecordedAction { Kind = "press", Summary = "press \"Enter\" on textbox \"Name\"", Role = "textbox", Name = "Name", Key = "Enter" },
         ],
         Route = "/companies",
         EndRoute = "/companies/123",
         Appeared = [new RecordedTarget { Role = "heading", Name = name }],
     };
 
-    /// <summary>
-    /// Partial port of "templates upload paths, so a file named through unique() is re-resolved from each run's value": the recorded
-    /// action's paths carry the slot and fill from the next run's value. The port records no action summary, so the summary check is
-    /// not ported.
-    /// </summary>
     [Fact]
-    public void Partial_Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
+    public void Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
     {
         static CacheEntry Upload(string file) => new()
         {
-            Actions = [new RecordedAction { Kind = "upload", Role = "button", Name = "Attachment", Paths = [file, "fixtures/static.txt"] }],
+            Actions = [new RecordedAction { Kind = "upload", Summary = $"upload \"{file}\", \"fixtures/static.txt\" to button \"Attachment\"", Role = "button", Name = "Attachment", Paths = [file, "fixtures/static.txt"] }],
             Route = "/",
         };
         static List<ParamTemplate> Paths(string value) => [new("/file", value)];
@@ -61,14 +56,15 @@ public sealed class TemplateTraceAndExpandTraceTests
         var recorded = CacheKeys.TemplateTrace(Upload("fixtures/run-1.json"), Paths("fixtures/run-1.json"))!;
 
         Assert.Equal(["{{param:/file}}", "fixtures/static.txt"], recorded.Actions[0].Paths);
+        Assert.Equal("upload \"{{param:/file}}\", \"fixtures/static.txt\" to button \"Attachment\"", recorded.Actions[0].Summary);
         Assert.Equal(Json(Upload("fixtures/run-2.json")), Json(CacheKeys.ExpandTrace(recorded, Paths("fixtures/run-2.json"))));
         Assert.Null(CacheKeys.ExpandTrace(recorded, []));
     }
 
     /// <summary>
     /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's value": the
-    /// typed value, the target descriptor and the end anchors carry the slot and fill from the next run. The port records no action
-    /// summaries and no verdict summary, so those checks are not ported.
+    /// typed value, the action summary, the target descriptor and the end anchors carry the slot and fill from the next run. The port
+    /// records no verdict summary, so that check is not ported.
     /// </summary>
     [Fact]
     public void Partial_Templates_inputs_descriptors_anchors_and_action_summaries_and_expands_them_with_another_runs_value()
@@ -76,6 +72,7 @@ public sealed class TemplateTraceAndExpandTraceTests
         var recorded = CacheKeys.TemplateTrace(Recording("E2E abc Company"), Name("E2E abc Company"))!;
 
         Assert.Equal("{{param:/name}}", recorded.Actions[1].Value);
+        Assert.Equal("type \"{{param:/name}}\" into textbox \"Name\"", recorded.Actions[1].Summary);
         Assert.Equal("{{param:/name}}", recorded.Actions[3].Name);
         Assert.Equal("option", recorded.Actions[3].Role);
         Assert.Equal("{{param:/name}}", recorded.Actions[3].Within);
@@ -83,6 +80,7 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Equal("heading", recorded.Appeared[0].Role);
 
         // Secrets and keys are never text a parameter produced.
+        Assert.Equal("fill secret \"admin\" into textbox \"Password\"", recorded.Actions[2].Summary);
         Assert.Equal("<secret:admin>", recorded.Actions[2].Value);
         Assert.Equal("Enter", recorded.Actions[4].Key);
 

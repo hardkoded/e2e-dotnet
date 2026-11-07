@@ -287,7 +287,7 @@ internal sealed class StepTraceSession
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value; this call's values fill it (upstream's expandTrace). One this call cannot fill is an entry recorded
         // for another shape, which the key should have kept apart.
-        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.HasValidCaps() || !entry.Actions.All(action => action.HasValidInputs() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
+        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.HasValidCaps() || !entry.Actions.All(action => action.HasValidInputs() && action.HasValidSummary() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
             || CacheKeys.ExpandTrace(entry, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
         {
             return new EntryRead(null, "invalid-entry");

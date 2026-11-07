@@ -12,7 +12,7 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// The port's recorder keeps a plain action list: no summaries, CSS selectors, secret names, or entry validation. So
+/// The port's recorder keeps a plain action list: no CSS selectors, secret names, or entry validation. So
 /// upstream's "rejects a stored check or upload that lost a field" is not ported whole. The bare-point its are in
 /// <see cref="TraceRecorderBarePointTapsTests"/> and <see cref="TraceRecorderBarePointDragsTests"/>. The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
 /// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
@@ -49,7 +49,7 @@ public sealed class TraceRecorderTests
         return Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
     }
 
-    /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no summary and no CSS selector.</summary>
+    /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no CSS selector.</summary>
     [Fact]
     public void Records_the_durable_descriptors_of_each_action()
     {
@@ -66,6 +66,9 @@ public sealed class TraceRecorderTests
         Assert.Equal(
             [("navigate", "/billing", null, null, null, null), ("tap", null, "button", "Upgrade", "upgrade-cta", null), ("fill", null, "button", "Upgrade", "upgrade-cta", "yearly")],
             entry.Actions.Select(action => (action.Kind, action.Url, action.Role, action.Name, action.TestId, action.Value)));
+        Assert.Equal(
+            ["navigate to \"/billing\"", "tap button \"Upgrade\"", "type \"yearly\" into button \"Upgrade\""],
+            entry.Actions.Select(action => action.Summary));
     }
 
     /// <summary>Partial port of "always finalizes into a trace the reader accepts": the reader is the file store, which has no entry validation beyond reading the entry back.</summary>
@@ -96,6 +99,7 @@ public sealed class TraceRecorderTests
         Assert.Contains("<secret:member-password>", serialized, StringComparison.Ordinal);
         Assert.Equal("<secret:member-password>", entry.Actions[0].Value);
         Assert.Equal("Greeting <secret:member-password>", entry.Actions[1].Name);
+        Assert.Equal("fill secret \"member-password\" into textbox \"Password\"", entry.Actions[0].Summary);
         Assert.Equal("example/<secret:member-password>", entry.RecordedBy);
         // Descriptor redaction alone never poisons the trace.
         Assert.Null(entry.Truncated);
@@ -176,11 +180,8 @@ public sealed class TraceRecorderTests
         Assert.Equal(("scroll", "down", (int?)5), (read.Actions[0].Kind, read.Actions[0].Direction, read.Actions[0].Times));
     }
 
-    /// <summary>
-    /// Partial: the port keeps no summary, so the paged <c>scrollUntil</c>'s summary is not checked.
-    /// </summary>
     [Fact]
-    public void Partial_keeps_the_smallest_coverage_when_folding_scrolls_and_none_when_a_repeat_lacks_one()
+    public void Keeps_the_smallest_coverage_when_folding_scrolls_and_none_when_a_repeat_lacks_one()
     {
         var recorder = MakeRecorder();
         recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
@@ -189,11 +190,13 @@ public sealed class TraceRecorderTests
         Assert.Equal(("scroll", 2, 0.4), (folded.Kind, folded.Times, folded.Spans));
 
         var paged = MakeRecorder();
-        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 4322", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
-        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 12", Direction = "up" });
+        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 4322", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6, Screens = 7 });
+        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 12", Direction = "up", Screens = 1 });
         var entry = Finalize(paged)!;
+        Assert.Equal(["scroll down on group \"Rows\" until \"Row 4322\" shows (7 screens)", "scroll up until \"Row 12\" shows (1 screen)"], entry.Actions.Select(action => action.Summary));
         Assert.Equal([("Row 4322", "down", (double?)0.6, "group"), ("Row 12", "up", null, null)], entry.Actions.Select(action => (action.Text, action.Direction, action.Spans, action.Role)));
         Assert.Equal(entry.Actions.Select(action => action.Spans), RoundTrip(entry).Actions.Select(action => action.Spans));
+        Assert.Equal(entry.Actions.Select(action => action.Summary), RoundTrip(entry).Actions.Select(action => action.Summary));
 
         var mixed = MakeRecorder();
         mixed.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
@@ -203,7 +206,7 @@ public sealed class TraceRecorderTests
         Assert.Null(unfolded.Spans);
     }
 
-    /// <summary>Partial port of "marks a gap that ends replay for a mutating project tool": the port's gap is an action of kind <c>tool</c> whose text is the tool name, and it has no summary.</summary>
+    /// <summary>Partial port of "marks a gap that ends replay for a mutating project tool": the port's gap is an action of kind <c>tool</c> whose text is the tool name, where upstream's holds only a summary.</summary>
     [Fact]
     public void Marks_a_gap_that_ends_replay_by_tool_name_for_a_mutating_project_tool()
     {
@@ -213,7 +216,7 @@ public sealed class TraceRecorderTests
 
         var entry = Finalize(recorder)!;
 
-        Assert.Equal(("tool", "seed_cart"), (entry.Actions[1].Kind, entry.Actions[1].Text));
+        Assert.Equal(("tool", "seed_cart", "tool seed_cart"), (entry.Actions[1].Kind, entry.Actions[1].Text, entry.Actions[1].Summary));
     }
 
     [Fact]
@@ -303,12 +306,11 @@ public sealed class TraceRecorderTests
         Assert.Null(Finalize(MakeRecorder()));
     }
 
-    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port keeps no summary. The resize step is recorded and read back as upstream's is.</summary>
     [Fact]
-    public void Records_every_node_verb_a_state_a_drag_with_its_destination_and_a_back_step_and_reads_them_back()
+    public void Records_every_node_verb_a_state_a_drag_with_its_destination_files_and_a_back_step_and_reads_them_back()
     {
         var recorder = MakeRecorder();
-        foreach (var kind in new[] { "hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear" })
+        foreach (var kind in new[] { "hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck" })
         {
             recorder.Record(kind, UpgradeButton);
         }
@@ -316,19 +318,53 @@ public sealed class TraceRecorderTests
         var drag = Recorder.ActionOf("drag", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
         drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
         recorder.Record(drag);
+        var upload = Recorder.ActionOf("upload", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
+        upload.Paths = ["fixtures/a.txt", "fixtures/b.txt"];
+        recorder.Record(upload);
         recorder.Record(new RecordedAction { Kind = "back" });
         recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
         recorder.Record("hoverAt", new PlacedPoint(new Point(10, 20)), new TraceViewport(1280, 720));
-        var entry = Finalize(recorder)!;
+        var entry = Finalize(recorder, "/board")!;
 
         var read = RoundTrip(entry);
 
         Assert.Null(entry.Truncated);
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back", "resize", "hoverAt"], entry.Actions.Select(action => action.Kind));
-        Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[11].Point!.Value, read.Actions[11].Viewport));
-        Assert.Equal(("region", "Done column", "Board"), (read.Actions[8].Destination?.Role, read.Actions[8].Destination?.Name, read.Actions[8].Destination?.Within));
-        Assert.Equal(new TraceViewport(390, 844), read.Actions[10].Size);
+        Assert.Equal(
+            [
+                "hover over button \"Upgrade\"",
+                "double-tap button \"Upgrade\"",
+                "long-press button \"Upgrade\"",
+                "secondary-tap button \"Upgrade\"",
+                "scroll button \"Upgrade\" into view",
+                "uncheck button \"Upgrade\"",
+                "drag button \"Upgrade\" to region \"Done column\" in \"Board\"",
+                "upload \"fixtures/a.txt\", \"fixtures/b.txt\" to button \"Upgrade\"",
+                "navigate back",
+                "resize the viewport to 390x844",
+                "hover over the point (10, 20)",
+            ],
+            entry.Actions.Select(action => action.Summary));
+        Assert.Equal("uncheck", entry.Actions[5].Kind);
+        Assert.Equal(("region", "Done column", "Board"), (entry.Actions[6].Destination?.Role, entry.Actions[6].Destination?.Name, entry.Actions[6].Destination?.Within));
+        Assert.Equal(["fixtures/a.txt", "fixtures/b.txt"], entry.Actions[7].Paths);
+        Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[10].Point!.Value, read.Actions[10].Viewport));
+        Assert.Equal(new TraceViewport(390, 844), read.Actions[9].Size);
+        Assert.Equal("resize", entry.Actions[9].Kind);
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
+    }
+
+    /// <summary>
+    /// .NET-only: no upstream <c>it</c> covers the kinds the port records beyond upstream's grammar. A <c>check</c> and a <c>clear</c> are
+    /// their own kinds in the port; upstream's <c>check</c> carries <c>checked</c> and its <c>type</c> carries an empty value.
+    /// </summary>
+    [Fact]
+    public void Summarizes_a_check_and_a_clear_the_port_records_as_their_own_kinds()
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("check", UpgradeButton);
+        recorder.Record("clear", UpgradeButton);
+
+        Assert.Equal(["check button \"Upgrade\"", "type \"\" into button \"Upgrade\""], Finalize(recorder)!.Actions.Select(action => action.Summary));
     }
 
     /// <summary>Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the upload's paths, the drag's destination, and the resize's size, which the port checks on the action itself. The check's <c>checked</c> (a typed bool) and the resize's non-integer side (a typed int) cannot be malformed in a typed entry, and the unknown name is a store concern.</summary>

@@ -15,7 +15,8 @@ namespace E2E.Cache;
 /// content passes through the redactor as it is recorded. Replay inputs are verbatim or nothing: a value the redactor would alter, or
 /// one over <see cref="Trace.MaxTraceInputChars"/>, poisons the trace (<see cref="CacheEntry.Truncated"/>) instead of being bent to fit, and so does an
 /// action past the action cap and a target no replay could re-find. A poisoned trace still documents what happened; it never replays.
-/// The port records no summary, and keeps the recorded actions in the order they ran for <see cref="Finalize"/>.
+/// Each action keeps the readable summary <see cref="AgentActions.DescribeAction"/> gives it, redacted and bounded, and a
+/// summary never poisons the trace. The port keeps the recorded actions in the order they ran for <see cref="Finalize"/>.
 /// </summary>
 /// <param name="redactor">The step's redactor, read at each record: a secret the step resolves late masks what it recorded after.</param>
 /// <param name="time">The clock <see cref="LastActionAtMs"/> reads. No upstream counterpart: upstream reads <c>Date.now()</c>.</param>
@@ -54,7 +55,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     {
         ArgumentNullException.ThrowIfNull(point);
         ArgumentNullException.ThrowIfNull(viewport);
-        return Record(new RecordedAction { Kind = kind, Point = point.Point, Viewport = viewport, Under = WithinOf(point) });
+        return Record(new RecordedAction { Kind = kind, Point = point.Point, Viewport = viewport, Under = WithinOf(point) }, DescribePlaced(point));
     }
 
     /// <summary>Records one committed <c>dragAt</c> (upstream's <c>record</c> of a <c>dragAt</c>): both points with the viewport, each placed inside its node.</summary>
@@ -69,8 +70,12 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
             Viewport = viewport,
             From = new RecordedPointEnd { Point = from.Point, Under = WithinOf(from) },
             To = new RecordedPointEnd { Point = to.Point, Under = WithinOf(to) },
-        });
+        }, DescribePlaced(from), DescribePlaced(to));
     }
+
+    /// <summary>Upstream's <c>describePlaced</c> for a point: the listed node that held it, described whether or not a replay could re-find it, for the summary alone.</summary>
+    private RecordedTarget? DescribePlaced(PlacedPoint placed) =>
+        placed.Under is null ? null : DescribeTarget(placed.Under, redactor(), placed.Within, placed.Position);
 
     /// <summary>
     /// Upstream's <c>withinOf</c>: a bare point's place inside the box of the listed node that contained it. The point replays as given on a
@@ -115,10 +120,13 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     };
 
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
-    public RecordedAction Record(RecordedAction action)
+    public RecordedAction Record(RecordedAction action) => Record(action, null, null);
+
+    /// <summary>Records <paramref name="action"/>; <paramref name="target"/> and <paramref name="destination"/> are the point targets its summary reads (see <see cref="AgentActions.DescribeAction"/>).</summary>
+    private RecordedAction Record(RecordedAction action, RecordedTarget? target, RecordedTarget? destination = null)
     {
         ArgumentNullException.ThrowIfNull(action);
-        var recorded = Stored(action);
+        var recorded = Stored(action, target, destination);
         Push(recorded);
         _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
         return recorded;
@@ -129,9 +137,10 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// it by (none at all, or an unnamed twin with no named row to tell it apart) cannot replay, so the trace stays honest by poisoning instead
     /// of guessing; and a replay input is kept by <see cref="Verbatim"/>. A secret fill holds its marker, a name, and is not an input.
     /// </summary>
-    private RecordedAction Stored(RecordedAction action)
+    private RecordedAction Stored(RecordedAction action, RecordedTarget? target = null, RecordedTarget? destination = null)
     {
         var stored = action.Copy();
+        stored.Summary = Summarized(action, target, destination);
         if (TargetedKinds.Contains(action.Kind))
         {
             Require(TargetOf(action));
@@ -165,12 +174,24 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         return stored;
     }
 
+    /// <summary>
+    /// The summary an action is stored with: the one it brought (a replayed action holds the entry's own, templated), else the one
+    /// <see cref="AgentActions.DescribeAction"/> reads off it. Either way it is redacted and bounded again, so no text reaches the entry unredacted.
+    /// </summary>
+    private string Summarized(RecordedAction action, RecordedTarget? target, RecordedTarget? destination)
+    {
+        var current = redactor();
+        var summary = action.Summary ?? AgentActions.DescribeAction(action, current, target, destination);
+        // Redacted again as a whole: a secret resolved after the node was described still masks the descriptor text the prose holds.
+        return TextRules.Bound(current.Redact(summary), Trace.MaxTraceSummaryChars);
+    }
+
     /// <summary>Upstream's node verbs: the actions that name the node they act on, so they replay only by re-finding it.</summary>
     private static readonly HashSet<string> TargetedKinds =
         ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag"];
 
     /// <summary>The descriptor an action holds flat (the port's shape; upstream nests it as <c>target</c>).</summary>
-    private static RecordedTarget TargetOf(RecordedAction action) => new()
+    internal static RecordedTarget TargetOf(RecordedAction action) => new()
     {
         Role = action.Role,
         Name = action.Name,
@@ -245,6 +266,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
             return;
         }
 
+        scroll.Summary = Summarized(scroll, null, null);
         Push(scroll);
         _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
     }

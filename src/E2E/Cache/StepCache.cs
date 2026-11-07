@@ -149,6 +149,23 @@ public sealed class RecordedAction
 {
     public string Kind { get; set; } = "";
 
+    /// <summary>
+    /// Upstream's <c>summary</c> of a recorded action (<c>AgentActions.DescribeAction</c>): redacted, bounded prose, <c>tap button "Approve"</c>,
+    /// the only view a mid-step hand-off notice shows. Secret values never appear, a secret's name stands in. Null on an action recorded before
+    /// the summary was stored: upstream refuses such an entry, the port keeps reading it (.NET-only leniency, so recorded caches stay readable).
+    /// </summary>
+    public string? Summary { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>screens</c> of a <c>scrollUntil</c> before it is recorded: how many pages it took, which only the summary says, never the
+    /// trace, since a replay pages for itself. Not stored.
+    /// </summary>
+    [JsonIgnore]
+    internal int? Screens { get; set; }
+
+    /// <summary>Whether <see cref="Summary"/> is well formed: absent, or within <see cref="Trace.MaxTraceSummaryChars"/>. Upstream's <c>readBoundedText</c>, which makes an oversized summary a miss.</summary>
+    internal bool HasValidSummary() => Summary is not { Length: > Trace.MaxTraceSummaryChars };
+
     public string? Role { get; set; }
 
     public string? Name { get; set; }

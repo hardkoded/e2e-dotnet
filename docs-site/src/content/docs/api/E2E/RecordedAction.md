@@ -281,6 +281,23 @@ Null for a scroll with no list, and for a list on an engine that does not measur
 
 **Value:** [double?](https://learn.microsoft.com/dotnet/api/system.double)
 
+<a id="E2E_RecordedAction_Summary_"></a>
+<a id="E2E_RecordedAction_Summary"></a>
+
+### Summary
+
+
+```csharp
+public string? Summary { get; set; }
+```
+
+
+Upstream's `summary` of a recorded action (`AgentActions.DescribeAction`): redacted, bounded prose, `tap button "Approve"`,
+the only view a mid-step hand-off notice shows. Secret values never appear, a secret's name stands in. Null on an action recorded before
+the summary was stored: upstream refuses such an entry, the port keeps reading it (.NET-only leniency, so recorded caches stay readable).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_RecordedAction_TestId_"></a>
 <a id="E2E_RecordedAction_TestId"></a>
 
