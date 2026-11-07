@@ -498,7 +498,7 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one_PARTIAL_no_typo_hint_or_non_string_name()
+    public async Task Partial_Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one()
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
