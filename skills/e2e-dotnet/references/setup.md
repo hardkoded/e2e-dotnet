@@ -163,6 +163,8 @@ unknown key fails with `INVALID_CONFIG`.
 | `assertionTimeout` | `5000` | `Expect` polling window, ms. |
 | `cleanupTimeout` | `30000` | Engine cleanup, ms: the engine's shutdown after each attempt, and the release of a hosted device when `e2e explore` or `e2e mcp` ends its session. |
 | `testAssembly` | none | Path to the built NUnit test assembly, relative to the config. `open_session {test}` runs one test from it (see the `mcp` topic). |
+| `failOnSkippedFailure` | `false` | A boolean. Checked and carried (`E2EConfig.FailOnSkippedFailure`), but not used: the port has no runner to derive an exit code from skipped tests. Any other value is `INVALID_CONFIG`. |
+| `maxDuration` | none | The run's duration limit, a positive integer of ms up to `2147483647`. Checked and carried (`E2EConfig.MaxDuration`), but not used: the test framework owns the run, so nothing stops it. Neither key changes the config digest. |
 | `retries` | `0` | Checked, but not used: retries come from NUnit `[Retry]`. |
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |

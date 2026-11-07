@@ -5,13 +5,44 @@
 namespace E2E.Tests.Config;
 
 /// <summary>
-/// <c>describe('resolveConfig')</c> of <c>config.test.ts</c>. Not ported: "validates the opt-in skip failure policy without invalidating
-/// recordings" and "validates maxDuration as milliseconds without invalidating recordings", since the port has no <c>failOnSkippedFailure</c>
-/// or <c>maxDuration</c> option (<see cref="E2EConfig"/> refuses both keys), so neither the option nor its digest half exists (#1307).
+/// <c>describe('resolveConfig')</c> of <c>config.test.ts</c>.
 /// </summary>
 public sealed class ResolveConfigTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
+
+    [Fact]
+    public void Validates_the_opt_in_skip_failure_policy_without_invalidating_recordings()
+    {
+        Assert.False(E2EConfig.Parse("{}", Root, Env()).FailOnSkippedFailure);
+        Assert.True(E2EConfig.Parse("""{ "failOnSkippedFailure": true }""", Root, Env()).FailOnSkippedFailure);
+        Assert.False(E2EConfig.Parse("""{ "failOnSkippedFailure": false }""", Root, Env()).FailOnSkippedFailure);
+        Assert.Equal(Digest("{}"), Digest("""{ "failOnSkippedFailure": true }"""));
+        foreach (var value in new[] { "\"true\"", "1", "null", "{}" })
+        {
+            var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse($$"""{ "failOnSkippedFailure": {{value}} }""", Root, Env()));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Contains("failOnSkippedFailure must be a boolean", error.Message, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void Validates_maxDuration_as_milliseconds_without_invalidating_recordings()
+    {
+        Assert.Null(E2EConfig.Parse("{}", Root, Env()).MaxDuration);
+        Assert.Equal(TimeSpan.FromMilliseconds(900_000), E2EConfig.Parse("""{ "maxDuration": 900000 }""", Root, Env()).MaxDuration);
+        Assert.Equal(Digest("{}"), Digest("""{ "maxDuration": 900000 }"""));
+        foreach (var value in new[] { "0", "-1", "2.5", "\"15m\"" })
+        {
+            var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse($$"""{ "maxDuration": {{value}} }""", Root, Env()));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Contains("maxDuration must be a positive safe integer of milliseconds", error.Message, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), E2EConfig.Parse("""{ "maxDuration": 2147483647 }""", Root, Env()).MaxDuration);
+        var tooLong = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "maxDuration": 2147483648 }""", Root, Env()));
+        Assert.Equal("maxDuration must be at most 2147483647 milliseconds, got 2147483648", tooLong.Message);
+    }
 
     [Fact]
     public void Secrets_that_share_an_override_variable_are_refused_without_naming_a_value()

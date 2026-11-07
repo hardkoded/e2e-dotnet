@@ -49,13 +49,13 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly", "reporters",
+        "retries", "failOnSkippedFailure", "maxDuration", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly", "reporters",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers",
+        "projectId", "tests", "workers",
     ];
 
     private static readonly string[] ReporterKeys = ["type", "options"];
@@ -137,6 +137,18 @@ public sealed class E2EConfig
 
     /// <summary>Engine shutdown timeout. Upstream <c>cleanupTimeout</c>, 30 s by default.</summary>
     public TimeSpan CleanupTimeout { get; private init; } = E2EDefaults.CleanupTimeout;
+
+    /// <summary>
+    /// Upstream <c>failOnSkippedFailure</c>, false by default. Recorded and validated only: the port has no runner, so nothing reads it
+    /// (upstream's runner decides the exit code from it). It stays out of <see cref="ResolvedConfig.ComputeConfigDigest"/>.
+    /// </summary>
+    public bool FailOnSkippedFailure { get; private init; }
+
+    /// <summary>
+    /// Upstream <c>maxDuration</c>: the run's duration limit, unset by default. Recorded and validated only: the port has no runner to stop
+    /// (the test framework owns the run). It stays out of <see cref="ResolvedConfig.ComputeConfigDigest"/>.
+    /// </summary>
+    public TimeSpan? MaxDuration { get; private init; }
 
     /// <summary>0 to 10. Defaults to 1 in CI and 0 elsewhere. NUnit retries still come from <c>[Retry]</c>.</summary>
     public int Retries { get; private init; }
@@ -410,6 +422,8 @@ public sealed class E2EConfig
                 ActionTimeout = Milliseconds(root, "actionTimeout", E2EDefaults.ActionTimeout),
                 AssertionTimeout = Milliseconds(root, "assertionTimeout", E2EDefaults.AssertionTimeout),
                 CleanupTimeout = Milliseconds(root, "cleanupTimeout", E2EDefaults.CleanupTimeout),
+                FailOnSkippedFailure = ReadFailOnSkippedFailure(Property(root, "failOnSkippedFailure")),
+                MaxDuration = Command.PositiveMs(Property(root, "maxDuration"), "maxDuration"),
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
@@ -1212,6 +1226,13 @@ public sealed class E2EConfig
     private static JsonElement? Property(JsonElement value, string name)
     {
         return value.TryGetProperty(name, out var property) ? property : null;
+    }
+
+    private static bool ReadFailOnSkippedFailure(JsonElement? value)
+    {
+        return value is not { } raw
+            ? false
+            : raw.ValueKind is JsonValueKind.True or JsonValueKind.False ? raw.GetBoolean() : throw Invalid("failOnSkippedFailure must be a boolean");
     }
 
     private static string? OptionalString(JsonElement value, string name, string label)

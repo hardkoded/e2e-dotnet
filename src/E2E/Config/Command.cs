@@ -268,17 +268,20 @@ internal static partial class Command
         return text;
     }
 
-    private static TimeSpan? PositiveMs(JsonElement? value, string label)
+    internal static TimeSpan? PositiveMs(JsonElement? value, string label)
     {
         if (value is not { } raw)
         {
             return null;
         }
 
-        if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetInt64(out var ms) || ms <= 0)
+        // JS numbers: `1e3` is 1000, and anything past 2^53 - 1 is not a safe integer (upstream's Number.isSafeInteger).
+        if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetDouble(out var number) || !double.IsInteger(number) || Math.Abs(number) > 9007199254740991d || number <= 0)
         {
             throw Invalid(label + " must be a positive safe integer of milliseconds, got " + DescribeValue(raw));
         }
+
+        var ms = (long)number;
 
         // A .NET timer cannot wait longer than int.MaxValue milliseconds.
         return ms > MaxTimerMs

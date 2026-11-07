@@ -65,7 +65,7 @@ internal sealed record BuildReportOptions
 /// <summary>
 /// The run-level blocks of the report document (upstream's <c>report/build.ts</c>): the targets, the summary, the status, the usage, and
 /// the document that holds them. Not ported: serial groups, <c>carried</c> (a <c>--last-failed</c> rerun), and
-/// <c>failOnSkippedFailure</c>, since the port has no serial-suite feature, no rerun, and no such config key.
+/// <c>failOnSkippedFailure</c>, since the port has no serial-suite feature, no rerun, and no runner to act on that config key.
 /// </summary>
 internal static class BuildReport
 {
