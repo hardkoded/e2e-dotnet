@@ -25,34 +25,35 @@ public sealed class NamedAgentsTests
         Assert.Null(ResolvedAgent.From("default", config.Agent.CreateOptions()).Executor);
     }
 
-    // Partial: upstream's `--agent` is E2E_AGENT here, which E2EFixture hands to the session as E2ESessionOptions.Agent. The test sets that option; it does not read the variable or resolve a config (the port has no resolveAgents with cli agents).
+    // Upstream's `--agent` is CliOverrides.Agents, the resolveConfig(raw, { cli }) option.
     [Fact]
-    public async Task Partial_Rejects_an_unknown_agent_before_anything_starts_naming_the_configured_ones()
+    public void Rejects_an_unknown_agent_before_anything_starts_naming_the_configured_ones()
     {
-        var error = await Assert.ThrowsAsync<TestException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("not called")),
-            BaseUrl = "https://billing.test",
-            TestTitle = "named agents",
-            Agents = new Dictionary<string, AgentOptions> { ["ux"] = new() },
-            Agent = "uxx",
-        }));
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "agents": { "default": {}, "ux": {} } }""", Root, _ => null, new CliOverrides { Agents = ["uxx"] }));
 
-        Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Equal("unknown agent \"uxx\"; configured: default, ux; did you mean \"ux\"?", error.Message);
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Matches("unknown agent \"uxx\"; configured: default, ux; did you mean \"ux\"\\?", error.Message);
     }
 
-    // Partial: as above; also no agentNames, and the model is checked by which scripted model answers, not by a resolved identity.
     [Fact]
-    public async Task Partial_Resolves_every_named_agent_and_runs_with_default_unless_E2E_AGENT_picks_another()
+    public async Task Resolves_every_named_agent_and_runs_with_default_unless_E2E_AGENT_picks_another()
     {
-        var config = E2EConfig.Parse(
-            """{ "agents": { "default": { "model": "gpt-4.1-mini" }, "ux": { "model": "gpt-4.1", "context": "Review the UX." } } }""", Root, _ => null);
+        const string json = """{ "agents": { "default": { "model": "gpt-4.1-mini" }, "ux": { "model": "gpt-4.1", "context": "Review the UX." } } }""";
+        var config = E2EConfig.Parse(json, Root, _ => null);
         Assert.Equal(["default", "ux"], config.Agents.Keys.ToArray());
+        Assert.Equal(["default"], config.AgentNames);
         Assert.Equal("gpt-4.1-mini", config.Agent.Model);
-        Assert.Equal("gpt-4.1", config.Agents["ux"].Model);
-        Assert.Equal("Review the UX.", config.Agents["ux"].Context);
+        var picked = E2EConfig.Parse(json, Root, _ => null, new CliOverrides { Agents = ["ux"] });
+        Assert.Equal(["ux"], picked.AgentNames);
+        Assert.Equal("gpt-4.1", picked.Agent.Model);
+        Assert.Equal("Review the UX.", picked.Agent.Context);
+        Assert.Equal(["ux"], E2EConfig.Parse(json, Root, _ => null, new CliOverrides { Agents = ["ux", "ux"] }).AgentNames);
+        // E2E_AGENT is the port's `--agent`.
+        var fromEnvironment = E2EConfig.Parse(json, Root, name => name == "E2E_AGENT" ? " ux " : null);
+        Assert.Equal(["ux"], fromEnvironment.AgentNames);
+        Assert.Equal("gpt-4.1", fromEnvironment.Agent.Model);
+        Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, name => name == "E2E_AGENT" ? "uxx" : null));
 
         // The model each agent runs shows in its verdict. E2E_AGENT reaches the session as E2ESessionOptions.Agent.
         Assert.Equal("done by house", await RunAsync(null, "house", "ux-brain"));
