@@ -136,6 +136,13 @@ internal static class ImageOps
                 }
 
                 Unfilter(filter, line, previous, bytesPerPixel);
+                if (dx == 1)
+                {
+                    line.CopyTo(samples.AsSpan((int)((((long)(y0 + (row * dy)) * width) + x0) * bytesPerPixel)));
+                    (previous, line) = (line, previous);
+                    continue;
+                }
+
                 for (var column = 0; column < passWidth; column++)
                 {
                     var to = ((((long)(y0 + (row * dy)) * width) + x0 + (column * dx)) * bytesPerPixel);
