@@ -572,16 +572,19 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     {
         if (!_scope.Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal)))
         {
+            Phases.RecordPolicyEvent(_scope.Steps, "secret.registered", PolicyDecision.Denied, "AUTH_CREDENTIAL_UNAVAILABLE");
             throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "secret \"" + secret.Name + "\" is not configured", blocked: true);
         }
 
         if (node.States.Disabled)
         {
+            Phases.RecordPolicyEvent(_scope.Steps, "secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
             throw Denied("the target field is disabled");
         }
 
         if (!Roles.IsEditable(node))
         {
+            Phases.RecordPolicyEvent(_scope.Steps, "secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
             throw Denied("the target is not an editable input (role " + (node.Role is null ? "none" : AgentObservation.RedactText(node.Role, _scope.Redactor)) + ")");
         }
 
@@ -590,8 +593,11 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
         if (secret.Purpose == "password" && inputPurpose != "password")
         {
+            Phases.RecordPolicyEvent(_scope.Steps, "secret.purpose", PolicyDecision.Denied, "POLICY_DENIED");
             throw Denied("field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose);
         }
+
+        Phases.RecordPolicyEvent(_scope.Steps, "secret.fill", PolicyDecision.Allowed);
     }
 
     private static AgentException Denied(string reason) => new("POLICY_DENIED", reason, blocked: true);
