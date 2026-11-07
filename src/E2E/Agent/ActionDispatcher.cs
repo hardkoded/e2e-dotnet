@@ -192,12 +192,17 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             cancellationToken);
     }
 
+    // The secrets the step's params declare are the only ones typeSecret may fill (upstream's options.secrets.get(name) in typeSecret);
+    // live and replay share this lookup, so both give the same code and message.
+    internal Secret DeclaredSecret(string secretName) =>
+        _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
+            ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
+
     public async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default)
     {
         // Checked before a slot is taken: the name must come from the step's own params, so an executor can never fill a
         // secret the test did not hand it.
-        var secret = _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
-            ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
+        var secret = DeclaredSecret(secretName);
         await RunAsync(
             "typeSecret",
             async token =>
