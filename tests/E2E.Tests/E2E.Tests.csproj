@@ -2,6 +2,9 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- E2E.Cli reaches E2E.WinApp, which restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
@@ -15,6 +18,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+    <!-- e2e cache ls: the listing the trace cache tests read. -->
+    <ProjectReference Include="..\..\src\E2E.Cli\E2E.Cli.csproj" />
     <ProjectReference Include="..\E2E.Tests.Schema\E2E.Tests.Schema.csproj" />
     <!-- The program the app-command tests start. Its apphost lands beside the tests. -->
     <ProjectReference Include="..\E2E.Tests.App\E2E.Tests.App.csproj" />
