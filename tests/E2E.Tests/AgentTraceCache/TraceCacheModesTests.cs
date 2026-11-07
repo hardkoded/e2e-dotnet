@@ -58,7 +58,7 @@ public sealed class TraceCacheModesTests
         Assert.Equal(recorded, TwoTapCounter.FileState(directory));
     }
 
-    // Partial (follow-up #1287): the legacy-entry setup is not ported (the port's entry has no recordedFor occurrence fields, and a read-write replay keeps an entry whole), so the unchanged file proves a replay under the demoted mode, not that a read-write replay would have rewritten it.
+    // Partial (follow-up #1336): the port has no runExisting, so there is no exit code to assert and no report to read the cache field from (the step result's Cache is read). The legacy-entry setup and its unchanged file are ported (#1287).
     [Fact]
     public async Task Partial_caches_by_default_and_CI_demotes_an_unset_mode_to_read_only_it_replays_the_entry_and_never_rewrites_it()
     {
@@ -72,8 +72,17 @@ public sealed class TraceCacheModesTests
 
         Assert.Single(Directory.GetFiles(directory));
 
+        // An entry from before the occurrence fields: a read-write replay would complete and rewrite it.
+        var cache = new FileStepCache(directory);
+        var key = Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single());
+        var entry = cache.Read(key).Entry!;
+        entry.ParamsDigest = null;
+        entry.CallIndex = null;
+        entry.Agent = null;
+        cache.Write(key, entry);
+
         Assert.Equal(CacheMode.ReadOnly, ResolvedMode(ci: true));
-        var recorded = TwoTapCounter.FileState(directory);
+        var legacy = TwoTapCounter.FileState(directory);
         var inCi = TwoTapCounter.Model();
         ActResult second;
         await using (var session = await TwoTapCounter.StartAsync(directory, inCi, mode: ResolvedMode(ci: true)))
@@ -85,7 +94,7 @@ public sealed class TraceCacheModesTests
         Assert.Equal(0, inCi.CallCount);
         Assert.Equal(("self-finalized", 2, 2), (second.Cache?.Mode, second.Cache?.ReplayedActions, second.Cache?.TotalActions));
         Assert.Matches(new Regex("^[0-9a-f]{64}$"), second.Cache?.Entry);
-        Assert.Equal(recorded, TwoTapCounter.FileState(directory));
+        Assert.Equal(legacy, TwoTapCounter.FileState(directory));
     }
 
     /// <summary>The mode a config resolves to for one run: <c>E2E_NO_CACHE</c> is the run option <c>noCache</c>.</summary>
