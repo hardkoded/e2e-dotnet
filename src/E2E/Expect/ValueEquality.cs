@@ -67,6 +67,21 @@ internal static class ValueEquality
 
     public static bool IsNumber(object? value) => value is not null && IsNumber(value.GetType());
 
+    /// <summary>Reads a member whose getter may throw; a member that cannot be read is absent, as it would be to a plain object.</summary>
+    private static bool TryRead(Func<object?> read, out object? value)
+    {
+        try
+        {
+            value = read();
+            return true;
+        }
+        catch (Exception ex) when (ex is TargetInvocationException or AmbiguousMatchException or InvalidOperationException or NotSupportedException)
+        {
+            value = null;
+            return false;
+        }
+    }
+
     /// <summary>The entries of an <see cref="IDictionary"/>, which a generic dictionary enumerates as key-value pairs and not as <see cref="DictionaryEntry"/> values.</summary>
     public static IEnumerable<DictionaryEntry> Pairs(IDictionary dictionary)
     {
@@ -107,7 +122,10 @@ internal static class ValueEquality
         {
             if (property.GetIndexParameters().Length == 0 && property.CanRead)
             {
-                yield return new(property.Name, property.GetValue(value));
+                if (TryRead(() => property.GetValue(value), out var read))
+                {
+                    yield return new(property.Name, read);
+                }
             }
         }
 
@@ -184,18 +202,24 @@ internal static class ValueEquality
         const BindingFlags Flags = BindingFlags.Public | BindingFlags.Instance;
         foreach (var comparison in new[] { BindingFlags.Default, BindingFlags.IgnoreCase })
         {
-            var property = type.GetProperty(key, Flags | comparison);
-            if (property is { CanRead: true } && property.GetIndexParameters().Length == 0)
+            try
             {
-                value = property.GetValue(holder);
-                return true;
-            }
+                var property = type.GetProperty(key, Flags | comparison);
+                if (property is { CanRead: true } && property.GetIndexParameters().Length == 0)
+                {
+                    return TryRead(() => property.GetValue(holder), out value);
+                }
 
-            var field = type.GetField(key, Flags | comparison);
-            if (field is not null)
+                var field = type.GetField(key, Flags | comparison);
+                if (field is not null)
+                {
+                    value = field.GetValue(holder);
+                    return true;
+                }
+            }
+            catch (AmbiguousMatchException)
             {
-                value = field.GetValue(holder);
-                return true;
+                return false;
             }
         }
 
@@ -341,7 +365,12 @@ internal static class ValueEquality
 
     private static bool BagsEqual(object actual, object expected, bool subset, List<(object Actual, object Expected)> path)
     {
-        var left = Members(actual).ToDictionary(member => member.Key, member => member.Value, StringComparer.Ordinal);
+        var left = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var member in Members(actual))
+        {
+            left[member.Key] = member.Value;
+        }
+
         var right = Members(expected).ToList();
         if (!subset && left.Count != right.Count)
         {
@@ -406,7 +435,7 @@ internal static class ValueEquality
             return Kind.Error;
         }
 
-        if (type.IsPrimitive || type.IsEnum || value is DateTime or DateTimeOffset or TimeSpan or Guid or Uri or Type or Delegate)
+        if (type.IsPrimitive || type.IsEnum || type.IsValueType && type.Namespace is not null && type.Namespace.StartsWith("System", StringComparison.Ordinal) && !type.Name.StartsWith("ValueTuple", StringComparison.Ordinal) && !type.Name.StartsWith("KeyValuePair", StringComparison.Ordinal) || value is Uri or Type or Delegate)
         {
             return Kind.Value;
         }

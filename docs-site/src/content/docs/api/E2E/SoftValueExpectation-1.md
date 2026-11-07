@@ -62,6 +62,8 @@ public void ToBe(T expected)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -78,6 +80,8 @@ public void ToBe(T expected)
 public void ToBeCloseTo(double expected, int digits = 2)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -97,6 +101,8 @@ public void ToBeDefined()
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 <a id="E2E_SoftValueExpectation_1_ToBeFalsy_"></a>
 <a id="E2E_SoftValueExpectation_1_ToBeFalsy"></a>
 
@@ -108,6 +114,8 @@ public void ToBeFalsy()
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 <a id="E2E_SoftValueExpectation_1_ToBeGreaterThan_"></a>
 <a id="E2E_SoftValueExpectation_1_ToBeGreaterThan_System_Double_"></a>
 
@@ -118,6 +126,8 @@ public void ToBeFalsy()
 public void ToBeGreaterThan(double expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -136,6 +146,8 @@ public void ToBeGreaterThanOrEqual(double expected)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -152,6 +164,8 @@ public void ToBeGreaterThanOrEqual(double expected)
 public void ToBeLessThan(double expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -170,6 +184,8 @@ public void ToBeLessThanOrEqual(double expected)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -187,6 +203,8 @@ public void ToBeNull()
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 <a id="E2E_SoftValueExpectation_1_ToBeTruthy_"></a>
 <a id="E2E_SoftValueExpectation_1_ToBeTruthy"></a>
 
@@ -197,6 +215,8 @@ public void ToBeNull()
 public void ToBeTruthy()
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 <a id="E2E_SoftValueExpectation_1_ToBeUndefined_"></a>
 <a id="E2E_SoftValueExpectation_1_ToBeUndefined"></a>
@@ -209,6 +229,8 @@ public void ToBeUndefined()
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 <a id="E2E_SoftValueExpectation_1_ToContain_"></a>
 <a id="E2E_SoftValueExpectation_1_ToContain_System_Object_"></a>
 
@@ -219,6 +241,8 @@ public void ToBeUndefined()
 public void ToContain(object? expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -237,6 +261,8 @@ public void ToEqual(object? expected)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -253,6 +279,8 @@ public void ToEqual(object? expected)
 public void ToHaveLength(int expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -271,6 +299,8 @@ public void ToHaveProperty(IReadOnlyList<object> path)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -286,6 +316,8 @@ public void ToHaveProperty(IReadOnlyList<object> path)
 public void ToHaveProperty(IReadOnlyList<object> path, object? expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -304,6 +336,8 @@ public void ToHaveProperty(string path)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -319,6 +353,8 @@ public void ToHaveProperty(string path)
 public void ToHaveProperty(string path, object? expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -338,6 +374,8 @@ public void ToMatch(string expected)
 ```
 
 
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -353,6 +391,8 @@ public void ToMatch(string expected)
 public void ToMatch(Regex expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 
@@ -370,6 +410,8 @@ public void ToMatch(Regex expected)
 public void ToMatchObject(object expected)
 ```
 
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept.
 
 **Parameters**
 

@@ -154,6 +154,7 @@ public sealed class ValueExpectation<T>
     /// <summary>Requires the string to contain <paramref name="expected"/>.</summary>
     public void ToMatch(string expected)
     {
+        ArgumentNullException.ThrowIfNull(expected);
         var actual = TextOf("toMatch");
         Check(
             actual.Contains(expected, StringComparison.Ordinal),
@@ -324,7 +325,11 @@ public sealed class ValueExpectation<T>
         return null;
     }
 
-    private static string[] KeysOf(string path) => path.Split('.');
+    private static string[] KeysOf(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return path.Split('.');
+    }
 
     private static string[] KeysOf(IReadOnlyList<object> path) => [.. path.Select(key => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty)];
 }
@@ -352,6 +357,8 @@ internal static class ValueFormat
                 return "/" + pattern + "/";
             case AsymmetricMatcher matcher:
                 return matcher.Describe();
+            case Guid or TimeSpan or Uri or DateOnly or TimeOnly:
+                return JsonQuote.Of(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
             case DateTime moment:
                 return JsonQuote.Of(moment.ToString("o", CultureInfo.InvariantCulture));
             case DateTimeOffset moment:
