@@ -13,7 +13,7 @@ namespace E2E.Playground;
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
 /// the landing page, a plans page of copy with inline links and emphasis (unlisted in the nav), a todo list kept in localStorage, a checkout with one planted bug, a profile
 /// form, a sign-in form that sets a session cookie for the dashboard behind it, the workspace wizard, the swatches page that the screenshot tests compare,
-/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a counter for the speed floor, and the
+/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a counter for the speed floor, a scroll page of windowed rows (unlisted in the nav), and the
 /// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
@@ -916,7 +916,55 @@ internal static class Testbed
                      });
                    </script>
             """),
+
+        // A scroll pane of its own and a long page, each reporting its scroll offset: what scroll_to by text works against. Rows paint only
+        // once scrolled into their scroll root, as a windowed list renders. Unlisted in the nav, as the pages above.
+        ["/scroll"] = ("Scroll", $$"""
+            <h1>Scroll</h1>
+                   <output role="status" aria-label="Scroll position">0</output>
+                   <output role="status" aria-label="Pane position">0</output>
+                   <output role="status" aria-label="Picked row">none</output>
+                   <ul aria-label="Pane" style="height: 200px; overflow: auto; padding: 0; list-style: none">
+                     {{Slots(40, "Item", 40)}}
+                   </ul>
+                   <ul aria-label="Rows" style="padding: 0; list-style: none">
+                     {{Slots(120, "Row", 60)}}
+                   </ul>
+                   <script>
+                     const picked = document.querySelector('output[aria-label="Picked row"]');
+                     document.addEventListener('click', (event) => {
+                       if (event.target.tagName === 'BUTTON') picked.textContent = 'picked ' + event.target.textContent;
+                     });
+                     const position = document.querySelector('output[aria-label="Scroll position"]');
+                     addEventListener('scroll', () => {
+                       position.textContent = String(Math.round(scrollY));
+                     });
+                     const pane = document.querySelector('ul[aria-label="Pane"]');
+                     const panePosition = document.querySelector('output[aria-label="Pane position"]');
+                     pane.addEventListener('scroll', () => {
+                       panePosition.textContent = String(Math.round(pane.scrollTop));
+                     });
+                     const reveal = (list, root) => {
+                       const observer = new IntersectionObserver((entries) => {
+                         for (const entry of entries) {
+                           if (!entry.isIntersecting) continue;
+                           const button = document.createElement('button');
+                           button.textContent = entry.target.dataset.row;
+                           entry.target.replaceChildren(button);
+                           observer.unobserve(entry.target);
+                         }
+                       }, { root });
+                       for (const slot of list.children) observer.observe(slot);
+                     };
+                     reveal(pane, pane);
+                     reveal(document.querySelector('ul[aria-label="Rows"]'), null);
+                   </script>
+            """),
     };
+
+    // `count` fixed-height list slots labelled `label 1..count`; the scroll page's script paints each one's button once it is scrolled into view.
+    private static string Slots(int count, string label, int height) =>
+        string.Join("\n", Enumerable.Range(0, count).Select(index => $"<li style=\"height: {height}px\" data-row=\"{label} {index + 1}\"></li>"));
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);
 

@@ -37,6 +37,13 @@ internal sealed class SettleOptions<T>
     /// </summary>
     public TimeSpan StableWait { get; init; }
 
+    /// <summary>
+    /// Whether a capture is already the settled screen, so the stability proof is not spent on it: asked once, of the
+    /// capture past the change wait. The caller owns the evidence (a scroll to a text compares the page with the one
+    /// before it); a capture it declines gets the stability check.
+    /// </summary>
+    public Func<T, bool>? SettledWhen { get; init; }
+
     public TimeSpan? Poll { get; init; }
 }
 
@@ -160,7 +167,15 @@ internal static partial class AgentObservation
     private static partial Regex ListedRole();
 
     /// <summary>The shape of a screen already rendered as text.</summary>
-    public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, "$1"), ""), "<time>");
+    public static string Shape(string text) => MaskClocks(Focus.Replace(Reference.Replace(text, "$1"), ""));
+
+    private const string ClockMask = "<time>";
+
+    /// <summary>
+    /// The text with its clock-like values masked, so two looks at a screen that has not moved read the same however the
+    /// clock ticked. <see cref="Shape(Observation)"/> and <see cref="Reading.ReadPage"/> both compare screens through it.
+    /// </summary>
+    public static string MaskClocks(string text) => Clock.Replace(text, ClockMask);
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,
@@ -475,6 +490,11 @@ internal static partial class AgentObservation
                     return value;
                 }
             }
+        }
+
+        if (options.SettledWhen?.Invoke(value) == true)
+        {
+            return value;
         }
 
         var deadline = time.GetUtcNow() + options.StableWait;

@@ -76,6 +76,34 @@ public sealed class SettleObservationTests
     }
 
     [Fact]
+    public async Task Returns_a_capture_the_caller_vouches_for_without_proving_it_holds_still_and_settles_one_it_declines()
+    {
+        var time = new SteppingTime();
+        var vouched = new Scripted("a", "b", "b");
+        Assert.Equal("a", await RunAllTimersAsync(time, SettleAsync(vouched, time, Fast(time, changedFrom: false, settledWhen: _ => true))));
+        Assert.Equal(1, vouched.Calls);
+
+        var declined = new Scripted("a", "b", "b");
+        Assert.Equal("b", await RunAllTimersAsync(time, SettleAsync(declined, time, Fast(time, changedFrom: false, settledWhen: _ => false))));
+        Assert.Equal(3, declined.Calls);
+    }
+
+    [Fact]
+    public async Task Still_waits_out_the_change_wait_before_asking_whether_a_capture_is_settled()
+    {
+        var time = new SteppingTime();
+        var source = new Scripted("old", "old", "new", "new");
+        var asked = new List<string>();
+        var value = await RunAllTimersAsync(time, SettleAsync(source, time, Fast(time, changedFrom: true, settledWhen: seen =>
+        {
+            asked.Add(seen);
+            return true;
+        })));
+        Assert.Equal("new", value);
+        Assert.Equal(["new"], asked);
+    }
+
+    [Fact]
     public async Task Counts_a_slow_first_capture_toward_the_change_window_then_still_checks_stability()
     {
         var time = new SteppingTime();
@@ -191,11 +219,12 @@ public sealed class SettleObservationTests
         Assert.Equal(TimeSpan.FromMilliseconds(100), time.GetUtcNow() - started);
     }
 
-    private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom) => new()
+    private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom, Func<string, bool>? settledWhen = null) => new()
     {
         ChangedFrom = changedFrom ? Leaving(time) : null,
         Poll = FastPoll,
         StableWait = FastStableWait,
+        SettledWhen = settledWhen,
     };
 
     private static Task<string> SettleAsync(Scripted source, TimeProvider time, SettleOptions<string> options)

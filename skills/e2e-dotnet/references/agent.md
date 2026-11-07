@@ -524,7 +524,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   live scroll and `scroll_to` do the same: a list the tree renumbered is
   re-found by its place (the same role, mostly the same box), one that filled
   the screen and is gone scrolls the viewport, and a smaller one that is
-  gone fails with `LOCATOR_NOT_FOUND`. The web engine does not observe Next.js
+  gone fails with `LOCATOR_NOT_FOUND`. `scroll_to` with a text reads each
+  screen once when it has visibly scrolled, and reads again until it holds
+  still otherwise. A single changing time value (`12:05`) beside other text
+  does not count as the list moving. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
   reads differently on every run, a date, an ISO 8601 instant, a time, an
   id, is not checked. In an alert it reads as a placeholder, so a replay
