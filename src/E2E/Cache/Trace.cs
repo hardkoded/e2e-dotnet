@@ -56,6 +56,9 @@ internal static class Trace
     /// </summary>
     public const int MaxTraceInputChars = 4_096;
 
+    /// <summary>Upstream's <c>MAX_TRACE_DESCRIPTOR_CHARS</c>: the longest test id, target id, or agent name a recording's provenance holds.</summary>
+    public const int MaxTraceDescriptorChars = 300;
+
     /// <summary>
     /// Upstream's <c>mapTraceText</c>: applies <paramref name="map"/> to every recorded string a screen value can appear in: typed and
     /// selected values, navigated URLs, both routes, target and anchor text, and the upload paths. Keys (<c>press</c>), secret names,
