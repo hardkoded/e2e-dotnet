@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Reports;
 
 namespace E2E.Tests.AgentSecrets;
 
@@ -11,11 +12,11 @@ namespace E2E.Tests.AgentSecrets;
 /// So these upstream its are not ported: "lets a credential password into an Android password field as the mobile
 /// engine projects it" and "judges the purpose by the config, not by what a handle claims". "refuses $sink before reading
 /// the plaintext" (a disabled password field, a button) is partial: the port has no plaintext read to count, since a
-/// <c>Secret</c> holds its value, and it records no policy decision, so only the refusal and the empty fill are checked.
+/// <c>Secret</c> holds its value, so only the refusal, the empty fill, and the recorded <c>secret.sink</c> event are checked.
 /// </summary>
 public sealed class AuthorizeSecretFillTests
 {
-    /// <summary>Partial: the port records no policy decision, and the refusal reaches the model as the failed call it is.</summary>
+    /// <summary>Partial: the refusal reaches the model as the failed call it is.</summary>
     [Fact]
     public async Task Refuses_a_secret_fill_into_a_plain_textbox_and_never_types_into_it()
     {
@@ -53,9 +54,12 @@ public sealed class AuthorizeSecretFillTests
         Assert.Empty(typed);
         Assert.DoesNotContain(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
         session.Complete();
+        var purposeEvent = Assert.Single(session.StepRecords.Single(candidate => candidate.Api == "agent.act").Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.purpose");
+        Assert.Equal(PolicyDecision.Denied, purposeEvent.Decision);
+        Assert.Equal("POLICY_DENIED", purposeEvent.Code);
     }
 
-    /// <summary>Partial: the port reads no plaintext through a resolver and records no policy decision.</summary>
+    /// <summary>Partial: the port reads no plaintext through a resolver.</summary>
     [Theory]
     [InlineData("a disabled password field", "textbox", true, "the target field is disabled")]
     [InlineData("a button", "button", false, "the target is not an editable input (role button)")]
@@ -94,6 +98,11 @@ public sealed class AuthorizeSecretFillTests
 
         Assert.Contains(" failed: POLICY_DENIED: " + message, refusal, StringComparison.Ordinal);
         Assert.Empty(typed);
+        var step = session.StepRecords.Single(candidate => candidate.Api == "agent.act");
+        var sinkEvent = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.sink");
+        Assert.Equal(PolicyDecision.Denied, sinkEvent.Decision);
+        Assert.Equal("POLICY_DENIED", sinkEvent.Code);
+        Assert.DoesNotContain(step.Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.fill");
         Assert.DoesNotContain(model.Requests, request => request.Messages.Any(item => item.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
         session.Complete();
     }

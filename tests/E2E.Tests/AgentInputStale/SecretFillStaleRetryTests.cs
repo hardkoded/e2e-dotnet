@@ -12,13 +12,13 @@ namespace E2E.Tests.AgentInputStale;
 /// <summary>
 /// The <c>describe('secret fill stale retry')</c> of upstream's <c>agent-input-stale.test.ts</c>. Partial: only the live-execution half
 /// is ported. The port has no <c>credentials</c> (the secret is a <see cref="Secret"/> param), no replay of a cached secret fill through
-/// a project runner, and it records no <c>secret.fill</c> policy event and no action origin, so those assertions are not checked.
+/// a project runner, and it records no action origin, so that assertion is not checked.
 /// </summary>
 public sealed class SecretFillStaleRetryTests
 {
     private const string Value = "private-fixture-value";
 
-    /// <summary>Partial: live execution only, and without the origin, the policy events, or the credentials of upstream's project.</summary>
+    /// <summary>Partial: live execution only, and without the origin or the credentials of upstream's project.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -87,6 +87,7 @@ public sealed class SecretFillStaleRetryTests
         Assert.Equal(disabled ? 0 : 1, dispatched);
         Assert.Equal(1, step.Metrics!.ActionSteps);
         Assert.Single(step.Events, item => item.Kind == StepEventKind.Observation && item.Name == "relocate");
+        Assert.Equal(disabled ? 1 : 2, step.Events.Count(item => item.Kind == StepEventKind.Policy && item.Name == "secret.fill" && item.Status == StepEventStatus.Passed));
         if (disabled)
         {
             Assert.Equal("POLICY_DENIED", error!.Code);
