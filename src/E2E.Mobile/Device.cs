@@ -197,7 +197,7 @@ public sealed class Device
     /// running app on iOS, a revoke one on Android, so it goes before the <c>app.open()</c> a test starts with.
     /// </summary>
     public Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default) =>
-        RunAsync("device.setPermission", permission.WireName(), () => _session.SetPermissionAsync(permission, state, cancellationToken));
+        RunAsync("device.setPermission", Enum.IsDefined(permission) ? permission.WireName() : permission.ToString(), () => _session.SetPermissionAsync(permission, state, cancellationToken));
 
     /// <summary>Sets the simulated location, switching location services on first on Android.</summary>
     public Task SetLocationAsync(Coordinates coordinates, CancellationToken cancellationToken = default) =>
