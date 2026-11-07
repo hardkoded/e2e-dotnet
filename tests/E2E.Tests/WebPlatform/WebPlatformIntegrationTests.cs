@@ -264,7 +264,19 @@ public sealed class WebPlatformIntegrationTests
             await Expect.That(session.Browser).Not.ToHaveURLAsync("/CLASSES", ignoreCase: true, timeout: TimeSpan.FromMilliseconds(300));
         }));
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Matches("^expect\\.not\\.toHaveURL failed\nexpected: not URL /CLASSES \\(ignoring case\\)\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
+        Assert.Matches("^expect\\.not\\.toHaveURL failed\nexpected: not URL http://127\\.0\\.0\\.1:\\d+/CLASSES \\(ignoring case\\)\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
+    }
+
+    [Fact]
+    public async Task Prints_a_relative_toHaveURL_expectation_resolved_against_the_app_URL_like_the_observed_one()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveURLAsync("/about", timeout: TimeSpan.FromMilliseconds(300));
+        }));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Matches("^expect\\.toHaveURL failed\nexpected: URL http://127\\.0\\.0\\.1:\\d+/about\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
     }
 
     [Fact]
