@@ -280,7 +280,10 @@ public sealed class SessionHostTests : IAsyncLifetime
             },
         };
         var flaky = Host(fake);
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => flaky.OpenAsync(new Mcp.OpenSessionOptions()));
+        // The engine-to-session adapter reports the engine's plain exception as ENGINE_FAILURE, keeping it as the cause.
+        var failure = await Assert.ThrowsAsync<EngineException>(() => flaky.OpenAsync(new Mcp.OpenSessionOptions()));
+        Assert.Equal("ENGINE_FAILURE", failure.Code);
+        Assert.IsType<InvalidOperationException>(failure.InnerException);
         Assert.Contains("screen unavailable", failure.Message, StringComparison.Ordinal);
         Assert.False(flaky.IsOpen);
         Assert.Equal(1, fake.AttemptsStarted);
