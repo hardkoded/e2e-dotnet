@@ -198,6 +198,13 @@ public sealed class Observation
     /// the node refs of earlier observations name nothing, and a step that saw such a screen records no replay.
     /// </summary>
     public bool TreeUnavailable { get; init; }
+
+    /// <summary>
+    /// How many secure nodes the engine saw (upstream's <c>redaction.secureNodeCount</c>), which <see cref="EngineScreenshot.MaskedRegionCount"/> of
+    /// <see cref="Pixels"/> must cover for the image to be proven redacted. A pixel-only observation (<see cref="TreeUnavailable"/>) has no
+    /// tree to count, so the engine reports it. Null when the engine does not: the secure nodes of <see cref="Roots"/> are counted instead.
+    /// </summary>
+    public int? SecureNodeCount { get; init; }
 }
 
 /// <summary>What an observation takes besides the tree. Upstream's <c>EngineObserveOptions</c>.</summary>

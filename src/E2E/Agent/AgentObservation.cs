@@ -204,7 +204,7 @@ internal static partial class AgentObservation
 
     /// <summary>
     /// Whether requested pixels become model input, decided once per observation for every call that asks. A capture the engine
-    /// could not make is denied first; then the proof of masking: every secure node the tree lists must be covered by a masked region, or
+    /// could not make is denied first; then the proof of masking: every secure node the engine reports (<see cref="Observation.SecureNodeCount"/>, else the tree lists) must be covered by a masked region, or
     /// the engine masked less than it saw and the image cannot be proven redacted. The tree still goes out. The image is
     /// sized for the model here, once, not per capture.
     /// </summary>
@@ -215,7 +215,14 @@ internal static partial class AgentObservation
             return new PixelsOutcome(null, VisionDegradation.UnsupportedCapability);
         }
 
-        var secure = LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure);
+        // A pixel-only observation has no tree to count, so an engine that reports no count cannot prove its mask (.NET-only: upstream's engine always reports one).
+        if (observation.TreeUnavailable && observation.SecureNodeCount is null)
+        {
+            return new PixelsOutcome(null, VisionDegradation.MaskingUnproven);
+        }
+
+        // The larger of the engine's count and the tree's, so a reported count never weakens the proof (.NET-only; upstream trusts the engine's count).
+        var secure = Math.Max(observation.SecureNodeCount ?? 0, LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure));
         return screenshot.MaskedRegionCount is not { } masked || masked < secure
             ? new PixelsOutcome(null, VisionDegradation.MaskingUnproven)
             : new PixelsOutcome(Pixels.SizeForModel(screenshot), null);
