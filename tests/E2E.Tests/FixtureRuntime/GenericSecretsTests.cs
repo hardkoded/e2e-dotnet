@@ -63,7 +63,7 @@ public sealed class GenericSecretsTests
         Assert.Equal(new LocatorAction.Fill("sk_live_1", Sensitive: true), Assert.Single(performed));
     }
 
-    /// <summary>Partial: the message names the secret and <c>e2e.config.json</c>, where upstream names the <c>E2E_SECRET_UNKNOWN</c> variable.</summary>
+    /// <summary>A secret the config does not declare fails with <c>SECRET_UNAVAILABLE</c>, naming the secret and its <c>E2E_SECRET_UNKNOWN</c> variable.</summary>
     [Fact]
     public void Fails_a_secret_the_config_does_not_declare_with_SECRET_UNAVAILABLE_naming_the_secret()
     {
@@ -72,6 +72,7 @@ public sealed class GenericSecretsTests
         var error = Assert.Throws<TestException>(() => config.Secrets.Get("unknown"));
 
         Assert.Equal("SECRET_UNAVAILABLE", error.Code);
-        Assert.Contains("'unknown'", error.Message, StringComparison.Ordinal);
+        Assert.Contains("\"unknown\" is not configured", error.Message, StringComparison.Ordinal);
+        Assert.Contains("E2E_SECRET_UNKNOWN", error.Message, StringComparison.Ordinal);
     }
 }
