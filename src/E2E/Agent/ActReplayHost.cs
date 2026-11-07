@@ -108,8 +108,7 @@ public sealed partial class Agent
 
         private async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
         {
-            var secret = scope.Secrets.FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
-                ?? throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "Replay needs secret '" + secretName + "', and this step did not declare it.");
+            var secret = dispatcher.DeclaredSecret(secretName);
             // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
             // It runs before the provider is asked, for the node as it is now.
             dispatcher.AuthorizeSecretFill(secret, Resolve(target));

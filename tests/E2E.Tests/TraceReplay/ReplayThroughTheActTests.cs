@@ -372,7 +372,7 @@ public sealed class ReplayThroughTheActTests
 
         Assert.Null(second.Error);
         Assert.Equal(("missed", "action-failed"), (cache?.Mode, cache?.Reason));
-        Assert.Contains("Replay needs secret 'absent'", cache?.Detail, StringComparison.Ordinal);
+        Assert.Contains("secret \"absent\" was not declared in this step's params", cache?.Detail, StringComparison.Ordinal);
     }
 
     [Theory]
