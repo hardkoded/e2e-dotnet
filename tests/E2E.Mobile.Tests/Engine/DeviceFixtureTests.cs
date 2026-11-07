@@ -498,6 +498,24 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
+    public async Task Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one_PARTIAL_no_typo_hint_or_non_string_name()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        var name = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
+        Assert.Equal("INVALID_ARGUMENT", name.Code);
+        Assert.StartsWith("device.setPermission has unknown key \"42\"; expected one of camera, ", name.Message);
+        var state = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
+        Assert.Equal("INVALID_ARGUMENT", state.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", state.Message);
+        Assert.Equal(before, h.Fake.Calls.Count);
+        await device.SetPermissionAsync(DevicePermission.Camera, PermissionState.Deny);
+        Assert.Equal(["settings.update"], h.Fake.Methods().Skip(before));
+    }
+
+    [Fact]
     public async Task Switches_Wi_Fi_and_airplane_mode_on_Android_and_on_iOS_where_simctl_only_repaints_the_status_bar_refuses_going_offline_and_restores_with_no_device_command()
     {
         var ios = Harness.Create();
