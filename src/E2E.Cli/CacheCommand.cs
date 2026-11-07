@@ -88,7 +88,7 @@ internal static partial class CacheCommand
         {
             directory = ResolveCacheDirectory(parsed, Path.GetFullPath(cwd ?? Directory.GetCurrentDirectory()), env);
         }
-        catch (ConfigurationException ex)
+        catch (Exception ex)
         {
             stderr.WriteLine(ex.Message);
             return 2;
@@ -104,7 +104,7 @@ internal static partial class CacheCommand
                 _ => Clear(contents, stdout, stderr),
             };
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex)
         {
             stderr.WriteLine("replay cache at " + directory + " could not be read: " + ex.Message);
             return 2;
@@ -149,7 +149,7 @@ internal static partial class CacheCommand
             return new CacheContents(directory, entries, unreadable, foreign);
         }
 
-        foreach (var name in Directory.EnumerateFiles(directory).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal))
+        foreach (var name in Directory.EnumerateFileSystemEntries(directory).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal))
         {
             if (EntryFile().Match(name) is not { Success: true } match)
             {
@@ -275,7 +275,7 @@ internal static partial class CacheCommand
             {
                 Directory.Delete(contents.Directory);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception)
             {
                 // Not empty, or already gone.
             }
@@ -295,7 +295,7 @@ internal static partial class CacheCommand
         {
             names = [.. Directory.EnumerateFiles(directory).Select(path => Path.GetFileName(path))];
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             return 0;
         }
