@@ -79,7 +79,13 @@ internal static class ImageOps
         byte[]? transparent = null;
         for (var at = 8; at + 12 <= bytes.Length;)
         {
-            var length = (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
+            var declared = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
+            if (declared > bytes.Length - at - 12)
+            {
+                throw new InvalidDataException("the PNG is cut short");
+            }
+
+            var length = (int)declared;
             var type = bytes.AsSpan(at + 4, 4);
             if (type.SequenceEqual("IDAT"u8))
             {
@@ -115,7 +121,20 @@ internal static class ImageOps
             for (var row = 0; row < passHeight; row++)
             {
                 var filter = inflated.ReadByte();
-                inflated.ReadExactly(line);
+                if (filter < 0)
+                {
+                    throw new InvalidDataException("the PNG is cut short");
+                }
+
+                try
+                {
+                    inflated.ReadExactly(line);
+                }
+                catch (EndOfStreamException)
+                {
+                    throw new InvalidDataException("the PNG is cut short");
+                }
+
                 Unfilter(filter, line, previous, bytesPerPixel);
                 for (var column = 0; column < passWidth; column++)
                 {
@@ -127,14 +146,15 @@ internal static class ImageOps
             }
         }
 
-        var data = new byte[width * height * 4];
+        var pixels = (long)width * height;
+        var data = new byte[pixels * 4];
         var wide = new ushort[channels];
         var gray = channels <= 2;
-        for (int pixel = 0, from = 0; pixel < width * height; pixel++, from += bytesPerPixel)
+        for (long pixel = 0, from = 0; pixel < pixels; pixel++, from += bytesPerPixel)
         {
             for (var channel = 0; channel < channels; channel++)
             {
-                wide[channel] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(samples.AsSpan(from + (channel * 2)));
+                wide[channel] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(samples.AsSpan((int)from + (channel * 2)));
             }
 
             var to = pixel * 4;

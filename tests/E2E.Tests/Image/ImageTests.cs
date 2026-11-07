@@ -141,6 +141,73 @@ public sealed class ImageTests
         Assert.True(rgba.AsSpan().SequenceEqual(decoded.Data), $"{label}: expected {Convert.ToHexString(rgba)}, got {Convert.ToHexString(decoded.Data)}");
     }
 
+    /// <summary>A filtered scanline: the filter byte, then each byte minus the filter's prediction (the encoder side of the reader's unfilter).</summary>
+    private static byte[] Filtered(int filter, byte[] line, byte[] previous, int bytesPerPixel)
+    {
+        var result = new byte[line.Length + 1];
+        result[0] = (byte)filter;
+        for (var at = 0; at < line.Length; at++)
+        {
+            int left = at >= bytesPerPixel ? line[at - bytesPerPixel] : 0;
+            int up = previous[at];
+            int upLeft = at >= bytesPerPixel ? previous[at - bytesPerPixel] : 0;
+            var estimate = left + up - upLeft;
+            var paeth = Math.Abs(estimate - left) <= Math.Abs(estimate - up) && Math.Abs(estimate - left) <= Math.Abs(estimate - upLeft) ? left : Math.Abs(estimate - up) <= Math.Abs(estimate - upLeft) ? up : upLeft;
+            var predictor = filter switch { 1 => left, 2 => up, 3 => (left + up) / 2, 4 => paeth, _ => 0 };
+            result[at + 1] = (byte)(line[at] - predictor);
+        }
+
+        return result;
+    }
+
+    // .NET-only: upstream's addon reads 16-bit PNGs itself, the port reads them in ImageOps.ReadSixteenBitPng (filters and Adam7 included).
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Decodes_16_bit_RGB_with_every_scanline_filter_and_Adam7_interlacing(bool interlaced)
+    {
+        const int width = 9;
+        const int height = 9;
+        var values = Enumerable.Range(0, width * height * 3).Select(at => (int)((uint)(at * 2654435761L) >> 16)).ToArray();
+        var passes = interlaced
+            ? new[] { (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2) }
+            : [(0, 0, 1, 1)];
+        using var raw = new MemoryStream();
+        var rowNumber = 0;
+        foreach (var (x0, y0, dx, dy) in passes)
+        {
+            var previous = new byte[(((width - x0) + dx - 1) / dx) * 6];
+            for (var y = y0; y < height; y += dy)
+            {
+                var line = Enumerable.Range(0, ((width - x0) + dx - 1) / dx).SelectMany(column => Sixteen(Enumerable.Range(0, 3).Select(channel => values[((y * width) + x0 + (column * dx)) * 3 + channel]).ToArray())).ToArray();
+                raw.Write(Filtered(rowNumber++ % 5, line, previous, 6));
+                previous = line;
+            }
+        }
+
+        using var output = new MemoryStream();
+        output.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header, width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 16;
+        header[9] = 2;
+        header[12] = (byte)(interlaced ? 1 : 0);
+        Chunk(output, "IHDR", header);
+        using var compressed = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            zlib.Write(raw.ToArray());
+        }
+
+        Chunk(output, "IDAT", compressed.ToArray());
+        Chunk(output, "IEND", []);
+        var expected = Enumerable.Range(0, width * height).SelectMany(pixel => new[] { Narrow(values[pixel * 3]), Narrow(values[(pixel * 3) + 1]), Narrow(values[(pixel * 3) + 2]), (byte)255 }).ToArray();
+        Assert.Equal(expected, ImageOps.DecodePng(output.ToArray()).Data);
+    }
+
+    private static byte Narrow(int sample) => (byte)Math.Floor((sample * 255 / 65535d) + 0.5);
+
     [Fact]
     public void Keeps_every_sample_of_an_odd_sized_8_bit_RGB_image_when_it_adds_the_alpha_channel()
     {
