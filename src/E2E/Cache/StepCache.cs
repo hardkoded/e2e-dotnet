@@ -28,6 +28,13 @@ public sealed class CacheEntry
     /// <summary>The test title. A secret value in it is masked.</summary>
     public string? Test { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>recordedFor.targetId</c>: the name of the target the step ran on. Provenance, never read by a replay: the target is already in
+    /// the key. A secret value in it is masked. Null on an entry recorded before it was stored.
+    /// </summary>
+    [JsonConverter(typeof(OptionalTextConverter))]
+    public string? TargetId { get; set; }
+
     public string? Instruction { get; set; }
 
     /// <summary>The engine platform the step ran on. Null on an entry recorded before it was stored.</summary>
@@ -119,6 +126,7 @@ public sealed class CacheEntry
     internal void SetStep(CacheEntry step)
     {
         Test = step.Test;
+        TargetId = step.TargetId;
         Instruction = step.Instruction;
         Engine = step.Engine;
         ParamsDigest = step.ParamsDigest;

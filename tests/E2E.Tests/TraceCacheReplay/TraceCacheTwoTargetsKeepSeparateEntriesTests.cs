@@ -11,9 +11,8 @@ public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
     [Fact]
     public async Task Partial_Records_one_entry_per_target_and_lists_both()
     {
-        // PARTIAL: the port has no `e2e cache ls`, and an entry does not record its target (upstream's
-        // `recordedFor.targetId`), so the test shows the separation by count: the second target misses and writes
-        // its own file, since the target is part of the key every file name hashes.
+        // PARTIAL: the port has no `e2e cache ls`, so the listing assertions (the test and the target in one row each) are
+        // not ported. The entries are read from the files instead, for the target each records (`recordedFor.targetId`).
         var directory = ConfigTests.TempCache();
         foreach (var target in new[] { "web", "web-b" })
         {
@@ -23,7 +22,17 @@ public sealed class TraceCacheTwoTargetsKeepSeparateEntriesTests
             Assert.Equal("no-entry", result.Cache?.Reason);
         }
 
-        Assert.Equal(2, Directory.GetFiles(directory).Length);
+        var recorded = Directory.GetFiles(directory)
+            .Select(path => TargetOf(File.ReadAllText(path)))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        Assert.Equal(["web", "web-b"], recorded);
+    }
+
+    private static string TargetOf(string json)
+    {
+        using var document = System.Text.Json.JsonDocument.Parse(json);
+        return document.RootElement.TryGetProperty("targetId", out var target) ? target.GetString() ?? "" : "";
     }
 
     [Fact]

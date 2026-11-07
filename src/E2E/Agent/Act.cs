@@ -491,6 +491,7 @@ public sealed partial class Agent
         {
             Schema = FileStepCache.SchemaVersion,
             Test = _scope.Redactor.Redact(_scope.TestTitle),
+            TargetId = _scope.Redactor.Redact(_scope.TargetName),
             Instruction = _scope.Redactor.Redact(instruction.Trim()),
             Engine = _scope.EnginePlatform,
             ParamsDigest = CacheKeys.ParamsDigest(parameters),
