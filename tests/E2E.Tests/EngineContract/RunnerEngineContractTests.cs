@@ -76,7 +76,7 @@ public sealed class RunnerEngineContractTests : IDisposable
     }
 
     [Fact]
-    public async Task Threads_a_consistent_live_OperationContext_through_every_engine_call_PARTIAL_the_context_has_only_the_origin_and_neither_the_run_nor_the_attempt_id_reaches_the_engine_call()
+    public async Task Partial_Threads_a_consistent_live_OperationContext_through_every_engine_call()
     {
         var fake = Fake();
         await using var session = await StartAsync(fake, "taps a node");
@@ -90,14 +90,29 @@ public sealed class RunnerEngineContractTests : IDisposable
             Assert.False(call.Cancelled, call.Method);
             Assert.True(call.Timeout is null || call.Timeout >= TimeSpan.FromMilliseconds(1), call.Method);
             Assert.True(call.Context is null || call.Context.Origin == OperationOrigin.Test, call.Method);
+            if (call.Context is { } context)
+            {
+                Assert.Equal(session.RunId, context.RunId);
+                Assert.NotEqual("", context.AttemptId);
+                Assert.Equal(session.AttemptId, context.AttemptId);
+            }
         }
+
+        // Partial: only the calls that take an OperationContext carry the ids (Open, Observe, Press and the rest take none).
+        var withContext = calls.Where(call => call.Context is not null).ToList();
+        Assert.True(withContext.Count > 0);
+        Assert.Single(withContext.Select(call => call.Context!.AttemptId).Distinct());
 
         var performs = calls.Where(call => call.Method == nameof(IEngineSession.PerformAsync)).ToList();
         Assert.NotEmpty(performs);
         Assert.All(performs, call => Assert.Equal(OperationOrigin.Test, call.Context?.Origin));
+        Assert.All(performs, call => Assert.Equal(session.AttemptId, call.Context?.AttemptId));
+        Assert.All(performs, call => Assert.Equal(session.RunId, call.Context?.RunId));
         Assert.NotEmpty(session.RunId);
         Assert.NotEmpty(session.AttemptId);
         Assert.Single(fake.AttemptIds);
+        Assert.Equal(session.AttemptId, fake.AttemptIds[0]);
+        Assert.Equal(session.RunId, Assert.Single(fake.RunIds));
     }
 
     [Fact]

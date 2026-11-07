@@ -85,7 +85,8 @@ public string? AttemptId { get; init; }
 
 
 The attempt's id, for naming what an engine leases for it at a hosted service. Defaults to a new one per start.
-Upstream's `EngineAttemptContext.attemptId`.
+Upstream's `EngineAttemptContext.attemptId`. [E2ESession](/api/E2E/E2ESession/) sets it, and the same id is the [AttemptId](/api/E2E.Engine/OperationContext/#E2E_Engine_OperationContext_AttemptId)
+of every call that takes a context.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -180,6 +181,21 @@ public string? ProjectRoot { get; init; }
 
 
 Anchors the files the engine options name, such as an init script's `Path`. Defaults to the working directory.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Engine_EngineStartOptions_RunId_"></a>
+<a id="E2E_Engine_EngineStartOptions_RunId"></a>
+
+### RunId
+
+
+```csharp
+public string? RunId { get; init; }
+```
+
+
+The id of the run the attempt belongs to. Upstream's `EngineAttemptContext.runId`. [E2ESession](/api/E2E/E2ESession/) sets it; the same id is the [RunId](/api/E2E.Engine/OperationContext/#E2E_Engine_OperationContext_RunId) of every call that takes a context.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

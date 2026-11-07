@@ -19,13 +19,23 @@ public enum OperationOrigin
 }
 
 /// <summary>
-/// What an engine call carries about the call itself. Upstream's <c>OperationContext</c>. Only <c>origin</c> is a member here: upstream's
-/// <c>signal</c> is the <see cref="CancellationToken"/> every engine call takes, <c>timeoutMs</c> is the per-call timeout (such as
-/// <see cref="IEngineSession.ObserveAsync(TimeSpan, CancellationToken)"/>), and <c>runId</c> and <c>attemptId</c> are start options.
+/// What an engine call carries about the call itself. Upstream's <c>OperationContext</c>. <c>origin</c>, <c>runId</c> and <c>attemptId</c> are
+/// members here: upstream's <c>signal</c> is the <see cref="CancellationToken"/> every engine call takes, and <c>timeoutMs</c> is the per-call
+/// timeout (such as <see cref="IEngineSession.ObserveAsync(TimeSpan, CancellationToken)"/>).
 /// </summary>
 /// <param name="Origin">Who asked. Upstream's <c>origin</c>.</param>
 public sealed record OperationContext(OperationOrigin Origin)
 {
+    /// <summary>
+    /// The run id. Upstream's <c>runId</c>. The runtime fills it in before the call reaches the engine; <see cref="Test"/> and <see cref="Agent"/>
+    /// carry none (.NET-only: they are shared values, and the properties are <c>init</c> with an empty default so a context built before they existed
+    /// still compiles).
+    /// </summary>
+    public string RunId { get; init; } = "";
+
+    /// <summary>The attempt id: the one <see cref="EngineStartOptions.AttemptId"/> named at start. Upstream's <c>attemptId</c>. Filled in like <see cref="RunId"/>.</summary>
+    public string AttemptId { get; init; } = "";
+
     /// <summary>A test's own step: an engine may act without settling.</summary>
     public static OperationContext Test { get; } = new(OperationOrigin.Test);
 

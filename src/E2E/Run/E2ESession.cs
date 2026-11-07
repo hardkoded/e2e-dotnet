@@ -194,6 +194,9 @@ public sealed class E2ESession : IAsyncDisposable
             .. ArtifactPaths.AttemptSegments(options.RerunDir, AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle), options.Attempt - 1)]);
         IEngineSession engine;
 
+        // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
+        var attemptId = Guid.CreateVersion7().ToString();
+
         // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
         var screens = new SessionScreens(RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null);
         var environment = new EnvironmentFacts();
@@ -215,6 +218,8 @@ public sealed class E2ESession : IAsyncDisposable
                 {
                     BaseUrl = baseUrl,
                     TargetName = options.TargetName,
+                    RunId = AttemptReport.RunId,
+                    AttemptId = attemptId,
                     Permissions = options.Permissions,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
@@ -231,7 +236,7 @@ public sealed class E2ESession : IAsyncDisposable
                         return plaintext;
                     },
                 },
-                launch.Token)).ConfigureAwait(false));
+                launch.Token)).ConfigureAwait(false), AttemptReport.RunId, attemptId);
         }
         catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
@@ -306,6 +311,7 @@ public sealed class E2ESession : IAsyncDisposable
             var testFailed = options.TestFailed ?? (static () => false);
             var scope = new AttemptScope
             {
+                AttemptId = attemptId,
                 ArtifactsDir = attemptDir,
                 RerunDir = options.RerunDir,
                 OnProgress = events is null ? options.OnProgress : events.Progress(options.OnProgress),

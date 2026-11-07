@@ -19,15 +19,29 @@ namespace E2E.Engine;
 internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
 {
     private readonly IEngineSession _engine;
+    private readonly string _runId;
+    private readonly string _attemptId;
 
-    private EngineSession(IEngineSession engine) => _engine = engine;
+    private EngineSession(IEngineSession engine, string runId, string attemptId)
+    {
+        _engine = engine;
+        _runId = runId;
+        _attemptId = attemptId;
+    }
 
     /// <summary>Wraps <paramref name="engine"/> in the adapter; a session that is wrapped already is returned as it is.</summary>
-    internal static IEngineSession Create(IEngineSession engine)
+    internal static IEngineSession Create(IEngineSession engine, string runId, string attemptId)
     {
         ArgumentNullException.ThrowIfNull(engine);
-        return engine as EngineSession ?? new EngineSession(engine);
+        return engine as EngineSession ?? new EngineSession(engine, runId, attemptId);
     }
+
+    /// <summary>
+    /// The context an engine call carries: the caller's origin with the run and the attempt the session belongs to (upstream builds the whole
+    /// <c>OperationContext</c> at the call; here the runtime's callers name the origin and the adapter adds the ids).
+    /// </summary>
+    private OperationContext Stamp(OperationContext context) =>
+        context with { RunId = context.RunId.Length == 0 ? _runId : context.RunId, AttemptId = context.AttemptId.Length == 0 ? _attemptId : context.AttemptId };
 
     /// <summary>
     /// The engine's own session behind the adapter. .NET-only: a caller that needs the engine's own type (the <see cref="Browser"/> fixture's
@@ -94,14 +108,14 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
         Guard("actions", cancellationToken, () =>
         {
             RequireKeyOf(action);
-            return _engine.PerformAsync(node, action, context, cancellationToken);
+            return _engine.PerformAsync(node, action, Stamp(context), cancellationToken);
         });
 
     public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) =>
         Guard("point actions", cancellationToken, () => _engine.PerformAtAsync(point, action, cancellationToken));
 
     public Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) =>
-        Guard("point actions", cancellationToken, () => _engine.PerformAtAsync(point, action, context, cancellationToken));
+        Guard("point actions", cancellationToken, () => _engine.PerformAtAsync(point, action, Stamp(context), cancellationToken));
 
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         Guard("keyboard input", cancellationToken, () =>
@@ -126,16 +140,16 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
         Guard("actions", cancellationToken, () => _engine.SwipeAsync(direction, momentum, cancellationToken));
 
     public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext context, CancellationToken cancellationToken) =>
-        Guard("actions", cancellationToken, () => _engine.SwipeAsync(direction, momentum, context, cancellationToken));
+        Guard("actions", cancellationToken, () => _engine.SwipeAsync(direction, momentum, Stamp(context), cancellationToken));
 
     public Task BackAsync(CancellationToken cancellationToken) =>
         Guard("back navigation", cancellationToken, () => _engine.BackAsync(cancellationToken));
 
     public Task BackAsync(OperationContext context, CancellationToken cancellationToken) =>
-        Guard("back navigation", cancellationToken, () => _engine.BackAsync(context, cancellationToken));
+        Guard("back navigation", cancellationToken, () => _engine.BackAsync(Stamp(context), cancellationToken));
 
     public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
-        Guard("viewport resizing", cancellationToken, () => _engine.ResizeAsync(size, context, cancellationToken));
+        Guard("viewport resizing", cancellationToken, () => _engine.ResizeAsync(size, Stamp(context), cancellationToken));
 
     public Task RestartAsync(CancellationToken cancellationToken) =>
         Guard("app restart", cancellationToken, () => _engine.RestartAsync(cancellationToken));

@@ -334,7 +334,9 @@ lines you changed:
   `SwipeAsync`, and `BackAsync`. `context.Origin` is `OperationOrigin.Test` for
   a step of the test and `OperationOrigin.Agent` for the agent. The overloads
   without a context stay, and an engine that overrides only those acts the same
-  for both.
+  for both. The context also carries `RunId` and `AttemptId` (the ids
+  `EngineStartOptions.RunId` and `AttemptId` named at start); `OperationContext.Test`
+  and `Agent` themselves hold none.
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with
