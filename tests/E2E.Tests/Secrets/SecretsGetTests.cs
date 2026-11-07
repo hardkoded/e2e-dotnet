@@ -25,7 +25,6 @@ public sealed class SecretsGetTests
     {
         var error = Assert.Throws<TestException>(() => Config.Secrets.Get("missing"));
         Assert.Equal("SECRET_UNAVAILABLE", error.Code);
-        Assert.Matches("E2E_SECRET_MISSING", error.Message);
         Assert.Equal("secret \"missing\" is not configured; add it to config.secrets or set E2E_SECRET_MISSING", error.Message);
     }
 

@@ -208,13 +208,13 @@ public sealed class Secrets
     private readonly IReadOnlyDictionary<string, Secret> _values;
     private readonly IReadOnlyDictionary<string, ResolvedCredential> _credentials;
 
-    internal Secrets(IReadOnlyDictionary<string, Secret> values, IReadOnlyDictionary<string, ResolvedCredential>? credentials = null)
+    internal Secrets(IReadOnlyDictionary<string, Secret> values, IReadOnlyDictionary<string, ResolvedCredential> credentials)
     {
         _values = values;
-        _credentials = credentials ?? new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal);
+        _credentials = credentials;
     }
 
-    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal));
+    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal), new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal));
 
     public IEnumerable<string> Names => _values.Keys;
 
