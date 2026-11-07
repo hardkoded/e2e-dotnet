@@ -31,6 +31,9 @@ internal sealed class FakeEngine(IEngine inner, byte shade = 255) : IEngine
     /// <summary>The attempt id of each start, in order.</summary>
     public List<string?> AttemptIds { get; } = [];
 
+    /// <summary>The run id of each start, in order.</summary>
+    public List<string?> RunIds { get; } = [];
+
     /// <summary>The engine calls so far, in order.</summary>
     public IReadOnlyList<EngineCall> Calls
     {
@@ -64,6 +67,7 @@ internal sealed class FakeEngine(IEngine inner, byte shade = 255) : IEngine
         lock (AttemptIds)
         {
             AttemptIds.Add(options.AttemptId);
+            RunIds.Add(options.RunId);
         }
 
         var proxy = DispatchProxy.Create<IEngineSession, Recorder>();

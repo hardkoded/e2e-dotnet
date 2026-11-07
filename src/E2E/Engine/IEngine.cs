@@ -121,9 +121,13 @@ public sealed class EngineStartOptions
 
     /// <summary>
     /// The attempt's id, for naming what an engine leases for it at a hosted service. Defaults to a new one per start.
-    /// Upstream's <c>EngineAttemptContext.attemptId</c>.
+    /// Upstream's <c>EngineAttemptContext.attemptId</c>. <see cref="E2ESession"/> sets it, and the same id is the <see cref="OperationContext.AttemptId"/>
+    /// of every call that takes a context.
     /// </summary>
     public string? AttemptId { get; init; }
+
+    /// <summary>The id of the run the attempt belongs to. Upstream's <c>EngineAttemptContext.runId</c>. <see cref="E2ESession"/> sets it; the same id is the <see cref="OperationContext.RunId"/> of every call that takes a context.</summary>
+    public string? RunId { get; init; }
 
     /// <summary>
     /// The run's environment: where a hosted service's provider reads its token from, with what the engine's prepare left in it.

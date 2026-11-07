@@ -1450,7 +1450,7 @@ internal sealed class AttemptScope
     public string TargetName { get => _targetName ?? EnginePlatform; init => _targetName = value; }
 
     /// <summary>This attempt's identity, which an executor tells it from a retry's by.</summary>
-    public string AttemptId { get; } = Guid.CreateVersion7().ToString();
+    public string AttemptId { get; init; } = Guid.CreateVersion7().ToString();
 
     /// <summary>When the attempt began.</summary>
     public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
