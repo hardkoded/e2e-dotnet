@@ -50,7 +50,8 @@ internal static class SnapshotText
     internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool focus = false)
     {
         var builder = new StringBuilder();
-        builder.Append(node.Role ?? "text");
+        // The role is page text too (a secret can be used as one), redacted like every other string field of the node.
+        builder.Append(node.Role is null ? "text" : AgentObservation.RedactText(node.Role, redactor));
         // A node with no accessible name, such as one listed for its text
         // or its test id, shows the text it owns, so a container does not repeat its children's.
         // A named node shows its text too, when it differs.

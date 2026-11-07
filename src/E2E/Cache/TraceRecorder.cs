@@ -320,7 +320,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         var text = node.Name is null ? null : NonEmpty(RedactField(node.Text, ObservationLimits.Text, redactor));
         return new RecordedTarget
         {
-            Role = node.Role,
+            Role = node.Role is null ? null : AgentObservation.RedactText(node.Role, redactor),
             Name = name,
             Text = text == name ? null : text,
             TestId = Redact(node.TestId, redactor),

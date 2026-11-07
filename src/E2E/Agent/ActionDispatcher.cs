@@ -576,7 +576,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
 
         if (!Roles.IsEditable(node))
         {
-            throw Denied("the target is not an editable input (role " + (node.Role ?? "none") + ")");
+            throw Denied("the target is not an editable input (role " + (node.Role is null ? "none" : AgentObservation.RedactText(node.Role, _scope.Redactor)) + ")");
         }
 
         // A password belongs in a password field, where the surface masks it. A generic secret has no field of its

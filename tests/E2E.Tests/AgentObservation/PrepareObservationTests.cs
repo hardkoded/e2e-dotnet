@@ -8,12 +8,11 @@ using E2E.Internal;
 namespace E2E.Tests.AgentObservation;
 
 /// <summary>
-/// The port renders the screen as one text block in its own format, with no PreparedObservation (kind, node index, tree, path, bytes), no
-/// pixel evidence beside the tree, and no <c>redactNodesAgain</c>. So these upstream its are not ported: "keeps unavailable semantics separate from
-/// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without repeating capture" (the settle loop
-/// always has a shape), and "redacts an earlier capture again with a secret resolved since, keeping which nodes are leaves". Every
-/// <c>Partial_</c> test in this class (engine-reported cut, byte limit, byte cut, address after the origin, collapsed name, cut-secret field, every string field)
-/// checks part of its upstream it; the collapsed-field test reads the rendered text and the anchors, and the cut-secret and every-string-field tests read the rendered text and <c>ProjectTree</c>. The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
+/// <c>describe('prepareObservation')</c> of <c>agent-observation.test.ts</c>, over <c>AgentObservation.PrepareObservation</c>. Partial (the test name carries
+/// <c>Partial_</c>): "keeps unavailable semantics separate from an empty tree and requires permitted masked evidence" (the port counts the secure nodes
+/// from the tree, where upstream's engine reports <c>secureNodeCount</c>, and it has no <c>location</c> to project); "keeps the whole address after the origin as the path"
+/// (the observation carries a route, read by <c>Routes.LocationOf</c>); "redacts every string field a node carries" (the port's nodes have no <c>selector</c>,
+/// <c>framePath</c>, or unknown extra field). The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
@@ -24,39 +23,106 @@ public sealed class PrepareObservationTests
     // Relaxed escaping keeps "<secret:name>" readable in the serialized tree.
     private static string Json<T>(T value) => System.Text.Json.JsonSerializer.Serialize(value, Relaxed);
 
-    /// <summary>Partial: upstream "carries an engine-reported cut through as truncated" checks its own marker and format. The port renders the screen in its own format and marker, and counts no bytes or nodes beside the text.</summary>
+    private static PreparedObservation Prepare(Observation observation, Redactor? redactor = null, int maxBytes = 4_096, bool pixelsAllowed = false) =>
+        global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor ?? Redactor.None, MaxBytes = maxBytes, PixelsAllowed = pixelsAllowed });
+
+    /// <summary>
+    /// Partial: upstream's pixel observation reports <c>secureNodeCount: 1</c> with <c>maskedRegionCount: 0</c> from the engine. The port counts the secure
+    /// nodes in the tree, which a pixel observation does not have, so "masking not proven" is checked with a secure node left in the roots. It also has no <c>location</c>.
+    /// </summary>
     [Fact]
-    public void Partial_carries_an_engine_reported_cut_through_as_truncated_with_the_ports_marker()
+    public void Partial_keeps_unavailable_semantics_separate_from_an_empty_tree_and_requires_permitted_masked_evidence()
     {
-        var tree = new SemanticNode { Ref = "n1", Role = "document", Children = [new SemanticNode { Ref = "n2", Role = "button", Name = "One" }] };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None);
-        Assert.Contains("button \"One\"", text, StringComparison.Ordinal);
-        Assert.EndsWith("\n[observation truncated: the engine stopped listing nodes at its limit]", text, StringComparison.Ordinal);
+        var secure = new SemanticNode { Ref = "n1", Role = "textbox", States = new NodeStates { Secure = true } };
+        Observation Unavailable(int masked) => new() { Route = "/", Roots = [secure], TreeUnavailable = true, Pixels = Shot(maskedRegionCount: masked) };
+        var unproven = Assert.Throws<TestException>(() => Prepare(Unavailable(0), pixelsAllowed: true));
+        Assert.Contains("proven-masked screenshot", unproven.Message, StringComparison.Ordinal);
+        var prepared = Prepare(Unavailable(1), pixelsAllowed: true);
+        Assert.Equal(PreparedKind.Pixels, prepared.Kind);
+        Assert.Contains("semantic capture unavailable", prepared.Text, StringComparison.Ordinal);
+        Assert.Contains("previous node ids are no longer valid", prepared.Text, StringComparison.Ordinal);
+        Assert.Contains("never infer absence", prepared.Text, StringComparison.Ordinal);
+        Assert.Empty(prepared.Nodes);
+        Assert.Empty(prepared.Tree);
+        Assert.NotNull(prepared.Pixels);
+        Assert.Contains("permitted", Assert.Throws<TestException>(() => Prepare(Unavailable(1))).Message, StringComparison.Ordinal);
+        var empty = Prepare(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] });
+        Assert.Equal(PreparedKind.Semantic, empty.Kind);
+        Assert.DoesNotContain("unavailable", empty.Text, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: upstream "truncates at the byte limit while keeping the root and flagging truncation" reads the flag, the node index (201 nodes), and the text from <c>prepareObservation</c>. The port has no node index: it checks the text and the cut flag of <c>Render</c>.</summary>
     [Fact]
-    public void Partial_truncates_at_the_byte_limit_while_keeping_the_root_and_flagging_truncation()
+    public async Task Returns_evidence_without_a_comparable_shape_without_repeating_capture()
+    {
+        var captures = 0;
+        var result = await global::E2E.AgentObservation.SettleAsync(
+            _ =>
+            {
+                captures++;
+                return Task.FromResult("pixels");
+            },
+            _ => null,
+            new SettleOptions<string> { StableWait = TimeSpan.FromMilliseconds(30) },
+            TimeProvider.System,
+            CancellationToken.None);
+        Assert.Equal("pixels", result);
+        Assert.Equal(1, captures);
+    }
+
+    [Fact]
+    public void Carries_an_engine_reported_cut_through_as_truncated_with_its_own_marker()
+    {
+        var tree = new SemanticNode { Ref = "n1", Role = "document", Children = [new SemanticNode { Ref = "n2", Role = "button", Name = "One" }] };
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree], Truncated = true });
+        Assert.Equal(PreparedKind.Semantic, prepared.Kind);
+        Assert.True(prepared.Truncated);
+        Assert.Equal(["#n1 document", " #n2 button \"One\"", "[observation truncated: the engine stopped listing nodes at its limit]"], prepared.Text.Split('\n'));
+        Assert.Equal(System.Text.Encoding.UTF8.GetByteCount(prepared.Text), prepared.Bytes);
+        Assert.Equal(2, prepared.Nodes.Count);
+    }
+
+    [Fact]
+    public void Truncates_at_the_byte_limit_while_keeping_the_root_and_flagging_truncation()
     {
         var children = Enumerable.Range(0, 200).Select(index => new SemanticNode { Ref = "c" + index, Role = "button", Name = "Button number " + index }).ToList();
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = children };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None, null, 256, out var cut);
-        Assert.True(cut);
-        Assert.StartsWith("#n1 document", text, StringComparison.Ordinal);
-        Assert.Contains("[observation truncated", text, StringComparison.Ordinal);
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree] }, maxBytes: 256);
+        Assert.Equal(PreparedKind.Semantic, prepared.Kind);
+        Assert.True(prepared.Truncated);
+        Assert.StartsWith("#n1 document", prepared.Text, StringComparison.Ordinal);
+        Assert.Contains("[observation truncated", prepared.Text, StringComparison.Ordinal);
+        Assert.Equal(201, prepared.Nodes.Count);
     }
 
-    /// <summary>Partial: upstream "reports the byte cut, not the engine cut, when both apply" reads <c>prepared.bytes</c> and the engine marker's words. The port's engine marker is its own, and it counts the text's bytes itself.</summary>
     [Fact]
-    public void Partial_reports_the_byte_cut_not_the_engine_cut_when_both_apply()
+    public void Reports_the_byte_cut_not_the_engine_cut_when_both_apply()
     {
         var children = Enumerable.Range(0, 200).Select(index => new SemanticNode { Ref = "c" + index, Role = "button", Name = "Button " + index }).ToList();
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = children };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None, null, 256, out var cut);
-        Assert.True(cut);
-        Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) <= 256);
-        Assert.EndsWith("[observation truncated at the resolved observation byte limit]", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("off screen", text, StringComparison.Ordinal);
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree], Truncated = true }, maxBytes: 256);
+        Assert.True(prepared.Truncated);
+        Assert.True(prepared.Bytes <= 256);
+        Assert.EndsWith("[observation truncated at the resolved observation byte limit]", prepared.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("engine stopped", prepared.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Redacts_an_earlier_capture_again_with_a_secret_resolved_since_keeping_which_nodes_are_leaves()
+    {
+        var tree = new SemanticNode
+        {
+            Ref = "n1",
+            Role = "list",
+            Children = [new SemanticNode { Ref = "n2", Role = "listitem", Name = "tok_9f8e7d6c5b4a3210", Children = [new SemanticNode { Ref = "n3", Text = "tok_9f8e7d6c5b4a3210" }] }],
+        };
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree] });
+        var after = Redactor.For([Secret.Create("token", "tok_9f8e7d6c5b4a3210")]);
+        var again = global::E2E.AgentObservation.RedactNodesAgain(prepared.Nodes, after);
+        Assert.DoesNotContain("tok_9f8e7d6c5b4a3210", Json(again.Values), StringComparison.Ordinal);
+        Assert.Equal("<secret:token>", again["n2"].Name);
+        Assert.Equal("<secret:token>", again["n2"].Children.Single().Text);
+        Assert.Same(again["n3"], again["n2"].Children.Single());
+        Assert.Empty(again["n3"].Children);
     }
 
     [Fact]
@@ -172,9 +238,8 @@ public sealed class PrepareObservationTests
         Assert.Equal(route, E2E.Internal.Routes.LocationOf(location));
     }
 
-    /// <summary>Partial: upstream also reads the name and test id from the node index. The port has none: it reads them from the rendered text, and the anchors from <c>Anchors.Project</c>.</summary>
     [Fact]
-    public void Partial_collapses_a_field_whose_collapsed_form_shows_a_secret_its_written_form_hides_so_no_later_reader_brings_it_back()
+    public void Collapses_a_field_whose_collapsed_form_shows_a_secret_its_written_form_hides_so_no_later_reader_brings_it_back()
     {
         var tree = new SemanticNode
         {
@@ -182,24 +247,29 @@ public sealed class PrepareObservationTests
             Children = [new SemanticNode { Ref = "n2", Role = "heading", Name = "say correct\n\n  horse battery   staple now", TestId = "correct\t\thorse battery staple" }],
         };
         var redactor = Redactor.For([Secret.Create("phrase", "correct horse battery staple")]);
-        var observation = new Observation { Route = "/", Roots = [tree] };
-        var text = SnapshotText.Render(observation, redactor);
-        Assert.Contains("heading \"say <secret:phrase> now\"", text, StringComparison.Ordinal);
-        Assert.Contains("testid=\"<secret:phrase>\"", text, StringComparison.Ordinal);
-        Assert.DoesNotContain("horse", text, StringComparison.Ordinal);
-        var anchors = Anchors.Describe([], Anchors.Project(observation, redactor.Redact, redactor.Redact, (value, limit) => global::E2E.AgentObservation.RedactText(value, redactor, limit)), false).Appeared;
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree] }, redactor);
+        Assert.Equal("say <secret:phrase> now", prepared.Nodes["n2"].Name);
+        Assert.Equal("<secret:phrase>", prepared.Nodes["n2"].TestId);
+        // The anchors read the redacted nodes, as upstream's describeDelta reads the node index.
+        var anchors = Anchors.Describe([], Anchors.Project(new Observation { Route = "/", Roots = prepared.Tree }, value => value, value => value), false).Appeared;
         Assert.DoesNotContain("horse", Json(anchors), StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Partial: upstream "redacts the leading part of a secret a field cut at its limit ends with, and leaves a cut plain value and a whole field alone"
-    /// reads the same fields from <c>prepareObservation</c>'s text, its executor tree, and its node index. The port has no node index and no
-    /// <c>PreparedObservation</c>: it checks the rendered text and <c>ProjectTree</c>. It also does not compare n6 and n7 as whole nodes
-    /// (<c>toEqual(tree.children[..])</c>) or that the tree's child is the node index entry; it checks their text and value, and the text line.
-    /// Like upstream, it asserts that the selection of a textbox whose value holds the secret is withheld rather than redacted.
-    /// </summary>
+    // upstream's toEqual(tree.children[..]) of a node nothing redacted: every field the node carries reads as it was.
+    private static void AssertUntouched(SemanticNode expected, SemanticNode actual)
+    {
+        Assert.Equal(expected.Ref, actual.Ref);
+        Assert.Equal(expected.Role, actual.Role);
+        Assert.Equal(expected.Name, actual.Name);
+        Assert.Equal(expected.Text, actual.Text);
+        Assert.Equal(expected.Value, actual.Value);
+        Assert.Equal(expected.Selection, actual.Selection);
+        Assert.Equal(expected.TestId, actual.TestId);
+        Assert.Equal(expected.States, actual.States);
+    }
+
     [Fact]
-    public void Partial_redacts_the_leading_part_of_a_secret_a_field_cut_at_its_limit_ends_with_and_leaves_a_cut_plain_value_and_a_whole_field_alone()
+    public void Redacts_the_leading_part_of_a_secret_a_field_cut_at_its_limit_ends_with_and_leaves_a_cut_plain_value_and_a_whole_field_alone()
     {
         const string Token = "cut-secret-Kq7ZrT2mWx9pLd4sNv8bHc3jFg6yQa1eUo5iRk0tYw2zXn7uM";
         var redactor = Redactor.For([Secret.Create("apiKey", Token)]);
@@ -218,8 +288,9 @@ public sealed class PrepareObservationTests
                 new SemanticNode { Ref = "n7", Role = "textbox", Value = "0" + CutText(Token[..20]) },
             ],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, redactor);
-        var projected = global::E2E.AgentObservation.ProjectTree([tree], redactor, null).Single().Children;
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree] }, redactor, 16_384);
+        var text = prepared.Text;
+        var projected = global::E2E.AgentObservation.ProjectTree(prepared.Tree, redactor, null).Single().Children;
 
         var cutLines = text.Split('\n').Where(line => line.StartsWith(" #n2 ", StringComparison.Ordinal) || line.StartsWith(" #n3 ", StringComparison.Ordinal) || line.StartsWith(" #n4 ", StringComparison.Ordinal)).ToList();
         Assert.Equal(3, cutLines.Count);
@@ -230,25 +301,24 @@ public sealed class PrepareObservationTests
 
         // The textbox's value holds the secret, so its selection is withheld rather than redacted.
         Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(string.Join('\n', cutLines), "<secret:apiKey>").Count);
+        Assert.Null(prepared.Nodes["n4"].Selection);
         Assert.Null(projected[2].Selection);
-        Assert.Equal(new string('0', ObservationLimits.Text - kept.Length) + "<secret:apiKey>", projected[0].Text);
+        Assert.Equal(new string('0', ObservationLimits.Text - kept.Length) + "<secret:apiKey>", prepared.Nodes["n2"].Text);
+        Assert.DoesNotContain(Token[..12], Json(new[] { "n2", "n3", "n4" }.Select(id => prepared.Nodes[id])), StringComparison.Ordinal);
         Assert.DoesNotContain(Token[..12], Json(projected.Take(3)), StringComparison.Ordinal);
-        Assert.Equal(CutText("plain-control-plain"), projected[3].Text);
+        Assert.Same(prepared.Tree[0].Children[0], prepared.Nodes["n2"]);
+        Assert.Equal(CutText("plain-control-plain"), prepared.Nodes["n5"].Text);
         // A field under its limit was not cut, so a fragment inside it is only app text.
-        Assert.Equal("whole " + Token[..20], projected[4].Text);
-        Assert.Contains(CutText("plain-control-plain"), text, StringComparison.Ordinal);
-        Assert.Contains("whole " + Token[..20], text, StringComparison.Ordinal);
-        Assert.Contains("0" + CutText(Token[..20]), text, StringComparison.Ordinal);
-        // A value longer than the limit is a native control's, which no engine cuts (upstream: expect(prepared.nodes.get('n7')).toEqual(tree.children?.[5])).
-        Assert.Equal("0" + CutText(Token[..20]), projected[5].Value);
+        Assert.Equal("whole " + Token[..20], prepared.Nodes["n6"].Text);
+        AssertUntouched(tree.Children[4], prepared.Nodes["n6"]);
+        // A value longer than the limit is a native control's, which no engine cuts.
+        AssertUntouched(tree.Children[5], prepared.Nodes["n7"]);
     }
 
     /// <summary>
     /// Partial: upstream "redacts every string field a node carries, in the text, the executor tree, and the node index alike" also checks
-    /// <c>selector</c>, <c>framePath</c>, an unknown extra field, and a secret used as a role, in a node index. The port has no node index, no
-    /// selectors and no frame paths. Two omissions are redaction gaps in src (#1303), not design: a secret used as a role is rendered unredacted
-    /// (<c>SnapshotText.Describe</c>), and an attribute key such as <c>data-SECRET</c> is kept as written by <c>ProjectTree</c>, where upstream
-    /// redacts both. It checks the test id in the text, and the attribute values in the executor tree.
+    /// <c>selector</c> and <c>framePath</c> (the port's nodes have neither), and that a field the contract does not name is dropped (a
+    /// <c>SemanticNode</c> has no such field). It checks the role, the attribute names and values, and the test id in the text, the executor tree, and the node index.
     /// </summary>
     [Fact]
     public void Partial_redacts_every_string_field_a_node_carries_in_the_text_the_executor_tree_and_the_node_index_alike()
@@ -268,17 +338,20 @@ public sealed class PrepareObservationTests
                     Name = "Go",
                     TestId = Token,
                     Placeholder = Token,
-                    Attributes = new Dictionary<string, string> { ["placeholder"] = Token, ["title"] = Token },
+                    Attributes = new Dictionary<string, string> { ["data-" + Token] = Token, ["placeholder"] = Token },
                 },
+                new SemanticNode { Ref = "n3", Role = Token, Name = "Custom" },
             ],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, redactor);
-        var projected = global::E2E.AgentObservation.ProjectTree([tree], redactor, null);
-        Assert.Contains("testid=\"<secret:probe>\"", text, StringComparison.Ordinal);
-        var attributes = projected.Single().Children.Single().Attributes!;
-        Assert.Equal("<secret:probe>", attributes["placeholder"]);
-        Assert.Equal("<secret:probe>", attributes["title"]);
-        foreach (var shown in new[] { text, Json(projected) })
+        var prepared = Prepare(new Observation { Route = "/", Roots = [tree] }, redactor, 16_384);
+        var projected = global::E2E.AgentObservation.ProjectTree(tree.Children, redactor, null);
+        Assert.Contains("testid=\"<secret:probe>\"", prepared.Text, StringComparison.Ordinal);
+        Assert.Equal(new Dictionary<string, string> { ["data-<secret:probe>"] = "<secret:probe>", ["placeholder"] = "<secret:probe>" }, prepared.Nodes["n2"].Attributes);
+        Assert.Equal("<secret:probe>", prepared.Nodes["n3"].Role);
+        Assert.Equal(new Dictionary<string, string> { ["data-<secret:probe>"] = "<secret:probe>", ["placeholder"] = "<secret:probe>" }, global::E2E.AgentObservation.ProjectTree([tree], redactor, null).Single().Children[0].Attributes);
+        Assert.Equal("<secret:probe>", projected[1].Role);
+        Assert.Equal("<secret:probe>", global::E2E.Cache.TraceRecorder.DescribeTarget(tree.Children[1], redactor).Role);
+        foreach (var shown in new[] { prepared.Text, Json(global::E2E.AgentObservation.ProjectTree(prepared.Tree, redactor, null)), Json(prepared.Nodes.Values) })
         {
             Assert.DoesNotContain(Token, shown, StringComparison.Ordinal);
             Assert.DoesNotContain(Token[..12], shown, StringComparison.Ordinal);

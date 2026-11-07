@@ -108,7 +108,7 @@ internal static class Anchors
             var states = States.Where(state => StateOf(node.States, state)).ToList();
             var target = new RecordedTarget
             {
-                Role = Field(node.Role),
+                Role = Field(node.Role) is { } role ? redact(role) : null,
                 Name = name is null ? null : record(Read(node.Name!, ObservationLimits.Name, name)),
                 Text = text is null ? null : record(Read(node.Text!, ObservationLimits.Text, text)),
                 TestId = testId is null ? null : redact(testId),
