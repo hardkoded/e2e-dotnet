@@ -38,7 +38,7 @@ public sealed class BrowserExpect
         ArgumentNullException.ThrowIfNull(expected);
         var target = Routes.Absolute(_browser.BaseUrl, expected).AbsoluteUri;
         var comparison = ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return UrlAsync(expected, ignoreCase, timeout, current => string.Equals(Normalize(current), target, comparison), cancellationToken);
+        return UrlAsync(target, ignoreCase, timeout, current => string.Equals(Normalize(current), target, comparison), cancellationToken);
     }
 
     /// <summary>
