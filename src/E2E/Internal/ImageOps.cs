@@ -35,7 +35,7 @@ internal static class ImageOps
     /// <summary>
     /// Decodes PNG bytes to 8-bit RGBA: any color type, at 1 to 16 bits or with a palette. Throws on anything that is not a PNG.
     /// Skia expands the sub-byte samples, the palette, and a gray or RGB image's transparent color (alpha 0, compared at the image's own bit depth) itself.
-    /// A 16-bit sample is scaled to 8 bits by Skia, which can land one level from upstream's rounding (<c>narrow</c> in <c>internal/image.ts</c>).
+    /// Skia cannot hand out 16-bit samples, so a 16-bit image is read from its chunks (<see cref="ReadSixteenBitPng"/>) and each sample is scaled to 8 bits with rounding, as upstream's <c>narrow</c> does in <c>internal/image.ts</c>.
     /// </summary>
     public static RgbaImage DecodePng(byte[] bytes)
     {
@@ -57,8 +57,152 @@ internal static class ImageOps
             throw new InvalidDataException("the PNG is cut short or could not be decoded");
         }
 
+        if (bytes[24] == 16)
+        {
+            return ReadSixteenBitPng(bytes, info.Width, info.Height);
+        }
+
         return new RgbaImage(info.Width, info.Height, bitmap.GetPixelSpan().ToArray());
     }
+
+    /// <summary>
+    /// A 16-bit gray, gray-alpha, RGB, or RGBA PNG as 8-bit RGBA: inflate the image data, unfilter each scanline (Adam7 passes included), apply the
+    /// transparent color (alpha 0 where the 16-bit samples equal it), and <see cref="Narrow"/> each sample. .NET-only: upstream's addon hands out the 16-bit pixels itself.
+    /// The caller has already had Skia accept the file, so the chunks are well formed.
+    /// </summary>
+    private static RgbaImage ReadSixteenBitPng(byte[] bytes, int width, int height)
+    {
+        var colorType = bytes[25];
+        var interlaced = bytes[28] == 1;
+        var channels = colorType switch { 0 => 1, 2 => 3, 4 => 2, 6 => 4, _ => throw new InvalidDataException($"unsupported PNG color type {colorType}") };
+        using var idat = new MemoryStream();
+        byte[]? transparent = null;
+        for (var at = 8; at + 12 <= bytes.Length;)
+        {
+            var length = (int)System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
+            var type = bytes.AsSpan(at + 4, 4);
+            if (type.SequenceEqual("IDAT"u8))
+            {
+                idat.Write(bytes, at + 8, length);
+            }
+            else if (type.SequenceEqual("tRNS"u8) && colorType is 0 or 2)
+            {
+                transparent = bytes.AsSpan(at + 8, length).ToArray();
+            }
+
+            at += 12 + length;
+        }
+
+        var passes = interlaced
+            ? new (int X, int Y, int DX, int DY)[] { (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2) }
+            : [(0, 0, 1, 1)];
+        var bytesPerPixel = channels * 2;
+        var samples = new byte[(long)width * height * bytesPerPixel];
+        idat.Position = 0;
+        using var inflated = new System.IO.Compression.ZLibStream(idat, System.IO.Compression.CompressionMode.Decompress);
+        foreach (var (x0, y0, dx, dy) in passes)
+        {
+            var passWidth = (width - x0 + dx - 1) / dx;
+            var passHeight = (height - y0 + dy - 1) / dy;
+            if (passWidth <= 0 || passHeight <= 0)
+            {
+                continue;
+            }
+
+            var stride = passWidth * bytesPerPixel;
+            var previous = new byte[stride];
+            var line = new byte[stride];
+            for (var row = 0; row < passHeight; row++)
+            {
+                var filter = inflated.ReadByte();
+                inflated.ReadExactly(line);
+                Unfilter(filter, line, previous, bytesPerPixel);
+                for (var column = 0; column < passWidth; column++)
+                {
+                    var to = ((((long)(y0 + (row * dy)) * width) + x0 + (column * dx)) * bytesPerPixel);
+                    line.AsSpan(column * bytesPerPixel, bytesPerPixel).CopyTo(samples.AsSpan((int)to));
+                }
+
+                (previous, line) = (line, previous);
+            }
+        }
+
+        var data = new byte[width * height * 4];
+        var wide = new ushort[channels];
+        var gray = channels <= 2;
+        for (int pixel = 0, from = 0; pixel < width * height; pixel++, from += bytesPerPixel)
+        {
+            for (var channel = 0; channel < channels; channel++)
+            {
+                wide[channel] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(samples.AsSpan(from + (channel * 2)));
+            }
+
+            var to = pixel * 4;
+            data[to] = Narrow(wide[0]);
+            data[to + 1] = Narrow(gray ? wide[0] : wide[1]);
+            data[to + 2] = Narrow(gray ? wide[0] : wide[2]);
+            data[to + 3] = channels is 2 or 4 ? Narrow(wide[channels - 1]) : (byte)255;
+            if (transparent is not null && Matches(transparent, wide, channels))
+            {
+                data[to + 3] = 0;
+            }
+        }
+
+        return new RgbaImage(width, height, data);
+    }
+
+    /// <summary>Whether a pixel's 16-bit samples (gray, or red, green, blue) are the tRNS chunk's transparent color.</summary>
+    private static bool Matches(byte[] transparent, ushort[] pixel, int channels)
+    {
+        var count = channels == 1 ? 1 : 3;
+        if (transparent.Length < count * 2)
+        {
+            return false;
+        }
+
+        for (var channel = 0; channel < count; channel++)
+        {
+            if (System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(transparent.AsSpan(channel * 2)) != pixel[channel])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Undoes a scanline's PNG filter in place, given the scanline above it (zeros for the first).</summary>
+    private static void Unfilter(int filter, byte[] line, byte[] previous, int bytesPerPixel)
+    {
+        for (var at = 0; at < line.Length; at++)
+        {
+            int left = at >= bytesPerPixel ? line[at - bytesPerPixel] : 0;
+            int up = previous[at];
+            int upLeft = at >= bytesPerPixel ? previous[at - bytesPerPixel] : 0;
+            var predictor = filter switch
+            {
+                0 => 0,
+                1 => left,
+                2 => up,
+                3 => (left + up) / 2,
+                4 => Paeth(left, up, upLeft),
+                _ => throw new InvalidDataException($"unknown PNG filter {filter}"),
+            };
+            line[at] = (byte)(line[at] + predictor);
+        }
+    }
+
+    private static int Paeth(int left, int up, int upLeft)
+    {
+        var estimate = left + up - upLeft;
+        var toLeft = Math.Abs(estimate - left);
+        var toUp = Math.Abs(estimate - up);
+        var toUpLeft = Math.Abs(estimate - upLeft);
+        return toLeft <= toUp && toLeft <= toUpLeft ? left : toUp <= toUpLeft ? up : upLeft;
+    }
+
+    /// <summary>A 16-bit sample as an 8-bit one, rounded: upstream's <c>narrow</c> (<c>Math.round(sample * 255 / 65535)</c>).</summary>
+    private static byte Narrow(ushort sample) => (byte)Math.Round(sample * 255 / 65535d, MidpointRounding.AwayFromZero);
 
     /// <summary>Whether the chunks, walked from the signature by their lengths, reach a whole IEND chunk: a PNG cut inside its last chunk does not.</summary>
     private static bool EndsWithIend(byte[] bytes)
