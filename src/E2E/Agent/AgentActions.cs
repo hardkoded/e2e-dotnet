@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using E2E.Engine;
 using E2E.Internal;
 using static E2E.Agent;
@@ -192,4 +193,110 @@ internal static class AgentActions
     private static string? Read(string? text, Redactor redactor) => RedactField(text, ObservationLimits.Text, redactor);
 
     private static string Squash(string? text) => TextRules.Normalize(text ?? "").ToLowerInvariant();
+
+    /// <summary>Upstream's <c>NODE_ACTION_PROSE</c>: how each node action reads around the node it acted on.</summary>
+    private static readonly Dictionary<string, string> NodeActionProse = new(StringComparer.Ordinal)
+    {
+        ["tap"] = "tap {0}",
+        ["doubleTap"] = "double-tap {0}",
+        ["longPress"] = "long-press {0}",
+        ["secondaryTap"] = "secondary-tap {0}",
+        ["hover"] = "hover over {0}",
+        ["scrollTo"] = "scroll {0} into view",
+    };
+
+    /// <summary>
+    /// Upstream's <c>describeAction</c> (the <c>summary</c> of its <c>DescribedAction</c>): one committed action as redacted, bounded prose,
+    /// <c>tap button "Approve"</c> or <c>fill secret "password" into textbox "Password"</c>. A secret's value never appears, its name stands in.
+    /// A typed or selected value, a key, a location, and an uploaded path pass through <paramref name="redactor"/>. The target is the descriptor
+    /// the action holds flat; <paramref name="target"/> and <paramref name="destination"/> stand in for the ones a point action sat in, which the
+    /// recorder reads off the listed node before it drops an anonymous one.
+    /// </summary>
+    public static string DescribeAction(RecordedAction action, Redactor redactor, RecordedTarget? target = null, RecordedTarget? destination = null)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        ArgumentNullException.ThrowIfNull(redactor);
+        switch (action.Kind)
+        {
+            case "tapAt" or "hoverAt":
+                target ??= action.Under?.Target;
+                break;
+            case "dragAt":
+                target ??= action.From?.Under?.Target;
+                destination ??= action.To?.Under?.Target;
+                break;
+            default:
+                // The Text of a scrollUntil and a tool gap is the text paged toward and the tool's name, not the target's text.
+                var descriptor = E2E.Cache.TraceRecorder.TargetOf(action);
+                if (action.Kind is "scrollUntil" or "tool")
+                {
+                    descriptor.Text = null;
+                }
+
+                target ??= descriptor;
+                destination ??= action.Destination;
+                break;
+        }
+
+        target = Described(target);
+        destination = Described(destination);
+        var where = DescribeForSummary(target);
+        string Safe(string value) => QuoteText(redactor.Redact(TextRules.SanitizeText(value)));
+        var prose = action.Kind switch
+        {
+            "tap" or "doubleTap" or "longPress" or "secondaryTap" or "hover" or "scrollTo" =>
+                string.Format(CultureInfo.InvariantCulture, NodeActionProse[action.Kind], where) + (action.Modifiers is { Count: > 0 } held ? " with " + string.Join('+', held) + " held" : ""),
+            "fill" when Trace.IsSecretMarker(action) => "fill secret " + QuoteText(action.Value![8..^1]) + " into " + where,
+            "fill" => "type " + Safe(action.Value ?? "") + " into " + where,
+            "clear" => "type " + Safe("") + " into " + where,
+            "press" => "press " + Safe(action.Key ?? "") + " on " + where,
+            "select" => "select " + Safe(action.Value ?? "") + " in " + where,
+            "check" => "check " + where,
+            "uncheck" => "uncheck " + where,
+            "upload" => "upload " + string.Join(", ", (action.Paths ?? []).Select(Safe)) + " to " + where,
+            "drag" => "drag " + where + " to " + DescribeForSummary(destination),
+            "scroll" => target is null ? "scroll " + action.Direction : "scroll " + action.Direction + " on " + where,
+            "scrollUntil" => "scroll " + action.Direction + (target is null ? "" : " on " + where) + " until " + Safe(action.Text ?? "") + " shows" + PagesTaken(action.Screens),
+            "navigate" => "navigate to " + Safe(action.Url ?? ""),
+            "back" => "navigate back",
+            "resize" => "resize the viewport to " + Number(action.Size?.Width ?? 0) + "x" + Number(action.Size?.Height ?? 0),
+            "typeText" => "type " + Safe(action.Value ?? "") + " into the focused field" + (action.Replace == true ? ", replacing its value" : ""),
+            "pressKey" => "press " + Safe(action.Key ?? "") + " on the focused field",
+            "dismissKeyboard" => "dismiss the keyboard",
+            "tapAt" or "hoverAt" => (action.Kind == "tapAt" ? "tap" : "hover over") + " the point " + PointText(action.Point) + (target is null ? "" : " on " + where),
+            "dragAt" => "drag from the point " + PointText(action.From?.Point) + (target is null ? "" : " on " + where) + " to the point " + PointText(action.To?.Point) + (destination is null ? "" : " on " + DescribeForSummary(destination)),
+            "tool" => "tool " + redactor.Redact(action.Text ?? ""),
+            _ => action.Kind,
+        };
+        return TextRules.Bound(prose, Trace.MaxTraceSummaryChars);
+    }
+
+    // A descriptor that names nothing is no target (upstream's describeTarget returns undefined for it).
+    private static RecordedTarget? Described(RecordedTarget? target) =>
+        target is { } named && (named.Role is not null || named.Name is not null || named.Text is not null || named.TestId is not null || named.Placeholder is not null || named.InputPurpose is not null)
+            ? named
+            : null;
+
+    // Upstream's describeForSummary: the target's label, the container it sat in, then its place among its twins, (2 of 3).
+    private static string DescribeForSummary(RecordedTarget? target)
+    {
+        if (target is null)
+        {
+            return "the screen";
+        }
+
+        var label = RecordedTarget.TargetLabel(target);
+        var placed = target.Within is null ? label : label + " in " + QuoteText(target.Within);
+        return target.Position is null ? placed : placed + " (" + Number(target.Position.Index + 1) + " of " + Number(target.Position.Of) + ")";
+    }
+
+    // Upstream's quote: a value bounded to 40 characters, as JSON text.
+    private static string QuoteText(string value) => UploadPaths.Quote(TextRules.Bound(value, 40));
+
+    private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    private static string PointText(Point? point) => point is { } at ? "(" + Number(at.X) + ", " + Number(at.Y) + ")" : "(0, 0)";
+
+    private static string PagesTaken(int? screens) =>
+        screens is not { } pages ? "" : " (" + (pages == 0 ? "already there" : Number(pages) + (pages == 1 ? " screen" : " screens")) + ")";
 }
