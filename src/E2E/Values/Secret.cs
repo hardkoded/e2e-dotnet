@@ -206,13 +206,15 @@ public static class Credentials
 public sealed class Secrets
 {
     private readonly IReadOnlyDictionary<string, Secret> _values;
+    private readonly IReadOnlyDictionary<string, ResolvedCredential> _credentials;
 
-    internal Secrets(IReadOnlyDictionary<string, Secret> values)
+    internal Secrets(IReadOnlyDictionary<string, Secret> values, IReadOnlyDictionary<string, ResolvedCredential> credentials)
     {
         _values = values;
+        _credentials = credentials;
     }
 
-    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal));
+    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal), new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal));
 
     public IEnumerable<string> Names => _values.Keys;
 
@@ -223,7 +225,12 @@ public sealed class Secrets
         return ConfigSecrets.EnvName("E2E_SECRET", name);
     }
 
-    /// <summary>The configured secret. A name the config does not declare throws <c>SECRET_UNAVAILABLE</c>.</summary>
+    /// <summary>
+    /// The configured secret (upstream's <c>secrets.get</c>, <c>secrets.ts</c>). A name the config does not declare throws <c>SECRET_UNAVAILABLE</c>,
+    /// naming the <c>E2E_SECRET_&lt;NAME&gt;</c> variable and, when the name is a credential or its password handle, that the password is
+    /// <c>Credentials.User(name).Password</c> (upstream's <c>credentialNamed</c> hint). The message holds names only, never a value.
+    /// Differences: the port has no registry slot, so the credentials come with the <see cref="Secrets"/> the config built.
+    /// </summary>
     public Secret Get(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -232,6 +239,8 @@ public sealed class Secrets
             return secret;
         }
 
-        throw new TestException("SECRET_UNAVAILABLE", "Secret '" + name + "' is not declared in e2e.config.json secrets.");
+        var credential = ConfigSecrets.CredentialNamed(name, _credentials);
+        var hint = credential is null ? "" : "; credential \"" + credential.Name + "\"'s password is credentials.user(\"" + credential.Name + "\").password";
+        throw new TestException("SECRET_UNAVAILABLE", "secret \"" + name + "\" is not configured; add it to config.secrets or set " + ConfigSecrets.EnvName("E2E_SECRET", name) + hint);
     }
 }

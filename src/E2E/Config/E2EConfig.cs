@@ -1128,7 +1128,7 @@ public sealed class E2EConfig
         List<string> names = [.. fileNames, .. providers.Keys.Where(name => !entries.ContainsKey(name))];
         if (names.Count == 0)
         {
-            return Secrets.Empty;
+            return credentials.Count == 0 ? Secrets.Empty : new Secrets(new Dictionary<string, Secret>(StringComparer.Ordinal), credentials);
         }
 
         var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
@@ -1179,7 +1179,7 @@ public sealed class E2EConfig
             values[name] = Secret.Create(name, value, "generic-secret");
         }
 
-        return new Secrets(values);
+        return new Secrets(values, credentials);
     }
 
     private static void CheckKeys(JsonElement value, string label, string[] allowed, string[] unsupported, Dictionary<string, string>? moved, Dictionary<string, string>? removed = null)
