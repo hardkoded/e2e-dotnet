@@ -47,7 +47,7 @@ internal static class StepCacheHarness
                 Cache = context.Store,
                 Write = context.Write,
                 Strict = context.Strict,
-                StrictAdvice = context.Strict ? AttemptScope.StaleAdvice(context.Store, Path.GetTempPath()) : "",
+                StrictAdvice = context.Strict ? CacheContexts.CreateAgentCacheContext(new CacheConfig { Strict = true, Store = context.Store }, Path.GetTempPath(), 0)!.Strict!.Advice : "",
                 ReplayEligible = context.ReplayEligible,
                 Claim = new ClaimedKey(Key, step ?? ExampleStep),
                 Instruction = "open billing",
