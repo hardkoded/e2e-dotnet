@@ -99,7 +99,7 @@ internal static partial class CacheCommand
             var contents = ReadContents(directory);
             return parsed.Command switch
             {
-                "ls" => List(contents, stdout, stderr, new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")))),
+                "ls" => List(contents, stdout, stderr, new Colors(interactive && string.IsNullOrEmpty(env is null ? Environment.GetEnvironmentVariable("NO_COLOR") : env.GetValueOrDefault("NO_COLOR")))),
                 "stats" => Stats(contents, stdout, stderr),
                 _ => Clear(contents, stdout, stderr),
             };
@@ -169,6 +169,12 @@ internal static partial class CacheCommand
             }
 
             var file = new FileInfo(Path.Combine(directory, name));
+            if (!file.Exists)
+            {
+                // Removed since it was read: a concurrent run or clear. Not an entry any more.
+                continue;
+            }
+
             entries.Add(new CacheEntrySummary(
                 keyHash,
                 file.Length,
