@@ -37,6 +37,38 @@ public sealed class AiTraceModelTests
     }
 
     [Fact]
+    public async Task Records_the_provider_metadata_of_a_tool_call_redacted()
+    {
+        var redactor = Redactor.ForValue(Password);
+        var metadata = new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = "sig-" + Password }) };
+        var call = new ModelToolCall { Id = "c1", Name = "tap", Arguments = JsonSerializer.SerializeToElement(new { }), ProviderMetadata = metadata };
+        var model = new ScriptedModel(_ => new ModelResponse { ToolCalls = [call] });
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(redactor, new ModelMessage { Role = "assistant", ToolCalls = [call] }), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+        var output = JsonDocument.Parse(step.Output!).RootElement;
+
+        Assert.Equal("sig-[redacted]", output.GetProperty("content")[0].GetProperty("providerMetadata").GetProperty("google").GetProperty("thoughtSignature").GetString());
+        Assert.Equal("sig-[redacted]", output.GetProperty("response").GetProperty("messages")[0].GetProperty("content")[0].GetProperty("providerOptions").GetProperty("google").GetProperty("thoughtSignature").GetString());
+        Assert.Contains("providerOptions", step.Input, StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, step.Input + step.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Omits_the_provider_metadata_of_a_tool_call_that_has_none()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(Redactor.None), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+
+        Assert.DoesNotContain("providerMetadata", step.Output!, StringComparison.Ordinal);
+        Assert.DoesNotContain("providerOptions", step.Output!, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Attributes_a_generation_a_tool_starts_to_the_step_that_called_it()
     {
         var recorder = new AiTraceRecorder();

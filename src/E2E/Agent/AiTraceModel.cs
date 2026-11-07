@@ -70,14 +70,17 @@ internal static class AiTraceModel
             content.Add(Obj("text", ("text", redactor.Redact(response.Content))));
         }
 
-        content.AddRange(response.ToolCalls.Select(call => ToolCall(call, redactor)));
+        // The SDK holds a generated part's provider data as providerMetadata, and the same part in a message as providerOptions.
+        var messageContent = new List<object?>(content);
+        content.AddRange(response.ToolCalls.Select(call => ToolCall(call, redactor, "providerMetadata")));
+        messageContent.AddRange(response.ToolCalls.Select(call => ToolCall(call, redactor, "providerOptions")));
         var stepEnd = new AiTraceStepEndEvent(
             callId,
             0,
             content,
             response.ToolCalls.Count > 0 ? "tool-calls" : "stop",
             response.Usage is null ? null : Obj(null, ("inputTokens", response.Usage.InputTokens), ("outputTokens", response.Usage.OutputTokens)),
-            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", content))]));
+            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", messageContent))]));
         return new AiTraceTurn(response, recorder, callId, stepEnd);
     }
 
@@ -92,7 +95,7 @@ internal static class AiTraceModel
                     parts.Add(Obj("text", ("text", redactor.Redact(message.Content))));
                 }
 
-                parts.AddRange((message.ToolCalls ?? []).Select(call => ToolCall(call, redactor)));
+                parts.AddRange((message.ToolCalls ?? []).Select(call => ToolCall(call, redactor, "providerOptions")));
                 return Obj(null, ("role", "assistant"), ("content", parts));
             case "tool":
                 var result = Obj(
@@ -119,8 +122,17 @@ internal static class AiTraceModel
         }
     }
 
-    private static Dictionary<string, object?> ToolCall(ModelToolCall call, Redactor redactor) =>
-        Obj("tool-call", ("toolCallId", call.Id), ("toolName", call.Name), ("input", Tree(call.Arguments, redactor)));
+    // The call as the SDK holds it, with the provider's data on it (such as a Gemini thought signature) redacted like any provider text.
+    private static Dictionary<string, object?> ToolCall(ModelToolCall call, Redactor redactor, string providerKey)
+    {
+        var part = Obj("tool-call", ("toolCallId", call.Id), ("toolName", call.Name), ("input", Tree(call.Arguments, redactor)));
+        if (call.ProviderMetadata is { } metadata)
+        {
+            part[providerKey] = metadata.ToDictionary(entry => redactor.Redact(entry.Key), entry => Tree(entry.Value, redactor), StringComparer.Ordinal);
+        }
+
+        return part;
+    }
 
     private static Dictionary<string, object?> Tool(ModelTool tool) =>
         Obj(null, ("name", tool.Name), ("description", tool.Description), ("inputSchema", tool.Parameters.ValueKind == JsonValueKind.Undefined ? null : tool.Parameters.Clone()));
