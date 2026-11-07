@@ -261,6 +261,7 @@ public abstract class E2EFixture
                 CacheEnabled = cacheMode != CacheMode.Off,
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,
+                CacheStrictSource = Config.Cache.StrictSource,
                 TestTitle = title,
                 TestFile = GetType().FullName,
                 TestMethod = testMethod?.Name,

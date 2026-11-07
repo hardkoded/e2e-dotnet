@@ -288,6 +288,20 @@ public sealed class E2ESession : IAsyncDisposable
             // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
             // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
             var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
+            // Upstream's createAgentCacheContext: the store's mode and replay eligibility, and the advice a stale strict replay carries.
+            var cache = cacheOn
+                ? CacheContexts.CreateAgentCacheContext(
+                    new CacheConfig
+                    {
+                        Mode = options.CacheMode,
+                        Directory = (options.Cache as FileStepCache)?.CacheDirectory ?? Path.Combine(projectRoot, ".e2e", "cache"),
+                        Strict = options.CacheStrict,
+                        StrictSource = options.CacheStrict ? options.CacheStrictSource ?? new CacheStrictSource(true, false) : null,
+                        Store = options.Cache is FileStepCache ? null : options.Cache,
+                    },
+                    projectRoot,
+                    options.Attempt - 1)
+                : null;
             var softFailures = new SoftFailures(options.OnSoftFailure);
             var testFailed = options.TestFailed ?? (static () => false);
             var scope = new AttemptScope
@@ -309,9 +323,10 @@ public sealed class E2ESession : IAsyncDisposable
                 Cache = options.Cache,
                 CacheEnabled = cacheOn,
                 AppIdentity = options.AppIdentity!,
-                CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
-                ReplayEligible = options.CacheStrict || options.Attempt == 1,
+                CacheWrite = cache?.Mode == CacheMode.ReadWrite,
+                ReplayEligible = cache?.ReplayEligible ?? false,
                 CacheStrict = options.CacheStrict,
+                StrictAdvice = cache?.Strict?.Advice ?? "",
                 CleanupTimeout = options.CleanupTimeout,
                 TestTitle = options.TestTitle,
                 TestFile = options.TestFile,
@@ -1289,6 +1304,9 @@ public sealed class E2ESessionOptions
     /// Retries replay too, and the session never writes or deletes a recording, whatever <see cref="CacheMode"/> says.
     /// </summary>
     public bool CacheStrict { get; init; }
+
+    /// <summary>What turned <see cref="CacheStrict"/> on, for the advice a stale strict replay carries. Unset, the config key did.</summary>
+    internal CacheStrictSource? CacheStrictSource { get; init; }
 
     /// <summary>How long the engine may take to start. Upstream <c>launchTimeout</c>.</summary>
     public TimeSpan LaunchTimeout { get; init; } = E2EDefaults.LaunchTimeout;
