@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -88,7 +89,7 @@ internal static partial class Derived
             return E2E.DerivedReason.MintedToken;
         }
 
-        return DateOrTime().IsMatch(value) ? E2E.DerivedReason.Date : null;
+        return DateOrTime.IsMatch(value) ? E2E.DerivedReason.Date : null;
     }
 
     // Whether the instruction or a param spells the value out: the step's literal input, which replays verbatim.
@@ -123,21 +124,17 @@ internal static partial class Derived
 
     private static bool IsWordChar(string text, int index) => WordChar().IsMatch(text.AsSpan(index, 1));
 
-    // A month by name or abbreviation, with or without a trailing period.
-    private const string Month = @"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?";
-    private const string Day = @"\d{1,2}(?:st|nd|rd|th)?";
-
     // A date in ISO, numeric, or month-name form, or a clock time: the model reckons these from today, which moves.
-    private const string DateOrTimePattern =
-        @"\b\d{4}-\d{2}-\d{2}\b"
-        + @"|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b"
-        + @"|\b\d{1,2}:\d{2}(?::\d{2})?\b"
-        + @"|\b" + Month + " " + Day + @"(?:,? \d{4})?\b"
-        + @"|\b" + Day + " " + Month + @"(?:,? \d{4})?\b";
-
     // ECMAScript semantics, as upstream's regular expression has: \b and \d see ASCII only.
-    [GeneratedRegex(DateOrTimePattern, RegexOptions.IgnoreCase | RegexOptions.ECMAScript)]
-    private static partial Regex DateOrTime();
+    private static readonly Regex DateOrTime = new(
+        string.Join(
+            '|',
+            Dates.IsoDate,
+            @"\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b",
+            Dates.ClockTime,
+            Dates.MonthDayDate,
+            Dates.DayMonthDate),
+        RegexOptions.IgnoreCase | RegexOptions.ECMAScript);
 
     [GeneratedRegex(@"[\p{L}\p{N}]")]
     private static partial Regex WordChar();
