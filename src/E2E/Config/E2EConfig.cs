@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using E2E.Engine;
 using E2E.Internal;
 using E2E.Reports;
 
@@ -117,7 +118,7 @@ public sealed class E2EConfig
     /// <summary>True when the <c>CI</c> environment variable is set to a true value.</summary>
     public bool Ci { get; private init; }
 
-    public IReadOnlyList<TargetConfig> Targets { get; private init; } = [];
+    public IReadOnlyList<TargetConfig> Targets { get; private set; } = [];
 
     /// <summary>
     /// The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
@@ -254,6 +255,29 @@ public sealed class E2EConfig
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(password);
         return WithProviders(new Dictionary<string, CredentialProvider>(_credentialProviders, StringComparer.Ordinal) { [name] = new CredentialProvider(username, password) }, _secretProviders);
+    }
+
+    /// <summary>
+    /// A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.
+    /// .NET-only: the config file cannot hold an engine, so code puts one in a target (internal until a public API exists, #1339).
+    /// </summary>
+    internal E2EConfig WithTarget(TargetConfig target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var copy = (E2EConfig)MemberwiseClone();
+        var targets = Targets.ToList();
+        var at = targets.FindIndex(existing => string.Equals(existing.Name, target.Name, StringComparison.Ordinal));
+        if (at >= 0)
+        {
+            targets[at] = target;
+        }
+        else
+        {
+            targets.Add(target);
+        }
+
+        copy.Targets = targets;
+        return copy;
     }
 
     private E2EConfig WithProviders(IReadOnlyDictionary<string, CredentialProvider> credentialProviders, IReadOnlyDictionary<string, SecretProvider> secretProviders)
@@ -1363,7 +1387,14 @@ public sealed class TargetConfig
     public required AppConfig App { get; init; }
 
     /// <summary>This target with another app: the one resolved on the port its command was started on.</summary>
-    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video };
+    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video, Engine = Engine };
+
+    /// <summary>
+    /// The engine this target runs, built in code (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c>); null for a JSON target, whose engine
+    /// the fixture's <c>CreateEngine</c> chooses. Internal until a public engine-in-config API exists (#1339): only <see cref="ResolvedConfig.Resolve"/>
+    /// reads it, to check the secrets its options hold.
+    /// </summary>
+    internal IEngine? Engine { get; init; }
 
     /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
     public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);

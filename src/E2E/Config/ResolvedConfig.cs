@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -302,10 +303,42 @@ internal sealed record ResolvedConfig
     internal static JsonObject ModelIdentity(IAgentModel model) => new() { ["name"] = model.Name };
 
     /// <summary>
+    /// Resolves a config whose targets may hold an engine (upstream's <c>resolve</c>, <c>config/resolve.ts</c>, the part that builds
+    /// <c>ResolvedTarget</c> from each target's <c>engine</c> and runs <see cref="CheckEngineSecrets"/> at load). .NET-only name and place beside
+    /// <c>HostTestFilters.Resolve</c>: the port has no full resolver yet, and this builds only the targets and the checked secrets. Differences:
+    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none.
+    /// </summary>
+    internal static ResolvedConfig Resolve(E2EConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        var targets = new List<ResolvedTarget>(config.Targets.Count);
+        foreach (var target in config.Targets)
+        {
+            var engine = target.Engine is { } held
+                ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets)
+                : null;
+            targets.Add(new ResolvedTarget(target.Name, target.Platform, target.App, engine));
+        }
+
+        CheckEngineSecrets(targets, config.Secrets, config.Credentials);
+        return new ResolvedConfig
+        {
+            ProjectRoot = config.ProjectRoot,
+            ConfigPath = config.ConfigPath,
+            Ci = config.Ci,
+            Targets = targets,
+            ConfigDigest = ComputeConfigDigest(config),
+            AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
+        };
+    }
+
+    private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
+        [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
+
+    /// <summary>
     /// Every secret an engine's options hold (a <c>Secrets.Get</c> the config evaluated before any run existed) names a configured secret, so a
     /// typo fails at load with the nearest name, not mid-run (upstream's <c>checkEngineSecrets</c>, <c>config/resolve.ts</c>). A credential's
-    /// password is not one: an engine option takes a <c>secrets</c> entry. Differences: the port's config has no engine to hold such a
-    /// handle, so no resolver calls it yet.
+    /// password is not one: an engine option takes a <c>secrets</c> entry. <see cref="Resolve"/> calls it, as upstream's <c>resolve</c> does.
     /// </summary>
     internal static void CheckEngineSecrets(IReadOnlyList<ResolvedTarget> targets, Secrets secrets, IReadOnlyDictionary<string, ResolvedCredential> credentials)
     {

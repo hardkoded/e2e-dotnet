@@ -311,19 +311,17 @@ public sealed class ResolveConfigTests
     }
 
     /// <summary>
-    /// Partial: upstream calls <c>resolve(config)</c> on targets whose <c>defineEngine({ secrets })</c> handles hold <c>secrets.get(name)</c>. The port's
-    /// JSON config holds no engine, so the test calls <see cref="ResolvedConfig.CheckEngineSecrets"/>, the check <c>resolve</c> runs, on the
-    /// targets it builds from a fake engine's <see cref="E2E.Engine.IEngine.Secrets"/> (the engine handle's slice that <c>resolve</c> reads).
+    /// Partial: upstream builds the target's engine with <c>defineEngine({ secrets: [secrets.get(name)] })</c> in a config object. The port has no
+    /// public engine-in-config API (#1339), so the test puts a fake <see cref="E2E.Engine.IEngine"/> in an internal <see cref="TargetConfig.Engine"/>
+    /// and calls the internal <see cref="ResolvedConfig.Resolve(E2EConfig)"/>, which runs the check <c>resolve</c> runs.
     /// </summary>
     [Fact]
     public void Partial_Checks_every_secret_an_engine_option_holds_against_the_configured_secrets_never_a_credential()
     {
         var config = E2EConfig.Parse(
             """{ "secrets": { "stagingPassword": "staging-pass" }, "credentials": { "admin": { "username": "admin", "password": "admin-pass" } } }""", Root, Env());
-        void Check(string name) => ResolvedConfig.CheckEngineSecrets(
-            [new ResolvedTarget("web", "web", new AppConfig(), new ResolvedEngine("fake", new HashSet<string>(), [Secret.Create(name, "synthetic-value")]))],
-            config.Secrets,
-            config.Credentials);
+        void Check(string name) => ResolvedConfig.Resolve(config.WithTarget(
+            new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Engine = new SecretHoldingEngine(Secret.Create(name, "synthetic-value")) }));
 
         Check("stagingPassword");
         foreach (var name in new[] { "admin", "admin.password" })
@@ -745,5 +743,21 @@ public sealed class ResolveConfigTests
     {
         var map = values.ToDictionary(pair => pair.Name, pair => pair.Value, StringComparer.Ordinal);
         return name => map.GetValueOrDefault(name);
+    }
+
+    private sealed class SecretHoldingEngine(Secret secret) : E2E.Engine.IEngine
+    {
+        public string Name => "fake";
+
+        public string Platform => "web";
+
+        public string Version => "0";
+
+        public E2E.Engine.EngineCapabilities Capabilities => E2E.Engine.EngineCapabilities.None;
+
+        public IReadOnlyList<Secret> Secrets => [secret];
+
+        public Task<E2E.Engine.IEngineSession> StartAsync(E2E.Engine.EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 }
