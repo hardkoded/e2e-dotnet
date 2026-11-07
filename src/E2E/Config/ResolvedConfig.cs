@@ -306,7 +306,9 @@ internal sealed record ResolvedConfig
     /// Resolves a config whose targets may hold an engine (upstream's <c>resolve</c>, <c>config/resolve.ts</c>, the part that builds
     /// <c>ResolvedTarget</c> from each target's <c>engine</c> and runs <see cref="CheckEngineSecrets"/> at load). .NET-only name and place beside
     /// <c>HostTestFilters.Resolve</c>: the port has no full resolver yet, and this builds only the targets and the checked secrets. Differences:
-    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none.
+    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none. <c>Filters</c> stay empty and the
+    /// digest does not yet include the engine (#1308); <c>HostTestFilters.Resolve</c> is the run path and does not call this until a public
+    /// engine-in-config API exists (#1339).
     /// </summary>
     internal static ResolvedConfig Resolve(E2EConfig config)
     {
