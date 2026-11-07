@@ -178,9 +178,9 @@ public sealed class DescribeDeltaTests
     {
         var (appeared, _) = Describe(
             [Heading],
-            [Heading, Node(text: "3 / 30 steps"), Node(text: "v2.2.1"), Node(text: "E2E workspace 00d8365e"), Node("status", "Counter", text: "1")]);
+            [Heading, Node(text: "3 / 30 steps"), Node(text: "v2.2.1"), Node(text: "E2E workspace 00d8365e"), Node("status", "Counter", text: "1"), Node(text: "Marketing 12"), Node(text: "Mayor 3"), Node(text: "Augusta 3"), Node(text: "12 Marketing")]);
 
-        Assert.Equal(4, appeared.Count);
+        Assert.Equal(8, appeared.Count);
     }
 
     [Fact]
