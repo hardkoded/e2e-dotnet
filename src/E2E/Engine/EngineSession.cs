@@ -30,7 +30,7 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>Wraps <paramref name="engine"/> in the adapter; a session that is wrapped already is returned as it is.</summary>
-    internal static IEngineSession Create(IEngineSession engine, string runId = "", string attemptId = "")
+    internal static IEngineSession Create(IEngineSession engine, string runId, string attemptId)
     {
         ArgumentNullException.ThrowIfNull(engine);
         return engine as EngineSession ?? new EngineSession(engine, runId, attemptId);
@@ -40,7 +40,8 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     /// The context an engine call carries: the caller's origin with the run and the attempt the session belongs to (upstream builds the whole
     /// <c>OperationContext</c> at the call; here the runtime's callers name the origin and the adapter adds the ids).
     /// </summary>
-    private OperationContext Stamp(OperationContext context) => context with { RunId = _runId, AttemptId = _attemptId };
+    private OperationContext Stamp(OperationContext context) =>
+        context with { RunId = context.RunId.Length == 0 ? _runId : context.RunId, AttemptId = context.AttemptId.Length == 0 ? _attemptId : context.AttemptId };
 
     /// <summary>
     /// The engine's own session behind the adapter. .NET-only: a caller that needs the engine's own type (the <see cref="Browser"/> fixture's

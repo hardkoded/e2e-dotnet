@@ -36,7 +36,6 @@ public sealed record OperationContext(OperationOrigin Origin)
     /// <summary>The attempt id: the one <see cref="EngineStartOptions.AttemptId"/> named at start. Upstream's <c>attemptId</c>. Filled in like <see cref="RunId"/>.</summary>
     public string AttemptId { get; init; } = "";
 
-
     /// <summary>A test's own step: an engine may act without settling.</summary>
     public static OperationContext Test { get; } = new(OperationOrigin.Test);
 

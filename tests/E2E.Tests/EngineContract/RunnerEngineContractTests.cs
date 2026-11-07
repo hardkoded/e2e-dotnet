@@ -106,6 +106,8 @@ public sealed class RunnerEngineContractTests : IDisposable
         var performs = calls.Where(call => call.Method == nameof(IEngineSession.PerformAsync)).ToList();
         Assert.NotEmpty(performs);
         Assert.All(performs, call => Assert.Equal(OperationOrigin.Test, call.Context?.Origin));
+        Assert.All(performs, call => Assert.Equal(session.AttemptId, call.Context?.AttemptId));
+        Assert.All(performs, call => Assert.Equal(session.RunId, call.Context?.RunId));
         Assert.NotEmpty(session.RunId);
         Assert.NotEmpty(session.AttemptId);
         Assert.Single(fake.AttemptIds);
