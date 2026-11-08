@@ -131,6 +131,44 @@ Without `MobileOptions.Device`, a booted simulator or emulator that another tool
 
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
 
+## Roles
+
+`Screen.GetByRole` on a device matches the role each element type maps to. A type not listed keeps its own simple name, lower-cased, with a hyphen put between a lower-case letter or digit and the capital that follows it, and whitespace and `_` turned into hyphens (`PickerWheel` is `picker-wheel`). Nothing else is split or removed: `$` stays, and a run of capitals is not broken up, so `Widget$IconView` is `widget$icon-view` and `GLSurfaceView` is `glsurface-view`. It matches only when you pass that name. `GetByRole` takes the role as a string, so any such name works. A node the platform reports editable is a `textbox`, unless it already maps to `combobox` or `searchbox` (`GetByRole("textbox")` does not find an editable node whose role is `searchbox`).
+
+| Role | iOS | Android |
+| --- | --- | --- |
+| `button` | `Button` | `Button`, `ImageButton`, `MaterialButton` |
+| `link` | `Link` | |
+| `textbox` | `TextField`, `SearchField`, `TextView`, `EditText`, `SecureTextField` | `EditText`, `AutoCompleteTextView`, `TextInputEditText`, `SearchView` |
+| `combobox` | | `Spinner` |
+| `switch` | `Switch`, `Toggle` | `Switch`, `SwitchCompat`, `SwitchMaterial`, `ToggleButton` |
+| `checkbox` | `CheckBox` | `CheckBox`, `MaterialCheckBox` |
+| `radio` | `RadioButton` | `RadioButton` |
+| `radiogroup` | `RadioGroup` | `RadioGroup` |
+| `slider` | `Slider` | `SeekBar`, `Slider` |
+| `spinbutton` | `Stepper` | `NumberPicker` |
+| `progressbar` | `ProgressIndicator` | `ProgressBar` |
+| `status` | `ActivityIndicator` | |
+| `image` | `Image`, `ImageView` | `ImageView` |
+| `heading` | `Heading`, `Header` | A view flagged as a heading |
+| `list` | | `RecyclerView`, `ListView`, `AbsListView` (React Native's `FlatList`), `GridView` |
+| `listitem` | `Cell`, `ListItem`, `TableCell`, `CollectionCell` | |
+| `row` | `TableRow` | |
+| `tablist` | `TabBar`, `TabGroup`, `SegmentedControl` | `TabLayout`, `TabWidget`, `BottomNavigationView` |
+| `tab` | `Tab`, `TabBarItem`, `TabBarButton`, and a `Button` inside a `TabBar` or `SegmentedControl` | `TabLayout$TabView`, `BottomNavigationItemView` |
+| `menu` | `Menu` | |
+| `menubar` | `MenuBar` | |
+| `menuitem` | `MenuItem`, `MenuBarItem`, `MenuButton` | |
+| `toolbar` | `Toolbar` | `Toolbar` |
+| `alert` | `Alert` | |
+| `dialog` | `Dialog`, `Sheet`, `ActionSheet` | |
+| `navigation` | `NavigationBar` | |
+| `group` | | `ScrollView`, `ViewGroup`, `View`, `ComposeView`, `ViewFactoryHolder`, `CardView`, and any other `*Layout` |
+
+React Native writes a role the platform has no type for into the accessibility value on iOS (`checkbox, unchecked`) and into the role description on Android (`Tab List`). A node with one of these descriptions takes the role in place of its type's. The description and the role it gives: `alert` is `alert`, `checkbox` is `checkbox`, `combo box` is `combobox`, `menu` is `menu`, `menu bar` is `menubar`, `menu item` is `menuitem`, `progress bar` is `progressbar`, `radio button` is `radio`, `radio group` is `radiogroup`, `scroll bar` is `scrollbar`, `spin button` is `spinbutton`, `switch` is `switch`, `tab` is `tab`, `tab list` is `tablist`, `timer` is `timer`, and `tool bar` is `toolbar`. Match the role, not the description: `GetByRole("radio")` finds a `radio button`. On Android a node flagged as a heading is a `heading` even when its description says `checkbox`; on iOS the description in the value wins over the type. On iOS only an `Other` carries one, and the state words after the role set `checked` and `expanded` (`checked`, `unchecked`, `expanded`, `collapsed`). `mixed` and `busy` set no state and stay in the value, so `checkbox, busy, checked, ready` has the value `busy, ready`; the rest after the state words is the node's value.
+
+`StaticText` and `Text` on iOS and `TextView` on Android are `text`, and an Android `WebView` is `document`. Find text with `GetByText`.
+
 ## Record a transition
 
 `App.StartRecordingAsync()` and `App.StopRecordingAsync()` record one span of the screen as an `.mp4`, and return the videos: a file `Path` under the attempt's `recordings/`, or a `Url` when a hosted device keeps the recording. The test's `video` must be off, since the engine has one recorder.
