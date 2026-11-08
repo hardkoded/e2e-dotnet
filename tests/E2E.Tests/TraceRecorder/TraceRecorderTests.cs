@@ -4,6 +4,7 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
@@ -41,6 +42,29 @@ public sealed class TraceRecorderTests
     }
 
     internal static CacheEntry? Finalize(Recorder recorder, string route = "/settings") => recorder.Finalize(Step, route, route, [], []);
+
+    /// <summary>The entry as JSON, the form the store holds and a patch breaks a field of (upstream's <c>JSON.parse(JSON.stringify(buildTraceEntry(trace)))</c>).</summary>
+    internal static JsonNode Stored(CacheEntry entry) => JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!;
+
+    /// <summary>
+    /// Whether the stored entry with <paramref name="patch"/> applied to its action at <paramref name="index"/> still reads as an entry: the
+    /// stand-in for upstream's <c>readTraceEntry(...)</c> being defined. The port has no such function (its checks run at the agent's read site),
+    /// so this deserializes the JSON, which rejects a field of the wrong JSON type, and runs the action validators the read site runs.
+    /// </summary>
+    internal static bool ReadsAfter(JsonNode stored, int index, Action<JsonObject> patch)
+    {
+        var copy = stored.DeepClone();
+        patch(copy["actions"]![index]!.AsObject());
+        try
+        {
+            var entry = copy.Deserialize<CacheEntry>(JsonDefaults.Options);
+            return entry is { Actions.Count: > 0 } && entry.Actions.All(action => action.HasValidInputs() && action.HasValidSummary() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize());
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
 
     internal static CacheEntry RoundTrip(CacheEntry entry)
     {
@@ -367,46 +391,34 @@ public sealed class TraceRecorderTests
         Assert.Equal(["check button \"Upgrade\"", "type \"\" into button \"Upgrade\""], Finalize(recorder)!.Actions.Select(action => action.Summary));
     }
 
-    /// <summary>Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the upload's paths, the drag's destination, and the resize's size, which the port checks on the action itself. The check's <c>checked</c> (a typed bool) and the resize's non-integer side (a typed int) cannot be malformed in a typed entry, and the unknown name is a store concern.</summary>
+    /// <summary>
+    /// Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the port has no <c>readTraceEntry</c> to call (its
+    /// checks run at the agent's read site; see <see cref="ReadsAfter"/>), and no <c>checked</c> field on a <c>check</c> (it is its own kind),
+    /// so upstream's <c>checked: 'yes'</c> case is not checked. Its unknown action name (<c>fly</c>) is not checked either: no port validator rejects an unknown kind.
+    /// </summary>
     [Fact]
     public void Partial_Rejects_a_stored_check_upload_drag_or_resize_that_lost_a_field()
     {
-        var resize = new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) };
-        Assert.True(resize.HasValidSize());
+        var recorder = MakeRecorder();
+        recorder.Record("check", UpgradeButton);
+        var upload = Recorder.ActionOf("upload", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
+        upload.Paths = ["fixtures/a.txt"];
+        recorder.Record(upload);
+        var drag = Recorder.ActionOf("drag", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
+        drag.Destination = Recorder.DescribeTarget(UpgradeButton, Redactor.None);
+        recorder.Record(drag);
+        recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
+        var entry = Finalize(recorder)!;
+        var stored = Stored(entry);
 
-        resize.Size = null;
-        Assert.False(resize.HasValidSize());
-
-        resize.Size = new TraceViewport(200, 4096);
-        Assert.True(resize.HasValidSize());
-
-        resize.Size = new TraceViewport(199, 844);
-        Assert.False(resize.HasValidSize());
-
-        resize.Size = new TraceViewport(390, 4097);
-        Assert.False(resize.HasValidSize());
-
-        Assert.False(new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Size = new TraceViewport(390, 844) }.HasValidSize());
-
-        var upload = new RecordedAction { Kind = "upload", Role = "button", Name = "Upgrade", Paths = ["fixtures/a.txt"] };
-        Assert.True(upload.HasValidPaths());
-
-        upload.Paths = [];
-        Assert.False(upload.HasValidPaths());
-
-        upload.Paths = [""];
-        Assert.False(upload.HasValidPaths());
-
-        var drag = new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
-        Assert.True(drag.HasValidDestination());
-
-        drag.Destination = null;
-        Assert.False(drag.HasValidDestination());
-
-        drag.Destination = new RecordedTarget();
-        Assert.False(drag.HasValidDestination());
-
-        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
-        Assert.False(tap.HasValidDestination());
+        Assert.True(ReadsAfter(stored, 3, _ => { }));
+        Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray()));
+        Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray("")));
+        Assert.False(ReadsAfter(stored, 2, action => action.Remove("destination")));
+        Assert.False(ReadsAfter(stored, 3, action => action.Remove("size")));
+        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390.5, ["height"] = 844 }));
+        Assert.Equal(new TraceViewport(390, 844), RoundTrip(entry).Actions[3].Size);
+        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
+        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
     }
 }
