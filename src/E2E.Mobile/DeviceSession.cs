@@ -62,6 +62,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private bool _launching;
     private ViewportSize? _knownViewport;
 
+    private readonly (string Target, int Slot) _slot;
+
     private DeviceSession(MobileEngine engine, MobileStartInfo info, SlotBinding? binding, string name, string where, IDeviceClient client)
     {
         _engine = engine;
@@ -75,6 +77,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _where = where;
         _client = client;
         _inflight = engine.InflightOf(info.TargetName, info.WorkerSlot, binding);
+        _slot = (info.TargetName, info.WorkerSlot);
         if (engine.Pool.Recorder is { } provider && DeviceProviders.TravelledLease(binding) is { } lease)
         {
             _leaseRecorder = new LeaseRecorder(provider, lease, info.RunId, info.TargetName, info.AttemptId, info.Env);
@@ -176,12 +179,23 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
     {
-        var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
-        await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
-        var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
-        var label = DeviceBindings.DeviceLabel(binding);
-        var where = $"session {session}{(label is null ? "" : $" on {label}")}";
-        var started = new DeviceSession(engine, info, binding, session, where, createClient(session, binding));
+        engine.BeginAttempt(info.TargetName, info.WorkerSlot);
+        DeviceSession started;
+        try
+        {
+            var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
+            await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
+            var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
+            var label = DeviceBindings.DeviceLabel(binding);
+            var where = $"session {session}{(label is null ? "" : $" on {label}")}";
+            started = new DeviceSession(engine, info, binding, session, where, createClient(session, binding));
+        }
+        catch
+        {
+            engine.EndAttempt(info.TargetName, info.WorkerSlot);
+            throw;
+        }
+
         try
         {
             await started.BootAsync(cancellationToken).ConfigureAwait(false);
@@ -416,6 +430,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _bound = null;
         _recording = null;
         _engine.Unregister(this);
+        if (client is not null)
+        {
+            // A second close of the same session must not free the slot a newer attempt took.
+            _engine.EndAttempt(_slot.Target, _slot.Slot);
+        }
+
         _appIdentity = null;
         InstalledApp = null;
         _knownViewport = null;

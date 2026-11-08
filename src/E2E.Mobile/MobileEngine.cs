@@ -153,6 +153,29 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
         }
     }
 
+    private readonly HashSet<(string Target, int Slot)> _attempts = [];
+
+    /// <summary>Claims one worker slot for an attempt. Upstream's <c>startAttempt</c> refuses one while <c>this.attempt</c> is set.</summary>
+    internal void BeginAttempt(string targetName, int workerSlot)
+    {
+        lock (_sessions)
+        {
+            if (!_attempts.Add((targetName, workerSlot)))
+            {
+                throw DeviceSupport.InvalidState("an attempt is already running on this agent-device engine");
+            }
+        }
+    }
+
+    /// <summary>Frees the worker slot an attempt held. A slot nobody holds stays free.</summary>
+    internal void EndAttempt(string targetName, int workerSlot)
+    {
+        lock (_sessions)
+        {
+            _attempts.Remove((targetName, workerSlot));
+        }
+    }
+
     private readonly Dictionary<(string Target, int Slot, string? Device), InflightCommands> _inflight = [];
 
     /// <summary>
