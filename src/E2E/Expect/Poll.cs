@@ -190,7 +190,7 @@ public sealed class PollExpectation<T>
     }
 
     /// <summary>A malformed option would poll forever; it is refused before the first read (upstream's <c>checkOptions</c>).</summary>
-    internal static void Validate(PollOptions options)
+    internal static void CheckOptions(PollOptions options)
     {
         if (options.Timeout is { } timeout && timeout < TimeSpan.Zero)
         {
@@ -207,5 +207,6 @@ public sealed class PollExpectation<T>
         }
     }
 
-    private static string Milliseconds(TimeSpan value) => value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
+    private static string Milliseconds(TimeSpan value) =>
+        value == Timeout.InfiniteTimeSpan ? "Infinity" : value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
 }

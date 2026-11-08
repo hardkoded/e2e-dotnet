@@ -132,7 +132,7 @@ public static class Expect
     {
         ArgumentNullException.ThrowIfNull(read);
         options ??= new PollOptions();
-        PollExpectation<T>.Validate(options);
+        PollExpectation<T>.CheckOptions(options);
         return new PollExpectation<T>(read, options, negated: false);
     }
 

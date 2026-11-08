@@ -122,8 +122,8 @@ public sealed class ExpectPollTests
     [Fact]
     public void Refuses_a_timeout_or_interval_that_could_never_expire_before_the_first_read()
     {
-        Invalid(new PollOptions { Timeout = Timeout.InfiniteTimeSpan }, "timeout", "-1");
-        Invalid(new PollOptions { Timeout = TimeSpan.FromMilliseconds(-1) }, "timeout", "-1");
+        Invalid(new PollOptions { Timeout = Timeout.InfiniteTimeSpan }, "timeout", "Infinity");
+        Invalid(new PollOptions { Timeout = TimeSpan.FromMilliseconds(-2) }, "timeout", "-2");
         Invalid(new PollOptions { Interval = TimeSpan.Zero }, "interval", "0");
         Invalid(new PollOptions { Interval = TimeSpan.FromMilliseconds(-5) }, "interval", "-5");
         Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(1) });
