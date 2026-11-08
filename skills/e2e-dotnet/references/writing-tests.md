@@ -312,6 +312,15 @@ matcher.
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
   string), is one failing sample, not the end of the poll. At the deadline
   the last one is reported.
+- A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect`
+  matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`,
+  `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, or
+  `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it.
+  `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends,
+  and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout`
+  is `INVALID_ARGUMENT` (an `Expect.Poll` one throws `ArgumentOutOfRangeException`, not
+  `INVALID_CONFIG`). `Agent` calls take a positive `Timeout` only: zero or less is
+  `INVALID_ARGUMENT`.
 - For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
   retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,
   `ToBeDefined`, `ToHaveLength`, `ToHaveProperty`, `ToContain`, `ToMatch`, `ToBeGreaterThan`,
