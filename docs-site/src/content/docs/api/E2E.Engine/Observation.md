@@ -103,6 +103,23 @@ public required string Route { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_Observation_SecureNodeCount_"></a>
+<a id="E2E_Engine_Observation_SecureNodeCount"></a>
+
+### SecureNodeCount
+
+
+```csharp
+public int? SecureNodeCount { get; init; }
+```
+
+
+How many secure nodes the engine saw (upstream's `redaction.secureNodeCount`), which [MaskedRegionCount](/api/E2E.Engine/EngineScreenshot/#E2E_Engine_EngineScreenshot_MaskedRegionCount) of
+[Pixels](#E2E_Engine_Observation_Pixels) must cover for the image to be proven redacted. A pixel-only observation ([TreeUnavailable](#E2E_Engine_Observation_TreeUnavailable)) has no
+tree to count, so the engine reports it. Null when the engine does not: the secure nodes of [Roots](#E2E_Engine_Observation_Roots) are counted instead.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
 <a id="E2E_Engine_Observation_TreeUnavailable_"></a>
 <a id="E2E_Engine_Observation_TreeUnavailable"></a>
 

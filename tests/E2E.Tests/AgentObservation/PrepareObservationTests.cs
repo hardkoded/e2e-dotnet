@@ -27,14 +27,13 @@ public sealed class PrepareObservationTests
         global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor ?? Redactor.None, MaxBytes = maxBytes, PixelsAllowed = pixelsAllowed });
 
     /// <summary>
-    /// Partial: upstream's pixel observation reports <c>secureNodeCount: 1</c> with <c>maskedRegionCount: 0</c> from the engine. The port counts the secure
-    /// nodes in the tree, which a pixel observation does not have, so "masking not proven" is checked with a secure node left in the roots. It also has no <c>location</c>.
+    /// Partial: the port's observation has no <c>location</c> (the route stands in for it). The pixel observation reports
+    /// <c>secureNodeCount: 1</c> with <c>maskedRegionCount: 0</c> from the engine, as upstream's does.
     /// </summary>
     [Fact]
     public void Partial_keeps_unavailable_semantics_separate_from_an_empty_tree_and_requires_permitted_masked_evidence()
     {
-        var secure = new SemanticNode { Ref = "n1", Role = "textbox", States = new NodeStates { Secure = true } };
-        Observation Unavailable(int masked) => new() { Route = "/", Roots = [secure], TreeUnavailable = true, Pixels = Shot(maskedRegionCount: masked) };
+        Observation Unavailable(int masked) => new() { Route = "/", Roots = [], TreeUnavailable = true, SecureNodeCount = 1, Pixels = Shot(maskedRegionCount: masked) };
         var unproven = Assert.Throws<TestException>(() => Prepare(Unavailable(0), pixelsAllowed: true));
         Assert.Contains("proven-masked screenshot", unproven.Message, StringComparison.Ordinal);
         var prepared = Prepare(Unavailable(1), pixelsAllowed: true);
@@ -49,6 +48,17 @@ public sealed class PrepareObservationTests
         var empty = Prepare(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root" }] });
         Assert.Equal(PreparedKind.Semantic, empty.Kind);
         Assert.DoesNotContain("unavailable", empty.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>.NET-only: the port counts secure nodes from the tree when an engine reports none, and never lets a reported count weaken that proof.</summary>
+    [Fact]
+    public void Counts_secure_nodes_from_the_tree_when_the_engine_reports_none()
+    {
+        var secure = new SemanticNode { Ref = "n1", Role = "textbox", States = new NodeStates { Secure = true } };
+        Assert.Null(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure] }, Shot(maskedRegionCount: 0)).Pixels);
+        Assert.NotNull(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure] }, Shot(maskedRegionCount: 1)).Pixels);
+        Assert.Null(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure], SecureNodeCount = 0 }, Shot(maskedRegionCount: 0)).Pixels);
+        Assert.NotNull(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [], TreeUnavailable = true }, Shot(maskedRegionCount: 0)).Pixels);
     }
 
     [Fact]
