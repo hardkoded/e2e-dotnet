@@ -153,14 +153,16 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
         }
     }
 
-    private readonly HashSet<(string Target, int Slot)> _attempts = [];
+    // .NET-only: upstream's worker holds one `attempt`; this engine serves several slots, so the claims are per slot, under their own lock.
+    private readonly Lock _slotsGate = new();
+    private readonly HashSet<(string Target, int Slot)> _claimedSlots = [];
 
     /// <summary>Claims one worker slot for an attempt. Upstream's <c>startAttempt</c> refuses one while <c>this.attempt</c> is set.</summary>
-    internal void BeginAttempt(string targetName, int workerSlot)
+    internal void ClaimSlot(string targetName, int workerSlot)
     {
-        lock (_sessions)
+        lock (_slotsGate)
         {
-            if (!_attempts.Add((targetName, workerSlot)))
+            if (!_claimedSlots.Add((targetName, workerSlot)))
             {
                 throw DeviceSupport.InvalidState("an attempt is already running on this agent-device engine");
             }
@@ -168,11 +170,11 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
     }
 
     /// <summary>Frees the worker slot an attempt held. A slot nobody holds stays free.</summary>
-    internal void EndAttempt(string targetName, int workerSlot)
+    internal void ReleaseSlot(string targetName, int workerSlot)
     {
-        lock (_sessions)
+        lock (_slotsGate)
         {
-            _attempts.Remove((targetName, workerSlot));
+            _claimedSlots.Remove((targetName, workerSlot));
         }
     }
 

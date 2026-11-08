@@ -179,7 +179,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
     {
-        engine.BeginAttempt(info.TargetName, info.WorkerSlot);
+        engine.ClaimSlot(info.TargetName, info.WorkerSlot);
         DeviceSession started;
         try
         {
@@ -192,7 +192,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         }
         catch
         {
-            engine.EndAttempt(info.TargetName, info.WorkerSlot);
+            engine.ReleaseSlot(info.TargetName, info.WorkerSlot);
             throw;
         }
 
@@ -430,12 +430,6 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _bound = null;
         _recording = null;
         _engine.Unregister(this);
-        if (client is not null)
-        {
-            // A second close of the same session must not free the slot a newer attempt took.
-            _engine.EndAttempt(_slot.Target, _slot.Slot);
-        }
-
         _appIdentity = null;
         InstalledApp = null;
         _knownViewport = null;
@@ -447,7 +441,16 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             return;
         }
 
-        await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, dangling, token), timeout, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, dangling, token), timeout, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // After the close, as upstream clears `attempt` once `endAttempt` is done. Only the close that held the client frees the slot,
+            // so a second close of the same session never frees the slot a newer attempt took.
+            _engine.ReleaseSlot(_slot.Target, _slot.Slot);
+        }
     }
 
     private async Task CloseQuietlyAsync(IDeviceClient client, Recording? dangling, CancellationToken cancellationToken)

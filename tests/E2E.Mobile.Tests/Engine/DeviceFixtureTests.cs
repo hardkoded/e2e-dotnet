@@ -621,17 +621,26 @@ public sealed class DeviceFixtureTests
         ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen));
         var device = session.Device;
 
-        async Task<string> LabelOf(Func<Task> call)
+        async Task<string> LabelOf(Func<Task> call, string? refusedAs = null)
         {
             // The labelled step is recorded whether or not the call reaches the device: a link is no app id, and a bare path no link.
-            await Record.ExceptionAsync(call);
+            var error = await Record.ExceptionAsync(call);
+            if (refusedAs is null)
+            {
+                Assert.Null(error);
+            }
+            else
+            {
+                Assert.Equal(refusedAs, Assert.IsType<TestException>(error).Code);
+            }
+
             return screen.Steps!.All()[^1].Label;
         }
 
-        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenAppAsync("https://app.example.com/magic?token=s3cret#frag")));
+        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenAppAsync("https://app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
         Assert.Equal("com.apple.Preferences", await LabelOf(() => device.OpenAppAsync("com.apple.Preferences")));
         Assert.Equal("myapp://orders/42", await LabelOf(() => device.OpenLinkAsync("myapp://orders/42?ref=mail")));
-        Assert.Equal("verify", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret")));
+        Assert.Equal("verify", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
         // Clipboard text is often a code or token the test copied, never a configured secret the ledger would redact.
         Assert.Equal("6 chars", await LabelOf(() => device.SetClipboardAsync("482913")));
     }
