@@ -132,7 +132,8 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `hideKeyboard` | `Device.DismissKeyboardAsync()` |
 | `pressKey: Enter` | `.PressAsync("Enter")` on the field |
 | `pressKey: Home`, `back` | `Device.HomeAsync()`, `Device.BackAsync()` |
-| `pressKey: lock`, `power`, `volume up`, TV remote keys | Not yet |
+| `pressKey: lock`, `power`, `volume up`, `volume down` | Not yet. `Device.UnstableRaw.Client` does not take `command.hardwareButton` either, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| TV remote keys | Not yet |
 | `copyTextFrom`, `pasteText` | `await locator.TextContentAsync()`, then `.FillAsync(text)` |
 | `setClipboard` | `Device.SetClipboardAsync(text)`; `Device.ClipboardAsync()` reads it |
 | `label: "..."` on a command | Not yet. Every `Screen`, `Device`, and `Agent` call is a report step named by the call |
@@ -199,7 +200,7 @@ Four differences from Maestro's selectors cause most edits.
 
 ## What differs on purpose
 
-- Tests get no agent-device client. Every call goes through `Screen`, `App`, `Device`, or the agent, so e2e records and redacts it. `Device.UnstableRaw` is the unstable exception.
+- Tests get no agent-device client. Every call goes through `Screen`, `App`, `Device`, or the agent, so e2e records and redacts it. `Device.UnstableRaw` is the unstable exception: its calls are not steps, so the report and trace leave them out, the agent cache does not replay them, nothing redacts their arguments, and nothing waits for the screen to settle after one.
 - A device has no saved sessions. Sign in inside the test or in `[SetUp]`.
 
 ## Next

@@ -121,6 +121,7 @@ public sealed class LoginTests : MobileAppTest
 | `expect(el).toHaveValue(v)` | `.ToHaveValueAsync(v)` |
 | `device.launchApp({ newInstance: true })` | `App.RestartAsync()` |
 | `device.launchApp({ delete: true })` | `App.ClearStateAsync()` |
+| `device.uninstallApp()` | Not yet. `Device.UnstableRaw.Client` does not take `apps.uninstall`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` installs with no data |
 | `device.reloadReactNative()` | No equivalent. `App.RestartAsync()` is the nearest |
 | `device.sendToHome()`, `device.pressBack()` | `Device.HomeAsync()`, `Device.BackAsync()` |
 | `device.setLocation(lat, lon)` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
