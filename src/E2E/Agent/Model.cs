@@ -188,6 +188,13 @@ public sealed class ModelResponse
     /// </summary>
     public string? ReasoningText { get; init; }
 
+    /// <summary>
+    /// What the provider attached to the whole turn, keyed by provider (such as <c>gateway</c>: <c>{ "cost": "0.0001" }</c>), as upstream's
+    /// <c>StepResult.providerMetadata</c>. The step's trace carries it as <c>providerMetadata</c> of the step end, redacted. null when the
+    /// provider attached none.
+    /// </summary>
+    public IReadOnlyDictionary<string, JsonElement>? ProviderMetadata { get; init; }
+
     /// <summary>Upstream's call <c>warnings</c> (<c>StepResult.warnings</c>): what the provider changed in the request without failing it. Empty when it changed nothing.</summary>
     public IReadOnlyList<ModelWarning> Warnings { get; init; } = [];
 
@@ -302,7 +309,7 @@ public sealed class ScriptedModel : IAgentModel
             "failed" when code != "ASSERTION_INCONCLUSIVE" => "fails",
             _ => "inconclusive",
         };
-        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage, ReasoningText = response.ReasoningText };
+        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage, ReasoningText = response.ReasoningText, ProviderMetadata = response.ProviderMetadata };
     }
 }
 

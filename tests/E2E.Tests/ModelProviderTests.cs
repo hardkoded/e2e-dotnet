@@ -142,6 +142,21 @@ public sealed class ModelProviderTests
         Assert.Equal(cost, usage.EstimatedCostUsd);
     }
 
+    [Theory]
+    [InlineData("gateway", """{"gateway":{"cost":"0.25"}}""")]
+    [InlineData("openrouter", """{"openrouter":{"usage":{"cost":0.25}}}""")]
+    [InlineData("openai", null)]
+    public async Task Compatible_model_reports_the_billed_cost_as_the_provider_metadata_of_the_turn(string provider, string? expected)
+    {
+        var handler = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": 0.25 } }""");
+        using var http = new HttpClient(handler);
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k", Provider = provider }, http);
+
+        var metadata = (await model.CompleteAsync(Conversation(), CancellationToken.None)).ProviderMetadata;
+
+        Assert.Equal(expected, metadata is null ? null : JsonSerializer.Serialize(metadata));
+    }
+
     [Fact]
     public async Task Anthropic_model_marks_cache_breakpoints_and_merges_tool_results()
     {

@@ -383,6 +383,7 @@ internal static class ModelHttp
             ReasoningText = response.ReasoningText,
             FinishReason = response.FinishReason,
             RawFinishReason = response.RawFinishReason,
+            ProviderMetadata = response.ProviderMetadata,
         };
     }
 
@@ -410,6 +411,7 @@ internal static class ModelHttp
             Warnings = [.. response.Warnings, warning],
             FinishReason = response.FinishReason,
             RawFinishReason = response.RawFinishReason,
+            ProviderMetadata = response.ProviderMetadata,
         };
     }
 

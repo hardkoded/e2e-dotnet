@@ -80,7 +80,8 @@ internal static class AiTraceModel
             content,
             response.ToolCalls.Count > 0 ? "tool-calls" : "stop",
             response.Usage is null ? null : Obj(null, ("inputTokens", response.Usage.InputTokens), ("outputTokens", response.Usage.OutputTokens)),
-            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", messageContent))]));
+            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", messageContent))]),
+            response.ProviderMetadata is { } providerMetadata ? ProviderMetadata(providerMetadata, redactor) : null);
         return new AiTraceTurn(response, recorder, callId, stepEnd);
     }
 
@@ -128,11 +129,15 @@ internal static class AiTraceModel
         var part = Obj("tool-call", ("toolCallId", call.Id), ("toolName", call.Name), ("input", Tree(call.Arguments, redactor)));
         if (call.ProviderMetadata is { } metadata)
         {
-            part[providerKey] = metadata.ToDictionary(entry => redactor.Redact(entry.Key), entry => Tree(entry.Value, redactor), StringComparer.Ordinal);
+            part[providerKey] = ProviderMetadata(metadata, redactor);
         }
 
         return part;
     }
+
+    // What a provider attached, keyed by provider, with every key and string redacted like any provider text.
+    private static Dictionary<string, object?> ProviderMetadata(IReadOnlyDictionary<string, JsonElement> metadata, Redactor redactor) =>
+        metadata.ToDictionary(entry => redactor.Redact(entry.Key), entry => Tree(entry.Value, redactor), StringComparer.Ordinal);
 
     private static Dictionary<string, object?> Tool(ModelTool tool) =>
         Obj(null, ("name", tool.Name), ("description", tool.Description), ("inputSchema", tool.Parameters.ValueKind == JsonValueKind.Undefined ? null : tool.Parameters.Clone()));

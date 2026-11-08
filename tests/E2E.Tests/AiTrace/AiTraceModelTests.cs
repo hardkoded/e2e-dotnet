@@ -56,6 +56,23 @@ public sealed class AiTraceModelTests
     }
 
     [Fact]
+    public async Task Records_the_provider_metadata_of_a_step_redacted()
+    {
+        var redactor = Redactor.ForValue(Password);
+        var metadata = new Dictionary<string, JsonElement> { ["gateway"] = JsonSerializer.SerializeToElement(new { cost = "0.0001", generationId = "gen-" + Password }) };
+        var model = new ScriptedModel(_ => new ModelResponse { Content = "ok", ProviderMetadata = metadata });
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(redactor), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+        var gateway = JsonDocument.Parse(step.Output!).RootElement.GetProperty("providerMetadata").GetProperty("gateway");
+
+        Assert.Equal("0.0001", gateway.GetProperty("cost").GetString());
+        Assert.Equal("gen-[redacted]", gateway.GetProperty("generationId").GetString());
+        Assert.DoesNotContain(Password, step.Input + step.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Omits_the_provider_metadata_of_a_tool_call_that_has_none()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));

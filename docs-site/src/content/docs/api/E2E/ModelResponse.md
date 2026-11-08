@@ -83,6 +83,23 @@ The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelRe
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_ModelResponse_ProviderMetadata_"></a>
+<a id="E2E_ModelResponse_ProviderMetadata"></a>
+
+### ProviderMetadata
+
+
+```csharp
+public IReadOnlyDictionary<string, JsonElement>? ProviderMetadata { get; init; }
+```
+
+
+What the provider attached to the whole turn, keyed by provider (such as `gateway`: `{ "cost": "0.0001" }`), as upstream's
+`StepResult.providerMetadata`. The step's trace carries it as `providerMetadata` of the step end, redacted. null when the
+provider attached none.
+
+**Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_ModelResponse_RawFinishReason_"></a>
 <a id="E2E_ModelResponse_RawFinishReason"></a>
 
