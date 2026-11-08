@@ -411,6 +411,8 @@ public sealed class TraceRecorderTests
         var entry = Finalize(recorder)!;
         var stored = Stored(entry);
 
+        Assert.True(ReadsAfter(stored, 1, _ => { }));
+        Assert.True(ReadsAfter(stored, 2, _ => { }));
         Assert.True(ReadsAfter(stored, 3, _ => { }));
         Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray()));
         Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray("")));
@@ -420,5 +422,11 @@ public sealed class TraceRecorderTests
         Assert.Equal(new TraceViewport(390, 844), RoundTrip(entry).Actions[3].Size);
         Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
         Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
+        Assert.True(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 }));
+
+        // .NET-only: a field on an action of another kind, and a destination that names nothing, are rejected too.
+        Assert.False(ReadsAfter(stored, 0, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 844 }));
+        Assert.False(ReadsAfter(stored, 0, action => action["destination"] = new JsonObject { ["role"] = "region", ["name"] = "Done column" }));
+        Assert.False(ReadsAfter(stored, 2, action => action["destination"] = new JsonObject()));
     }
 }
