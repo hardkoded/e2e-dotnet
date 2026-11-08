@@ -7,6 +7,7 @@ using System.Text.Json;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Tests.StepCache;
 using Recorder = E2E.Cache.TraceRecorder;
 
 namespace E2E.Tests.TraceRecorder;
@@ -45,8 +46,8 @@ public sealed class TraceRecorderTests
     internal static CacheEntry RoundTrip(CacheEntry entry)
     {
         var store = new FileStepCache(CoreTests.TempCache());
-        store.Write("abc123", entry);
-        return Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
+        store.Write(StepCacheHarness.Key, entry);
+        return Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
     }
 
     /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no CSS selector.</summary>

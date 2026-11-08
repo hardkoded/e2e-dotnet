@@ -95,9 +95,9 @@ public sealed class AnAnonymousTargetTests
         var store = new FileStepCache(CoreTests.TempCache());
         var recorder = new Recorder(() => Redactor.None);
         recorder.Record(new RecordedAction { Kind = "type", Role = "textbox", Value = "x", Position = new TracePosition { Index = 0, Of = 1 } });
-        store.Write("abc123", recorder.Finalize(StepCacheHarness.ExampleStep, "/form", "/form", [], [])!);
+        store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/form", "/form", [], [])!);
 
-        var action = Assert.IsType<CacheEntry>(store.Read("abc123").Entry).Actions[0];
+        var action = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry).Actions[0];
 
         Assert.Equal(("textbox", 0, 1), (action.Role, action.Position?.Index, action.Position?.Of));
     }

@@ -5,8 +5,7 @@
 namespace E2E.Tests.TraceStore;
 
 /// <summary>
-/// Partial: "misses on an absent entry and rejects a malformed key hash" (a malformed key throws <c>INVALID_ARGUMENT</c>
-/// where upstream answers <c>invalid</c> or writes nothing; issue #1258). The byte-cap and not-writable tests call
+/// The byte-cap and not-writable tests call
 /// <c>FileStepCache.Write</c> directly: <c>IStepCache.Write</c> returns nothing (issue #1259).
 /// </summary>
 public sealed class FileCacheStoreTests : IDisposable
@@ -50,13 +49,17 @@ public sealed class FileCacheStoreTests : IDisposable
     }
 
     [Fact]
-    public void Partial_Misses_on_an_absent_entry_and_throws_on_a_malformed_key_hash()
+    public void Misses_on_an_absent_entry_and_rejects_a_malformed_key_hash()
     {
         var miss = _store.Read(Key);
         Assert.Null(miss.Entry);
         Assert.Equal("no-entry", miss.Reason);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => _store.Read("../escape")).Code);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => _store.Write("../escape", Payload())).Code);
+        var malformed = _store.Read("../escape");
+        Assert.Null(malformed.Entry);
+        Assert.Equal("invalid-entry", malformed.Reason);
+        Assert.Null(_store.Write("../escape", Payload()));
+        Assert.False(Directory.Exists(_directory) && Directory.GetFiles(_directory).Length > 0);
+        Assert.False(File.Exists(Path.Combine(_directory, "..", "escape.json")));
     }
 
     [Fact]

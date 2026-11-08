@@ -69,9 +69,9 @@ public sealed class RelocationWithARecordedPositionTests
         var store = new FileStepCache(directory);
         var recorder = new Recorder(() => Redactor.None);
         recorder.Record(new RecordedAction { Kind = "tap", Role = "button", Name = "Set up", Position = new TracePosition { Index = 1, Of = 3 } });
-        store.Write("abc123", recorder.Finalize(StepCacheHarness.ExampleStep, "/integrations", "/integrations", [], [])!);
+        store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/integrations", "/integrations", [], [])!);
 
-        var stored = Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
+        var stored = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
 
         Assert.Equal((1, 3), (stored.Actions[0].Position?.Index, stored.Actions[0].Position?.Of));
         // The unbroken entry replays as a hit, so each rejection below is the position's.
@@ -84,7 +84,7 @@ public sealed class RelocationWithARecordedPositionTests
             broken["actions"]![0]!["position"] = JsonNode.Parse(position);
             File.WriteAllText(file, broken.ToJsonString());
 
-            var lookup = store.Read("abc123");
+            var lookup = store.Read(StepCacheHarness.Key);
 
             Assert.Equal("invalid-entry", lookup.Entry is { } entry ? await ReasonAsync(entry) : lookup.Reason);
         }
