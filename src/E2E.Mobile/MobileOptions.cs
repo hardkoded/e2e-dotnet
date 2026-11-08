@@ -133,11 +133,18 @@ public sealed record MobileOptions
 
     /// <summary>
     /// How long the UI must hold still after a tap, fill, screen scroll, or back before the action counts as
-    /// landed, in milliseconds. Default 150. Zero keeps only the first re-observation.
+    /// landed, in milliseconds; <see cref="Settle"/> false skips the wait. The wait keeps the observation that follows
+    /// an action off a transition frame; the runner's own polling (<c>Expect</c>, actions waiting for their node) covers
+    /// the rest, so a short window suffices. Default 150. Every frame of a running animation changes the tree, so a
+    /// 150 ms window still catches a transition in flight; raise it for slow devices or apps that settle in stages, or
+    /// lower it to 0 to keep only the first re-observation. A negative value is <c>INVALID_CONFIG</c>. The agent's
+    /// actions carry the wait; a test's own steps do not, and rely on <see cref="TransitionMilliseconds"/> and polling.
     /// </summary>
     public int SettleMilliseconds { get; init; } = DefaultSettleMilliseconds;
 
-    /// <summary>False skips the settle wait.</summary>
+    /// <summary>
+    /// False skips the settle wait (upstream's <c>settle: false</c>); <see cref="SettleMilliseconds"/> is then not used.
+    /// </summary>
     public bool Settle { get; init; } = true;
 
     /// <summary>
@@ -149,7 +156,11 @@ public sealed record MobileOptions
     /// </summary>
     public int TransitionMilliseconds { get; init; } = DefaultTransitionMilliseconds;
 
-    /// <summary>Whether a video recording draws agent-device's touch indicator where a test tapped. False records with <c>hideTouches</c>.</summary>
+    /// <summary>
+    /// Whether a video recording draws agent-device's touch indicator where a test tapped. Default true. False records the
+    /// plain screen (agent-device's <c>hideTouches</c>), and skips the pass that draws the indicator once the recording
+    /// stops: on a hosted daemon such as Expo Simulators' that pass can outlast the attempt's <c>CleanupTimeout</c>.
+    /// </summary>
     public bool VideoTouches { get; init; } = true;
 
     public const int DefaultSettleMilliseconds = 150;

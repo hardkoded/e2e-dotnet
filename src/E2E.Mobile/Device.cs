@@ -339,7 +339,16 @@ public sealed class Device
             (client, token) => client.CallAsync(DeviceMethods.CommandAlert, _session.Selection.ToArgs(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
             cancellationToken));
 
-    /// <summary>Dismisses the soft keyboard.</summary>
+    /// <summary>
+    /// Dismisses the soft keyboard: the keyboard's own dismiss key where it has one (Android, iPad), else the way a user
+    /// does it on an iPhone, a short drag that a scroll view turns into a dismissal, horizontal first and vertical
+    /// second, stopping as soon as the keyboard is gone. Each drag starts at the point nearest the centre of the screen
+    /// that no control in the captured accessibility tree covers, inside a scroll view when the screen has one, to avoid
+    /// pressing a button or toggling a checkbox. A control the tree leaves out, such as pressable text, can still be hit.
+    /// The simulator's "Speed up your typing" tip goes through its Continue button first. A screen with no clear point
+    /// above the keyboard, or a keyboard that outlives both drags, fails with <c>UNSUPPORTED_CAPABILITY</c>; the message
+    /// names the alternatives (the app's own Done or close control, or pressing Enter on the field).
+    /// </summary>
     public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.dismissKeyboard", "", () => _session.DismissKeyboardAsync(cancellationToken));
 
