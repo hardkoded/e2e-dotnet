@@ -158,8 +158,8 @@ public sealed record MobileOptions
 
     /// <summary>
     /// Whether a video recording draws agent-device's touch indicator where a test tapped. Default true. False records the
-    /// plain screen (agent-device's <c>hideTouches</c>), and skips the pass that draws the indicator once the recording
-    /// stops: on a hosted daemon such as Expo Simulators' that pass can outlast the attempt's <c>CleanupTimeout</c>.
+    /// plain screen and sends agent-device <c>hideTouches</c>, so agent-device skips the pass that draws the indicator once the
+    /// recording stops: on a hosted daemon such as Expo Simulators' that pass can outlast the attempt's <c>CleanupTimeout</c>.
     /// </summary>
     public bool VideoTouches { get; init; } = true;
 
