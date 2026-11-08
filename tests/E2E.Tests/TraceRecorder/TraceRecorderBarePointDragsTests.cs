@@ -4,14 +4,16 @@
 
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Tests.TraceRecorder.TraceRecorderTests;
 
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// <c>describe('TraceRecorder: bare-point drags')</c> of <c>trace-recorder.test.ts</c>. The last <c>it</c> is partial: the port's stored entry is a
-/// typed object, so a field of the wrong JSON type (upstream's <c>from</c> as a bare <c>{ x, y }</c>) cannot be built and is not checked.
+/// <c>describe('TraceRecorder: bare-point drags')</c> of <c>trace-recorder.test.ts</c>. The last <c>it</c> is partial: it reads the broken entry
+/// through <see cref="TraceRecorderTests.ReadsAfter"/>, the port's stand-in for upstream's <c>readTraceEntry</c>, and omits upstream's case of <c>from</c>
+/// as a bare <c>{ x, y }</c>: <see cref="RecordedPointEnd.Point"/> is a non-nullable struct, so the port reads that <c>from</c> as the point (0, 0) and accepts it.
 /// </summary>
 public sealed class TraceRecorderBarePointDragsTests
 {
@@ -76,18 +78,15 @@ public sealed class TraceRecorderBarePointDragsTests
     {
         var recorder = MakeRecorder();
         recorder.Record(new PlacedPoint(new Point(200, 250)), new PlacedPoint(new Point(700, 600)), Viewport);
-        var stored = Assert.Single(RoundTrip(TraceRecorderTests.Finalize(recorder, "/canvas")!).Actions);
-        Assert.True(stored.HasValidPoints());
+        var stored = Stored(TraceRecorderTests.Finalize(recorder, "/canvas")!);
 
-        Assert.False(Broken(stored, action => action.To = null).HasValidPoints());
-        Assert.False(Broken(stored, action => action.Viewport = new TraceViewport(1280, -1)).HasValidPoints());
-        Assert.False(Broken(stored, action => action.To = new RecordedPointEnd { Point = new Point(700, 600), Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "img" }, Fx = 0, Fy = 2 } }).HasValidPoints());
-    }
-
-    private static RecordedAction Broken(RecordedAction stored, Action<RecordedAction> patch)
-    {
-        var copy = stored.Copy();
-        patch(copy);
-        return copy;
+        Assert.True(ReadsAfter(stored, 0, _ => { }));
+        Assert.False(ReadsAfter(stored, 0, action => action.Remove("to")));
+        Assert.False(ReadsAfter(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 1280, ["height"] = -1 }));
+        Assert.False(ReadsAfter(stored, 0, action => action["to"] = new JsonObject
+        {
+            ["point"] = new JsonObject { ["x"] = 700, ["y"] = 600 },
+            ["under"] = new JsonObject { ["target"] = new JsonObject { ["role"] = "img" }, ["fx"] = 0, ["fy"] = 2 },
+        }));
     }
 }
