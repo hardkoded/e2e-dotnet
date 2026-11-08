@@ -785,7 +785,7 @@ internal static class PageScript
           const flowsInLine = memoized((el) => {
             if (lineBreaking.has(el.tagName.toUpperCase()) || isEditingHost(el)) return false;
             const style = styleOf(el);
-            if (hidesSubtree(el, style)) return false;
+            if (ariaHidden(el) || isInert(el) || hidesSubtree(el, style)) return false;
             if (el instanceof HTMLSlotElement ? style.visibility !== "visible" : invisible(el, style)) return false;
             return isInlineLevel(style);
           });
@@ -814,7 +814,7 @@ internal static class PageScript
                 continue;
               }
               const style = styleOf(child);
-              if (hidesSubtree(child, style)) continue;
+              if (ariaHidden(child) || isInert(child) || hidesSubtree(child, style)) continue;
               if (lineBreaking.has(child.tagName.toUpperCase()) || !isInlineLevel(style) || !invisible(child, style)) out += " ";
             }
             return out;
