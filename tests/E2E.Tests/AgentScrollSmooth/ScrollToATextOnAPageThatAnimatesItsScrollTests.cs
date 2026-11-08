@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using E2E.Reports;
 using E2E.Tests.AgentAct;
 using static E2E.Tests.AgentAct.ExecutorKit;
 
@@ -14,7 +13,6 @@ namespace E2E.Tests.AgentScrollSmooth;
 /// text in a real browser reaches its row when the page keeps scrolling after the swipe resolved. A page read mid-animation counts as
 /// landed, and the next swipe adds to the one in flight; the wheel's target accumulates, so no row is skipped, and this pins that on a
 /// JS animation and on <c>scroll-behavior: smooth</c>, at 450 ms and at 1.5 s. The page is <c>FixtureApp</c>'s <c>/smooth-scroll</c>.
-/// Where upstream reads the failure from the step's engine events, the port reports the failure the step raised.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
@@ -72,8 +70,11 @@ public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
         }
 
         session.Complete(error);
-        var step = session.StepRecords.LastOrDefault(candidate => candidate.Api == "agent.act");
-        var detail = step is null ? null : string.Join("; ", step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Detail));
-        Assert.True(error is null, (detail ?? "") + " " + (error is null ? "\"\"" : "\"" + error.Message + "\""));
+        if (error is not null)
+        {
+            var step = session.StepRecords.LastOrDefault(candidate => candidate.Api == "agent.act");
+            var detail = step is null ? null : string.Join("; ", step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Detail));
+            Assert.Fail((detail ?? "") + " \"" + error.Message + "\"");
+        }
     }
 }
