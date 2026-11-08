@@ -1552,10 +1552,22 @@ public sealed partial class WebEngine : IEngine
 
                 await target.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
             }
-            finally
+            catch
             {
-                await Page.Mouse.UpAsync().ConfigureAwait(false);
+                // The release is best effort once the drag has failed: its own failure must not replace the error that tells the caller
+                // the press went out.
+                try
+                {
+                    await Page.Mouse.UpAsync().ConfigureAwait(false);
+                }
+                catch (Exception releaseFailure) when (WebErrors.IsPlaywright(releaseFailure))
+                {
+                }
+
+                throw;
             }
+
+            await Page.Mouse.UpAsync().ConfigureAwait(false);
         }
 
         /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
