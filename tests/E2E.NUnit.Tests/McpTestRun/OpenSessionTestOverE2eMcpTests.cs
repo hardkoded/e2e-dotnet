@@ -74,38 +74,44 @@ public sealed class OpenSessionTestOverE2eMcpTests
         var name = typeof(ScreenshotSessionFixture).FullName + "." + nameof(ScreenshotSessionFixture.Matches_its_screenshot);
         var snapshots = ScreenshotSessionFixture.SnapshotsDirectory();
         var ci = Environment.GetEnvironmentVariable("CI");
+        var update = Environment.GetEnvironmentVariable("E2E_UPDATE_SNAPSHOTS");
+
+        // The directory belongs to this fixture alone: nothing else stores screenshots beside this file.
         if (Directory.Exists(snapshots))
         {
             Directory.Delete(snapshots, recursive: true);
         }
 
-        // As upstream's server runs with CI empty: a CI run writes no baseline.
+        // As upstream's server runs with CI empty: a CI run writes no baseline, and an update run writes it and passes.
         Environment.SetEnvironmentVariable("CI", "0");
+        Environment.SetEnvironmentVariable("E2E_UPDATE_SNAPSHOTS", null);
         try
         {
-            var first = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
-            Assert.That(first, Is.Not.Null);
-            await using (first!.Session)
-            {
-                Assert.That(first.Failure, Is.Not.Null);
-                Assert.That(first.Failure!.Message, Does.Contain("no stored screenshot"));
-            }
+            var first = await RunAsync(name);
+            Assert.That(first.Failure, Is.Not.Null);
+            Assert.That(first.Failure!.Message, Does.Contain("no stored screenshot"));
 
-            var second = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
-            Assert.That(second, Is.Not.Null);
-            await using (second!.Session)
-            {
-                Assert.That(second.Failure, Is.Null);
-            }
+            var second = await RunAsync(name);
+            Assert.That(second.Failure, Is.Null);
         }
         finally
         {
             Environment.SetEnvironmentVariable("CI", ci);
+            Environment.SetEnvironmentVariable("E2E_UPDATE_SNAPSHOTS", update);
             if (Directory.Exists(snapshots))
             {
                 Directory.Delete(snapshots, recursive: true);
             }
         }
+    }
+
+    /// <summary>Runs the named test as a session and disposes its session; what is left is the outcome's name and failure.</summary>
+    private static async Task<(string TestName, Exception? Failure)> RunAsync(string name)
+    {
+        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
+        Assert.That(outcome, Is.Not.Null);
+        await using var session = outcome!.Session;
+        return (outcome.TestName, outcome.Failure);
     }
 
     [Test]
