@@ -1,0 +1,222 @@
+---
+title: "v0.9.0"
+description: "E2E for .NET v0.9.0: run steps on Claude Code or Codex, pull request comments, reruns of what failed, e2e doctor, a test project from e2e init, and Playwright parity on the web."
+sidebar:
+  label: "v0.9.0"
+---
+
+_Released November 8, 2026_
+
+v0.9.0 brings 225 pull requests, one week after v0.8.0. Highlights:
+
+- Run agent steps on Claude Code or Codex, with their own login.
+- Post the test results as a pull request comment from GitHub Actions.
+- Rerun only what failed.
+- Check the setup with `e2e doctor` before a run.
+- Get a ready-to-run test project from `e2e init`.
+- Web locators that behave like Playwright's, backed by hundreds of ported Playwright tests.
+
+```bash
+dotnet add package E2E --version 0.9.0
+dotnet add package E2E.NUnit --version 0.9.0   # or E2E.XUnit.V3
+dotnet tool update --global E2E.Cli
+```
+
+> ⚠️ This release has breaking changes. See [Breaking changes](#breaking-changes) before you upgrade.
+
+## Highlights
+
+### Run steps on your coding agent (`E2E.Acp`)
+
+`E2E.Acp` runs `Agent.ActAsync` and `Agent.AssertAsync` on Claude Code or Codex over the Agent Client Protocol. The agent signs in with its own login, so you need no model provider. The runner records every action, so steps still replay from the cache without the agent. The agent gets only the step tools: its own file, shell, and web tools are off, and a tool of its own fails the step with `POLICY_DENIED`.
+
+```bash
+dotnet add package E2E.Acp
+npm install -D @agentclientprotocol/claude-agent-acp   # Node must be on the PATH
+```
+
+```csharp
+public abstract class AppTest : E2ETest
+{
+    private static readonly IStepExecutor Claude = AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" });
+
+    protected override IStepExecutor? AgentExecutor => Claude;
+}
+```
+
+Use `AcpExecutor.Codex()` for Codex, or `AcpExecutor.Create(command, args)` for any other agent that speaks ACP. [Your coding agent guide](/features/acp/)
+
+### Pull request comments (`E2E.GitHub`)
+
+`E2E.GitHub` posts the results as one pull request comment from GitHub Actions, writes the job summary, and updates the same comment on a rerun. Failures come with their step, the line to look at, and links to the evidence.
+
+Reporters now come from `e2e.config.json`:
+
+```json
+{ "reporters": ["E2E.GitHub.GitHubReporter, E2E.GitHub"] }
+```
+
+Give the workflow `pull-requests: write` and pass `GITHUB_TOKEN: ${{ github.token }}` to the test step. [Pull request comments guide](/integrations/github/)
+
+### Rerun only what failed
+
+`E2E_LAST_FAILED=1` reruns the tests the last run did not pass. Every other test skips itself. The GitHub comment folds the rerun into the previous run, so it still shows the whole suite.
+
+```bash
+dotnet test
+E2E_LAST_FAILED=1 dotnet test
+```
+
+Or override `LastFailed` on your `E2ERunFixture`. [Test filters guide](/docs/test-filters/)
+
+### Check the setup with `e2e doctor`
+
+`e2e doctor` checks that `e2e explore` and `e2e mcp` can start here, without starting anything: the config, each target's engine (browser installed, devices, app path), and the model each agent resolved to. `--check-model` calls each model once, and `--json` prints a report for scripts.
+
+```bash
+e2e doctor
+e2e doctor --check-model
+```
+
+[e2e doctor guide](/docs/doctor/)
+
+### A test project from `e2e init`
+
+`e2e init` now creates the test project too: a `.csproj` with the packages at the tool's version, and an `ExampleTests.cs`. In a folder that already has a project, it adds only the missing package references.
+
+```bash
+e2e init MyApp.E2ETests                        # NUnit
+e2e init MyApp.E2ETests --framework xunit --install
+e2e init --example TodoMvc my-sample           # start from a sample
+```
+
+[Coding agents guide](/coding-agents/)
+
+### Accounts and several targets in the config
+
+`credentials` declares test accounts. The password is a secret and is redacted. `Credentials.User(name)` reads the account in a test, and `e2e explore` and `e2e mcp` sign in with them. `targets` can list several entries, each with its own `name`.
+
+```json
+{
+  "targets": [
+    { "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:4173" } },
+    { "name": "ios", "platform": "ios", "app": { "bundleId": "com.example.app" } }
+  ],
+  "credentials": { "admin": { "username": "admin@example.com" } }
+}
+```
+
+Leave the password out of the committed file and set `E2E_USER_ADMIN_PASSWORD`, which wins over the config. Pick a target with `E2EFixture.TargetName`, `OpenHostOptions.Target`, or `--target`.
+
+### Saved sessions on xUnit v3
+
+Sign in once and restore the session in other tests, as NUnit could in v0.8.0.
+
+```csharp
+public sealed class Dashboard : E2ETest
+{
+    [E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await SaveSessionAsync("admin");
+    }
+
+    [Fact, E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly() => await App.OpenAsync("/dashboard");
+}
+```
+
+Test filters also work on xUnit v3 and on the mobile and Windows adapters.
+
+### Value checks
+
+`Expect.That(value)` checks plain values, with Jest-style matchers and partial matches:
+
+```csharp
+Expect.That(links, "the playground lists its pages").ToBeGreaterThanOrEqual(2);
+Expect.That(payload).ToEqual(new { Id = Expect.StringMatching("^usr_"), CreatedAt = Expect.Any(typeof(DateTime)) });
+```
+
+[Value checks](/features/assertions/#value-checks)
+
+### A sharper agent
+
+- **Vision:** a `screenshot` tool and a pixel mode, so the agent can act on a canvas, a chart, or a screen the engine cannot read.
+- **Point tools:** `tap_at`, `hover_at`, `drag_at`, `type_at`, `press_at`, `select_at`.
+- **More verbs:** `long_press`, `right_click`, `hover`, `drag`, `dismiss_keyboard`, and `resize_viewport`.
+- **Exploration:** `e2e explore` runs up to 100 steps and 2 hours, digs into edge cases once the main flows are covered, and prints through the list reporter.
+
+### Inspect the replay cache
+
+```bash
+e2e cache ls      # one row per recorded step
+e2e cache stats   # directory, entries, size
+e2e cache clear
+```
+
+`E2E_NO_CACHE=1` runs every step live for one run, to try a new model.
+
+### Web locators that behave like Playwright's
+
+Hundreds of Playwright's own tests (selectors, locators, clicks, fill, keyboard, frames, routes, dialogs, downloads, screenshots) now run against the web engine. The fixes they drove:
+- `GetByText` and `hasText` match the DOM text, and `GetByLabel` matches `aria-label`, `aria-labelledby`, and `<label>` text.
+- `Browser.Locator("body")`, and any CSS selector, matches elements the agent's tree does not list.
+- `Browser.EvaluateAsync` survives pages that replace globals such as `Array` or `JSON`.
+
+### Also new
+
+- BrowserStack App Automate real devices (`E2E.BrowserStack`). [BrowserStack guide](/integrations/browserstack/)
+- `e2e mcp`: `start_recording` and `stop_recording`, `type_secret` with configured accounts, redaction of what user code prints, and registration for Codex in `.codex/config.toml`.
+- The list reporter shows live progress, the code frame and video under a failure, agent step lines, and rows for skipped, warned, and repeated tests.
+
+## All changes
+
+### Features
+- `E2E.Acp`: run steps on an ACP coding agent, with Claude Code and Codex presets (#1000, #1004)
+- `E2E.GitHub`: the pull request comment reporter (#962); reporters from `e2e.config.json` (#969, #979)
+- `--last-failed` reruns (`E2E_LAST_FAILED`), folded into the GitHub comment (#999, #1010)
+- `e2e doctor`, with mobile targets and model checks (#988, #996)
+- `e2e init` scaffolds the test project: `--framework`, `--install`, `--example` (#1027)
+- `e2e cache ls`, `stats`, `clear`; `E2E_NO_CACHE` and `E2E_CACHE_DIR_OVERRIDE` (#1374, #1376, #1335, #1379)
+- Config: several targets (#937), `credentials` (#941, #945, #1263), `artifacts` and code-only stores (#942), `output` (#946), `failOnSkippedFailure` and `maxDuration`, carried and checked only (#1338); secret and credential providers (#1317)
+- Saved sessions (#944) and test filters (#964) on xUnit v3; filters on the mobile and Windows adapters (#990)
+- Value expectations: `Expect.That(value)` (#1373)
+- Agent: screenshot tool and pixel mode (#951), point tools (#959, #1013), `long_press`, `right_click`, `hover`, `drag` (#960), `dismiss_keyboard` (#1026), `resize_viewport` (#1045, #1047), the `#id` listing and diff results (#1034)
+- Explore: up to 100 steps and 2 hours, edge-case lenses (#1043); printed through the list reporter (#1042, #1031)
+- MCP: `start_recording` and `stop_recording` (#936), node ids and diff results (#939), `type_secret` with configured credentials (#952), redacts what user code prints (#1274), Codex registration (#1275)
+- BrowserStack device provider (#967)
+- List reporter: live window and console output (#1024), code frame and video rows (#963), agent step lines (#991), goldens and closing rows (#961, #1030)
+- Engine keyboard: `typeText`, `pressKey`, keyboard point tools (#992)
+- Run events, traces, and the AI trace path for reporters (#997); markdown report on the public `Report` tree (#957)
+- `BROWSER_INSTALL_FAILED` error code (#1252)
+
+### Fixes and reliability
+- Web parity with Playwright: text and label matching on the DOM (#1089), CSS selectors list any element (#1033, #1040), frames (#1070, #1086), clicks and tap position (#1084, #1112), file inputs and routes (#1058), screenshots and masks (#1111, #1115), aborted navigations (#1113), `EvaluateAsync` on clobbered globals (#1116)
+- Replay cache: relocation by position and placeholder (#1267, #1289), dates with ordinal suffixes (#980, #1358), typed-value and secret-fill checks on replay (#1257, #1333, #1371), truncated traces (#1321)
+- Locator failures list the candidates each filter step left (#1015); timeout messages name the operation (#1119)
+- Flaky test fixes across timing, ports, and processes (#956, #1011, #1029, #1049, #1128, #1134, #1136, #1139)
+
+### Docs
+- Releases section (#931), sidebar restructure (#932), CodeRabbit accuracy fixes (#933)
+- Bug bash guide (#947), migration guides (#948, #1061), writing an engine (#1280)
+- References: errors (#1291, #1365), environment variables (#1255), agentic or deterministic tests (#1266), timeouts (#1392)
+
+### Breaking changes
+- **`E2E.Eas` is now `E2E.Expo`.** Update the package reference and `using E2E.Eas;`. `EasSimulators` and `EasSimulatorsOptions` are now `ExpoSimulators` and `ExpoSimulatorsOptions`, and the provider name is `expo-simulators`. There are no aliases (#982, #987)
+- **Reporters come from `e2e.config.json`.** `[assembly: E2EReporter]` is removed. List reporters in `reporters` (#969)
+- **`WaitForAsync` timeouts fail with `LOCATOR_NOT_FOUND`**, not `TIMEOUT` (#938)
+- **`InputValueAsync` and `IsCheckedAsync` throw `ACTION_FAILED`** on an element that cannot hold a value or a checked state, instead of returning `""` or `false` (#1114)
+- **`Browser.EvaluateAsync` returns plain JSON only.** A class instance such as a `DOMRect` fails with `INVALID_ARGUMENT`. Return `rect.toJSON()` (#1116)
+- **Web text matching follows the DOM.** `GetByText` no longer matches a placeholder or the control a label names. Use `GetByLabel` or `GetByPlaceholder` (#1089)
+- **`E2E.XUnit.V3` needs `xunit.v3.extensibility.core` 4.0.1** or later (#944)
+- **`ReportExploreFinding.ArtifactId` is an artifact id**, not a file path (#966)
+
+## Links
+- [GitHub release](https://github.com/hardkoded/e2e-dotnet/releases/tag/v0.9.0)
+- [Full changelog: v0.8.0...v0.9.0](https://github.com/hardkoded/e2e-dotnet/compare/v0.8.0...v0.9.0)
+- [NuGet: E2E](https://www.nuget.org/packages/E2E)
