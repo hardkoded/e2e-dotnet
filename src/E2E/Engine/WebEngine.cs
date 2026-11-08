@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -884,10 +885,49 @@ public sealed partial class WebEngine : IEngine
     // database file. Links (US/Eastern, GMT) are both.
     private static bool IsTimeZone(string timezoneId)
     {
-        return TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone)
-            && zone.HasIanaId
-            && (TimeZoneInfo.TryConvertIanaIdToWindowsId(timezoneId, out _) || IsZoneInfoName(timezoneId));
+        return TimeZoneLinks.Contains(timezoneId)
+            || (TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone)
+                && zone.HasIanaId
+                && (TimeZoneInfo.TryConvertIanaIdToWindowsId(timezoneId, out _) || IsZoneInfoName(timezoneId)));
     }
+
+    // The link names of the tz database (its "backward" file: US/Eastern,
+    // Asia/Calcutta, GMT). Distributions split them into a legacy package
+    // (tzdata-legacy on Ubuntu 26.04), so the host directory may lack them,
+    // while Chromium, which carries its own ICU data, still takes them.
+    // The last row is the names tzdata 2024b turned into links (EST, MST, HST,
+    // the EST5EDT family, CET, EET, MET, WET); a host built from the IANA
+    // source may lack their files, while 2026e as Debian ships it keeps them
+    // as zones.
+    // .NET-only: upstream asks Node's Intl, which embeds this data.
+    private static readonly FrozenSet<string> TimeZoneLinks = new[]
+    {
+        "Africa/Asmera", "Africa/Timbuktu", "America/Argentina/ComodRivadavia", "America/Atka", "America/Buenos_Aires",
+        "America/Catamarca", "America/Coral_Harbour", "America/Cordoba", "America/Ensenada", "America/Fort_Wayne",
+        "America/Godthab", "America/Indianapolis", "America/Jujuy", "America/Knox_IN", "America/Kralendijk",
+        "America/Louisville", "America/Lower_Princes", "America/Marigot", "America/Mendoza", "America/Montreal",
+        "America/Nipigon", "America/Pangnirtung", "America/Porto_Acre", "America/Rainy_River", "America/Rosario",
+        "America/Santa_Isabel", "America/Shiprock", "America/St_Barthelemy", "America/Thunder_Bay", "America/Virgin",
+        "America/Yellowknife", "Antarctica/South_Pole", "Arctic/Longyearbyen", "Asia/Ashkhabad", "Asia/Calcutta",
+        "Asia/Choibalsan", "Asia/Chongqing", "Asia/Chungking", "Asia/Dacca", "Asia/Harbin", "Asia/Istanbul",
+        "Asia/Kashgar", "Asia/Katmandu", "Asia/Macao", "Asia/Rangoon", "Asia/Saigon", "Asia/Tel_Aviv", "Asia/Thimbu",
+        "Asia/Ujung_Pandang", "Asia/Ulan_Bator", "Atlantic/Faeroe", "Atlantic/Jan_Mayen", "Australia/ACT",
+        "Australia/Canberra", "Australia/Currie", "Australia/LHI", "Australia/NSW", "Australia/North",
+        "Australia/Queensland", "Australia/South", "Australia/Tasmania", "Australia/Victoria", "Australia/West",
+        "Australia/Yancowinna", "Brazil/Acre", "Brazil/DeNoronha", "Brazil/East", "Brazil/West", "Canada/Atlantic",
+        "Canada/Central", "Canada/Eastern", "Canada/Mountain", "Canada/Newfoundland", "Canada/Pacific",
+        "Canada/Saskatchewan", "Canada/Yukon", "Chile/Continental", "Chile/EasterIsland", "Cuba", "Egypt", "Eire",
+        "Etc/GMT+0", "Etc/GMT-0", "Etc/GMT0", "Etc/Greenwich", "Etc/UCT", "Etc/Universal", "Etc/Zulu", "Europe/Belfast",
+        "Europe/Bratislava", "Europe/Busingen", "Europe/Kiev", "Europe/Mariehamn", "Europe/Nicosia", "Europe/Podgorica",
+        "Europe/San_Marino", "Europe/Tiraspol", "Europe/Uzhgorod", "Europe/Vatican", "Europe/Zaporozhye", "GB",
+        "GB-Eire", "GMT", "GMT+0", "GMT-0", "GMT0", "Greenwich", "Hongkong", "Iceland", "Iran", "Israel", "Jamaica",
+        "Japan", "Kwajalein", "Libya", "Mexico/BajaNorte", "Mexico/BajaSur", "Mexico/General", "NZ", "NZ-CHAT",
+        "Navajo", "PRC", "Pacific/Enderbury", "Pacific/Johnston", "Pacific/Ponape", "Pacific/Samoa", "Pacific/Truk",
+        "Pacific/Yap", "Poland", "Portugal", "ROC", "ROK", "Singapore", "Turkey", "UCT", "US/Alaska", "US/Aleutian",
+        "US/Arizona", "US/Central", "US/East-Indiana", "US/Eastern", "US/Hawaii", "US/Indiana-Starke", "US/Michigan",
+        "US/Mountain", "US/Pacific", "US/Samoa", "UTC", "Universal", "W-SU", "Zulu",
+        "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST", "MET", "MST", "MST7MDT", "PST8PDT", "WET",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     // True when each segment of the name is an entry of the tz database
     // directory the runtime reads on Unix, matched with its own case. ICU
