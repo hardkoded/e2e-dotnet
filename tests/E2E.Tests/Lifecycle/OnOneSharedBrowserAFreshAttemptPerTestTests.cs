@@ -368,6 +368,26 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
+    public async Task Reports_a_drag_whose_drop_target_turns_ambiguous_after_the_press_as_possibly_committed()
+    {
+        using var site = await FixtureApp.StartAsync();
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync("""
+            <script>window.downs = 0</script>
+            <button onmousedown="downs++; document.body.insertAdjacentHTML('beforeend', '<div role=region>Drop</div>')">Card</button>
+            <div role="region">Drop</div>
+            """);
+        var card = (await session.LocateAsync(LocatorExpression.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+        var zone = (await session.LocateAsync(LocatorExpression.ForRole("region", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+
+        var committed = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(card, new LocatorAction.DragTo(zone), CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", committed.Code);
+        Assert.False(committed.Retryable);
+        Assert.Equal(1, await page.EvaluateAsync<int>("() => window.downs"));
+    }
+
+    [Fact]
     public async Task Partial_Mints_one_root_id_that_survives_navigation_and_swipes_the_viewport_when_it_is_the_target()
     {
         using var site = await FixtureApp.StartAsync();
@@ -392,8 +412,6 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    // Not ported: 'reports a drag whose drop target turns ambiguous after the press as possibly committed'. The port finds the drop target before
-    // the press, so the drag succeeds; tracked in https://github.com/hardkoded/e2e-dotnet/issues/1226.
     public async Task Refuses_to_swipe_a_node_with_no_box_even_when_its_child_is_under_aim()
     {
         using var site = await FixtureApp.StartAsync();

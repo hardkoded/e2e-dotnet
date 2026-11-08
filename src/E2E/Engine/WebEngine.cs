@@ -1489,11 +1489,11 @@ public sealed partial class WebEngine : IEngine
             {
                 if (action is LocatorAction.DragTo drag)
                 {
-                    // The drop target is a node of the same observation, found like the source.
-                    await RequireNoNewTwinAsync(drag.Target, budget).ConfigureAwait(false);
+                    // The drop target is a node of the same observation, found like the source. As upstream's locator drag resolves its
+                    // target after the press, the twin check of a located target runs after it, in DragAsync.
                     var (drop, dropPin) = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
                     using var keepDrop = dropPin;
-                    await budget.WithinAsync(DragAsync(element, drop, budget)).ConfigureAwait(false);
+                    await budget.WithinAsync(DragAsync(element, drop, drag.Target, budget)).ConfigureAwait(false);
                     return;
                 }
 
@@ -1533,12 +1533,23 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>A pointer drag between two elements, as Playwright's <c>dragTo</c> does it: hover the source, press, hover the target, release.</summary>
-        private async Task DragAsync(IElementHandle source, IElementHandle target, OperationBudget budget)
+        private async Task DragAsync(IElementHandle source, IElementHandle target, SemanticNode dropNode, OperationBudget budget)
         {
             await source.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
             await Page.Mouse.DownAsync().ConfigureAwait(false);
             try
             {
+                // Upstream's locator drag resolves the drop locator after the press: a second match then is a strict mode violation the
+                // input has already gone out for, so possibly committed (retryable: false), not stale.
+                try
+                {
+                    await RequireNoNewTwinAsync(dropNode, budget).ConfigureAwait(false);
+                }
+                catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
+                {
+                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "dragTo matched more than one element after its input was dispatched: " + ex.Message, retryable: false, ex);
+                }
+
                 await target.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
             }
             finally
