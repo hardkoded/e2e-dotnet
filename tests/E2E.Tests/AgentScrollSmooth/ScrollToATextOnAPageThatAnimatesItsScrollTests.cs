@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Reports;
 using E2E.Tests.AgentAct;
 using static E2E.Tests.AgentAct.ExecutorKit;
 
@@ -71,6 +72,8 @@ public sealed class ScrollToATextOnAPageThatAnimatesItsScrollTests
         }
 
         session.Complete(error);
-        Assert.Null(error);
+        var step = session.StepRecords.LastOrDefault(candidate => candidate.Api == "agent.act");
+        var detail = step is null ? null : string.Join("; ", step.Events.Where(item => item.Kind == StepEventKind.Engine).Select(item => item.Detail));
+        Assert.True(error is null, (detail ?? "") + " " + (error is null ? "\"\"" : "\"" + error.Message + "\""));
     }
 }
