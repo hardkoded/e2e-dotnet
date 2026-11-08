@@ -895,6 +895,10 @@ public sealed partial class WebEngine : IEngine
     // Asia/Calcutta, GMT). Distributions split them into a legacy package
     // (tzdata-legacy on Ubuntu 26.04), so the host directory may lack them,
     // while Chromium, which carries its own ICU data, still takes them.
+    // The last row is the names tzdata 2024b turned into links (EST, MST, HST,
+    // the EST5EDT family, CET, EET, MET, WET); a host built from the IANA
+    // source may lack their files, while 2026e as Debian ships it keeps them
+    // as zones.
     // .NET-only: upstream asks Node's Intl, which embeds this data.
     private static readonly FrozenSet<string> TimeZoneLinks = new[]
     {
@@ -922,6 +926,7 @@ public sealed partial class WebEngine : IEngine
         "Pacific/Yap", "Poland", "Portugal", "ROC", "ROK", "Singapore", "Turkey", "UCT", "US/Alaska", "US/Aleutian",
         "US/Arizona", "US/Central", "US/East-Indiana", "US/Eastern", "US/Hawaii", "US/Indiana-Starke", "US/Michigan",
         "US/Mountain", "US/Pacific", "US/Samoa", "UTC", "Universal", "W-SU", "Zulu",
+        "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST", "MET", "MST", "MST7MDT", "PST8PDT", "WET",
     }.ToFrozenSet(StringComparer.Ordinal);
 
     // True when each segment of the name is an entry of the tz database
