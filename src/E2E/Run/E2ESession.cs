@@ -231,6 +231,15 @@ public sealed class E2ESession : IAsyncDisposable
                     Navigation = appLog.Navigated,
                     ResolveSecret = async (secret, resolve) =>
                     {
+                        // Only a secret the engine declared in its secrets resolves (upstream's resolveEngineSecret, run/execute.ts).
+                        if (secret is null || !options.Engine.Secrets.Any(declared => string.Equals(declared.Name, secret.Name, StringComparison.Ordinal)))
+                        {
+                            var asked = secret is null ? "a value that is not a Secrets.Get handle" : "\"" + secret.Name + "\"";
+                            throw new ConfigurationException(
+                                "SECRET_UNAVAILABLE",
+                                "engine " + options.Engine.Name + " asked for secret " + asked + ", which it did not declare in its secrets");
+                        }
+
                         var plaintext = await Secrecy.ResolveSecretValueAsync(secret, ledger, launch.Token).ConfigureAwait(false);
                         Secrecy.RegisterDerivedSecrets(secret.Name, resolve?.Derived?.Invoke(plaintext) ?? [], ledger);
                         return plaintext;

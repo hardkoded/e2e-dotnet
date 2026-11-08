@@ -620,7 +620,7 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | `defineEngine`, `EngineHandle`, `isEngineHandle`, `spiVersion`, `engine.capabilities`, the validation table | No factory validates an engine. `Capabilities` is declared. |
 | `workers`, `EngineInitInfo.workerSlot` at a hook, `EngineDisposeContext.reuseSignal` | No worker pool or runner. |
 | `validateApp`, `EngineAppDeclaration`, `EngineAppCheckInfo` | Not on `IEngine`; each first-party engine validates its own app ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)). |
-| `Engine.secrets`, `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246). |
+| `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
 | `OperationContext.signal`, `timeoutMs` on `PerformAsync`, `PerformAtAsync`, and the session hooks; `runId` and `attemptId` on the calls that take no `OperationContext` | [#1235](https://github.com/hardkoded/e2e-dotnet/issues/1235) tracks the action deadline reaching `perform`. |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
