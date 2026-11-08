@@ -53,11 +53,11 @@ The web engine drives Playwright, which downloads the browsers on the first run.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
       - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
 ```
 
-The path is Playwright's default browser cache on Linux. Playwright's pinned version comes with the `E2E` package, so the key hashes the files that set it. See [Running tests](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/running.md) for the whole workflow.
+The path is Playwright's default browser cache on Linux. On macOS or Windows runners, cache the path that [`PLAYWRIGHT_BROWSERS_PATH`](/reference/environment/) names for them. Playwright's pinned version comes with the `E2E` package, so the key hashes the files that set it. See [Running tests](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/running.md) for the whole workflow.
 
 ## The comment
 

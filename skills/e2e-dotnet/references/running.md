@@ -203,7 +203,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
       - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"
         env:
@@ -215,7 +215,7 @@ jobs:
 
 - Install the browser in its own step, so the download stays out of the
   launch timeout.
-- The cache step keeps the Playwright browsers between runs, so the install
+- The cache step keeps the Playwright browsers between runs (`~/.cache/ms-playwright` is the Linux path; macOS and Windows runners use another, see `PLAYWRIGHT_BROWSERS_PATH`), so the install
   step skips the download until a project file or the package versions
   change. Playwright's pinned version comes with the `E2E` package, so the
   key hashes the files that set it.
