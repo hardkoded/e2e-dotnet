@@ -25,6 +25,9 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Test
+        run: dotnet test E2E.slnx -c Release --nologo --filter "TestCategory!=RealModel&TestCategory!=AcpAgent"
+
       - name: Pack
         run: |
           dotnet pack src/E2E/E2E.csproj -c Release -o artifacts --nologo
@@ -32,10 +35,13 @@ jobs:
           dotnet pack src/E2E.XUnit.V3/E2E.XUnit.V3.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Cli/E2E.Cli.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release -o artifacts --nologo
-          dotnet pack src/E2E.Eas/E2E.Eas.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.GitHub/E2E.GitHub.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.TestMu/E2E.TestMu.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Kernel/E2E.Kernel.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.Acp/E2E.Acp.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Limrun/E2E.Limrun.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.BrowserStack/E2E.BrowserStack.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.DevFlow/E2E.Mobile.DevFlow.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.NUnit/E2E.Mobile.NUnit.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.XUnit.V3/E2E.Mobile.XUnit.V3.csproj -c Release -o artifacts --nologo
