@@ -38,7 +38,7 @@ public TimeSpan? Interval { get; init; }
 ```
 
 
-Pause between reads. The default is 100 milliseconds.
+Pause between reads. The default is 100 milliseconds. Zero or a negative value is `INVALID_CONFIG`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
@@ -68,7 +68,7 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
+given ends, so it needs a token that can end (`INVALID_CONFIG` otherwise). A negative value is `INVALID_CONFIG`.
 given ends, so it needs a token that can end (`INVALID_CONFIG` otherwise).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
