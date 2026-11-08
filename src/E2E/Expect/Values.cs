@@ -14,7 +14,7 @@ namespace E2E;
 /// <see cref="TestException"/>. The optional message of the call opens every failure, and survives <see cref="Not"/>.
 /// </summary>
 /// <remarks>
-/// .NET has no <c>undefined</c>: <c>null</c> stands for both <c>null</c> and <c>undefined</c>. Values compare by structure whatever
+/// .NET has no <c>undefined</c>: <see cref="Expect.Undefined"/> stands for it, and <c>null</c> is only <c>null</c>. Values compare by structure whatever
 /// their class: see <see cref="ToEqual(object?)"/>. Upstream's <c>toMatchSchema</c> is not ported (no Standard Schema in .NET).
 /// </remarks>
 public sealed class ValueExpectation<T>
@@ -69,7 +69,7 @@ public sealed class ValueExpectation<T>
             () => $"expected {ValueFormat.Of(actual)} not to match object {ValueFormat.Of(expected)}");
     }
 
-    /// <summary>Requires a truthy value: not <c>null</c>, <c>false</c>, <c>0</c>, <c>NaN</c>, or an empty string.</summary>
+    /// <summary>Requires a truthy value: not <c>null</c>, <see cref="Expect.Undefined"/>, <c>false</c>, <c>0</c>, <c>NaN</c>, or an empty string.</summary>
     public void ToBeTruthy() => Check(
         IsTruthy(_actual),
         () => $"expected {ValueFormat.Of(_actual)} to be truthy",
@@ -87,15 +87,15 @@ public sealed class ValueExpectation<T>
         () => $"expected {ValueFormat.Of(_actual)} to be null",
         () => "expected value not to be null");
 
-    /// <summary>Requires <c>null</c>: .NET has no <c>undefined</c> apart from it.</summary>
+    /// <summary>Requires <see cref="Expect.Undefined"/>: <c>null</c> is not <c>undefined</c>.</summary>
     public void ToBeUndefined() => Check(
-        _actual is null,
+        _actual is UndefinedValue,
         () => $"expected {ValueFormat.Of(_actual)} to be undefined",
         () => "expected value not to be undefined");
 
-    /// <summary>Requires any value but <c>null</c>: .NET has no <c>undefined</c> apart from it.</summary>
+    /// <summary>Requires any value but <see cref="Expect.Undefined"/>: <c>null</c> is defined.</summary>
     public void ToBeDefined() => Check(
-        _actual is not null,
+        _actual is not UndefinedValue,
         () => $"expected {ValueFormat.Of(_actual)} to be defined",
         () => $"expected {ValueFormat.Of(_actual)} not to be defined");
 
@@ -290,7 +290,7 @@ public sealed class ValueExpectation<T>
 
     private static bool IsTruthy(object? value) => value switch
     {
-        null => false,
+        null or UndefinedValue => false,
         bool flag => flag,
         string text => text.Length > 0,
         char character => character != '\0',
@@ -334,6 +334,18 @@ public sealed class ValueExpectation<T>
     private static string[] KeysOf(IReadOnlyList<object> path) => [.. path.Select(key => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty)];
 }
 
+/// <summary>.NET-only: the value of <see cref="Expect.Undefined"/>, JavaScript's <c>undefined</c>, which C# has no counterpart for.</summary>
+internal sealed class UndefinedValue
+{
+    public static UndefinedValue Instance { get; } = new();
+
+    private UndefinedValue()
+    {
+    }
+
+    public override string ToString() => "undefined";
+}
+
 /// <summary>.NET-only: <c>format</c> of upstream's <c>values.ts</c>, which reads a value the way <c>JSON.stringify</c> does.</summary>
 internal static class ValueFormat
 {
@@ -347,6 +359,9 @@ internal static class ValueFormat
         {
             case null:
                 return "null";
+            case UndefinedValue:
+                // JSON.stringify gives undefined at the top, and String(undefined) is the text.
+                return "undefined";
             case string text:
                 return JsonQuote.Of(text);
             case char character:
@@ -388,16 +403,16 @@ internal static class ValueFormat
         {
             if (value is IDictionary dictionary)
             {
-                var entries = ValueEquality.Pairs(dictionary).Select(entry => JsonQuote.Of(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty) + ":" + Of(entry.Value, seen));
+                var entries = ValueEquality.Pairs(dictionary).Where(entry => entry.Value is not UndefinedValue).Select(entry => JsonQuote.Of(Convert.ToString(entry.Key, CultureInfo.InvariantCulture) ?? string.Empty) + ":" + Of(entry.Value, seen));
                 return "{" + string.Join(',', entries) + "}";
             }
 
             if (value is IEnumerable items)
             {
-                return "[" + string.Join(',', items.Cast<object?>().Select(item => Of(item, seen))) + "]";
+                return "[" + string.Join(',', items.Cast<object?>().Select(item => item is UndefinedValue ? "null" : Of(item, seen))) + "]";
             }
 
-            var members = ValueEquality.Members(value).Select(member => JsonQuote.Of(member.Key) + ":" + Of(member.Value, seen));
+            var members = ValueEquality.Members(value).Where(member => member.Value is not UndefinedValue).Select(member => JsonQuote.Of(member.Key) + ":" + Of(member.Value, seen));
             return "{" + string.Join(',', members) + "}";
         }
         finally

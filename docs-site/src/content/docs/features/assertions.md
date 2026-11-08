@@ -30,7 +30,7 @@ Expect.That(payload).ToEqual(new { Id = Expect.StringMatching("^usr_"), CreatedA
 | `ToEqual` | Recursive structural equality, whatever the class: a record equals an object with its property names |
 | `ToMatchObject` | Recursive subset match; an array matches element-wise with equal length |
 | `ToBeTruthy`, `ToBeFalsy` | Truthy or falsy value |
-| `ToBeNull`, `ToBeUndefined`, `ToBeDefined` | `null`, `null`, or not `null`: .NET has no `undefined` |
+| `ToBeNull`, `ToBeUndefined`, `ToBeDefined` | `null`, `Expect.Undefined`, or anything but `Expect.Undefined` (`null` is defined) |
 | `ToHaveLength` | `Length` or `Count` equals the expected number |
 | `ToHaveProperty` | Property at a dotted path or a list of keys, optionally equal to a value |
 | `ToContain` | String or collection containment |
@@ -42,7 +42,7 @@ A matcher that cannot evaluate its value fails as `ASSERTION_FAILED`, like a mis
 
 `Expect.Any(type)`, `Expect.Anything()`, `Expect.ObjectContaining(sample)`, `Expect.ArrayContaining(sample)`, `Expect.StringContaining(sample)`, and `Expect.StringMatching(sample)` stand in for a value inside `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(screen, value, message)` keeps a failure for the end of the test instead of throwing it.
 
-`ToMatchSchema` is not ported (there is no Standard Schema in .NET). `null` stands for both `null` and `undefined`.
+`ToMatchSchema` is not ported (there is no Standard Schema in .NET). `Expect.Undefined` is `undefined`, which C# has no value for: `null` is only `null`. `ToEqual` ignores a member that holds `Expect.Undefined`, and `Expect.Anything()` matches neither `null` nor `Expect.Undefined`.
 
 ## Evidence screenshots
 

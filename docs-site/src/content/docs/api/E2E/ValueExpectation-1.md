@@ -30,7 +30,7 @@ Synchronous matchers over a plain value, from `That&lt;T&gt;`. A failure is an `
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-.NET has no `undefined`: `null` stands for both `null` and `undefined`. Values compare by structure whatever
+.NET has no `undefined`: [Undefined](/api/E2E/Expect/#E2E_Expect_Undefined) stands for it, and `null` is only `null`. Values compare by structure whatever
 their class: see `ToEqual`. Upstream's `toMatchSchema` is not ported (no Standard Schema in .NET).
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Values.cs)
@@ -105,7 +105,7 @@ public void ToBeDefined()
 ```
 
 
-Requires any value but `null`: .NET has no `undefined` apart from it.
+Requires any value but [Undefined](/api/E2E/Expect/#E2E_Expect_Undefined): `null` is defined.
 
 <a id="E2E_ValueExpectation_1_ToBeFalsy_"></a>
 <a id="E2E_ValueExpectation_1_ToBeFalsy"></a>
@@ -220,7 +220,7 @@ public void ToBeTruthy()
 ```
 
 
-Requires a truthy value: not `null`, `false`, `0`, `NaN`, or an empty string.
+Requires a truthy value: not `null`, [Undefined](/api/E2E/Expect/#E2E_Expect_Undefined), `false`, `0`, `NaN`, or an empty string.
 
 <a id="E2E_ValueExpectation_1_ToBeUndefined_"></a>
 <a id="E2E_ValueExpectation_1_ToBeUndefined"></a>
@@ -233,7 +233,7 @@ public void ToBeUndefined()
 ```
 
 
-Requires `null`: .NET has no `undefined` apart from it.
+Requires [Undefined](/api/E2E/Expect/#E2E_Expect_Undefined): `null` is not `undefined`.
 
 <a id="E2E_ValueExpectation_1_ToContain_"></a>
 <a id="E2E_ValueExpectation_1_ToContain_System_Object_"></a>

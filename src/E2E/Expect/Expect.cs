@@ -44,7 +44,14 @@ public static class Expect
         return new AnyMatcher(sample);
     }
 
-    /// <summary>Matches everything but <c>null</c>.</summary>
+    /// <summary>
+    /// JavaScript's <c>undefined</c>, as a value a test passes (.NET-only: C# has no <c>undefined</c>). <c>null</c> is only <c>null</c>:
+    /// <c>Expect.That(null).ToBeDefined()</c> passes, <c>Expect.That(Expect.Undefined).ToBeDefined()</c> fails, and <c>ToEqual</c> ignores a
+    /// member that holds it, as upstream ignores an <c>undefined</c> property.
+    /// </summary>
+    public static object Undefined => UndefinedValue.Instance;
+
+    /// <summary>Matches everything but <c>null</c> and <see cref="Undefined"/>.</summary>
     public static AsymmetricMatcher Anything() => new AnythingMatcher();
 
     /// <summary>Matches an object that has every member of <paramref name="sample"/>, equal by <c>ToEqual</c> rules.</summary>

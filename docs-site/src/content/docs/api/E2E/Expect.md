@@ -28,6 +28,25 @@ Polling assertions for a [Locator](/api/E2E/Locator/), `expect.soft`, and
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
+## Properties
+
+<a id="E2E_Expect_Undefined_"></a>
+<a id="E2E_Expect_Undefined"></a>
+
+### Undefined
+
+
+```csharp
+public static object Undefined { get; }
+```
+
+
+JavaScript's `undefined`, as a value a test passes (.NET-only: C# has no `undefined`). `null` is only `null`:
+`Expect.That(null).ToBeDefined()` passes, `Expect.That(Expect.Undefined).ToBeDefined()` fails, and `ToEqual` ignores a
+member that holds it, as upstream ignores an `undefined` property.
+
+**Value:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+
 ## Methods
 
 <a id="E2E_Expect_Any_"></a>
@@ -62,7 +81,7 @@ public static AsymmetricMatcher Anything()
 ```
 
 
-Matches everything but `null`.
+Matches everything but `null` and [Undefined](#E2E_Expect_Undefined).
 
 **Returns:** [AsymmetricMatcher](/api/E2E/AsymmetricMatcher/)
 

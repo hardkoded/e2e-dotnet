@@ -9,9 +9,8 @@ namespace E2E.Tests.ExpectValues;
 
 /// <summary>
 /// <c>describe('asymmetric matchers')</c> of upstream's <c>expect-values.test.ts</c>. A failure names a .NET type, so upstream's
-/// <c>Any&lt;Number&gt;</c> reads <c>Any&lt;Int32&gt;</c> here. Ported in part (<c>Partial_</c>): <c>expect.any matches classes and primitives</c>
-/// has no <c>Symbol</c> (hardkoded/e2e-dotnet#1369), and <c>expect.anything matches everything but null and undefined</c> has no
-/// <c>undefined</c> (#1368).
+/// <c>Any&lt;Number&gt;</c> reads <c>Any&lt;Int32&gt;</c> here. <c>undefined</c> is <see cref="Expect.Undefined"/> (hardkoded/e2e-dotnet#1368). Ported in part
+/// (<c>Partial_</c>): <c>expect.any matches classes and primitives</c> has no <c>Symbol</c> (#1369).
 /// </summary>
 public sealed class AsymmetricMatchersTests
 {
@@ -31,12 +30,12 @@ public sealed class AsymmetricMatchersTests
     }
 
     [Fact]
-    public void Partial_Expect_anything_matches_everything_but_null_and_undefined()
+    public void Expect_anything_matches_everything_but_null_and_undefined()
     {
         Expect.That(0).ToEqual(Expect.Anything());
         Expect.That(string.Empty).ToEqual(Expect.Anything());
         Expect.That<object?>(null).Not.ToEqual(Expect.Anything());
-        FailsWith(() => Expect.That<object?>(null).ToEqual(Expect.Anything()), "to equal Anything$");
+        FailsWith(() => Expect.That(Expect.Undefined).ToEqual(Expect.Anything()), "to equal Anything$");
     }
 
     [Fact]

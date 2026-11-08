@@ -28,6 +28,11 @@ internal sealed class AnyMatcher(Type sample) : AsymmetricMatcher
 {
     public override bool AsymmetricMatch(object? other)
     {
+        if (other is UndefinedValue)
+        {
+            return false;
+        }
+
         if (sample == typeof(object))
         {
             // Upstream: `typeof other == 'object'`, which holds for null.
@@ -54,7 +59,7 @@ internal sealed class AnyMatcher(Type sample) : AsymmetricMatcher
 
 internal sealed class AnythingMatcher : AsymmetricMatcher
 {
-    public override bool AsymmetricMatch(object? other) => other is not null;
+    public override bool AsymmetricMatch(object? other) => other is not null and not UndefinedValue;
 
     public override string ToString() => "Anything";
 

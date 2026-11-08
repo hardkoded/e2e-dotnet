@@ -252,6 +252,11 @@ internal static class ValueEquality
             return actual is null && expected is null;
         }
 
+        if (actual is UndefinedValue || expected is UndefinedValue)
+        {
+            return ReferenceEquals(actual, expected);
+        }
+
         if (ReferenceEquals(actual, expected) && !IsNumber(actual))
         {
             return true;
@@ -372,6 +377,17 @@ internal static class ValueEquality
         }
 
         var right = Members(expected).ToList();
+        if (!subset)
+        {
+            // Jest's toEqual: a member that holds undefined is the same as a member that is absent.
+            if (left.Values.Any(value => value is UndefinedValue))
+            {
+                left = left.Where(member => member.Value is not UndefinedValue).ToDictionary(member => member.Key, member => member.Value, StringComparer.Ordinal);
+            }
+
+            right.RemoveAll(member => member.Value is UndefinedValue);
+        }
+
         if (!subset && left.Count != right.Count)
         {
             return false;
@@ -423,6 +439,12 @@ internal static class ValueEquality
         if (value is string or char)
         {
             return Kind.Text;
+        }
+
+        if (value is UndefinedValue)
+        {
+            // Not an object: IsObject and HasMembers must not read the sentinel's members.
+            return Kind.Value;
         }
 
         if (value is Regex)

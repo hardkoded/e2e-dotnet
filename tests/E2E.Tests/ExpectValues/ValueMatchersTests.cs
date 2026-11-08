@@ -12,8 +12,9 @@ namespace E2E.Tests.ExpectValues;
 /// matching everything</c> (<c>ToMatch</c> takes a string or a <see cref="Regex"/>, so a predicate cannot be passed), <c>toMatch gives the
 /// same answer on every test of a global or sticky regexp</c> (a .NET <see cref="Regex"/> keeps no <c>lastIndex</c>), and <c>compares a
 /// non-index key on an array, so "01" is a property and not a hole</c> (a .NET array has no named keys). Upstream's four
-/// <c>toMatchSchema</c> its are not ported: .NET has no Standard Schema. Ported in part (<c>Partial_</c>): the three its that tell
-/// <c>undefined</c> from <c>null</c> (hardkoded/e2e-dotnet#1368), and the ones that read JavaScript-only values (#1369).
+/// <c>toMatchSchema</c> its are not ported: .NET has no Standard Schema. <c>undefined</c> is <see cref="Expect.Undefined"/>, so the its that tell it from <c>null</c> are full
+/// ports (hardkoded/e2e-dotnet#1368). Ported in part (<c>Partial_</c>): the two its that read JavaScript-only values (#1369): sparse arrays,
+/// wrapper methods, and <c>new String</c>.
 /// </summary>
 public sealed class ValueMatchersTests
 {
@@ -54,33 +55,35 @@ public sealed class ValueMatchersTests
     }
 
     [Fact]
-    public void Partial_Truthy_falsy_null_undefined_defined()
+    public void Truthy_falsy_null_undefined_defined()
     {
         Expect.That(1).ToBeTruthy();
         Expect.That(string.Empty).ToBeFalsy();
         Expect.That<object?>(null).ToBeNull();
-        Expect.That<object?>(null).ToBeUndefined();
+        Expect.That(Expect.Undefined).ToBeUndefined();
         Expect.That("x").ToBeDefined();
-        FailsWith(() => Expect.That<object?>(null).ToBeDefined(), "to be defined");
-        FailsWith(() => Expect.That("x").Not.ToBeDefined(), "not to be defined");
+        Expect.That<object?>(null).ToBeDefined();
+        FailsWith(() => Expect.That(Expect.Undefined).ToBeDefined(), "to be defined");
+        FailsWith(() => Expect.That<object?>(null).Not.ToBeDefined(), "not to be defined");
     }
 
     [Fact]
-    public void Partial_Truthy_falsy_null_undefined_fail_on_the_wrong_value_and_pass_negated()
+    public void Truthy_falsy_null_undefined_fail_on_the_wrong_value_and_pass_negated()
     {
-        FailsWith(() => Expect.That<object?>(null).ToBeTruthy(), "^expected null to be truthy");
+        FailsWith(() => Expect.That(Expect.Undefined).ToBeTruthy(), "^expected undefined to be truthy");
         FailsWith(() => Expect.That(0).ToBeTruthy(), "^expected 0 to be truthy");
         FailsWith(() => Expect.That(1).Not.ToBeTruthy(), "^expected 1 not to be truthy");
         FailsWith(() => Expect.That(1).ToBeFalsy(), "^expected 1 to be falsy");
         FailsWith(() => Expect.That(string.Empty).Not.ToBeFalsy(), "^expected \"\" not to be falsy");
         FailsWith(() => Expect.That(0).ToBeNull(), "^expected 0 to be null");
+        FailsWith(() => Expect.That(Expect.Undefined).ToBeNull(), "^expected undefined to be null");
         FailsWith(() => Expect.That<object?>(null).Not.ToBeNull(), "^expected value not to be null");
-        FailsWith(() => Expect.That<object?>(0).ToBeUndefined(), "^expected 0 to be undefined");
-        FailsWith(() => Expect.That<object?>(null).Not.ToBeUndefined(), "^expected value not to be undefined");
+        FailsWith(() => Expect.That<object?>(null).ToBeUndefined(), "^expected null to be undefined");
+        FailsWith(() => Expect.That(Expect.Undefined).Not.ToBeUndefined(), "^expected value not to be undefined");
         Expect.That(0).Not.ToBeTruthy();
         Expect.That(1).Not.ToBeFalsy();
-        Expect.That<object?>(0).Not.ToBeNull();
-        Expect.That<object?>(0).Not.ToBeUndefined();
+        Expect.That(Expect.Undefined).Not.ToBeNull();
+        Expect.That<object?>(null).Not.ToBeUndefined();
     }
 
     [Fact]
@@ -164,6 +167,7 @@ public sealed class ValueMatchersTests
     [Fact]
     public void Partial_ToEqual_ignores_undefined_properties_and_class_types()
     {
+        Expect.That(new { a = 1, b = Expect.Undefined }).ToEqual(new { a = 1 });
         Expect.That(new Point(1, 2)).ToEqual(new { X = 1, Y = 2 });
     }
 
@@ -303,7 +307,7 @@ public sealed class ValueMatchersTests
     [Fact]
     public void Partial_ToHaveProperty_reads_a_primitive_on_the_path_through_its_wrapper_as_Jest_does()
     {
-        var tag = new { label = "abc", count = 3, flag = true, none = (string?)null };
+        var tag = new { label = "abc", count = 3, flag = true, none = (string?)null, missing = Expect.Undefined };
         Expect.That(tag).ToHaveProperty("label.length", 3);
         Expect.That(tag).ToHaveProperty(["label", 0], "a");
         Expect.That(tag).ToHaveProperty("label.2", "c");
@@ -312,9 +316,10 @@ public sealed class ValueMatchersTests
         Expect.That("abc").ToHaveProperty("length", 3);
         Expect.That(tag).ToHaveProperty("none", null);
         Expect.That(tag).Not.ToHaveProperty("none.length");
+        Expect.That(tag).Not.ToHaveProperty("missing.length");
         FailsWith(() => Expect.That(tag).ToHaveProperty("label.length", 4), "expected property \"label.length\" of .* to equal 4, got 3");
         FailsWith(() => Expect.That(tag).ToHaveProperty("none.length"), "to have property \"none.length\"$");
-        FailsWith(() => Expect.That<object?>(null).ToHaveProperty("length"), "to have property \"length\"");
+        FailsWith(() => Expect.That(Expect.Undefined).ToHaveProperty("length"), "to have property \"length\"");
     }
 
     private static HashSet<object> Identity(object[] items) => new(items, ReferenceEqualityComparer.Instance);

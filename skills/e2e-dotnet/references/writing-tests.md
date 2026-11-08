@@ -328,7 +328,7 @@ matcher.
   The message opens every failure. `Expect.Any(typeof(int))`, `Anything()`, `ObjectContaining`,
   `ArrayContaining`, `StringContaining`, and `StringMatching` stand in for a value inside
   `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(Screen, value)` keeps a
-  failure. `null` is both `null` and `undefined`, and there is no `ToMatchSchema`. The framework's
+  failure. `Expect.Undefined` stands for `undefined` (`null` is only `null`, and `ToBeDefined` accepts `null`), and there is no `ToMatchSchema`. The framework's
   asserts (`Assert.That`) still work.
 
 ## Sign-in
