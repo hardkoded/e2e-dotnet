@@ -152,9 +152,9 @@ public sealed class TapModifiersInTheGrammarToolsTests
         recorder.Record(new RecordedAction { Kind = "tap", Role = save.Role, Name = save.Name, Modifiers = ["Shift"] });
         recorder.Record("tap", save);
         var store = new FileStepCache(CoreTests.TempCache());
-        store.Write("abc123", recorder.Finalize(StepCacheHarness.ExampleStep, "/", "/", [], [])!);
+        store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/", "/", [], [])!);
 
-        var entry = Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
+        var entry = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
 
         Assert.Equal(2, entry.Actions.Count);
         Assert.Equal(["Shift"], entry.Actions[0].Modifiers);

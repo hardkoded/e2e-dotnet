@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using E2E.Tests.StepCache;
 using static E2E.Tests.StepCache.StepCachePipelineTests;
 
 namespace E2E.Tests.TraceCache;
@@ -16,7 +17,7 @@ namespace E2E.Tests.TraceCache;
 /// </summary>
 public sealed class Trace1EntryTests
 {
-    private const string Key = "abc123";
+    private const string Key = StepCacheHarness.Key;
 
     private static readonly JsonSerializerOptions EntryJson = new(JsonSerializerDefaults.Web);
 

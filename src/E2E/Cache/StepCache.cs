@@ -485,7 +485,7 @@ public sealed class CacheLookup
 {
     public CacheEntry? Entry { get; init; }
 
-    /// <summary><c>no-entry</c> or <c>invalid-entry</c> when <see cref="Entry"/> is null.</summary>
+    /// <summary><c>no-entry</c> or <c>invalid-entry</c> (an unreadable or oversized entry, or a key that is not a SHA-256 digest) when <see cref="Entry"/> is null.</summary>
     public string? Reason { get; init; }
 }
 
@@ -538,7 +538,12 @@ public sealed class FileStepCache : IStepCache
 
     public CacheLookup Read(string key)
     {
-        var path = PathFor(key);
+        var path = EntryPath(key);
+        if (path is null)
+        {
+            return new CacheLookup { Reason = "invalid-entry" };
+        }
+
         if (!File.Exists(path))
         {
             return new CacheLookup { Reason = "no-entry" };
@@ -584,7 +589,11 @@ public sealed class FileStepCache : IStepCache
             return null;
         }
 
-        var path = PathFor(key);
+        var path = EntryPath(key);
+        if (path is null)
+        {
+            return null;
+        }
 
         var serialized = JsonSerializer.Serialize(entry, JsonDefaults.Options);
         var bytes = Encoding.UTF8.GetByteCount(serialized);
@@ -605,11 +614,17 @@ public sealed class FileStepCache : IStepCache
             return;
         }
 
+        var path = EntryPath(key);
+        if (path is null)
+        {
+            return;
+        }
+
         try
         {
             // A missing file is no error; a missing directory is the same absence. Anything else throws, so the caller
             // does not report an eviction that did not happen.
-            File.Delete(PathFor(key));
+            File.Delete(path);
         }
         catch (DirectoryNotFoundException)
         {
@@ -664,7 +679,7 @@ public sealed class FileStepCache : IStepCache
         foreach (var path in Directory.EnumerateFiles(_directory, "*.json"))
         {
             var key = Path.GetFileNameWithoutExtension(path);
-            if (!IsKey(key))
+            if (!IsKeyHash(key))
             {
                 continue;
             }
@@ -709,17 +724,14 @@ public sealed class FileStepCache : IStepCache
         return JsonSerializer.Serialize(new object[] { step.Test, step.Engine, step.Instruction, step.ParamsDigest, step.CallIndex.Value, step.Agent });
     }
 
-    private static bool IsKey(string key) => key.Length > 0 && key.All(char.IsAsciiLetterOrDigit);
+    // Upstream's KEY_HASH: a bare lowercase SHA-256 digest.
+    private static bool IsKeyHash(string key) => key.Length == 64 && key.All(c => char.IsAsciiDigit(c) || c is >= 'a' and <= 'f');
 
-    private string PathFor(string key)
-    {
-        if (!IsKey(key))
-        {
-            throw new TestException("INVALID_ARGUMENT", "Cache key must be ASCII letters and digits.");
-        }
-
-        return Path.Combine(_directory, key + ".json");
-    }
+    /// <summary>
+    /// Upstream's <c>entryPath</c>. The key hash is the only caller-supplied path component and must be a bare digest, so traversal is
+    /// impossible by construction; null when it is not one.
+    /// </summary>
+    private string? EntryPath(string key) => IsKeyHash(key) ? Path.Combine(_directory, key + ".json") : null;
 }
 
 /// <summary>Upstream's <c>ParamTemplate</c>: one <c>unique()</c> param, its JSON Pointer in the params and this call's value.</summary>
