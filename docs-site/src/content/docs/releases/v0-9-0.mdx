@@ -50,6 +50,10 @@ Use `AcpExecutor.Codex()` for Codex, or `AcpExecutor.Create(command, args)` for 
 
 `E2E.GitHub` posts the results as one pull request comment from GitHub Actions, writes the job summary, and updates the same comment on a rerun. Failures come with their step, the line to look at, and links to the evidence.
 
+```bash
+dotnet add package E2E.GitHub --version 0.9.0
+```
+
 Reporters now come from `e2e.config.json`:
 
 ```json
