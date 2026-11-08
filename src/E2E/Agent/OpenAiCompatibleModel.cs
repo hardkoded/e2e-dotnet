@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -209,7 +210,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         return string.Equals(_options.Provider, "gateway", StringComparison.Ordinal) && _options.Model.StartsWith("openai/", StringComparison.Ordinal);
     }
 
-    private static ModelResponse Parse(JsonElement root)
+    private ModelResponse Parse(JsonElement root)
     {
         var choice = root.GetProperty("choices")[0];
         var message = choice.GetProperty("message");
@@ -270,6 +271,23 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             ReasoningText = ModelHttp.ReasoningText(reasoning.Select(item => item.GetString() ?? "")),
             FinishReason = ModelHttp.FinishReason(finish, "content_filter"),
             RawFinishReason = finish,
+            ProviderMetadata = CostMetadata(usage?.EstimatedCostUsd),
+        };
+    }
+
+    // The billed cost as the AI SDK's provider holds it: the gateway's { cost } string, OpenRouter's { usage: { cost } }.
+    private IReadOnlyDictionary<string, JsonElement>? CostMetadata(double? cost)
+    {
+        if (cost is not { } billed)
+        {
+            return null;
+        }
+
+        return _options.Provider switch
+        {
+            "gateway" => new Dictionary<string, JsonElement> { ["gateway"] = JsonSerializer.SerializeToElement(new { cost = billed.ToString("R", CultureInfo.InvariantCulture) }) },
+            "openrouter" => new Dictionary<string, JsonElement> { ["openrouter"] = JsonSerializer.SerializeToElement(new { usage = new { cost = billed } }) },
+            _ => null,
         };
     }
 }
