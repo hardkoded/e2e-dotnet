@@ -233,7 +233,8 @@ lines you changed:
   actions, `WaitForAsync`, `Expect` matchers, `ToHaveScreenshotAsync`,
   `Browser.GotoAsync`, `WaitForResponseAsync`, and `WaitForDownloadAsync`. A
   negative `TimeSpan` fails with `INVALID_ARGUMENT`. `Expect.Poll` with a zero
-  `Timeout` polls until the cancellation token you pass ends.
+  `Timeout` polls until the cancellation token you pass ends. `Agent` calls take a positive
+  `Timeout` only: zero or less is `INVALID_ARGUMENT`.
 - Keep the replay cache on. A failed run keeps the recording of every goal
   whose check passed, and the next run replays those with no model call. New,
   changed, and failed goals run live, and so does a replay the trace page
