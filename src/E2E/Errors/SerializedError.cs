@@ -176,7 +176,8 @@ internal static class ErrorSerializer
 
     /// <summary>
     /// An error's message followed by its causes, innermost last: <c>fetch failed: connect ECONNREFUSED</c>. The detail an
-    /// operator acts on is often in the inner exception, which a bare message hides. A message already present is not repeated.
+    /// operator acts on is often in the inner exception, which a bare message hides. An aggregate lists each member once, a
+    /// cause with an empty message contributes its <c>code</c>, and a message already present is not repeated.
     /// </summary>
     internal static string MessageWithCauses(Exception error)
     {
@@ -184,14 +185,37 @@ internal static class ErrorSerializer
         var current = error.InnerException;
         for (var depth = 0; current is not null && depth < MaxCauseDepth; depth++)
         {
-            if (current.Message.Length > 0 && !parts.Contains(current.Message, StringComparer.Ordinal))
+            var text = DescribeCause(current);
+            if (text.Length > 0 && !parts.Contains(text, StringComparer.Ordinal))
             {
-                parts.Add(current.Message);
+                parts.Add(text);
             }
 
-            current = current.InnerException;
+            // An AggregateException's InnerException is only its first member, which DescribeCause already listed; an
+            // AggregateError upstream has no cause of its own.
+            current = current is AggregateException ? null : current.InnerException;
         }
 
         return string.Join(": ", parts);
+    }
+
+    private static string DescribeCause(Exception cause)
+    {
+        if (cause is AggregateException aggregate)
+        {
+            var members = aggregate.InnerExceptions.Select(DescribeCause).Where(text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            if (members.Count > 0)
+            {
+                return string.Join("; ", members);
+            }
+        }
+
+        if (cause.Message.Length > 0)
+        {
+            return cause.Message;
+        }
+
+        // The counterpart of upstream's string `code` property, which .NET keeps in Exception.Data.
+        return cause.Data["code"] as string ?? "";
     }
 }
