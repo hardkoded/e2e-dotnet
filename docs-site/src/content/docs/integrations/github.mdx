@@ -44,6 +44,21 @@ Upload the artifacts also when a retry passes: each failure's evidence links ope
 
 Source links start at the nearest directory with `.git` inside `GITHUB_WORKSPACE`. A project below it, such as `packages/e2e-tests`, gets links under that path. `actions/checkout` with a `path` input works too.
 
+## Cache the browsers
+
+The web engine drives Playwright, which downloads the browsers on the first run. Cache them between runs, and the install step skips the download until a project file or a package version changes:
+
+```yaml
+      - run: dotnet build -c Release
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
+      - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
+```
+
+The path is Playwright's default browser cache on Linux. Playwright's pinned version comes with the `E2E` package, so the key hashes the files that set it. See [Running tests](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/running.md) for the whole workflow.
+
 ## The comment
 
 The comment is the page that `MarkdownReport.RenderMarkdownReport` writes (see [Rendering the report as markdown](/docs/#rendering-the-report-as-markdown)): the headline with the counts, the spend line, a block for each failed test with its step and the line to look at, the flaky tests folded, and every test as a table. The first line is a hidden marker, `<!-- e2e-github project=... workflow=... job=... -->`, which the reporter finds its comment by.

@@ -200,6 +200,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet build -c Release
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props') }}
       - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"
         env:
@@ -211,6 +215,10 @@ jobs:
 
 - Install the browser in its own step, so the download stays out of the
   launch timeout.
+- The cache step keeps the Playwright browsers between runs, so the install
+  step skips the download until a project file or the package versions
+  change. Playwright's pinned version comes with the `E2E` package, so the
+  key hashes the files that set it.
 - Let `app.command` start the app (topic `setup`), or start it before `dotnet test`.
 - Agent steps run in the same job: pass the provider's API key from the CI
   secrets, and commit `.e2e/cache/` so recorded acts replay with no model

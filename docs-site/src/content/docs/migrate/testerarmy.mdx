@@ -50,7 +50,7 @@ Install e2e and configure a model with the [web guide](/get-started/web/). Agent
 | mobile project and its uploaded builds | an `ios` or `android` target with `app.bundleId` and `app.appPath`. You build the app, and `MobileAppTest` installs it, see [Mobile](/get-started/mobile/) |
 | static environments (Staging, QA) | one `e2e.config.json` per environment, or `BaseUrl` on the test class. The port runs one target, so run the suite once per environment |
 | PR preview environment | a CI job that sets the app URL to the preview URL (`BaseUrl`, or a generated `e2e.config.json`) |
-| `login` credential | a `credentials` entry. TesterArmy never returns the password or TOTP secret, so read it from `E2E_USER_<NAME>_PASSWORD`, see [Signing in](/features/signing-in/) |
+| `login` credential | a `credentials` entry. TesterArmy never returns the password or TOTP secret, so read it from `E2E_USER_<NAME>_PASSWORD`, see [Authentication](/features/signing-in/) |
 | credential `totpSecret` | Not yet. The config holds named secrets, not code that computes a value |
 | credential environment overrides | one `credentials` entry, with `E2E_USER_<NAME>_PASSWORD` set per environment |
 | `inbox` credential | Not yet. Call your own test inbox from a helper in the test project |
@@ -124,7 +124,7 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | --- | --- |
 | `act` step | `Agent.ActAsync("...")`, or a locator call when the step opens a known route or acts on one named control |
 | `assert` step | `Agent.AssertAsync("...")`, then a locator assertion when a label or test id names the end state |
-| `login` step | an `[E2ESetup]` test that signs in and calls `SaveSessionAsync()`, and `[E2ESession]` on each test, see [Signing in](/features/signing-in/) |
+| `login` step | an `[E2ESetup]` test that signs in and calls `SaveSessionAsync()`, and `[E2ESession]` on each test, see [Authentication](/features/signing-in/) |
 | `login` with `temporaryEmail` | Not yet |
 | `files` step, `@receipt.jpg` in a step, on web | the file's repository path in the goal: `Agent.ActAsync("attach tests/fixtures/receipt.jpg")`, or `locator.SetInputFilesAsync()` |
 | `files` step on mobile (photo library) | Not yet |
@@ -144,10 +144,10 @@ Keep the agent for a step that reads the screen to decide, spans several screens
 ## What differs on purpose
 
 - Tests run on your machine or in your CI, not in TesterArmy's cloud. You choose the app URL and the device.
-- The model never sees a password. The runner types it from a handle, see [Signing in](/features/signing-in/).
+- The model never sees a password. The runner types it from a handle, see [Authentication](/features/signing-in/).
 - An `Agent.ActAsync` step replays its recorded actions without a model call. When the screen no longer matches, the agent takes over, see [Caching and self-healing](/features/caching/).
 
 ## Next
 
-- [Signing in](/features/signing-in/): sessions, credentials, and secrets the model never sees.
+- [Authentication](/features/signing-in/): sessions, credentials, and secrets the model never sees.
 - [Caching and self-healing](/features/caching/): how a verified agent step replays.

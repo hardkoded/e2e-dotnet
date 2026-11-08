@@ -40,7 +40,7 @@ Keep your `data-cy` attributes. The engine option below reads them as test ids.
 | `data-cy` selectors | `WebEngineOptions.TestIdAttribute = "data-cy"`, then `Screen.GetByTestId` |
 | `retries` | NUnit `[Retry]`; xUnit v3 has no retry attribute |
 | `env`, `Cypress.env()` | `Environment.GetEnvironmentVariable` |
-| `cypress.env.json` secrets | `credentials` and `secrets`, see [Signing in](/features/signing-in/) |
+| `cypress.env.json` secrets | `credentials` and `secrets`, see [Authentication](/features/signing-in/) |
 | `cypress run --browser firefox` | A second target with `WebEngineOptions.BrowserName = BrowserName.Firefox` |
 | Component testing | No equivalent |
 
