@@ -1,0 +1,12 @@
+{
+  // Upstream's apps/web-benchmark/e2e.config.ts: one web target on the app's port. The tests start the app in
+  // process (Fixtures/BenchmarkTest.cs), where upstream's config starts `pnpm run start`, and read its URL from there.
+  // `projectId`, `tests`, and the GitHub reporter are not config keys of the port.
+  "targets": [
+    {
+      "name": "web",
+      "platform": "web",
+      "app": { "url": "http://127.0.0.1:4280" }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/apps/">
+    <Project Path="WebBenchmark.E2ETests/WebBenchmark.E2ETests.csproj" />
+    <Project Path="WebBenchmark/WebBenchmark.csproj" />
+  </Folder>
+</Solution>

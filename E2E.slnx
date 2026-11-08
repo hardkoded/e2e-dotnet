@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/apps/">
+    <Project Path="apps/WebBenchmark.E2ETests/WebBenchmark.E2ETests.csproj" />
+    <Project Path="apps/WebBenchmark/WebBenchmark.csproj" />
     <Project Path="apps/WinAppBenchmark.E2ETests/WinAppBenchmark.E2ETests.csproj" />
   </Folder>
   <Folder Name="/samples/">
