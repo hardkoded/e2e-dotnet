@@ -67,7 +67,7 @@ export default defineConfig({
                 {
                     label: "Features",
                     items: [
-                        { label: "Signing in / sessions", slug: "features/signing-in" },
+                        { label: "Authentication", slug: "features/signing-in" },
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
                         { label: "Bug bashes", slug: "docs/bug-bash" },
@@ -124,6 +124,7 @@ export default defineConfig({
                             label: "Releases",
                             items: [
                                 { label: "Overview", slug: "releases" },
+                                { label: "v0.9.0", slug: "releases/v0-9-0" },
                                 { label: "v0.8.0", slug: "releases/v0-8-0" },
                             ],
                         },

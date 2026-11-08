@@ -43,11 +43,28 @@ internal static class ErrorSerializer
             AgentException agent => (AgentError.CategoryByCode.GetValueOrDefault(agent.Code, "test"), agent.Code, agent.Message, false),
             TestException test => ("test", test.Code, test.Message, false),
             ConfigurationException configuration => ("configuration", configuration.Code, configuration.Message, false),
+            EngineException { Mapped: false } engine when IsEngineErrorCode(engine.Code) => ClassifyEngineError(engine),
             EngineException engine => ("infrastructure", engine.Code, engine.Message, engine.Retryable),
             E2EException other => ("test", other.Code, other.Message, false),
             OperationCanceledException => ("interrupted", Cancelled, cause.Message, false),
             _ => ("test", "ERROR", MessageWithCauses(cause), false),
         };
+    }
+
+    // Upstream's classifyError runs translateEngineError for any EngineError, so the canonical mapping applies from any surface.
+    // The translated error carries no retry claim. Like upstream's asEngineError, only the closed engine code set counts: any other
+    // code (APP_UNREACHABLE, WORKER_PROTOCOL) is a runner InfrastructureError upstream, and a Mapped error is one the runner already named.
+    private static bool IsEngineErrorCode(string code) => code is EngineErrorCodes.NodeStale or EngineErrorCodes.FrameNotFound
+        or EngineErrorCodes.FrameAmbiguous or EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted
+        or EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled or EngineErrorCodes.UnsupportedCapability
+        or EngineErrorCodes.InvalidState or EngineErrorCodes.EngineFailure;
+
+    private static (string Category, string Code, string Message, bool Retryable) ClassifyEngineError(EngineException engine)
+    {
+        var translated = TranslateEngineError(engine);
+        return translated is EngineException infrastructure
+            ? ("infrastructure", infrastructure.Code, infrastructure.Message, false)
+            : Classify(translated);
     }
 
     /// <summary>
@@ -176,7 +193,8 @@ internal static class ErrorSerializer
 
     /// <summary>
     /// An error's message followed by its causes, innermost last: <c>fetch failed: connect ECONNREFUSED</c>. The detail an
-    /// operator acts on is often in the inner exception, which a bare message hides. A message already present is not repeated.
+    /// operator acts on is often in the inner exception, which a bare message hides. An aggregate lists each member once, a
+    /// cause with an empty message contributes its <c>code</c>, and a message already present is not repeated.
     /// </summary>
     internal static string MessageWithCauses(Exception error)
     {
@@ -184,14 +202,37 @@ internal static class ErrorSerializer
         var current = error.InnerException;
         for (var depth = 0; current is not null && depth < MaxCauseDepth; depth++)
         {
-            if (current.Message.Length > 0 && !parts.Contains(current.Message, StringComparer.Ordinal))
+            var text = DescribeCause(current);
+            if (text.Length > 0 && !parts.Contains(text, StringComparer.Ordinal))
             {
-                parts.Add(current.Message);
+                parts.Add(text);
             }
 
-            current = current.InnerException;
+            // An AggregateException's InnerException is only its first member, which DescribeCause already listed; an
+            // AggregateError upstream has no cause of its own.
+            current = current is AggregateException ? null : current.InnerException;
         }
 
         return string.Join(": ", parts);
+    }
+
+    private static string DescribeCause(Exception cause)
+    {
+        if (cause is AggregateException aggregate)
+        {
+            var members = aggregate.InnerExceptions.Select(DescribeCause).Where(text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            if (members.Count > 0)
+            {
+                return string.Join("; ", members);
+            }
+        }
+
+        if (cause.Message.Length > 0)
+        {
+            return cause.Message;
+        }
+
+        // The counterpart of upstream's string `code` property, which .NET keeps in Exception.Data.
+        return cause.Data["code"] as string ?? "";
     }
 }

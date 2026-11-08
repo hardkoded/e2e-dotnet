@@ -93,7 +93,7 @@ public sealed class LoginTests : MobileAppTest
 }
 ```
 
-`MobileAppTest` installs the build and launches the app fresh before each test, so the test needs no `App.OpenAsync()`. The password comes from `E2E_USER_ADA_USERNAME` and `E2E_USER_ADA_PASSWORD` or the `credentials` key, see [Signing in](/features/signing-in/). For xUnit v3, use `E2E.Mobile.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealModel")]`.
+`MobileAppTest` installs the build and launches the app fresh before each test, so the test needs no `App.OpenAsync()`. The password comes from `E2E_USER_ADA_USERNAME` and `E2E_USER_ADA_PASSWORD` or the `credentials` key, see [Authentication](/features/signing-in/). For xUnit v3, use `E2E.Mobile.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealModel")]`.
 
 ## Map each Detox call
 

@@ -151,7 +151,8 @@ internal static class Phases
         }
         catch (Exception cause)
         {
-            var (_, code, message, _) = ErrorSerializer.Classify(cause);
+            var (_, classified, message, _) = ErrorSerializer.Classify(cause);
+            var code = cause is E2EException { Code: var runnerCode } ? runnerCode : classified;
             var first = message.Split('\n')[0].Trim();
             host.Steps?.RecordEvent(new StepEvent
             {
