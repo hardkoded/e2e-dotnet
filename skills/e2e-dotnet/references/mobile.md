@@ -9,6 +9,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 - The fixture
 - NativeScript test ids
 - A test
+- Roles
 - Device controls
 - Choosing a device
 - Video
@@ -74,6 +75,44 @@ In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `
         await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Grace!");
     }
 ```
+
+## Roles
+
+`Screen.GetByRole` on a device matches the role each element type maps to. A type not listed keeps its own name in lower kebab case (`picker-wheel`), so it matches only when you pass that name. `GetByRole` takes the role as a string, so any such name works. A node the platform reports editable is a `textbox`, unless it already maps to `combobox`.
+
+| Role | iOS | Android |
+| --- | --- | --- |
+| `button` | `Button` | `Button`, `ImageButton`, `MaterialButton` |
+| `link` | `Link` | |
+| `textbox` | `TextField`, `SearchField`, `TextView`, `SecureTextField` | `EditText`, `AutoCompleteTextView`, `TextInputEditText`, `SearchView` |
+| `combobox` | | `Spinner` |
+| `switch` | `Switch`, `Toggle` | `Switch`, `SwitchCompat`, `SwitchMaterial`, `ToggleButton` |
+| `checkbox` | `CheckBox` | `CheckBox`, `MaterialCheckBox` |
+| `radio` | `RadioButton` | `RadioButton` |
+| `radiogroup` | `RadioGroup` | `RadioGroup` |
+| `slider` | `Slider` | `SeekBar`, `Slider` |
+| `spinbutton` | `Stepper` | `NumberPicker` |
+| `progressbar` | `ProgressIndicator` | `ProgressBar` |
+| `status` | `ActivityIndicator` | |
+| `image` | `Image`, `ImageView` | `ImageView` |
+| `heading` | `Heading`, `Header` | A view flagged as a heading |
+| `list` | | `RecyclerView`, `ListView`, `AbsListView` (React Native's `FlatList`), `GridView` |
+| `listitem` | `Cell`, `ListItem`, `TableCell`, `CollectionCell` | |
+| `row` | `TableRow` | |
+| `tablist` | `TabBar`, `TabGroup`, `SegmentedControl` | `TabLayout`, `TabWidget`, `BottomNavigationView` |
+| `tab` | `Tab`, `TabBarItem`, `TabBarButton`, and a `Button` inside a `TabBar` or `SegmentedControl` | `TabLayout$TabView`, `BottomNavigationItemView` |
+| `menu` | `Menu` | |
+| `menubar` | `MenuBar` | |
+| `menuitem` | `MenuItem`, `MenuBarItem`, `MenuButton` | |
+| `toolbar` | `Toolbar` | `Toolbar` |
+| `alert` | `Alert` | |
+| `dialog` | `Dialog`, `Sheet`, `ActionSheet` | |
+| `navigation` | `NavigationBar` | |
+| `group` | | `ScrollView`, `ViewGroup`, `View`, `ComposeView`, `ViewFactoryHolder`, `CardView`, and any other `*Layout` |
+
+React Native writes a role the platform has no type for into the accessibility value on iOS (`checkbox, unchecked`) and into the role description on Android (`Tab List`). A node with one of these descriptions takes the role in place of its type's: `alert`, `checkbox`, `combo box`, `menu`, `menu bar`, `menu item`, `progress bar`, `radio button`, `radio group`, `scroll bar`, `spin button`, `switch`, `tab`, `tab list`, `timer`, and `tool bar`. `scroll bar` gives the role `scrollbar` and `timer` gives `timer`. On iOS only an `Other` carries one, and the state words after the role set `checked` and `expanded`; only what follows them is the node's value.
+
+`StaticText` and `Text` on iOS and `TextView` on Android are `text`, and an Android `WebView` is `document`. Find text with `GetByText`.
 
 ## Device controls
 
