@@ -52,13 +52,13 @@ public sealed class PrepareObservationTests
 
     /// <summary>.NET-only: the port counts secure nodes from the tree when an engine reports none, and never lets a reported count weaken that proof.</summary>
     [Fact]
-    public void Counts_secure_nodes_from_the_tree_and_denies_pixels_of_a_pixel_only_observation_with_no_reported_count()
+    public void Counts_secure_nodes_from_the_tree_when_the_engine_reports_none()
     {
         var secure = new SemanticNode { Ref = "n1", Role = "textbox", States = new NodeStates { Secure = true } };
         Assert.Null(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure] }, Shot(maskedRegionCount: 0)).Pixels);
         Assert.NotNull(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure] }, Shot(maskedRegionCount: 1)).Pixels);
         Assert.Null(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [secure], SecureNodeCount = 0 }, Shot(maskedRegionCount: 0)).Pixels);
-        Assert.Null(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [], TreeUnavailable = true }, Shot(maskedRegionCount: 5)).Pixels);
+        Assert.NotNull(global::E2E.AgentObservation.PixelsForModel(new Observation { Route = "/", Roots = [], TreeUnavailable = true }, Shot(maskedRegionCount: 0)).Pixels);
     }
 
     [Fact]

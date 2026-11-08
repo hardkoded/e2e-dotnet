@@ -215,13 +215,7 @@ internal static partial class AgentObservation
             return new PixelsOutcome(null, VisionDegradation.UnsupportedCapability);
         }
 
-        // A pixel-only observation has no tree to count, so an engine that reports no count cannot prove its mask (.NET-only: upstream's engine always reports one).
-        if (observation.TreeUnavailable && observation.SecureNodeCount is null)
-        {
-            return new PixelsOutcome(null, VisionDegradation.MaskingUnproven);
-        }
-
-        // The larger of the engine's count and the tree's, so a reported count never weakens the proof (.NET-only; upstream trusts the engine's count).
+        // The larger of the engine's count and the tree's, so a reported count never weakens the proof (.NET-only; upstream trusts the engine's count, and a missing count is zero).
         var secure = Math.Max(observation.SecureNodeCount ?? 0, LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure));
         return screenshot.MaskedRegionCount is not { } masked || masked < secure
             ? new PixelsOutcome(null, VisionDegradation.MaskingUnproven)
