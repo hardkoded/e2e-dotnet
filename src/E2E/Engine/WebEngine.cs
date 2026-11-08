@@ -1242,7 +1242,7 @@ public sealed partial class WebEngine : IEngine
                     throw WebErrors.NavigationStaleOr(ex, "observe");
                 }
 
-                var observation = new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+                var observation = new Observation { Route = Route, Location = Page.Url, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
                 _refs.Publish(capture, new CapturedObservation(observation, walk.Generation));
                 _observed = true;
                 return observation;

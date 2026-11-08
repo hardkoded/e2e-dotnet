@@ -43,6 +43,22 @@ null only when it did not measure it.
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_Observation_Location_"></a>
+<a id="E2E_Engine_Observation_Location"></a>
+
+### Location
+
+
+```csharp
+public string? Location { get; init; }
+```
+
+
+Where the surface was when captured (upstream's `location`): the page's address on the web. Null on a platform with no
+location. [Route](#E2E_Engine_Observation_Route) is the same address without its origin (.NET-only; upstream derives that path from this).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_Observation_Pixels_"></a>
 <a id="E2E_Engine_Observation_Pixels"></a>
 

@@ -81,7 +81,14 @@ internal sealed record PreparedObservation
 {
     public required PreparedKind Kind { get; init; }
 
-    /// <summary>The route of the screen, redacted.</summary>
+    /// <summary>Where the surface was when captured, redacted (upstream's <c>location</c>); null when the platform has none.</summary>
+    public string? Location { get; init; }
+
+    /// <summary>
+    /// The location projected to path, query and fragment when it is a URL, otherwise kept opaque (upstream's <c>path</c>,
+    /// <c>observationPath</c>). An observation with no location reads its redacted <see cref="Observation.Route"/> (.NET-only: the
+    /// port's mobile and desktop engines report a route, not a location).
+    /// </summary>
     public required string Path { get; init; }
 
     public required string Revision { get; init; }
@@ -233,7 +240,8 @@ internal static partial class AgentObservation
     {
         ArgumentNullException.ThrowIfNull(observation);
         ArgumentNullException.ThrowIfNull(options);
-        var path = options.Redactor.Redact(observation.Route);
+        var location = observation.Location is null ? null : options.Redactor.Redact(observation.Location);
+        var path = location is null ? options.Redactor.Redact(observation.Route) : ObservationPath(location);
         var pixels = observation.Pixels is null ? new PixelsOutcome(null, null) : PixelsForModel(observation, observation.Pixels);
         if (observation.TreeUnavailable)
         {
@@ -245,6 +253,7 @@ internal static partial class AgentObservation
             return new PreparedObservation
             {
                 Kind = PreparedKind.Pixels,
+                Location = location,
                 Path = path,
                 Revision = observation.Revision,
                 Text = ObservationFeed.UnavailableTreeMarker,
@@ -266,6 +275,7 @@ internal static partial class AgentObservation
         return new PreparedObservation
         {
             Kind = PreparedKind.Semantic,
+            Location = location,
             Path = path,
             Revision = observation.Revision,
             Text = text,
@@ -280,6 +290,24 @@ internal static partial class AgentObservation
             PixelsWithheld = pixels.Withheld,
         };
     }
+
+    /// <summary>
+    /// Upstream's <c>observationPath</c>: the address without its origin, so trace and executor locations share the capture. What the
+    /// fragment means, an anchor or the route of an app that routes in it, is <see cref="CacheRoute"/>'s to decide. A location that
+    /// is not a URL stays as it is.
+    /// </summary>
+    private static string ObservationPath(string location)
+    {
+        if (!UrlScheme().IsMatch(location) || !Uri.TryCreate(location, UriKind.Absolute, out var url))
+        {
+            return location;
+        }
+
+        return url.AbsolutePath + url.Query + url.Fragment;
+    }
+
+    [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9+.\-]*:", RegexOptions.CultureInvariant)]
+    private static partial Regex UrlScheme();
 
     private static void IndexNodes(SemanticNode node, Dictionary<string, SemanticNode> into, Dictionary<string, string> parents)
     {

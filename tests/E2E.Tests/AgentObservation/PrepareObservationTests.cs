@@ -10,8 +10,7 @@ namespace E2E.Tests.AgentObservation;
 /// <summary>
 /// <c>describe('prepareObservation')</c> of <c>agent-observation.test.ts</c>, over <c>AgentObservation.PrepareObservation</c>. Partial (the test name carries
 /// <c>Partial_</c>): "keeps unavailable semantics separate from an empty tree and requires permitted masked evidence" (the port counts the secure nodes
-/// from the tree, where upstream's engine reports <c>secureNodeCount</c>, and it has no <c>location</c> to project); "keeps the whole address after the origin as the path"
-/// (the observation carries a route, read by <c>Routes.LocationOf</c>); "redacts every string field a node carries" (the port's nodes have no <c>selector</c>,
+/// from the tree, where upstream's engine reports <c>secureNodeCount</c>; the pixel observation has empty <c>Nodes</c> and <c>Tree</c>, where upstream's has neither property); "redacts every string field a node carries" (the port's nodes have no <c>selector</c>,
 /// <c>framePath</c>, or unknown extra field). The nested <c>describe.each</c> (18 cases) is <c>CollapsedSecretCutTests</c>. The pixel tests
 /// Grants_pixels_that_cover_every_secure_node_sized_for_the_model and Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture
 /// are .NET-only: upstream proves a granted or uncounted capture through its runner.
@@ -27,7 +26,7 @@ public sealed class PrepareObservationTests
         global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor ?? Redactor.None, MaxBytes = maxBytes, PixelsAllowed = pixelsAllowed });
 
     /// <summary>
-    /// Partial: the port's observation has no <c>location</c> (the route stands in for it). The pixel observation reports
+    /// Partial: the pixel observation has empty <c>Nodes</c> and <c>Tree</c>, where upstream's has neither property (<c>not.toHaveProperty</c>). The pixel observation reports
     /// <c>secureNodeCount: 1</c> with <c>maskedRegionCount: 0</c> from the engine, as upstream's does.
     /// </summary>
     [Fact]
@@ -238,14 +237,13 @@ public sealed class PrepareObservationTests
         Assert.Contains("\"line\uFFFDone two\"", text, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port reads the route from <c>Routes.LocationOf</c>, and a bare word becomes a rooted path.</summary>
-    [Theory]
-    [InlineData("https://app.example.test/companies?search=a#/orders/42", "/companies?search=a#/orders/42")]
-    [InlineData("https://app.example.test/companies#top", "/companies#top")]
-    [InlineData("Settings", "/Settings")]
-    public void Partial_keeps_the_whole_address_after_the_origin_as_the_path_fragment_included(string location, string route)
+    [Fact]
+    public void Keeps_the_whole_address_after_the_origin_as_the_path_fragment_included_for_the_route_check_to_read()
     {
-        Assert.Equal(route, E2E.Internal.Routes.LocationOf(location));
+        string? At(string location) => Prepare(new Observation { Route = "/", Location = location, Roots = [new SemanticNode { Ref = "root" }] }, pixelsAllowed: true).Path;
+        Assert.Equal("/companies?search=a#/orders/42", At("https://app.example.test/companies?search=a#/orders/42"));
+        Assert.Equal("/companies#top", At("https://app.example.test/companies#top"));
+        Assert.Equal("Settings", At("Settings"));
     }
 
     [Fact]
