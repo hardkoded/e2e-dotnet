@@ -132,7 +132,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `hideKeyboard` | `Device.DismissKeyboardAsync()` |
 | `pressKey: Enter` | `.PressAsync("Enter")` on the field |
 | `pressKey: Home`, `back` | `Device.HomeAsync()`, `Device.BackAsync()` |
-| `pressKey: lock`, `power`, `volume up`, `volume down` | Not yet. `Device.UnstableRaw.Client` does not take `command.hardwareButton` either, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `pressKey: lock`, `power`, `volume up`, `volume down` | Not yet. `Device.UnstableRaw.Client` does not take `command.hardwareButton` (upstream's `power`, `volume-up`, `volume-down`; no `lock`) either, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | TV remote keys | Not yet |
 | `copyTextFrom`, `pasteText` | `await locator.TextContentAsync()`, then `.FillAsync(text)` |
 | `setClipboard` | `Device.SetClipboardAsync(text)`; `Device.ClipboardAsync()` reads it |

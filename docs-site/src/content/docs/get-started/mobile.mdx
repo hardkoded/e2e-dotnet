@@ -118,15 +118,15 @@ await raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), CancellationToke
 
 ### What the raw client takes
 
-`Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. A TestMu device client refuses every setting.
+This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, and `command.appState`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
 
 So these are not reachable through `UnstableRaw` yet, and have no `Device` method either:
 
 - The system text size (`setting: "text-size"`) and animations (`setting: "animations"`). A test that needs a large text size or no animations cannot set them from the test.
-- Uninstalling an app (`apps.uninstall`). `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data, and `App.ClearStateAsync()` resets the app's data.
+- Uninstalling an app (`apps.uninstall`). `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
 - Hardware buttons (`command.hardwareButton`: power, volume up, volume down).
 
-Upstream's guide shows these through `unstable_raw.client`; the port's client does not translate them.
+Upstream's guide shows these through `unstable_raw.client` (tester-army/e2e#1622 and #1618); the port's client does not translate them yet, see #1425. The same "Not yet" notes are in the Detox and Maestro migration guides and the skill's `mobile.md`: update them together.
 
 ## 4. Run
 
