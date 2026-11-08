@@ -13,8 +13,8 @@ namespace E2E.Tests.EngineSecrets;
 /// Ported from upstream's <c>engine-secrets.test.ts</c>. The handle comes from <see cref="Secret.Create(string, string, string)"/>, since the port
 /// has no <c>e2e.config.ts</c> to call <c>secrets.get()</c>. The two redaction <c>it</c>s are <c>Partial_</c>: the port has no
 /// reporters (<c>markdown</c>, <c>junit</c>), so they read every file the session wrote under its results directory instead of the
-/// reporters' files. Not ported, because the port has no such feature: "hands the engine a declared value and refuses one it did not
-/// declare" (the engine has no declared-secrets API; issue #1246). The reporters are listed under "Not ported" in COMPATIBILITY.md.
+/// reporters' files. The upstream <c>it</c> of the other describe, "hands the engine a declared value and refuses one it did not declare", is in
+/// <c>ResolvingAnEngineSecretTests</c>. The reporters are listed under "Not ported" in COMPATIBILITY.md.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ASecretInAnEngineOptionTests

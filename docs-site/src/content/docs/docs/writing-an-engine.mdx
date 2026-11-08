@@ -212,7 +212,7 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 | `validateApp(app, info)` | `IEngine` has no such member. `EngineStartOptions` carries `BaseUrl`, `Permissions`, and `TargetName`, not the target's `bundleId`, `appPath`, or `launchArguments`. `WebEngine`, `MobileEngine`, and `WinAppEngine` each validate their own app in a static `ValidateApp` their target engine calls. |
 | `prepare`/`init`/`startAttempt` as three hooks, `endAttempt`/`dispose` as two | `StartAsync` and `DisposeAsync` do the work of each pair. |
 | `workers`, `reuseSignal`, per-hook `signal` and `timeoutMs` | Not in the port: there is no worker pool. The harness bounds a start by the launch timeout and a dispose by the cleanup timeout. |
-| `secrets` and `context.resolveSecret` | `internal`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks engine-declared secrets. |
+| `context.resolveSecret` | `EngineStartOptions.ResolveSecret` is `internal`. It resolves only a secret the engine lists in `Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `fixtures`, `context.fixture`, `expectable`, `requires: ['<name>']` | Not public. [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) tracks contributed fixtures and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185) the `requires` its. |
 | `observe(context, options)` `signal` on every call | Every call takes a `CancellationToken`. |
 | Engine servers (`serveEngine`, `connectEngine`, the engine protocol) | Not in the port: [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
