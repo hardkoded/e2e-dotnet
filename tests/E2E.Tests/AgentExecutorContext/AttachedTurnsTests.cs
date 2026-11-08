@@ -67,7 +67,7 @@ public sealed class AttachedTurnsTests
         Assert.StartsWith("tap(", Assert.Single(turns[1].Calls), StringComparison.Ordinal);
         Assert.StartsWith("[tap] ", turns[1].Outcome, StringComparison.Ordinal);
         Assert.StartsWith("done(", Assert.Single(turns[2].Calls), StringComparison.Ordinal);
-        Assert.Equal("[done] done passed", turns[2].Outcome);
+        Assert.Equal("[done] Step concluded.", turns[2].Outcome);
     }
 
     [Fact]

@@ -684,10 +684,7 @@ public sealed class VerdictTool
             outcome.Code);
         }
 
-        return new ToolLoopResult(
-            string.Equals(outcome.Status, "passed", StringComparison.Ordinal) && Args.String(call.Arguments, "code") is { } dropped
-                ? "Step concluded as passed; the code " + dropped + " you sent does not apply to a passed verdict and was ignored."
-                : "Step concluded.");
+        return new ToolLoopResult(outcome.Content);
     }
 
     // The model picks only from a closed set of codes, and the runtime assigns the rest. Stateless: the loop reads the outcome itself.
@@ -709,6 +706,8 @@ public sealed class VerdictTool
         }
 
         var code = Args.String(call.Arguments, "code");
+        // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set.
+        var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && AgentTools.ModelErrorCodes.Contains(code) ? code : null;
         if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
         {
             code = null;
@@ -721,7 +720,7 @@ public sealed class VerdictTool
                 "If the application itself misbehaved, use status failed instead.");
         }
 
-        return ToolOutcome.Finish(status, summary, code);
+        return ToolOutcome.Finish(status, summary, code, dropped);
     }
 }
 

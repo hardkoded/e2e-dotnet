@@ -81,9 +81,9 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Contains("[tap] " + refused.Split('\n')[0], turn.Outcome, StringComparison.Ordinal);
     }
 
-    // PARTIAL (#1253): upstream also reads the verdict turn from its report, with the note that the code was ignored.
+    // Upstream sends errorCode where the port's done tool takes code.
     [Fact]
-    public async Task Partial_Drops_the_error_code_a_passed_verdict_carries_and_ends_the_step_on_that_call_with_no_repair_turn()
+    public async Task Drops_the_error_code_a_passed_verdict_carries_notes_it_in_the_turn_and_ends_the_step_on_that_call_with_no_repair_turn()
     {
         var model = new ScriptedModel(request =>
         {
@@ -92,23 +92,22 @@ public sealed class ToolCallsOutsideTheVocabularyTests
                 ? ModelResponses.Done("passed", "the counter shows 1", "ACTION_FAILED")
                 : ModelResponses.Tap("button", "Increment");
         });
-        ActResult? act = null;
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/");
-            act = await ctx.Agent.ActAsync("increment the counter once");
-            await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("1");
-        }, CounterPage.World(), model);
+        await using var session = await StartAsync(model);
+        await session.App.OpenAsync("/");
+
+        var act = await session.Agent.ActAsync("increment the counter once");
 
         // One model sends a pass beside ACTION_FAILED about half the time. The code is dropped, never refused.
-        Assert.Null(result.Error);
         Assert.Equal(2, model.CallCount);
-        Assert.Equal(("the counter shows 1", 2, 1), (act?.Summary, act?.ModelCalls, act?.Actions));
+        Assert.Equal(("the counter shows 1", 2, 1), (act.Summary, act.ModelCalls, act.Actions));
+        await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
+        var verdictTurn = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[^1];
+        Assert.StartsWith("done(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
+        Assert.Equal("[done] Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
     }
 
-    // PARTIAL (#1253): upstream also checks that the refusal lists the available tools and that the report records the turn. The port's refusal names the tool only.
     [Fact]
-    public async Task Partial_Refuses_a_tool_the_step_does_not_offer_and_runs_nothing()
+    public async Task Refuses_a_tool_the_step_does_not_offer_lists_the_vocabulary_and_runs_nothing()
     {
         var model = new ScriptedModel(request =>
         {
@@ -118,22 +117,23 @@ public sealed class ToolCallsOutsideTheVocabularyTests
                 return ModelResponses.Done("passed", "the counter shows 1");
             }
 
-            return text.Contains("Unknown tool click", StringComparison.Ordinal)
+            return text.Contains("unavailable tool 'click'", StringComparison.Ordinal)
                 ? ModelResponses.Tap("button", "Increment")
                 : ModelResponses.Call("click", new { role = "button", name = "Increment" });
         });
-        ActResult? act = null;
-        var result = await RunAsync(async ctx =>
-        {
-            await ctx.App.OpenAsync("/");
-            act = await ctx.Agent.ActAsync("increment the counter once");
-            await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("1");
-        }, CounterPage.World(), model);
+        await using var session = await StartAsync(model);
+        await session.App.OpenAsync("/");
 
-        Assert.Null(result.Error);
+        var act = await session.Agent.ActAsync("increment the counter once");
+
+        var refusal = CounterPage.ToolResults(model)[0];
+        Assert.Contains("Model tried to call unavailable tool 'click'", refusal, StringComparison.Ordinal);
+        Assert.Matches(@"Available tools: .*\btap\b", refusal);
+        Assert.DoesNotContain("POLICY_DENIED", refusal, StringComparison.Ordinal);
         Assert.Equal(3, model.CallCount);
-        Assert.Equal(1, act?.Actions);
-        Assert.Equal("failed: Unknown tool click.", CounterPage.ToolResults(model)[0]);
+        Assert.Equal((1, 3), (act.Actions, act.ModelCalls));
+        await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
+        Assert.Contains("[click] " + refusal, Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[0].Outcome, StringComparison.Ordinal);
     }
 
     [Fact]
