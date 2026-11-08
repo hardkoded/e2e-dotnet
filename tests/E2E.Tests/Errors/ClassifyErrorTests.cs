@@ -34,24 +34,43 @@ public sealed class ClassifyErrorTests
     }
 
     [Fact]
-    public void Partial_Applies_the_canonical_driver_mapping_to_EngineErrors_from_any_surface()
+    public void Applies_the_canonical_driver_mapping_to_EngineErrors_from_any_surface()
     {
-        // PARTIAL: the port classifies an EngineException by its own infrastructure category and applies the canonical mapping
-        // in TranslateEngineError, so the mapping is checked through it; upstream's classifyError applies it itself. Tracked in #1207.
         var failure = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.EngineFailure, "engine died"));
         Assert.Equal("infrastructure", failure.Category);
         Assert.Equal("ENGINE_FAILURE", failure.Code);
 
-        var unsupported = ErrorSerializer.Classify(ErrorSerializer.TranslateEngineError(new EngineException(EngineErrorCodes.UnsupportedCapability, "no video")));
+        var unsupported = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.UnsupportedCapability, "no video"));
         Assert.Equal("configuration", unsupported.Category);
         Assert.Equal("UNSUPPORTED_CAPABILITY", unsupported.Code);
 
-        var cancelled = ErrorSerializer.Classify(ErrorSerializer.TranslateEngineError(new EngineException(EngineErrorCodes.Cancelled, "stop")));
+        var cancelled = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.Cancelled, "stop"));
         Assert.Equal("infrastructure", cancelled.Category);
         Assert.Equal("CANCELLED", cancelled.Code);
 
-        var invalidState = ErrorSerializer.Classify(ErrorSerializer.TranslateEngineError(new EngineException(EngineErrorCodes.InvalidState, "nothing open")));
+        var invalidState = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.InvalidState, "nothing open"));
         Assert.Equal("test", invalidState.Category);
         Assert.Equal("APP_NOT_OPEN", invalidState.Code);
+    }
+
+    [Fact]
+    public void Keeps_an_infrastructure_error_the_runner_named_as_it_is()
+    {
+        // .NET-only: upstream throws these as InfrastructureError, which asEngineError (the closed engine code set) never matches.
+        // The port's EngineException is both, so a code outside the set and a Mapped error must stay as they are.
+        var unreachable = ErrorSerializer.Classify(new EngineException("APP_UNREACHABLE", "app down"));
+        Assert.Equal(("infrastructure", "APP_UNREACHABLE", "app down"), (unreachable.Category, unreachable.Code, unreachable.Message));
+        var mapped = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.InvalidState, "kept") { Mapped = true });
+        Assert.Equal(("infrastructure", "INVALID_STATE"), (mapped.Category, mapped.Code));
+    }
+
+    [Fact]
+    public void Maps_a_stale_node_and_a_not_actionable_node_without_a_retry_claim()
+    {
+        // .NET-only: upstream's translateEngineError cases, reached through classifyError (the port had them in TranslateEngineError only).
+        var stale = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.NodeStale, "gone", retryable: true));
+        Assert.Equal(("test", "LOCATOR_NOT_FOUND", false), (stale.Category, stale.Code, stale.Retryable));
+        var notActionable = ErrorSerializer.Classify(new EngineException(EngineErrorCodes.NotActionable, "covered"));
+        Assert.Equal(("test", "ACTION_FAILED"), (notActionable.Category, notActionable.Code));
     }
 }

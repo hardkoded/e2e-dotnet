@@ -52,6 +52,8 @@ public sealed class StepRecorderCancellationTests
 
         var error = steps.All()[0].Error;
         Assert.Equal(StepStatus.Failed, steps.All()[0].Status);
-        Assert.Equal(("infrastructure", EngineErrorCodes.NodeStale, "gone", true), (error?.Category, error?.Code, error?.Message, error?.Retryable));
+
+        // The step keeps what classifyError makes of an engine error (upstream's steps.ts): the canonical mapping, with no retry claim.
+        Assert.Equal(("test", "LOCATOR_NOT_FOUND", "node became stale", false), (error?.Category, error?.Code, error?.Message, error?.Retryable));
     }
 }
