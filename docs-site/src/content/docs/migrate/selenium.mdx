@@ -39,7 +39,7 @@ Install e2e with the [web guide](/get-started/web/). Only agent calls need a mod
 | Selenium Grid | The framework's parallelism; `WebEngineOptions.Connect` attaches to a remote Chromium over CDP, and a [browser provider](/features/browser/#hosted-browsers) leases hosted browsers |
 | `Manage().Window.Size` | `WebEngineOptions.Viewport` |
 | Implicit waits | `actionTimeout` and `assertionTimeout` set action and assertion deadlines |
-| A page object for sign-in | `[E2ESetup]` and `[E2ESession]`, see [Signing in](/features/signing-in/) |
+| A page object for sign-in | `[E2ESetup]` and `[E2ESession]`, see [Authentication](/features/signing-in/) |
 
 ## Rewrite one flow
 
@@ -74,7 +74,7 @@ public sealed class SignInTests : E2ETest
 }
 ```
 
-For xUnit v3, use `E2E.XUnit.V3` and `[Fact]`. The body is the same. Locator actions wait for their targets, so no explicit wait is left. The password comes from `E2E_USER_ADMIN_USERNAME` and `E2E_USER_ADMIN_PASSWORD` or the `credentials` key, see [Signing in](/features/signing-in/).
+For xUnit v3, use `E2E.XUnit.V3` and `[Fact]`. The body is the same. Locator actions wait for their targets, so no explicit wait is left. The password comes from `E2E_USER_ADMIN_USERNAME` and `E2E_USER_ADMIN_PASSWORD` or the `credentials` key, see [Authentication](/features/signing-in/).
 
 ## Map each WebDriver call
 

@@ -1,8 +1,8 @@
 ---
-title: Signing in / sessions
+title: Authentication
 description: Sign in to a model plan, save a signed-in test session, or host sessions in your own runner.
 sidebar:
-  label: Signing in / sessions
+  label: Authentication
 ---
 
 ## Subscriptions
@@ -25,7 +25,9 @@ A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login onl
 
 From a clone of this repo, run the tool with `dotnet run --project src/E2E.Cli -- login github-copilot`.
 
-## Saved sessions
+<a id="saved-sessions" />
+
+## Reuse authenticated sessions
 
 Sign in once, then start other tests signed in. Mark the sign-in test `[E2ESetup("title", Saves = ["admin"])]` instead of `[Test]`. Its body signs in, checks that it worked, and calls `await SaveSessionAsync("admin")` once for each name in `Saves`. Mark a test or a class `[E2ESession("admin")]` to restore that session before the body runs.
 
