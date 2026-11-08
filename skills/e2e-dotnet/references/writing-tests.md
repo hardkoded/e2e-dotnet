@@ -318,8 +318,8 @@ matcher.
   `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it.
   `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends,
   and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout`
-  is `INVALID_ARGUMENT` (an `Expect.Poll` one throws `ArgumentOutOfRangeException`, not
-  `INVALID_CONFIG`). `Agent` calls take a positive `Timeout` only: zero or less is
+  is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, as is a zero or negative
+  `Interval`). `Agent` calls take a positive `Timeout` only: zero or less is
   `INVALID_ARGUMENT`.
 - For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
   retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,

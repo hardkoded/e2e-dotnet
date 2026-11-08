@@ -232,7 +232,7 @@ lines you changed:
   waits until the test timeout instead of failing at once. It works on locator
   actions, `WaitForAsync`, `Expect` matchers, `ToHaveScreenshotAsync`,
   `Browser.GotoAsync`, `WaitForResponseAsync`, and `WaitForDownloadAsync`. A
-  negative `TimeSpan` fails with `INVALID_ARGUMENT`. `Expect.Poll` with a zero
+  negative `TimeSpan` fails with `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, which also refuses a zero or negative `Interval`). `Expect.Poll` with a zero
   `Timeout` polls until the cancellation token you pass ends. `Agent` calls take a positive
   `Timeout` only: zero or less is `INVALID_ARGUMENT`.
 - Keep the replay cache on. A failed run keeps the recording of every goal

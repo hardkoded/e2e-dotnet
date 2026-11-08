@@ -12,11 +12,11 @@ public sealed class PollOptions
 {
     /// <summary>
     /// Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
-    /// given ends, so it needs a token that can end (<c>INVALID_CONFIG</c> otherwise).
+    /// given ends, so it needs a token that can end (<c>INVALID_CONFIG</c> otherwise). A negative value is <c>INVALID_CONFIG</c>.
     /// </summary>
     public TimeSpan? Timeout { get; init; }
 
-    /// <summary>Pause between reads. The default is 100 milliseconds.</summary>
+    /// <summary>Pause between reads. The default is 100 milliseconds. Zero or a negative value is <c>INVALID_CONFIG</c>.</summary>
     public TimeSpan? Interval { get; init; }
 
     /// <summary>Extra line in the timeout error.</summary>
@@ -189,16 +189,24 @@ public sealed class PollExpectation<T>
         };
     }
 
-    internal static void Validate(PollOptions options)
+    /// <summary>A malformed option would poll forever; it is refused before the first read (upstream's <c>checkOptions</c>).</summary>
+    internal static void CheckOptions(PollOptions options)
     {
         if (options.Timeout is { } timeout && timeout < TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), timeout, "expect.poll timeout must be 0 or more.");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expect.poll timeout must be a finite number of milliseconds, 0 or more; got " + Milliseconds(timeout));
         }
 
         if (options.Interval is { } interval && interval <= TimeSpan.Zero)
         {
-            throw new ArgumentOutOfRangeException(nameof(options), interval, "expect.poll interval must be above 0.");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "expect.poll interval must be a finite number of milliseconds above 0; got " + Milliseconds(interval));
         }
     }
+
+    private static string Milliseconds(TimeSpan value) =>
+        value == Timeout.InfiniteTimeSpan ? "Infinity" : value.TotalMilliseconds.ToString(CultureInfo.InvariantCulture);
 }

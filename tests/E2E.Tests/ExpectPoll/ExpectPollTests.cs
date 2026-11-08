@@ -122,10 +122,10 @@ public sealed class ExpectPollTests
     [Fact]
     public void Refuses_a_timeout_or_interval_that_could_never_expire_before_the_first_read()
     {
-        Invalid(new PollOptions { Timeout = Timeout.InfiniteTimeSpan }, "timeout");
-        Invalid(new PollOptions { Timeout = TimeSpan.FromMilliseconds(-1) }, "timeout");
-        Invalid(new PollOptions { Interval = TimeSpan.Zero }, "interval");
-        Invalid(new PollOptions { Interval = TimeSpan.FromMilliseconds(-5) }, "interval");
+        Invalid(new PollOptions { Timeout = Timeout.InfiniteTimeSpan }, "timeout", "Infinity");
+        Invalid(new PollOptions { Timeout = TimeSpan.FromMilliseconds(-2) }, "timeout", "-2");
+        Invalid(new PollOptions { Interval = TimeSpan.Zero }, "interval", "0");
+        Invalid(new PollOptions { Interval = TimeSpan.FromMilliseconds(-5) }, "interval", "-5");
         Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.Zero, Interval = TimeSpan.FromMilliseconds(1) });
     }
 
@@ -152,10 +152,11 @@ public sealed class ExpectPollTests
         return error.Message;
     }
 
-    private static void Invalid(PollOptions options, string option)
+    private static void Invalid(PollOptions options, string option, string got)
     {
-        var error = Assert.Throws<ArgumentOutOfRangeException>(() => Expect.Poll(() => 1, options));
-        Assert.Contains(option, error.Message, StringComparison.Ordinal);
+        var error = Assert.Throws<ConfigurationException>(() => Expect.Poll(() => 1, options));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Matches(@"expect\.poll " + option + @".*got " + got + @"\z", error.Message);
     }
 
     /// <summary>A read whose value settles after <c>settleAfter</c> samples.</summary>
