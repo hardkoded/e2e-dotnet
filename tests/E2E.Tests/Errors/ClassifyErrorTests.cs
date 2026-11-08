@@ -17,9 +17,8 @@ public sealed class ClassifyErrorTests
     }
 
     [Fact]
-    public void Partial_Appends_the_cause_chain_to_a_plain_error_the_way_fetch_reports_a_refused_connection()
+    public void Appends_the_cause_chain_to_a_plain_error_the_way_fetch_reports_a_refused_connection()
     {
-        // PARTIAL: an InnerException is always an Exception, so upstream's non-Error cause check ("outer: text") has no counterpart.
         var refused = new Exception("connect ECONNREFUSED 127.0.0.1:3000") { Data = { ["code"] = "ECONNREFUSED" } };
         Assert.Equal("fetch failed: connect ECONNREFUSED 127.0.0.1:3000", ErrorSerializer.Classify(new InvalidOperationException("fetch failed", refused)).Message);
         // Node reports a dual-stack failure as an aggregate whose members carry the detail.
@@ -29,6 +28,8 @@ public sealed class ClassifyErrorTests
             new Exception("connect ECONNREFUSED ::1:3000"));
         Assert.Equal("fetch failed: ECONNREFUSED; connect ECONNREFUSED ::1:3000", ErrorSerializer.Classify(new InvalidOperationException("fetch failed", aggregate)).Message);
         Assert.Equal("same", ErrorSerializer.MessageWithCauses(new Exception("same", new Exception("same"))));
+        // Upstream's non-Error cause (a string) is an Exception that carries the text here: an InnerException is always an Exception.
+        Assert.Equal("outer: text", ErrorSerializer.MessageWithCauses(new Exception("outer", new Exception("text"))));
         var deep = new Exception("a", new Exception("b", new Exception("c", new Exception("d", new Exception("e")))));
         Assert.Equal("a: b: c: d", ErrorSerializer.MessageWithCauses(deep));
     }
