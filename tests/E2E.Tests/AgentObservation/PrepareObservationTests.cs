@@ -246,6 +246,20 @@ public sealed class PrepareObservationTests
         Assert.Equal("Settings", At("Settings"));
     }
 
+    /// <summary>.NET-only: the port's mobile and desktop engines report a route and no location, so the path reads the redacted route; a location is redacted before it is read.</summary>
+    [Fact]
+    public void Reads_the_redacted_route_as_the_path_when_there_is_no_location_and_redacts_a_location_before_it_is_read()
+    {
+        var redactor = Redactor.For([Secret.Create("token", "hunter2")]);
+        var routed = Prepare(new Observation { Route = "/reset?token=hunter2", Roots = [new SemanticNode { Ref = "root" }] }, redactor);
+        Assert.Null(routed.Location);
+        Assert.Equal("/reset?token=<secret:token>", routed.Path);
+        var located = Prepare(new Observation { Route = "/", Location = "https://app.test/reset?token=hunter2#hunter2", Roots = [new SemanticNode { Ref = "root" }] }, redactor);
+        Assert.Equal("https://app.test/reset?token=<secret:token>#<secret:token>", located.Location);
+        Assert.DoesNotContain("hunter2", located.Path, StringComparison.Ordinal);
+        Assert.StartsWith("/reset?token=", located.Path, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Collapses_a_field_whose_collapsed_form_shows_a_secret_its_written_form_hides_so_no_later_reader_brings_it_back()
     {
