@@ -59,6 +59,31 @@ public abstract class E2EFixture
             .ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// The resolved config of the run, whose digest the reports carry. The digest takes the agents as the fixture builds them in code (the default
+    /// agent from the members below, the others from <see cref="CreateAgents"/>, both as <c>StartAsync</c> built them), not the <c>agents</c> the file declares.
+    /// </summary>
+    private ResolvedConfig ResolvedConfigOf(IAgentModel? model, IAgentModel? judge, IReadOnlyDictionary<string, AgentOptions> others)
+    {
+        var agents = new Dictionary<string, AgentOptions>(others, StringComparer.Ordinal)
+        {
+            ["default"] = new AgentOptions
+            {
+                Model = model,
+                Judge = judge,
+                Executor = AgentExecutor,
+                System = AgentSystem,
+                Context = AgentContext,
+                JudgmentTimeout = JudgmentTimeout,
+                MaxObservationBytes = MaxObservationBytes,
+                MaxInputTokens = MaxInputTokens,
+                ProviderOptions = ProviderOptions,
+                Tools = AgentTools,
+            },
+        };
+        return HostTestFilters.Resolve(Config, [], agents, DeclaredTarget);
+    }
+
     /// <summary><c>agents.default.system</c>: text appended to the act rules.</summary>
     protected virtual string? AgentSystem => Config.Agent.System;
 
@@ -229,15 +254,19 @@ public abstract class E2EFixture
         var sessions = restore is null && saves is null
             ? null
             : new SessionPlan(SessionRun.Store(ProjectRoot, Config.Output), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
+        var defaultModel = CreateModel();
+        var defaultJudge = CreateJudge();
+        var agents = CreateAgents();
         _session = await E2ESession.StartAsync(
             new E2ESessionOptions
             {
                 Engine = engine,
                 Credentials = Config.Credentials,
+                Config = ResolvedConfigOf(defaultModel, defaultJudge, agents),
                 AppIdentity = identity,
                 Sessions = sessions,
-                Model = CreateModel(),
-                Judge = CreateJudge(),
+                Model = defaultModel,
+                Judge = defaultJudge,
                 AgentExecutor = AgentExecutor,
                 ArtifactStore = ArtifactStore,
                 AgentSystem = AgentSystem,
@@ -247,7 +276,7 @@ public abstract class E2EFixture
                 MaxObservationBytes = MaxObservationBytes,
                 MaxInputTokens = MaxInputTokens,
                 ProviderOptions = ProviderOptions,
-                Agents = CreateAgents(),
+                Agents = agents,
                 Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
                 TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
                 BaseUrl = baseUrl,

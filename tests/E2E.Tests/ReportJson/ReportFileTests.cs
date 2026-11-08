@@ -203,6 +203,44 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Carries_the_config_digest_of_a_session_into_the_run_document()
+    {
+        var digest = new string('d', 64);
+        await using (var session = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest }))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        Assert.Equal(digest, (string)Read()["run"]!["project"]!["configDigest"]!);
+
+        // A later session that holds no config leaves the digest the run has.
+        await using (var other = await StartAsync("shop > browses", 1))
+        {
+            await other.App.OpenAsync("/");
+            other.Complete();
+        }
+
+        Assert.Equal(digest, (string)Read()["run"]!["project"]!["configDigest"]!);
+    }
+
+    [Fact]
+    public async Task Keeps_the_digest_of_a_session_when_the_left_out_tests_come_after_it()
+    {
+        var session = new string('d', 64);
+        await using (var started = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = session }))
+        {
+            await started.App.OpenAsync("/");
+            started.Complete();
+        }
+
+        var selection = new HostSelection(new Dictionary<string, string>(), [], [], null);
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = new string('c', 64) });
+
+        Assert.Equal(session, (string)Read()["run"]!["project"]!["configDigest"]!);
+    }
+
+    [Fact]
     public async Task Redacts_the_secrets_of_a_test_from_every_text_of_its_result()
     {
         var report = new Report1Document(new ReportRun(
@@ -458,9 +496,10 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal("a\uFFFDb😀\uFFFD", ReportWire.Clip("a\uD800b😀\uDC00", 20));
     }
 
-    private Task<E2ESession> StartAsync(string title, int attempt, RecordingMode mode = RecordingMode.RetainOnFailure) =>
+    private Task<E2ESession> StartAsync(string title, int attempt, RecordingMode mode = RecordingMode.RetainOnFailure, ResolvedConfig? config = null) =>
         E2ESession.StartAsync(new E2ESessionOptions
         {
+            Config = config,
             Engine = new ReportEngine(),
             TestTitle = title,
             BaseUrl = "http://127.0.0.1:4100",

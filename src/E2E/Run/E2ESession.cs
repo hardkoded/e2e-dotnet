@@ -22,6 +22,7 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
     private IDisposable? _credentials;
+    private ResolvedConfig? _config;
     private readonly TextWriter? _debugOutput;
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
@@ -427,7 +428,7 @@ public sealed class E2ESession : IAsyncDisposable
             var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
             try
             {
-                var session = new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _events = events };
+                var session = new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events };
                 events?.Started();
                 return session;
             }
@@ -975,7 +976,7 @@ public sealed class E2ESession : IAsyncDisposable
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
             {
-                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact).ConfigureAwait(false);
+                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact, _config).ConfigureAwait(false);
             }
 #pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -998,7 +999,7 @@ public sealed class E2ESession : IAsyncDisposable
                 }
             }
 
-            var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false);
+            var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact, _config).ConfigureAwait(false);
             Volatile.Write(ref _report, new Lazy<Report>(() => ReportSerializer.Read(document)));
 
             if (!traced && _scope.Attempt == 1)
@@ -1230,6 +1231,9 @@ public sealed class E2ESessionOptions
 
     /// <summary>The config's accounts, which <see cref="E2E.Credentials.User"/> resolves while the session runs. A fixture passes <c>Config.Credentials</c>.</summary>
     internal IReadOnlyDictionary<string, ResolvedCredential>? Credentials { get; init; }
+
+    /// <summary>The resolved config the session runs under, whose digest every report it writes carries as <c>project.configDigest</c> (upstream's <c>config</c> of <c>buildReport</c>). A fixture passes <c>HostTestFilters.Resolve</c> of its config.</summary>
+    internal ResolvedConfig? Config { get; init; }
 
     /// <summary>The default agent's model.</summary>
     public IAgentModel? Model { get; init; }
