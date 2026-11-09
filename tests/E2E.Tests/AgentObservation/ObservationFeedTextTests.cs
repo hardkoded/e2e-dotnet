@@ -89,6 +89,17 @@ public sealed class ObservationFeedTextTests
     }
 
     [Fact]
+    public void Reads_the_path_of_a_screen_with_no_tree_from_its_location_as_a_prepared_look_does()
+    {
+        var scope = Scope();
+        scope.Register("CARD", Value);
+        var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
+        var look = new Observation { Route = "/pay?card=" + Value, Location = "https://shop.test/pay?card=" + Value, Roots = [], TreeUnavailable = true };
+
+        Assert.Equal("/pay?card=%3Csecret:CARD%3E", feed.View(look, scope).Path);
+    }
+
+    [Fact]
     public void Reuses_the_rendering_of_a_look_while_no_secret_is_registered()
     {
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = Scope() };

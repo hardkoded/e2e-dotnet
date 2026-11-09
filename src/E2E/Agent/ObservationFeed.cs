@@ -306,7 +306,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             TreeUnavailable = observation.TreeUnavailable,
             Truncated = observation.Truncated || prepared?.Truncated == true || observation.TreeUnavailable,
             KeyboardVisible = observation.KeyboardVisible,
-            Path = prepared?.Path ?? scope.Redactor.Redact(observation.Route),
+            Path = prepared?.Path ?? AgentObservation.PathOf(observation, scope.Redactor),
             Revision = observation.Revision.Length > 0 ? observation.Revision : null,
             Tree = options?.Tree == true ? AgentObservation.ProjectTree(prepared?.Tree ?? [], scope.Redactor, scope.AppOrigin) : null,
             Viewport = observation.Viewport,
