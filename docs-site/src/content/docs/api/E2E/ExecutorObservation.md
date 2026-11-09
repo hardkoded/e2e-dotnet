@@ -77,7 +77,10 @@ public string? Path { get; init; }
 ```
 
 
-The location of the screen, redacted, when the engine reports one. Null on an engine without one.
+Where the screen is, redacted (upstream's `path`): the path, query and fragment of the engine's [Location](/api/E2E.Engine/Observation/#E2E_Engine_Observation_Location)
+(a secret marker inside the query reads percent-encoded, `%3Csecret:NAME%3E`), or the location as it is when it is not a URL.
+An engine that reports only a route ([Route](/api/E2E.Engine/Observation/#E2E_Engine_Observation_Route)) gives that route, redacted. Null on a screen the executor
+reads without either.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

@@ -704,6 +704,13 @@ when `System` and project tools are not enough.
 
 A coding agent the user already signs in to runs agent steps with no model provider: install `E2E.Acp` and the agent's adapter, and use `AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" })` (sign in with `claude`, or set `ANTHROPIC_API_KEY`; adapter `npm install -D @agentclientprotocol/claude-agent-acp`) or `AcpExecutor.Codex()` (sign in with `codex login`; adapter `@agentclientprotocol/codex-acp`). Node must be on the `PATH`: the preset finds the adapter in `node_modules` from the working directory up and runs it with `node`, and an adapter that is not installed is `INVALID_CONFIG`. The agent gets only the step tools: Claude Code with its own tools, settings, MCP servers, and saved sessions off, Codex read-only with its shell, web search, apps, plugins, browser, and your MCP servers off. A tool of the agent's own that runs without asking fails the step with `POLICY_DENIED`. `AcpAgentOptions` takes `Model` (a model the agent offers; the error lists them when it does not), `Env`, `System`, and `Name`. The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, in any casing, from the process and from `Env`; a secret in any other variable reaches the agent. A prompt turn counts as one model call. `WaitForAsync` and `ExtractAsync` still need `Model`. A custom command must be an executable on Windows, not a `.cmd` shim. See the online guide `/features/acp/`.
 
+`ExecutorObservation.Path` (from `context.ObserveAsync`) is where the screen is, redacted:
+the path, query, and fragment of the engine's `Observation.Location`, so
+`/app#/cart?id=1` keeps its fragment, and a secret marker in the query is
+percent-encoded (`%3Csecret:NAME%3E`). A location that is not a URL stays as it
+is; an engine that reports only a route gives that route. This follows upstream's
+`observationPath`.
+
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config
 file cannot hold one: an executor is code. The entry still takes `Model`,

@@ -335,7 +335,12 @@ public sealed record ExecutorObservation(string Text)
     /// </summary>
     public bool? KeyboardVisible { get; init; }
 
-    /// <summary>The location of the screen, redacted, when the engine reports one. Null on an engine without one.</summary>
+    /// <summary>
+    /// Where the screen is, redacted (upstream's <c>path</c>): the path, query and fragment of the engine's <see cref="Observation.Location"/>
+    /// (a secret marker inside the query reads percent-encoded, <c>%3Csecret:NAME%3E</c>), or the location as it is when it is not a URL.
+    /// An engine that reports only a route (<see cref="Observation.Route"/>) gives that route, redacted. Null on a screen the executor
+    /// reads without either.
+    /// </summary>
     public string? Path { get; init; }
 
     /// <summary>The revision of the capture (<see cref="Observation.Revision"/>), <c>b&lt;n&gt;</c> for the attempt's n-th. Null when the capture carries none. Upstream's <c>revision</c>.</summary>
