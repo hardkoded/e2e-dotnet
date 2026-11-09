@@ -706,8 +706,10 @@ public sealed class VerdictTool
         }
 
         var code = Args.String(call.Arguments, "code");
-        // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set.
-        var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && AgentTools.ModelErrorCodes.Contains(code) ? code : null;
+        // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set; any other code is ignored without being echoed.
+        var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(code)
+            ? (AgentTools.ModelErrorCodes.Contains(code) ? code : "")
+            : null;
         if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
         {
             code = null;
