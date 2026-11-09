@@ -40,6 +40,7 @@ public static class BenchmarkApp
         // The app has no wwwroot: its one asset is blazor.web.js.
         builder.Logging.AddFilter("Microsoft.AspNetCore.StaticFiles", LogLevel.Error);
         builder.Services.AddRazorComponents().AddInteractiveServerComponents();
+        builder.Services.AddScoped<Portal>();
 
         var app = builder.Build();
         app.UseAntiforgery();
