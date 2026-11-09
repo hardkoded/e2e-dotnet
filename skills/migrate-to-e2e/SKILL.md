@@ -37,7 +37,7 @@ page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
 | Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `selenium` | `setup` (web) |
 | Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `cypress` for Cypress; `playwright` for Playwright, with Node names for .NET ones | `setup` (web) |
 | Detox, Maestro | `.detoxrc*`, YAML flows opening with `appId:` and `---` | `detox`, `maestro` | `mobile` |
-| Appium | `Appium.WebDriver` in a `.csproj`, `appium:` capabilities in a `wdio.conf.*` or test setup, `appium` in `package.json`, `io.appium` in a `pom.xml` or `build.gradle`, `Appium-Python-Client` in `requirements.txt` | `appium` | `mobile` |
+| Appium | `Appium.WebDriver` in a `.csproj`, `appium:` capabilities in a `wdio.conf.*` or test setup, `appium` in `package.json`, `io.appium` in a `pom.xml` or `build.gradle`, `Appium-Python-Client` in `requirements.txt`; a dependency alone is a hint, so check that the tests drive a mobile app | `appium` | `mobile` |
 | TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
 
 An Appium .NET project often references `Selenium.WebDriver` too: when both
@@ -232,6 +232,10 @@ Then each test, one at a time:
 and only with a model configured. Propose it for a stretch the source kept
 patching: coordinate taps, picker spins, long tap sequences through a
 wizard. Pin the outcome right after with a locator assertion (topic `agent`).
+One exception: when the guide marks a selector "No equivalent" (an image
+selector, XPath with no locator for the control) and a goal is its only
+workaround, use the goal in place of the literal port, keep the locator
+assertion on the outcome, and note it in the row.
 
 ## 6. Prove each port
 

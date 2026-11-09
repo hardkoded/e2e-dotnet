@@ -113,7 +113,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `stopApp`, then `launchApp` | `App.RestartAsync()` |
 | `clearKeychain` | `Device.ClearKeychainAsync()`, the whole simulator's keychain; iOS only |
 | `openLink` | `Device.OpenLinkAsync(url, app)`; on iOS the link opens into `app`, default the pinned app |
-| `addMedia` | Not yet. On an iOS simulator, run `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID), then `App.OpenAsync()` |
+| `addMedia` | Not yet. On an iOS simulator, run `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID), then `App.OpenAsync()`. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards |
 | `back` | `App.BackAsync()`, or `Device.BackAsync()` |
 
 ### Taps and input
@@ -124,7 +124,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `tapOn: { id: x }` | `Screen.GetByTestId("x").TapAsync()` |
 | `tapOn: { text, index: 2 }` | `.Nth(2)` |
 | `tapOn: { below: "Email" }`, `above`, `leftOf`, `rightOf`, `containsDescendants` | No equivalent, see [Rewrite selectors](#rewrite-selectors) |
-| `tapOn: { point: "x,y" }` | `Screen.TapAtAsync(new Point(x, y))`; inside a node, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
+| `tapOn: { point: "x,y" }` | `Screen.TapAtAsync(new Point(x, y))`, in device points: convert a percentage point (`50%,50%`) with the screen size first; inside a node, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
 | `retryTapIfNoChange`, `waitToSettleTimeoutMs` | `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds`, engine-wide; no per-call knob |
 | `doubleTapOn`, `longPressOn` | `.DoubleTapAsync()`, `.LongPressAsync(new LongPressOptions { Duration = ... })` |
 | `inputText` | `Screen.GetByTestId("field").FillAsync("text")` |
@@ -144,7 +144,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | Maestro | e2e |
 | --- | --- |
 | `swipe: { direction: UP }` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `locator.SwipeAsync(...)` inside one node. Maestro names the finger's direction, e2e the content's |
-| `swipe: { start, end }` | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x, y), To = new Point(x, y) })` |
+| `swipe: { start, end }` | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })`, the two endpoints in device points |
 | `scroll` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` |
 | `scrollUntilVisible: { element }` | `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction = ... })` |
 | `waitForAnimationToEnd` | an assertion on the settled state; `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds` for the engine |

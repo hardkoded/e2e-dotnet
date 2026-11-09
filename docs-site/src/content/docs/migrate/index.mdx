@@ -21,6 +21,8 @@ Install e2e with the [web guide](/get-started/web/) or the [mobile guide](/get-s
 
 e2e tests are NUnit or xUnit v3 tests that derive from `E2ETest` (or `MobileAppTest` for a device) and run with `dotnet test`. Upstream's tests run in Node, so the port needs a .NET test project for every source runner. For a Cypress, Appium, Detox, Maestro, or TesterArmy suite, create a new test project beside the old suite.
 
+An Appium, WebdriverIO, Java, or Python suite is not collected by `dotnet test` unless it is a project in the solution: run the old suite with its own runner, and treat a green `dotnet test` as the new suite only.
+
 Each guide follows the same steps:
 
 1. Port the config. The old runner's base URL, app command, and devices become a target in `e2e.config.json`.

@@ -87,7 +87,7 @@ On this page, "Not yet" marks a capability or command e2e doesn't have today, an
 }
 ```
 
-Upstream's config holds an `ios` and an `android` target at once. The port's `e2e.config.json` holds one device target, and the two variables switch it, see [MobileAppTest](/compatibility/#mobileapptest-not-in-upstream). Run the Android build with `E2E_MOBILE_PLATFORM=android E2E_MOBILE_APP_PATH=android/app/build/outputs/apk/release/app-release.apk dotnet test`, and give an Android run its own `launchArguments`, such as `["--ez", "e2e", "true"]`.
+Upstream's config holds an `ios` and an `android` target at once. The port's `e2e.config.json` holds one device target, and the two variables switch it, see [MobileAppTest](/compatibility/#mobileapptest-not-in-upstream). Run the Android build with `E2E_MOBILE_PLATFORM=android E2E_MOBILE_APP_PATH=android/app/build/outputs/apk/release/app-release.apk dotnet test`, and give an Android run its own `launchArguments`, such as `["--ez", "e2e", "true"]`. The target holds one `bundleId`: when the Android package differs from the iOS bundle id, set `app.bundleId` to the package for that run, or override `MobileAppTest.AppId`.
 
 ## Rewrite one test
 
@@ -114,10 +114,13 @@ public sealed class LoginTests : MobileAppTest
     [Test]
     public async Task Signs_in()
     {
+        // iOS accessibility ids. On Android, content descriptions are labels: use GetByLabel("email").
         await Screen.GetByTestId("email").FillAsync("ada@example.test");
         await Screen.GetByTestId("password").FillAsync("hunter2");
         await Screen.GetByRole("button", "Sign in").TapAsync();
-        await Expect.That(Screen.GetByText("Welcome, Ada")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(10));
+        var welcome = Screen.GetByTestId("welcome");
+        await Expect.That(welcome).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(10));
+        await Expect.That(welcome).ToHaveTextAsync("Welcome, Ada");
     }
 }
 ```
@@ -190,7 +193,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `mobile: swipeGesture`, `mobile: swipe`, `driver.swipe({ direction: 'up' })` | `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` or `Screen.SwipeAsync(new SwipeOptions { ... })`; Appium names the finger's direction, e2e the content's |
 | `mobile: scrollGesture`, `mobile: scroll` to an element, `.scrollIntoView()` | `Screen.ScrollUntilVisibleAsync(locator)`, or `list.ScrollUntilVisibleAsync(locator)` on the scroll view |
 | `mobile: dragGesture`, `mobile: dragFromToForDuration`, `.dragAndDrop(target)` | `locator.DragToAsync(target)` |
-| A `performActions` swipe between two points | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x, y), To = new Point(x, y) })` |
+| A `performActions` swipe between two points | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })` |
 | A tap at coordinates | `Screen.TapAtAsync(new Point(x, y))`; inside an element, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
 | `mobile: pinchOpenGesture`, `mobile: pinch`, multi-finger `performActions` | Not yet |
 
@@ -219,7 +222,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `driver.installApp(path)` | `Device.InstallAppAsync(path)` |
 | `driver.removeApp(id)` | Not yet. `Device.UnstableRaw.Client` does not take `apps.uninstall`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app first and installs it with no data (not on TestMu) |
 | `driver.isAppInstalled(id)`, `queryAppState(id)` | Not yet. On Android, `Device.ForegroundAppAsync()` names the app on screen |
-| `driver.background(seconds)` | `Device.HomeAsync()`, then `Device.OpenAppAsync(id)` |
+| `driver.background(seconds)` | `Device.HomeAsync()`, `await Task.Delay(TimeSpan.FromSeconds(seconds))` for a positive `seconds`, then `Device.OpenAppAsync(id)` |
 | `driver.url('myapp://x')`, `mobile: deepLink` | `Device.OpenLinkAsync("myapp://x")` |
 | `driver.back()` | `App.BackAsync()` |
 | `driver.hideKeyboard()` | `Device.DismissKeyboardAsync()` |
@@ -250,7 +253,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | Appium (WebdriverIO) | e2e |
 | --- | --- |
 | `specs` in `wdio.conf.ts` | the test project's own tests; `dotnet test` collects the classes in the project |
-| `specFileRetries`, Mocha `retries` | NUnit `[Retry(2)]`; xUnit v3 has no retry attribute |
+| `specFileRetries`, Mocha `retries` | NUnit `[Retry(n)]`, where `n` counts total attempts (two Mocha retries are `[Retry(3)]`) and a retry reruns the method, not the file; xUnit v3 has no retry attribute |
 | Mocha `--grep`, tags in titles | `dotnet test --filter "FullyQualifiedName~Name"`, or `[Category("smoke")]` (NUnit) and `--filter "TestCategory=smoke"` |
 | `before`, `beforeEach` hooks | `[OneTimeSetUp]`, `[SetUp]` (NUnit); the constructor and `InitializeAsync` (xUnit v3) |
 | JUnit, Allure, spec reporters | the `dotnet test` loggers, such as `--logger trx`, or a JUnit logger package |
@@ -287,7 +290,7 @@ public sealed class OrderLinkTests : MobileAppTest
 }
 ```
 
-Set a permission before `App.OpenAsync()`: a change terminates a running app on iOS. Permissions every test needs go in `app.permissions`, see [Mobile](/get-started/mobile/).
+Set a permission before `App.OpenAsync()`: a change terminates a running app on iOS. Permissions every test needs go in `app.permissions`, and so does one the app reads at startup, since `MobileAppTest` has launched the app before the test body runs. See [Mobile](/get-started/mobile/).
 
 ## Run in CI
 

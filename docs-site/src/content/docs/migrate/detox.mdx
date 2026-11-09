@@ -113,12 +113,12 @@ public sealed class LoginTests : MobileAppTest
 | `.typeText(t)`, `.replaceText(t)` | `.FillAsync(t)` replaces the content |
 | `.clearText()` | `.ClearAsync()` |
 | `.tapReturnKey()` | `.PressAsync("Enter")` |
-| `.tapBackspaceKey()` | Not yet. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device; `.FillAsync(t)` with the shorter text |
+| `.tapBackspaceKey()` | Not yet. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device. `.FillAsync(t)` with the shorter text replaces the value and sends no Backspace, so keep a test that depends on the key in Detox |
 | `.swipe('up', 'fast')` | `.SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`: Detox names the finger's direction, e2e the content's |
-| `.scroll(200, 'down')` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `Locator.SwipeAsync` on the scroll view |
+| `.scroll(200, 'down')` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `Locator.SwipeAsync` on the scroll view. It does not keep the 200-point distance: for a test that scrolls to reach a control, use `list.ScrollUntilVisibleAsync(target)`; check a distance-sensitive test on your device before dropping the Detox call |
 | `waitFor(el).toBeVisible().whileElement(list).scroll(...)` | `list.ScrollUntilVisibleAsync(el)`, with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` when Detox scrolls up |
 | `list.scrollTo('bottom')` | `list.ScrollUntilVisibleAsync(lastRow)`; for `'top'`, `list.ScrollUntilVisibleAsync(firstRow, new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up })` |
-| `.adjustSliderToPosition()` | Not yet. Drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })`, the points taken from the slider's `.BoundingBoxAsync()`; on Android, `.TapAsync(new TapOptions { Position = ... })` on the track also works |
+| `.adjustSliderToPosition()` | Not yet. Drag with `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })`, the points taken from the slider's `.BoundingBoxAsync()`; on Android, `.TapAsync(new TapOptions { Position = ... })` on the track also works |
 | `.setDatePickerDate()` | Not yet |
 | `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, and `.GetAttributeAsync("placeholder")`, the only attribute a device node has |
 | `waitFor(el).toBeVisible().withTimeout(ms)` | `await Expect.That(el).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(ms))` |
