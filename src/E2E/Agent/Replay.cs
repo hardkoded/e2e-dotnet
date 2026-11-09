@@ -55,6 +55,13 @@ internal interface IReplayHost
     /// </summary>
     bool TryReserve();
 
+    /// <summary>
+    /// Authorizes the recorded paths of an upload against the project root, recording the decision on the step. Upstream's <c>upload</c>
+    /// authorizes before the dispatcher takes the action slot, so a refused path costs no slot and calls no <c>OnBeforeAction</c> hook:
+    /// the replay asks here before <see cref="TryReserve"/>, and the upload that follows spends the decision. Throws when the policy refuses.
+    /// </summary>
+    void AuthorizeUpload(IReadOnlyList<string> paths) { }
+
     /// <summary>Runs the test's <c>OnBeforeAction</c> hook for the action whose slot <see cref="TryReserve"/> just took (upstream's replay calls the dispatcher's <c>before</c>).</summary>
     Task BeforeAsync() => Task.CompletedTask;
 
@@ -365,6 +372,12 @@ internal static class Replay
                         if (found.Node is null)
                         {
                             return Stop(found.Failure);
+                        }
+
+                        // Upstream authorizes an upload before it takes the slot, so a refused one costs no slot and runs no hook.
+                        if (action is { Kind: "upload", Paths: { } uploadPaths })
+                        {
+                            host.AuthorizeUpload(uploadPaths);
                         }
 
                         if (!await ReserveAsync(host).ConfigureAwait(false))

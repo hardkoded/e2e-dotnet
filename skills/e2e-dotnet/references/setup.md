@@ -253,7 +253,10 @@ and in CI.
   stderr line naming the type string. The other reporters still run and the
   outcome is unchanged. The file is committed: put no token in `options`.
   Reflection needs the type kept in a trimmed or AOT app. The same type listed
-  twice runs twice; no config file means no reporters. The run
+  twice runs twice; no config file means no reporters. A reporter built in code
+  (upstream's reporter object in `reporters`) is added with
+  `E2EConfig.WithReporter(reporter)`: it runs after the ones the file names, and
+  never enters the config digest, whatever it holds. The run
   fixture above calls `OnRunFinishedAsync(FinishedRun, CancellationToken)` once,
   after the last test, with the final `report.json` document (`Report`,
   `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`, `Traces`, `AiTracePath`). `Traces` maps
