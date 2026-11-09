@@ -144,11 +144,11 @@ public sealed class CacheConfigResolutionTests
     /// <summary>A store that holds nothing: a stand-in for a remote cache.</summary>
     private sealed class EmptyStore : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Reason = "no-entry" };
 
-        public void Write(string key, CacheEntry entry)
-        {
-        }
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {

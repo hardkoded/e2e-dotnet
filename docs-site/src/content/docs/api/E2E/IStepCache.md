@@ -1,6 +1,6 @@
 ---
 title: "IStepCache"
-description: "IStepCache in E2E."
+description: "Where the replay cache keeps its entries: the file store by default, or a host's own through cache.store (upstream's CacheStore, cache/store.ts)."
 editUrl: false
 prev: false
 next: false
@@ -18,6 +18,9 @@ Namespace: [E2E](/api/E2E/)
 public interface IStepCache
 ```
 
+
+Where the replay cache keeps its entries: the file store by default, or a host's own through `cache.store` (upstream's `CacheStore`,
+`cache/store.ts`).
 
 **Derived:** [FileStepCache](/api/E2E/FileStepCache/)
 

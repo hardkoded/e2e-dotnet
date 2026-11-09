@@ -283,14 +283,13 @@ internal sealed record ResolvedConfig
 
     /// <summary>
     /// <c>cache</c> as the digest records it (upstream's <c>digestCache</c>): the options as written, with the store reduced to whether it writes.
-    /// Differences: a store has no <c>writable</c> member here, so the cache mode decides, as it does for the run.
     /// </summary>
     internal static JsonObject DigestCache(JsonElement declared, CacheConfig cache)
     {
         var digest = declared.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(declared.GetRawText())! : [];
         if (cache.Store is not null)
         {
-            digest["store"] = new JsonObject { ["writable"] = cache.Mode == CacheMode.ReadWrite };
+            digest["store"] = new JsonObject { ["writable"] = cache.Store.Writable };
         }
 
         return digest;

@@ -108,7 +108,7 @@ public bool Writable { get; }
 ```
 
 
-False when the store never writes or deletes (upstream's `CacheStore.writable`; [IStepCache](/api/E2E/IStepCache/) has no such member, the mode decides).
+False when the store never writes or deletes (upstream's `FileCacheStore.writable`).
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
@@ -164,7 +164,6 @@ public int? Write(string key, CacheEntry entry)
 
 
 Persists one entry, returning its size in bytes, or null when not written: the store is not writable, or the entry is over the byte cap.
-(.NET-only shape: `Write` returns nothing, so this overload is public beside it; upstream's `write` returns `{ bytes } | undefined`.)
 
 **Parameters**
 

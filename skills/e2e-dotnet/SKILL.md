@@ -261,7 +261,10 @@ lines you changed:
   too, and records nothing. `E2E_CACHE_DIR_OVERRIDE=<dir>` is upstream's `--cache-dir` for
   that run (over `E2E_CACHE_DIR` and `cache.dir`). Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
-  config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your
+  config, nor under `cache.strict`. A cache of your own is an `IStepCache` set with
+  `E2EConfig.WithCacheStore`: it has `Writable` (false when it never writes or deletes),
+  `Read`, `Delete`, and `Write`, which returns the bytes it wrote, or `null` when it
+  did not write (the step then reports `NotWritten`, not `Saved`). A stopped run (Ctrl-C, a command your
   tool's timeout kills) saves nothing, so give the command a timeout longer
   than the test. A replay's end check skips text that reads differently on
   every run (an id, a duration, a date, an ISO 8601 instant, a clock time)

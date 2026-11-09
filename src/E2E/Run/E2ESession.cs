@@ -1148,10 +1148,9 @@ public sealed class E2ESession : IAsyncDisposable
                     }
                     else
                     {
-                        // A store that throws did not write the recording.
+                        // A store that throws did not write the recording, and neither did one that answers null.
                         outcome = CacheWrite.NotWritten;
-                        cache.Write(act.Key, act.Entry!);
-                        outcome = CacheWrite.Saved;
+                        outcome = cache.Write(act.Key, act.Entry!) is null ? CacheWrite.NotWritten : CacheWrite.Saved;
                     }
                 }
                 // An entry read for an act that then passed with nothing to record is evicted too: it did not serve

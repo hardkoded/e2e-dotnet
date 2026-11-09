@@ -134,13 +134,19 @@ internal sealed class StubCache(Func<CacheLookup> read) : IStepCache
 
     public List<string> Written { get; } = [];
 
+    public bool Writable => true;
+
     public CacheLookup Read(string key)
     {
         Reads++;
         return read();
     }
 
-    public void Write(string key, CacheEntry entry) => Written.Add(key);
+    public int? Write(string key, CacheEntry entry)
+    {
+        Written.Add(key);
+        return 1;
+    }
 
     public bool DeleteFails { get; set; }
 
