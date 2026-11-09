@@ -29,5 +29,8 @@ public sealed class ExploreReportConfigDigestTests
         var digest = report.RootElement.GetProperty("run").GetProperty("project").GetProperty("configDigest").GetString();
         Assert.Equal(HostTestFilters.Resolve(config, [], options.Agents).ConfigDigest, digest);
         Assert.NotEqual(new string('0', 64), digest);
+
+        // The agents built in code enter the digest, as a fixture's do.
+        Assert.NotEqual(HostTestFilters.Resolve(config, []).ConfigDigest, digest);
     }
 }

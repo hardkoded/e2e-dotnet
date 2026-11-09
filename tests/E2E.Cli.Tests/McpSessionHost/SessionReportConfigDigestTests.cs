@@ -21,14 +21,16 @@ public sealed class SessionReportConfigDigestTests
         try
         {
             var config = E2EConfig.Parse(FixtureProject.Config("http://127.0.0.1:1", ""), dir);
-            using var host = new SessionHost(new SessionHostOptions
+            using (var host = new SessionHost(new SessionHostOptions
             {
                 LocateConfig = _ => Path.Combine(dir, "e2e.config.json"),
                 LoadConfig = _ => Task.FromResult(config),
                 CreateEngine = (_, _) => new FakeEngine(),
-            });
-            await host.OpenAsync(new Mcp.OpenSessionOptions());
-            await host.CloseAsync("done");
+            }))
+            {
+                await host.OpenAsync(new Mcp.OpenSessionOptions());
+                await host.CloseAsync("done");
+            }
 
             var path = Assert.Single(Directory.EnumerateFiles(dir, "report.json", SearchOption.AllDirectories));
             using var report = JsonDocument.Parse(await File.ReadAllTextAsync(path));
