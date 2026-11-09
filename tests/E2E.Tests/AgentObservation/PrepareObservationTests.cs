@@ -343,7 +343,7 @@ public sealed class PrepareObservationTests
     /// Partial: upstream "redacts every string field a node carries, in the text, the executor tree, and the node index alike" also checks
     /// that a field the contract does not name is dropped (its <c>extra</c> key on a node); a <c>SemanticNode</c> has no such field to carry, so
     /// that part has no C# counterpart. Everything else it checks is here: the role, the attribute names and values, the test id,
-    /// <c>selector</c>, and <c>framePath</c> in the text, the executor tree, and the node index.
+    /// <c>selector</c> (in the node index; upstream's executor tree leaves selectors behind), and <c>framePath</c> in the text, the executor tree, and the node index.
     /// </summary>
     [Fact]
     public void Partial_redacts_every_string_field_a_node_carries_in_the_text_the_executor_tree_and_the_node_index_alike()
@@ -386,6 +386,9 @@ public sealed class PrepareObservationTests
         Assert.Equal("[data-testid=\"<secret:probe>\"]", prepared.Nodes["n2"].Selector);
         Assert.Equal("<secret:probe>", prepared.Nodes["n3"].Role);
         AssertUntouched(tree.Children[3], prepared.Nodes["n6"]);
+        var again = global::E2E.AgentObservation.RedactNodesAgain(new Dictionary<string, SemanticNode> { ["n5"] = tree.Children[2].Children[0], ["n2"] = tree.Children[0] }, redactor);
+        Assert.Equal(["iframe[name=\"<secret:probe>\"]"], again["n5"].FramePath);
+        Assert.Equal("[data-testid=\"<secret:probe>\"]", again["n2"].Selector);
         Assert.Equal(new Dictionary<string, string> { ["data-<secret:probe>"] = "<secret:probe>", ["placeholder"] = "<secret:probe>" }, global::E2E.AgentObservation.ProjectTree([tree], redactor, null).Single().Children[0].Attributes);
         Assert.Equal("<secret:probe>", projected[1].Role);
         Assert.Equal("<secret:probe>", global::E2E.Cache.TraceRecorder.DescribeTarget(tree.Children[1], redactor).Role);
