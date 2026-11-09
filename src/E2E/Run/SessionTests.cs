@@ -69,6 +69,18 @@ internal static class SessionHandover
         return turn.WaitAsync(cancellationToken);
     }
 
+    /// <summary>Completes once every turn queued so far has settled, so a test's assembly can be unloaded after the test has stopped running.</summary>
+    public static Task Drained
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _tail;
+            }
+        }
+    }
+
     private static Task<T> Turn<T>(Func<Task<T>> work, CancellationToken cancellationToken)
     {
         // A caller cancelled while it waited for its turn: none of its code runs.

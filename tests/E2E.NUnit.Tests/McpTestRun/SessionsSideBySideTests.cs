@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using E2E.Cli.Mcp;
 
 namespace E2E.NUnit.Tests.McpTestRun;
@@ -18,9 +19,14 @@ namespace E2E.NUnit.Tests.McpTestRun;
 /// </summary>
 public sealed class SessionsSideBySideTests
 {
-    private const string HeldKey = "e2e.side-by-side.held";
-    private const string GateKey = "e2e.side-by-side.gate";
-    private const string MarkKey = "e2e.side-by-side.mark";
+    /// <summary>The <see cref="AppContext"/> keys the fixtures read; the fixtures are in this file, so they share these names.</summary>
+    internal const string HeldKey = "e2e.side-by-side.held";
+    internal const string GateKey = "e2e.side-by-side.gate";
+    internal const string MarkKey = "e2e.side-by-side.mark";
+    internal const string SpansKey = "e2e.side-by-side.spans";
+
+    /// <summary>How long a fixture waits for the test driver to release it, so a driver that failed early does not hold the turn forever.</summary>
+    internal static readonly TimeSpan GateWait = TimeSpan.FromMinutes(2);
 
     private static readonly string HeldName = typeof(HeldTurnFixture).FullName + "." + nameof(HeldTurnFixture.Holds_its_turn);
     private static readonly string MarkedName = typeof(MarkedTurnFixture).FullName + "." + nameof(MarkedTurnFixture.Marks);
@@ -38,9 +44,9 @@ public sealed class SessionsSideBySideTests
         AppContext.SetData(HeldKey, held);
         AppContext.SetData(GateKey, gate);
         AppContext.SetData(MarkKey, marked);
+        var sessions = Host(dir);
         try
         {
-            var sessions = Host(dir);
             var holding = sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = HeldName });
             await held.Task.WaitAsync(TimeSpan.FromSeconds(60));
 
@@ -52,13 +58,17 @@ public sealed class SessionsSideBySideTests
             var cancelled = await Assert.ThrowsAsync<E2EException>(async () => await waiting);
             Assert.That(cancelled!.Code, Is.EqualTo("CANCELLED"));
 
-            gate.SetResult();
+            gate.TrySetResult();
             Assert.That(await holding, Does.StartWith("Test \"" + HeldName + "\" ended without failing"));
             await sessions.CloseAllAsync("done");
             Assert.That(File.Exists(marked), Is.False);
         }
         finally
         {
+            // Released even when an assertion failed above, so the held fixture does not keep the turn.
+            gate.TrySetResult();
+            await sessions.CloseAllAsync("done");
+            sessions.Dispose();
             AppContext.SetData(HeldKey, null);
             AppContext.SetData(GateKey, null);
             AppContext.SetData(MarkKey, null);
@@ -71,17 +81,36 @@ public sealed class SessionsSideBySideTests
     public async Task Partial_Collect_and_run_their_tests_one_at_a_time_and_both_pass()
     {
         var dir = Directory.CreateTempSubdirectory("e2e-side-by-side-").FullName;
+        var spans = new ConcurrentQueue<(DateTime Start, DateTime End)>();
+        AppContext.SetData(SpansKey, spans);
+        var sessions = Host(dir);
         try
         {
-            var sessions = Host(dir);
             var opened = await Task.WhenAll(sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = SlowName }), sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = QuickName }));
             Assert.That(opened[0], Does.StartWith("Test \"" + SlowName + "\" ended without failing"));
             Assert.That(opened[1], Does.StartWith("Test \"" + QuickName + "\" ended without failing"));
             await sessions.CloseAllAsync("done");
+
+            // Each body records when it ran; one at a time means no two of them overlap.
+            var ordered = spans.OrderBy(span => span.Start).ToList();
+            Assert.That(ordered, Has.Count.EqualTo(2));
+            Assert.That(ordered[0].End, Is.LessThanOrEqualTo(ordered[1].Start));
         }
         finally
         {
+            await sessions.CloseAllAsync("done");
+            sessions.Dispose();
+            AppContext.SetData(SpansKey, null);
             Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    /// <summary>Records one body's span for the overlap check.</summary>
+    internal static void RecordSpan(DateTime start)
+    {
+        if (AppContext.GetData(SpansKey) is ConcurrentQueue<(DateTime Start, DateTime End)> spans)
+        {
+            spans.Enqueue((start, DateTime.UtcNow));
         }
     }
 
@@ -115,8 +144,8 @@ public sealed class HeldTurnFixture : E2ETest
     public async Task Holds_its_turn()
     {
         await App.OpenAsync("/");
-        ((TaskCompletionSource)AppContext.GetData("e2e.side-by-side.held")!).TrySetResult();
-        await ((TaskCompletionSource)AppContext.GetData("e2e.side-by-side.gate")!).Task;
+        ((TaskCompletionSource)AppContext.GetData(SessionsSideBySideTests.HeldKey)!).TrySetResult();
+        await ((TaskCompletionSource)AppContext.GetData(SessionsSideBySideTests.GateKey)!).Task.WaitAsync(SessionsSideBySideTests.GateWait);
     }
 }
 
@@ -133,7 +162,7 @@ public sealed class MarkedTurnFixture : E2ETest
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
 
     [OneTimeSetUp]
-    public void MarkTheRun() => File.WriteAllText((string)AppContext.GetData("e2e.side-by-side.mark")!, "ran");
+    public void MarkTheRun() => File.WriteAllText((string)AppContext.GetData(SessionsSideBySideTests.MarkKey)!, "ran");
 
     [Test]
     public async Task Marks()
@@ -160,6 +189,7 @@ public sealed class SlowLoadFixture : E2ETest
     [Test]
     public async Task Loads_slowly()
     {
+        var start = DateTime.UtcNow;
         await App.OpenAsync("/");
         // Each poll takes a while, so two bodies overlap unless they take turns.
         await Expect.Poll(async () =>
@@ -167,6 +197,7 @@ public sealed class SlowLoadFixture : E2ETest
             await Task.Delay(300);
             return 1;
         }).ToMatchAsync(Is.EqualTo(1));
+        SessionsSideBySideTests.RecordSpan(start);
     }
 }
 
@@ -185,11 +216,13 @@ public sealed class QuickLoadFixture : E2ETest
     [Test]
     public async Task Loads_quickly()
     {
+        var start = DateTime.UtcNow;
         await App.OpenAsync("/");
         await Expect.Poll(async () =>
         {
             await Task.Delay(300);
             return 1;
         }).ToMatchAsync(Is.EqualTo(1));
+        SessionsSideBySideTests.RecordSpan(start);
     }
 }
