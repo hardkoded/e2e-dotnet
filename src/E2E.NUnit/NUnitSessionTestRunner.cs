@@ -26,15 +26,26 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
 
         // The filter NUnitLite builds for --test=<name>: the test's full name, or the name of a class or namespace that holds it.
         var filter = TestFilter.FromXml("<filter><test>" + SecurityElement.Escape(name) + "</test></filter>");
+        return Collect(tests, filter.Pass);
+    }
+
+    public IReadOnlyList<SessionTestInfo> List(Assembly tests)
+    {
+        ArgumentNullException.ThrowIfNull(tests);
+        return Collect(tests, _ => true);
+    }
+
+    private static List<SessionTestInfo> Collect(Assembly tests, Func<ITest, bool> pass)
+    {
         var root = new DefaultTestAssemblyBuilder().Build(tests, new Dictionary<string, object>());
         List<SessionTestInfo> found = [];
         void Walk(ITest test)
         {
             if (!test.IsSuite)
             {
-                if (filter.Pass(test))
+                if (pass(test))
                 {
-                    found.Add(new SessionTestInfo(test.FullName, UnsupportedReason(test)));
+                    found.Add(new SessionTestInfo(test.FullName, UnsupportedReason(test), test.Method?.MethodInfo));
                 }
 
                 return;

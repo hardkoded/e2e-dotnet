@@ -38,7 +38,7 @@ public sealed class SessionTestsTests
         var error = Assert.Throws<ConfigurationException>(() => SessionTests.SelectOne(new FakeRunner(), typeof(SessionTestsTests).Assembly, "Shop.Nothing", "tests.dll"));
 
         Assert.Equal("NO_TESTS", error.Code);
-        Assert.Equal("no test named \"Shop.Nothing\" in tests.dll; use the full name, Namespace.Class.Method", error.Message);
+        Assert.Equal("no test named \"Shop.Nothing\" in tests.dll; use the full name, Namespace.Class.Method, or file:line", error.Message);
     }
 
     [Fact]
@@ -75,6 +75,8 @@ public sealed class SessionTestsTests
     private sealed class FakeRunner(params SessionTestInfo[] selected) : ISessionTestRunner
     {
         public IReadOnlyList<SessionTestInfo> Select(Assembly tests, string name) => selected;
+
+        public IReadOnlyList<SessionTestInfo> List(Assembly tests) => selected;
 
         public Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null) => throw new NotSupportedException();
     }

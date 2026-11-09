@@ -322,6 +322,7 @@ internal sealed class SessionHost : IDisposable
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
         StandaloneAttempt? attempt = null;
         IAppProcesses? apps = null;
+        SessionTests.TestAssembly? loadedTests = null;
         try
         {
             abort.Token.ThrowIfCancellationRequested();
@@ -334,8 +335,10 @@ internal sealed class SessionHost : IDisposable
                 // The test runs in this process, on the engine and session its own fixture builds; its session is handed over instead of disposed.
                 var assembly = config.TestAssembly
                     ?? throw new ConfigurationException("INVALID_CONFIG", "open_session {test} needs \"testAssembly\" (the built test assembly) in " + configPath);
-                var (tests, runner) = SessionTests.Load(assembly);
-                SessionTests.SelectOne(runner, tests, testName, assembly);
+                // Collected again each open: a test rebuilt since the last open runs as it is now. Unloaded once the session closes.
+                loadedTests = SessionTests.Load(assembly);
+                var (tests, runner) = loadedTests;
+                testName = SessionTests.SelectOne(runner, tests, testName, assembly);
                 var started = Stopwatch.StartNew();
                 ran = await runner.RunAsync(tests, testName, abort.Token, config).ConfigureAwait(false)
                     ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
@@ -343,7 +346,8 @@ internal sealed class SessionHost : IDisposable
                 engine = ran.Engine;
                 apps = HeldApps.Instance;
                 var ranSession = ran.Session;
-                attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession).ConfigureAwait(false));
+                var unload = loadedTests;
+                attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession, unload).ConfigureAwait(false));
                 if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
                 {
                     _sessions.ClaimEngine(id, target.Name);
@@ -432,6 +436,11 @@ internal sealed class SessionHost : IDisposable
         }
         catch (Exception cause)
         {
+            if (attempt is null)
+            {
+                loadedTests?.Dispose();
+            }
+
             if (attempt is not null)
             {
                 await DisposeQuietlyAsync(attempt, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
@@ -454,7 +463,7 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
-    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session)
+    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session, SessionTests.TestAssembly? tests)
     {
         try
         {
@@ -466,6 +475,11 @@ internal sealed class SessionHost : IDisposable
 #pragma warning restore CA1031
         {
             return [cause];
+        }
+        finally
+        {
+            // The test's load context goes with its session: the next open collects the test again.
+            tests?.Dispose();
         }
     }
 

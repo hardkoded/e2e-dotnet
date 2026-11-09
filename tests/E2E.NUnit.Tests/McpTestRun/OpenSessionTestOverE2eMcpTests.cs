@@ -117,6 +117,57 @@ public sealed class OpenSessionTestOverE2eMcpTests
     }
 
     [Test]
+    public void Partial_Runs_the_test_files_as_they_are_now_when_the_session_opens_again()
+    {
+        // The test assembly is collected again on every open, from the bytes on disk now: a rebuilt test replaces the file even while a session holds the old one.
+        var directory = Path.Combine(Path.GetTempPath(), "e2e-reload-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var source = Path.GetDirectoryName(typeof(SessionFixture).Assembly.Location)!;
+            foreach (var file in Directory.EnumerateFiles(source, "E2E.NUnit.Tests.*"))
+            {
+                File.Copy(file, Path.Combine(directory, Path.GetFileName(file)));
+            }
+
+            var path = Path.Combine(directory, "E2E.NUnit.Tests.dll");
+            using var first = E2E.Cli.Mcp.SessionTests.Load(path);
+            File.Delete(path);
+            File.Copy(Path.Combine(source, "E2E.NUnit.Tests.dll"), path);
+            using var second = E2E.Cli.Mcp.SessionTests.Load(path);
+
+            Assert.That(second.Tests, Is.Not.SameAs(first.Tests));
+            Assert.That(second.Tests.GetType(typeof(SessionFixture).FullName!), Is.Not.Null);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Test]
+    public void Selects_a_test_by_file_and_line_and_refuses_a_line_inside_its_body()
+    {
+        using var loaded = E2E.Cli.Mcp.SessionTests.Load(typeof(SessionFixture).Assembly.Location);
+        var lines = File.ReadAllLines(SourcePath());
+        int LineOf(string fragment) => Array.FindIndex(lines, line => line.Contains(fragment, StringComparison.Ordinal)) + 1;
+        var opens = LineOf("public async Task Opens_the_" + "browser_page() =>");
+        var fails = LineOf("public async Task Fails_on_" + "the_browser_page()");
+        var expected = typeof(SessionFixture).FullName + ".";
+
+        // The attribute line and the signature line both name the test.
+        Assert.That(E2E.Cli.Mcp.SessionTests.SelectOne(loaded.Runner, loaded.Tests, "McpTestRun/OpenSessionTestOverE2eMcpTests.cs:" + opens, "tests.dll"), Is.EqualTo(expected + "Opens_the_browser_page"));
+        Assert.That(E2E.Cli.Mcp.SessionTests.SelectOne(loaded.Runner, loaded.Tests, "OpenSessionTestOverE2eMcpTests.cs:" + (opens - 1), "tests.dll"), Is.EqualTo(expected + "Opens_the_browser_page"));
+        Assert.That(E2E.Cli.Mcp.SessionTests.SelectOne(loaded.Runner, loaded.Tests, "OpenSessionTestOverE2eMcpTests.cs:" + fails, "tests.dll"), Is.EqualTo(expected + "Fails_on_the_browser_page"));
+
+        var inside = Assert.Throws<E2E.ConfigurationException>(() => E2E.Cli.Mcp.SessionTests.SelectOne(loaded.Runner, loaded.Tests, "OpenSessionTestOverE2eMcpTests.cs:" + (fails + 2), "tests.dll"));
+        Assert.That(inside!.Code, Is.EqualTo("NO_TESTS"));
+        Assert.That(inside.Message, Does.Contain("names no test (declared at lines "));
+    }
+
+    private static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
+
+    [Test]
     public async Task Finds_no_session_for_a_name_that_selects_no_test()
     {
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, "No.Such.Test", CancellationToken.None);
