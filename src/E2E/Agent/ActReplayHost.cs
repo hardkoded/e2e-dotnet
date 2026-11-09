@@ -58,10 +58,13 @@ public sealed partial class Agent
             {
                 case "tapAt" or "hoverAt" when _tapped is { } point:
                     shown = action.Copy();
+                    // The summary names the point, so the one recorded for the old point is dropped and described afresh.
+                    shown.Summary = null;
                     shown.Point = point;
                     return shown;
                 case "dragAt" when _dragged is { } drag && action.From is not null && action.To is not null:
                     shown = action.Copy();
+                    shown.Summary = null;
                     shown.From = action.From.Copy();
                     shown.From.Point = drag.From;
                     shown.To = action.To.Copy();

@@ -98,7 +98,7 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         Assert.Equal(("agent-concluded", "target-not-found", 1, 2), (replayed.Result?.Cache?.Mode, replayed.Result?.Cache?.Reason, replayed.Result?.Cache?.ReplayedActions, replayed.Result?.Cache?.TotalActions));
         Assert.True(replayed.ModelCalls > 0);
         var notice = replayed.Model.Requests[0].Messages[0].Content!;
-        Assert.Contains("1. fill textbox \"Name\"", notice, StringComparison.Ordinal);
+        Assert.Contains("1. type \"Acme\" into textbox \"Name\"", notice, StringComparison.Ordinal);
         var line = Regex.Match(notice, "^Replay stopped .*$", RegexOptions.Multiline).Value;
         Assert.Matches("target-not-found", line);
         Assert.Matches(@"\b1 of 2\b", line);

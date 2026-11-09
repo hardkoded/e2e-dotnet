@@ -185,7 +185,7 @@ public sealed class AgentActGrammarVerbsTests
         // The first press addresses the node; the seven after it ride the focus it took.
         var actions = EngineEvents(steps);
         Assert.Equal(["tap", "press", .. Enumerable.Repeat("pressKey", 7)], actions.Select(item => item.Name));
-        Assert.Equal("press textbox \"Memo\"", actions[1].Detail);
+        Assert.Equal("press \"Shift+ArrowLeft\" on textbox \"Memo\"", actions[1].Detail);
         Assert.Equal(9, result.Actions);
         var toolResult = CounterPage.ToolResults(model)[1];
         Assert.Matches("^Pressed Shift\\+ArrowLeft 8 times on #e\\d+\\.", toolResult);
@@ -201,7 +201,7 @@ public sealed class AgentActGrammarVerbsTests
 
         var actions = EngineEvents(steps);
         Assert.Equal(["press", "pressKey"], actions.Select(item => item.Name));
-        Assert.Equal("press checkbox \"Agree to terms\"", actions[0].Detail);
+        Assert.Equal("press \"Tab\" on checkbox \"Agree to terms\"", actions[0].Detail);
         var toolResult = CounterPage.ToolResults(model)[0];
         Assert.Matches("^Pressed Tab 2 times on #e\\d+\\.", toolResult);
         Assert.Matches("textbox \"Memo\" .*value=\"release approved\" selection=\"release approved\"", toolResult);
@@ -216,8 +216,7 @@ public sealed class AgentActGrammarVerbsTests
 
         var actions = EngineEvents(steps);
         Assert.Equal(["hoverAt", "tap"], actions.Select(item => item.Name));
-        // The port words the event detail as `hover the point (x, y) on node ...`, where upstream's reads `hover over the point (x, y)`.
-        Assert.Matches("^hover the point \\(140, 55\\)", actions[0].Detail);
+        Assert.Matches("^hover over the point \\(140, 55\\)", actions[0].Detail);
         var third = CounterPage.ToolResults(model);
         Assert.Contains("Hovered over the point (140, 55); no listed control is there", third[1], StringComparison.Ordinal);
         Assert.Contains("button \"Redeem\"", third[1], StringComparison.Ordinal);

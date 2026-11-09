@@ -534,7 +534,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     await body(linked.Token).ConfigureAwait(false);
                     return before;
                 },
-                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(_committed ?? actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
+                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(SummaryOf(_committed ?? actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
         }
         catch (Exception) when (CheckStep())
         {
@@ -781,7 +781,11 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// retry, or the replay as a divergence.
     /// </summary>
     internal Task NotifyAsync(RecordedAction action, ActionSource source) =>
-        NotifyAsync(SettlePolicy.For(action).Look, (index, redact) => AgentActions.EventOf(action, index, redact(DefaultAgent.Describe(action)), source));
+        NotifyAsync(SettlePolicy.For(action).Look, (index, redact) => AgentActions.EventOf(action, index, redact(SummaryOf(action)), source));
+
+    // The recorded summary: upstream's describeAction is the one owner of the prose, so the event, the phase detail, the trace
+    // and the hand-off notice never drift. An action not recorded yet (a derived gap) is described the same way.
+    private string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, _scope.Redactor);
 
     /// <summary>A mutating project tool that ran: the hook reads it as <c>tool:name</c>.</summary>
     internal Task NotifyToolAsync(string name) =>

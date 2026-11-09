@@ -488,7 +488,7 @@ public sealed class StepCachePipelineTests
         var step = await StepAsync(CustomersWorld(saved: false), new FileStepCache(directory), "/pricing", null, model);
 
         var opening = Text(model.Requests[0]);
-        Assert.Contains("1. navigate /customers\nReplay stopped (end-mismatch) after 1 of 1 recorded actions.\nEvery recorded action ran, but the screen does not show the recorded end state.", opening, StringComparison.Ordinal);
+        Assert.Contains("1. navigate to \"/customers\"\nReplay stopped (end-mismatch) after 1 of 1 recorded actions.\nEvery recorded action ran, but the screen does not show the recorded end state.", opening, StringComparison.Ordinal);
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), Info(step));
         Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker saved\"", step.Cache?.Detail);
     }

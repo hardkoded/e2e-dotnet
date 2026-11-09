@@ -290,13 +290,14 @@ public sealed class ReplayTraceBarePointTapsTests
         };
         var scroll = Scroll("group", "Rows 1 to 12", "down", 3);
         scroll.Spans = 0.3;
+        scroll.Summary = "scroll down x3";
 
         var outcome = await Replay.ReplayTrace(host, [scroll]);
 
         Assert.False(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
-        Assert.Equal([DefaultAgent.Describe(scroll) + " (1 of 3 repeats)"], outcome.Summaries);
+        Assert.Equal(["scroll down x3 (1 of 3 repeats)"], outcome.Summaries);
         Assert.Equal(["scroll"], host.Calls);
     }
 
