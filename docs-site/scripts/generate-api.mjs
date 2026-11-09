@@ -415,7 +415,14 @@ function isDocumentedType(item) {
 function isVisibleMember(item, parent) {
     if (String(item.uid).endsWith("*")) return false;
     if (parent?.type === "Enum" && item.type === "Field") return true;
-    return isVisible(item, parent);
+    // docfx reports no modifier on interface members; they are public when the interface is.
+    if (parent?.type === "Interface" && !typeKinds.has(item.type) && !isHiddenByModifier(item)) return true;
+    return isVisible(item);
+}
+
+function isHiddenByModifier(item) {
+    const mods = modifiers(item);
+    return mods.includes("private") || mods.includes("internal");
 }
 
 function isVisible(item) {
