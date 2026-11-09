@@ -319,6 +319,25 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
         return await DeviceSession.StartAsync(this, info, _createClient, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Ends the attempts running on this engine, within the cleanup budget: each one's dangling recording is stopped and its slot freed. Upstream's
+    /// worker-level <c>endAttempt</c>. Cold, with no attempt running, it is a no-op. The port's attempt is a <see cref="DeviceSession"/>, so the engine
+    /// closes the sessions it started.
+    /// </summary>
+    public async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        foreach (var session in ActiveSessions)
+        {
+            await session.CloseAsync(timeout, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Closes the sessions this engine started, within the cleanup budget. Upstream's worker-level <c>dispose</c>. Cold, with no attempt
+    /// running, it is a no-op.
+    /// </summary>
+    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) => EndAttemptAsync(timeout, cancellationToken);
+
     private static DeviceClientFactory ClientsOf(MobileOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
