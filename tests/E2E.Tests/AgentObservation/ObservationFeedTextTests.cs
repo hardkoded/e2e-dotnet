@@ -67,6 +67,28 @@ public sealed class ObservationFeedTextTests
     }
 
     [Fact]
+    public void Shows_the_text_the_tree_and_the_path_of_a_view_from_one_prepared_look_after_a_late_secret()
+    {
+        var scope = Scope();
+        var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
+        var look = new Observation
+        {
+            Route = "/pay?card=" + Value,
+            Location = "https://shop.test/pay?card=" + Value,
+            Roots = [new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value }],
+        };
+        _ = feed.View(look, scope, new ExecutorObserveOptions { Tree = true });
+
+        scope.Register("CARD", Value);
+        var view = feed.View(look, scope, new ExecutorObserveOptions { Tree = true });
+
+        Assert.Equal("/pay?card=%3Csecret:CARD%3E", view.Path);
+        Assert.Equal("Pay with <secret:CARD>", view.Tree!.Single().Name);
+        Assert.DoesNotContain(Value, view.Text, StringComparison.Ordinal);
+        Assert.Contains("<secret:CARD>", view.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Reuses_the_rendering_of_a_look_while_no_secret_is_registered()
     {
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = Scope() };
