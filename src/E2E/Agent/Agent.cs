@@ -1276,7 +1276,7 @@ internal static class Vision
     public const string HintUnproven = "the judge saw the semantic tree only; if the engine captures pixels, pass Vision = VisionMode.On when the answer is in pixels";
 }
 
-internal sealed class AttemptScope
+internal sealed class AttemptScope : ISecretFillRuntime
 {
     private readonly Dictionary<string, Func<TraceCallSignature, int>> _callIndexers = new(StringComparer.Ordinal);
     private readonly List<Secret> _secrets = [];
@@ -1758,6 +1758,20 @@ internal sealed class AttemptScope
         {
             _registered.Add((name, value));
         }
+    }
+
+    Secret? ISecretFillRuntime.RegisteredSecret(string name) => _secrets.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+
+    // A provider's value is computed for this fill and joins redaction before it is typed.
+    async Task<Secret> ISecretFillRuntime.ResolveAsync(Secret secret, CancellationToken cancellationToken)
+    {
+        var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
+        if (secret.Provider is not null)
+        {
+            Register(resolved.Name, resolved.Value);
+        }
+
+        return resolved;
     }
 
     /// <summary>
