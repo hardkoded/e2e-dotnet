@@ -417,7 +417,7 @@ internal sealed class StepTraceSession
     }
 
     // The summary the trace recorded (upstream's describeAction, written once), described afresh for an entry that holds none.
-    private static string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, Redactor.None);
+    private string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, _host.Redact);
 
     private long NowMs() => _host.Time.GetUtcNow().ToUnixTimeMilliseconds();
 

@@ -164,6 +164,9 @@ public sealed class AgentActOnActionTests
             Assert.Equal(new Point(300, 60), drag.From);
             Assert.Equal(new Point(200, 100), drag.To);
             Assert.Equal([ActionName.HoverAt, ActionName.TapAt, ActionName.DragAt], events.Select(e => e.ActionName));
+            // The summary names the point the event carries, a replayed one included.
+            Assert.Contains("the point (300, 60)", events[1].Summary, StringComparison.Ordinal);
+            Assert.Contains("to the point (200, 100)", events[2].Summary, StringComparison.Ordinal);
         }
 
         Assert.Equal(1, calls);
