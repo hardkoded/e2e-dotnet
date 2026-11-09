@@ -136,6 +136,7 @@ internal sealed class StepTraceSession
         cause is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" } or AgentException { FromActionHook: true } ? StepOutcome.NoVerdict : StepOutcome.Failed;
 
     private const string ReplayNoticeStart = "replayed ";
+    private const string StepPassedSummary = "step passed";
     private const string RecordedVerdictSeparator = "; recorded verdict: ";
 
     /// <summary>
@@ -152,6 +153,10 @@ internal sealed class StepTraceSession
         var at = summary.IndexOf(RecordedVerdictSeparator, StringComparison.Ordinal);
         return at == -1 ? summary : summary[(at + RecordedVerdictSeparator.Length)..];
     }
+
+    /// <summary>Upstream's <c>replaySummary</c>: the verdict summary of a step the cache replayed whole, the notice, then the recorded verdict.</summary>
+    private static string ReplaySummary(int executed, string? recorded) =>
+        ReplayNoticeStart + executed.ToString(CultureInfo.InvariantCulture) + " recorded action(s) zero-turn from the trace cache" + RecordedVerdictSeparator + (recorded ?? StepPassedSummary);
 
     /// <summary>Records one committed grammar action into the step trace.</summary>
     public void Record(RecordedAction action) => _recorder.Record(action);
@@ -207,7 +212,7 @@ internal sealed class StepTraceSession
     /// proven not to produce it. A step that failed or had no verdict stages nothing; the attempt's settlement evicts what a
     /// failed step consumed, and spares it when nothing judged the app.
     /// </summary>
-    public async Task ConcludeAsync(StepOutcome outcome, string? recordedBy = null)
+    public async Task ConcludeAsync(StepOutcome outcome, string? verdictSummary = null, string? recordedBy = null)
     {
         if (_handedOffMs is not null)
         {
@@ -249,7 +254,7 @@ internal sealed class StepTraceSession
         Pending.Completed = true;
         // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the last action's
         // change, held still. A step that took no action has nothing to record.
-        Pending.Entry = _options.Write && _start is not null && _recorder.RecordedCount > 0 ? await StageAsync(CacheEntry.ReadRecordedBy(recordedBy)).ConfigureAwait(false) : null;
+        Pending.Entry = _options.Write && _start is not null && _recorder.RecordedCount > 0 ? await StageAsync(verdictSummary, CacheEntry.ReadRecordedBy(recordedBy)).ConfigureAwait(false) : null;
         if (_changedNothing && !Pending.ReadEntry)
         {
             // A step that read an entry and recorded nothing evicts it at the settlement instead.
@@ -413,7 +418,7 @@ internal sealed class StepTraceSession
 
         _wholeReplay = _stored;
         _info = new CacheInfo { Mode = "self-finalized", Entry = Pending.Key, ReplayedActions = _recorder.RecordedCount, TotalActions = entry.Actions.Count };
-        return new StepVerdict(StepVerdictStatus.Passed, "Replayed recorded actions.");
+        return new StepVerdict(StepVerdictStatus.Passed, ReplaySummary(outcome.Executed, entry.Summary));
     }
 
     // The summary the trace recorded (upstream's describeAction, written once), described afresh for an entry that holds none.
@@ -529,7 +534,7 @@ internal sealed class StepTraceSession
     }
 
     // The cache is disposable: a passing step whose end screen cannot be read records nothing, and still passes.
-    private async Task<CacheEntry?> StageAsync(string? recordedBy)
+    private async Task<CacheEntry?> StageAsync(string? verdictSummary, string? recordedBy)
     {
         if (!_host.TraceEligible)
         {
@@ -537,12 +542,12 @@ internal sealed class StepTraceSession
         }
 
         var end = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
-        return end is null || !_host.TraceEligible ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, recordedBy);
+        return end is null || !_host.TraceEligible ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, verdictSummary, recordedBy);
     }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
     // its recording would replay on mechanics alone.
-    private CacheEntry? BuildEntry(PreparedObservation baseline, PreparedObservation end, string? recordedBy)
+    private CacheEntry? BuildEntry(PreparedObservation baseline, PreparedObservation end, string? verdictSummary, string? recordedBy)
     {
         var routeMoved = !CacheRoute.Same(ScreenPath(baseline), ScreenPath(end));
         var (appeared, gone) = Anchors.Describe(ProjectAgain(baseline), Project(end.Nodes), routeMoved);
@@ -555,7 +560,7 @@ internal sealed class StepTraceSession
         // How long the app took to show its end state after the last action, plus room for a slower day: the budget a replay waits
         // for the recorded end state to return. Measured from the last action, not the step's start: the model's thinking time before
         // that action is no reason for a replay, which does not think, to wait.
-        var entry = _recorder.Finalize(Pending.Step!, ScreenPath(_start!), ScreenPath(end), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs);
+        var entry = _recorder.Finalize(Pending.Step!, ScreenPath(_start!), ScreenPath(end), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs, verdictSummary);
 
         // Stored with a placeholder where each unique() value appeared, so the next run's values, a fresh timestamped name, replay the
         // same flow. A recording that cannot be templated safely is not written at all (upstream's templateTrace).

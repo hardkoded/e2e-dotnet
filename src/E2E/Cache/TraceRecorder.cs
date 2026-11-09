@@ -304,7 +304,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     /// route the redactor alters carried a secret (a token in a query string), and one too long to keep whole cannot be compared, so either marks
     /// the trace non-replayable rather than storing it bent.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null)
+    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null, string? summary = null)
     {
         ArgumentNullException.ThrowIfNull(step);
         if (_actions.Count == 0)
@@ -315,6 +315,9 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         var entry = new CacheEntry { Schema = step.Schema };
         entry.SetStep(step);
         entry.RecordedBy = CacheEntry.ReadRecordedBy(recordedBy is null ? null : redactor().Redact(recordedBy));
+        // Upstream's conclusion.summary: the recorded run's verdict, redacted and bounded, "step passed" when blank.
+        var verdict = TextRules.Bound(redactor().Redact(summary ?? ""), Trace.MaxTraceSummaryChars);
+        entry.Summary = string.IsNullOrWhiteSpace(verdict) ? "step passed" : verdict;
         entry.Route = AnchorPath(route);
         entry.EndRoute = AnchorPath(endRoute);
         entry.Actions = [.. _actions];
