@@ -440,8 +440,7 @@ internal sealed class SessionHost : IDisposable
             {
                 loadedTests?.Dispose();
             }
-
-            if (attempt is not null)
+            else
             {
                 await DisposeQuietlyAsync(attempt, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
             }

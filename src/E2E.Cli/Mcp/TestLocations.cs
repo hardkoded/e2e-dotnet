@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
-using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
 
 namespace E2E.Cli.Mcp;
@@ -51,7 +50,7 @@ internal static partial class TestLocations
         foreach (var (document, span) in Spans(method))
         {
             var path = Normalize(document);
-            if (path == wanted || path.EndsWith("/" + wanted.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(path, wanted, StringComparison.OrdinalIgnoreCase) || path.EndsWith("/" + wanted.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
             {
                 return span;
             }
@@ -67,21 +66,16 @@ internal static partial class TestLocations
     private static Dictionary<string, Span> Read(MethodInfo method)
     {
         Dictionary<string, Span> spans = new(StringComparer.Ordinal);
-        if (SessionTests.PathOf(method.Module.Assembly) is not { } dllPath)
+        // The bytes the assembly was loaded from, not the files now: a rebuild after the load must not change what its tokens mean.
+        if (SessionTests.BytesOf(method.Module.Assembly) is not { Pdb: { } pdb })
         {
             return spans;
         }
 
-        using var stream = File.OpenRead(dllPath);
-        using var pe = new PEReader(stream);
-        MetadataReaderProvider? embedded = null;
         MetadataReaderProvider? provider = null;
         try
         {
-            if (!pe.TryOpenAssociatedPortablePdb(dllPath, path => File.Exists(path) ? new MemoryStream(File.ReadAllBytes(path)) : null, out provider, out _))
-            {
-                return spans;
-            }
+            provider = MetadataReaderProvider.FromPortablePdbStream(new MemoryStream(pdb));
 
             var reader = provider!.GetMetadataReader();
             var points = PointsOf(reader, method.MetadataToken);
@@ -108,7 +102,6 @@ internal static partial class TestLocations
         finally
         {
             provider?.Dispose();
-            embedded?.Dispose();
         }
 
         return spans;
@@ -132,7 +125,7 @@ internal static partial class TestLocations
         }
 
         var name = Math.Min(bodyLine, lines.Length);
-        while (name > 1 && !lines[name - 1].Contains(methodName + "(", StringComparison.Ordinal) && bodyLine - name < 12)
+        while (name > 1 && (lines[name - 1].TrimStart().StartsWith('[') || !lines[name - 1].Contains(methodName + "(", StringComparison.Ordinal)) && bodyLine - name < 12)
         {
             name--;
         }

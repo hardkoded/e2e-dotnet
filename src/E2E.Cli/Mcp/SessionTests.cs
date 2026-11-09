@@ -17,7 +17,10 @@ internal static class SessionTests
 
     private static readonly Dictionary<string, ISessionTestRunner> Runners = new(StringComparer.Ordinal);
 
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Assembly, string> Paths = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Assembly, LoadedBytes> Loaded = new();
+
+    /// <summary>What a load read: the path, and the assembly and debug bytes the load used (a rebuild after the load does not change them).</summary>
+    internal sealed record LoadedBytes(string Path, byte[] Assembly, byte[]? Pdb);
 
     /// <summary>
     /// Loads <paramref name="assemblyPath"/> as it is now, into a load context of its own that <see cref="TestAssembly.Dispose"/> unloads: a test
@@ -35,8 +38,8 @@ internal static class SessionTests
         try
         {
             // Read into memory so the build output stays unlocked: the next build can replace it while a session is open.
-            var tests = context.LoadFromBytes(assemblyPath);
-            Paths.AddOrUpdate(tests, assemblyPath);
+            var (tests, bytes) = context.LoadFromBytes(assemblyPath);
+            Loaded.AddOrUpdate(tests, bytes);
             return new TestAssembly(tests, RunnerOf(assemblyPath, tests), context);
         }
         catch
@@ -47,7 +50,7 @@ internal static class SessionTests
     }
 
     /// <summary>The path <paramref name="tests"/> was loaded from (the load reads bytes, so <see cref="Assembly.Location"/> is empty).</summary>
-    internal static string? PathOf(Assembly tests) => Paths.TryGetValue(tests, out var path) ? path : null;
+    internal static LoadedBytes? BytesOf(Assembly tests) => Loaded.TryGetValue(tests, out var bytes) ? bytes : null;
 
     /// <summary>A test assembly loaded for one open; disposing it unloads its load context.</summary>
     internal sealed class TestAssembly(Assembly tests, ISessionTestRunner runner, AssemblyLoadContext context) : IDisposable
@@ -76,11 +79,22 @@ internal static class SessionTests
             }
 
             var resolver = new AssemblyDependencyResolver(assemblyPath);
-            Resolvers.Add(resolver);
-            if (Resolvers.Count == 1)
+            lock (Resolvers)
             {
-                AssemblyLoadContext.Default.Resolving += (context, name) =>
-                    Resolvers.Select(candidate => candidate.ResolveAssemblyToPath(name)).FirstOrDefault(path => path is not null) is { } path ? context.LoadFromAssemblyPath(path) : null;
+                Resolvers.Add(resolver);
+                if (Resolvers.Count == 1)
+                {
+                    AssemblyLoadContext.Default.Resolving += (context, name) =>
+                    {
+                        AssemblyDependencyResolver[] known;
+                        lock (Resolvers)
+                        {
+                            known = [.. Resolvers];
+                        }
+
+                        return known.Select(candidate => candidate.ResolveAssemblyToPath(name)).FirstOrDefault(path => path is not null) is { } path ? context.LoadFromAssemblyPath(path) : null;
+                    };
+                }
             }
 
             foreach (var reference in tests.GetReferencedAssemblies().Where(name => name.Name?.StartsWith("E2E.", StringComparison.Ordinal) == true))
@@ -102,31 +116,42 @@ internal static class SessionTests
     {
         private readonly AssemblyDependencyResolver _resolver = new(assemblyPath);
 
-        public Assembly LoadFromBytes(string path)
+        public (Assembly Tests, LoadedBytes Bytes) LoadFromBytes(string path)
         {
-            using var dll = new MemoryStream(File.ReadAllBytes(path));
+            var dllBytes = File.ReadAllBytes(path);
             var pdbPath = System.IO.Path.ChangeExtension(path, ".pdb");
-            if (!File.Exists(pdbPath))
+            var pdbBytes = File.Exists(pdbPath) ? File.ReadAllBytes(pdbPath) : null;
+            using var dll = new MemoryStream(dllBytes);
+            if (pdbBytes is null)
             {
-                return LoadFromStream(dll);
+                return (LoadFromStream(dll), new LoadedBytes(path, dllBytes, null));
             }
 
-            using var pdb = new MemoryStream(File.ReadAllBytes(pdbPath));
-            return LoadFromStream(dll, pdb);
+            using var pdb = new MemoryStream(pdbBytes);
+            return (LoadFromStream(dll, pdb), new LoadedBytes(path, dllBytes, pdbBytes));
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
         {
-            // What the default context can resolve is shared with the tool: a second copy of E2E or NUnit would not be the one the runner uses.
+            // The tool's own assemblies, the test framework, and what is already loaded are shared: a second copy of E2E or NUnit would not be
+            // the one the runner uses. What only the test project ships loads here, so a rebuilt helper is read again on the next open.
+            var name = assemblyName.Name ?? string.Empty;
+            var shared = name.StartsWith("E2E.", StringComparison.Ordinal) || name.StartsWith("NUnit", StringComparison.Ordinal)
+                || name.StartsWith("System.", StringComparison.Ordinal) || name.StartsWith("Microsoft.", StringComparison.Ordinal)
+                || Default.Assemblies.Any(loaded => string.Equals(loaded.GetName().Name, name, StringComparison.Ordinal));
+            if (!shared && _resolver.ResolveAssemblyToPath(assemblyName) is { } path)
+            {
+                return LoadFromAssemblyPath(path);
+            }
+
             try
             {
                 return Default.LoadFromAssemblyName(assemblyName);
             }
             catch (FileNotFoundException)
             {
+                return null;
             }
-
-            return _resolver.ResolveAssemblyToPath(assemblyName) is { } path ? LoadFromAssemblyPath(path) : null;
         }
     }
 
