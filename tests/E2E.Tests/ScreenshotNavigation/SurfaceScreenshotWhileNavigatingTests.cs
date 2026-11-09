@@ -44,7 +44,7 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     });
 
     [Fact]
-    public async Task Retries_the_capture_when_the_navigation_event_arrives_after_the_screenshot_error()
+    public async Task Partial_Retries_the_capture_when_the_navigation_event_arrives_after_the_screenshot_error()
     {
         var captures = 0;
         await WithSessionAsync(async (page, site, options) =>
