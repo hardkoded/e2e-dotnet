@@ -117,9 +117,8 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         });
     }
 
-    /// <summary>Partial: upstream also reads back a lone surrogate (<c>\ud800</c>) in a string result. <c>System.Text.Json</c> refuses to read one as a <c>string</c>, so the port cannot return it from <c>EvaluateAsync&lt;string&gt;</c> and the assertion is left out (#1456).</summary>
     [Fact]
-    public async Task Partial_Returns_JSON_only()
+    public async Task Returns_JSON_only()
     {
         await AttemptAsync(async session =>
         {
@@ -132,8 +131,8 @@ public sealed class BrowserEvaluateErrorBoundariesTests
                 [new Item("a"), new Item("a")],
                 (await session.Browser.EvaluateAsync<Item[]>("""() => { const item = { sku: "a" }; return [item, item]; }"""))!);
             Assert.Equal(
-                "quote \" line\n\u2028 \ud83d\ude00",
-                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00" """));
+                "quote \" line\n\u2028 \ud83d\ude00 lone \ud800",
+                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00 lone \ud800" """));
         });
     }
 
