@@ -136,6 +136,13 @@ internal static class Runner
 
                 // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
                 attempts.AddRange(report?.Run.Results.SelectMany(result => result.Attempts) ?? []);
+
+                // A body that returned while the session failed (a soft failure, a teardown) still failed the attempt.
+                if (error is null && report?.Run.Results.SelectMany(result => result.Attempts).LastOrDefault() is { Status: not (E2E.Reports.AttemptStatus.Passed or E2E.Reports.AttemptStatus.Skipped), Error: { } sessionError })
+                {
+                    error = new TestException(sessionError.Code, sessionError.Message);
+                }
+
                 exitCodes.AddRange(cleanup.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)));
                 if (error is null)
                 {
@@ -161,7 +168,7 @@ internal static class Runner
         var cleanupFailed = exitCodes.Any(code => code != 0) && errors.Count == 0;
         var status = cleanupFailed ? RunStatus.Failed : errors.Count == 0 ? RunStatus.Passed : errors.All(error => error is E2EException known && StatusOf(known) == RunStatus.Blocked) ? RunStatus.Blocked : RunStatus.Failed;
         var exitCode = ErrorSerializer.CombineExitCodes(exitCodes);
-        var merged = first is null ? new Report() : first with { Run = first.Run with { Results = results, ExitCode = exitCode, Status = status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : E2E.ReportRunStatus.Failed } };
+        var merged = first is null ? new Report { Run = new E2E.Reports.ReportRun { ExitCode = exitCode, Status = status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : E2E.ReportRunStatus.Failed } } : first with { Run = first.Run with { Results = results, ExitCode = exitCode, Status = status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : E2E.ReportRunStatus.Failed } };
         return new RunOutcome(exitCode, status, merged);
     }
 
@@ -178,6 +185,31 @@ internal static class Runner
         protected override IEngine CreateEngine() => options.Engine ?? TargetEngines.Create(Config.Target, null, null, null);
 
         protected override string? ResultsDirectory => OutputLayout.Of(Config.ResolveOutput(options.Output)).Results;
+
+        // The fixture's own settings read the run's environment, not the process's, when the run is given one.
+        private string? FromEnv(string name) => options.Env is { } env ? env.GetValueOrDefault(name) : Environment.GetEnvironmentVariable(name);
+
+        private bool EnvOn(string name) => FromEnv(name)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
+        protected override string? RunAgent => FromEnv("E2E_AGENT")?.Trim() is { Length: > 0 } name ? name : null;
+
+        protected override bool Debug => EnvOn("E2E_DEBUG");
+
+        protected override bool AiTrace => EnvOn("E2E_AI_TRACE");
+
+        protected override bool UpdateSnapshots => FromEnv("E2E_UPDATE_SNAPSHOTS")?.Trim() == "1";
+
+        protected override TimeSpan JudgmentTimeout => Default.JudgmentTimeout;
+
+        protected override int MaxObservationBytes => Default.MaxObservationBytes;
+
+        protected override int MaxInputTokens => Default.MaxInputTokens;
+
+        protected override IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => Default.ProviderOptions;
+
+        protected override int MaxModelCalls => Default.MaxModelCalls ?? E2EDefaults.MaxModelCalls;
+
+        protected override int MaxSteps => Default.MaxSteps ?? E2EDefaults.MaxSteps;
 
         private AgentOptions Default => options.Agents?.GetValueOrDefault("default") ?? Config.Agent.CreateOptions();
 
@@ -232,7 +264,7 @@ internal static class Runner
                     await test.Body(session).ConfigureAwait(false);
                     await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
+                catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
                 {
                     // Whatever the body throws fails the test, as upstream's runner reads any error a test throws.
                     error = ex;
