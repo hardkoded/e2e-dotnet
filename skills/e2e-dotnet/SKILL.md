@@ -321,6 +321,9 @@ lines you changed:
   finds a `contenteditable` host only with `role="textbox"` on it (otherwise
   use `GetByLabel` or `GetByTestId`), and a `Regex` is a JavaScript regular
   expression tested against the raw text (topic `writing-tests`).
+- On the web the observation reads an empty painted rectangle (no children, no text, no role, a background, border, or
+  outline, at least 12 CSS pixels on each side: a canvas node, a drop zone, a swatch) as role `box`. It is for the agent and
+  for `GetByTestId`; `GetByRole` has no `box`.
 - Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
   of the four, at least one. `hasText` and `hasNotText` are case-insensitive
   substrings (or a `Regex`) over the subtree text. `has` keeps, and `hasNot`
