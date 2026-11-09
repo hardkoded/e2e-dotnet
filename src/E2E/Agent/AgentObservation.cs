@@ -126,7 +126,7 @@ internal sealed record PreparedObservation
 internal static partial class AgentObservation
 {
     /// <summary>Poll interval for shape-stability settling.</summary>
-    private static readonly TimeSpan SettlePoll = TimeSpan.FromMilliseconds(75);
+    internal static readonly TimeSpan SettlePoll = TimeSpan.FromMilliseconds(75);
 
     private static readonly Regex Reference = new(@"^( *)#\S+ ", RegexOptions.CultureInvariant | RegexOptions.Multiline);
 

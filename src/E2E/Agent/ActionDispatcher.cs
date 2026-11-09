@@ -577,16 +577,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         var still = 0;
         for (var screens = 0; ; screens++)
         {
-            // A settled look after each page: a browser scrolls on a later frame than the wheel event, and a windowed
-            // list renders its rows on a later scroll event, so a raw read right after the swipe sees the page as it was.
-            // A page at least a third (two lines at least) of whose lines are new and that is no sparser has landed, so it
-            // is read once; one that reads the same (not rendered yet, or the end), differs by a line or two (a counter),
-            // or is thinner (rows still drawing) is read until it holds.
-            var observation = await _feed.ObserveAsync(
-                screens == 0 ? SettleMode.Raw : SettleMode.HeldStill,
-                "page",
-                seen => previous is not null && !seen.TreeUnavailable && Reading.PageLanded(previous, Reading.ReadPage(seen)),
-                token).ConfigureAwait(false);
+            // A page at least a third (two lines at least) of whose lines are new, and no sparser, has landed and is read once.
+            // Anything else is read until it holds. A screen that still matches the one before the swipe is not done holding
+            // after two polls: a list that appends when it reaches the end does so after that, and those polls would call the
+            // list ended. It is re-read for the held-still beat.
+            var observation = screens == 0
+                ? await _feed.ObserveAsync(SettleMode.Raw, "page", null, token).ConfigureAwait(false)
+                : await ReadScrolledPageAsync(previous, token).ConfigureAwait(false);
             if (screens == 0)
             {
                 _feed.MarkActing();
@@ -627,6 +624,38 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             list = turned.Within;
         }
     }
+
+    // The screen after one page of a scroll to text (upstream's readScrolledPage). A landed page, or one that changed and then
+    // held, is returned as the held-still look reads it. A page that has not moved at all is re-read until it does, or the beat
+    // runs out.
+    private async Task<Observation> ReadScrolledPageAsync(PageReading? previous, CancellationToken token)
+    {
+        bool Landed(Observation seen) => previous is not null && !seen.TreeUnavailable && Reading.PageLanded(previous, Reading.ReadPage(seen));
+
+        // The screen still reads as the one from before the swipe, so a late append may still be coming.
+        bool StillThere(Observation seen) => previous is not null && !seen.TreeUnavailable && !Reading.PageMoved(previous, Reading.ReadPage(seen));
+
+        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, "page", Landed, token).ConfigureAwait(false);
+
+        // The beat starts when that look returns. The look can itself spend a second on a shape that never settles, and that
+        // second is not the wait for a list that appends after the screen has held.
+        var beatEnds = DateTimeOffset.UtcNow + SettlePolicy.HeldStill;
+        while (StillThere(observation) && _accounting.RemainingMs() > AgentObservation.SettlePoll.TotalMilliseconds)
+        {
+            var pause = Min(AgentObservation.SettlePoll, beatEnds - DateTimeOffset.UtcNow);
+            if (pause <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(pause, token).ConfigureAwait(false);
+            observation = await _feed.ObserveAsync(SettleMode.Raw, "page", null, token).ConfigureAwait(false);
+        }
+
+        return observation;
+    }
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
     // One page of a scroll to a text: on the re-found list, else on the viewport, which also takes over for good once the
     // list cannot be re-found. What was paged goes into the record, and the list to page next (upstream's page).

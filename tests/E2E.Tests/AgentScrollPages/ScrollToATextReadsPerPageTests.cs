@@ -26,6 +26,15 @@ public sealed class ScrollToATextReadsPerPageTests
     }
 
     [Fact]
+    public async Task Keeps_reading_a_page_that_turns_after_the_stability_poll_instead_of_ending_the_list()
+    {
+        var result = await ScrollToAsync("Row 7", Turning.Deferred);
+        Assert.Null(result.Error);
+        Assert.Contains("Row 7", result.Found, StringComparison.Ordinal);
+        Assert.Equal(2, result.Swipes);
+    }
+
+    [Fact]
     public async Task Keeps_reading_a_page_the_swipe_had_not_turned_yet_and_does_not_page_past_it()
     {
         var result = await ScrollToAsync("Row 7", Turning.Late);
