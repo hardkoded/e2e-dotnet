@@ -45,7 +45,10 @@ public sealed class TheReplayCacheTests
         }
         finally
         {
-            Directory.Delete(directory, recursive: true);
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
         }
     }
 

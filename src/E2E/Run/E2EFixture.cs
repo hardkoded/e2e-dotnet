@@ -49,10 +49,10 @@ public abstract class E2EFixture
     protected virtual IEngine CreateEngine() => new WebEngine();
 
     /// <summary>The model for <c>agents.default</c>, or null when the config sets no model.</summary>
-    protected virtual IAgentModel? CreateModel() => HostedConfig.Agent.CreateModel();
+    protected virtual IAgentModel? CreateModel() => HostedConfig.Agent.CreateModel() ?? Config.Agent.CreateModel();
 
     /// <summary>The judge for <c>agents.default</c>: <c>agents.default.judge</c>, or null to judge with <see cref="CreateModel"/>.</summary>
-    protected virtual IAgentModel? CreateJudge() => HostedConfig.Agent.CreateJudge();
+    protected virtual IAgentModel? CreateJudge() => HostedConfig.Agent.CreateJudge() ?? Config.Agent.CreateJudge();
 
     /// <summary>
     /// The named agents besides <c>default</c>, picked per call with the <c>Agent</c> option.
