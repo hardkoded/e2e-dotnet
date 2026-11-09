@@ -1,0 +1,12 @@
+@implements IDisposable
+@inject Portal Portal
+@* The target of upstream's createPortal(..., document.body): .NET-only, see Portal. *@
+@Portal.Content
+
+@code {
+    protected override void OnInitialized() => Portal.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Portal.Changed -= OnChanged;
+}

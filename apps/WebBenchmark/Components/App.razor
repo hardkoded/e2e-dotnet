@@ -21,6 +21,16 @@
 </head>
 <body>
     <Routes />
+    @* Where a scenario's portal content lands (upstream's createPortal(..., document.body)); only scenario pages have a circuit to share. *@
+    @if (HttpContext?.Request.Path.StartsWithSegments("/e") == true)
+    {
+        <PortalHost @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    }
     <script src="_framework/blazor.web.js"></script>
 </body>
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+}

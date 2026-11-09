@@ -1,0 +1,180 @@
+@using System.Text.RegularExpressions
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/DebouncedSearch.tsx.
+   Sabotage scenario: the results listbox is rendered through a portal onto document.body (here: Portal and PortalHost), so it is
+   detached from the combobox in the DOM tree - agents that only search inside the input's ancestors never find the options. The
+   query is debounced and followed by a fake search delay, and the dataset is full of near-identical decoys one character away from
+   the target. *@
+@implements IDisposable
+@inject IJSRuntime JS
+@inject Portal Portal
+@if (_done)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Added @Target to the cart
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Search for trail mix and pick exactly @Target.</p>
+        <input @ref="_input" data-testid="search-input" style="@Input" role="combobox" aria-expanded="@(_results is not null ? "true" : "false")" placeholder="Search snacks" @oninput="HandleChange" />
+        @if (_searching)
+        {
+            <p data-testid="searching" style="@SearchingText">
+                Searching…
+            </p>
+        }
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                @_error
+            </p>
+        }
+    </div>
+}
+
+@code {
+    private const int DebounceMs = 500;
+    private const int SearchMs = 700;
+    private const string Target = "Trail Mix 500 g";
+
+    private static readonly string[] Items =
+    [
+        "Trail Mix 250 g",
+        "Trail Mix 500 g",
+        "Trail Mix 750 g",
+        "Trial Mix 500 g",
+        "Nut Mix 500 g",
+        "Trail Mix 500 mg",
+        "Trail Max 500 g",
+        "Fruit Mix 500 g",
+        "Trail Mix 50 g",
+        "Seed Mix 500 g",
+    ];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Input = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string SearchingText = "font-size: 14px; color: #333; text-align: center; margin: 0;";
+    private const string Listbox = "position: fixed; z-index: 40; margin: 0; padding: 4px; list-style: none; background-color: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);";
+    private const string Option = "padding: 8px 10px; font-size: 15px; border-radius: 6px; cursor: pointer;";
+    private const string EmptyOption = "padding: 8px 10px; font-size: 14px; color: #666;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private sealed record BoundingRect(double Bottom, double Left, double Width);
+
+    private ElementReference _input;
+    private bool _searching;
+    private string[]? _results;
+    private string? _error;
+    private bool _done;
+    private BoundingRect _listboxPosition = new(0, 0, 0);
+
+    // Upstream's debounceRef and searchRef timers; one token cancels whichever is pending.
+    private CancellationTokenSource _timers = new();
+    private readonly CancellationTokenSource _disposed = new();
+
+    private static string ToKebab(string name) => Regex.Replace(name.ToLowerInvariant(), @"\s+", "-");
+
+    protected override void OnInitialized() => Portal.Show(ListboxFragment);
+
+    /// <summary>The listbox as it is rendered into <c>document.body</c> (upstream's <c>createPortal(&lt;ul role="listbox"&gt;..., document.body)</c>).</summary>
+    private RenderFragment ListboxFragment => @<text>
+        @if (_results is { } results)
+        {
+            <ul role="listbox" style="@ListboxStyle">
+                @if (results.Length == 0)
+                {
+                    <li style="@EmptyOption">No matches</li>
+                }
+                else
+                {
+                    @foreach (var item in results)
+                    {
+                        <li @key="item" role="option" aria-selected="false" data-testid="@($"option-{ToKebab(item)}")" style="@Option" @onclick="() => HandleSelect(item)">@item</li>
+                    }
+                }
+            </ul>
+        }
+    </text>;
+
+    private string ListboxStyle => FormattableString.Invariant($"{Listbox} top: {_listboxPosition.Bottom + 4}px; left: {_listboxPosition.Left}px; width: {_listboxPosition.Width}px;");
+
+    /// <summary>
+    /// Debounces the query, simulates a search round trip, then measures the input rect so the portal listbox can be pinned directly
+    /// under it.
+    /// </summary>
+    // The input keeps no value binding: its text lives in the browser. A Blazor server round trip would write a stale value back over
+    // characters typed meanwhile, and the query is only ever changed by typing.
+    private void HandleChange(ChangeEventArgs args)
+    {
+        var value = args.Value as string ?? "";
+        _results = null;
+        _searching = false;
+        Portal.Refresh();
+        CancelTimers();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        _timers = CancellationTokenSource.CreateLinkedTokenSource(_disposed.Token);
+        _ = SearchAsync(value, _timers.Token);
+    }
+
+    private async Task SearchAsync(string value, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(DebounceMs, token);
+            _searching = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(SearchMs, token);
+            var matches = Items.Where(item => item.Contains(value.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+            // getBoundingClientRect.call(input): Blazor interop cannot name Element.prototype, so the method is reached through document.body.
+            var rect = await JS.InvokeAsync<BoundingRect>("document.body.getBoundingClientRect.call", token, _input);
+            _listboxPosition = rect;
+            _searching = false;
+            _results = matches;
+            Portal.Refresh();
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException or JSException)
+        {
+            // Superseded by a newer keystroke, or the page went away.
+        }
+    }
+
+    private void CancelTimers()
+    {
+        _timers.Cancel();
+        _timers.Dispose();
+        _timers = new CancellationTokenSource();
+    }
+
+    private void HandleSelect(string item)
+    {
+        if (item == Target)
+        {
+            _error = null;
+            _results = null;
+            _done = true;
+            Portal.Refresh();
+            return;
+        }
+
+        _error = "Wrong item, look closer";
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _timers.Dispose();
+        _disposed.Dispose();
+        Portal.Show(null);
+    }
+}

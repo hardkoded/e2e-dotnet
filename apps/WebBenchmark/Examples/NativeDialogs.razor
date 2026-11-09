@@ -1,0 +1,73 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/NativeDialogs.tsx. *@
+@inject IJSRuntime JS
+@if (_done)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Order placed with code @GiftCode
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">
+            Place the order, confirm the dialog, enter gift code @GiftCode when prompted.
+        </p>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                @_error
+            </p>
+        }
+        <button type="button" data-testid="place-order-button" style="@Button" @onclick="HandlePlaceOrderAsync">
+            Place order
+        </button>
+    </div>
+}
+
+@code {
+    private const string GiftCode = "GIFT-7";
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private string? _error;
+    private bool _done;
+
+    /// <summary>
+    /// Runs the order through a chain of native browser dialogs - confirm, prompt, then alert. These dialogs live outside the DOM
+    /// entirely, so DOM-only agents see nothing; the driver must answer them at the browser level for the flow to proceed.
+    /// </summary>
+    private async Task HandlePlaceOrderAsync()
+    {
+        try
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Place this order?");
+            if (!confirmed)
+            {
+                _error = "Order was cancelled";
+                return;
+            }
+
+            var code = await JS.InvokeAsync<string?>("prompt", "Enter your gift code");
+            if (code is null || code.Trim() != GiftCode)
+            {
+                _error = "Invalid gift code";
+                return;
+            }
+
+            await JS.InvokeVoidAsync("alert", "Order placed. Thank you!");
+            _error = null;
+            _done = true;
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away: there is no page left to ask.
+        }
+    }
+}
