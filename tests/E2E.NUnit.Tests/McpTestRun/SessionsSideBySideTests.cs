@@ -8,10 +8,13 @@ namespace E2E.NUnit.Tests.McpTestRun;
 
 /// <summary>
 /// <c>describe('sessions side by side')</c> of <c>tests/integration/mcp-test-run.test.ts</c> (tester-army/e2e#1315). Both <c>it</c>s run through
-/// <see cref="SessionHost"/> in process, as upstream's <c>inProcessHost</c> does, on a real browser at the testbed. The tests run in a load context of
-/// their own (the test assembly loads again on every open), so the fixtures reach the test driver through <see cref="AppContext"/> data, as upstream's
-/// fixtures reach it through <c>globalThis</c>. Upstream's top-level <c>await</c> that holds collection's slot has no .NET equivalent (collection runs
-/// once per load, not per turn): <see cref="SlowLoadFixture"/> holds its set-up for the same 300 ms instead.
+/// <see cref="SessionHost"/> in process, as upstream's <c>inProcessHost</c> does, on a real browser at the testbed. Both are <c>Partial_</c>: the
+/// open's text is the port's (<c>Test "&lt;full name&gt;" ended without failing after ...</c>, which names the test by its NUnit full name and does not
+/// say <c>passed</c> or give <c>file:line</c>, see COMPATIBILITY.md), so the tests check the outcome and not the text upstream matches. The tests run in
+/// a load context of their own (the test assembly loads again on every open), so the fixtures reach the test driver through <see cref="AppContext"/>
+/// data, as upstream's fixtures reach it through <c>globalThis</c>. Upstream's top-level <c>await</c> that holds collection's slot has no .NET
+/// equivalent (collection runs once per load, not per turn): <see cref="SlowLoadFixture"/> holds its set-up for the same 300 ms instead. Collection
+/// (<c>SessionTests.SelectOne</c>) takes no turn: it reads the test assembly and runs no user code.
 /// </summary>
 public sealed class SessionsSideBySideTests
 {
@@ -26,7 +29,7 @@ public sealed class SessionsSideBySideTests
 
     [Test]
     [NonParallelizable]
-    public async Task Runs_none_of_a_test_whose_open_was_cancelled_while_it_waited_for_its_turn()
+    public async Task Partial_Runs_none_of_a_test_whose_open_was_cancelled_while_it_waited_for_its_turn()
     {
         var dir = Directory.CreateTempSubdirectory("e2e-side-by-side-").FullName;
         var marked = Path.Combine(dir, "marked.txt");
@@ -65,7 +68,7 @@ public sealed class SessionsSideBySideTests
 
     [Test]
     [NonParallelizable]
-    public async Task Collect_and_run_their_tests_one_at_a_time_and_both_pass()
+    public async Task Partial_Collect_and_run_their_tests_one_at_a_time_and_both_pass()
     {
         var dir = Directory.CreateTempSubdirectory("e2e-side-by-side-").FullName;
         try
