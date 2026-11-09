@@ -415,16 +415,21 @@ function isDocumentedType(item) {
 function isVisibleMember(item, parent) {
     if (String(item.uid).endsWith("*")) return false;
     if (parent?.type === "Enum" && item.type === "Field") return true;
-    return isVisible(item, parent);
+    // docfx reports no modifier on interface members; they are public when the interface is.
+    if (parent?.type === "Interface" && !typeKinds.has(item.type) && !isHiddenByModifier(item)) return true;
+    return isVisible(item);
 }
 
-function isVisible(item, parent) {
+function isHiddenByModifier(item) {
+    const mods = modifiers(item);
+    return mods.includes("private") || mods.includes("internal");
+}
+
+function isVisible(item) {
     const mods = modifiers(item);
     if (mods.includes("private")) return false;
     if (mods.includes("public") || mods.includes("protected")) return true;
     if (mods.includes("internal")) return false;
-    // docfx reports no modifier on interface members; they are public when the interface is.
-    if (parent?.type === "Interface" && !typeKinds.has(item.type)) return true;
     return /^\s*(?:\[[^\]]+\]\s*)*(public|protected)\b/m.test(syntaxText(item));
 }
 
