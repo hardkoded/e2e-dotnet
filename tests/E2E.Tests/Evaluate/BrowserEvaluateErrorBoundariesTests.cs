@@ -117,7 +117,7 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         });
     }
 
-    /// <summary>Partial: upstream also reads back a lone surrogate (<c>\ud800</c>) in a string result. <c>System.Text.Json</c> refuses to read one as a <c>string</c>, so the port cannot return it from <c>EvaluateAsync&lt;string&gt;</c> and the assertion is left out.</summary>
+    /// <summary>Partial: upstream also reads back a lone surrogate (<c>\ud800</c>) in a string result. <c>System.Text.Json</c> refuses to read one as a <c>string</c>, so the port cannot return it from <c>EvaluateAsync&lt;string&gt;</c> and the assertion is left out (#1456).</summary>
     [Fact]
     public async Task Partial_Returns_JSON_only()
     {

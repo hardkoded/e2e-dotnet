@@ -194,11 +194,8 @@ public sealed class LocatorsInsideClosedShadowRootsTests
         });
     }
 
-    private static async Task WithScreenAsync(Func<Screen, Task> body)
-    {
-        using var site = await FixtureApp.StartAsync();
-        await WithScreenAsync(site, body);
-    }
+    private static Task WithScreenAsync(Func<Screen, Task> body) =>
+        WithSessionAsync(session => body(session.Screen));
 
     private static Task WithScreenAsync(TinySite site, Func<Screen, Task> body) =>
         WithSessionAsync(site, session => body(session.Screen));
