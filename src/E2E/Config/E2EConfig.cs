@@ -83,9 +83,9 @@ public sealed class E2EConfig
     private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
     private static readonly string[] AgentKeys =
-        ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "maxObservationBytes", "maxInputTokens", "providerOptions"];
+        ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "maxObservationBytes", "maxInputTokens", "providerOptions", "tools"];
 
-    private static readonly string[] UnsupportedAgentKeys = ["tools", "executor"];
+    private static readonly string[] UnsupportedAgentKeys = ["executor"];
 
     private static readonly string[] CacheKeys = ["mode", "dir", "strict"];
 
@@ -519,7 +519,7 @@ public sealed class E2EConfig
             ReadArtifacts(Property(root, "artifacts"));
             // The port's `--agent` is one name in E2E_AGENT; flags passed by code win over it.
             var selected = cli.Agents ?? (environment("E2E_AGENT")?.Trim() is { Length: > 0 } run ? [run] : null);
-            var agents = ResolveAgents(Property(root, "agents"), selected);
+            var agents = ResolveAgents(Property(root, "agents"), selected, projectRoot);
             return new E2EConfig
             {
                 ConfigPath = configPath,
@@ -743,7 +743,7 @@ public sealed class E2EConfig
     /// Upstream's <c>resolveAgents</c>: every named entry, and <c>default</c> even when the config names none. The run's agents are
     /// <c>default</c> alone unless <c>--agent</c> named others; an unknown name is a config error before anything starts.
     /// </summary>
-    private static (ReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyList<string> AgentNames) ResolveAgents(JsonElement? raw, IReadOnlyList<string>? selected)
+    private static (ReadOnlyDictionary<string, AgentConfig> Agents, IReadOnlyList<string> AgentNames) ResolveAgents(JsonElement? raw, IReadOnlyList<string>? selected, string projectRoot)
     {
         var agents = new Dictionary<string, AgentConfig>(StringComparer.Ordinal);
         if (raw is not null)
@@ -809,6 +809,7 @@ public sealed class E2EConfig
                         ? Integer(tokens, label + ".maxInputTokens", 1, ResolvedAgent.MaxInputTokensLimit)
                         : E2EDefaults.MaxInputTokens,
                     ProviderOptions = ReadProviderOptions(Property(value, "providerOptions"), label),
+                    Tools = Property(value, "tools") is { } tools ? CommandTool.Read(tools, label + ".tools", projectRoot) : null,
                 };
             }
         }
@@ -1681,6 +1682,9 @@ public sealed class AgentConfig
     /// <summary>Provider options by provider. Each client adds the entry under its own key to its request body.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
+    /// <summary>The project tools <c>tools</c> declares, each a command (.NET-only: upstream's config holds <c>defineTool</c> calls, and a JSON file has no code). Null when the entry declares none.</summary>
+    public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
+
     private IAgentModel? _modelInstance;
     private IAgentModel? _judgeInstance;
 
@@ -1713,6 +1717,7 @@ public sealed class AgentConfig
             MaxObservationBytes = MaxObservationBytes,
             MaxInputTokens = MaxInputTokens,
             ProviderOptions = ProviderOptions,
+            Tools = Tools,
         };
     }
 

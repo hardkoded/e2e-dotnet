@@ -33,8 +33,11 @@ providers and their logins):
 
 - An agents entry takes `provider`, `model`, `judge`, `baseUrl`, `apiKeyEnv`,
   `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`,
-  `maxObservationBytes`, `maxInputTokens`, and `providerOptions`. None inherits
+  `maxObservationBytes`, `maxInputTokens`, `providerOptions`, and `tools`. None inherits
   from `default`.
+- `tools` declares project tools as commands: `{ "description", "mutates", "command": [program, args...], "inputSchema"?, "platforms"? }`.
+  The command runs in the project root with the model's input as JSON on stdin; its stdout is the answer, its stderr is printed redacted, and a
+  non-zero exit or two minutes without an exit fails the call. `e2e mcp` serves it beside the session's tools. Tools written as code are `AgentTools`.
 - `maxObservationBytes` (1024 through 16777216, default 262144) is the observation
   payload ceiling for act turns and judgments. `maxInputTokens` (1 through
   1000000, default 64000) is the input one model request may carry, counted in

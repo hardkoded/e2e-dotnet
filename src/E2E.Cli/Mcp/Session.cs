@@ -413,7 +413,10 @@ internal sealed class SessionHost : IDisposable
                 new TestLineFills([.. config.Credentials.Values.Select(credential => new TestLineCredential(credential.Name, credential.Username, credential.Password.Name))], [.. config.Secrets.Names]),
                 session.Engine.ActionKinds,
                 session.Engine.PointerActionKinds,
-                session.Engine.CanDismissKeyboard);
+                session.Engine.CanDismissKeyboard,
+                config.Agent.Tools,
+                target.Platform,
+                message => Log("warning", message));
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
             var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
