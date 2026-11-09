@@ -1,3 +1,4 @@
+@using System.Globalization
 @* Upstream's app/src/Examples/CheckoutReview.tsx. *@
 @if (_placed)
 {
@@ -18,7 +19,7 @@ else
             {
                 <li @key="line.Id" style="@Row">
                     <span>@line.Name x@(line.Quantity)</span>
-                    <span style="@LineTotal">$@line.Total.ToString("F2")</span>
+                    <span style="@LineTotal">$@line.Total.ToString("F2", CultureInfo.InvariantCulture)</span>
                 </li>
             }
         </ul>

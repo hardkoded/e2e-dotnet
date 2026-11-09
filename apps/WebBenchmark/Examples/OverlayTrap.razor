@@ -82,8 +82,16 @@ else
             return;
         }
 
-        _overlayVisible = true;
-        StateHasChanged();
+        await InvokeAsync(() =>
+        {
+            if (_disposed.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _overlayVisible = true;
+            StateHasChanged();
+        });
     }
 
     /// <summary>

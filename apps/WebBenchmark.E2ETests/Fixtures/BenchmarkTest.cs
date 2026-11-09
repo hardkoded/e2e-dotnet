@@ -15,7 +15,8 @@ public abstract class BenchmarkTest : E2ETest
     [OneTimeSetUp]
     public void DeclareTheBenchmarkAccount()
     {
-        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME") ?? "tester@tester.army");
-        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD") ?? "benchmark123");
+        // Set unconditionally: the page hardcodes this account, so an ambient value would make the valid sign-in fail.
+        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME", "tester@tester.army");
+        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD", "benchmark123");
     }
 }

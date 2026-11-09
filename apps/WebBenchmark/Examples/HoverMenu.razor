@@ -162,16 +162,23 @@ else
             return;
         }
 
-        await InvokeAsync(() =>
+        try
         {
-            if (cancellationToken.IsCancellationRequested)
+            await InvokeAsync(() =>
             {
-                return;
-            }
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            action();
-            StateHasChanged();
-        });
+                action();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The circuit went away while the timer ran: nothing is left to close.
+        }
     }
 
     private static void Cancel(ref CancellationTokenSource? timer)
