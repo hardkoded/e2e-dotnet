@@ -264,7 +264,7 @@ public IAgentModel? CreateJudge()
 ```
 
 
-The model for [Judge](#E2E_AgentConfig_Judge), or null when no judge is set.
+The model for [Judge](#E2E_AgentConfig_Judge), or null when no judge is set. A judge instance `WithModel` gave wins.
 
 **Returns:** [IAgentModel](/api/E2E/IAgentModel/)
 
@@ -279,7 +279,7 @@ public IAgentModel? CreateModel()
 ```
 
 
-The model for [Model](#E2E_AgentConfig_Model), or null when no model is set.
+The model for [Model](#E2E_AgentConfig_Model), or null when no model is set. A model instance `WithModel` gave wins.
 
 **Returns:** [IAgentModel](/api/E2E/IAgentModel/)
 

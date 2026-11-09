@@ -36,6 +36,12 @@ public abstract class E2EFixture
     /// <summary>The discovered <c>e2e.config.json</c>, or the defaults when there is none. Loaded once per test run.</summary>
     protected virtual E2EConfig Config => DiscoveredConfig.Value;
 
+    /// <summary>
+    /// What the agent model, judge, named agents, and replay cache read: the config a host loaded for the test it runs (<c>open_session {test}</c>),
+    /// else <see cref="Config"/>. .NET-only: upstream runs the test with the host's resolved config.
+    /// </summary>
+    private E2EConfig HostedConfig => SessionHandover.HostConfig ?? Config;
+
     /// <summary>Secrets declared in the config, with <c>E2E_SECRET_{NAME}</c> overrides.</summary>
     protected Secrets Secrets => Config.Secrets;
 
@@ -43,10 +49,10 @@ public abstract class E2EFixture
     protected virtual IEngine CreateEngine() => new WebEngine();
 
     /// <summary>The model for <c>agents.default</c>, or null when the config sets no model.</summary>
-    protected virtual IAgentModel? CreateModel() => Config.Agent.CreateModel();
+    protected virtual IAgentModel? CreateModel() => HostedConfig.Agent.CreateModel();
 
     /// <summary>The judge for <c>agents.default</c>: <c>agents.default.judge</c>, or null to judge with <see cref="CreateModel"/>.</summary>
-    protected virtual IAgentModel? CreateJudge() => Config.Agent.CreateJudge();
+    protected virtual IAgentModel? CreateJudge() => HostedConfig.Agent.CreateJudge();
 
     /// <summary>
     /// The named agents besides <c>default</c>, picked per call with the <c>Agent</c> option.
@@ -54,7 +60,7 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual IReadOnlyDictionary<string, AgentOptions> CreateAgents()
     {
-        return Config.Agents
+        return HostedConfig.Agents
             .Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal))
             .ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
     }
@@ -85,7 +91,7 @@ public abstract class E2EFixture
     }
 
     /// <summary><c>agents.default.system</c>: text appended to the act rules.</summary>
-    protected virtual string? AgentSystem => Config.Agent.System;
+    protected virtual string? AgentSystem => HostedConfig.Agent.System;
 
     /// <summary>The project tools of <c>agents.default</c>, offered to the model beside the agent's own. None by default; a device test passes <c>MobileTools.Create(engine)</c>.</summary>
     protected virtual IReadOnlyDictionary<string, AgentTool>? AgentTools => null;
@@ -103,7 +109,7 @@ public abstract class E2EFixture
     protected virtual IArtifactStore? ArtifactStore => Config.ArtifactStore;
 
     /// <summary><c>agents.default.context</c>: project context told to every model call.</summary>
-    protected virtual string? AgentContext => Config.Agent.Context;
+    protected virtual string? AgentContext => HostedConfig.Agent.Context;
 
     /// <summary>
     /// <c>E2E_AGENT</c>: the agent that calls use when neither the call nor the test (<see cref="AgentAttribute"/>) names one,
@@ -112,16 +118,16 @@ public abstract class E2EFixture
     protected virtual string? RunAgent => TestAgentOptions.RunAgent();
 
     /// <summary><c>agents.default.judgmentTimeout</c>.</summary>
-    protected virtual TimeSpan JudgmentTimeout => Config.Agent.JudgmentTimeout;
+    protected virtual TimeSpan JudgmentTimeout => HostedConfig.Agent.JudgmentTimeout;
 
     /// <summary><c>agents.default.maxObservationBytes</c>.</summary>
-    protected virtual int MaxObservationBytes => Config.Agent.MaxObservationBytes;
+    protected virtual int MaxObservationBytes => HostedConfig.Agent.MaxObservationBytes;
 
     /// <summary><c>agents.default.maxInputTokens</c>.</summary>
-    protected virtual int MaxInputTokens => Config.Agent.MaxInputTokens;
+    protected virtual int MaxInputTokens => HostedConfig.Agent.MaxInputTokens;
 
     /// <summary><c>agents.default.providerOptions</c>.</summary>
-    protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => Config.Agent.ProviderOptions;
+    protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => HostedConfig.Agent.ProviderOptions;
 
     /// <summary>The target this fixture runs on: <see cref="TargetName"/>, which needs overriding when the config declares several.</summary>
     private TargetConfig DeclaredTarget => SelectTarget.Select(Config.Targets, TargetName, "override E2EFixture.TargetName");
@@ -136,16 +142,16 @@ public abstract class E2EFixture
     protected virtual string ProjectRoot => Config.ProjectRoot;
 
     /// <summary><c>cache.dir</c>, resolved against the config directory.</summary>
-    protected virtual string CacheDirectory => Config.Cache.Directory;
+    protected virtual string CacheDirectory => HostedConfig.Cache.Directory;
 
     /// <summary><c>cache.store</c>: the store that replaces the file store at <see cref="CacheDirectory"/>. None by default; <see cref="E2EConfig.WithCacheStore"/> sets it on the config.</summary>
-    protected virtual IStepCache? CacheStore => Config.Cache.Store;
+    protected virtual IStepCache? CacheStore => HostedConfig.Cache.Store;
 
     /// <summary><c>cache.mode</c>. Unset, it is read-write locally and read-only in CI.</summary>
-    protected virtual CacheMode CacheMode => Config.Cache.Mode;
+    protected virtual CacheMode CacheMode => HostedConfig.Cache.Mode;
 
     /// <summary><c>cache.strict</c>.</summary>
-    protected virtual bool CacheStrict => Config.Cache.Strict;
+    protected virtual bool CacheStrict => HostedConfig.Cache.Strict;
 
     /// <summary>
     /// <c>E2E_UPDATE_SNAPSHOTS</c>: when set to <c>1</c>, <c>ToHaveScreenshotAsync</c> writes each stored screenshot it
@@ -204,10 +210,10 @@ public abstract class E2EFixture
     protected virtual TimeSpan ReplayTimeout => E2EDefaults.ReplayTimeout;
 
     /// <summary><c>agents.default.maxModelCalls</c>.</summary>
-    protected virtual int MaxModelCalls => Config.Agent.MaxModelCalls ?? E2EDefaults.MaxModelCalls;
+    protected virtual int MaxModelCalls => HostedConfig.Agent.MaxModelCalls ?? E2EDefaults.MaxModelCalls;
 
     /// <summary><c>agents.default.maxSteps</c>: actions one <c>ActAsync</c> may take. <c>ActOptions.MaxSteps</c> can only lower it.</summary>
-    protected virtual int MaxSteps => Config.Agent.MaxSteps ?? E2EDefaults.MaxSteps;
+    protected virtual int MaxSteps => HostedConfig.Agent.MaxSteps ?? E2EDefaults.MaxSteps;
 
     /// <summary>The file the test is reported in: its class by default (.NET-only: a .NET test has no source file of its own, see <see cref="E2ESessionOptions.TestFile"/>).</summary>
     internal virtual string? TestFile => GetType().FullName;
@@ -293,7 +299,7 @@ public abstract class E2EFixture
                 CacheEnabled = cacheMode != CacheMode.Off,
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,
-                CacheStrictSource = Config.Cache.StrictSource,
+                CacheStrictSource = HostedConfig.Cache.StrictSource,
                 TestTitle = title,
                 TestFile = TestFile,
                 TestMethod = testMethod?.Name,

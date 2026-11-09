@@ -71,7 +71,7 @@ public AgentConfig Agent { get; }
 ```
 
 
-The first of `AgentNames`, `default` unless `--agent` picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.
+The first of [AgentNames](#E2E_E2EConfig_AgentNames), `default` unless `--agent` picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.
 
 **Value:** [AgentConfig](/api/E2E/AgentConfig/)
 
@@ -579,6 +579,30 @@ of the same name. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` stil
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `username` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `password` | [SecretProvider](/api/E2E/SecretProvider/) |  |
+
+**Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithModel_"></a>
+<a id="E2E_E2EConfig_WithModel_E2E_IAgentModel_E2E_IAgentModel_"></a>
+
+### WithModel(IAgentModel, IAgentModel?)
+
+
+```csharp
+public E2EConfig WithModel(IAgentModel model, IAgentModel? judge = null)
+```
+
+
+A copy of the config whose [Agent](#E2E_E2EConfig_Agent) runs on &lt;code class="paramref"&gt;model&lt;/code&gt;, and judges with &lt;code class="paramref"&gt;judge&lt;/code&gt; (the model
+when null), in place of the entry's `model` and `judge` ids. Upstream's `agents.default.model` takes an AI SDK instance;
+here the config file holds only ids, so code sets the instance, as it sets [WithCacheStore(IStepCache)](#E2E_E2EConfig_WithCacheStore_E2E_IStepCache_) (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `model` | [IAgentModel](/api/E2E/IAgentModel/) |  |
+| `judge` | [IAgentModel](/api/E2E/IAgentModel/) |  |
 
 **Returns:** [E2EConfig](./)
 

@@ -20,8 +20,11 @@ internal interface ISessionTestRunner
     /// </summary>
     IReadOnlyList<SessionTestInfo> Select(Assembly tests, string name);
 
-    /// <summary>Runs the test named <paramref name="name"/> in <paramref name="tests"/>; null when no test has that name.</summary>
-    Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken);
+    /// <summary>
+    /// Runs the test named <paramref name="name"/> in <paramref name="tests"/>; null when no test has that name. <paramref name="host"/> is the
+    /// config the host loaded: the test runs on its agent model and its replay cache, not on the fixture's own (see <see cref="SessionHandover.HostConfig"/>).
+    /// </summary>
+    Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null);
 }
 
 /// <summary>A test <see cref="ISessionTestRunner.Select"/> found: its full name, and why a session cannot run it alone (null when it can).</summary>
@@ -51,8 +54,24 @@ internal static class SessionHandover
         }
     }
 
+    /// <summary>
+    /// The config the host loaded for the test it runs, or null when no host asked or the host gave none. The test's fixture takes its agent
+    /// model, judge, named agents, and replay cache from it, so a host decides them without the fixture's own config (.NET-only: upstream runs the
+    /// test in the host's process with the host's resolved config).
+    /// </summary>
+    public static E2EConfig? HostConfig
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _current?.Host;
+            }
+        }
+    }
+
     /// <summary>Asks for the session of the test named <paramref name="testName"/>. Dispose the request to withdraw it.</summary>
-    public static Request Begin(string testName)
+    public static Request Begin(string testName, E2EConfig? host = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(testName);
         lock (Gate)
@@ -62,7 +81,7 @@ internal static class SessionHandover
                 throw new InvalidOperationException("another test is already being run for a session");
             }
 
-            return _current = new Request(testName);
+            return _current = new Request(testName, host);
         }
     }
 
@@ -80,9 +99,12 @@ internal static class SessionHandover
         }
     }
 
-    internal sealed class Request(string testName) : IDisposable
+    internal sealed class Request(string testName, E2EConfig? host) : IDisposable
     {
         public string TestName { get; } = testName;
+
+        /// <summary>The config the host loaded; see <see cref="SessionHandover.HostConfig"/>.</summary>
+        public E2EConfig? Host { get; } = host;
 
         public TaskCompletionSource<SessionTestOutcome> Taken { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 

@@ -155,7 +155,7 @@ public sealed class E2EConfig
     /// <summary>0 to 10. Defaults to 1 in CI and 0 elsewhere. NUnit retries still come from <c>[Retry]</c>.</summary>
     public int Retries { get; private init; }
 
-    public IReadOnlyDictionary<string, AgentConfig> Agents { get; private init; } = ReadOnlyDictionary<string, AgentConfig>.Empty;
+    public IReadOnlyDictionary<string, AgentConfig> Agents { get; private set; } = ReadOnlyDictionary<string, AgentConfig>.Empty;
 
     /// <summary>
     /// The agents unpinned tests run as (upstream's <c>agentNames</c>): <c>default</c>, or the names <c>--agent</c> gave, in order and
@@ -239,6 +239,23 @@ public sealed class E2EConfig
         ArgumentNullException.ThrowIfNull(store);
         var copy = (E2EConfig)MemberwiseClone();
         copy.Cache = ReadCache(_rawCache, ProjectRoot, Ci, _environment, store, _cli);
+        return copy;
+    }
+
+    /// <summary>
+    /// A copy of the config whose <see cref="Agent"/> runs on <paramref name="model"/>, and judges with <paramref name="judge"/> (the model
+    /// when null), in place of the entry's <c>model</c> and <c>judge</c> ids. Upstream's <c>agents.default.model</c> takes an AI SDK instance;
+    /// here the config file holds only ids, so code sets the instance, as it sets <see cref="WithCacheStore"/> (.NET-only).
+    /// </summary>
+    public E2EConfig WithModel(IAgentModel model, IAgentModel? judge = null)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var copy = (E2EConfig)MemberwiseClone();
+        var agents = new Dictionary<string, AgentConfig>(Agents, StringComparer.Ordinal)
+        {
+            [AgentNames[0]] = Agent.WithModelInstances(model, judge),
+        };
+        copy.Agents = new ReadOnlyDictionary<string, AgentConfig>(agents);
         return copy;
     }
 
@@ -1645,11 +1662,22 @@ public sealed class AgentConfig
     /// <summary>Provider options by provider. Each client adds the entry under its own key to its request body.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
-    /// <summary>The model for <see cref="Model"/>, or null when no model is set.</summary>
-    public IAgentModel? CreateModel() => Create(Model);
+    private IAgentModel? _modelInstance;
+    private IAgentModel? _judgeInstance;
 
-    /// <summary>The model for <see cref="Judge"/>, or null when no judge is set.</summary>
-    public IAgentModel? CreateJudge() => Create(Judge);
+    /// <summary>The model for <see cref="Model"/>, or null when no model is set. A model instance <see cref="E2EConfig.WithModel"/> gave wins.</summary>
+    public IAgentModel? CreateModel() => _modelInstance ?? Create(Model);
+
+    /// <summary>The model for <see cref="Judge"/>, or null when no judge is set. A judge instance <see cref="E2EConfig.WithModel"/> gave wins.</summary>
+    public IAgentModel? CreateJudge() => _judgeInstance ?? Create(Judge);
+
+    internal AgentConfig WithModelInstances(IAgentModel model, IAgentModel? judge)
+    {
+        var copy = (AgentConfig)MemberwiseClone();
+        copy._modelInstance = model;
+        copy._judgeInstance = judge;
+        return copy;
+    }
 
     /// <summary>The <see cref="AgentOptions"/> this entry describes, with its models created.</summary>
     public AgentOptions CreateOptions()
