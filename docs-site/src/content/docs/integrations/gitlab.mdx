@@ -96,7 +96,7 @@ To let a [test filter](/docs/test-filters/) leave out the tests a merge request 
 
 ## Sharding
 
-The port has no `--shard` flag. Use `parallel` with a `dotnet test --filter` per job, or one project per shard. GitLab merges the JUnit reports of all jobs in the merge request widget. Each test must run in exactly one job, so give the last job the complement of the others' filters:
+The port has no `--shard` flag. Use `parallel` with a `dotnet test --filter` per job, or one project per shard. GitLab merges the JUnit reports of all jobs in the merge request widget. Each test must run in exactly one job, so make the filters exclusive (each one excludes the ones before it) and give the last job the complement of all of them:
 
 ```yaml
 e2e:
@@ -104,7 +104,7 @@ e2e:
     matrix:
       - FILTER:
           - "FullyQualifiedName~.Login."
-          - "FullyQualifiedName~.Checkout."
+          - "FullyQualifiedName!~.Login.&FullyQualifiedName~.Checkout."
           - "FullyQualifiedName!~.Login.&FullyQualifiedName!~.Checkout."
   script:
     # ...
