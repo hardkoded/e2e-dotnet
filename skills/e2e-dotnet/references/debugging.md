@@ -318,7 +318,8 @@ in a fixture's `Video` property. The modes are `off`, `on`,
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
 page with Playwright's screencast. `MobileEngine` records the device screen to
 `video/video.mp4` (`MobileOptions.VideoTouches = false` hides the touch
-indicator).
+indicator, so agent-device skips the pass that draws it once the recording stops, which on a
+hosted daemon such as Expo Simulators' can outlast the attempt's `CleanupTimeout`).
 
 The screencast goes into its attempt's directory,
 `.e2e/results/<result>/attempt-<n>/video/`: `video.webm`, and one
