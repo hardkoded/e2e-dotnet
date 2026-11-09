@@ -771,6 +771,10 @@ loop ends the step. A result is a `ToolLoopResult`: text, or text with a
 screenshot in `Pixels`. When a tool throws an error that
 `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
 The context must be one the runtime opened for a step.
+Each built-in tool's schema, and the schema of `done`, is closed: it carries
+`additionalProperties: false`, and a call with a field the tool does not declare
+(`force`, `selector`) is refused with the field named, never run without it. A
+tool of your own keeps the schema you give it.
 
 ```csharp
 Tools = (context, helpers) =>
