@@ -264,12 +264,6 @@ public sealed class WindowActions : IWindowActions
                     break;
                 }
 
-            case LocatorAction.PressSequentially typed:
-                await driver.FocusAsync(entry.Handle, cancellationToken).ConfigureAwait(false);
-                await driver.ForegroundAsync(entry.WindowHandle, cancellationToken).ConfigureAwait(false);
-                await driver.SendKeysAsync(entry.WindowHandle, typed.Text, verbatim: true, cancellationToken).ConfigureAwait(false);
-                await session.SettleAsync(cancellationToken).ConfigureAwait(false);
-                break;
             case LocatorAction.Select select:
                 await SelectAsync(session, driver, entry, select, cancellationToken).ConfigureAwait(false);
                 break;
@@ -464,7 +458,6 @@ public sealed class WindowActions : IWindowActions
         LocatorAction.DoubleTap => "doubleTap",
         LocatorAction.Fill => "fill",
         LocatorAction.Press => "press",
-        LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
         LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",

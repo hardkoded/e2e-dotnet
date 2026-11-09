@@ -94,8 +94,8 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("submit", new LocatorAction.LongPress(TimeSpan.FromMilliseconds(800))),
                 ("email", new LocatorAction.Fill("ada@example.test", Sensitive: false)),
                 ("email", new LocatorAction.Clear()),
-                ("city", new LocatorAction.PressSequentially("Wa")),
-                ("city", new LocatorAction.PressSequentially("rs", TimeSpan.FromMilliseconds(10))),
+                ("city", new LocatorAction.Focus()),
+                ("city", new LocatorAction.Focus()),
                 ("city", new LocatorAction.Press("Backspace")),
                 ("city", new LocatorAction.Press("Shift+Tab")),
                 ("city", new LocatorAction.Press("$")),
@@ -117,6 +117,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("bold", new LocatorAction.Tap()),
             },
             scene.Performs);
+        Assert.Equal([("Wa", false), ("r", false), ("s", false)], scene.Typed);
         session.Complete();
         await session.DisposeAsync();
 

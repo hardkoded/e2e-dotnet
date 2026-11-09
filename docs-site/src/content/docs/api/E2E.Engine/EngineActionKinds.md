@@ -72,8 +72,7 @@ public static string Of(LocatorAction action)
 ```
 
 
-The upstream name of a locator action's kind. [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) is upstream's `focus` followed by
-the keyboard, so it needs the engine to declare `focus`.
+The upstream name of a locator action's kind.
 
 **Parameters**
 

@@ -37,7 +37,8 @@ public class Screen
         Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null,
         Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
         Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null,
-        Func<Point, PointerAction, CancellationToken, Task>? performAt = null)
+        Func<Point, PointerAction, CancellationToken, Task>? performAt = null,
+        Func<string, bool, CancellationToken, Task>? typeText = null)
         : this(
             new LocatorEngine(new LocatorEngineOptions
             {
@@ -46,6 +47,7 @@ public class Screen
                 Locate = locate,
                 Perform = (node, action, _, token) => perform(node, action, token),
                 PerformAt = performAt is null ? null : (point, action, _, token) => performAt(point, action, token),
+                TypeText = typeText,
                 Cancellation = cancellation,
                 ActionTimeout = actionTimeout,
                 AssertionTimeout = assertionTimeout,
@@ -725,8 +727,12 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Focuses the input and types <paramref name="text"/> one character at a time,
-    /// so the app receives key events. <see cref="PressSequentiallyOptions.Delay"/> waits between characters.
+    /// Focuses the input and types <paramref name="text"/>, so the app receives key events. Core composes it from the engine's
+    /// <c>focus</c> action and its keyboard: with no <see cref="PressSequentiallyOptions.Delay"/> the whole text is one keyboard call, and with one
+    /// each code point is its own call, with the delay waited between them. The whole call shares one <see cref="ActionOptions.Timeout"/>: a
+    /// pause is cut at the deadline, no character is sent past it, and the call fails with <c>ACTION_FAILED</c> naming how many it typed. A target
+    /// whose engine declares no keyboard, or does not declare <c>focus</c>, is refused with <c>UNSUPPORTED_CAPABILITY</c> before any node
+    /// resolves. A secret is not typed as keystrokes; pass it to <see cref="FillAsync(Secret, ActionOptions, CancellationToken)"/>.
     /// </summary>
     public Task PressSequentiallyAsync(string text, PressSequentiallyOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -736,7 +742,24 @@ public sealed class Locator
             ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero, nameof(options));
         }
 
-        return ActAsync(new LocatorAction.PressSequentially(text, options?.Delay), options, cancellationToken);
+        var chunks = text.Length == 0 ? [] : options?.Delay is null ? new[] { text } : CodePoints(text);
+        return _screen.RunStepAsync(
+            StepKind.Locator,
+            "locator.pressSequentially",
+            Query.Describe(),
+            () => _screen.Engine.PressSequentiallyAsync(Query, chunks, options?.Delay ?? TimeSpan.Zero, options?.Timeout, _screen.Token(cancellationToken)));
+    }
+
+    /// <summary>The text split by code point, so a surrogate pair is one keystroke as it is in upstream's <c>[...text]</c>; a lone surrogate stands alone.</summary>
+    private static string[] CodePoints(string text)
+    {
+        var points = new List<string>(text.Length);
+        for (var index = 0; index < text.Length; index += points[^1].Length)
+        {
+            points.Add(char.IsSurrogatePair(text, index) ? text.Substring(index, 2) : text[index].ToString());
+        }
+
+        return [.. points];
     }
 
     public Task PressAsync(string key, ActionOptions? options = null, CancellationToken cancellationToken = default) =>

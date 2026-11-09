@@ -53,7 +53,6 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
 | [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
-| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types Text one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) | Selects one option: the one whose value or label is Text, or the one Option names by its label, its value, or its index. Exactly one of the two is set. |

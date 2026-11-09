@@ -163,7 +163,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `ClickAsync(new() { ClickCount, Delay, Trial })` | not yet | missing |
 | `Trial`, `Force`, `NoWaitAfter` on `CheckAsync`, `FillAsync`, and the other actions | no such option: the options type has no member for them | missing |
 | `FillAsync(value)` | the same; also takes a `Secret` | same |
-| `PressSequentiallyAsync(text, new() { Delay })` | `PressSequentiallyAsync(text)`; keystrokes through the platform keyboard, a `Secret` is refused | same |
+| `PressSequentiallyAsync(text, new() { Delay })` | `PressSequentiallyAsync(text, new PressSequentiallyOptions { Delay })`; focuses the field, then types through the platform keyboard, one call for the whole text or one per code point with a `Delay`; the call shares one `Timeout` and fails with `ACTION_FAILED` when a pause reaches it; a `Secret` has no overload, so it goes through `FillAsync` | same |
 | `PressAsync(key)` | the same; modifiers join with `+` | same |
 | `ClearAsync()`, `FocusAsync()`, `HoverAsync()`, `SetInputFilesAsync()`, `DragToAsync()` | the same verbs, each with `Timeout` as the only option (`ActionOptions`): no `Force`, `Trial`, `Position`, `Modifiers`, or `SourcePosition`. `SetInputFilesAsync([])` clears the input | renamed |
 | `CheckAsync()`, `UncheckAsync()` | the same, except when the state updates late or the click removes the control, see [What differs on purpose](#what-differs-on-purpose). `UncheckAsync()` on a checked native radio is `ACTION_FAILED` (`NOT_ACTIONABLE`); a `role=radio` is clicked, as in Playwright | by design |

@@ -43,6 +43,12 @@ internal sealed class LocatorEngineOptions
     /// <summary>One pointer action at a viewport point (upstream's <c>session.performAt</c>); null when the engine has none.</summary>
     public Func<Point, PointerAction, OperationContext, CancellationToken, Task>? PerformAt { get; init; }
 
+    /// <summary>
+    /// Types text into whatever holds focus, appending unless the flag asks to replace (upstream's <c>session.keyboard.type</c>); null when the
+    /// engine has no keyboard.
+    /// </summary>
+    public Func<string, bool, CancellationToken, Task>? TypeText { get; init; }
+
     /// <summary>The running phase's token (upstream's <c>budget.signal</c>), read per operation.</summary>
     public required Func<CancellationToken> Cancellation { get; init; }
 
@@ -144,7 +150,6 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         LocatorAction.DoubleTap => "doubleTap",
         LocatorAction.Fill => "fill",
         LocatorAction.Press => "press",
-        LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
         LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",
@@ -500,6 +505,63 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
             }
 
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Types <paramref name="chunks"/> into the one match, composed from the engine's focus action and its keyboard (upstream's
+    /// <c>pressSequentially</c>), so no engine contract carries a typing action. The whole of it shares one deadline of the action
+    /// timeout: a pause is cut at the deadline and a keystroke is never sent past it, so a slow engine cannot stretch the action beyond its
+    /// budget. The focus retries a stale node like any action; the typing never does, because a keystroke may already have landed. An
+    /// engine that declares no <c>focus</c> action or no keyboard is refused with <c>UNSUPPORTED_CAPABILITY</c> before any node resolves.
+    /// </summary>
+    internal async Task PressSequentiallyAsync(LocatorExpression expression, IReadOnlyList<string> chunks, TimeSpan delay, TimeSpan? timeout, CancellationToken token)
+    {
+        CheckAction(new LocatorAction.Focus());
+        if (options.TypeText is not { } typeText || (Capabilities & EngineCapabilities.Keyboard) == 0)
+        {
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "pressSequentially is not available on this target: its engine declares no keyboard");
+        }
+
+        var deadline = DeadlineFor(timeout);
+        await PerformUntilAsync(expression, new LocatorAction.Focus(), deadline, token).ConfigureAwait(false);
+        TestException TimedOut(int typed) =>
+            new("ACTION_FAILED", $"operation timed out after typing {typed.ToString(CultureInfo.InvariantCulture)} of {chunks.Count.ToString(CultureInfo.InvariantCulture)} characters: {expression.Describe()}");
+
+        for (var index = 0; index < chunks.Count; index++)
+        {
+            if (index > 0)
+            {
+                // A pause the deadline cuts short ends the typing by itself. Reading the clock after the sleep would not: a timer may fire
+                // a hair early, and one more character would go out past the budget.
+                var remaining = deadline.Remaining(Clock.GetUtcNow());
+                var cut = remaining < delay;
+                await Task.Delay(cut ? remaining : delay, Clock, token).ConfigureAwait(false);
+                if (cut)
+                {
+                    throw TimedOut(index);
+                }
+            }
+
+            if (deadline.Expired(Clock.GetUtcNow()))
+            {
+                throw TimedOut(index);
+            }
+
+            try
+            {
+                await AppNotOpen.GuardAsync(() => typeText(chunks[index], false, token)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!token.IsCancellationRequested)
+            {
+                var translated = TranslateLocatorError(ex, expression);
+                if (ReferenceEquals(translated, ex))
+                {
+                    throw;
+                }
+
+                throw translated;
+            }
         }
     }
 
