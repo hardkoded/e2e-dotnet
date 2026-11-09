@@ -7,7 +7,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 ## Contents
 
 - The fixture
-- NativeScript test ids
+- Test ids by framework
 - A test
 - Roles
 - Device controls
@@ -53,7 +53,25 @@ public sealed class GreetingTests : MobileAppTest
 - The environment wins over the config: `E2E_MOBILE_PLATFORM` (`ios` or `android`), `E2E_MOBILE_APP_PATH`, `E2E_MOBILE_DEVICE`, `E2E_MOBILE_PROVIDER` (`local`, `limrun`, or `devflow`), `E2E_DEVFLOW_PORT`, and `E2E_DEVFLOW_APP`.
 - The base class adds no `[Category]`. Tag your tests, for example `[assembly: Category("Device")]`, so a run without a device can skip them.
 
-## NativeScript test ids
+## Test ids by framework
+
+`GetByTestId` reads the accessibility identifier on iOS and the resource id on Android. Each UI framework sets them its own way:
+
+| Framework | Set the id with |
+| --- | --- |
+| React Native | `testID` |
+| SwiftUI | `.accessibilityIdentifier()` |
+| UIKit | `view.accessibilityIdentifier`, or Identifier in Interface Builder's Identity inspector |
+| Jetpack Compose | `Modifier.testTag()` |
+| Compose Multiplatform | `Modifier.testTag()` |
+| Flutter | `Semantics(identifier:)` |
+| .NET MAUI | `AutomationId` |
+| NativeScript | `testID` |
+
+- On Android, a native `android:id` and a .NET MAUI `AutomationId` read as `<package>:id/<id>`. `GetByTestId("greet")` finds them without the app's package, as on iOS, when nothing matches the full id. Framework ids such as `android:id/content` match only in full.
+- In SwiftUI, an `.accessibilityIdentifier()` on a container such as a `VStack` replaces the ids of every element inside it. `GetByTestId` then fails with `LOCATOR_AMBIGUOUS` on the container's id and finds nothing for the children's ids. Put `.accessibilityElement(children: .contain)` before the identifier to keep both.
+
+### NativeScript test ids
 
 In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`.
 
@@ -234,6 +252,7 @@ Limits of the preview: the tests attach to the running app, so `Device.InstallAp
 - On iOS, a plain React Native `View` has no children in the tree, so `Filter(has: ...)` on it and queries scoped to it match nothing, while `Filter(hasNot: ...)` keeps every such row, including one you meant to exclude. Scope to the screen's `ScrollView` (`Device.Locator("role=scroll-area")`), or give the children test ids.
 - `Locator.PressAsync` takes `Enter`, `Space`, or one character, sent through the soft keyboard. A field that is not focused is tapped first, for `Enter` as for a character, so the keyboard is up. Other named keys and every modifier fail with `UNSUPPORTED_CAPABILITY`.
 - `CheckAsync` and `UncheckAsync` need a `checked` state in the tree. Switches report one on both platforms, and so does a native Android `CheckBox`; a React Native checkbox or radio reports one only when the app sets `accessibilityState.checked`. A control with no state fails with `UNSUPPORTED_CAPABILITY`, so tap it instead.
+- On an Android build with no shell command for the clipboard service (the Android 16 emulator is one), `Device.ClipboardAsync()` and `Device.SetClipboardAsync(text)` fail with `UNSUPPORTED_CAPABILITY`. To check a copy, paste into a field and read the field back.
 - Android needs `adb` from the Android SDK Platform-Tools on `PATH`, locally and for the Limrun tunnel.
 - Building the sample iOS app needs `-p:ValidateXcodeVersion=false` when the installed Xcode is newer than the one the .NET iOS pack expects.
 - Agent steps on a device are slower than in a browser. Raise `StepTimeout` to 90 seconds. The 30 second default timed out a two-field step.

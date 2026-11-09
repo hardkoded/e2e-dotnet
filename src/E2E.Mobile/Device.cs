@@ -352,7 +352,10 @@ public sealed class Device
     public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.dismissKeyboard", "", () => _session.DismissKeyboardAsync(cancellationToken));
 
-    /// <summary>Reads the clipboard.</summary>
+    /// <summary>
+    /// Reads the clipboard. Fails with <c>UNSUPPORTED_CAPABILITY</c> on an Android build with no shell command for the
+    /// clipboard service (the Android 16 emulator is one); paste into a field and read the field back instead.
+    /// </summary>
     public Task<string> ClipboardAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.clipboard", "", () => ClipboardCoreAsync(cancellationToken));
 
@@ -366,7 +369,10 @@ public sealed class Device
         return Text(result?["action"]) == "read" ? Text(result?["text"]) ?? "" : "";
     }
 
-    /// <summary>Writes the clipboard.</summary>
+    /// <summary>
+    /// Writes the clipboard. Fails with <c>UNSUPPORTED_CAPABILITY</c> on an Android build with no shell command for the
+    /// clipboard service (the Android 16 emulator is one).
+    /// </summary>
     public Task SetClipboardAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
