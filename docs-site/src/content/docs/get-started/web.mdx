@@ -102,7 +102,7 @@ public sealed class SignupTests : E2ETest
 
 ## 4. Run
 
-Run from the test project's folder, or pass its path (`dotnet test tests/MyApp.E2ETests`). Do not use `--project`: the SDK accepts it only for Microsoft.Testing.Platform projects, and the NUnit and xUnit v3 samples run on VSTest.
+Run from the test project's folder. `dotnet test <path>` also works from elsewhere (for example `dotnet test tests/MyApp.E2ETests`) on the VSTest projects the NUnit and xUnit v3 setups here use. The `--project` switch is for projects on Microsoft.Testing.Platform.
 
 ```bash
 dotnet test
