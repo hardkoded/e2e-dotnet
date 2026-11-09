@@ -96,17 +96,22 @@ To let a [test filter](/docs/test-filters/) leave out the tests a merge request 
 
 ## Sharding
 
-The port has no `--shard` flag. Use `parallel` with a `dotnet test --filter` per job, or one project per shard. GitLab merges the JUnit reports of all jobs in the merge request widget:
+The port has no `--shard` flag. Use `parallel` with a `dotnet test --filter` per job, or one project per shard. GitLab merges the JUnit reports of all jobs in the merge request widget. Each test must run in exactly one job, so give the last job the complement of the others' filters:
 
 ```yaml
 e2e:
   parallel:
     matrix:
-      - SHARD: [login, checkout, search]
+      - FILTER:
+          - "FullyQualifiedName~.Login."
+          - "FullyQualifiedName~.Checkout."
+          - "FullyQualifiedName!~.Login.&FullyQualifiedName!~.Checkout."
   script:
     # ...
-    - dotnet test -c Release --no-build MyApp.E2E --filter "FullyQualifiedName~.$SHARD." --logger "junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit-$SHARD.xml"
+    - dotnet test -c Release --no-build MyApp.E2E --filter "$FILTER" --logger "junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit-$CI_NODE_INDEX.xml"
 ```
+
+The last filter takes every test the others don't match, including tests added later. To check coverage in your project, run `dotnet test --no-build --list-tests --filter "<filter>"` for each filter. The lists must not share a test, and together they must hold the output of `--list-tests` without a filter. A job whose filter matches no test fails with the runner's "no test matches" error.
 
 ## iOS and Android
 
