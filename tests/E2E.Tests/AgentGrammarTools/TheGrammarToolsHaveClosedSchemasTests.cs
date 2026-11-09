@@ -11,8 +11,7 @@ namespace E2E.Tests.AgentGrammarTools;
 // Upstream validates a call against the zod schema of a tool (safeParse). The port's schema is the JSON Schema a provider receives, so these
 // tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
 // vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is role, name, or ref, complete_step
-// is done, errorCode is code, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text. The scroll_to and
-// keyboard-only cases that depend on the scroll verbs are partial: the port offers scroll_to, scroll, and navigate by capability, not by verb.
+// is done, errorCode is code, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
     /// <summary>An input each tool accepts; a tool added to the grammar without one fails the vocabulary check.</summary>
@@ -89,12 +88,10 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         }
     }
 
-    // Partial of upstream's "scroll_to takes a listed node, a text to reach, or a text with the list to page, never nothing; a device gets the text form alone":
-    // the port offers one scroll_to to every engine that scrolls, so the full form is ported (a text beside a direction and a node, a text alone,
-    // the text ceiling, a field it does not declare, the closed shape). The device form (a text alone, a node alone refused) and the node-only
-    // form are not: they follow the verbs an engine lists (scrollTo, scrollUntil), which the port's grammar does not read.
+    private static IReadOnlyList<ModelTool> OverVerbs(params ExecutorVerb[] verbs) => AgentTools.GrammarToolDefinitions(new HashSet<ExecutorVerb>(verbs));
+
     [Fact]
-    public void Partial_scroll_to_takes_a_listed_node_a_text_to_reach_or_a_text_with_the_list_to_page_never_nothing_a_device_gets_the_text_form_alone()
+    public void Scroll_to_takes_a_listed_node_a_text_to_reach_or_a_text_with_the_list_to_page_never_nothing_a_device_gets_the_text_form_alone()
     {
         var scrollTo = FullGrammar().Single(tool => tool.Name == "scroll_to");
         var full = SchemaOf(scrollTo);
@@ -103,26 +100,36 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.False(full.IsValid(Input($$"""{ "text": "{{new string('x', AgentTools.MaxScrollToText + 1)}}" }""")));
         Assert.False(full.IsValid(Input("""{ "text": "Row 4322", "list": "n6" }""")));
         ExpectClosed(scrollTo, """{ "text": "Row 4322" }""");
+
+        var device = OverVerbs(ExecutorVerb.Tap, ExecutorVerb.Scroll, ExecutorVerb.ScrollUntil);
+        var scrollToByText = device.Single(tool => tool.Name == "scroll_to");
+        var byText = SchemaOf(scrollToByText);
+        Assert.True(byText.IsValid(Input("""{ "text": "Row 0512" }""")));
+        Assert.True(byText.IsValid(Input("""{ "text": "Row 0512", "ref": "n3" }""")));
+        Assert.False(byText.IsValid(Input("""{ "ref": "n1" }""")));
+        ExpectClosed(scrollToByText, """{ "text": "Row 0512", "direction": "down" }""");
+
+        var scrollToByNode = OverVerbs(ExecutorVerb.Tap, ExecutorVerb.ScrollTo).Single(tool => tool.Name == "scroll_to");
+        var byNode = SchemaOf(scrollToByNode);
+        Assert.False(byNode.IsValid(Input("""{ "text": "Row 0512" }""")));
+        ExpectClosed(scrollToByNode, """{ "ref": "n1" }""");
     }
 
-    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the node verbs, the
-    // targets, and the point tools of an engine that lists only the typeText, pressKey, and scroll verbs are ported. Not ported: scroll without a
-    // target, and the absence of scroll_to and navigate. The port offers scroll (with its target), scroll_to, and navigate by capability, not
-    // by the scrollTo, scrollUntil, and open verbs (#1437).
     [Fact]
-    public void Partial_closes_the_keyboard_only_shapes_too_type_and_press_without_a_target_scroll_without_one()
+    public void Closes_the_keyboard_only_shapes_too_type_and_press_without_a_target_scroll_without_one()
     {
-        var tools = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard | EngineCapabilities.Scroll, null, []);
+        var tools = OverVerbs(ExecutorVerb.TypeText, ExecutorVerb.PressKey, ExecutorVerb.Scroll);
         Assert.Equal(
             ["fill", "observe", "press", "press_at", "screenshot", "scroll", "type_at"],
-            tools.Select(tool => tool.Name).Where(name => name is not ("scroll_to" or "navigate")).Order(StringComparer.Ordinal));
+            tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var fill = tools.Single(tool => tool.Name == "fill");
         ExpectClosed(fill, """{ "value": "ada", "replace": true }""");
         ExpectClosed(tools.Single(tool => tool.Name == "press"), """{ "key": "Enter" }""");
         ExpectClosed(tools.Single(tool => tool.Name == "scroll"), """{ "direction": "down" }""");
-        // Without the id-addressed verb a target is not a field of fill at all, and neither is it of press.
+        // Without the id-addressed verb a target is not a field of fill at all, and neither is it of press or scroll.
         Assert.False(SchemaOf(fill).IsValid(Input("""{ "ref": "n1", "value": "ada" }""")));
         Assert.False(SchemaOf(tools.Single(tool => tool.Name == "press")).IsValid(Input("""{ "ref": "n1", "key": "Enter" }""")));
+        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "scroll")).IsValid(Input("""{ "ref": "n1", "direction": "down" }""")));
     }
 
     [Fact]
