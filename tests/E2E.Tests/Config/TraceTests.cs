@@ -32,13 +32,22 @@ public sealed class TraceTests
         Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Run), off.Target.Trace);
     }
 
-    /// <summary>Partial: the flag is the E2E_TRACE variable (#1309).</summary>
     [Fact]
-    public void Partial_Keeps_the_mode_at_the_top_and_on_a_target_out_of_the_digest()
+    public void A_CliOverrides_mode_wins_over_a_target_the_config_and_the_variable()
+    {
+        var cli = new CliOverrides { Trace = RecordingMode.On };
+        var flagged = E2EConfig.Parse("""{ "targets": [{ "trace": "off" }], "trace": "off" }""", Root, Env(("E2E_TRACE", "off")), cli);
+        Assert.Equal(new ResolvedRecording(RecordingMode.On, RecordingSource.Run), flagged.Target.Trace);
+        Assert.StartsWith("E2E_TRACE must be one of", Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("{}", Root, Env(("E2E_TRACE", "every")), cli)).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keeps_the_mode_at_the_top_and_on_a_target_out_of_the_digest()
     {
         const string Plain = """{ "targets": [{ "name": "web", "platform": "web" }] }""";
         var plain = ResolveConfigTests.Digest(Plain, Env());
         Assert.Equal(plain, ResolveConfigTests.Digest("""{ "targets": [{ "name": "web", "platform": "web", "trace": "on" }], "trace": "retain-on-failure" }""", Env()));
+        Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(), new CliOverrides { Trace = RecordingMode.On }));
         Assert.Equal(plain, ResolveConfigTests.Digest(Plain, Env(("E2E_TRACE", "on"))));
     }
 

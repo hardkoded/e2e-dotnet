@@ -181,6 +181,12 @@ public sealed class E2EConfig
     internal IReadOnlyList<ReporterEntry> Reporters { get; private init; } = [];
 
     /// <summary>
+    /// The reporter objects built in code (upstream's <c>ResolvedConfig.customReporters</c>), set with <see cref="WithReporter"/>. They never
+    /// enter <see cref="ResolvedConfig.ComputeConfigDigest"/>, whatever they hold.
+    /// </summary>
+    internal IReadOnlyList<Reporter> CustomReporters { get; private set; } = [];
+
+    /// <summary>
     /// Where artifacts go, over the files under the results directory (upstream's <c>artifacts.store</c>, <c>ResolvedConfig.artifactStore</c>).
     /// None by default. A store is code, so the config file cannot name one: <see cref="WithArtifactStore"/> sets it.
     /// </summary>
@@ -328,6 +334,24 @@ public sealed class E2EConfig
         return copy;
     }
 
+    /// <summary>
+    /// A copy of the config that also runs a reporter built in code (upstream's reporter object in <c>reporters</c>, <c>customReporters</c>). A live
+    /// reporter is code, which the config file cannot hold: the ones the file names by type come first, then these, in call order. Throws
+    /// <c>INVALID_CONFIG</c> for a reporter with no name.
+    /// </summary>
+    public E2EConfig WithReporter(Reporter reporter)
+    {
+        ArgumentNullException.ThrowIfNull(reporter);
+        if (string.IsNullOrEmpty(reporter.Name))
+        {
+            throw Invalid("a reporter passed to WithReporter must have a non-empty Name");
+        }
+
+        var copy = (E2EConfig)MemberwiseClone();
+        copy.CustomReporters = [.. CustomReporters, reporter];
+        return copy;
+    }
+
     /// <summary>Reads and validates a config file. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
     public static E2EConfig Load(string path, Func<string, string?>? environment = null) => Load(path, environment, null);
 
@@ -471,8 +495,8 @@ public sealed class E2EConfig
 
             CheckKeys(root, "config", TopLevelKeys, UnsupportedTopLevelKeys, MovedKeys, RemovedTopLevelKeys);
             var ci = IsCi(environment);
-            var trace = ReadRun(root, RecordingKind.Trace, environment);
-            var video = ReadRun(root, RecordingKind.Video, environment);
+            var trace = ReadRun(root, RecordingKind.Trace, environment, cli.Trace);
+            var video = ReadRun(root, RecordingKind.Video, environment, cli.Video);
             var credentials = ReadCredentials(Property(root, "credentials"), environment, ReadOnlyDictionary<string, CredentialProvider>.Empty);
             var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null, cli);
             ReadArtifacts(Property(root, "artifacts"));
@@ -656,7 +680,7 @@ public sealed class E2EConfig
 
     // The run's trace or video mode before any target speaks: the environment variable, the config root, and the default under both.
     // A failed attempt keeps its trace by default. The video is off.
-    private static RunRecording ReadRun(JsonElement root, RecordingKind kind, Func<string, string?> environment)
+    private static RunRecording ReadRun(JsonElement root, RecordingKind kind, Func<string, string?> environment, RecordingMode? cli)
     {
         var key = kind == RecordingKind.Trace ? "trace" : "video";
         var variable = "E2E_" + key.ToUpperInvariant();
@@ -666,6 +690,7 @@ public sealed class E2EConfig
             flag = ReadMode(JsonSerializer.SerializeToElement(text.Trim()), variable, kind);
         }
 
+        flag = cli ?? flag;
         return new RunRecording(flag, ReadMode(Property(root, key), key, kind), kind == RecordingKind.Trace ? RecordingMode.RetainOnFailure : RecordingMode.Off);
     }
 
@@ -1743,9 +1768,15 @@ public sealed class AgentConfig
 /// <summary>What turned <c>cache.strict</c> on for the run: the config key, the <c>--strict-cache</c> flag, or both (upstream's <c>CacheStrictSource</c>).</summary>
 internal sealed record CacheStrictSource(bool Config, bool Flag);
 
-/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c>, <c>cacheDir</c>, <c>noCache</c>, and <c>agents</c> exist in the port.</summary>
+/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>trace</c>, <c>video</c>, <c>cacheStrict</c>, <c>cacheDir</c>, <c>noCache</c>, and <c>agents</c> exist in the port.</summary>
 internal sealed record CliOverrides
 {
+    /// <summary>Upstream's <c>--trace [mode]</c> (<c>trace</c>): which attempts record a trace, over the config's and every target's <c>trace</c>. The <c>E2E_TRACE</c> variable fills it when code passes none.</summary>
+    public RecordingMode? Trace { get; init; }
+
+    /// <summary>Upstream's <c>--video [mode]</c> (<c>video</c>): which attempts record a video, over the config's and every target's <c>video</c>. The <c>E2E_VIDEO</c> variable fills it when code passes none.</summary>
+    public RecordingMode? Video { get; init; }
+
     /// <summary>Upstream's <c>--agent</c> (<c>agents</c>): the configured agents unpinned tests run as, instead of <c>default</c> alone.</summary>
     public IReadOnlyList<string>? Agents { get; init; }
 

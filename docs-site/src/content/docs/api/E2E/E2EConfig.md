@@ -582,6 +582,29 @@ of the same name. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` stil
 
 **Returns:** [E2EConfig](./)
 
+<a id="E2E_E2EConfig_WithReporter_"></a>
+<a id="E2E_E2EConfig_WithReporter_E2E_Reports_Reporter_"></a>
+
+### WithReporter(Reporter)
+
+
+```csharp
+public E2EConfig WithReporter(Reporter reporter)
+```
+
+
+A copy of the config that also runs a reporter built in code (upstream's reporter object in `reporters`, `customReporters`). A live
+reporter is code, which the config file cannot hold: the ones the file names by type come first, then these, in call order. Throws
+`INVALID_CONFIG` for a reporter with no name.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `reporter` | [Reporter](/api/E2E.Reports/Reporter/) |  |
+
+**Returns:** [E2EConfig](./)
+
 <a id="E2E_E2EConfig_WithSecretProvider_"></a>
 <a id="E2E_E2EConfig_WithSecretProvider_System_String_E2E_SecretProvider_"></a>
 

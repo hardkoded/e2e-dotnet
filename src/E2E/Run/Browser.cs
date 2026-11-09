@@ -504,7 +504,7 @@ public sealed class Browser
 
         try
         {
-            return element.Deserialize<T>(JsonDefaults.Options);
+            return element.Deserialize<T>(Evaluation.ResultOptions);
         }
         catch (JsonException ex)
         {

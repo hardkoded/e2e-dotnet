@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Reports;
+
 namespace E2E.Tests.Config;
 
 /// <summary>
@@ -687,18 +689,37 @@ public sealed class ResolveConfigTests
         Assert.Equal(Of("first-value"), Of("second-value"));
     }
 
-    /// <summary>
-    /// Partial: a reporter in the config file is a type name or <c>{ type, options }</c> of plain data, so the cyclic client of an SDK-backed
-    /// reporter object cannot be written (#1309). The artifact store is code and holds one.
-    /// </summary>
     [Fact]
-    public void Partial_Keeps_reporter_objects_and_artifact_stores_out_of_the_config_digest_whatever_they_hold()
+    public void Keeps_reporter_objects_and_artifact_stores_out_of_the_config_digest_whatever_they_hold()
+    {
+        // A client with a cycle is what an SDK-backed reporter or store carries; JSON cannot clone it.
+        var plain = E2EConfig.Parse("""{ "reporters": ["list"] }""", Root, Env());
+        Assert.Equal(Digest(plain), Digest(plain.WithReporter(new UploadReporter())));
+        var store = E2EConfig.Parse("{}", Root, Env());
+        Assert.Equal(Digest(store), Digest(store.WithArtifactStore(new CyclicStore())));
+    }
+
+    /// <summary>.NET-only: a reporter in the config file is a type name or <c>{ type, options }</c> of plain data.</summary>
+    [Fact]
+    public void Digests_a_reporter_type_name_and_leaves_out_its_options()
     {
         Assert.Equal(Digest("""{ "reporters": ["list"] }"""), Digest("""{ "reporters": ["list", { "type": "upload", "options": { "bucket": "b" } }] }"""));
         Assert.NotEqual(Digest("""{ "reporters": ["list"] }"""), Digest("""{ "reporters": ["list", "github"] }"""));
-        var plain = E2EConfig.Parse("{}", Root, Env());
-        Assert.Equal(Digest(plain), Digest(plain.WithArtifactStore(new CyclicStore())));
     }
+
+    /// <summary>.NET-only: <c>WithReporter</c> adds a live reporter after the ones the file names, and refuses one with no name.</summary>
+    [Fact]
+    public void WithReporter_adds_a_live_reporter_after_the_ones_the_file_names()
+    {
+        var config = E2EConfig.Parse("""{ "reporters": [] }""", Root, Env());
+        var first = new UploadReporter();
+        var second = new UploadReporter();
+        var both = config.WithReporter(first).WithReporter(second);
+        Assert.Equal([first, second], E2E.Reporters.Create(both));
+        Assert.Empty(E2E.Reporters.Create(config));
+        Assert.Equal("INVALID_CONFIG", Assert.Throws<ConfigurationException>(() => config.WithReporter(new UploadReporter { Label = "" })).Code);
+    }
+
 
     [Fact]
     public void Reduces_every_model_instance_in_an_agent_entry_to_its_identity_judge_and_a_custom_executors_own_included()
@@ -720,7 +741,8 @@ public sealed class ResolveConfigTests
     }
 
     /// <summary>The digest of the config <paramref name="json"/> declares (upstream's <c>resolve(...).configDigest</c>).</summary>
-    internal static string Digest(string json, Func<string, string?>? environment = null) => Digest(E2EConfig.Parse(json, Root, environment ?? Env()));
+    internal static string Digest(string json, Func<string, string?>? environment = null, CliOverrides? cli = null) =>
+        Digest(E2EConfig.Parse(json, Root, environment ?? Env(), cli ?? new CliOverrides()));
 
     internal static string Digest(E2EConfig config) => ResolvedConfig.ComputeConfigDigest(config);
 
@@ -737,6 +759,15 @@ public sealed class ResolveConfigTests
     internal sealed class Cycle
     {
         public Cycle Self => this;
+    }
+
+    private sealed class UploadReporter : Reporter
+    {
+        public Cycle Client { get; } = new();
+
+        public string Label { get; init; } = "upload";
+
+        public override string Name => Label;
     }
 
     private sealed class CyclicStore : IArtifactStore
