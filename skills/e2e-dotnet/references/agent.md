@@ -543,8 +543,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   re-found by its place (the same role, mostly the same box), one that filled
   the screen and is gone scrolls the viewport, and a smaller one that is
   gone fails with `LOCATOR_NOT_FOUND`. `scroll_to` with a text reads each
-  screen once when it has visibly scrolled, and reads again until it holds
-  still otherwise. A single changing time value (`12:05`) beside other text
+  screen once when it has visibly scrolled, and otherwise re-reads it for up
+  to a second, the same beat a held-still look uses, before that screen
+  counts as stopped. A list that appends when it reaches the end keeps being
+  paged. A single changing time value (`12:05`) beside other text
   does not count as the list moving. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
   reads differently on every run, a date, an ISO 8601 instant, a time, an

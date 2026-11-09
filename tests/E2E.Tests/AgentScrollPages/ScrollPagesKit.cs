@@ -9,11 +9,12 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 
 namespace E2E.Tests.AgentScrollPages;
 
-/// <summary>How a swipe turns the page: now, late, or through a thinner page first.</summary>
+/// <summary>How a swipe turns the page: now, late, deferred (after the poll that used to call the page unchanged), through a thinner page first.</summary>
 internal enum Turning
 {
     Now,
     Late,
+    Deferred,
     DrawnLate,
     Never,
 }
@@ -111,6 +112,10 @@ internal static class ScrollPagesKit
                             break;
                         case Turning.Late:
                             After(TimeSpan.FromMilliseconds(40), () => Turn(page + 1));
+                            break;
+                        case Turning.Deferred:
+                            // Past the 75ms settle poll, inside the one-second beat an unchanged page is re-read for.
+                            After(TimeSpan.FromMilliseconds(400), () => Turn(page + 1));
                             break;
                         case Turning.DrawnLate:
                             Turn(next, 1);
