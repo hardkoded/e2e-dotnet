@@ -49,7 +49,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
 | `maestro record` | `E2E_VIDEO=on dotnet test`, one MP4 of the device per attempt, or `video` in the config |
 | `maestro test -c`, Maestro Studio | Not yet. `e2e mcp` gives a coding agent a live session on the device, see [Coding agents](/coding-agents/) |
-| `maestro hierarchy` | Not yet. `await Device.UnstableRaw.Client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), cancellationToken)` returns agent-device's node tree as a `JsonNode`, see [`UnstableRaw`](/get-started/mobile/#3-write-a-test) and [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.Locator(selector)` takes agent-device selectors for nodes `Screen` cannot name |
+| `maestro hierarchy` | Not yet. `await Device.UnstableRaw.Client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), CancellationToken.None)` (`DeviceMethods` is in `E2E.Mobile`, `JsonObject` in `System.Text.Json.Nodes`) returns agent-device's node tree as a `JsonNode`, the call the engine's own snapshot makes, see [`UnstableRaw`](/get-started/mobile/#3-write-a-test) and [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.Locator(selector)` takes agent-device selectors for nodes `Screen` cannot name |
 | Maestro Cloud | your CI |
 
 ## Rewrite one flow

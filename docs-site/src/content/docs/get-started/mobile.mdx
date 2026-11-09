@@ -128,7 +128,7 @@ So these are not reachable through `UnstableRaw` yet, and have no `Device` metho
 - Uninstalling an app (`apps.uninstall`). `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
 - Hardware buttons (`command.hardwareButton`: power, volume up, volume down).
 
-Upstream's guide shows these through `unstable_raw.client` (tester-army/e2e#1622 and #1618); the port's client does not translate them yet, see #1425. The same "Not yet" notes are in the Detox and Maestro migration guides and the skill's `mobile.md`: update them together.
+Upstream's guide shows these through `unstable_raw.client` (tester-army/e2e#1622 and #1618); the port's client does not translate them yet, see #1425. The same "Not yet" notes are in the Detox, Maestro, and Appium migration guides and the skill's `mobile.md`: update them together.
 
 ## 4. Run
 

@@ -40,6 +40,9 @@ page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
 | Appium | `Appium.WebDriver` in a `.csproj`, `appium:` capabilities in a `wdio.conf.*` or test setup, `appium` in `package.json`, `io.appium` in a `pom.xml` or `build.gradle`, `Appium-Python-Client` in `requirements.txt` | `appium` | `mobile` |
 | TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
 
+An Appium .NET project often references `Selenium.WebDriver` too: when both
+packages are present, the Appium row wins, since the suite drives a device.
+
 WebdriverIO for the web has no guide. Map its WebDriver calls with the
 `selenium` guide, and tell the user the mapping is partial. WebdriverIO with
 Appium capabilities is an Appium project.
@@ -315,7 +318,7 @@ Defect check: on
 
 ## Gaps
 
-- A Maestro `addMedia` step has no e2e equivalent (guide: Not yet); issue filed.
+- The source test uses a feature the port does not have (guide: Not yet, with no workaround); issue filed.
 
 ## Next
 

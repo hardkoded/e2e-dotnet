@@ -141,7 +141,7 @@ public sealed class LoginTests : MobileAppTest
 | `device.setOrientation('landscape')` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
 | `device.setBiometricEnrollment(true)` | `Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true)` |
 | `device.matchFace()`, `device.unmatchFace()` | `Device.SetBiometricsAsync(BiometricSensor.FaceId, BiometricResult.Match)` or `NonMatch` |
-| `device.setStatusBar` | No equivalent. `ToHaveScreenshotAsync` holds the status bar fixed |
+| `device.setStatusBar` | No equivalent. The device engine's masked screenshot holds the status bar fixed, except on TestMu and .NET MAUI DevFlow, which show the real one |
 | `device.setURLBlacklist` | No equivalent |
 | `device.shake()`, `device.sendUserNotification()` | Not yet |
 | `device.disableSynchronization()` | No equivalent. Actions wait and assertions retry |
