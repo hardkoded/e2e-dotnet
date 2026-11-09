@@ -19,6 +19,8 @@ public sealed class AFrameWhoseNavigationIsHeldTests
 
     private const int Height = 200;
 
+    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(5);
+
     /// <summary>
     /// Opens a page holding an iframe whose request for <c>/held.html</c> never gets an answer, and hands the session to
     /// <paramref name="body"/>. The held request is aborted when the body ends.
@@ -71,47 +73,49 @@ public sealed class AFrameWhoseNavigationIsHeldTests
         }
     }
 
-    /// <summary>
-    /// Partial (#1230): upstream checks the observation's <c>pixels</c> and <c>maskingProven</c>. The port's observation has no pixels, so this
-    /// checks the tree is not truncated and the screenshot's masked count and width.
-    /// </summary>
     [Fact]
-    public async Task Partial_Leaves_the_observation_whole_and_its_pixels_proven_masked()
+    public async Task Leaves_the_observation_whole_and_its_pixels_proven_masked()
     {
-        await WithHeldFrameAsync(string.Empty, async (session, _) =>
+        await WithHeldFrameAsync(string.Empty, async (session, page) =>
         {
-            var observation = await session.ObserveAsync(CancellationToken.None);
-            var screenshot = await session.ScreenshotAsync(CancellationToken.None);
+            var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, Budget, CancellationToken.None);
 
+            Assert.Equal(Width, ImageWidth(observation.Pixels!.Png));
             Assert.False(observation.Truncated);
-            Assert.Equal(0, screenshot.MaskedRegionCount);
-            Assert.Equal(Width, ImageWidth(screenshot.Png) / screenshot.Scale, 3);
+            Assert.Equal(0, observation.Pixels.MaskedRegionCount);
+            var pixels = await CapturePixelsAsync(page);
+            Assert.True(pixels.MaskingProven);
         });
     }
 
     [Fact]
     public async Task Masks_a_secure_field_the_parent_wrote_into_the_initial_document()
     {
-        await WithHeldFrameAsync(string.Empty, async (session, page) =>
+        await WithHeldFrameAsync(string.Empty, async (_, page) =>
         {
             await page.EvaluateAsync("() => { document.querySelector('iframe').contentDocument.body.innerHTML = '<input type=\"password\" value=\"hunter2\">'; }");
 
-            var screenshot = await session.ScreenshotAsync(CancellationToken.None);
+            var pixels = await CapturePixelsAsync(page);
 
-            Assert.Equal(1, screenshot.MaskedRegionCount);
+            Assert.Equal(1, pixels.MaskedRegionCount);
+            Assert.True(pixels.MaskingProven);
         });
     }
 
     [Fact]
     public async Task Captures_past_a_sandboxed_frame_no_script_can_reach()
     {
-        await WithHeldFrameAsync("sandbox", async (session, _) =>
+        await WithHeldFrameAsync("sandbox", async (_, page) =>
         {
-            var screenshot = await session.ScreenshotAsync(CancellationToken.None);
+            var pixels = await CapturePixelsAsync(page);
 
-            Assert.Equal(0, screenshot.MaskedRegionCount);
+            Assert.Equal(0, pixels.MaskedRegionCount);
+            Assert.True(pixels.MaskingProven);
         });
     }
+
+    private static Task<PixelCapture> CapturePixelsAsync(IPage page) =>
+        WebObserve.CapturePixelsAsync(page, new OperationBudget(Budget, "observe", CancellationToken.None), new ViewportSize { Width = Width, Height = Height });
 
     /// <summary>The width in pixels of a PNG, read from its header.</summary>
     private static int ImageWidth(byte[] png) => System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4));

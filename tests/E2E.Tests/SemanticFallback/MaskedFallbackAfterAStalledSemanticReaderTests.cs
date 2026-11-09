@@ -2,32 +2,78 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using E2E.Engine;
+using E2E.Internal;
 using Microsoft.Playwright;
 
 namespace E2E.Tests.SemanticFallback;
 
 /// <summary>
 /// Upstream's <c>describe('masked fallback after a stalled semantic reader')</c> (<c>packages/web/tests/integration/semantic-fallback.test.ts</c>,
-/// tester-army/e2e at <c>f185ca8</c>). The web engine has no pixel fallback and no stalled-reader seam (upstream's tests stall the
-/// page's <c>evaluateHandle</c> with a spy), so <c>reserves capture time and takes fresh masked pixels</c> is not ported (see
-/// COMPATIBILITY.md) and the other <c>it</c> is partial.
+/// tester-army/e2e at <c>f185ca8</c>). Upstream stalls the page's <c>evaluateHandle</c> with a spy; the port replaces
+/// <see cref="WebEngine.ReadFrame"/>, the call the reader runs in each frame.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
 {
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(5);
 
-    /// <summary>
-    /// Partial: upstream abandons a reader that already stamped Button B, then falls back to pixels, and checks the refs of the next
-    /// observation. The port has no abandoned reader and no pixel fallback on the web engine, so this reads the page between observations
-    /// instead and checks the ids of the nodes added since, a frame's, and the located one: the ids are distinct and every added node acts.
-    /// </summary>
     [Fact]
-    public async Task Partial_Keeps_abandoned_reader_IDs_distinct_from_new_nodes_frames_and_located_refs()
+    public async Task Reserves_capture_time_and_takes_fresh_masked_pixels()
     {
+        var operation = TimeSpan.FromSeconds(2);
+        var stalled = false;
+        using var site = await TinySite.StartAsync("<!doctype html><title>Fallback</title>");
+        var engine = new WebEngine(new WebEngineOptions { Headless = true, Viewport = new WebViewport(320, 200) })
+        {
+            ReadFrame = (frame, arguments) => stalled ? new TaskCompletionSource<IJSHandle>().Task : frame.EvaluateHandleAsync(PageScript.Collect, arguments),
+        };
+        await using var session = await engine.StartAsync(new EngineStartOptions { ActionTimeout = operation }, CancellationToken.None);
+        await session.OpenAsync(site.Url, CancellationToken.None);
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync("<style>input{position:absolute;left:20px;top:20px;width:100px;height:30px;border:0;padding:0;background:red}</style><input data-testid=\"password\" type=\"password\" value=\"private-value\">");
+        await session.ObserveAsync(CancellationToken.None);
+        var password = Assert.Single(await session.LocateAsync(LocatorExpression.For("testid", "password", new TextMatchOptions { Exact = true }, "testId"), operation, CancellationToken.None));
+        await page.EvaluateAsync("() => { setTimeout(() => { document.body.style.background = 'blue'; }, 1000); }");
+        stalled = true;
+
+        var started = Stopwatch.StartNew();
+        var fallback = await session.ObserveAsync(new ObserveOptions { Pixels = true, PixelFallback = true }, operation, CancellationToken.None);
+
+        Assert.True(started.Elapsed > TimeSpan.FromMilliseconds(1250));
+        Assert.True(started.Elapsed < operation);
+        Assert.True(fallback.TreeUnavailable);
+        Assert.Empty(fallback.Roots);
+        Assert.True(fallback.Pixels!.MaskedRegionCount >= 1);
+        var image = ImageOps.DecodePng(fallback.Pixels.Png);
+        Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 30));
+        Assert.Equal([0, 0, 255, 255], PixelAt(image, 200, 100));
+        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(password, new LocatorAction.Tap(), CancellationToken.None));
+        Assert.Equal(EngineErrorCodes.NodeStale, stale.Code);
+    }
+
+    [Fact]
+    public async Task Keeps_abandoned_reader_IDs_distinct_from_new_nodes_frames_and_located_refs()
+    {
+        var delayed = new TaskCompletionSource();
+        var spy = false;
         using var site = await TinySite.StartAsync("<!doctype html><title>Ids</title>");
-        await using var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        var engine = new WebEngine(headless: true)
+        {
+            // The real reader stamped B already; only its protocol reply is delayed.
+            ReadFrame = async (frame, arguments) =>
+            {
+                var captured = await frame.EvaluateHandleAsync(PageScript.Collect, arguments);
+                if (spy)
+                {
+                    await delayed.Task;
+                }
+
+                return captured;
+            },
+        };
+        await using var session = await engine.StartAsync(new EngineStartOptions { ActionTimeout = Budget }, CancellationToken.None);
         await session.OpenAsync(site.Url, CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetContentAsync("<button data-testid=\"a\" onclick=\"document.body.dataset.clicked='A'\">Button A</button>");
@@ -40,8 +86,19 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
               document.body.append(button);
             }
             """);
-        await session.ObserveAsync(CancellationToken.None);
-        var located = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Button A", new RoleOptions()), Budget, CancellationToken.None));
+        spy = true;
+        try
+        {
+            var fallback = await session.ObserveAsync(new ObserveOptions { PixelFallback = true }, TimeSpan.FromSeconds(2), CancellationToken.None);
+            Assert.True(fallback.TreeUnavailable);
+        }
+        finally
+        {
+            spy = false;
+            delayed.SetResult();
+        }
+
+        var located = Assert.Single(await session.LocateAsync(LocatorExpression.For("testid", "a", new TextMatchOptions { Exact = true }, "testId"), Budget, CancellationToken.None));
         await page.EvaluateAsync("""
             () => {
               const button = document.createElement('button');
@@ -60,11 +117,7 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         var observed = Flatten(fresh.Roots).ToList();
         var ids = observed.Select(node => node.Ref).ToList();
         Assert.Equal(ids.Count, ids.Distinct().Count());
-        // A located ref is the registry's own (upstream's storeLocated), distinct from every id the observation lists.
-        Assert.Equal("Button A", located.Name);
         Assert.DoesNotContain(located.Ref, ids);
-        await session.PerformAsync(located, new LocatorAction.Tap(), CancellationToken.None);
-        Assert.Equal("A", await page.Locator("body").GetAttributeAsync("data-clicked"));
         foreach (var name in new[] { "Button B", "Button C", "Button D" })
         {
             var target = Assert.Single(observed, node => node.Name == name);
@@ -76,6 +129,12 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
                 : await page.Locator("body").GetAttributeAsync("data-clicked");
             Assert.Equal(name[^1].ToString(), clicked);
         }
+    }
+
+    private static byte[] PixelAt(RgbaImage image, int x, int y)
+    {
+        var at = ((y * image.Width) + x) * 4;
+        return image.Data[at..(at + 4)];
     }
 
     private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) => nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);

@@ -337,6 +337,9 @@ public sealed partial class WebEngine : IEngine
     /// <summary>What captures the page for an artifact screenshot; tests replace it as upstream's tests spy on <c>page.screenshot</c>.</summary>
     internal Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage { get; init; } = static (page, options) => page.ScreenshotAsync(options);
 
+    /// <summary>What runs the page's reader in a frame (upstream's <c>captureDocument</c> on the page's <c>evaluateHandle</c>); .NET-only seam, so tests that stall or fail the semantic read replace it as upstream's spy on <c>page.evaluateHandle</c>.</summary>
+    internal Func<IFrame, object, Task<IJSHandle>> ReadFrame { get; init; } = static (frame, arguments) => frame.EvaluateHandleAsync(PageScript.Collect, arguments);
+
     public string Version => EngineVersion;
 
     // Upstream's STATE_FORMAT (web/src/surface.ts): the format of the state a web session captures.
@@ -439,7 +442,7 @@ public sealed partial class WebEngine : IEngine
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
-            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute, CapturePage);
+            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute, CapturePage, ReadFrame);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 var persistentSession = await WebSession.StartPersistentAsync(
@@ -1077,12 +1080,6 @@ public sealed partial class WebEngine : IEngine
 
     private sealed partial class WebSession : IBrowserSession
     {
-        // The fields the page script marks secure.
-        private const string SecureFieldSelector = ReadNode.SecureFieldSelector;
-
-        // The same fields inside the closed shadow roots Playwright's own selectors stop at.
-        private const string ClosedSecureFieldSelector = PageScript.ClosedShadowSelectorEngine + "=" + SecureFieldSelector;
-
         private readonly IPlaywright _playwright;
         private readonly TimeSpan _actionTimeout;
         private readonly string _testIdAttribute;
@@ -1210,49 +1207,117 @@ public sealed partial class WebEngine : IEngine
 
         }));
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(cancellationToken, null);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(null, _actionTimeout, cancellationToken);
+
+        public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
 
         // The least a locate's read is given, so the last poll of a wait at its deadline still reads the page and the wait fails on what it saw.
         private static readonly TimeSpan MinLocateRead = TimeSpan.FromMilliseconds(500);
 
-        // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
-        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => GuardAsync("observe", cancellationToken, async () =>
+        // Leave time for a fresh masked screenshot after semantic capture expires (upstream's PIXEL_FALLBACK_RESERVE_MS).
+        private static readonly TimeSpan PixelFallbackReserve = TimeSpan.FromSeconds(2);
+
+        /// <summary>
+        /// One atomic semantic observation (upstream's <c>observe</c> in <c>surface.ts</c>), within <paramref name="timeout"/>, the operation
+        /// budget. With <see cref="ObserveOptions.Pixels"/>, masked viewport pixels are captured alongside the tree rather than after it, so
+        /// the image and the node geometry describe the page as closely in time as two engine calls can.
+        /// </summary>
+        public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("observe", cancellationToken, async () =>
         {
-            var budget = ObserveBudget(cancellationToken, timeout);
-            return await ObserveInTurnAsync(budget, () => ReadObservationAsync(budget)).ConfigureAwait(false);
+            var budget = Budget("observe", cancellationToken, timeout);
+            return await ObserveInTurnAsync(budget, () => CaptureObservationAsync(options, budget)).ConfigureAwait(false);
         });
 
-        private OperationBudget ObserveBudget(CancellationToken cancellationToken, TimeSpan? timeout) =>
-            Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
-
-        /// <summary>One read of the page into a tree, publishing its refs. Callers hold their turn (<see cref="ObserveInTurnAsync"/>).</summary>
-        private async Task<Observation> ReadObservationAsync(OperationBudget budget)
+        /// <summary>
+        /// One observation transaction: semantic capture, masked pixels, and staged refs (upstream's <c>captureObservation</c> in
+        /// <c>observation-capture.ts</c>, published as <c>captureInTurn</c> in <c>surface.ts</c> does). A screen whose semantic read timed
+        /// out is answered with fresh masked pixels alone when <see cref="ObserveOptions.PixelFallback"/> allows it. Callers hold their turn
+        /// (<see cref="ObserveInTurnAsync"/>).
+        /// </summary>
+        private async Task<Observation> CaptureObservationAsync(ObserveOptions? options, OperationBudget budget)
         {
+            var page = Page;
             var capture = _refs.BeginCapture();
             var walk = new FrameWalk();
             try
             {
-                List<WebNode> roots;
+                var fallback = options?.PixelFallback == true;
+                var semantic = fallback ? budget.WithTimeout(budget.Left - TimeSpan.FromTicks(Math.Min(PixelFallbackReserve.Ticks, budget.Left.Ticks / 4))) : budget;
+
+                // The initial image is independent of the reader. A fallback always takes a fresh one.
+                var pixelCapture = options?.Pixels == true ? InitialPixelsAsync(page, semantic) : Task.FromResult<PixelCapture?>(null);
+                // A cancel that ends the image after the read failed has nobody awaiting it.
+                _ = pixelCapture.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                Observation observation;
                 try
                 {
-                    roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
+                    var roots = await CollectAsync(page.MainFrame, walk, semantic).ConfigureAwait(false);
+                    var pixels = await pixelCapture.ConfigureAwait(false);
+                    var url = page.Url;
+                    observation = new Observation
+                    {
+                        Route = Routes.LocationOf(url),
+                        Location = url,
+                        Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(),
+                        Truncated = walk.Truncated,
+                        ScrollPosition = walk.Scroll,
+                        Viewport = walk.Viewport,
+                        Pixels = pixels?.Pixels,
+                    };
                 }
-                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                catch (EngineException cause) when (fallback && cause.Code == EngineErrorCodes.OperationTimeout)
                 {
-                    throw WebErrors.NavigationStaleOr(ex, "observe");
+                    walk.Release();
+                    await pixelCapture.ConfigureAwait(false);
+                    var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
+                    var pixels = await WebObserve.CapturePixelsAsync(page, budget, viewport).ConfigureAwait(false);
+                    if (!pixels.MaskingProven)
+                    {
+                        throw;
+                    }
+
+                    var url = page.Url;
+                    observation = new Observation
+                    {
+                        Route = Routes.LocationOf(url),
+                        Location = url,
+                        Roots = [],
+                        Truncated = true,
+                        TreeUnavailable = true,
+                        Viewport = new TraceViewport(viewport.Width, viewport.Height),
+                        Pixels = pixels.Pixels,
+                    };
                 }
 
-                var url = Page.Url;
-                var observation = new Observation { Route = Routes.LocationOf(url), Location = url, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
                 _refs.Publish(capture, new CapturedObservation(observation, walk.Generation));
                 _observed = true;
                 return observation;
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                walk.Release();
+                throw WebErrors.NavigationStaleOr(ex, "observe");
             }
             catch
             {
                 // A read that failed leaves no reachable ids behind.
                 walk.Release();
                 throw;
+            }
+        }
+
+        // The pixels taken with the semantic read, best effort: a screenshot that cannot be taken costs the observation its image, not the
+        // step (upstream's `.catch(() => undefined)`). A cancel is not swallowed: it surfaces when the capture awaits them.
+        private async Task<PixelCapture?> InitialPixelsAsync(IPage page, OperationBudget budget)
+        {
+            try
+            {
+                var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
+                return await WebObserve.CapturePixelsAsync(page, budget, viewport).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return null;
             }
         }
 
@@ -2607,7 +2672,7 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var page = Page;
-                var masks = await budget.WithinAsync(SecureFieldMasksAsync(page)).ConfigureAwait(false);
+                var masks = await budget.WithinAsync(WebObserve.SecureFieldMasksAsync(page)).ConfigureAwait(false);
                 var masked = await CountMasksAsync(masks, budget).ConfigureAwait(false);
 
                 // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
@@ -2628,13 +2693,6 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.NavigationStaleOr(ex, "screenshot");
             }
         });
-
-        // Every secure field of every frame is covered before the image leaves the engine: two locators per
-        // frame, one through light DOM and open shadow roots, one through the closed roots. A frame with no readable document shows
-        // nothing to mask, and probing it would wait for its navigation to commit.
-        private static async Task<List<ILocator>> SecureFieldMasksAsync(IPage page) =>
-            (await FrameDocument.ReadableFramesAsync(page.Frames).ConfigureAwait(false))
-                .SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
 
         // How many regions the masks cover, which a caller proves the image is at least as redacted as the tree with.
         private static async Task<int> CountMasksAsync(List<ILocator> masks, OperationBudget budget)
@@ -2674,7 +2732,7 @@ public sealed partial class WebEngine : IEngine
                 try
                 {
                     // As upstream's artifact capture, the locators go straight to the screenshot call: no count to spend the budget on.
-                    var masks = await budget.WithinAsync(SecureFieldMasksAsync(page)).ConfigureAwait(false);
+                    var masks = await budget.WithinAsync(WebObserve.SecureFieldMasksAsync(page)).ConfigureAwait(false);
                     png = await budget.WithinAsync(_seams.CapturePage(page, new PageScreenshotOptions
                     {
                         Type = ScreenshotType.Png,
@@ -3115,7 +3173,7 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task<(WebObservation? Observation, ElementList? List)> ReadDocumentAsync(IFrame frame, FrameWalk walk, int seed, OperationBudget budget)
         {
-            var pending = frame.EvaluateHandleAsync(PageScript.Collect, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish });
+            var pending = _seams.ReadFrame(frame, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish });
             IJSHandle result;
             try
             {
@@ -4138,7 +4196,7 @@ public sealed partial class WebEngine : IEngine
     }
 
     /// <summary>What tests replace: the clock budgets read, the CDP attach, the selector registration in its context, and the read of a route's upstream response.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute, Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage);
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute, Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage, Func<IFrame, object, Task<IJSHandle>> ReadFrame);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(
@@ -4412,6 +4470,22 @@ internal sealed class OperationBudget
 
     /// <summary>The budget in milliseconds, as the messages that name it.</summary>
     public long TimeoutMs => (long)_timeout.TotalMilliseconds;
+
+    /// <summary>The time left before the deadline, zero once it has passed. Unlike the other members it does not throw at the deadline.</summary>
+    public TimeSpan Left
+    {
+        get
+        {
+            var left = _timeout - _clock.GetElapsedTime(_startedAt);
+            return left > TimeSpan.Zero ? left : TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>
+    /// A budget of its own deadline, <paramref name="timeout"/> from now, that ends on the same cancellation (.NET-only: upstream spreads the
+    /// operation with a new <c>timeoutMs</c>, as <c>{ ...operation, timeoutMs }</c> in <c>captureObservation</c>).
+    /// </summary>
+    public OperationBudget WithTimeout(TimeSpan timeout) => new(timeout, _label, _cancellationToken, _clock);
 
     /// <summary>Whether the deadline has passed.</summary>
     public bool Expired => _clock.GetElapsedTime(_startedAt) >= _timeout;

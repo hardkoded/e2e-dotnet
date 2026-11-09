@@ -13,6 +13,21 @@ internal static class WebSupport
     /// <summary>The longest filename <see cref="SanitizeFilename"/> keeps.</summary>
     private const int MaxFilenameLength = 64;
 
+    /// <summary>
+    /// The viewport the page shows now (upstream's <c>currentViewport</c>): the size Playwright emulates, or the window's own when it
+    /// emulates none (a browser that runs with no viewport, such as a headed one, so Playwright reports no size).
+    /// </summary>
+    public static async Task<ViewportSize> CurrentViewportAsync(IPage page, OperationBudget budget)
+    {
+        if (page.ViewportSize is { } emulated)
+        {
+            return new ViewportSize { Width = emulated.Width, Height = emulated.Height };
+        }
+
+        var size = await budget.WithinAsync(page.EvaluateAsync<System.Text.Json.JsonElement>("() => ({ width: window.innerWidth, height: window.innerHeight })")).ConfigureAwait(false);
+        return new ViewportSize { Width = size.GetProperty("width").GetInt32(), Height = size.GetProperty("height").GetInt32() };
+    }
+
     /// <summary>Constrains a caller-supplied artifact label to a safe filename (upstream's <c>sanitizeFilename</c>).</summary>
     public static string SanitizeFilename(string name)
     {

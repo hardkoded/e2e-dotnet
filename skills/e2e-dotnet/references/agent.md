@@ -422,7 +422,7 @@ works from the text. A superseded screen past 32 KB, and all but the newest
 two screenshots (in batches of three), are elided from the request. The step
 report carries `visionInput` and `pixelBytes`. When an engine cannot read the
 semantic tree (`Observation.TreeUnavailable`, answered to a look with
-`ObserveOptions.PixelFallback`), the step works from the screenshot alone:
+`ObserveOptions.PixelFallback`; the web engine answers a stalled semantic read this way), the step works from the screenshot alone:
 earlier node references are refused and the step is not cached. If no masked
 screenshot can replace the tree, the step ends `POLICY_DENIED`. `ActOptions`
 has no `Vision` option.
