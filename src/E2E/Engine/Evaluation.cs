@@ -117,7 +117,7 @@ internal static class Evaluation
     /// </summary>
     public static readonly JsonSerializerOptions ResultOptions = new(JsonDefaults.Options) { Converters = { new LoneSurrogateStringConverter() } };
 
-    private sealed class LoneSurrogateStringConverter : JsonConverter<string>
+    internal sealed class LoneSurrogateStringConverter : JsonConverter<string>
     {
         public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
@@ -144,7 +144,7 @@ internal static class Evaluation
 
         public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
 
-        private static string Unescape(string raw)
+        internal static string Unescape(string raw)
         {
             var text = new StringBuilder(raw.Length);
             for (var i = 0; i < raw.Length; i++)
@@ -175,6 +175,20 @@ internal static class Evaluation
         }
     }
 
+    // A page's error text may hold a lone surrogate too; GetString refuses it, so read the raw text.
+    private static string ReadText(JsonElement element)
+    {
+        try
+        {
+            return element.GetString()!;
+        }
+        catch (InvalidOperationException)
+        {
+            var raw = element.GetRawText();
+            return LoneSurrogateStringConverter.Unescape(raw[1..^1]);
+        }
+    }
+
     /// <summary>The result of the boundary <see cref="CompileEvaluation"/> compiled, from the JSON text it resolved to; throws what the page threw.</summary>
     public static JsonElement? DecodeEvaluation(string? text)
     {
@@ -198,10 +212,10 @@ internal static class Evaluation
 
             if (root.TryGetProperty("invalid", out var invalid))
             {
-                throw new TestException("INVALID_ARGUMENT", "evaluate result " + invalid.GetString());
+                throw new TestException("INVALID_ARGUMENT", "evaluate result " + ReadText(invalid));
             }
 
-            throw new TestException("EVALUATE_FAILED", root.GetProperty("message").GetString()!);
+            throw new TestException("EVALUATE_FAILED", ReadText(root.GetProperty("message")));
         }
     }
 }

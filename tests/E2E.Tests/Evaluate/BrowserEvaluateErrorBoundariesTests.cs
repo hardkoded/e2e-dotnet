@@ -136,6 +136,20 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         });
     }
 
+    // .NET-only: System.Text.Json refuses a lone surrogate, which a page's string, property, or error message can hold.
+    [Fact]
+    public async Task Keeps_a_lone_surrogate_in_a_property_and_in_a_thrown_message()
+    {
+        await AttemptAsync(async session =>
+        {
+            var basket = await session.Browser.EvaluateAsync<Dictionary<string, string[]>>("""() => ({ items: ["a\ud800", "\\ b"] })""");
+            Assert.Equal(["a\ud800", "\\ b"], basket!["items"]);
+            var thrown = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("""() => { throw new Error("bad \ud800"); }"""));
+            Assert.Equal("EVALUATE_FAILED", thrown.Code);
+            Assert.Contains("bad \ud800", thrown.Message);
+        });
+    }
+
     [Fact]
     public async Task Returns_a_result_after_the_page_deletes_or_replaces_the_globals_the_transport_could_use()
     {
