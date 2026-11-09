@@ -9,4 +9,4 @@ dotnet run --project apps/WebBenchmark --urls http://127.0.0.1:5000
 
 Rules kept from upstream: the DOM a scenario exposes (test ids, texts, roles, styles) stays as upstream renders it, and a planted bug is never fixed.
 
-Ported so far: Login Form. The tests that drive the app are in [`apps/WebBenchmark.E2ETests`](../WebBenchmark.E2ETests).
+Ported so far: Login Form, Overlay Trap, Hover Menu, Checkout Review, Product Reviews. The tests that drive the app are in [`apps/WebBenchmark.E2ETests`](../WebBenchmark.E2ETests).

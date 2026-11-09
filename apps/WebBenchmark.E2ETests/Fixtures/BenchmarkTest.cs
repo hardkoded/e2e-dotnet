@@ -10,4 +10,12 @@ namespace WebBenchmark.E2ETests.Fixtures;
 public abstract class BenchmarkTest : E2ETest
 {
     protected override string? BaseUrl => BenchmarkSite.Url;
+
+    /// <summary>The Login Form scenario's hardcoded account, which <c>Credentials.User("benchmark")</c> reads; upstream declares it in <c>e2e.config.ts</c>.</summary>
+    [OneTimeSetUp]
+    public void DeclareTheBenchmarkAccount()
+    {
+        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_USERNAME") ?? "tester@tester.army");
+        Environment.SetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD", Environment.GetEnvironmentVariable("E2E_USER_BENCHMARK_PASSWORD") ?? "benchmark123");
+    }
 }

@@ -1,0 +1,109 @@
+@* Upstream's app/src/Examples/OverlayTrap.tsx.
+   Sabotage scenario: an invisible full-viewport pointer trap. A cookie banner gates the flow first, then after OverlayDelayMs a
+   transparent fixed overlay appears above the page content and swallows every click, so the Continue button never fires even
+   though it looks clickable. The overlay can only be dismissed via a small unlabeled chip pinned to its top-right corner; blocked
+   clicks increment a visible counter so the agent gets feedback that its clicks are being intercepted. The cookie banner sits
+   above the overlay in z-order so it stays clickable throughout. *@
+@implements IDisposable
+@if (_done)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            You made it past the overlay
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">
+            Accept cookies, close whatever is blocking clicks, then press Continue.
+        </p>
+        <p data-testid="blocked-count" style="@BlockedText">
+            Blocked clicks: @_blockedClicks
+        </p>
+        <button type="button" data-testid="continue-button" style="@(_cookiesAccepted ? Button : ButtonDisabledLook)" @onclick="HandleContinue">
+            Continue
+        </button>
+        @if (_overlayVisible && !_overlayDismissed)
+        {
+            <div style="@Overlay" @onclick="() => _blockedClicks++">
+                <button type="button" style="@OverlayChip" @onclick="() => _overlayDismissed = true" @onclick:stopPropagation="true">
+                    × close overlay
+                </button>
+            </div>
+        }
+        @if (!_cookiesAccepted)
+        {
+            <div style="@CookieBanner">
+                <span style="@CookieText">We use cookies to run this benchmark.</span>
+                <button type="button" data-testid="accept-cookies-button" style="@Button" @onclick="() => _cookiesAccepted = true">
+                    Accept cookies
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private const int OverlayDelayMs = 500;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string BlockedText = "font-size: 14px; color: #333; text-align: center; margin: 0;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ButtonDisabledLook = Button + " opacity: 0.6;";
+    private const string Overlay = "position: fixed; inset: 0; background: transparent; z-index: 20;";
+    private const string OverlayChip = "position: absolute; top: 12px; right: 12px; z-index: 21; background-color: #fff; color: #333; border: 1px solid #ccc; border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer;";
+    private const string CookieBanner = "position: fixed; bottom: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; background-color: #f4f4f4; border-top: 1px solid #e5e5e5;";
+    private const string CookieText = "font-size: 14px; color: #333;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly CancellationTokenSource _disposed = new();
+    private bool _cookiesAccepted;
+    private bool _overlayVisible;
+    private bool _overlayDismissed;
+    private int _blockedClicks;
+    private bool _done;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(OverlayDelayMs, _disposed.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _overlayVisible = true;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Fires only once the banner is accepted and the overlay has been dismissed. While the overlay is up it covers this button, so
+    /// pointer clicks never arrive; the state check closes the other routes (a click that lands before the overlay appears, or a
+    /// keyboard activation), so being fast is not a way past the trap.
+    /// </summary>
+    private void HandleContinue()
+    {
+        if (!_cookiesAccepted || !_overlayDismissed)
+        {
+            return;
+        }
+
+        _done = true;
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}
