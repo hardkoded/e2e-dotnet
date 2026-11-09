@@ -619,6 +619,11 @@ internal sealed class SessionHost : IDisposable
             {
                 return "No screen to show: " + cause.Message;
             }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                // A session whose test timed out has its own token cancelled: it shows nothing, and the open goes on.
+                return "No screen to show: the session's test timed out";
+            }
         }
 
         var observed = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);

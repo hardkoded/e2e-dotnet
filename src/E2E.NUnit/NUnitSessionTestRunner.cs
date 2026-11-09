@@ -63,11 +63,11 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
         using var request = SessionHandover.Begin(name, host);
 
         // A promise nobody observed fails the test that is taking its turn (upstream's strayInTurn).
-        List<Exception> stray = [];
+        System.Collections.Concurrent.ConcurrentQueue<Exception> strays = [];
         try
         {
             ITestResult? result = null;
-            using (StrayRejections.Turn(cause => stray.Add(cause)))
+            using (StrayRejections.Turn(cause => strays.Enqueue(cause)))
             {
                 // NUnitLite's console is stdout, which carries the MCP protocol, so the assembly runs under the framework's own runner: no report.
                 result = await Task.Run(
@@ -84,7 +84,7 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
                     cancellationToken).ConfigureAwait(false);
             }
 
-            return Outcome(request, name, result, stray);
+            return Outcome(request, name, result, [.. strays]);
         }
         catch (OperationCanceledException)
         {

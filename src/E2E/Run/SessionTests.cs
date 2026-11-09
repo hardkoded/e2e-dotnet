@@ -65,6 +65,7 @@ internal sealed record SessionTestOutcome(string TestName, E2ESession? Session, 
 internal sealed class LiveRun(string test)
 {
     private readonly List<Exception> _late = [];
+    private int _ended;
 
     public string Test { get; } = test;
 
@@ -83,6 +84,12 @@ internal sealed class LiveRun(string test)
     /// </summary>
     public IReadOnlyList<Exception> End()
     {
+        // Once: a close after a dispose finds the failures told and the look already under way.
+        if (Interlocked.Exchange(ref _ended, 1) == 1)
+        {
+            return [];
+        }
+
         StrayRejections.Collect();
         StrayRejections.Remove(this);
         lock (_late)
@@ -105,6 +112,7 @@ internal static class StrayRejections
     private static Action<Exception>? _inTurn;
     private static string? _lastTest;
     private static bool _installed;
+    private static int _looking;
 
     /// <summary>How often, and how many times, a closed session's tasks are looked at again.</summary>
     private static readonly TimeSpan LookEvery = TimeSpan.FromMilliseconds(500);
@@ -209,13 +217,25 @@ internal static class StrayRejections
             _lastTest = run.Test;
         }
 
-        // What the test left for after the close is reported when its task is collected: look again for a few seconds after.
+        // What the test left for after the close is reported when its task is collected: look again for a few seconds after, one loop at a time.
+        if (Interlocked.Exchange(ref _looking, 1) == 1)
+        {
+            return;
+        }
+
         _ = Task.Run(async () =>
         {
-            for (var look = 0; look < LooksAfterClose; look++)
+            try
             {
-                await Task.Delay(LookEvery).ConfigureAwait(false);
-                Collect();
+                for (var look = 0; look < LooksAfterClose; look++)
+                {
+                    await Task.Delay(LookEvery).ConfigureAwait(false);
+                    Collect();
+                }
+            }
+            finally
+            {
+                Volatile.Write(ref _looking, 0);
             }
         });
     }
