@@ -1,0 +1,46 @@
+@* Upstream's app/src/Examples/StickyChrome.tsx.
+   Sticky chrome gate: an opaque sticky footer overlaps the bottom 96px of the scroll viewport and sits above the content in z-order, so it
+   intercepts pointer events for anything underneath it. The Accept terms button lives near the bottom of ~2800px of filler; the
+   scroll has to go far enough that the button clears the footer before a click can land on it. *@
+<div style="@Container">
+    @if (_accepted)
+    {
+        <p data-testid="success-message" style="@SuccessText">Terms accepted</p>
+    }
+    <p style="@Hint">Scroll to the Accept terms button near the bottom and click it once it is clear of the sticky footer.</p>
+    <div data-testid="scroll-container" style="@Scroller">
+        <div data-testid="sticky-header" style="@Header">Terms of Service</div>
+        @for (var i = 0; i < FillerBlocks; i++)
+        {
+            <div @key="i" style="@FillerBlock">
+                <p style="@FillerTitle">Section @(i + 1)</p>
+                <p style="@FillerText">These terms describe how the benchmark service is provided. Section @(i + 1) repeats the same deterministic paragraph so the page is tall enough that the accept button sits far below the fold, behind the sticky promo footer.</p>
+            </div>
+        }
+        <div style="@AcceptRow">
+            <button type="button" data-testid="accept-button" style="@Button" @onclick="() => _accepted = true">Accept terms</button>
+        </div>
+        <div data-testid="sticky-footer" style="@Footer">Sticky promo footer — always on top</div>
+    </div>
+</div>
+
+@code {
+    private const int FillerBlocks = 14;
+    private const int FillerBlockHeight = 200;
+    private const int HeaderHeight = 64;
+    private const int FooterHeight = 96;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Scroller = "position: relative; height: 480px; overflow: auto; border: 1px solid #e5e5e5; border-radius: 8px;";
+    private static readonly string Header = $"position: sticky; top: 0; height: {HeaderHeight}px; display: flex; align-items: center; padding: 0 16px; background-color: #fff; border-bottom: 1px solid #e5e5e5; font-size: 16px; font-weight: 600; z-index: 2; box-sizing: border-box;";
+    private static readonly string Footer = $"position: sticky; bottom: 0; height: {FooterHeight}px; display: flex; align-items: center; justify-content: center; padding: 0 16px; background-color: #fff; border-top: 1px solid #e5e5e5; font-size: 14px; font-weight: 600; z-index: 2; box-sizing: border-box;";
+    private static readonly string FillerBlock = $"height: {FillerBlockHeight}px; padding: 16px; box-sizing: border-box;";
+    private const string FillerTitle = "font-size: 15px; font-weight: 600; margin: 0 0 8px;";
+    private const string FillerText = "font-size: 14px; color: #444; line-height: 1.5; margin: 0;";
+    private const string AcceptRow = "display: flex; justify-content: center; padding: 16px;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private bool _accepted;
+}
