@@ -66,10 +66,12 @@ public sealed class GreetingTests : MobileAppTest
 | Compose Multiplatform | `Modifier.testTag()` |
 | Flutter | `Semantics(identifier:)` |
 | .NET MAUI | `AutomationId` |
-| NativeScript | `testID` |
+| NativeScript | `testID` (see NativeScript test ids below) |
 
 - On Android, a native `android:id` and a .NET MAUI `AutomationId` read as `<package>:id/<id>`. `GetByTestId("greet")` finds them without the app's package, as on iOS, when nothing matches the full id. Framework ids such as `android:id/content` match only in full.
+- On Android, Compose hides test tags until a root composable sets `Modifier.semantics { testTagsAsResourceId = true }`. Without it, `GetByTestId` finds nothing. iOS reads a Compose Multiplatform tag as is, so a shared screen sets the flag in its Android activity.
 - In SwiftUI, an `.accessibilityIdentifier()` on a container such as a `VStack` replaces the ids of every element inside it. `GetByTestId` then fails with `LOCATOR_AMBIGUOUS` on the container's id and finds nothing for the children's ids. Put `.accessibilityElement(children: .contain)` before the identifier to keep both.
+- In Flutter, wrap a button's `Semantics` in `MergeSemantics` so the id and the button role land on one node.
 
 ### NativeScript test ids
 
