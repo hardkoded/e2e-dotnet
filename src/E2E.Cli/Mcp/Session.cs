@@ -337,7 +337,7 @@ internal sealed class SessionHost : IDisposable
                 var (tests, runner) = SessionTests.Load(assembly);
                 SessionTests.SelectOne(runner, tests, testName, assembly);
                 var started = Stopwatch.StartNew();
-                ran = await runner.RunAsync(tests, testName, abort.Token).ConfigureAwait(false)
+                ran = await runner.RunAsync(tests, testName, abort.Token, config).ConfigureAwait(false)
                     ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
                 elapsed = started.Elapsed;
                 engine = ran.Engine;

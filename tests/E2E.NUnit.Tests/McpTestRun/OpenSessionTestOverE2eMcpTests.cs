@@ -16,7 +16,7 @@ namespace E2E.NUnit.Tests.McpTestRun;
 /// as <c>file:line</c>. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
 /// (an assembly loads once per server; hardkoded/e2e-dotnet#1411), "fails a test on a promise it left rejected, and keeps serving", "keeps a body
 /// its timeout cut short from driving the session", "reports a beforeAll failure as the outcome, once" (no outcome phases; #1410),
-/// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; needs a hostable model and the run seam; #1412, #1336),
+/// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
 /// both <c>describe('sessions side by side')</c> <c>it</c>s ("runs none of a test whose open was cancelled while it waited for its turn",
 /// "collect and run their tests one at a time, and both pass"; no turn per process; #1409), and the two <c>test.fail</c> <c>it</c>s ("tells a test that
 /// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
