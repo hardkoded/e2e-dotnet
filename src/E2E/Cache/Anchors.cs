@@ -128,7 +128,7 @@ internal static class Anchors
     /// leaves, then containers, each in document order, deduplicated and capped. A container's name is
     /// usually its children's names joined, so it repeats what the leaves already say, and on a list-heavy
     /// screen those repeats would crowd the one status line that names the effect out of the cap. A node counts as appeared only when no start
-    /// node matches its anchor, so the anchor cannot hold before the step ran. A node counts as gone only when no end node
+    /// node has its set key, as upstream's <c>describeDelta</c> compares. A node counts as gone only when no end node
     /// matches its anchor the way <see cref="Mismatch"/> checks one: a radio "Express" the pick replaced
     /// with a status reading "Express" vanished, but an anchor of that name would still match the status,
     /// and the recording would fail its own check on every replay. <paramref name="routeMoved"/> says the step
@@ -139,7 +139,7 @@ internal static class Anchors
         var startKeys = start.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
         var endKeys = end.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
         return (
-            Side(end, start, anchor => startKeys.Contains(anchor.Key) || AppearedIn(anchor.Target, start), routeMoved),
+            Side(end, start, anchor => startKeys.Contains(anchor.Key), routeMoved),
             Side(start, end, anchor => endKeys.Contains(anchor.Key) || AnchorIn(anchor.Target, end), routeMoved));
     }
 
