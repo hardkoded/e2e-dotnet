@@ -444,11 +444,13 @@ public sealed class LifecycleTests
         Assert.Equal(["devices.boot", "apps.install"], h.Fake.Methods());
     }
 
-    // Partial: upstream also resolves a cold `endAttempt` and `dispose` as no-ops. The engine has neither (an attempt is the session and its dispose), so only the refusal of a second start is checked.
     [Fact]
-    public async Task Partial_Refuses_a_second_startAttempt_while_one_runs()
+    public async Task Refuses_a_second_startAttempt_while_one_runs_and_treats_cold_cleanup_as_a_no_op()
     {
         var h = Harness.Create();
+        await h.Engine.EndAttemptAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        await h.Engine.DisposeAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Empty(h.Fake.Methods());
         var session = await h.Boot();
         var second = await Assert.ThrowsAsync<EngineException>(() => h.Boot());
         Assert.Equal("INVALID_STATE", second.Code);

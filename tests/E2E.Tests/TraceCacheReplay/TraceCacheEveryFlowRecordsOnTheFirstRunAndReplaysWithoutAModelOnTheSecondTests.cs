@@ -51,10 +51,8 @@ public sealed partial class TraceCacheEveryFlowRecordsOnTheFirstRunAndReplaysWit
         Assert.All(entries, item => Assert.Equal(1, item.Entry.Schema));
     }
 
-    // Partial (#1281): upstream also expects each replayed step's explanation to contain "zero-turn" (the replay summary
-    // "replayed N recorded action(s) zero-turn from the trace cache; recorded verdict: ..."). The port answers "Replayed recorded actions.".
     [Fact]
-    public void Partial_replays_every_step_on_the_second_run_with_zero_model_calls_across_the_whole_run()
+    public void Replays_every_step_on_the_second_run_with_zero_model_calls_across_the_whole_run()
     {
         Assert.Equal(0, runs.ReplayModelCalls);
         foreach (var flow in Flows)

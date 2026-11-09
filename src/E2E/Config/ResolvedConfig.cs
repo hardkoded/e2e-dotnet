@@ -178,36 +178,43 @@ internal sealed record ResolvedConfig
     private static JsonObject SecretName(string name) => new() { ["secretName"] = name };
 
     /// <summary>
-    /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, and the app
-    /// as declared, env values reduced to their names and the run's port never, then the engine when the target holds one (name, version,
-    /// platform, capabilities sorted). Differences: the engine has no <c>spiVersion</c> or <c>workers</c> here.
+    /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, the app
+    /// as declared (env values reduced to their names and the run's port never), and the engine's declaration, never its live
+    /// handle: name, version, contract version, platform, and the sorted capabilities, so two workers whose engines declare different
+    /// platforms do not agree on the digest.
+    /// Differences: a JSON target has no engine, so none enters for it, and an engine has no
+    /// <c>workers</c>; a target's platform is always its own, since the port requires one.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
-        new([.. targets.Select(DigestTarget)]);
-
-    private static JsonNode DigestTarget(TargetConfig target)
-    {
-        var digest = new JsonObject
+        new([.. targets.Select(target =>
         {
-            ["name"] = target.Name,
-            ["platform"] = target.Platform,
-            ["app"] = TargetApps.DigestTargetApp(target.App),
-        };
-        if (target.Engine is { } engine)
-        {
-            digest["engine"] = DigestEngine(engine);
-        }
+            var digest = new JsonObject
+            {
+                ["name"] = target.Name,
+                ["platform"] = target.Platform,
+                ["app"] = TargetApps.DigestTargetApp(target.App),
+            };
+            if (target.Engine is { } engine)
+            {
+                // Upstream leaves out a version or platform the engine does not declare.
+                var declaration = new JsonObject { ["name"] = engine.Name };
+                if (!string.IsNullOrEmpty(engine.Version))
+                {
+                    declaration["version"] = engine.Version;
+                }
 
-        return digest;
-    }
+                declaration["spiVersion"] = BuildReport.EngineSpiVersion;
+                if (!string.IsNullOrEmpty(engine.Platform))
+                {
+                    declaration["platform"] = engine.Platform;
+                }
 
-    private static JsonObject DigestEngine(IEngine engine) => new()
-    {
-        ["name"] = engine.Name,
-        ["version"] = engine.Version,
-        ["platform"] = engine.Platform,
-        ["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)name)]),
-    };
+                declaration["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)JsonValue.Create(name))]);
+                digest["engine"] = declaration;
+            }
+
+            return (JsonNode?)digest;
+        })]);
 
     /// <summary>
     /// The agents as the digest records them (upstream's <c>digestAgents</c>): the plain options, the tools named, and the executor reduced
