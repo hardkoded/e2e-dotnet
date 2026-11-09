@@ -13,8 +13,8 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.RelocatePosition;
 
 /// <summary>
-/// Ports the <c>relocation with a recorded position</c> describe of upstream's <c>relocate-position.test.ts</c>. The port records no action
-/// summary, so the summary is <see cref="DefaultAgent.Describe"/>, the prose the hand-off and the <c>OnAction</c> event read.
+/// Ports the <c>relocation with a recorded position</c> describe of upstream's <c>relocate-position.test.ts</c>. The summary is
+/// <see cref="AgentActions.DescribeAction"/>, upstream's <c>describeAction</c>, the prose the hand-off and the <c>OnAction</c> event read.
 /// </summary>
 public sealed class RelocationWithARecordedPositionTests
 {
@@ -58,7 +58,7 @@ public sealed class RelocationWithARecordedPositionTests
 
         var recorded = recorder.Record("tap", b, position: new TracePosition { Index = 1, Of = 2 });
 
-        Assert.Equal("tap button \"Set up\" (2 of 2)", DefaultAgent.Describe(recorded));
+        Assert.Equal("tap button \"Set up\" (2 of 2)", AgentActions.DescribeAction(recorded, Redactor.None));
         Assert.Equal((1, 2), (recorded.Position?.Index, recorded.Position?.Of));
     }
 

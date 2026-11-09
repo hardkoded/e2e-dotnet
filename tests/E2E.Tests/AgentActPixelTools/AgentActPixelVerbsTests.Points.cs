@@ -266,10 +266,9 @@ public sealed partial class AgentActPixelVerbsTests
         Assert.Null(run.Error);
         var actions = EngineEvents(run);
         Assert.Equal(["type", "press", "selectOption"], actions.Select(item => item.Name));
-        // The port words an event detail as `<verb> <node>`, with no value or key, where upstream's reads `type "hello" into <node>`.
-        Assert.Equal("fill textbox \"Note\"", actions[0].Detail);
-        Assert.Equal("press textbox \"Note\"", actions[1].Detail);
-        Assert.Equal("select combobox \"Tint\"", actions[2].Detail);
+        Assert.Equal("type \"hello\" into textbox \"Note\"", actions[0].Detail);
+        Assert.Equal("press \"Enter\" on textbox \"Note\"", actions[1].Detail);
+        Assert.Equal("select \"warm\" in combobox \"Tint\"", actions[2].Detail);
         Assert.Matches("Typed into \\S* ?textbox \"Note\"[^,]*, the control at \\(100, 315\\)\\.", Result(run, 2));
         Assert.Matches("Pressed Enter on \\S* ?textbox \"Note\"[^,]*, the control at \\(100, 315\\)\\.", Result(run, 3));
         Assert.Matches("Selected \"warm\" in \\S* ?combobox \"Tint\"[^,]*, the control at \\(100, 355\\)\\.", Result(run, 4));

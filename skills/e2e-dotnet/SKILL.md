@@ -449,7 +449,9 @@ lines you changed:
   never confirms the act. `TapAtActionEvent`, `HoverAtActionEvent`, and
   `DragAtActionEvent` carry `Point`, or `From` and `To`, in the space of
   `Screen.TapAtAsync`, replayed too; `ActionEvent.ActionName` is the action as
-  an enum (topic `agent`).
+  an enum (topic `agent`). `ActionEvent.Summary` is the summary the trace
+  stores for the action, so the event, a trace and a replay hand-off notice
+  read the same prose.
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the

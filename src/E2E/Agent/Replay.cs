@@ -177,7 +177,7 @@ internal static class Replay
                 await host.ObserveAsync(look.Settle).ConfigureAwait(false);
             }
 
-            var summary = DefaultAgent.Describe(action);
+            var summary = action.Summary ?? AgentActions.DescribeAction(action, Redactor.None);
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.

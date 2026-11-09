@@ -9,10 +9,8 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.RelocateWithin;
 
 /// <summary>
-/// Ports <c>relocate-within.test.ts</c>'s "container keys". The prose is
-/// <see cref="DefaultAgent.Describe"/>, the one the hand-off and the <c>OnAction</c> event read; it is not yet the recorded
-/// <see cref="RecordedAction.Summary"/> (<c>AgentActions.DescribeAction</c>) that upstream shares between them. The relocation case of "relocates a
-/// same-named control by its row instead of diverging as ambiguous" and the windowed list run through <see cref="E2E.Agent.Find"/>, the
+/// Ports <c>relocate-within.test.ts</c>'s "container keys". The prose is <see cref="AgentActions.DescribeAction"/>, upstream's <c>describeAction</c>.
+/// The relocation case of "relocates a same-named control by its row instead of diverging as ambiguous" and the windowed list run through <see cref="E2E.Agent.Find"/>, the
 /// descriptor match replay uses today.
 /// </summary>
 public sealed class ContainerKeysTests
@@ -57,7 +55,7 @@ public sealed class ContainerKeysTests
         var recorded = new Recorder(() => Redactor.None).Record("tap", delete1, within: "Budget draft");
 
         Assert.Equal("Budget draft", recorded.Within);
-        Assert.Equal("tap button \"Delete\" in \"Budget draft\"", DefaultAgent.Describe(recorded));
+        Assert.Equal("tap button \"Delete\" in \"Budget draft\"", AgentActions.DescribeAction(recorded, Redactor.None));
     }
 
     [Fact]

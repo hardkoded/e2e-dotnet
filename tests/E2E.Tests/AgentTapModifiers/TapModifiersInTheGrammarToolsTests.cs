@@ -15,7 +15,7 @@ namespace E2E.Tests.AgentTapModifiers;
 /// <summary>
 /// Upstream's <c>agent-tap-modifiers.test.ts</c>. The port's tools do not close their schemas, so a field an engine does not declare is refused
 /// when the tool runs, not by the schema. The tools take a role and a name, not a node id, and the prose of a recorded action is
-/// <c>DefaultAgent.Describe</c>, which the hand-off uses.
+/// <c>AgentActions.DescribeAction</c>, which the hand-off and the <c>OnAction</c> event read.
 /// </summary>
 public sealed class TapModifiersInTheGrammarToolsTests
 {
@@ -137,10 +137,10 @@ public sealed class TapModifiersInTheGrammarToolsTests
     [Fact]
     public void Says_what_keys_a_tap_held_in_its_prose()
     {
-        var held = DefaultAgent.Describe(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", Modifiers = ["Shift", "Control"] });
+        var held = AgentActions.DescribeAction(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", Modifiers = ["Shift", "Control"] }, Redactor.None);
         Assert.Contains("with Shift+Control held", held);
 
-        var plain = DefaultAgent.Describe(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" });
+        var plain = AgentActions.DescribeAction(new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }, Redactor.None);
         Assert.DoesNotContain("held", plain);
     }
 

@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using E2E.Cache;
@@ -172,119 +171,5 @@ public static class DefaultAgent
         }
 
         return text;
-    }
-
-    private static string Point(Engine.Point point) =>
-        "(" + point.X.ToString("R", CultureInfo.InvariantCulture) + ", " + point.Y.ToString("R", CultureInfo.InvariantCulture) + ")";
-
-    private static string PointSuffix(RecordedPointPlace? place) =>
-        place?.Target is { } target ? " on " + RecordedTarget.TargetLabel(target) : "";
-
-    // How the pointer verbs read in a summary, upstream's NODE_ACTION_PROSE: the rest read as their kind.
-    private static readonly Dictionary<string, string> Prose = new(StringComparer.Ordinal)
-    {
-        ["doubleTap"] = "double-tap",
-        ["longPress"] = "long-press",
-        ["secondaryTap"] = "secondary-tap",
-        ["hover"] = "hover over",
-    };
-
-    // Upstream's describeForSummary, after the label: the container the target sat in, then its place among its twins, (2 of 3).
-    private static string PlacedSuffix(string? within, TracePosition? position) =>
-        (within is null ? "" : " in " + UploadPaths.Quote(TextRules.Bound(within, 40)))
-        + (position is null ? "" : " (" + (position.Index + 1).ToString(CultureInfo.InvariantCulture) + " of " + position.Of.ToString(CultureInfo.InvariantCulture) + ")");
-
-    internal static string Describe(RecordedAction action)
-    {
-        // Upstream's summaries of the keyboard actions: no node, so the focused field stands for it. The caller redacts the text.
-        switch (action.Kind)
-        {
-            case "typeText":
-                return "type " + UploadPaths.Quote(action.Value ?? "") + " into the focused field" + (action.Replace == true ? ", replacing its value" : "");
-            case "pressKey":
-                return "press " + UploadPaths.Quote(action.Key ?? "") + " on the focused field";
-            case "dismissKeyboard":
-                return "dismiss the keyboard";
-            case "resize":
-                return "resize the viewport to " + (action.Size?.Width ?? 0).ToString(CultureInfo.InvariantCulture) + "x" + (action.Size?.Height ?? 0).ToString(CultureInfo.InvariantCulture);
-        }
-
-        var builder = new StringBuilder(action.Kind switch { "tapAt" => "tap", "hoverAt" => "hover", "dragAt" => "drag", _ => Prose.GetValueOrDefault(action.Kind, action.Kind) });
-
-        // Upstream's summary: the files, then the node they went to.
-        if (action.Paths is { Count: > 0 } paths)
-        {
-            builder.Append(' ').Append(string.Join(", ", paths.Select(path => "\"" + path + "\""))).Append(" to");
-        }
-
-        if (action.Role is not null || action.Name is not null || action.TestId is not null)
-        {
-            builder.Append(' ').Append(action.Role ?? "node");
-            if (action.Name is not null)
-            {
-                builder.Append(" \"").Append(action.Name).Append('"');
-            }
-            else if (action.TestId is not null)
-            {
-                builder.Append(" testId=").Append(action.TestId);
-            }
-
-            builder.Append(PlacedSuffix(action.Within, action.Position));
-        }
-
-        // Upstream's summary of a drag: the node it was dropped on, in the container it sat in.
-        if (action.Destination is { } destination)
-        {
-            builder.Append(" to ").Append(destination.Role ?? "node");
-            if (destination.Name is not null)
-            {
-                builder.Append(" \"").Append(destination.Name).Append('"');
-            }
-            else if (destination.TestId is not null)
-            {
-                builder.Append(" testId=").Append(destination.TestId);
-            }
-
-            builder.Append(PlacedSuffix(destination.Within, destination.Position));
-        }
-
-        if (action.Modifiers is { Count: > 0 })
-        {
-            builder.Append(" with ").Append(string.Join('+', action.Modifiers)).Append(" held");
-        }
-
-        if (action.Url is not null)
-        {
-            builder.Append(' ').Append(action.Url);
-        }
-
-        // The text of a scroll-until; on any other action it is the target's text, which the label above already says.
-        if (action.Text is not null && action.Kind is "scrollUntil" or "tool")
-        {
-            builder.Append(" \"").Append(action.Text).Append('"');
-        }
-
-        // Upstream's summary of a point action: `tap the point (x, y) on <the node it sat in>`.
-        if (action.Point is { } point)
-        {
-            builder.Append(" the point ").Append(Point(point)).Append(PointSuffix(action.Under));
-        }
-
-        if (action.From is { } from && action.To is { } to)
-        {
-            builder.Append(" from the point ").Append(Point(from.Point)).Append(PointSuffix(from.Under)).Append(" to the point ").Append(Point(to.Point)).Append(PointSuffix(to.Under));
-        }
-
-        if (action.Direction is not null)
-        {
-            builder.Append(' ').Append(action.Direction);
-        }
-
-        if (action.Times is > 1)
-        {
-            builder.Append(" x").Append(action.Times.Value.ToString(CultureInfo.InvariantCulture));
-        }
-
-        return builder.ToString();
     }
 }

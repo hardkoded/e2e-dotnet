@@ -376,7 +376,7 @@ internal sealed class StepTraceSession
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
         string StoppedAt(string? why = null) =>
-            "at action " + (_recorder.RecordedCount + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(entry.Actions[_recorder.RecordedCount]) + (why is null ? "" : ": " + why);
+            "at action " + (_recorder.RecordedCount + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + SummaryOf(entry.Actions[_recorder.RecordedCount]) + (why is null ? "" : ": " + why);
 
         if (!outcome.Completed)
         {
@@ -416,6 +416,9 @@ internal sealed class StepTraceSession
         return new StepVerdict(StepVerdictStatus.Passed, "Replayed recorded actions.");
     }
 
+    // The summary the trace recorded (upstream's describeAction, written once), described afresh for an entry that holds none.
+    private static string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, Redactor.None);
+
     private long NowMs() => _host.Time.GetUtcNow().ToUnixTimeMilliseconds();
 
     // Upstream's endWaitBaselineMs: the app-settling baseline, the executor's verdict or, if it acted, its last action. The
@@ -434,7 +437,7 @@ internal sealed class StepTraceSession
             _actionsAtEndMismatch = _recorder.RecordedCount;
         }
 
-        _prefix = new ReplayedPrefix(_recorder.Actions.Select(DefaultAgent.Describe).ToList(), Pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
+        _prefix = new ReplayedPrefix(_recorder.Actions.Select(SummaryOf).ToList(), Pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
         _info = new CacheInfo { Mode = "agent-concluded", Entry = Pending.Key, Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
     }
 
