@@ -97,11 +97,15 @@ internal static class RunProject
     private static string ConfigWithTarget(string json, string baseUrl)
     {
         var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
-        node["targets"] ??= new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+        if (!node.ContainsKey("targets") && !node.ContainsKey("target"))
         {
-            ["name"] = "web",
-            ["app"] = new System.Text.Json.Nodes.JsonObject { ["url"] = baseUrl },
-        });
+            node["targets"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+            {
+                ["name"] = "web",
+                ["app"] = new System.Text.Json.Nodes.JsonObject { ["url"] = baseUrl },
+            });
+        }
+
         return node.ToJsonString();
     }
 }

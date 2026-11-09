@@ -51,7 +51,7 @@ internal sealed record RunOptions
     /// <summary>The results directory for this run (<c>--output</c>), relative to the project root, over the config's <c>output</c>.</summary>
     public string? Output { get; init; }
 
-    /// <summary>The engine every test runs on (.NET-only: the config names a platform and holds no engine handle, as upstream's does). Defaults to the engine of the target's platform.</summary>
+    /// <summary>The engine every test and attempt runs on, one instance the caller owns and disposes (.NET-only: the config names a platform and holds no engine handle, as upstream's does). Defaults to the engine of the target's platform.</summary>
     public IEngine? Engine { get; init; }
 
     /// <summary>
@@ -158,9 +158,10 @@ internal static class Runner
             exitCodes.Add(error is null ? 0 : error is E2EException known ? ExitCodeOf(known) : ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(error).Category));
         }
 
-        var status = errors.Count == 0 ? RunStatus.Passed : errors.All(error => error is E2EException known && StatusOf(known) == RunStatus.Blocked) ? RunStatus.Blocked : RunStatus.Failed;
+        var cleanupFailed = exitCodes.Any(code => code != 0) && errors.Count == 0;
+        var status = cleanupFailed ? RunStatus.Failed : errors.Count == 0 ? RunStatus.Passed : errors.All(error => error is E2EException known && StatusOf(known) == RunStatus.Blocked) ? RunStatus.Blocked : RunStatus.Failed;
         var exitCode = ErrorSerializer.CombineExitCodes(exitCodes);
-        var merged = first is null ? new Report() : first with { Run = first.Run with { Results = results, ExitCode = exitCode } };
+        var merged = first is null ? new Report() : first with { Run = first.Run with { Results = results, ExitCode = exitCode, Status = status == RunStatus.Passed ? E2E.ReportRunStatus.Passed : status == RunStatus.Blocked ? E2E.ReportRunStatus.Blocked : E2E.ReportRunStatus.Failed } };
         return new RunOutcome(exitCode, status, merged);
     }
 
@@ -172,7 +173,7 @@ internal static class Runner
     {
         protected override E2EConfig Config => config;
 
-        protected override string? TestFile => file;
+        internal override string? TestFile => file;
 
         protected override IEngine CreateEngine() => options.Engine ?? TargetEngines.Create(Config.Target, null, null, null);
 
@@ -211,7 +212,16 @@ internal static class Runner
         /// <summary>Runs the test as attempt <paramref name="attempt"/> and closes its session. What the body throws is the test's error; the session's close failures are the cleanup's.</summary>
         public async Task<(Report? Report, Exception? Error, IReadOnlyList<Exception> Cleanup)> RunAsync(InMemoryTest test, int attempt, CancellationToken cancellationToken)
         {
-            await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await StartSessionAsync(test.Title, attempt, null, () => false, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // A session that cannot start is the test's failure, with the exit code of its class, not an exception out of the run.
+                return (null, ex, []);
+            }
+
             var session = TakeSession()!;
             Exception? error = null;
             IReadOnlyList<Exception> cleanup;
