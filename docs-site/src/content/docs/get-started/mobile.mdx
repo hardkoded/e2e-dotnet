@@ -106,7 +106,7 @@ A step of your test does not wait for the screen to settle after it acts: it che
 
 `FillAsync` and `ClearAsync` read the field again before typing. A field the fresh capture no longer lists, a changed input purpose or secure, disabled, or hidden state, or an incomplete capture fails with a retryable `NODE_STALE` before anything is typed, and the locator resolves it again. A node that cannot take text fails with `UNSUPPORTED_CAPABILITY`.
 
-For anything `Device` does not cover, `Device.UnstableRaw` has an [agent-device](https://github.com/callstack/agent-device) client bound to the test's session, plus the session name and the device's id and name. It is unstable and may change or go away in any release:
+For anything `Device` does not cover, `Device.UnstableRaw` has an [agent-device](https://github.com/callstack/agent-device) client bound to the test's session, plus the session name, the device's id and name, and a `Selection` to pass into a client call. It is unstable and may change or go away in any release:
 
 ```csharp
 var raw = Device.UnstableRaw;
@@ -115,6 +115,18 @@ await raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), CancellationToke
 ```
 
 `raw.Selection` is the device selection the engine passes commands (`ToArgs()` turns it into call options), for a call that can run before `app.open()`. `raw.Platform`, `raw.Session` (`e2e-<target>-<worker slot>`, or `<session>-<worker slot>` with the `Session` option), `raw.DeviceId` (a simulator UDID or an Android serial), and `raw.DeviceName` name the session and device. Client calls aren't steps: the report and trace leave them out, the agent cache doesn't replay them, secrets passed to them aren't redacted, and nothing waits for the screen to settle after one. After the worker disposes the session, reading `UnstableRaw` or its `Client` throws `INVALID_STATE`.
+
+### What the raw client takes
+
+This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, and `command.appState`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
+
+So these are not reachable through `UnstableRaw` yet, and have no `Device` method either:
+
+- The system text size (`setting: "text-size"`) and animations (`setting: "animations"`). A test that needs a large text size or no animations cannot set them from the test.
+- Uninstalling an app (`apps.uninstall`). `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
+- Hardware buttons (`command.hardwareButton`: power, volume up, volume down).
+
+Upstream's guide shows these through `unstable_raw.client` (tester-army/e2e#1622 and #1618); the port's client does not translate them yet, see #1425. The same "Not yet" notes are in the Detox and Maestro migration guides and the skill's `mobile.md`: update them together.
 
 ## 4. Run
 
