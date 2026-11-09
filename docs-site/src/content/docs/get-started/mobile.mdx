@@ -120,15 +120,38 @@ On an Android build with no shell command for the clipboard service (the Android
 
 ### What the raw client takes
 
-This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, and `command.appState`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
+This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, and `command.appState`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
 
-So these are not reachable through `UnstableRaw` yet, and have no `Device` method either:
+Four calls with no `Device` method go through `UnstableRaw`. A raw call is not a step, so nothing waits for the screen after it.
 
-- The system text size (`setting: "text-size"`) and animations (`setting: "animations"`). A test that needs a large text size or no animations cannot set them from the test.
-- Uninstalling an app (`apps.uninstall`). `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
-- Hardware buttons (`command.hardwareButton`: power, volume up, volume down).
+**Text size and animations.** Set the text size before `App.OpenAsync()`. A running app can keep the old size until it launches again, so call `App.RestartAsync()` after a change mid-test:
 
-Upstream's guide shows these through `unstable_raw.client` (tester-army/e2e#1622 and #1618); the port's client does not translate them yet, see #1425. The same "Not yet" notes are in the Detox, Maestro, and Appium migration guides and the skill's `mobile.md`: update them together.
+```csharp
+var raw = Device.UnstableRaw;
+await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+    ("setting", JsonValue.Create("text-size")),
+    ("state", JsonValue.Create("accessibility-extra-extra-extra-large"))), CancellationToken.None);
+await App.OpenAsync();
+await Expect(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
+```
+
+`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in your teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough.
+
+**Uninstall an app.** `apps.uninstall` takes the app id:
+
+```csharp
+await raw.Client.CallAsync(DeviceMethods.AppsUninstall, raw.Selection.ToArgs(("app", JsonValue.Create("com.example.app"))), CancellationToken.None);
+```
+
+`Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
+
+**Hardware buttons.** `command.hardwareButton` presses one: `"power"`, `"volume-up"`, or `"volume-down"` on Android; on iOS only the volume keys, on a physical device, not a simulator:
+
+```csharp
+await raw.Client.CallAsync(DeviceMethods.CommandHardwareButton, raw.Selection.ToArgs(("button", JsonValue.Create("volume-up"))), CancellationToken.None);
+```
+
+These calls are tester-army/e2e#1622 and #1618 (`63e207a`, `1f57583`); the "Not yet" notes in the Detox, Maestro, and Appium migration guides and the skill's `mobile.md` now name them.
 
 ## 4. Run
 

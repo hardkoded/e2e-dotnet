@@ -220,7 +220,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `terminateApp`, then `activateApp` | `App.RestartAsync()` |
 | `mobile: clearApp` | `App.ClearStateAsync()` |
 | `driver.installApp(path)` | `Device.InstallAppAsync(path)` |
-| `driver.removeApp(id)` | Not yet. `Device.UnstableRaw.Client` does not take `apps.uninstall`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app first and installs it with no data (not on TestMu) |
+| `driver.removeApp(id)` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsUninstall, ...)` with `app` set to the id removes it, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app first and installs it with no data (not on TestMu) |
 | `driver.isAppInstalled(id)`, `queryAppState(id)` | Not yet. On Android, `Device.ForegroundAppAsync()` names the app on screen |
 | `driver.background(seconds)` | `Device.HomeAsync()`, `await Task.Delay(TimeSpan.FromSeconds(seconds))` for a positive `seconds`, then `Device.OpenAppAsync(id)` |
 | `driver.url('myapp://x')`, `mobile: deepLink` | `Device.OpenLinkAsync("myapp://x")` |
