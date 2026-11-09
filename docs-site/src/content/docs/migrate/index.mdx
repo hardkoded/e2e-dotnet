@@ -1,15 +1,16 @@
 ---
 title: Migrating to e2e
-description: Move a Playwright .NET, Selenium .NET, Cypress, Detox, Maestro, or TesterArmy suite to e2e one test at a time.
+description: Move a Playwright .NET, Selenium .NET, Cypress, Appium, Detox, Maestro, or TesterArmy suite to e2e one test at a time.
 ---
 
-This page ports upstream's migration overview (`docs/migrate/index.mdx` in tester-army/e2e at `7b1b8b27`, from tester-army/e2e#1441). A migration guide maps one test runner's config, API, and commands to e2e. It also marks what e2e does not have yet, with a workaround where there is one. A test with no workaround stays in the old runner. Keep the old suite installed while you move one test at a time, so both suites stay green.
+This page ports upstream's migration overview (`docs/migrate/index.mdx` in tester-army/e2e at `a016b3e4`, from tester-army/e2e#1441 and #1597). A migration guide maps one test runner's config, API, and commands to e2e. It also marks what e2e does not have yet, with a workaround where there is one. A test with no workaround stays in the old runner. Keep the old suite installed while you move one test at a time, so both suites stay green.
 
 ## Pick your runner
 
 - [Playwright .NET](/migrate/playwright/): web. Every context option, `Page` call, and test attribute, mapped to NUnit and xUnit tests.
 - [Cypress](/migrate/cypress/): web. Command chains become async C# tests. Your `data-cy` attributes stay.
 - [Selenium .NET](/migrate/selenium/): web. WebDriver calls and page objects, rewritten in C#.
+- [Appium](/migrate/appium/): mobile. Capabilities, selectors, and `mobile:` commands, without a server.
 - [Detox](/migrate/detox/): mobile. Your app build and testIDs, with no Detox framework.
 - [Maestro](/migrate/maestro/): mobile. YAML flows become C# tests.
 - [TesterArmy](/migrate/testerarmy/): web and mobile. Saved tests become agent steps in your repository.
@@ -18,7 +19,9 @@ This page ports upstream's migration overview (`docs/migrate/index.mdx` in teste
 
 Install e2e with the [web guide](/get-started/web/) or the [mobile guide](/get-started/mobile/) first. Only agent steps need a model.
 
-e2e tests are NUnit or xUnit v3 tests that derive from `E2ETest` (or `MobileAppTest` for a device) and run with `dotnet test`. Upstream's tests run in Node, so the port needs a .NET test project for every source runner. For a Cypress, Detox, Maestro, or TesterArmy suite, create a new test project beside the old suite.
+e2e tests are NUnit or xUnit v3 tests that derive from `E2ETest` (or `MobileAppTest` for a device) and run with `dotnet test`. Upstream's tests run in Node, so the port needs a .NET test project for every source runner. For a Cypress, Appium, Detox, Maestro, or TesterArmy suite, create a new test project beside the old suite.
+
+An Appium, WebdriverIO, Java, or Python suite is not collected by `dotnet test` unless it is a project in the solution: run the old suite with its own runner, and treat a green `dotnet test` as the new suite only.
 
 Each guide follows the same steps:
 
@@ -51,7 +54,7 @@ To move one test with a coding agent, copy the agent prompt at the top of your r
 
 ## Migrate from a runner with no guide
 
-WebdriverIO and Appium have no guide. Map WebDriver calls with the [Selenium .NET](/migrate/selenium/) guide. Map Appium device commands with the [Detox](/migrate/detox/) and [Maestro](/migrate/maestro/) guides, on the [mobile engine](/get-started/mobile/). These mappings are partial: no guide covers the WebdriverIO or Appium APIs themselves.
+WebdriverIO for the web has no guide. Map its WebDriver calls with the [Selenium .NET](/migrate/selenium/) guide. The mapping is partial: no guide covers the WebdriverIO API itself. For WebdriverIO with Appium on a mobile app, or the Appium .NET client, see [From Appium](/migrate/appium/).
 
 ## What the port does not have
 

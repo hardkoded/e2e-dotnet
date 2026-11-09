@@ -97,6 +97,7 @@ export default defineConfig({
                         { label: "Playwright .NET", slug: "migrate/playwright" },
                         { label: "Cypress", slug: "migrate/cypress" },
                         { label: "Selenium .NET", slug: "migrate/selenium" },
+                        { label: "Appium", slug: "migrate/appium" },
                         { label: "Detox", slug: "migrate/detox" },
                         { label: "Maestro", slug: "migrate/maestro" },
                         { label: "TesterArmy", slug: "migrate/testerarmy" },
