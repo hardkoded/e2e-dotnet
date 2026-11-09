@@ -120,9 +120,9 @@ On an Android build with no shell command for the clipboard service (the Android
 
 ### What the raw client takes
 
-This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, and `command.appState`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
+This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, `command.appState`, `apps.uninstall`, and `command.hardwareButton`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
 
-Four calls with no `Device` method go through `UnstableRaw`. A raw call is not a step, so nothing waits for the screen after it.
+Four operations with no `Device` method go through `UnstableRaw` (two settings, an uninstall, and the hardware buttons). A raw call is not a step, so nothing waits for the screen after it.
 
 **Text size and animations.** Set the text size before `App.OpenAsync()`. A running app can keep the old size until it launches again, so call `App.RestartAsync()` after a change mid-test:
 
