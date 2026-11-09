@@ -344,7 +344,7 @@ Set `Truncated` when a node limit or an inaccessible subtree leaves content out.
 
 #### Pixel fallback
 
-When a semantic read fails, an engine may return masked pixels in place of the tree, but only when `PixelFallback` is true and it can prove screenshot masking without that read. Return `TreeUnavailable = true`, fresh `Pixels`, and empty `Roots`. The flag tells missing semantic evidence from a valid empty tree. Never infer absence from it. Node refs of earlier observations name nothing, and a step that saw such a screen records no replay. Without permission, pixels, or independent masking proof, propagate the failure. Upstream's runtime checks of the fallback's shape (`UNSUPPORTED_CAPABILITY` and `INVALID_STATE`) are not in the port.
+When a semantic read fails, an engine may return masked pixels in place of the tree, but only when `PixelFallback` is true and it can prove screenshot masking without that read. Return `TreeUnavailable = true`, fresh `Pixels`, and empty `Roots`. The flag tells missing semantic evidence from a valid empty tree. Never infer absence from it. Node refs of earlier observations name nothing, and a step that saw such a screen records no replay. Without permission, pixels, or independent masking proof, propagate the failure. `WebEngine` does this when the read ends in `OPERATION_TIMEOUT` and `PixelFallback` is true: it keeps the lesser of 2 seconds and a quarter of the budget back for a fresh screenshot, masks every secure field of every frame, and fails with the timeout when it cannot count each mask probe (`POLICY_DENIED`, a cancel, and a screenshot failure propagate). Upstream's runtime checks of the fallback's shape (`UNSUPPORTED_CAPABILITY` and `INVALID_STATE`) are not in the port.
 
 ### Actions
 
