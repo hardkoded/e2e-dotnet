@@ -228,7 +228,12 @@ declares `EngineCapabilities.Resize` (the web engine), and `upload` with one tha
 `hover`, and `drag` come with an engine whose `IEngineSession.ActionKinds`
 names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
 all four, the device engines all but `secondaryTap`, and the document engine
-none. `drag` takes a `target` and a `to`, the node to drop on, each named like
+none. The node verbs follow the kinds too: `tap` needs `tap`, `double_tap`
+`doubleTap`, `fill` and `fill_secret` `fill`, `press` `press`, `select`
+`selectOption`, `check` and `uncheck` both `check` and `uncheck`, and `clear`
+`clear`. A verb the engine does not declare is absent from the toolset (a
+device engine has no `select`), and with a keyboard `fill` and `press` come
+without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each named like
 any node (`ref`, or `role` and `name`); both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
 the model when either is gone. `resize_viewport {width, height}` sets the
@@ -240,10 +245,12 @@ records it as `resize` and replays it as given, and a leading resize does not
 count against the navigate opener of a recording. `dismiss_keyboard` (no input) comes with an engine that can hide its
 keyboard (the mobile engine): it hides the on-screen keyboard when it covers what
 the model needs to reach. `screenshot` and the point tools `tap_at`,
-`type_at`, `press_at`, and `select_at` are always offered (see "Screenshots in
-`ActAsync`"), and `hover_at` and `drag_at` with an engine that takes a bare
-point for a hover or a drag (the web engine does) or that lists `hover` or
-`dragTo` in its `ActionKinds`. `press` takes `times`, 1 to 20 (default 1): the
+`hover_at`, `drag_at`, `type_at`, `press_at`, and `select_at` are offered with
+the verb they act through (see "Screenshots in `ActAsync`"): `tap_at`,
+`hover_at`, and `drag_at` with an engine that takes a bare point for a tap, a
+hover, or a drag (the web engine does) or that lists `tap`, `hover`, or
+`dragTo` in its `ActionKinds`; `type_at` and `press_at` with `fill` or `press`
+or a keyboard; `select_at` with `selectOption`. `press` takes `times`, 1 to 20 (default 1): the
 first press goes to the node and the rest to whatever has focus, one recorded
 action each, so `Shift+ArrowLeft` with `times` of 8 selects a word and `Tab`
 with `times` of 2 walks focus on. A step that needs a verb its engine lacks is

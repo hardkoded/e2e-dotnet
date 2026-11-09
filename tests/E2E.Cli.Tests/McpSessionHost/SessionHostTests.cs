@@ -363,7 +363,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         var host = Host(new FakeEngine { Kinds = ["tap", "doubleTap", "hover", "dragTo"] });
         var opened = await host.OpenAsync(new Mcp.OpenSessionOptions());
         var names = ServedCli.CatalogNames(opened);
-        Assert.Equal(["observe", "tap", "double_tap", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "navigate", "locate", "test_lines"], names);
+        Assert.Equal(["observe", "tap", "double_tap", "hover", "type", "press", "drag", "navigate", "locate", "test_lines"], names);
         Assert.Contains("- drag {target, to}: ", opened, StringComparison.Ordinal);
         var call = host.ToolSpecs().Single(spec => spec.Name == "call");
         var pressed = await call.Call(Json("""{ "tool": "long_press", "args": { "target": "k-1" } }"""), CancellationToken.None);
@@ -406,6 +406,28 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.Contains("UNSUPPORTED_CAPABILITY", Text(scrolled), StringComparison.Ordinal);
         Assert.Contains("declares no such action", Text(scrolled), StringComparison.Ordinal);
         await host.CloseAsync("done");
+    }
+
+    // .NET-only: the catalog is the grammar the engine's declared action kinds unlock (upstream builds it from grammarTools, so it follows
+    // declaredVerbs): fill unlocks type, check needs both check and uncheck, and the keyboard of the fake engine takes type and press without a target.
+    [Fact]
+    public async Task Catalogs_a_node_verb_only_for_the_action_kinds_the_engine_declares()
+    {
+        var host = Host(new FakeEngine { Kinds = ["tap", "fill", "press", "selectOption", "check"] });
+        var names = ServedCli.CatalogNames(await host.OpenAsync(new Mcp.OpenSessionOptions()));
+        Assert.Equal(["observe", "tap", "type", "press", "select", "navigate", "locate", "test_lines"], names);
+        await host.CloseAsync("done");
+
+        var both = Host(new FakeEngine { Kinds = ["check", "uncheck", "clear", "doubleTap"] });
+        Assert.Equal(["observe", "double_tap", "type", "press", "check", "uncheck", "clear", "navigate", "locate", "test_lines"], ServedCli.CatalogNames(await both.OpenAsync(new Mcp.OpenSessionOptions())));
+        await both.CloseAsync("done");
+
+        var keyboard = Host(new FakeEngine { Kinds = [], Also = EngineCapabilities.Keyboard });
+        var opened = await keyboard.OpenAsync(new Mcp.OpenSessionOptions());
+        Assert.Equal(["observe", "type", "press", "navigate", "locate", "test_lines"], ServedCli.CatalogNames(opened));
+        Assert.Contains("- type {text, replace?}: ", opened, StringComparison.Ordinal);
+        Assert.Contains("- press {key}: ", opened, StringComparison.Ordinal);
+        await keyboard.CloseAsync("done");
     }
 
     [Fact]

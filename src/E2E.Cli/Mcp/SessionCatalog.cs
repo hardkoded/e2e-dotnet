@@ -102,8 +102,18 @@ internal sealed class SessionCatalog
 
         Add("observe", Observe(context, screen));
         var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
-        Add("tap", Verb(context, screen, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
-        Add("double_tap", Verb(context, screen, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
+        // The verbs the engine's declarations unlock (upstream's declaredVerbs): a tool whose verb they leave out is not in the catalog.
+        var verbs = ActContext.VerbsOf(capabilities, kinds, pointerKinds ?? [], canDismissKeyboard);
+        if (verbs.Contains(ExecutorVerb.Tap))
+        {
+            Add("tap", Verb(context, screen, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
+        }
+
+        if (verbs.Contains(ExecutorVerb.DoubleTap))
+        {
+            Add("double_tap", Verb(context, screen, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
+        }
+
         if (kinds.Contains("longPress"))
         {
             Add("long_press", Verb(context, screen, "long_press", "long_press", "Press one node and hold: only for a control with a long-press menu or action. Anything else takes tap.", Schema(Target)));
@@ -119,21 +129,43 @@ internal sealed class SessionCatalog
             Add("hover", Verb(context, screen, "hover", "hover", "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.", Schema(Target)));
         }
 
-        if (capabilities.HasFlag(EngineCapabilities.Keyboard))
+        // With a keyboard, a type with no target goes to whatever has focus, as upstream's type does with typeText; an engine that declares no
+        // fill takes that form alone, with no target to give.
+        var typeText = verbs.Contains(ExecutorVerb.TypeText);
+        if (verbs.Contains(ExecutorVerb.Type) || typeText)
         {
-            // With a keyboard, a type with no target goes to whatever has focus, as upstream's type does with typeText.
-            Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(OptionalTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
-        }
-        else
-        {
-            Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+            if (typeText)
+            {
+                var typeTarget = verbs.Contains(ExecutorVerb.Type) ? OptionalTarget : [];
+                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(typeTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
+            }
+            else
+            {
+                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+            }
         }
 
-        Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
-        Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
-        Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
-        Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
-        Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+        if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
+        {
+            var pressTarget = verbs.Contains(ExecutorVerb.Press) ? OptionalTarget : [];
+            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true))));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Select))
+        {
+            Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Check))
+        {
+            Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
+            Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Clear))
+        {
+            Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+        }
 
         if (kinds.Contains("dragTo"))
         {
@@ -178,7 +210,7 @@ internal sealed class SessionCatalog
             }
         }
 
-        if (secrets.Count > 0)
+        if (secrets.Count > 0 && verbs.Contains(ExecutorVerb.TypeSecret))
         {
             Add("type_secret", TypeSecret(context, screen));
         }

@@ -30,6 +30,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private readonly ObservationFeed _feed = feed;
     private readonly ScreenPresenter _screen = screen;
     private readonly bool _session = session;
+    private HashSet<ExecutorVerb>? _verbs;
+
+    // The verbs the engine's declarations unlock, which decide the tools the step offers (ActContext.VerbsOf).
+    private HashSet<ExecutorVerb> Verbs => _verbs ??= ActContext.VerbsOf(_scope.EngineCapabilities, _scope.ActionKinds, _scope.Session.PointerActionKinds, _scope.Session.CanDismissKeyboard);
 
     // Whether the engine has a keyboard, which a fill with no node and a point on nothing listed reach focused fields through.
     private bool Keyboard => _scope.EngineCapabilities.HasFlag(EngineCapabilities.Keyboard);
@@ -67,8 +71,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await RunProjectToolAsync(call, projectTool, budget, token, context).ConfigureAwait(false);
         }
 
-        // A pointer verb is a tool only where the engine declared its action kind, so a model that calls one anyway is told so.
-        if (!ActionTools.Contains(call.Name) || (AgentTools.PointerToolKinds.TryGetValue(call.Name, out var kind) && _scope.ActionKinds?.Contains(kind) != true))
+        // A verb is a tool only where the engine's declarations unlock it, so a model that calls one anyway is told so.
+        if (!ActionTools.Contains(call.Name) || !AgentTools.OffersVerb(call.Name, Verbs))
         {
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }

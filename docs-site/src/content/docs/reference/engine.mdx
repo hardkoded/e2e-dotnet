@@ -153,25 +153,38 @@ The port has no computed capability set: nothing checks that the flags match the
 
 #### Agent verbs
 
-The agent offers the model only the verbs the engine's declarations unlock. The port always offers `tap`, `double_tap`, `type`, `type_secret`, `clear`, `press`, `select`, `check`, and `navigate`; a kind left out of `ActionKinds` is refused by the harness with `UNSUPPORTED_CAPABILITY` before it resolves the node. Upstream withholds the tool instead ([#1278](https://github.com/hardkoded/e2e-dotnet/issues/1278)).
+The agent offers the model only the verbs the engine's declarations unlock. A verb the engine leaves out is absent from the toolset, so the model never sees a tool it could only be refused on. The built-in agent's tool names are `fill` and `fill_secret` where this table says `type` and `type_secret`, and `uncheck` is a tool of its own beside `check`.
 
 | Verb | Needs |
 | --- | --- |
-| `long_press` | the `longPress` kind in `ActionKinds` |
+| `tap` | the `tap` kind in `ActionKinds` |
+| `double_tap` | `doubleTap` |
+| `long_press` | `longPress` |
 | `right_click` | `secondaryTap` |
 | `hover` | `hover` |
 | `drag` | `dragTo` |
+| `type` | `fill`, or `Keyboard` without a target |
+| `type_secret` | `fill` |
+| `press` | `press`, or `Keyboard` without a target |
+| `select` | `selectOption` |
+| `check` and `uncheck` | both `check` and `uncheck` |
+| `clear` | `clear` (the port's own verb; upstream has none) |
 | `scroll`, `scroll_to` | `Scroll` |
 | `upload` | `Upload` |
+| `navigate` | always offered |
 | `back` | `History` |
 | `resize_viewport` | `Resize` |
-| `type` and `press` without a target | `Keyboard` |
 | `dismiss_keyboard` | `Keyboard` and `CanDismissKeyboard` |
-| `tap_at` | the `tap` kind in `PointerActionKinds` |
-| `hover_at` | `hover` |
-| `drag_at` | `dragTo` |
+| `tap_at` | the `tap` kind in `PointerActionKinds`, or the `tap` verb |
+| `hover_at` | `hover` in `PointerActionKinds`, or the `hover` verb |
+| `drag_at` | `dragTo` in `PointerActionKinds`, or the `drag` verb |
+| `type_at` | the `type` verb, or `Keyboard` |
+| `press_at` | the `press` verb, or `Keyboard` |
+| `select_at` | the `select` verb |
 
-Upstream's `type_at`, `press_at`, and `select_at` verbs, and the fallback of `tap_at` and `drag_at` to `perform` when the point lands on a listed node, are not in the port.
+An engine that declares no `ActionKinds` of its own gets every kind of `EngineActionKinds.Locator`. One that narrows the list loses the tools of the kinds it left out: a device that declares no `selectOption` gets no `select` and no `select_at`. With a keyboard, `type` and `press` take no target when the engine declares no `fill` or `press`, and an optional one when it declares both. A point tool is offered with its own pointer kind or with the node verb it falls back to: `tap_at` and `hover_at` act on the bare point where the engine takes it, and on the listed control under the point by id where it does not; `drag_at` joins two points that land on two different listed controls; `type_at`, `press_at`, and `select_at` act on a listed control under the point by id, and with a keyboard `type_at` and `press_at` tap a point on nothing listed to focus it and go through the keyboard.
+
+The scroll verbs, `upload`, `navigate`, and `back` follow `EngineCapabilities` where upstream derives them from the `swipe`, `scrollIntoView`, and `setInputFiles` kinds and the `open` and `back` hooks ([#1437](https://github.com/hardkoded/e2e-dotnet/issues/1437)).
 
 #### Test APIs
 
@@ -627,7 +640,6 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
 | `parseKey`, `KEY_NAMES`, `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `resolveExpression`, `pollCondition`, `rejectUnknownKeys` | `internal` ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)), or covered by C# types. |
 | `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
-| `type_at`, `press_at`, `select_at` verbs | Not offered ([#1278](https://github.com/hardkoded/e2e-dotnet/issues/1278)). |
 
 ## Related
 
