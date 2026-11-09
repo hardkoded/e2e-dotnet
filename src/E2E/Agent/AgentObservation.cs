@@ -364,6 +364,8 @@ internal static partial class AgentObservation
             Frame = node.Frame,
             Rect = node.Rect,
             Origin = node.Origin,
+            Selector = Text(node.Selector),
+            FramePath = node.FramePath?.Select(selector => RedactText(selector, redactor)).ToList(),
             Children = children,
         };
     }
@@ -428,6 +430,7 @@ internal static partial class AgentObservation
                 States = node.States,
                 Attributes = node.Attributes.Count == 0 ? null : TreeAttributes(node.Attributes, redactor, appOrigin),
                 Rect = node.Rect,
+                FramePath = node.FramePath?.Select(selector => RedactText(selector, redactor)).ToList(),
                 Children = children,
             });
         }

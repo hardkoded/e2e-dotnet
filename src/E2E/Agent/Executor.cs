@@ -304,6 +304,9 @@ public sealed class ExecutorNode
 
     public BoundingBox? Rect { get; init; }
 
+    /// <summary>The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.</summary>
+    public IReadOnlyList<string>? FramePath { get; init; }
+
     public IReadOnlyList<ExecutorNode> Children { get; init; } = [];
 }
 

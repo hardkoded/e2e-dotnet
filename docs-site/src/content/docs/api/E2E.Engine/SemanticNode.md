@@ -56,6 +56,21 @@ public IReadOnlyList<SemanticNode> Children { get; init; }
 
 **Value:** [IReadOnlyList&lt;SemanticNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_Engine_SemanticNode_FramePath_"></a>
+<a id="E2E_Engine_SemanticNode_FramePath"></a>
+
+### FramePath
+
+
+```csharp
+public IReadOnlyList<string>? FramePath { get; init; }
+```
+
+
+The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Engine_SemanticNode_InputPurpose_"></a>
 <a id="E2E_Engine_SemanticNode_InputPurpose"></a>
 
@@ -198,6 +213,24 @@ public string? Selection { get; init; }
 
 
 The text selected inside the focused field or editing host. Null for a caret, an unfocused field, or a secure one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Engine_SemanticNode_Selector_"></a>
+<a id="E2E_Engine_SemanticNode_Selector"></a>
+
+### Selector
+
+
+```csharp
+public string? Selector { get; init; }
+```
+
+
+Platform selector that addresses this node within its own document, when the platform has one. It is structural, not semantic: it
+survives the content changes that rename a node, and a runner may store it to re-find the node cheaply on a later run. It is never
+part of the node's identity, so whatever it resolves to is still checked before it is used. It should be anchored on an attribute
+naming the node or one of its ancestors, and absent rather than positional all the way to the document root.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
