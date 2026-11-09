@@ -147,6 +147,17 @@ public sealed class SemanticNode
     /// </summary>
     public Point? Origin { get; init; }
 
+    /// <summary>
+    /// Platform selector that addresses this node within its own document, when the platform has one. It is structural, not semantic: it
+    /// survives the content changes that rename a node, and a runner may store it to re-find the node cheaply on a later run. It is never
+    /// part of the node's identity, so whatever it resolves to is still checked before it is used. It should be anchored on an attribute
+    /// naming the node or one of its ancestors, and absent rather than positional all the way to the document root.
+    /// </summary>
+    public string? Selector { get; init; }
+
+    /// <summary>The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.</summary>
+    public IReadOnlyList<string>? FramePath { get; init; }
+
     public IReadOnlyList<SemanticNode> Children { get; init; } = [];
 }
 

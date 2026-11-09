@@ -102,7 +102,7 @@ await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
 
 Every action on a node pins its ref to the capture that issued it, so a ref a newer capture replaced is never sent to a different element. If the control changed during the `TransitionMilliseconds` wait (500 ms by default), the action fails with a retryable `NODE_STALE` and a locator resolves it again within its timeout. A direct `Device` call such as `DragToAsync` does not retry, so it surfaces the `NODE_STALE`. Unmoved controls are acted on immediately only when keyboard visibility is unchanged: opening or closing the keyboard also uses the remaining `TransitionMilliseconds` budget. A `target_still_moving` refusal from agent-device that reports `dispatched: no` is a retryable `NODE_STALE` as well.
 
-A step of your test does not wait for the screen to settle after it acts: it checks its outcome with `Expect`, and it only waits out `TransitionMilliseconds` for a control that came with the last action. The agent's actions settle first, because it reads the screen right after acting. The engine tells the two apart by the `OperationContext` of the call (`OperationContext.Test` or `OperationContext.Agent`). `DeviceSession.Origin` and `ActionOrigin` are obsolete and go in the next release: pass an `OperationContext` to the `PerformAsync`, `PerformAtAsync`, `SwipeAsync`, or `BackAsync` overload instead.
+A step of your test does not wait for the screen to settle after it acts: it checks its outcome with `Expect`, and it only waits out `TransitionMilliseconds` for a control that came with the last action. The agent's actions settle first, because it reads the screen right after acting. `Device.BackAsync` settles too, as `MobileOptions.Settle` says. The engine tells the two apart by the `OperationContext` of the call (`OperationContext.Test` or `OperationContext.Agent`). `DeviceSession.Origin` and `ActionOrigin` are obsolete and go in the next release: pass an `OperationContext` to the `PerformAsync`, `PerformAtAsync`, `SwipeAsync`, or `BackAsync` overload instead.
 
 `FillAsync` and `ClearAsync` read the field again before typing. A field the fresh capture no longer lists, a changed input purpose or secure, disabled, or hidden state, or an incomplete capture fails with a retryable `NODE_STALE` before anything is typed, and the locator resolves it again. A node that cannot take text fails with `UNSUPPORTED_CAPABILITY`.
 
@@ -115,6 +115,8 @@ await raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), CancellationToke
 ```
 
 `raw.Selection` is the device selection the engine passes commands (`ToArgs()` turns it into call options), for a call that can run before `app.open()`. `raw.Platform`, `raw.Session` (`e2e-<target>-<worker slot>`, or `<session>-<worker slot>` with the `Session` option), `raw.DeviceId` (a simulator UDID or an Android serial), and `raw.DeviceName` name the session and device. Client calls aren't steps: the report and trace leave them out, the agent cache doesn't replay them, secrets passed to them aren't redacted, and nothing waits for the screen to settle after one. After the worker disposes the session, reading `UnstableRaw` or its `Client` throws `INVALID_STATE`.
+
+On an Android build with no shell command for the clipboard service (the Android 16 emulator is one), `Device.ClipboardAsync()` and `Device.SetClipboardAsync(text)` fail with `UNSUPPORTED_CAPABILITY`. To check a copy, paste into a field and read the field back.
 
 ### What the raw client takes
 
@@ -134,7 +136,7 @@ Boot exactly one simulator, then run:
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test --project .
+dotnet test
 ```
 
 To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices available`). With two booted or matching devices the run fails with `AMBIGUOUS_MATCH`.
@@ -142,6 +144,26 @@ To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices 
 Without `MobileOptions.Device`, a booted simulator or emulator that another tool holds through its own agent-device session is skipped, and the run drives the free ones. When every booted device is held, the run fails at `prepare` with `ENGINE_FAILURE`, naming the holding sessions. A booted device nothing holds, such as one you are using by hand, is still in the pool: name the device to keep the run off it.
 
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
+
+## Test ids by framework
+
+`GetByTestId` reads the accessibility identifier on iOS and the resource id on Android. Each UI framework sets them its own way:
+
+| Framework | Set the id with |
+| --- | --- |
+| React Native | `testID` |
+| SwiftUI | `.accessibilityIdentifier()` |
+| UIKit | `view.accessibilityIdentifier`, or Identifier in Interface Builder's Identity inspector |
+| Jetpack Compose | `Modifier.testTag()` |
+| Compose Multiplatform | `Modifier.testTag()` |
+| Flutter | `Semantics(identifier:)` |
+| .NET MAUI | `AutomationId` (the [sample app](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp) sets it in `MainPage.xaml`) |
+| NativeScript | `testID` |
+
+- On Android, a native `android:id` and a .NET MAUI `AutomationId` read as `<package>:id/<id>`. `GetByTestId("greet")` finds them without the app's package, as on iOS, when nothing matches the full id. Framework ids such as `android:id/content` match only in full.
+- On Android, Compose hides test tags until a root composable sets `Modifier.semantics { testTagsAsResourceId = true }`. Without it, `GetByTestId` finds nothing. iOS reads a Compose Multiplatform tag as is, so a shared screen sets the flag in its Android activity.
+- In SwiftUI, an `.accessibilityIdentifier()` on a container such as a `VStack` replaces the ids of every element inside it. `GetByTestId` then fails with `LOCATOR_AMBIGUOUS` on the container's id and finds nothing for the children's ids. Put `.accessibilityElement(children: .contain)` before the identifier to keep both.
+- In Flutter, wrap a button's `Semantics` in `MergeSemantics` so the id and the button role land on one node.
 
 ## Roles
 

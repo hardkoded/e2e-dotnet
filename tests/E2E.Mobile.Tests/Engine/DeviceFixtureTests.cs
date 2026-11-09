@@ -172,7 +172,7 @@ public sealed class DeviceFixtureTests
             ("apps.close", """{"platform":"ios","app":"com.apple.Preferences"}"""),
             ("command.appState", "{}"),
             ("command.home", """{"platform":"ios"}"""),
-            ("command.back", """{}"""),
+            ("command.back", """{"settle":true,"settleQuietMs":150}"""),
             ("command.alert", """{"platform":"ios","action":"accept"}"""),
             ("command.keyboard", """{"action":"dismiss"}"""),
             ("command.clipboard", """{"platform":"ios","action":"read"}"""),

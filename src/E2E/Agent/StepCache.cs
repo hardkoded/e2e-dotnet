@@ -684,6 +684,8 @@ internal sealed class StepTraceSession
 
         public bool TryReserve() => inner.TryReserve();
 
+        public Task BeforeAsync() => inner.BeforeAsync();
+
         public void MarkActing() => inner.MarkActing();
 
         public Task CommitAsync(RecordedAction action) => inner.CommitAsync(action);

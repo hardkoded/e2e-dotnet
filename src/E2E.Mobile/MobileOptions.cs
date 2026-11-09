@@ -138,7 +138,7 @@ public sealed record MobileOptions
     /// the rest, so a short window suffices. Default 150. Every frame of a running animation changes the tree, so a
     /// 150 ms window still catches a transition in flight; raise it for slow devices or apps that settle in stages, or
     /// lower it to 0 to keep only the first re-observation. A negative value is <c>INVALID_CONFIG</c>. The agent's
-    /// actions carry the wait; a test's own steps do not, and rely on <see cref="TransitionMilliseconds"/> and polling.
+    /// actions and <c>Device.BackAsync</c> carry the wait; a test's own steps do not, and rely on <see cref="TransitionMilliseconds"/> and polling.
     /// </summary>
     public int SettleMilliseconds { get; init; } = DefaultSettleMilliseconds;
 

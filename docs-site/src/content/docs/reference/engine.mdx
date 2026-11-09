@@ -589,9 +589,9 @@ One node of an observation tree. `Ref` is valid only for the observation it came
 | `Attributes` | Platform attributes by name, what `GetAttributeAsync` reads. A secure field never reports its value. |
 | `Rect` | The node's `BoundingBox` in the top-level viewport's CSS pixels, including nodes inside nested documents. |
 | `Origin` | The `Point` an offset into the node is measured from, when it is not `Rect`'s top-left corner. |
+| `Selector` | Platform selector that addresses the node within its own document, when the platform has one. It is structural, not semantic: it survives the content changes that rename a node, and a runner may store it to re-find the node cheaply on a later run. It is never part of the node's identity, so whatever it resolves to is still checked before it is used. It should be anchored on an attribute naming the node or one of its ancestors, and absent rather than positional all the way to the document root, since such a path is shifted by anything inserted above the node. Redacted like every string field; it stays out of the executor tree. The web engine does not fill it yet. |
+| `FramePath` | The enclosing nested-document chain as selectors of each boundary node, outermost first. Null in the main document. Each selector is redacted, and the executor tree carries the chain (`ExecutorNode.FramePath`). The web engine does not fill it yet: it keeps its own frame placement. |
 | `Children` | Child nodes. |
-
-Upstream's `selector` and `framePath` have no public member: the web engine keeps its own frame placement.
 
 ### Observed field limits
 
@@ -626,7 +626,7 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
 | The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
 | `parseKey`, `KEY_NAMES`, `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `resolveExpression`, `pollCondition`, `rejectUnknownKeys` | `internal` ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)), or covered by C# types. |
-| `SemanticNode.selector`, `framePath`, `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
+| `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
 | `type_at`, `press_at`, `select_at` verbs | Not offered ([#1278](https://github.com/hardkoded/e2e-dotnet/issues/1278)). |
 
 ## Related

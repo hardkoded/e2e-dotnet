@@ -460,6 +460,11 @@ lines you changed:
   an enum (topic `agent`). `ActionEvent.Summary` is the summary the trace
   stores for the action, so the event, a trace and a replay hand-off notice
   read the same prose.
+- `ActOptions.OnBeforeAction` runs before each action, replayed ones included,
+  with the same `Index` the action's `OnAction` event gets. Use it to capture
+  the screen an action started on (`App.ScreenshotAsync`). It does not wait
+  for the screen to settle. A throw fails the step before the action runs,
+  with `agent.act onBeforeAction failed: ...` (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the

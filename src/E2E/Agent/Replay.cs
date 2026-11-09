@@ -55,6 +55,9 @@ internal interface IReplayHost
     /// </summary>
     bool TryReserve();
 
+    /// <summary>Runs the test's <c>OnBeforeAction</c> hook for the action whose slot <see cref="TryReserve"/> just took (upstream's replay calls the dispatcher's <c>before</c>).</summary>
+    Task BeforeAsync() => Task.CompletedTask;
+
     /// <summary>Marks the newest observation as the one the step's first action is taken on.</summary>
     void MarkActing();
 
@@ -181,7 +184,7 @@ internal static class Replay
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "resize" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !host.TryReserve())
+            if ((action.Kind is "back" or "resize" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !await ReserveAsync(host).ConfigureAwait(false))
             {
                 return Stop(ReplayHandOffReason.ActionBudget);
             }
@@ -197,7 +200,7 @@ internal static class Replay
                 switch (action.Kind)
                 {
                     case "navigate":
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -273,7 +276,7 @@ internal static class Replay
                             }
 
                             // One slot for the whole scroll, taken once its first repeat has a place to land.
-                            if (index == 0 && !host.TryReserve())
+                            if (index == 0 && !await ReserveAsync(host).ConfigureAwait(false))
                             {
                                 return Stop(ReplayHandOffReason.ActionBudget);
                             }
@@ -298,7 +301,7 @@ internal static class Replay
                             return Stop(scrolled.Failure);
                         }
 
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -313,7 +316,7 @@ internal static class Replay
                             return Stop(placedFailure, null, placed.Why);
                         }
 
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -328,7 +331,7 @@ internal static class Replay
                             return Stop(pair.Failure);
                         }
 
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -350,7 +353,7 @@ internal static class Replay
                             return Stop(endFailure, null, end.Why);
                         }
 
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -364,7 +367,7 @@ internal static class Replay
                             return Stop(found.Failure);
                         }
 
-                        if (!host.TryReserve())
+                        if (!await ReserveAsync(host).ConfigureAwait(false))
                         {
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
@@ -390,6 +393,18 @@ internal static class Replay
         }
 
         return new ReplayOutcome { Completed = true, Executed = summaries.Count, Total = total, Summaries = summaries };
+    }
+
+    // Takes the action's slot, then lets the test's OnBeforeAction hook see the action before it runs: upstream's runAction order.
+    private static async Task<bool> ReserveAsync(IReplayHost host)
+    {
+        if (!host.TryReserve())
+        {
+            return false;
+        }
+
+        await host.BeforeAsync().ConfigureAwait(false);
+        return true;
     }
 
     /// <summary>Whether the list a recorded scroll moved filled the screen (<see cref="CacheKeys.MainListShare"/>), so it scrolls as the viewport once it is lost.</summary>

@@ -364,6 +364,7 @@ internal sealed class SessionHost : IDisposable
                     {
                         Engine = engine,
                         Credentials = config.Credentials,
+                        Config = HostTestFilters.Resolve(config, [], target: target),
                         BaseUrl = target.App.Url,
                         Permissions = target.App.Permissions,
                         ProjectRoot = config.ProjectRoot,

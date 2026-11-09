@@ -1040,10 +1040,24 @@ public sealed class ActOptions
     /// nothing from it. A throw fails the step.
     /// </summary>
     public ActionHook? OnAction { get; init; }
+
+    /// <summary>
+    /// Runs before each action, replayed ones included, and the step waits for it. It does not wait for the screen to settle. Observe
+    /// only: drive nothing from it. A throw fails the step before the action runs.
+    /// </summary>
+    public BeforeActionHook? OnBeforeAction { get; init; }
 }
 
 /// <summary>The <c>onAction</c> hook of an <c>agent.act</c> call.</summary>
 public delegate Task ActionHook(ActionEvent actionEvent);
+
+/// <summary>The <c>onBeforeAction</c> hook of an <c>agent.act</c> call.</summary>
+public delegate Task BeforeActionHook(BeforeActionEvent beforeActionEvent);
+
+/// <summary>One action of an <c>agent.act</c> step about to run, as <see cref="ActOptions.OnBeforeAction"/> receives it.</summary>
+/// <param name="Index">The same index the action's <see cref="ActionEvent.Index"/> carries.</param>
+/// <param name="Source"><see cref="ActionSource.Model"/> when the executor chose the action, <see cref="ActionSource.Replay"/> when the cache replays it.</param>
+public sealed record BeforeActionEvent(int Index, ActionSource Source);
 
 /// <summary>
 /// One completed action of an <c>agent.act</c> step, as <see cref="ActOptions.OnAction"/> receives it. Upstream types it as a union
@@ -1262,7 +1276,7 @@ internal static class Vision
     public const string HintUnproven = "the judge saw the semantic tree only; if the engine captures pixels, pass Vision = VisionMode.On when the answer is in pixels";
 }
 
-internal sealed class AttemptScope
+internal sealed class AttemptScope : ISecretFillRuntime
 {
     private readonly Dictionary<string, Func<TraceCallSignature, int>> _callIndexers = new(StringComparer.Ordinal);
     private readonly List<Secret> _secrets = [];
@@ -1744,6 +1758,20 @@ internal sealed class AttemptScope
         {
             _registered.Add((name, value));
         }
+    }
+
+    Secret? ISecretFillRuntime.RegisteredSecret(string name) => _secrets.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+
+    // A provider's value is computed for this fill and joins redaction before it is typed.
+    async Task<Secret> ISecretFillRuntime.ResolveAsync(Secret secret, CancellationToken cancellationToken)
+    {
+        var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
+        if (secret.Provider is not null)
+        {
+            Register(resolved.Name, resolved.Value);
+        }
+
+        return resolved;
     }
 
     /// <summary>

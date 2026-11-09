@@ -2,17 +2,179 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Engine;
 
 namespace E2E.Tests.AgentGrammarTools;
 
-// The port's act tools do not close their schemas and have no point verbs, so upstream's closed-schema, keyboard-only,
-// point verb, and provider-schema cases have no full port; the vocabulary, scroll_to, and verdict cases are partial. The act loop reads the first done of a turn; upstream's tool result text
-// ("the errorCode you sent ... was ignored", "The step already concluded.") is not sent back, because the step ends.
+// Upstream validates a call against the zod schema of a tool (safeParse). The port's schema is the JSON Schema a provider receives, so these
+// tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
+// vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is role, name, or ref, complete_step
+// is done, errorCode is code, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text. The scroll_to and
+// keyboard-only cases that depend on the engine's verb set are partial: the port's grammar is offered by capability, not by verb.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
-    // Partial of upstream's "offers the whole vocabulary over the full grammar, and every tool refuses a field it does not declare":
-    // the port has no point verbs and its schemas are not closed, so only the vocabulary is checked.
+    /// <summary>An input each tool accepts; a tool added to the grammar without one fails the vocabulary check.</summary>
+    private static readonly Dictionary<string, string> Accepted = new(StringComparer.Ordinal)
+    {
+        ["observe"] = "{}",
+        ["tap"] = """{ "ref": "n1", "modifiers": ["Shift"] }""",
+        ["double_tap"] = """{ "ref": "n1" }""",
+        ["long_press"] = """{ "ref": "n1" }""",
+        ["right_click"] = """{ "ref": "n1" }""",
+        ["hover"] = """{ "ref": "n1" }""",
+        ["fill"] = """{ "ref": "n1", "value": "ada" }""",
+        ["fill_secret"] = """{ "ref": "n1", "secret": "admin" }""",
+        ["press"] = """{ "ref": "n1", "key": "Shift+ArrowLeft", "times": 8 }""",
+        ["select"] = """{ "ref": "n1", "value": "Pro" }""",
+        ["check"] = """{ "ref": "n1" }""",
+        ["uncheck"] = """{ "ref": "n1" }""",
+        ["clear"] = """{ "ref": "n1" }""",
+        ["scroll"] = """{ "direction": "down", "times": 2 }""",
+        ["scroll_to"] = """{ "ref": "n1" }""",
+        ["drag"] = """{ "ref": "n1", "to": { "ref": "n2" } }""",
+        ["upload"] = """{ "ref": "n1", "files": ["fixtures/a.txt"] }""",
+        ["navigate"] = """{ "url": "/about" }""",
+        ["back"] = "{}",
+        ["resize_viewport"] = """{ "width": 390, "height": 844 }""",
+        ["screenshot"] = "{}",
+        ["tap_at"] = """{ "x": 10, "y": 20 }""",
+        ["hover_at"] = """{ "x": 10, "y": 20 }""",
+        ["drag_at"] = """{ "x": 10, "y": 20, "to_x": 30, "to_y": 40 }""",
+        ["type_at"] = """{ "x": 10, "y": 20, "value": "ada", "replace": true }""",
+        ["press_at"] = """{ "x": 10, "y": 20, "key": "Enter" }""",
+        ["select_at"] = """{ "x": 10, "y": 20, "value": "Pro" }""",
+        ["dismiss_keyboard"] = "{}",
+    };
+
+    private const EngineCapabilities Everything = EngineCapabilities.Keyboard | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize
+        | EngineCapabilities.Upload | EngineCapabilities.TapModifiers;
+
+    private static IReadOnlyList<ModelTool> FullGrammar() =>
+        AgentTools.GrammarToolDefinitions(Everything, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true);
+
+    private static JsonSchemaCheck SchemaOf(ModelTool tool) => JsonSchemaCheck.FromText(tool.Parameters.GetRawText());
+
+    private static JsonNode Input(string json) => JsonNode.Parse(json)!;
+
+    private static ModelToolCall Call(string name, JsonNode arguments) =>
+        new() { Id = "call", Name = name, Arguments = JsonSerializer.SerializeToElement(arguments) };
+
+    /// <summary>The accepted input passes; the same input with two undeclared fields fails on exactly those keys.</summary>
+    private static void ExpectClosed(ModelTool tool, string accepted)
+    {
+        var schema = SchemaOf(tool);
+        Assert.True(schema.IsValid(Input(accepted)), tool.Name + " accepts " + accepted);
+        var decorated = Input(accepted).AsObject();
+        decorated["force"] = true;
+        decorated["selector"] = "#x";
+        Assert.False(schema.IsValid(decorated), tool.Name + " refuses undeclared fields");
+        var refusal = AgentTools.SchemaTool(tool, Call(tool.Name, decorated));
+        Assert.NotNull(refusal);
+        var issues = JsonNode.Parse(refusal[(refusal.IndexOf("Error message: ", StringComparison.Ordinal) + "Error message: ".Length)..])!.AsArray();
+        Assert.Equal(["unrecognized_keys"], issues.Select(issue => (string?)issue!["code"]));
+        Assert.Equal("Unrecognized keys: \"force\", \"selector\"", (string?)issues[0]!["message"]);
+        Assert.Null(AgentTools.SchemaTool(tool, Call(tool.Name, Input(accepted))));
+    }
+
+    [Fact]
+    public void Offers_the_whole_vocabulary_over_the_full_grammar_and_every_tool_refuses_a_field_it_does_not_declare()
+    {
+        var tools = FullGrammar();
+        Assert.Equal(Accepted.Keys.Order(StringComparer.Ordinal), tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        foreach (var tool in tools)
+        {
+            ExpectClosed(tool, Accepted[tool.Name]);
+        }
+    }
+
+    // Partial of upstream's "scroll_to takes a listed node, a text to reach, or a text with the list to page, never nothing; a device gets the text form alone":
+    // the port offers one scroll_to to every engine that scrolls, so the full form is ported (a text beside a direction and a node, a text alone,
+    // the text ceiling, a field it does not declare, the closed shape). The device form (a text alone, a node alone refused) and the node-only
+    // form are not: they follow the verbs an engine lists (scrollTo, scrollUntil), which the port's grammar does not read.
+    [Fact]
+    public void Partial_scroll_to_takes_a_listed_node_a_text_to_reach_or_a_text_with_the_list_to_page_never_nothing_a_device_gets_the_text_form_alone()
+    {
+        var scrollTo = FullGrammar().Single(tool => tool.Name == "scroll_to");
+        var full = SchemaOf(scrollTo);
+        Assert.True(full.IsValid(Input("""{ "text": "Row 4322", "direction": "down", "ref": "n6" }""")));
+        Assert.True(full.IsValid(Input("""{ "text": "Row 4322" }""")));
+        Assert.False(full.IsValid(Input($$"""{ "text": "{{new string('x', AgentTools.MaxScrollToText + 1)}}" }""")));
+        Assert.False(full.IsValid(Input("""{ "text": "Row 4322", "list": "n6" }""")));
+        ExpectClosed(scrollTo, """{ "text": "Row 4322" }""");
+    }
+
+    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": upstream offers
+    // type, press, and scroll without a target to an engine that lists only the typeText, pressKey, and scroll verbs. The port offers the node
+    // verbs beside the keyboard ones by capability, so this closes the keyboard shapes the port has: fill without a target, press, and scroll.
+    [Fact]
+    public void Partial_closes_the_keyboard_only_shapes_too_type_and_press_without_a_target_scroll_without_one()
+    {
+        var tools = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard | EngineCapabilities.Scroll);
+        ExpectClosed(tools.Single(tool => tool.Name == "fill"), """{ "value": "ada", "replace": true }""");
+        ExpectClosed(tools.Single(tool => tool.Name == "press"), """{ "key": "Enter" }""");
+        ExpectClosed(tools.Single(tool => tool.Name == "scroll"), """{ "direction": "down" }""");
+    }
+
+    [Fact]
+    public void Offers_resize_viewport_only_with_the_resize_verb_in_whole_pixels_within_the_bounds()
+    {
+        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.History), tool => tool.Name == "resize_viewport");
+        var resize = SchemaOf(AgentTools.GrammarToolDefinitions(EngineCapabilities.Resize).Single(tool => tool.Name == "resize_viewport"));
+        Assert.True(resize.IsValid(Input("""{ "width": 1440, "height": 900 }""")));
+        Assert.False(resize.IsValid(Input("""{ "width": 390.5, "height": 844 }""")));
+        Assert.False(resize.IsValid(Input("""{ "width": 100, "height": 844 }""")));
+        Assert.False(resize.IsValid(Input("""{ "width": 390, "height": 5000 }""")));
+        Assert.False(resize.IsValid(Input("""{ "width": 390 }""")));
+    }
+
+    [Fact]
+    public void Closes_complete_step()
+    {
+        ExpectClosed(AgentTools.CreateVerdictTool().Tool, """{ "status": "passed", "summary": "done" }""");
+    }
+
+    [Fact]
+    public void Accepts_a_passed_verdict_beside_an_error_code_the_body_records_the_pass_without_the_code_and_says_what_it_dropped()
+    {
+        // One model attaches ACTION_FAILED to about half of its passes; a schema refusal had it resend the identical call until the turn budget ran out.
+        var passed = AgentTools.CreateVerdictTool();
+        var schema = SchemaOf(passed.Tool);
+        Assert.True(schema.IsValid(Input("""{ "status": "passed", "summary": "done", "code": "ACTION_FAILED" }""")));
+        Assert.Equal(
+            "Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.",
+            passed.Execute(Call("done", Input("""{ "status": "passed", "summary": "done", "code": "ACTION_FAILED" }"""))).Content);
+        Assert.Equal(new StepVerdict(StepVerdictStatus.Passed, "done"), passed.Verdict);
+        var failed = AgentTools.CreateVerdictTool();
+        Assert.Equal("Step concluded.", failed.Execute(Call("done", Input("""{ "status": "failed", "summary": "done", "code": "ACTION_FAILED" }"""))).Content);
+        Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "done", "ACTION_FAILED"), failed.Verdict);
+        Assert.True(schema.IsValid(Input("""{ "status": "blocked", "summary": "done", "code": "ENVIRONMENT_UNAVAILABLE" }""")));
+    }
+
+    [Fact]
+    public void Keeps_the_first_verdict_a_later_complete_step_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
+    {
+        var conclusion = AgentTools.CreateVerdictTool();
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "failed", "summary": "total is wrong", "code": "ASSERTION_FAILED" }"""))).Content);
+        Assert.Equal("The step already concluded.", conclusion.Execute(Call("done", Input("""{ "status": "passed", "summary": "looks fine" }"""))).Content);
+        Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "total is wrong", "ASSERTION_FAILED"), conclusion.Verdict);
+    }
+
+    // The port words the refusal "failed: a blocked verdict requires a code naming what blocked you", where upstream's is "Rejected: a blocked
+    // verdict requires errorCode": the port's field is code, and its tool results lead with "failed: " when the call did not run.
+    [Fact]
+    public void Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
+    {
+        var conclusion = AgentTools.CreateVerdictTool();
+        Assert.StartsWith("failed: a blocked verdict requires a code", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "could not tell" }"""))).Content, StringComparison.Ordinal);
+        Assert.StartsWith("failed: ", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "the total is wrong", "code": "ASSERTION_FAILED" }"""))).Content, StringComparison.Ordinal);
+        Assert.False(conclusion.Concluded);
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "no login", "code": "AUTH_CREDENTIAL_UNAVAILABLE" }"""))).Content);
+        Assert.Equal(new StepVerdict(StepVerdictStatus.Blocked, "no login", "AUTH_CREDENTIAL_UNAVAILABLE"), conclusion.Verdict);
+    }
+
+    // .NET-only: the grammar is offered by engine capability, not by the verbs a target lists, so the vocabulary each capability unlocks is checked here.
     [Fact]
     public void Offers_the_node_verbs_and_the_scroll_and_history_tools_their_capabilities_unlock()
     {
@@ -34,8 +196,8 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(AgentTools.IsReserved("dismiss_keyboard"));
     }
 
-    // Part of upstream's "offers the whole vocabulary over the full grammar": the pointer verbs follow the action kinds the engine declares,
-    // where upstream's follow the verbs its target lists, and drag names its drop target in a second argument.
+    // .NET-only: the pointer verbs follow the action kinds the engine declares, where upstream's follow the verbs its target lists,
+    // and drag names its drop target in a second argument.
     [Fact]
     public void Offers_each_pointer_verb_only_for_the_action_kind_the_engine_declares()
     {
@@ -64,81 +226,12 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["tap"], []), tool => tool.Name is "hover_at" or "drag_at");
     }
 
-    // Part of upstream's "offers the whole vocabulary over the full grammar, and every tool refuses a field it does not declare": the input it
-    // accepts for press carries `times`. The port checks the declared field, not the closed shape.
+    // .NET-only: the ceiling of the times a press repeats (upstream's accepted input for press carries times: 8, and nothing checks the ceiling).
     [Fact]
-    public void Partial_Declares_the_times_of_press_up_to_the_ceiling()
+    public void Declares_the_times_of_press_up_to_the_ceiling()
     {
         var times = AgentTools.GrammarToolDefinitions(EngineCapabilities.None).Single(tool => tool.Name == "press").Parameters.GetProperty("properties").GetProperty("times");
         Assert.Equal(AgentTools.MaxPressTimes, times.GetProperty("maximum").GetInt32());
-    }
-
-    // Partial of upstream's "offers resize_viewport only with the resize verb, in whole pixels within the bounds": the port declares the bounds
-    // in the schema and does not parse an input against it, so the sides are checked as declared (integer, 200 to 4096, both required).
-    [Fact]
-    public void Partial_Offers_resize_viewport_only_with_the_resize_capability_in_whole_pixels_within_the_bounds()
-    {
-        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.History), tool => tool.Name == "resize_viewport");
-        var resize = AgentTools.GrammarToolDefinitions(EngineCapabilities.Resize).Single(tool => tool.Name == "resize_viewport").Parameters;
-        Assert.Equal(["width", "height"], resize.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
-        foreach (var side in new[] { "width", "height" })
-        {
-            var property = resize.GetProperty("properties").GetProperty(side);
-            Assert.Equal("integer", property.GetProperty("type").GetString());
-            Assert.Equal((200, 4096), (property.GetProperty("minimum").GetInt32(), property.GetProperty("maximum").GetInt32()));
-        }
-
-        Assert.True(AgentTools.IsReserved("resize_viewport"));
-    }
-
-    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the port's tool is
-    // fill, not type, its schemas are not closed, and it always offers the node and point verbs beside the keyboard ones, so this checks the
-    // shapes the keyboard changes: fill takes replace and needs no target, type_at takes replace, and without a keyboard neither does.
-    [Fact]
-    public void Partial_Offers_fill_without_a_target_and_a_replace_flag_only_when_the_engine_has_a_keyboard()
-    {
-        var keyboard = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard | EngineCapabilities.Scroll);
-        var fill = keyboard.Single(tool => tool.Name == "fill").Parameters;
-        Assert.True(fill.GetProperty("properties").TryGetProperty("replace", out _));
-        Assert.Equal(["value"], fill.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
-        Assert.True(keyboard.Single(tool => tool.Name == "type_at").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
-        Assert.Contains("keyboard", keyboard.Single(tool => tool.Name == "press_at").Description, StringComparison.Ordinal);
-
-        var bare = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll);
-        Assert.False(bare.Single(tool => tool.Name == "fill").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
-        Assert.False(bare.Single(tool => tool.Name == "type_at").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
-    }
-
-    // Partial of upstream's scroll_to "it": the port checks the text ceiling and the declared fields, not the closed shape.
-    [Fact]
-    public void Declares_the_text_of_scroll_to_with_a_ceiling_beside_a_target_and_a_direction()
-    {
-        var scrollTo = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll).Single(tool => tool.Name == "scroll_to");
-        var properties = scrollTo.Parameters.GetProperty("properties");
-        Assert.Equal(AgentTools.MaxScrollToText, properties.GetProperty("text").GetProperty("maxLength").GetInt32());
-        Assert.True(properties.TryGetProperty("direction", out _));
-        Assert.True(properties.TryGetProperty("ref", out _));
-    }
-
-    // Partial of upstream's "accepts a passed verdict beside an error code": the port sends no tool result text that says what it dropped.
-    [Fact]
-    public void Records_a_passed_verdict_beside_an_error_code_without_the_code()
-    {
-        var verdict = AgentTools.CreateVerdictTool();
-
-        var passed = verdict.Decide(Done("passed", "ACTION_FAILED"));
-        Assert.True(passed.Done);
-        Assert.Equal("passed", passed.Status);
-        Assert.Equal("done", passed.Summary);
-        Assert.Null(passed.Code);
-
-        var failed = verdict.Decide(Done("failed", "ACTION_FAILED"));
-        Assert.Equal("failed", failed.Status);
-        Assert.Equal("ACTION_FAILED", failed.Code);
-
-        var blocked = verdict.Decide(Done("blocked", "ENVIRONMENT_UNAVAILABLE"));
-        Assert.Equal("blocked", blocked.Status);
-        Assert.Equal("ENVIRONMENT_UNAVAILABLE", blocked.Code);
     }
 
     [Fact]
@@ -159,11 +252,9 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(blockedError.Blocked);
     }
 
-    // Partial of upstream's "keeps the first verdict: a later complete_step in the same turn cannot turn a failure into a pass":
-    // the port's verdict tool keeps no state and sends no result text ("Step concluded.", "The step already concluded."), so only
-    // the outcome of the step is checked.
+    // .NET-only: the same through the tool loop, which ends the step at the first verdict of a turn.
     [Fact]
-    public async Task Partial_Keeps_the_first_verdict_a_later_done_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
+    public async Task Ends_the_step_at_the_first_verdict_of_a_turn()
     {
         var turn = new ModelResponse
         {
@@ -181,11 +272,9 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal("agent.act failed: total is wrong", error.Message);
     }
 
-    // Partial of upstream's "refuses a blocked verdict without a blocking error code and leaves the step open for a real one": the
-    // port's verdict tool keeps no concluded() state to read and words its refusal by its own code names, so the open step is
-    // checked through the calls the loop makes next.
+    // .NET-only: the same through the tool loop, whose next calls show the step stayed open.
     [Fact]
-    public async Task Partial_Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
+    public async Task Leaves_the_step_open_after_a_blocked_verdict_without_a_blocking_code_until_a_real_one()
     {
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {

@@ -6,7 +6,7 @@ This sample tests the [TodoMVC demo](https://demo.playwright.dev/todomvc) with t
 
 ```bash
 dotnet run --project src/E2E.Cli -- login github-copilot
-dotnet test --project samples/TodoMvc
+dotnet test samples/TodoMvc
 ```
 
 The tests use `claude-sonnet-5.5` on a GitHub Copilot plan. To use an API key, change `agents.default` in `e2e.config.json`. All tests are in the `RealModel` category.

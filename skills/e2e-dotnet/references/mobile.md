@@ -7,7 +7,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 ## Contents
 
 - The fixture
-- NativeScript test ids
+- Test ids by framework
 - A test
 - Roles
 - Device controls
@@ -53,7 +53,27 @@ public sealed class GreetingTests : MobileAppTest
 - The environment wins over the config: `E2E_MOBILE_PLATFORM` (`ios` or `android`), `E2E_MOBILE_APP_PATH`, `E2E_MOBILE_DEVICE`, `E2E_MOBILE_PROVIDER` (`local`, `limrun`, or `devflow`), `E2E_DEVFLOW_PORT`, and `E2E_DEVFLOW_APP`.
 - The base class adds no `[Category]`. Tag your tests, for example `[assembly: Category("Device")]`, so a run without a device can skip them.
 
-## NativeScript test ids
+## Test ids by framework
+
+`GetByTestId` reads the accessibility identifier on iOS and the resource id on Android. Each UI framework sets them its own way:
+
+| Framework | Set the id with |
+| --- | --- |
+| React Native | `testID` |
+| SwiftUI | `.accessibilityIdentifier()` |
+| UIKit | `view.accessibilityIdentifier`, or Identifier in Interface Builder's Identity inspector |
+| Jetpack Compose | `Modifier.testTag()` |
+| Compose Multiplatform | `Modifier.testTag()` |
+| Flutter | `Semantics(identifier:)` |
+| .NET MAUI | `AutomationId` |
+| NativeScript | `testID` (see NativeScript test ids below) |
+
+- On Android, a native `android:id` and a .NET MAUI `AutomationId` read as `<package>:id/<id>`. `GetByTestId("greet")` finds them without the app's package, as on iOS, when nothing matches the full id. Framework ids such as `android:id/content` match only in full.
+- On Android, Compose hides test tags until a root composable sets `Modifier.semantics { testTagsAsResourceId = true }`. Without it, `GetByTestId` finds nothing. iOS reads a Compose Multiplatform tag as is, so a shared screen sets the flag in its Android activity.
+- In SwiftUI, an `.accessibilityIdentifier()` on a container such as a `VStack` replaces the ids of every element inside it. `GetByTestId` then fails with `LOCATOR_AMBIGUOUS` on the container's id and finds nothing for the children's ids. Put `.accessibilityElement(children: .contain)` before the identifier to keep both.
+- In Flutter, wrap a button's `Semantics` in `MergeSemantics` so the id and the button role land on one node.
+
+### NativeScript test ids
 
 In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`.
 
@@ -234,11 +254,12 @@ Limits of the preview: the tests attach to the running app, so `Device.InstallAp
 - On iOS, a plain React Native `View` has no children in the tree, so `Filter(has: ...)` on it and queries scoped to it match nothing, while `Filter(hasNot: ...)` keeps every such row, including one you meant to exclude. Scope to the screen's `ScrollView` (`Device.Locator("role=scroll-area")`), or give the children test ids.
 - `Locator.PressAsync` takes `Enter`, `Space`, or one character, sent through the soft keyboard. A field that is not focused is tapped first, for `Enter` as for a character, so the keyboard is up. Other named keys and every modifier fail with `UNSUPPORTED_CAPABILITY`.
 - `CheckAsync` and `UncheckAsync` need a `checked` state in the tree. Switches report one on both platforms, and so does a native Android `CheckBox`; a React Native checkbox or radio reports one only when the app sets `accessibilityState.checked`. A control with no state fails with `UNSUPPORTED_CAPABILITY`, so tap it instead.
+- On an Android build with no shell command for the clipboard service (the Android 16 emulator is one), `Device.ClipboardAsync()` and `Device.SetClipboardAsync(text)` fail with `UNSUPPORTED_CAPABILITY`. To check a copy, paste into a field and read the field back.
 - Android needs `adb` from the Android SDK Platform-Tools on `PATH`, locally and for the Limrun tunnel.
 - Building the sample iOS app needs `-p:ValidateXcodeVersion=false` when the installed Xcode is newer than the one the .NET iOS pack expects.
 - Agent steps on a device are slower than in a browser. Raise `StepTimeout` to 90 seconds. The 30 second default timed out a two-field step.
 - A ref belongs to the agent-device capture it came from, and every action pins it there (`@e4~s7`), so agent-device refuses a ref once a newer capture supersedes it. An action on a node that a newer capture replaced never acts on a different element: a test's action waits out `TransitionMilliseconds` for a control that arrived with the last action, and a node the fresh capture no longer lists is a retryable `NODE_STALE`, so the locator resolves again within its timeout. A direct `Device` call (`DragToAsync`, `LongPressAsync`) does not retry and surfaces it. Unmoved controls are acted on immediately only when keyboard visibility is unchanged: opening or closing the keyboard also uses the remaining `TransitionMilliseconds` budget. A `target_still_moving` refusal that reports `dispatched: no` is a retryable `NODE_STALE`. `FillAsync` and `ClearAsync` read the field again before typing: a field the fresh capture no longer lists, a changed input purpose or secure, disabled, or hidden state, or an incomplete capture is a retryable `NODE_STALE` before anything is typed; a node that cannot take text is `UNSUPPORTED_CAPABILITY`. `Device.DragToAsync` between nodes located in separate captures takes both refs from the newest one.
 - An input that outlives its timeout. A tap, fill, key, swipe, or `Back` gets the `actionTimeout` (30 seconds by default). If the device doesn't answer in time, the step fails with `ACTION_MAY_HAVE_COMMITTED` and isn't retried: the input may have landed. An input the timeout ran out before (its target was still settling) isn't sent and fails with `OPERATION_TIMEOUT`. A long press that holds at least as long as the time left is refused before it's sent, as `NOT_ACTIONABLE`: raise the `actionTimeout`. A locate (the snapshot a locator or `Expect` takes), an observation, and a screenshot run within the timeout of the call that takes them, so a device that stops answering fails the step with `ACTION_FAILED` (the engine's `OPERATION_TIMEOUT` as its `InnerException`) instead of holding it until the test timeout. `WaitForAsync`, `Expect`, and `ToHaveScreenshotAsync` give their last read extra time, up to their slowest read so far and within the test timeout, so a screen that shows up during it still passes. An element that never shows up still fails as a locator timeout. A command a timeout or a cancel abandoned keeps running on the device, so the next attempt on that device waits for it to settle before it starts (within the launch timeout, which fails the start as cancelled when it runs out).
-- A step of your test does not wait for the screen to settle after it acts: it checks its outcome with `Expect`, and it only waits out `TransitionMilliseconds` for a control that came with the last action. The agent's actions settle first, because it reads the screen right after acting. The engine tells the two apart by the `OperationContext` of the call (`OperationContext.Test` or `OperationContext.Agent`). `DeviceSession.Origin` and `ActionOrigin` are obsolete and go in the next release: pass an `OperationContext` to the `PerformAsync`, `PerformAtAsync`, `SwipeAsync`, or `BackAsync` overload instead.
+- A step of your test does not wait for the screen to settle after it acts: it checks its outcome with `Expect`, and it only waits out `TransitionMilliseconds` for a control that came with the last action. The agent's actions settle first, because it reads the screen right after acting. `Device.BackAsync` settles too, as `MobileOptions.Settle` says. The engine tells the two apart by the `OperationContext` of the call (`OperationContext.Test` or `OperationContext.Agent`). `DeviceSession.Origin` and `ActionOrigin` are obsolete and go in the next release: pass an `OperationContext` to the `PerformAsync`, `PerformAtAsync`, `SwipeAsync`, or `BackAsync` overload instead.
 - Device tests need a device. Keep them out of CI, for example with the `RealModel` category (`dotnet test --filter "TestCategory!=RealModel"`).
 - Android can report `Android snapshot helper returned insufficient foreground app content`, and iOS can report that the app is not running: agent-device could not read the screen yet, often an app still loading after a cold start. On iOS this only counts until the first readable screen after `OpenAppAsync`, `RestartAsync`, or `OpenLinkAsync`, as on a physical iPhone that is still launching the app; an app that exits later fails at once. A waiting locator action or `Expect` waits through it, as for an element not there yet. If the screen is still unreadable when the wait runs out, the step fails with this message. Immediate reads such as `CountAsync` and `IsVisibleAsync` see no matches instead, so `Not.ToBeVisibleAsync` can pass while the screen is unreadable, including on an app that crashed before it rendered. An observation, such as the agent's next turn, fails on it at once.

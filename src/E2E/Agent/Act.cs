@@ -36,6 +36,7 @@ public sealed partial class Agent
                     MaxSteps = options?.MaxSteps,
                     MaxModelCalls = options?.MaxModelCalls,
                     OnAction = options?.OnAction,
+                    OnBeforeAction = options?.OnBeforeAction,
                 },
                 agent,
                 cancellationToken));
@@ -160,8 +161,8 @@ public sealed partial class Agent
         {
             _scope.Remember(spec.Params);
         }
-        var dispatcher = new ActionDispatcher(_scope, feed, budget, () => declared, spec.OnAction, instruction, spec.Params is null ? null : ActParams.Projected(spec.Params));
-        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync);
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, () => declared, spec.OnAction, instruction, spec.Params is null ? null : ActParams.Projected(spec.Params), spec.OnBeforeAction);
+        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync, () => dispatcher.BeforeAsync());
         ActContext? context = null;
         StepTraceSession? session = null;
         try

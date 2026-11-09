@@ -194,6 +194,16 @@ outside, `Blocked` is true); `STEP_NO_CONCLUSION` (the turns ran out without a
   screen. Mobile engines have no `hoverAt` or `dragAt`. `ActionName` is the
   action as an enum (`TapAt`, `Navigate`, ..., `Tool`), and `ToolName` names a
   mutating project tool (`Action` still reads `tool:<name>`).
+- `OnBeforeAction`: a `BeforeActionHook` (`Task` from a `BeforeActionEvent`)
+  that runs before each action, replayed ones included, and the step waits for
+  it. Use it to capture the screen an action started on: the event has the
+  same `Index` the action's `OnAction` event gets (1-based, restarting in each
+  act call) and `Source`. It does not wait for the screen to settle. A
+  mutating project tool runs it too, a read-only tool does not. If it throws,
+  the step fails before the action runs, with a message that starts with
+  `agent.act onBeforeAction failed`, and the step's recording is left alone. A
+  check inside it never confirms the step's recording. An action can still
+  fail after it, with no `OnAction` call.
 
 ```csharp
 await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
@@ -203,6 +213,7 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
         Console.WriteLine($"{e.Index} {e.Action}: {e.Summary}");
         return Task.CompletedTask;
     },
+    OnBeforeAction = e => App.ScreenshotAsync($"before {e.Index}"),
 });
 ```
 
@@ -771,6 +782,10 @@ loop ends the step. A result is a `ToolLoopResult`: text, or text with a
 screenshot in `Pixels`. When a tool throws an error that
 `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
 The context must be one the runtime opened for a step.
+Each built-in tool's schema, and the schema of `done`, is closed: it carries
+`additionalProperties: false`, and a call with a field the tool does not declare
+(`force`, `selector`) is refused with the field named, never run without it. A
+tool of your own keeps the schema you give it.
 
 ```csharp
 Tools = (context, helpers) =>
