@@ -236,6 +236,7 @@ public sealed class E2EHost : IAsyncDisposable
         {
             Engine = _engine,
             Credentials = _config.Credentials,
+            Config = HostTestFilters.Resolve(_config, [], target: _target),
             AppIdentity = identity,
             Model = agent.CreateModel(),
             Judge = agent.CreateJudge(),

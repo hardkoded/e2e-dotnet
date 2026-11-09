@@ -198,15 +198,15 @@ internal static class HostTestFilters
         }
     }
 
-    /// <summary>A one-target <see cref="ResolvedConfig"/> from the loaded config (.NET-only: the port has no resolver).</summary>
-    internal static ResolvedConfig Resolve(E2EConfig config, IReadOnlyList<ITestFilter> filters) => new()
+    /// <summary>A one-target <see cref="ResolvedConfig"/> from the loaded config (.NET-only: the port has no resolver). <paramref name="agents"/> are the agents built in code, which the digest takes in place of the file's <c>agents</c>; <paramref name="target"/> is the one a session runs on, where the config declares several (default <see cref="E2EConfig.Target"/>).</summary>
+    internal static ResolvedConfig Resolve(E2EConfig config, IReadOnlyList<ITestFilter> filters, IReadOnlyDictionary<string, AgentOptions>? agents = null, TargetConfig? target = null) => new()
     {
         ProjectRoot = config.ProjectRoot,
         ConfigPath = config.ConfigPath,
         Ci = config.Ci,
-        Targets = [new ResolvedTarget(config.Target.Name, config.Target.Platform, config.Target.App)],
+        Targets = [new ResolvedTarget((target ?? config.Target).Name, (target ?? config.Target).Platform, (target ?? config.Target).App)],
         Filters = ResolvedConfig.ResolveTestFilters(filters),
-        ConfigDigest = ResolvedConfig.ComputeConfigDigest(config),
+        ConfigDigest = ResolvedConfig.ComputeConfigDigest(config, agents),
         AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
     };
 

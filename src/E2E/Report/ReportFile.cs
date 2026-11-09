@@ -53,7 +53,7 @@ internal static class ReportFile
 
         public Task<VcsInfo?> Vcs { get; } = vcs;
 
-        /// <summary>The resolved config the run holds, once the host passes one (<see cref="WriteLeftOutAsync"/>); the document's <c>project.configDigest</c> reads it.</summary>
+        /// <summary>The resolved config the run holds, once the host (<see cref="WriteLeftOutAsync"/>) or a session (<see cref="WriteAsync"/>) passes one; the document's <c>project.configDigest</c> reads it.</summary>
         public ResolvedConfig? Config { get; set; }
 
         public Dictionary<string, Entry> Results { get; } = new(StringComparer.Ordinal);
@@ -162,7 +162,7 @@ internal static class ReportFile
     /// The document of the attempt in <paramref name="report"/> (a single-attempt report, as <see cref="AttemptReport.Build"/> returns it) alone, as a
     /// run of one result, redacted by <paramref name="redact"/>. Upstream's <c>writeHostTrace</c> builds the same report for a hosted session and returns it.
     /// </summary>
-    public static async Task<JsonObject> SingleAsync(Report1Document report, string? projectRoot, string resultsRoot, Func<string, string> redact)
+    public static async Task<JsonObject> SingleAsync(Report1Document report, string? projectRoot, string resultsRoot, Func<string, string> redact, ResolvedConfig? config = null)
     {
         var result = report.Run.Results[0];
         projectRoot = ProjectRootOf(projectRoot, resultsRoot);
@@ -180,6 +180,7 @@ internal static class ReportFile
             Limits = report.Run.Limits,
             Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
             Ci = E2EConfig.IsCi(),
+            Config = config,
         });
         var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
         ReportWire.Redact(node, redact);
@@ -189,9 +190,10 @@ internal static class ReportFile
     /// <summary>
     /// Adds the test in <paramref name="report"/> (the single result <see cref="RunReport.Add"/> returned, with every attempt the test has had) to the
     /// run, and writes the document of the run to <c>report.json</c> beside <paramref name="resultsRoot"/>. <paramref name="redact"/> is the
-    /// redactor of that test's attempts.
+    /// redactor of that test's attempts. <paramref name="config"/> is the resolved config of the session that ran it, whose digest the document's
+    /// <c>project.configDigest</c> carries (upstream's <c>config?.configDigest</c>, <c>report/build.ts</c>); null keeps the one the run holds.
     /// </summary>
-    public static async Task WriteAsync(Report1Document report, string projectRoot, string resultsRoot, Func<string, string> redact, CancellationToken cancellationToken = default)
+    public static async Task WriteAsync(Report1Document report, string projectRoot, string resultsRoot, Func<string, string> redact, ResolvedConfig? config = null, CancellationToken cancellationToken = default)
     {
         resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
         var added = report.Run.Results[0];
@@ -211,6 +213,7 @@ internal static class ReportFile
                 state.Targets.Add(target);
             }
 
+            state.Config = config ?? state.Config;
             state.Explore = report.Run.Explore ?? state.Explore;
             state.Limits = report.Run.Limits is { } limits ? state.Limits?.Max(limits) ?? limits : state.Limits;
             await WriteStateAsync(state, resultsRoot, cancellationToken).ConfigureAwait(false);
@@ -246,7 +249,8 @@ internal static class ReportFile
                 state.Results[result.Id] = new Entry(result with { TargetId = named.Id, Platform = named.Platform });
             }
 
-            state.Config = config ?? state.Config;
+            // A session of the run has passed its own already: that one knows the agents built in code, so it stays.
+            state.Config ??= config;
             state.Changes = selection.Changes;
             state.Filters = selection.Filters;
             state.Previous = selection.Previous;
