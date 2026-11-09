@@ -36,6 +36,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
 | [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
+| [BeforeActionEvent](/api/E2E/BeforeActionEvent/) | One action of an agent.act step about to run, as OnBeforeAction receives it. |
 | [Browser](/api/E2E/Browser/) | The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine each member fails with UNSUPPORTED_CAPABILITY. |
 | [BrowserExpect](/api/E2E/BrowserExpect/) | Polling assertions for the Browser: its URL and its title. Like the locator matchers, a passing one verifies the previous agent.act. A read is bounded by the matcher's own deadline, so a page that stops answering ends the assertion at its timeout. |
 | [BrowserKeyboard](/api/E2E/BrowserKeyboard/) | Keyboard input for whatever holds focus in the active tab. A call the page does not answer within the action timeout fails with ACTION_MAY_HAVE_COMMITTED: the input may have reached the page. |
@@ -241,5 +242,6 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | Type | Summary |
 | --- | --- |
 | [ActionHook](/api/E2E/ActionHook/) | The onAction hook of an agent.act call. |
+| [BeforeActionHook](/api/E2E/BeforeActionHook/) | The onBeforeAction hook of an agent.act call. |
 | [ExploreListener](/api/E2E/ExploreListener/) | Receives every change of the exploration, in order. |
 | [SecretProvider](/api/E2E/SecretProvider/) | Resolves a secret's plaintext at fill time (a vault lookup, a freshly computed TOTP) instead of a value baked at config load (upstream's SecretProvider, config/secrets.ts: () => string \| Promise<string>). Called on every fill after the full authorization policy passes; the resolved value goes straight to the trusted driver, joins redaction, and is never logged, cached, or sent to a model. The token is .NET's cancellation: upstream's provider takes none. |

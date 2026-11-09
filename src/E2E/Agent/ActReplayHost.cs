@@ -44,6 +44,8 @@ public sealed partial class Agent
 
         public bool TryReserve() => budget.TryReserve();
 
+        public Task BeforeAsync() => dispatcher.BeforeAsync(ActionSource.Replay);
+
         public void MarkActing() => feed.MarkActing();
 
         // The points the replay last dispatched, which the next commit reports: where the recorded point landed on this screen, not the recorded one.

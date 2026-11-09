@@ -26,6 +26,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private TraceRecorder? _recorder;
     private Action<RecordedAction>? _committed;
     private Func<string, Task>? _toolRan;
+    private Func<Task>? _beforeTool;
     private int _prepaid;
     private bool _ended;
 
@@ -56,9 +57,10 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     /// Puts the step on a clock. <paramref name="stop"/> is cancelled on a hard stop other than a spent budget, so the executor
     /// and every engine operation of the step end with it. <paramref name="cancellation"/> is the caller's and the attempt's,
     /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap, and <paramref name="toolRan"/>
-    /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook.
+    /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook. <paramref name="beforeTool"/> runs the test's
+    /// <c>OnBeforeAction</c> hook once a mutating tool has its slot (upstream's <c>runTool</c> calls the dispatcher's <c>before</c>).
     /// </summary>
-    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null)
+    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null, Func<Task>? beforeTool = null)
     {
         _scope = scope;
         _timeout = timeout;
@@ -68,6 +70,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         _stop = stop;
         _committed = committed;
         _toolRan = toolRan;
+        _beforeTool = beforeTool;
     }
 
     /// <summary>Whether the books are closed.</summary>
@@ -246,6 +249,11 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         return await Queue.RunAsync(async () =>
         {
             Reserve();
+            if (_beforeTool is { } before)
+            {
+                await before().ConfigureAwait(false);
+            }
+
             var gap = Recorder.RecordGap(name);
             T value;
             try

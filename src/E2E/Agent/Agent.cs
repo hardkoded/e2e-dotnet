@@ -1040,10 +1040,24 @@ public sealed class ActOptions
     /// nothing from it. A throw fails the step.
     /// </summary>
     public ActionHook? OnAction { get; init; }
+
+    /// <summary>
+    /// Runs before each action, replayed ones included, and the step waits for it. It does not wait for the screen to settle. Observe
+    /// only: drive nothing from it. A throw fails the step before the action runs.
+    /// </summary>
+    public BeforeActionHook? OnBeforeAction { get; init; }
 }
 
 /// <summary>The <c>onAction</c> hook of an <c>agent.act</c> call.</summary>
 public delegate Task ActionHook(ActionEvent actionEvent);
+
+/// <summary>The <c>onBeforeAction</c> hook of an <c>agent.act</c> call.</summary>
+public delegate Task BeforeActionHook(BeforeActionEvent beforeActionEvent);
+
+/// <summary>One action of an <c>agent.act</c> step about to run, as <see cref="ActOptions.OnBeforeAction"/> receives it.</summary>
+/// <param name="Index">The same index the action's <see cref="ActionEvent.Index"/> carries.</param>
+/// <param name="Source"><see cref="ActionSource.Model"/> when the executor chose the action, <see cref="ActionSource.Replay"/> when the cache replays it.</param>
+public sealed record BeforeActionEvent(int Index, ActionSource Source);
 
 /// <summary>
 /// One completed action of an <c>agent.act</c> step, as <see cref="ActOptions.OnAction"/> receives it. Upstream types it as a union
