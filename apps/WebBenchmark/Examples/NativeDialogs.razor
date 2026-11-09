@@ -38,6 +38,7 @@ else
 
     private string? _error;
     private bool _done;
+    private bool _asking;
 
     /// <summary>
     /// Runs the order through a chain of native browser dialogs - confirm, prompt, then alert. These dialogs live outside the DOM
@@ -45,29 +46,42 @@ else
     /// </summary>
     private async Task HandlePlaceOrderAsync()
     {
+        // Upstream's handler is one synchronous task, so a second click cannot start a second chain; each dialog here is a server round
+        // trip, so a click that arrives between two of them is ignored instead.
+        if (_asking)
+        {
+            return;
+        }
+
+        _asking = true;
         try
         {
-            var confirmed = await JS.InvokeAsync<bool>("confirm", "Place this order?");
+            // CancellationToken.None: a dialog waits for its answer however long it takes, where the default interop timeout is a minute.
+            var confirmed = await JS.InvokeAsync<bool>("confirm", CancellationToken.None, "Place this order?");
             if (!confirmed)
             {
                 _error = "Order was cancelled";
                 return;
             }
 
-            var code = await JS.InvokeAsync<string?>("prompt", "Enter your gift code");
+            var code = await JS.InvokeAsync<string?>("prompt", CancellationToken.None, "Enter your gift code");
             if (code is null || code.Trim() != GiftCode)
             {
                 _error = "Invalid gift code";
                 return;
             }
 
-            await JS.InvokeVoidAsync("alert", "Order placed. Thank you!");
+            await JS.InvokeVoidAsync("alert", CancellationToken.None, "Order placed. Thank you!");
             _error = null;
             _done = true;
         }
         catch (JSDisconnectedException)
         {
             // The circuit went away: there is no page left to ask.
+        }
+        finally
+        {
+            _asking = false;
         }
     }
 }

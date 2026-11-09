@@ -6,6 +6,7 @@
    query is debounced and followed by a fake search delay, and the dataset is full of near-identical decoys one character away from
    the target. *@
 @implements IDisposable
+@implements IUsesPortal
 @inject IJSRuntime JS
 @inject Portal Portal
 @if (_done)
@@ -75,7 +76,7 @@ else
     private BoundingRect _listboxPosition = new(0, 0, 0);
 
     // Upstream's debounceRef and searchRef timers; one token cancels whichever is pending.
-    private CancellationTokenSource _timers = new();
+    private CancellationTokenSource? _timers;
     private readonly CancellationTokenSource _disposed = new();
 
     private static string ToKebab(string name) => Regex.Replace(name.ToLowerInvariant(), @"\s+", "-");
@@ -137,23 +138,30 @@ else
             var matches = Items.Where(item => item.Contains(value.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
             // getBoundingClientRect.call(input): Blazor interop cannot name Element.prototype, so the method is reached through document.body.
             var rect = await JS.InvokeAsync<BoundingRect>("document.body.getBoundingClientRect.call", token, _input);
+            // A keystroke that arrived while the rect was read has already cleared the results: its search owns them now.
+            token.ThrowIfCancellationRequested();
             _listboxPosition = rect;
             _searching = false;
             _results = matches;
             Portal.Refresh();
             await InvokeAsync(StateHasChanged);
         }
-        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException or JSException)
+        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)
         {
             // Superseded by a newer keystroke, or the page went away.
+        }
+        catch (JSException exception)
+        {
+            // A failed rect read is a defect of the page, not a state of the scenario: surface it instead of leaving the listbox closed.
+            await DispatchExceptionAsync(exception);
         }
     }
 
     private void CancelTimers()
     {
-        _timers.Cancel();
-        _timers.Dispose();
-        _timers = new CancellationTokenSource();
+        _timers?.Cancel();
+        _timers?.Dispose();
+        _timers = null;
     }
 
     private void HandleSelect(string item)
@@ -173,7 +181,7 @@ else
     public void Dispose()
     {
         _disposed.Cancel();
-        _timers.Dispose();
+        _timers?.Dispose();
         _disposed.Dispose();
         Portal.Show(null);
     }

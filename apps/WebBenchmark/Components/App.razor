@@ -21,8 +21,8 @@
 </head>
 <body>
     <Routes />
-    @* Where a scenario's portal content lands (upstream's createPortal(..., document.body)); only scenario pages have a circuit to share. *@
-    @if (HttpContext?.Request.Path.StartsWithSegments("/e") == true)
+    @* Where a scenario's portal content lands (upstream's createPortal(..., document.body)); mounted only on the page of a scenario marked IUsesPortal. *@
+    @if (UsesPortal)
     {
         <PortalHost @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     }
@@ -33,4 +33,9 @@
 @code {
     [CascadingParameter]
     private HttpContext? HttpContext { get; set; }
+
+    private bool UsesPortal =>
+        HttpContext is { } context && context.Request.Path.StartsWithSegments("/e", out var slug)
+        && ExamplesCatalog.Find(slug.Value?.Trim('/') ?? "")?.Component is { } component
+        && typeof(IUsesPortal).IsAssignableFrom(component);
 }

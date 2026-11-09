@@ -7,6 +7,12 @@ using Microsoft.AspNetCore.Components;
 namespace WebBenchmark.Components;
 
 /// <summary>
+/// Marks a scenario component that renders through <see cref="Portal"/>: <c>App.razor</c> mounts <see cref="PortalHost"/> only on its
+/// page (.NET-only).
+/// </summary>
+public interface IUsesPortal;
+
+/// <summary>
 /// What a scenario shows through <c>createPortal(..., document.body)</c> upstream (.NET-only: Blazor has no portal, so a scenario hands
 /// its content to this circuit-wide service and <see cref="PortalHost"/>, a root component directly under <c>&lt;body&gt;</c>, renders it
 /// there, detached from the scenario's own subtree as a React portal is).

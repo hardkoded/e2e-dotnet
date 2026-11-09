@@ -6,7 +6,17 @@
 @code {
     protected override void OnInitialized() => Portal.Changed += OnChanged;
 
-    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+    private async void OnChanged()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception exception) when (exception is ObjectDisposedException or OperationCanceledException)
+        {
+            // The circuit is closing: there is no page left to render into.
+        }
+    }
 
     public void Dispose() => Portal.Changed -= OnChanged;
 }
