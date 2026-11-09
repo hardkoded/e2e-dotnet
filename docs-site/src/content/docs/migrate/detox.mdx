@@ -133,7 +133,7 @@ public sealed class LoginTests : MobileAppTest
 | `device.launchApp({ newInstance: false })` | `Device.OpenAppAsync(id)` without `Relaunch` |
 | `device.launchApp({ url })`, `device.openURL({ url })` | `Device.OpenLinkAsync(url)` |
 | `device.terminateApp()` | `Device.CloseAppAsync()` |
-| `device.uninstallApp()` | Not yet. `Device.UnstableRaw.Client` does not take `apps.uninstall`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` installs with no data (not on TestMu) |
+| `device.uninstallApp()` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsUninstall, ...)` with `app` set to the id removes it, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` installs with no data (not on TestMu) |
 | `device.resetContentAndSettings()` | Not yet. `App.ClearStateAsync()` resets the app; on iOS, `Device.ClearKeychainAsync()` clears the simulator keychain for every app |
 | `device.reloadReactNative()` | No equivalent. `App.RestartAsync()` is the nearest |
 | `device.sendToHome()`, `device.pressBack()` | `Device.HomeAsync()`, `Device.BackAsync()` |

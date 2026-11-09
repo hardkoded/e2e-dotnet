@@ -50,6 +50,8 @@ public static class DeviceCommands
                 return new DeviceCommand("reinstall", Take(flags, "app", "appPath"), flags);
             case DeviceMethods.AppsList:
                 return new DeviceCommand("apps", [], flags);
+            case DeviceMethods.AppsUninstall:
+                return new DeviceCommand("uninstall", Take(flags, "app"), flags);
             case DeviceMethods.SessionsList:
                 return new DeviceCommand("session_list", [], flags);
             case DeviceMethods.SessionsClose:
@@ -88,6 +90,8 @@ public static class DeviceCommands
                 return new DeviceCommand("keyboard", Take(flags, "action"), flags);
             case DeviceMethods.CommandAlert:
                 return new DeviceCommand("alert", Take(flags, "action"), flags);
+            case DeviceMethods.CommandHardwareButton:
+                return new DeviceCommand("hardware-button", Take(flags, "button"), flags);
             case DeviceMethods.CommandHome:
                 return new DeviceCommand("home", [], flags);
             case DeviceMethods.CommandOrientation:
@@ -287,7 +291,7 @@ public static class DeviceCommands
                 return ["reset-keychain", .. Take(flags, "state")];
             case "location":
                 return ["location", .. Take(flags, "state"), .. Number(flags, "latitude"), .. Number(flags, "longitude")];
-            case "wifi" or "airplane" or "appearance" or "faceid" or "touchid" or "fingerprint":
+            case "wifi" or "airplane" or "appearance" or "text-size" or "animations" or "faceid" or "touchid" or "fingerprint":
                 return [setting[0], .. Take(flags, "state")];
             default:
                 throw new NotSupportedException($"The device client does not support the {setting[0]} setting yet.");
