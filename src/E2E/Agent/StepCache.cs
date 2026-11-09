@@ -31,7 +31,7 @@ internal enum StepOutcome
 internal interface IStepCacheHost : IReplayHost
 {
     /// <summary>The screen the step's first committed action was resolved against, if it took one.</summary>
-    Observation? FirstActedOn { get; }
+    PreparedObservation? FirstActedOn { get; }
 }
 
 /// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, which an entry records as its provenance.</summary>
@@ -93,7 +93,7 @@ internal sealed class StepTraceSession
     private string? _recordedBy;
     private bool _changedNothing;
     private ReplayedPrefix? _prefix;
-    private Observation? _start;
+    private PreparedObservation? _start;
     private CacheEntry? _wholeReplay;
     private CacheEntry? _stored;
     private int _actionsAtEndMismatch = -1;
@@ -123,7 +123,7 @@ internal sealed class StepTraceSession
     public PendingAct Pending { get; }
 
     /// <summary>The screen the step began on, if it could be read. The executor's first look can read it.</summary>
-    public Observation? Start => _start;
+    public PreparedObservation? Start => _start;
 
     /// <summary>How the cache participated, for the step's report detail.</summary>
     public CacheInfo? CacheInfo => _info is null || _recordedBy is null ? _info : _info.WithRecordedBy(_recordedBy);
@@ -360,7 +360,7 @@ internal sealed class StepTraceSession
 
         // Every screen the replay looks at, in order, from the start: the end check measures the recorded delta from the first
         // of them on the route the replay ends on.
-        var screens = new List<Observation>();
+        var screens = new List<PreparedObservation>();
         if (_start is not null)
         {
             screens.Add(_start);
@@ -448,7 +448,7 @@ internal sealed class StepTraceSession
     // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.
     // A failure says which of these failed, for the report: an outcome that already showed, or the anchors that
     // did not hold on the last look the wait took on the recorded end route.
-    private async Task<EndStateCheck> WaitForEndAsync(CacheEntry entry, List<Observation> screens)
+    private async Task<EndStateCheck> WaitForEndAsync(CacheEntry entry, List<PreparedObservation> screens)
     {
         if (!_host.TraceEligible)
         {
@@ -459,9 +459,9 @@ internal sealed class StepTraceSession
         // A screen a scroll to a text marked while it paged is not among the screens; the stretch then opens with it.
         var actedOn = _host.FirstActedOn ?? _start;
         var from = actedOn is null ? -1 : screens.IndexOf(actedOn);
-        List<Observation> stretch = from >= 0 ? screens.GetRange(from, screens.Count - from) : actedOn is null ? screens : [actedOn, .. screens.Skip(1)];
+        List<PreparedObservation> stretch = from >= 0 ? screens.GetRange(from, screens.Count - from) : actedOn is null ? screens : [actedOn, .. screens.Skip(1)];
         var baseline = Baseline(stretch, entry.EndRoute);
-        var baselineAnchors = baseline is null ? null : Project(baseline);
+        var baselineAnchors = baseline is null ? null : ProjectAgain(baseline);
         var inputTargets = entry.Actions.Where(HasTarget).Select(action => new RecordedTarget { Role = action.Role, Name = action.Name, TestId = action.TestId });
         if (!Anchors.Evidenced(entry, baselineAnchors, inputTargets))
         {
@@ -470,7 +470,7 @@ internal sealed class StepTraceSession
             return entry.Appeared.Count > 0 || entry.Gone.Count > 0 ? new EndStateCheck(false, AlreadyShowing: true) : new EndStateCheck(false);
         }
 
-        var before = baselineAnchors ?? (actedOn is null ? [] : Project(actedOn));
+        var before = baselineAnchors ?? (actedOn is null ? [] : ProjectAgain(actedOn));
         var endRoute = entry.EndRoute;
 
         // The last action may start a navigation, so the end route gets the replay timeout to show up. A route that never matches is
@@ -484,14 +484,14 @@ internal sealed class StepTraceSession
         // Every look the wait takes must still be on the recorded end route: a screen that moved on after the route first matched
         // is another screen.
         DeltaMismatch? mismatch = null;
-        bool Holds(Observation screen)
+        bool Holds(PreparedObservation screen)
         {
             if (!CacheRoute.Same(endRoute, screen.Route))
             {
                 return false;
             }
 
-            mismatch = Anchors.Mismatch(entry, Project(screen), before);
+            mismatch = Anchors.Mismatch(entry, Project(screen.Nodes), before);
             return mismatch is null;
         }
 
@@ -501,7 +501,7 @@ internal sealed class StepTraceSession
 
     // Upstream's endScreen: captures the end state once its route matches the recording, polling while a navigation the last
     // action started commits. Null when the route never matches within the replay timeout.
-    private async Task<Observation?> EndScreenAsync(string? endRoute)
+    private async Task<PreparedObservation?> EndScreenAsync(string? endRoute)
     {
         var deadline = _host.Time.GetUtcNow() + _host.ReplayTimeout;
         while (true)
@@ -542,10 +542,10 @@ internal sealed class StepTraceSession
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
     // its recording would replay on mechanics alone.
-    private CacheEntry? BuildEntry(Observation baseline, Observation end, string? recordedBy)
+    private CacheEntry? BuildEntry(PreparedObservation baseline, PreparedObservation end, string? recordedBy)
     {
         var routeMoved = !CacheRoute.Same(ScreenPath(baseline), ScreenPath(end));
-        var (appeared, gone) = Anchors.Describe(Project(baseline), Project(end), routeMoved);
+        var (appeared, gone) = Anchors.Describe(ProjectAgain(baseline), Project(end.Nodes), routeMoved);
         if (appeared.Count == 0 && gone.Count == 0 && !routeMoved)
         {
             _changedNothing = true;
@@ -565,7 +565,7 @@ internal sealed class StepTraceSession
     // One cache capture, settled as far as mode asks, or null when the surface cannot be observed right now, which is the
     // executor's business, not the cache's. Runtime hard stops (timeout, cancellation) are the step's truth even when they
     // land during cache bookkeeping, and propagate.
-    private async Task<Observation?> ProbeAsync(SettleMode mode)
+    private async Task<PreparedObservation?> ProbeAsync(SettleMode mode)
     {
         try
         {
@@ -578,24 +578,24 @@ internal sealed class StepTraceSession
     }
 
     // Upstream's ObservedScreen.path: where the screen is, as the cache compares it (CacheRoute.AppLocation).
-    private string ScreenPath(Observation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
+    private string ScreenPath(PreparedObservation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
 
-    // Anchors as the recording records them: every field has secrets redacted. The secrets are read as they are now, so an unchanged node is no delta.
-    private List<AnchorNode> Project(Observation observation)
+    // Anchors as the recording records them: every field has secrets redacted.
+    private List<AnchorNode> Project(IReadOnlyDictionary<string, SemanticNode> nodes)
     {
         var redactor = _host.Redact;
-        return Anchors.Project(
-            observation,
-            redactor.Redact,
-            redactor.Redact,
-            (text, limit) => AgentObservation.RedactText(text, redactor, limit));
+        return Anchors.Project(nodes, redactor.Redact, redactor.Redact);
     }
+
+    // An earlier capture's anchors, its nodes redacted again through the redactor as it is now (upstream's redactNodesAgain): a capture
+    // may predate a secret the replay resolved, and an unchanged node is no change.
+    private List<AnchorNode> ProjectAgain(PreparedObservation observation) => Project(AgentObservation.RedactNodesAgain(observation.Nodes, _host.Redact));
 
     // The first screen of the replay's last stretch on the end route, or null when its last screen before the end
     // was on another route, so the last action moved it.
-    private Observation? Baseline(List<Observation> screens, string? endRoute)
+    private PreparedObservation? Baseline(List<PreparedObservation> screens, string? endRoute)
     {
-        Observation? baseline = null;
+        PreparedObservation? baseline = null;
         foreach (var screen in screens)
         {
             baseline = CacheRoute.Same(ScreenPath(screen), endRoute) ? baseline ?? screen : null;
@@ -659,7 +659,7 @@ internal sealed class StepTraceSession
     /// The replay host, watched: every look the replay takes is kept, in order, for the end check. The port's replay also needs
     /// the host's action slots and recording, which pass straight through.
     /// </summary>
-    private sealed class WatchedHost(IStepCacheHost inner, List<Observation> screens) : IReplayHost
+    private sealed class WatchedHost(IStepCacheHost inner, List<PreparedObservation> screens) : IReplayHost
     {
         public IExecutorActions Actions => inner.Actions;
 
@@ -675,7 +675,7 @@ internal sealed class StepTraceSession
 
         public bool TraceEligible => inner.TraceEligible;
 
-        public async Task<Observation> ObserveAsync(SettleMode mode)
+        public async Task<PreparedObservation> ObserveAsync(SettleMode mode)
         {
             var screen = await inner.ObserveAsync(mode).ConfigureAwait(false);
             screens.Add(screen);

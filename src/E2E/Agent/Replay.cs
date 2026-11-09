@@ -22,7 +22,7 @@ internal interface IReplayHost
     /// One capture, settled as far as <paramref name="mode"/> asks: the act's own, so a replayed action never lands on a
     /// screen still reacting to the previous one.
     /// </summary>
-    Task<Observation> ObserveAsync(SettleMode mode);
+    Task<PreparedObservation> ObserveAsync(SettleMode mode);
 
     /// <summary>The step's grammar. Targets are nodes of the newest observation.</summary>
     IExecutorActions Actions { get; }
@@ -72,7 +72,7 @@ internal sealed class ReplayOptions
     /// The step's settled start capture. The first action's look reads it instead of capturing again: nothing has happened
     /// since it was taken.
     /// </summary>
-    public Observation? Initial { get; init; }
+    public PreparedObservation? Initial { get; init; }
 
     /// <summary>
     /// Upstream's <c>looksBeforeFree</c>: whether a free action takes a look first. A free action reads no screen, so without it the screen the previous
@@ -88,7 +88,7 @@ internal sealed class VerifyEndStateOptions
     public int? WaitMs { get; init; }
 
     /// <summary>The end screen already in hand, which nothing has happened to since it was captured: the first look reads it instead of capturing again.</summary>
-    public Observation? Initial { get; init; }
+    public PreparedObservation? Initial { get; init; }
 }
 
 /// <summary>Upstream's <c>ReplayOutcome</c>.</summary>
@@ -133,7 +133,7 @@ internal static class Replay
     /// The screen a look starts from: one already in hand, which nothing has happened to since it was captured, or a fresh
     /// capture settled as far as the previous action requires.
     /// </summary>
-    private readonly record struct Look(Observation? InHand, SettleMode Settle);
+    private readonly record struct Look(PreparedObservation? InHand, SettleMode Settle);
 
     /// <summary>A fresh look that proves the screen holds still.</summary>
     private static readonly Look HeldStill = new(null, SettleMode.HeldStill);
@@ -427,7 +427,7 @@ internal static class Replay
     /// step clock leaves room for a hand-off to act. A surface that cannot be observed at all is a mismatch too: the executor gets
     /// the step and judges the live state; only runtime hard stops propagate.
     /// </summary>
-    public static async Task<bool> VerifyEndState(IReplayHost host, Func<Observation, bool> holds, VerifyEndStateOptions? options = null)
+    public static async Task<bool> VerifyEndState(IReplayHost host, Func<PreparedObservation, bool> holds, VerifyEndStateOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(holds);
@@ -474,7 +474,7 @@ internal static class Replay
     /// backoff until the probe holds or the wait runs out, so a screen mid-transition gets a few looks before replay gives the step up.
     /// A screen the caller already settled (the step's start capture) is read as it is.
     /// </summary>
-    private static async Task<bool> PollSettled(IReplayHost host, Func<Observation, bool> probe, Look look)
+    private static async Task<bool> PollSettled(IReplayHost host, Func<PreparedObservation, bool> probe, Look look)
     {
         var started = host.Time.GetUtcNow();
         var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
@@ -607,7 +607,7 @@ internal static class Replay
     }
 
     // A failed relocation as the replay reads it: a missing node carries nothing, an ambiguous one the look-alikes and the screen they are on.
-    private static Relocated Failure(RelocationResult.Failed failed, Observation observation) =>
+    private static Relocated Failure(RelocationResult.Failed failed, PreparedObservation observation) =>
         failed.Failure == RelocationFailure.TargetAmbiguous
             ? new Relocated(null, ReplayHandOffReason.TargetAmbiguous, [.. (failed.Candidates ?? []).Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>()], observation)
             : new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
@@ -622,7 +622,7 @@ internal static class Replay
         failure == ReplayHandOffReason.TargetNotFound || descriptor.Position is not null;
 
     // A relocation that keeps the look-alikes it found with the screen they are on, for a replay that needs boxes.
-    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, Observation? Screen);
+    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, PreparedObservation? Screen);
 
     /// <summary>Whether a recorded action acts on a bare viewport point, which takes its own look and reads its viewport.</summary>
     private static bool IsPointAction(RecordedAction action) => action.Kind is "tapAt" or "hoverAt" or "dragAt";
@@ -641,7 +641,7 @@ internal static class Replay
         if (within?.Target is not { } recordedNode || !RelocateRules.IsRelocatableDescriptor(recordedNode))
         {
             var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
-            if (screen.TreeUnavailable)
+            if (screen.Kind == PreparedKind.Pixels)
             {
                 return new Placed(default, ReplayHandOffReason.ActionFailed);
             }

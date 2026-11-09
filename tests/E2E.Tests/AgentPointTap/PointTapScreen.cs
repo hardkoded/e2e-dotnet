@@ -14,7 +14,7 @@ internal static class PointTapScreen
 
     public static BoundingBox Rect(double x, double y, double width, double height) => new(x, y, width, height);
 
-    public static Observation Screen { get; } = Observe(
+    public static PreparedObservation Screen { get; } = global::E2E.Tests.TraceReplay.TestHost.Prepare(Observe(
         Node(
             "root",
             "document",
@@ -35,9 +35,9 @@ internal static class PointTapScreen
                 Node("n5", "paragraph", text: "Body copy", rect: Rect(0, 100, 1280, 40)),
                 Node("n6", "button", "Framed", rect: Rect(10, 200, 100, 40)),
                 Node("n7", "textbox", "Email", rect: Rect(10, 300, 300, 40)),
-            ]));
+            ])), global::E2E.Internal.Redactor.None);
 
     public static Observation Observe(SemanticNode tree) => new() { Route = "/", Roots = [tree], Viewport = new TraceViewport(1280, 720) };
 
-    public static SemanticNode Find(string id) => E2E.LocatorResolver.Walk(Screen.Roots).Single(node => node.Ref == id);
+    public static SemanticNode Find(string id) => E2E.LocatorResolver.Walk(Screen.Tree).Single(node => node.Ref == id);
 }

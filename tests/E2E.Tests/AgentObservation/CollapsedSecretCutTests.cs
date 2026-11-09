@@ -43,7 +43,7 @@ public sealed class CollapsedSecretCutTests
         var prepared = global::E2E.AgentObservation.PrepareObservation(
             new Observation { Route = "/", Roots = [tree] },
             new PrepareObservationOptions { Redactor = redactor, MaxBytes = 16_384 });
-        var anchors = Anchors.Describe([], Anchors.Project(new Observation { Route = "/", Roots = prepared.Tree }, value => value, value => value), false).Appeared;
+        var anchors = Anchors.Describe([], Anchors.Project(prepared.Nodes, value => value, value => value), false).Appeared;
         Assert.True(string.Join(' ', anchors.Select(anchor => anchor.Name ?? anchor.Text)).Contains("<secret:multi>", StringComparison.Ordinal), label + ": the anchors lose the secret's name");
         string[] fragments = [lead, lead[..8], collapsed[..30], tail[..8]];
         foreach (var shown in new[] { prepared.Text, Json(global::E2E.AgentObservation.ProjectTree(prepared.Tree, redactor, null)), Json(anchors) })

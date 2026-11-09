@@ -724,7 +724,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             return default;
         }
 
-        var within = AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor);
+        var within = AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Tree), _scope.Redactor);
         return new Placement(within, Relocate.DescribePosition(seen.Node, within, seen.Observation, _scope.Redactor));
     }
 

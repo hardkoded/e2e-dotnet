@@ -585,7 +585,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             }
 
             // Both ends come from one look, so a screen that changes between two looks cannot join a node of one with a node of the other.
-            var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
+            var observation = _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false));
             source = ResolveIn(arguments, observation);
             destination = ResolveIn(drop, observation);
         }
@@ -747,14 +747,14 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token) =>
-        ResolveIn(arguments, await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false));
+        ResolveIn(arguments, _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false)));
 
-    private SemanticNode ResolveIn(JsonElement arguments, Observation observation)
+    private SemanticNode ResolveIn(JsonElement arguments, PreparedObservation observation)
     {
         // The id the listing prefixes with `#`, which a model copies now and then (upstream's `lookup` trims it too).
         var id = Args.String(arguments, "ref")?.TrimStart('#');
         var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), id, _scope.Redactor);
-        if (matches.Count == 0 && id is { } reference && _feed.LastSeen(reference) is { } seen && !LocatorResolver.Walk(observation.Roots).Any(node => node.Ref == reference))
+        if (matches.Count == 0 && id is { } reference && _feed.LastSeen(reference) is { } seen && !observation.Nodes.ContainsKey(reference))
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
@@ -799,7 +799,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         if (_session)
         {
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            return new ScreenText(_screen.Update(_feed.View(observation, _scope), options), null);
+            return new ScreenText(_screen.Update(_feed.View(_feed.PreparedOf(observation), _scope), options), null);
         }
 
         // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
@@ -810,7 +810,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
     private async Task<string> WholeScreenAsync(CancellationToken token) =>
-        _screen.Initial(_feed.View(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
+        _screen.Initial(_feed.View(_feed.PreparedOf(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false)), _scope));
 
     // Keys whose whole effect is where the focus or the caret sits, which the tree does not record: an unchanged screen after one
     // of these is the normal outcome, not a control that did nothing (upstream's `movesFocusOnly`).

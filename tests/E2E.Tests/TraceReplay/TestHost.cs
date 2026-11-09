@@ -71,11 +71,15 @@ internal sealed class TestHost : IReplayHost
     /// <summary>One observed screen over the given nodes.</summary>
     public static Observation Screen(IReadOnlyList<SemanticNode> nodes, TraceViewport? viewport = null) => new() { Route = "/plan", Roots = nodes, Viewport = viewport ?? Viewport };
 
-    public Task<Observation> ObserveAsync(SettleMode mode)
+    public Task<PreparedObservation> ObserveAsync(SettleMode mode)
     {
         Looks.Add(mode);
-        return Task.FromResult(Capture());
+        return Task.FromResult(Prepare(Capture(), Redact));
     }
+
+    /// <summary>A raw look as the feed prepares it: redacted, indexed, and cut at the default byte budget.</summary>
+    internal static PreparedObservation Prepare(Observation observation, Redactor redactor) =>
+        global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor, MaxBytes = E2EDefaults.MaxObservationBytes });
 
     public bool TryReserve() => true;
 

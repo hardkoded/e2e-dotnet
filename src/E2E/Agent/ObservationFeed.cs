@@ -5,6 +5,7 @@
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
+using System.Runtime.CompilerServices;
 using RelocateRules = E2E.Relocate;
 
 namespace E2E;
@@ -23,7 +24,17 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     private sealed record Prepared(Observation Observation, bool Pixels, Redactor Redactor, PreparedObservation Value);
 
-    private readonly Dictionary<string, Resolved> _seen = [];
+    // Upstream's MAX_RECENT_OBSERVATIONS: how many of the step's newest semantic observations an id is resolved against.
+    private const int MaxRecentObservations = 8;
+
+    // Upstream's `recent`: the step's newest prepared observations, oldest first; what an id the newest screen no longer carries is looked up in.
+    private readonly List<PreparedObservation> _recent = [];
+
+    // What the engine's look the feed read was prepared as (upstream keeps each capture prepared; the port's engine hands back the raw look, so the feed pairs them).
+    private readonly ConditionalWeakTable<Observation, PreparedObservation> _preparedByLook = new();
+
+    // The newest raw look, whose shape the next change wait is armed against (upstream's changeShapeOf reads the prepared capture).
+    private Observation? _latestLook;
     private PendingChange? _pending;
 
     /// <summary>How far each look of the step settled, in order.</summary>
@@ -118,15 +129,15 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     public ObservationFeedOptions? Options { get; init; }
 
-    /// <summary>The newest observation of the step, if any was captured.</summary>
-    public Observation? Latest { get; private set; }
+    /// <summary>The newest observation of the step as the agent reads it, redacted and indexed, if any was captured (upstream's <c>latest</c>).</summary>
+    public PreparedObservation? Latest { get; private set; }
 
     /// <summary>
     /// The screen the step's first committed action was resolved against. A screen still loading when the step began
     /// can hold still long enough to pass a held-still look, so the step's delta is read from here: the page load
     /// before it is not the step's effect.
     /// </summary>
-    public Observation? FirstActedOn { get; private set; }
+    public PreparedObservation? FirstActedOn { get; private set; }
 
     /// <summary>
     /// One look, settled as far as <paramref name="mode"/> asks. A raw look reads the screen as it is. A settled look
@@ -194,7 +205,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         {
             // No node of an earlier look names anything now, and a recording cannot describe a step that saw only pixels.
             _semanticHistory = false;
-            _seen.Clear();
+            _recent.Clear();
         }
 
         return observation;
@@ -229,21 +240,59 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 token).ConfigureAwait(false);
         }
 
-        if (Latest is not null && !string.Equals(Latest.Route, observation.Route, StringComparison.Ordinal))
-        {
-            // Refs are per document, so a ref seen on another page names nothing here.
-            _seen.Clear();
-        }
-
-        Latest = observation;
-        NoteShown(observation, pixels);
-
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
-        {
-            _seen[node.Ref] = new Resolved(node, observation);
-        }
-
+        Publish(observation, pixels);
         return observation;
+    }
+
+    // Upstream's publish: makes an observation the newest, remembers it among the recent ones, and notes what it shows. A screen with no
+    // tree empties the recent ones, since no node of an earlier look names anything now.
+    private void Publish(Observation observation, bool pixels)
+    {
+        _latestLook = observation;
+        if (observation.TreeUnavailable)
+        {
+            _recent.Clear();
+            Latest = PixelsOnly(observation);
+            return;
+        }
+
+        var prepared = Prepare(observation, pixels);
+        _preparedByLook.AddOrUpdate(observation, prepared);
+        _recent.Add(prepared);
+        if (_recent.Count > MaxRecentObservations)
+        {
+            _recent.RemoveAt(0);
+        }
+
+        Latest = prepared;
+        NoteShown(prepared);
+    }
+
+    // A screen with no tree, as the feed keeps it: the marker the model reads and where it was; its pixels are the executor's business.
+    private PreparedObservation PixelsOnly(Observation observation)
+    {
+        var redactor = Scope?.Redactor ?? Redactor.None;
+        return new PreparedObservation
+        {
+            Kind = PreparedKind.Pixels,
+            Location = observation.Location is null ? null : redactor.Redact(observation.Location),
+            Route = redactor.Redact(observation.Route),
+            Path = AgentObservation.PathOf(observation, redactor),
+            Revision = observation.Revision,
+            Text = UnavailableTreeMarker,
+            Bytes = System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker),
+            Viewport = observation.Viewport,
+        };
+    }
+
+    /// <summary>
+    /// The prepared capture of a look this feed read: the one its <see cref="Latest"/> and recent observations hold, so the same node
+    /// objects are read through both. A look the feed did not read is prepared now. No upstream counterpart: upstream's capture is prepared already.
+    /// </summary>
+    public PreparedObservation PreparedOf(Observation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        return observation.TreeUnavailable ? PixelsOnly(observation) : _preparedByLook.TryGetValue(observation, out var prepared) ? prepared : Prepare(observation, false);
     }
 
     /// <summary>
@@ -265,7 +314,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, null, token).ConfigureAwait(false);
 
-        var view = View(observation, scope, options);
+        var view = View(PreparedOf(observation), scope, options);
         if (options?.Pixels != true && !observation.TreeUnavailable)
         {
             return view;
@@ -297,18 +346,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// Upstream's <c>view</c>: one capture as the executor sees it, redacted, with the text, the truncation, the keyboard state
     /// and the route, and the tree when asked for. The step's start observation and <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> both read it.
     /// </summary>
-    internal ExecutorObservation View(Observation observation, AttemptScope scope, ExecutorObserveOptions? options = null)
+    internal ExecutorObservation View(PreparedObservation observation, AttemptScope scope, ExecutorObserveOptions? options = null)
     {
         // A screen with no tree is the marker and its pixels; any other is the prepared capture.
-        var prepared = observation.TreeUnavailable ? null : Prepare(observation, options?.Pixels == true);
-        return new ExecutorObservation(prepared?.Text ?? UnavailableTreeMarker)
+        var semantic = observation.Kind == PreparedKind.Semantic;
+        return new ExecutorObservation(observation.Text)
         {
-            TreeUnavailable = observation.TreeUnavailable,
-            Truncated = observation.Truncated || prepared?.Truncated == true || observation.TreeUnavailable,
+            TreeUnavailable = !semantic,
+            Truncated = observation.Truncated || !semantic,
             KeyboardVisible = observation.KeyboardVisible,
-            Path = prepared?.Path ?? AgentObservation.PathOf(observation, scope.Redactor),
+            Path = observation.Path,
             Revision = observation.Revision.Length > 0 ? observation.Revision : null,
-            Tree = options?.Tree == true ? AgentObservation.ProjectTree(prepared?.Tree ?? [], scope.Redactor, scope.AppOrigin) : null,
+            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Tree, scope.Redactor, scope.AppOrigin) : null,
             Viewport = observation.Viewport,
         };
     }
@@ -360,7 +409,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 new ObservationBudgetRequest(options.ContextBytes + options.LedgerBytes, options.InstructionBytes, pixels));
 
     /// <summary>What <paramref name="reference"/> named in the newest observation of the step that carried it, with that observation (upstream's <c>lastSeen</c>).</summary>
-    public Resolved? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
+    public Resolved? LastSeen(string reference)
+    {
+        for (var index = _recent.Count - 1; index >= 0; index--)
+        {
+            if (_recent[index].Nodes.TryGetValue(reference, out var node))
+            {
+                return new Resolved(node, _recent[index]);
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// What a target names on the newest screen, if the screen still lists it or its descriptor re-finds it (upstream's <c>lookup</c>).
@@ -372,12 +432,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         ArgumentNullException.ThrowIfNull(target);
         var id = target.Id.TrimStart('#');
         var latest = Latest ?? throw NodeGone(id);
-        if (latest.TreeUnavailable)
+        if (latest.Kind == PreparedKind.Pixels)
         {
             throw new TestException("LOCATOR_NOT_FOUND", "semantic capture is unavailable; previous node ids are no longer valid, so use the current screenshot");
         }
 
-        var node = LocatorResolver.Walk(latest.Roots).FirstOrDefault(candidate => candidate.Ref == id) ?? Refound(id, latest);
+        var node = latest.Nodes.GetValueOrDefault(id) ?? Refound(id, latest);
         return new Lookup(id, node, latest);
     }
 
@@ -389,7 +449,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         new("LOCATOR_NOT_FOUND", "node " + id + " is not on the current screen; it was removed or never existed");
 
     // The newest node matching the descriptor of what the id named in a recent observation, if exactly one (upstream's refound).
-    private SemanticNode? Refound(string id, Observation latest)
+    private SemanticNode? Refound(string id, PreparedObservation latest)
     {
         if (Scope is not { } scope || LastSeen(id) is not { } earlier)
         {
@@ -416,9 +476,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public void ArmAfter(RecordedAction action)
     {
         MarkActing();
-        if (Latest is not null && SettlePolicy.For(action).ChangeWait is { } wait)
+        if (_latestLook is not null && SettlePolicy.For(action).ChangeWait is { } wait)
         {
-            _pending = new PendingChange(AgentObservation.Shape(Latest), time.GetUtcNow() + wait);
+            _pending = new PendingChange(AgentObservation.Shape(_latestLook), time.GetUtcNow() + wait);
         }
     }
 
@@ -436,11 +496,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         var observation = await ObserveAsync(SettleMode.Raw, "relocate", token).ConfigureAwait(false);
-        return RefindOne(observation, stale, redactor);
+        return observation.TreeUnavailable ? null : RefindOne(PreparedOf(observation), stale, redactor);
     }
 
     // The one node of the observation that reads as the stale node did, by the recorder's descriptor rules, or null (upstream's relocateDescriptor on describeTarget).
-    private static SemanticNode? RefindOne(Observation observation, SemanticNode stale, Redactor redactor)
+    private static SemanticNode? RefindOne(PreparedObservation observation, SemanticNode stale, Redactor redactor)
     {
         var matches = FindLike(observation, stale, redactor);
         return matches.Count == 1 ? matches[0] : null;
@@ -452,7 +512,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// wrong control. No upstream counterpart: upstream's callers read the <c>RelocationResult</c>; the port's <c>ResolveIn</c> also names the
     /// candidates of an ambiguity (.NET-only act tools).
     /// </summary>
-    public static List<SemanticNode> FindLike(Observation observation, SemanticNode node, Redactor redactor)
+    public static List<SemanticNode> FindLike(PreparedObservation observation, SemanticNode node, Redactor redactor)
     {
         var descriptor = TraceRecorder.DescribeTarget(node, redactor);
         if (!RelocateRules.NamesAnything(descriptor))
@@ -470,10 +530,10 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 }
 
 /// <summary>A target resolved to a node of the observation it was found in (upstream's <c>Resolved</c>).</summary>
-internal sealed record Resolved(SemanticNode Node, Observation Observation);
+internal sealed record Resolved(SemanticNode Node, PreparedObservation Observation);
 
 /// <summary>What a target names on the newest screen: the id as the screen lists it, the node or nothing, and the screen looked at (upstream's <c>Lookup</c>).</summary>
-internal sealed record Lookup(string Id, SemanticNode? Node, Observation Observation);
+internal sealed record Lookup(string Id, SemanticNode? Node, PreparedObservation Observation);
 
 /// <summary>What the step's observations are cut under (upstream's <c>ObservationFeedOptions</c>).</summary>
 /// <param name="MaxObservationBytes">The agent's observation byte ceiling, clamped per capture by the token limit.</param>

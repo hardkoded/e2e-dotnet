@@ -165,11 +165,11 @@ internal sealed partial class ActionDispatcher
     }
 
     // Upstream's requireLatest: the newest observation, which an action addresses; before the first look there is nothing to address.
-    private Observation RequireLatest() =>
+    private PreparedObservation RequireLatest() =>
         _feed.Latest ?? throw new TestException("LOCATOR_NOT_FOUND", "no observation has been captured yet; observe before acting");
 
     // The viewport a point is placed in. An engine that reports none cannot place one.
-    private static TraceViewport ViewportOf(Observation observation) =>
+    private static TraceViewport ViewportOf(PreparedObservation observation) =>
         observation.Viewport ?? throw new TestException("UNSUPPORTED_CAPABILITY", "this engine reports no viewport size, so a point cannot be placed on it");
 
     // How point results name nodes: by the line of the screen the model holds.
@@ -179,9 +179,9 @@ internal sealed partial class ActionDispatcher
     // withinOf to place the point inside its box, so replay can follow the node when the layout shifts. Nothing for a screen without a tree.
     // The port's tree has no single root that stands for the page (it lists the page's top-level nodes), so upstream's skip of the root has
     // nothing to skip.
-    private PlacedPoint Placed(Observation observation, SemanticNode? under, Point point)
+    private PlacedPoint Placed(PreparedObservation observation, SemanticNode? under, Point point)
     {
-        if (under is null || observation.TreeUnavailable)
+        if (under is null || observation.Kind == PreparedKind.Pixels)
         {
             return new PlacedPoint(point);
         }

@@ -52,10 +52,10 @@ internal static class PointTap
     /// control: tapping a node taps its center, which is what the caller asked for only when the node is the control itself, not a paragraph
     /// or region that happens to contain the point.
     /// </summary>
-    public static Hit HitTest(Observation observation, Point point)
+    public static Hit HitTest(PreparedObservation observation, Point point)
     {
         ArgumentNullException.ThrowIfNull(observation);
-        if (observation.TreeUnavailable)
+        if (observation.Kind == PreparedKind.Pixels)
         {
             return new Hit(null, null);
         }
@@ -68,7 +68,7 @@ internal static class PointTap
     // The innermost listed node whose box contains the point, among those accept admits: deepest in the tree, then the smallest box. Hidden
     // nodes and nodes without a box are skipped. Every box is in the top-level viewport's CSS pixels, nested documents included, so a node
     // inside an iframe is found like any other.
-    private static SemanticNode? InnermostAt(Observation observation, Point point, Func<SemanticNode, bool> accept)
+    private static SemanticNode? InnermostAt(PreparedObservation observation, Point point, Func<SemanticNode, bool> accept)
     {
         SemanticNode? best = null;
         var bestDepth = -1;
@@ -91,7 +91,7 @@ internal static class PointTap
             }
         }
 
-        foreach (var root in observation.Roots)
+        foreach (var root in observation.Tree)
         {
             Visit(root, 0);
         }
