@@ -58,7 +58,8 @@ public sealed class TheReplayCacheTests
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(ReplayCacheFixture).Assembly, name, CancellationToken.None, host);
 
         Assert.That(outcome, Is.Not.Null);
-        await using var session = outcome!.Session;
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
         Assert.That(outcome.Failure, Is.Null);
         session.Complete(outcome.Failure);
     }

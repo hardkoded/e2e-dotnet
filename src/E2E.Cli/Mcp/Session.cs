@@ -325,7 +325,7 @@ internal sealed class SessionHost : IDisposable
         try
         {
             abort.Token.ThrowIfCancellationRequested();
-            IEngine engine;
+            IEngine engine = null!;
             SessionTestOutcome? ran = null;
             var elapsed = TimeSpan.Zero;
             var declared = target;
@@ -340,16 +340,21 @@ internal sealed class SessionHost : IDisposable
                 ran = await runner.RunAsync(tests, testName, abort.Token, config).ConfigureAwait(false)
                     ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
                 elapsed = started.Elapsed;
-                engine = ran.Engine;
-                apps = HeldApps.Instance;
-                var ranSession = ran.Session;
-                attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession).ConfigureAwait(false));
-                if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+                if (ran.Session is { } ranSession && ran.Engine is { } ranEngine)
                 {
-                    _sessions.ClaimEngine(id, target.Name);
+                    engine = ranEngine;
+                    apps = HeldApps.Instance;
+                    var liveRun = ran.Run;
+                    attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession, liveRun).ConfigureAwait(false));
+                    if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+                    {
+                        _sessions.ClaimEngine(id, target.Name);
+                    }
                 }
             }
-            else
+
+            // A test that never started a session (its beforeAll failed) leaves none: the session opens on the app as a fresh one does.
+            if (attempt is null)
             {
                 engine = _options.CreateEngine(target, headed);
                 if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
@@ -399,7 +404,7 @@ internal sealed class SessionHost : IDisposable
             }
 
             var attemptDir = session.App.ArtifactsDir ?? config.ProjectRoot;
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps!) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
             live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video) ? null : new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, OutputLayout.Of(config.Output).Videos(id), config.CleanupTimeout, () => live.SecretFilled);
             live.Catalog = SessionCatalog.Create(
                 live,
@@ -420,7 +425,7 @@ internal sealed class SessionHost : IDisposable
             var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false));
             if (ran is not null)
             {
-                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, ran.Session.StepRecords, ran.Session.Evidence, ran.Session.Redactor.Redact, config.ProjectRoot) + "\n" + text;
+                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, session.StepRecords, session.Evidence, session.Redactor.Redact, config.ProjectRoot, ran.Phase, ran.Secondary) + "\n" + text;
             }
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
@@ -454,19 +459,27 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
-    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session)
+    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session, LiveRun? run)
     {
+        // What the test left rejected lands now; it is reported once, with the close's own failures.
+        List<Exception> failures = [];
         try
         {
             await session.DisposeAsync().ConfigureAwait(false);
-            return [];
         }
 #pragma warning disable CA1031 // The close reports it.
         catch (Exception cause)
 #pragma warning restore CA1031
         {
-            return [cause];
+            failures.Add(cause);
         }
+
+        if (run is not null)
+        {
+            failures.InsertRange(0, run.End());
+        }
+
+        return failures;
     }
 
     private async Task<string> TeardownAsync(LiveSession live, string reason)
@@ -594,9 +607,25 @@ internal sealed class SessionHost : IDisposable
             live.Catalog.Lines.Opened();
         }
 
+        // The screen a test stopped on is the one to show; a test that failed before it opened the app left none.
+        if (testRan)
+        {
+            try
+            {
+                var left = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);
+                return left.Succeeded ? Screen(left.Content) : "No screen to show: " + (left.Error ?? left.Content);
+            }
+            catch (E2EException cause)
+            {
+                return "No screen to show: " + cause.Message;
+            }
+        }
+
         var observed = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);
         return opening + (observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? observed.Content["Observed.\n".Length..] : observed.Content);
     }
+
+    private static string Screen(string content) => content.StartsWith("Observed.\n", StringComparison.Ordinal) ? content["Observed.\n".Length..] : content;
 
     private string OpeningText(LiveSession live, TargetConfig target, ResolvedApp app, E2EConfig config, string screen)
     {

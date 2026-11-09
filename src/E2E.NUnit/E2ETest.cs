@@ -106,7 +106,7 @@ public abstract class E2ETest : E2EFixture
         }
 
         // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
-        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, ErrorForCache(current.Result) ?? late))
+        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, session.VerdictOf(ErrorForCache(current.Result) ?? late, current.CancellationToken)))
         {
             return;
         }
