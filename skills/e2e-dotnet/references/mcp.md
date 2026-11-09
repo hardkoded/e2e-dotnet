@@ -126,9 +126,9 @@ node changed within the wait after this action` when it should have changed
 something), focus moving is not a change, and a screen that changed mostly is
 sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
-catalog: `scroll` and `scroll_to` need scrolling, `back` needs history, `resize_viewport` needs an engine that can resize the viewport,
+catalog: `tap` needs the `tap` action kind, `double_tap` `doubleTap`, `type` `fill` (or a keyboard, without a target), `press` `press` (or a keyboard), `select` `selectOption`, `check` and `uncheck` both `check` and `uncheck`, `clear` `clear`, `scroll` and `scroll_to` need scrolling, `back` needs history, `resize_viewport` needs an engine that can resize the viewport,
 `long_press`, `right_click`, `hover`, and `drag` need the engine to declare the
-action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `hover_at` and `drag_at` need the engine to take a bare point for a hover or a drag, `screenshot` needs the web engine, and `type_secret` appears only when the
+action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `tap_at`, `hover_at`, and `drag_at` need the engine to take a bare point or to declare the node verb, `type_at` and `press_at` a `fill` or `press` kind or a keyboard, `select_at` a `selectOption` kind, `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares `credentials` or a `secrets` entry.
 
 | Tool | Does |

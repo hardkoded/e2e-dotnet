@@ -175,21 +175,34 @@ internal sealed partial class ActContext : StepExecutorContext
         }
     }
 
-    // The verbs the engine can honor: the grammar the built-in tools offer for these capabilities.
+    // Upstream's KINDS_BY_VERB (engine/session.ts): the action kinds an engine must declare for each kind-derived grammar verb. `check` sets a
+    // state rather than flipping one, so it needs both directions; `fill` unlocks the plain and the secret fill alike. The port's `clear` verb
+    // follows its own kind: upstream has no clear verb.
+    private static readonly (ExecutorVerb Verb, string[] Kinds)[] KindsByVerb =
+    [
+        (ExecutorVerb.Tap, ["tap"]),
+        (ExecutorVerb.DoubleTap, ["doubleTap"]),
+        (ExecutorVerb.Type, ["fill"]),
+        (ExecutorVerb.TypeSecret, ["fill"]),
+        (ExecutorVerb.Clear, ["clear"]),
+        (ExecutorVerb.Press, ["press"]),
+        (ExecutorVerb.Select, ["selectOption"]),
+        (ExecutorVerb.Check, ["check", "uncheck"]),
+    ];
+
+    // The verbs the engine can honor: the grammar the built-in tools offer for these declarations (upstream's declaredVerbs).
     internal static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds, bool canDismissKeyboard = false)
     {
-        var verbs = new HashSet<ExecutorVerb>
+        var verbs = new HashSet<ExecutorVerb> { ExecutorVerb.Navigate };
+        var declared = actionKinds ?? [];
+        foreach (var (verb, required) in KindsByVerb)
         {
-            ExecutorVerb.Tap,
-            ExecutorVerb.DoubleTap,
-            ExecutorVerb.Type,
-            ExecutorVerb.TypeSecret,
-            ExecutorVerb.Clear,
-            ExecutorVerb.Press,
-            ExecutorVerb.Select,
-            ExecutorVerb.Check,
-            ExecutorVerb.Navigate,
-        };
+            if (required.All(kind => declared.Contains(kind)))
+            {
+                verbs.Add(verb);
+            }
+        }
+
         foreach (var (kind, verb) in AgentTools.PointerVerbs)
         {
             if (actionKinds?.Contains(kind) == true)

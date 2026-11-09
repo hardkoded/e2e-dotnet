@@ -179,20 +179,22 @@ public static class AgentTools
         """);
 
     /// <summary>
-    /// Upstream's <c>POINT_TOOLS</c> (<c>agent/primitives.ts</c>): the point verbs that take only a point, one tool each. <c>Kind</c> is the
-    /// engine pointer kind that takes the bare point, <c>Does</c> what the tool does up to the clause about a bare point, <c>ById</c> the
-    /// node verb the last-resort advice names. <c>hover_at</c> is offered with the pointer kind or with the node hover.
+    /// Upstream's <c>POINT_TOOLS</c> (<c>agent/primitives.ts</c>): the point verbs that take only a point, one tool each. <c>Bare</c> is the
+    /// verb the engine's pointer kind unlocks, <c>Node</c> the node verb the point falls back to, <c>Does</c> what the tool does up to the
+    /// clause about a bare point, <c>ById</c> the node verb the last-resort advice names. A point tool is offered with either verb.
     /// </summary>
-    private static readonly (string Tool, string Kind, string Does, string ById)[] PointTools =
+    private static readonly (string Tool, ExecutorVerb Bare, ExecutorVerb Node, string Does, string ById)[] PointTools =
     [
         (
             "tap_at",
-            "tap",
+            ExecutorVerb.TapAt,
+            ExecutorVerb.Tap,
             "Tap a point in the latest screenshot, given as pixel coordinates in that image (x from the left edge, y from the top edge). Aim for the center of the target. The bare point is tapped",
             "tap it by id"),
         (
             "hover_at",
-            "hover",
+            ExecutorVerb.HoverAt,
+            ExecutorVerb.Hover,
             "Move the pointer to a point in the latest screenshot without clicking, for a hover target the screen does not list (a drawn control, a region of an image). The bare point is hovered",
             "hover it by id"),
     ];
@@ -260,6 +262,69 @@ public static class AgentTools
         ["hover"] = "hover",
         ["drag"] = "dragTo",
     };
+
+    /// <summary>
+    /// The verbs of <see cref="ExecutorTargetInfo.Verbs"/> that offer each tool, any one of them (the <c>verbs.has(...)</c> at each tool's site in
+    /// upstream's <c>createGrammarTools</c> and <c>createPointTools</c>): a tool whose verbs the engine's declarations do not unlock is absent
+    /// from the toolset. <c>fill</c> and <c>press</c> are also offered by the keyboard alone, without a target. The port's <c>clear</c> and
+    /// <c>uncheck</c> have no upstream tool; they follow their own action kind and the kinds of <c>check</c>.
+    /// </summary>
+    internal static readonly IReadOnlyDictionary<string, ExecutorVerb[]> ToolVerbs = new Dictionary<string, ExecutorVerb[]>(StringComparer.Ordinal)
+    {
+        ["tap"] = [ExecutorVerb.Tap],
+        ["double_tap"] = [ExecutorVerb.DoubleTap],
+        ["long_press"] = [ExecutorVerb.LongPress],
+        ["right_click"] = [ExecutorVerb.SecondaryTap],
+        ["hover"] = [ExecutorVerb.Hover],
+        ["drag"] = [ExecutorVerb.Drag],
+        ["fill"] = [ExecutorVerb.Type, ExecutorVerb.TypeText],
+        ["fill_secret"] = [ExecutorVerb.TypeSecret],
+        ["press"] = [ExecutorVerb.Press, ExecutorVerb.PressKey],
+        ["select"] = [ExecutorVerb.Select],
+        ["check"] = [ExecutorVerb.Check],
+        ["uncheck"] = [ExecutorVerb.Check],
+        ["clear"] = [ExecutorVerb.Clear],
+        ["tap_at"] = [ExecutorVerb.TapAt, ExecutorVerb.Tap],
+        ["hover_at"] = [ExecutorVerb.HoverAt, ExecutorVerb.Hover],
+        ["drag_at"] = [ExecutorVerb.DragAt, ExecutorVerb.Drag],
+        ["type_at"] = [ExecutorVerb.Type, ExecutorVerb.TypeText],
+        ["press_at"] = [ExecutorVerb.Press, ExecutorVerb.PressKey],
+        ["select_at"] = [ExecutorVerb.Select],
+    };
+
+    /// <summary>True when the verbs the engine's declarations unlock offer the tool; a tool outside <see cref="ToolVerbs"/> is not shaped by them.</summary>
+    internal static bool OffersVerb(string tool, IReadOnlySet<ExecutorVerb> verbs) =>
+        !ToolVerbs.TryGetValue(tool, out var offering) || offering.Any(verbs.Contains);
+
+    // A node verb as the engine's declarations shape it. With a keyboard, a fill with no target types into whatever has focus (upstream's type
+    // with typeText), and an engine that declares no fill takes that form alone: no target. The same for press.
+    private static ModelTool NodeTool(ModelTool verb, IReadOnlySet<ExecutorVerb> verbs)
+    {
+        var typeText = verbs.Contains(ExecutorVerb.TypeText);
+        return verb.Name switch
+        {
+            "fill" when typeText && !verbs.Contains(ExecutorVerb.Type) => WithoutTarget(
+                FillFocused,
+                "Type a plain-text value into whatever has focus. After tap_at on a field the screen does not list, call fill: the value is inserted at the caret of the focused field; set replace to clear it first. Several fields can be typed in one turn."),
+            "fill" when typeText => FillFocused,
+            "press" when verbs.Contains(ExecutorVerb.PressKey) && !verbs.Contains(ExecutorVerb.Press) => WithoutTarget(
+                verb,
+                "Press a key such as Enter, Escape, or Tab on whatever has focus. Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\"."),
+            _ => verb,
+        };
+    }
+
+    private static ModelTool WithoutTarget(ModelTool tool, string description)
+    {
+        var parameters = JsonNode.Parse(tool.Parameters.GetRawText())!.AsObject();
+        var properties = parameters["properties"]!.AsObject();
+        foreach (var name in Target.GetProperty("properties").EnumerateObject().Select(property => property.Name))
+        {
+            properties.Remove(name);
+        }
+
+        return new ModelTool { Name = tool.Name, Description = description, Parameters = JsonSerializer.SerializeToElement(parameters) };
+    }
 
     /// <summary>The <c>modifiers</c> property of a tap-family tool: the keys held while the pointer clicks.</summary>
     internal static JsonObject ModifiersSchema() => new()
@@ -400,6 +465,7 @@ public static class AgentTools
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
+        var verbs = ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard);
         foreach (var (name, kind) in PointerToolKinds)
         {
             if (actionKinds?.Contains(kind) == true)
@@ -409,7 +475,7 @@ public static class AgentTools
         }
 
         var keyboard = capabilities.HasFlag(EngineCapabilities.Keyboard);
-        IEnumerable<ModelTool> grammar = keyboard ? Verbs.Select(verb => verb.Name == "fill" ? FillFocused : verb) : Verbs;
+        var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs));
         tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
         if (capabilities.HasFlag(EngineCapabilities.Upload))
         {
@@ -440,7 +506,7 @@ public static class AgentTools
         }
 
         tools.Add(Screenshot);
-        tools.AddRange(CreatePointTools(pointerKinds ?? [], actionKinds ?? [], keyboard));
+        tools.AddRange(CreatePointTools(verbs, keyboard));
         if (project is not null)
         {
             tools.AddRange(project);
@@ -451,17 +517,18 @@ public static class AgentTools
 
     /// <summary>
     /// Upstream's <c>createPointTools</c>: the point-addressed fallback verbs, each taking a point in the latest screenshot for a target the
-    /// tree does not list. <paramref name="pointerKinds"/> are the pointer kinds the engine takes at a bare point. A point tool whose node verb
-    /// exists is offered even without the kind, and says its bare point cannot be taken. With a <paramref name="keyboard"/>, <c>type_at</c> and
-    /// <c>press_at</c> on a point on nothing listed tap it to focus it and go through the keyboard.
+    /// tree does not list. <paramref name="verbs"/> are the verbs the engine's declarations unlock (<see cref="ActContext.VerbsOf"/>): a point
+    /// verb is offered with its own pointer kind or with its node verb, and without the pointer kind says its bare point cannot be taken.
+    /// <c>type_at</c> and <c>press_at</c> are offered with the keyboard too, <c>select_at</c> with <c>select</c>. With a
+    /// <paramref name="keyboard"/>, <c>type_at</c> and <c>press_at</c> on a point on nothing listed tap it to focus it and go through the keyboard.
     /// </summary>
-    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds, IReadOnlyCollection<string> actionKinds, bool keyboard)
+    private static List<ModelTool> CreatePointTools(HashSet<ExecutorVerb> verbs, bool keyboard)
     {
         var tools = new List<ModelTool>();
-        foreach (var (tool, kind, does, byId) in PointTools)
+        foreach (var (tool, bareVerb, nodeVerb, does, byId) in PointTools)
         {
-            var bare = pointerKinds.Contains(kind);
-            if (!bare && kind != "tap" && !actionKinds.Contains(kind))
+            var bare = verbs.Contains(bareVerb);
+            if (!bare && !verbs.Contains(nodeVerb))
             {
                 continue;
             }
@@ -472,8 +539,8 @@ public static class AgentTools
                 PointXY));
         }
 
-        var bareDrag = pointerKinds.Contains("dragTo");
-        if (bareDrag || actionKinds.Contains("dragTo"))
+        var bareDrag = verbs.Contains(ExecutorVerb.DragAt);
+        if (bareDrag || verbs.Contains(ExecutorVerb.Drag))
         {
             tools.Add(Tool(
                 "drag_at",
@@ -494,24 +561,36 @@ public static class AgentTools
                     "to_y")));
         }
 
-        tools.Add(Tool(
-            "type_at",
-            keyboard
-                ? "Type a plain-text value into the field at a point in the latest screenshot, for a field the screen does not list. A listed input under the point is filled by id, replacing its value; anything else is tapped to focus it and typed into through the keyboard, inserting at the caret unless replace is set. Last resort: when the screen lists the field, type by id."
-                : "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
-            keyboard
-                ? Extend(PointXY, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "{{ReplaceDescription}}" } }""", "x", "y", "value")
-                : Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
-        tools.Add(Tool(
-            "press_at",
-            "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list." +
-            (keyboard ? " A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard." : "") +
-            " Last resort: when the screen lists the control, press by id.",
-            Extend(PointXY, """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""", "x", "y", "key")));
-        tools.Add(Tool(
-            "select_at",
-            "Pick one option, by its visible label, from the select-like control at a point in the latest screenshot. Last resort: when the screen lists the select, use select by id.",
-            Extend(PointXY, """{ "value": { "type": "string", "minLength": 1 } }""", "x", "y", "value")));
+        if (verbs.Contains(ExecutorVerb.Type) || keyboard)
+        {
+            tools.Add(Tool(
+                "type_at",
+                keyboard
+                    ? "Type a plain-text value into the field at a point in the latest screenshot, for a field the screen does not list. A listed input under the point is filled by id, replacing its value; anything else is tapped to focus it and typed into through the keyboard, inserting at the caret unless replace is set. Last resort: when the screen lists the field, type by id."
+                    : "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
+                keyboard
+                    ? Extend(PointXY, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "{{ReplaceDescription}}" } }""", "x", "y", "value")
+                    : Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
+        {
+            tools.Add(Tool(
+                "press_at",
+                "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list." +
+                (keyboard ? " A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard." : "") +
+                " Last resort: when the screen lists the control, press by id.",
+                Extend(PointXY, """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""", "x", "y", "key")));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Select))
+        {
+            tools.Add(Tool(
+                "select_at",
+                "Pick one option, by its visible label, from the select-like control at a point in the latest screenshot. Last resort: when the screen lists the select, use select by id.",
+                Extend(PointXY, """{ "value": { "type": "string", "minLength": 1 } }""", "x", "y", "value")));
+        }
+
         return tools;
     }
 

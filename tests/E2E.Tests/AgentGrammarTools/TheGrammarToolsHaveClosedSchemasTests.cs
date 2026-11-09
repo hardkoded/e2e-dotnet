@@ -12,7 +12,7 @@ namespace E2E.Tests.AgentGrammarTools;
 // tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
 // vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is role, name, or ref, complete_step
 // is done, errorCode is code, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text. The scroll_to and
-// keyboard-only cases that depend on the engine's verb set are partial: the port's grammar is offered by capability, not by verb.
+// keyboard-only cases that depend on the scroll verbs are partial: the port offers scroll_to, scroll, and navigate by capability, not by verb.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
     /// <summary>An input each tool accepts; a tool added to the grammar without one fails the vocabulary check.</summary>
@@ -105,16 +105,24 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ExpectClosed(scrollTo, """{ "text": "Row 4322" }""");
     }
 
-    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": upstream offers
-    // type, press, and scroll without a target to an engine that lists only the typeText, pressKey, and scroll verbs. The port offers the node
-    // verbs beside the keyboard ones by capability, so this closes the keyboard shapes the port has: fill without a target, press, and scroll.
+    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the node verbs, the
+    // targets, and the point tools of an engine that lists only the typeText, pressKey, and scroll verbs are ported. Not ported: scroll without a
+    // target, and the absence of scroll_to and navigate. The port offers scroll (with its target), scroll_to, and navigate by capability, not
+    // by the scrollTo, scrollUntil, and open verbs (#1437).
     [Fact]
     public void Partial_closes_the_keyboard_only_shapes_too_type_and_press_without_a_target_scroll_without_one()
     {
-        var tools = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard | EngineCapabilities.Scroll);
-        ExpectClosed(tools.Single(tool => tool.Name == "fill"), """{ "value": "ada", "replace": true }""");
+        var tools = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard | EngineCapabilities.Scroll, null, []);
+        Assert.Equal(
+            ["fill", "observe", "press", "press_at", "screenshot", "scroll", "type_at"],
+            tools.Select(tool => tool.Name).Where(name => name is not ("scroll_to" or "navigate")).Order(StringComparer.Ordinal));
+        var fill = tools.Single(tool => tool.Name == "fill");
+        ExpectClosed(fill, """{ "value": "ada", "replace": true }""");
         ExpectClosed(tools.Single(tool => tool.Name == "press"), """{ "key": "Enter" }""");
         ExpectClosed(tools.Single(tool => tool.Name == "scroll"), """{ "direction": "down" }""");
+        // Without the id-addressed verb a target is not a field of fill at all, and neither is it of press.
+        Assert.False(SchemaOf(fill).IsValid(Input("""{ "ref": "n1", "value": "ada" }""")));
+        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "press")).IsValid(Input("""{ "ref": "n1", "key": "Enter" }""")));
     }
 
     [Fact]
@@ -174,19 +182,19 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(new StepVerdict(StepVerdictStatus.Blocked, "no login", "AUTH_CREDENTIAL_UNAVAILABLE"), conclusion.Verdict);
     }
 
-    // .NET-only: the grammar is offered by engine capability, not by the verbs a target lists, so the vocabulary each capability unlocks is checked here.
+    // .NET-only: the grammar is offered by engine capability and by the action kinds the engine declares, where upstream's follows the verbs
+    // its target lists, so the vocabulary each of them unlocks is checked here.
     [Fact]
     public void Offers_the_node_verbs_and_the_scroll_and_history_tools_their_capabilities_unlock()
     {
-        var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History);
+        var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History, null, EngineActionKinds.Locator);
         Assert.Equal(
-            ["back", "check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "clear", "double_tap", "drag", "drag_at", "fill", "fill_secret", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
 
+        // An engine that declares no action kind has no node verb: only what its capabilities unlock is left.
         var bare = AgentTools.GrammarToolDefinitions(EngineCapabilities.None);
-        Assert.Equal(
-            ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
-            bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["navigate", "observe", "screenshot"], bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
 
         // dismiss_keyboard comes with an engine that can hide its keyboard, and takes no input.
         var device = AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, dismissKeyboard: true);
@@ -194,6 +202,48 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard), tool => tool.Name == "dismiss_keyboard");
         Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, dismissKeyboard: true), tool => tool.Name == "dismiss_keyboard");
         Assert.True(AgentTools.IsReserved("dismiss_keyboard"));
+    }
+
+    // .NET-only: the node verbs follow the action kinds the engine declares (upstream's KINDS_BY_VERB), and the point verbs that act on a
+    // listed control follow the node verb they fall back to. Upstream gates tap on tap, double_tap on doubleTap, type and type_secret on fill,
+    // press on press, select on selectOption, and check on both check and uncheck; the port's clear follows clear and uncheck follows check.
+    [Fact]
+    public void Offers_each_node_verb_only_for_the_action_kinds_the_engine_declares()
+    {
+        static string[] Offered(EngineCapabilities capabilities, params string[] kinds) =>
+            [.. AgentTools.GrammarToolDefinitions(capabilities, null, kinds).Select(tool => tool.Name).Where(name => name is not ("observe" or "navigate" or "screenshot")).Order(StringComparer.Ordinal)];
+
+        Assert.Equal(["tap", "tap_at"], Offered(EngineCapabilities.None, "tap"));
+        Assert.Equal(["double_tap"], Offered(EngineCapabilities.None, "doubleTap"));
+        Assert.Equal(["fill", "fill_secret", "type_at"], Offered(EngineCapabilities.None, "fill"));
+        Assert.Equal(["press", "press_at"], Offered(EngineCapabilities.None, "press"));
+        Assert.Equal(["select", "select_at"], Offered(EngineCapabilities.None, "selectOption"));
+        Assert.Equal(["clear"], Offered(EngineCapabilities.None, "clear"));
+
+        // A check sets a state rather than flipping one, so it needs both directions.
+        Assert.Empty(Offered(EngineCapabilities.None, "check"));
+        Assert.Empty(Offered(EngineCapabilities.None, "uncheck"));
+        Assert.Equal(["check", "uncheck"], Offered(EngineCapabilities.None, "check", "uncheck"));
+
+        // Kinds that unlock no node verb unlock none (a focus is no verb).
+        Assert.Empty(Offered(EngineCapabilities.None, "focus", "scrollIntoView", "setInputFiles"));
+        Assert.Empty(Offered(EngineCapabilities.None));
+
+        // A keyboard takes fill and press without a target, with or without the kinds, and the point tools that type and press.
+        Assert.Equal(["fill", "press", "press_at", "type_at"], Offered(EngineCapabilities.Keyboard));
+
+        // With both kinds and the keyboard, the target is optional and a call without one acts on the focused field; with fill alone
+        // the schema carries a target too; with the keyboard alone it carries none.
+        static bool HasTarget(ModelTool tool) => tool.Parameters.GetProperty("properties").TryGetProperty("ref", out _);
+        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "fill")));
+        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "press")));
+        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["fill"]).Single(tool => tool.Name == "fill")));
+        Assert.False(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["tap"]).Single(tool => tool.Name == "fill")));
+
+        // The same set decides the verbs of the executor's target, and a call to a verb the engine did not unlock is refused as unknown.
+        Assert.Equal(
+            ["DoubleTap", "Navigate", "Press", "Tap"],
+            ActContext.VerbsOf(EngineCapabilities.None, ["tap", "doubleTap", "press", "check", "focus"], []).Select(verb => verb.ToString()).Order(StringComparer.Ordinal));
     }
 
     // .NET-only: the pointer verbs follow the action kinds the engine declares, where upstream's follow the verbs its target lists,
@@ -230,7 +280,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     [Fact]
     public void Declares_the_times_of_press_up_to_the_ceiling()
     {
-        var times = AgentTools.GrammarToolDefinitions(EngineCapabilities.None).Single(tool => tool.Name == "press").Parameters.GetProperty("properties").GetProperty("times");
+        var times = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, EngineActionKinds.Locator).Single(tool => tool.Name == "press").Parameters.GetProperty("properties").GetProperty("times");
         Assert.Equal(AgentTools.MaxPressTimes, times.GetProperty("maximum").GetInt32());
     }
 

@@ -149,9 +149,8 @@ internal sealed partial class ActionDispatcher
         await CommitAsync(Target(node, "tap", PlacementOf(node))).ConfigureAwait(false);
     }
 
-    // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to. The tap is always there; the hover and the
-    // drag are the pointer verbs the engine declares by locator action kind.
-    private bool TakesNodeVerb(string nodeVerb) => nodeVerb == "tap" || _scope.ActionKinds?.Contains(nodeVerb == "drag" ? "dragTo" : nodeVerb) == true;
+    // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to, by the locator action kind it declares.
+    private bool TakesNodeVerb(string nodeVerb) => _scope.ActionKinds?.Contains(nodeVerb == "drag" ? "dragTo" : nodeVerb) == true;
 
     // Whether the engine declared the pointer kind a point verb needs: upstream's `verbs.has('tapAt')`, `hoverAt`, and `dragAt`.
     private bool TakesBarePoint(string verb)

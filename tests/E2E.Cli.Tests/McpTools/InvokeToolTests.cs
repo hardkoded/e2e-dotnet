@@ -4,6 +4,7 @@
 
 using E2E.Cli.Mcp;
 using E2E.Cli.Tests.Helpers;
+using E2E.Engine;
 using static E2E.Cli.Tests.McpTools.ToolFixtures;
 
 namespace E2E.Cli.Tests.McpTools;
@@ -68,7 +69,7 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);

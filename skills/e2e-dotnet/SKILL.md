@@ -435,7 +435,10 @@ lines you changed:
   With a screenshot the model can aim at a point: `tap_at`, `hover_at`,
   `drag_at`, `type_at`, `press_at`, and `select_at` take pixels of the latest
   screenshot, for a target the tree does not list (a shape on a canvas, a pin on
-  a map). A listed control under the point is acted on by id. On an engine
+  a map). A listed control under the point is acted on by id. The agent
+  offers only the verbs the engine's declared action kinds unlock (a device
+  engine has no `select`), and the point tools follow the verb they act
+  through. On an engine
   with a keyboard (the web engine), `type_at` and `press_at` on a point on
   nothing listed tap it to focus it and go through the keyboard, and `fill`
   with no target types into the focused field (`replace` clears it first);
