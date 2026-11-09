@@ -14,11 +14,12 @@ namespace E2E.XUnit.V3;
 /// unsaved fails the test with <c>SESSION_CONTRACT</c>. The sessions are saved when the test passes. A test that restores one is marked
 /// <see cref="E2ESessionAttribute"/>.
 /// <para>
-/// xUnit decides the order, not the attribute's dependents: <see cref="E2ETest"/> runs the setup tests of a class before its other tests
-/// (<see cref="SetupTestMethodOrderer"/>), and no earlier than that. Put the setup tests and the tests that use their sessions in one class,
-/// or order the classes yourself: xUnit runs classes in different collections in parallel, so a test in another class may restore a session
-/// before it is saved. A test that restores a session nobody has saved yet fails with <c>SESSION_UNAVAILABLE</c>. Unlike upstream's runner,
-/// xUnit runs a setup test even when no selected test needs its session.
+/// A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
+/// alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
+/// session of its own and without the class's own <c>InitializeAsync</c> and <c>DisposeAsync</c>; exactly one setup test of the assembly must
+/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>, as it does when the setup fails. xUnit then skips that setup test
+/// when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. <see cref="E2ETest"/> runs the setup
+/// tests of a class before its other tests (<see cref="SetupTestMethodOrderer"/>).
 /// </para>
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]

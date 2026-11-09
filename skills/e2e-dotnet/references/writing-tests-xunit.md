@@ -116,16 +116,20 @@ public sealed class Dashboard : E2ETest
   never saved fails the setup test with `SESSION_CONTRACT`. `SaveSessionAsync`
   outside a setup test fails the same way. Nothing is saved when the setup
   test fails.
-- xUnit picks the order, not the dependents. `E2ETest` orders the setup tests
-  of a class before its other tests (a test method orderer,
-  `SetupTestMethodOrderer`); that is all it does. A class with its own
-  `[TestMethodOrderer]` loses it. Put the setup test and the tests that restore
-  its sessions in one class: xUnit runs classes in parallel, so a test in
-  another class can restore a session before it is saved. A class-level
-  `[E2ESession]` does not apply to the setup tests of that class. A test that
-  restores a session nobody saved yet fails with `SESSION_UNAVAILABLE`. Unlike
-  upstream's runner, xUnit runs a setup test even when no selected test needs
-  its session.
+- `E2ETest` orders the setup tests of a class before its other tests (a test
+  method orderer, `SetupTestMethodOrderer`); a class with its own
+  `[TestMethodOrderer]` loses it. A test that restores a session nobody saved
+  yet runs the setup test that declares it first, once per run, so a dependent
+  can run alone (upstream's runner schedules the setup before its dependents
+  too). The test that needs it runs the setup itself: it builds the setup's
+  class with its parameterless constructor and runs the method in a session of
+  its own, without the class's own `[SetUp]` and `[TearDown]` methods, and the
+  framework then skips that setup test when its turn comes. Exactly one setup
+  test of the test assembly must declare the name: with none, or with two, the
+  restore fails with `SESSION_UNAVAILABLE`. A setup test that fails fails each
+  of its dependents with `SESSION_UNAVAILABLE` (upstream skips them as `setup-
+  failed`). A class-level `[E2ESession]` does not apply to the setup tests of
+  that class.
 - A restore leaves no page open: call `App.OpenAsync` first. A session holds
   what the browser keeps (cookies, local storage, IndexedDB), not server state.
 - An engine without a state capability (`stateCapability` false in

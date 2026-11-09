@@ -20,6 +20,9 @@ internal interface ISessionTestRunner
     /// </summary>
     IReadOnlyList<SessionTestInfo> Select(Assembly tests, string name);
 
+    /// <summary>Every test in <paramref name="tests"/>, without running any, each with its method (upstream collects the test files for <c>file:line</c>).</summary>
+    IReadOnlyList<SessionTestInfo> List(Assembly tests);
+
     /// <summary>
     /// Runs the test named <paramref name="name"/> in <paramref name="tests"/>; null when no test has that name. <paramref name="host"/> is the
     /// config the host loaded: the test runs on its agent model and its replay cache, not on the fixture's own (see <see cref="SessionHandover.HostConfig"/>).
@@ -27,8 +30,8 @@ internal interface ISessionTestRunner
     Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null);
 }
 
-/// <summary>A test <see cref="ISessionTestRunner.Select"/> found: its full name, and why a session cannot run it alone (null when it can).</summary>
-internal sealed record SessionTestInfo(string FullName, string? Unsupported);
+/// <summary>A test <see cref="ISessionTestRunner.Select"/> found: its full name, why a session cannot run it alone (null when it can), and its method.</summary>
+internal sealed record SessionTestInfo(string FullName, string? Unsupported, MethodInfo? Method = null);
 
 /// <summary>The phases a standalone run moves through before its teardown (upstream's <c>RunPhase</c>, <c>run/standalone-test.ts</c>).</summary>
 internal enum RunPhase

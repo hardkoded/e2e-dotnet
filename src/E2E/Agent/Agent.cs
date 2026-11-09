@@ -1244,6 +1244,9 @@ public sealed class CacheInfo
 
     public string? Reason { get; init; }
 
+    /// <summary>On a <c>gap</c> at a typed value: the rule that made the value this run's data rather than the flow's (upstream's <c>derived</c>). Null for a gap at a project tool.</summary>
+    public DerivedReason? Derived { get; init; }
+
     /// <summary>The recorded actions the replay ran. 0 for a miss.</summary>
     public int ReplayedActions { get; init; }
 
@@ -1263,7 +1266,7 @@ public sealed class CacheInfo
     public string? RecordedBy { get; init; }
 
     internal CacheInfo WithRecordedBy(string recordedBy) =>
-        new() { Mode = Mode, Reason = Reason, ReplayedActions = ReplayedActions, TotalActions = TotalActions, Detail = Detail, NotRecorded = NotRecorded, Entry = Entry, RecordedBy = recordedBy };
+        new() { Mode = Mode, Reason = Reason, Derived = Derived, ReplayedActions = ReplayedActions, TotalActions = TotalActions, Detail = Detail, NotRecorded = NotRecorded, Entry = Entry, RecordedBy = recordedBy };
 }
 
 /// <summary>The vision hint a judgment made from the tree alone carries, so the failing test names the remedy where it is read.</summary>

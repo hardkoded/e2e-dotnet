@@ -53,6 +53,11 @@ public abstract class E2ETest : E2EFixture
             Assert.Ignore(leftOut);
         }
 
+        if (SetupDependencies.HasRun(GetType(), current.Test.MethodName))
+        {
+            Assert.Ignore("the setup test already ran for a test that restores its session");
+        }
+
         RejectParallelChildren(current.Test.MethodName);
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
     }

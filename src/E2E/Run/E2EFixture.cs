@@ -263,6 +263,13 @@ public abstract class E2EFixture
         var sessions = restore is null && saves is null
             ? null
             : new SessionPlan(SessionRun.Store(ProjectRoot, Config.Output), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
+
+        // A session nobody saved yet is saved by its setup test first, as upstream's runner schedules it.
+        if (restore is not null && saves is null && sessions is not null)
+        {
+            await SetupDependencies.EnsureAsync(sessions, restore, GetType(), RunSetupAsync, cancellationToken).ConfigureAwait(false);
+        }
+
         var defaultModel = CreateModel();
         var defaultJudge = CreateJudge();
         var agents = CreateAgents();
@@ -321,6 +328,71 @@ public abstract class E2EFixture
                 TestFailed = testFailed,
             },
             cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs the setup test <paramref name="fixture"/> holds for a test that restores its session (see <see cref="SetupDependencies"/>): the
+    /// fixture's own start, its setup method, the settle, and the commit that saves the sessions, in a session of its own.
+    /// </summary>
+    private static async Task RunSetupAsync(E2EFixture fixture, System.Reflection.MethodInfo method, CancellationToken cancellationToken)
+    {
+        var title = fixture.GetType().FullName + "." + method.Name;
+        TestException? soft = null;
+        var failed = false;
+        await fixture.StartSessionAsync(title, 1, failure => soft ??= failure, () => failed, cancellationToken, method).ConfigureAwait(false);
+        var session = fixture._session!;
+        Exception? error = null;
+        try
+        {
+            var invoked = method.Invoke(fixture, method.GetParameters().Select(parameter => parameter.HasDefaultValue ? parameter.DefaultValue : parameter.ParameterType == typeof(CancellationToken) ? cancellationToken : parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null).ToArray());
+            switch (invoked)
+            {
+                case Task task:
+                    await task.ConfigureAwait(false);
+                    break;
+                case ValueTask valueTask:
+                    await valueTask.ConfigureAwait(false);
+                    break;
+            }
+
+            soft ??= session.CloseSoftFailures();
+            await session.SettleAttemptAsync(cancellationToken).ConfigureAwait(false);
+            if (soft is not null)
+            {
+                throw soft;
+            }
+
+            await session.FinishSetupAsync(true, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            failed = true;
+            error = ex is System.Reflection.TargetInvocationException { InnerException: { } inner } ? inner : ex;
+            try
+            {
+                await session.CaptureFailureEvidenceAsync(error).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The look is a courtesy: the setup's own failure is the one to report.
+            catch (Exception)
+#pragma warning restore CA1031
+            {
+            }
+
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
+            throw;
+        }
+        finally
+        {
+            try
+            {
+                session.Complete(error, cancellationToken);
+            }
+            finally
+            {
+                fixture.TakeSession();
+                await session.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>

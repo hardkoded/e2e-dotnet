@@ -10,7 +10,7 @@ internal static partial class CacheKeys
     /// Upstream's <c>templateTrace</c> (<c>cache/template.ts</c>): the recording as stored, each template's value replaced by its
     /// placeholder wherever the recorded text spelled it, or <see langword="null"/> when the recording cannot be templated safely: the
     /// text already spelled a placeholder, which could not be told from a written one at replay, or two marked params share a spelling,
-    /// so the text cannot say which one it came from. The port records no verdict summary, so there is none to keep as recorded.
+    /// so the text cannot say which one it came from. The verdict summary is kept as recorded: it is the model's prose about the recording run, not a replay input or an anchor.
     /// </summary>
     public static CacheEntry? TemplateTrace(CacheEntry trace, IReadOnlyList<ParamTemplate> templates)
     {
@@ -27,7 +27,13 @@ internal static partial class CacheKeys
             literalPlaceholder |= text.Contains(PlaceholderPrefix, StringComparison.Ordinal);
             return TemplateText(text, templates);
         });
-        return literalPlaceholder ? null : templated;
+        if (literalPlaceholder || templated is null)
+        {
+            return null;
+        }
+
+        templated.Summary = trace.Summary;
+        return templated;
     }
 
     /// <summary>

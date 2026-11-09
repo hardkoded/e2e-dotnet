@@ -9,9 +9,8 @@ namespace E2E.NUnit.Tests.AuthSetup;
 
 /// <summary>
 /// The setup tests of upstream's <c>apps/testbed/tests/auth.setup.e2e.ts</c> (both <c>test.setup</c> calls, outside any <c>describe</c>). They save
-/// the sessions <c>admin</c> and <c>admin-cookie</c>, which the <c>Dashboard</c> tests restore. NUnit runs the <c>AuthSetup</c> namespace
-/// before <c>Dashboard</c> (by name), and a run of the <c>Dashboard</c> tests alone fails with <c>SESSION_UNAVAILABLE</c>, because the port does not
-/// run a session's setup test for its dependents (#1244; see the Session store note in COMPATIBILITY.md). The config holds the <c>admin</c> credential of
+/// the sessions <c>admin</c> and <c>admin-cookie</c>, which the <c>Dashboard</c> tests restore. A run of
+/// the <c>Dashboard</c> tests alone runs the setup test that saves the session first (#1244; see the Session store note in COMPATIBILITY.md). The config holds the <c>admin</c> credential of
 /// upstream's <c>apps/testbed/e2e.config.ts</c>.
 /// </summary>
 public sealed class AuthSetupTests : E2ETest

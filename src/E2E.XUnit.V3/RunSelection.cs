@@ -46,6 +46,15 @@ internal static class RunSelection
         }
     }
 
+    /// <summary>Ends a setup test as skipped when it already ran for a test that restores its session (see <c>SetupDependencies</c>).</summary>
+    public static void SkipIfSetupRan(Type fixture, string? method)
+    {
+        if (SetupDependencies.HasRun(fixture, method))
+        {
+            throw new InvalidOperationException(DynamicSkipToken + "the setup test already ran for a test that restores its session");
+        }
+    }
+
     private static string KeyOf(Type fixture, string method) => fixture.FullName + "." + method;
 
     /// <summary>The tests of <paramref name="assembly"/>: every method of a concrete <see cref="E2ETest"/> that xUnit runs, a theory once.</summary>
