@@ -75,6 +75,6 @@ public sealed partial class BoundToolOutputTests
         Assert.True(bound.Truncated);
         Assert.Equal(1200, bound.TotalBytes);
         ExpectWithinLimits(bound.Text, 10, 1024);
-        Assert.DoesNotContain('�',bound.Text);
+        Assert.DoesNotContain('\uFFFD', bound.Text);
     }
 }
