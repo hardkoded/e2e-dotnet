@@ -107,6 +107,7 @@ The overloads without a `timeout` or a `context` are the ones an engine must wri
 ```csharp
 public sealed record OperationContext(OperationOrigin Origin)
 {
+    public TimeSpan? Timeout { get; init; } // upstream's timeoutMs: the time the call has
     public string RunId { get; init; }      // "" on OperationContext.Test and .Agent; the runtime fills it in
     public string AttemptId { get; init; }  // the same
 }
@@ -121,6 +122,7 @@ public enum OperationOrigin { Test, Agent }
 | `signal` | The `CancellationToken` every call takes. It cancels when the attempt, or the hook running the call, ends. It does not cancel at the budget: bound each call by its budget yourself. |
 | `timeoutMs` | The `TimeSpan timeout` of `ObserveAsync`, `LocateAsync`, `ScreenshotAsync`, and `ScreenshotArtifactAsync`. A waiting call's last locate or read can get more than its deadline leaves, as long as the slowest read it has seen, within the test timeout. `PerformAsync` and `PerformAtAsync` get no budget: see [Not in the port](#not-in-the-port). |
 | `runId`, `attemptId` | `OperationContext.RunId` and `OperationContext.AttemptId` on the overloads that take a context (`PerformAsync`, `PerformAtAsync`, `SwipeAsync`, `BackAsync`, `ResizeAsync`), and `EngineStartOptions.RunId` and `EngineStartOptions.AttemptId` at `StartAsync`. A session sets both, and the id of a call is the id it started with. The calls without a context (`OpenAsync`, `ObserveAsync`, and the rest) carry no ids. |
+| `timeoutMs` | `OperationContext.Timeout` on `PerformAsync` and `PerformAtAsync`: the time left of the action's deadline, at least 1 ms. The web engine uses it as the Playwright `timeout` of the action, so a call's `timeout` option bounds the engine. Null leaves the engine its own action timeout. |
 | `origin` | `OperationContext.Origin`. A deterministic step verifies its outcome with `Expect`, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. |
 
 ### Capabilities
@@ -636,7 +638,7 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | `validateApp`, `EngineAppDeclaration`, `EngineAppCheckInfo` | Not on `IEngine`; each first-party engine validates its own app ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)). |
 | `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
-| `OperationContext.signal`, `timeoutMs` on `PerformAsync`, `PerformAtAsync`, and the session hooks; `runId` and `attemptId` on the calls that take no `OperationContext` | [#1235](https://github.com/hardkoded/e2e-dotnet/issues/1235) tracks the action deadline reaching `perform`. |
+| `OperationContext.signal` (the `CancellationToken` of each call), `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks; `runId` and `attemptId` on the calls that take no `OperationContext` | [#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366). |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
 | The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
 | `parseKey`, `KEY_NAMES`, `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `resolveExpression`, `pollCondition`, `rejectUnknownKeys` | `internal` ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)), or covered by C# types. |

@@ -177,6 +177,9 @@ internal static class Time
     /// <summary>The longest budget handed to an engine read or a timer: a day, standing for no limit when nothing caps a step.</summary>
     public static readonly TimeSpan Unbounded = TimeSpan.FromDays(1);
 
+    /// <summary><paramref name="value"/> held between <paramref name="least"/> and <paramref name="most"/> (.NET-only helper for upstream's <c>Math.max(1, ms)</c>).</summary>
+    public static TimeSpan Between(TimeSpan value, TimeSpan least, TimeSpan most) => value < least ? least : value > most ? most : value;
+
     /// <summary>
     /// Refuses a per-call step timeout below zero as <c>INVALID_ARGUMENT</c> (upstream's <c>checkStepTimeout</c>; a <see cref="TimeSpan"/> is
     /// always a finite number of milliseconds, so only the sign is left to check). Zero means no step deadline: the step waits until the

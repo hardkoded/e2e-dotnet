@@ -1592,14 +1592,21 @@ public sealed partial class WebEngine : IEngine
 
         private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, async () =>
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => PerformAsync(node, action, OperationContext.Test, cancellationToken);
+
+        /// <summary>
+        /// <see cref="PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> within <paramref name="context"/>'s timeout, the Playwright
+        /// <c>timeout</c> of the action (upstream's <c>operation.timeoutMs</c> in <c>actions.ts</c>); the action timeout when it carries none.
+        /// </summary>
+        public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, async () =>
         {
+            ArgumentNullException.ThrowIfNull(context);
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
 
             // An action on a node needs no observation after a recovery, as upstream's: a ref from before it is retired, and one a locate
             // stored after it names an element of the page now.
-            var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
+            var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken, context.Timeout);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
             var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
 
@@ -1725,14 +1732,18 @@ public sealed partial class WebEngine : IEngine
         /// element to wait on, and the page decides what the gesture lands on, as it does for a person. Upstream's <c>performAt</c> and
         /// <c>dispatchPointerAction</c>.
         /// </summary>
-        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, () =>
+        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => PerformAtAsync(point, action, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="PerformAtAsync(Point, PointerAction, CancellationToken)"/> within <paramref name="context"/>'s timeout (upstream's <c>performAt(point, action, operation)</c>).</summary>
+        public Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, () =>
         {
             ArgumentNullException.ThrowIfNull(action);
+            ArgumentNullException.ThrowIfNull(context);
             RequireObservation();
             // A drag watches the cancellation itself and releases the mouse before it ends: the budget must not abandon it at a cancel,
             // or the call would end while the button is still down.
             var budgetToken = action is PointerAction.SwipeTo or PointerAction.DragTo ? CancellationToken.None : cancellationToken;
-            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", budgetToken);
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", budgetToken, context.Timeout);
         }));
 
         private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
@@ -3046,9 +3057,9 @@ public sealed partial class WebEngine : IEngine
             new(timeout ?? _actionTimeout, label, cancellationToken, _seams.Clock, _operationStart.Value);
 
         /// <summary>Sends one keystroke or pointer event, with no element behind it, within its budget, and classifies its failure.</summary>
-        private async Task InputAsync(Func<Task> input, string label, CancellationToken cancellationToken)
+        private async Task InputAsync(Func<Task> input, string label, CancellationToken cancellationToken, TimeSpan? timeout = null)
         {
-            var budget = Budget(label, cancellationToken);
+            var budget = Budget(label, cancellationToken, timeout);
             try
             {
                 await budget.WithinAsync(input()).ConfigureAwait(false);
