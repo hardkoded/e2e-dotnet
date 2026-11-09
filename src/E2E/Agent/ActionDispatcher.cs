@@ -34,6 +34,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private readonly StepAccounting _accounting;
     private readonly Func<IReadOnlyList<Secret>> _secrets;
     private readonly ActionHook? _onAction;
+    private readonly BeforeActionHook? _onBeforeAction;
     private readonly string _instruction;
 
     // The action the newest commit ran. A typed value recorded as a derived gap is still described as the fill it was
@@ -41,16 +42,18 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private RecordedAction? _committed;
     private readonly JsonObject? _params;
 
-    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction: the test's hook for each completed action.
+    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction and onBeforeAction: the test's hooks for each completed action
+    // and before each action.
     // instruction and parameters: the step's literal input (upstream's options.instruction and options.params), which a typed value is
     // checked against before it is recorded.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null)
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null, BeforeActionHook? onBeforeAction = null)
     {
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
         _secrets = secrets;
         _onAction = onAction;
+        _onBeforeAction = onBeforeAction;
         _instruction = instruction;
         _params = parameters;
     }
@@ -519,6 +522,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private async Task RunNowAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken)
     {
         _accounting.Reserve();
+        await BeforeAsync().ConfigureAwait(false);
         // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
         var actions = _accounting.Recorder.Actions;
@@ -798,16 +802,49 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             return;
         }
 
+        await InvokeHookAsync(
+            "onAction",
+            async () =>
+            {
+                await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
+                await hook(build(_accounting.Used, _scope.Redactor.Redact)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Upstream's <c>before</c>: hands the action about to run to the test's <c>OnBeforeAction</c> hook. The action's slot is already
+    /// taken, so its <see cref="BeforeActionEvent.Index"/> is the one its <c>OnAction</c> event carries. It does not wait for the
+    /// screen to settle. <paramref name="source"/> is <see cref="ActionSource.Replay"/> for an action the cache replays (upstream reads
+    /// <c>accounting.replayingTrace</c>).
+    /// </summary>
+    internal async Task BeforeAsync(ActionSource source = ActionSource.Model)
+    {
+        if (_onBeforeAction is not { } hook || _accounting.Closed)
+        {
+            return;
+        }
+
+        await InvokeHookAsync(
+            "onBeforeAction",
+            async () =>
+            {
+                await hook(new BeforeActionEvent(_accounting.Used, source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+                _accounting.Checkpoint();
+            }).ConfigureAwait(false);
+    }
+
+    // Upstream's invokeHook: an observer's failure stops the step, never becoming an executor retry or a replay hand-off.
+    private async Task InvokeHookAsync(string name, Func<Task> body)
+    {
         try
         {
-            await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
-            await hook(build(_accounting.Used, _scope.Redactor.Redact)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+            await body().ConfigureAwait(false);
         }
         catch (Exception cause) when (!ReferenceEquals(cause, _accounting.HardStop) && !_accounting.Token.IsCancellationRequested)
         {
             // A nested step's own budget or deadline is not this step's: the runtime vouches only for the stops it recorded itself.
             var code = cause is E2EException { Code: var named } && StepExecutors.AgentCodes.Contains(named) && !StepExecutors.RuntimeCodes.Contains(named) ? named : "ACTION_FAILED";
-            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " onAction failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
+            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " " + name + " failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
         }
     }
 

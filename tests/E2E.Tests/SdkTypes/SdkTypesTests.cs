@@ -7,7 +7,8 @@ using System.Reflection;
 namespace E2E.Tests.SdkTypes;
 
 /// <summary>
-/// Upstream's <c>tests/types/sdk-types.ts</c>, the lines the <c>grammar-tools-export</c> commit adds (tester-army/e2e#960). Upstream checks
+/// Upstream's <c>tests/types/sdk-types.ts</c>, the lines the <c>grammar-tools-export</c> commit adds (tester-army/e2e#960) and the
+/// <c>onBeforeAction</c> commit adds (tester-army/e2e#1387). Upstream checks
 /// them with the type checker; here they are reflection checks of the public API. Not ported: the lines upstream's checks keep for the
 /// AI SDK's <c>ToolSet</c>, which the port has no counterpart of (<see cref="ToolLoopTool"/> stands in for it).
 /// </summary>
@@ -67,5 +68,21 @@ public sealed class SdkTypesTests
         var pixels = typeof(ToolLoopResult).GetProperty(nameof(ToolLoopResult.Pixels))!.PropertyType;
         Assert.Equal(typeof(ExecutorPixels), Nullable.GetUnderlyingType(pixels) ?? pixels);
         Assert.Equal(typeof(string), typeof(ExecutorPixels).GetProperty(nameof(ExecutorPixels.MediaType))!.PropertyType);
+    }
+
+    // The lines the onBeforeAction commit adds (tester-army/e2e#1387): the event holds an index and a source and nothing a dispatch has not
+    // committed ("before dispatch has no committed summary", "no engine target or geometry is exposed"), the hook is a function, and an
+    // assertion has no before-action observer. Upstream's `onBeforeAction: true` check has no counterpart: a delegate cannot be anything else.
+    [Fact]
+    public void Partial_the_before_action_observer_sees_an_index_and_a_source_and_acts_take_it_but_assertions_do_not()
+    {
+        Assert.Equal(
+            [nameof(BeforeActionEvent.Index), nameof(BeforeActionEvent.Source)],
+            typeof(BeforeActionEvent).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(property => property.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(typeof(int), typeof(BeforeActionEvent).GetProperty(nameof(BeforeActionEvent.Index))!.PropertyType);
+        Assert.Equal(typeof(ActionSource), typeof(BeforeActionEvent).GetProperty(nameof(BeforeActionEvent.Source))!.PropertyType);
+        Assert.True(typeof(Delegate).IsAssignableFrom(typeof(BeforeActionHook)));
+        Assert.Equal(typeof(BeforeActionHook), typeof(ActOptions).GetProperty(nameof(ActOptions.OnBeforeAction))!.PropertyType);
+        Assert.Null(typeof(AssertOptions).GetProperty("OnBeforeAction"));
     }
 }

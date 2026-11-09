@@ -89,6 +89,22 @@ nothing from it. A throw fails the step.
 
 **Value:** [ActionHook](/api/E2E/ActionHook/)
 
+<a id="E2E_ActOptions_OnBeforeAction_"></a>
+<a id="E2E_ActOptions_OnBeforeAction"></a>
+
+### OnBeforeAction
+
+
+```csharp
+public BeforeActionHook? OnBeforeAction { get; init; }
+```
+
+
+Runs before each action, replayed ones included, and the step waits for it. It does not wait for the screen to settle. Observe
+only: drive nothing from it. A throw fails the step before the action runs.
+
+**Value:** [BeforeActionHook](/api/E2E/BeforeActionHook/)
+
 <a id="E2E_ActOptions_Params_"></a>
 <a id="E2E_ActOptions_Params"></a>
 

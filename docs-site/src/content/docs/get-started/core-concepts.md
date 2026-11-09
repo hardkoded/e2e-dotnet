@@ -125,4 +125,13 @@ await Agent.ActAsync("move the pin to Warsaw", new ActOptions
 });
 ```
 
+`ActOptions.OnBeforeAction` runs before each action, replayed ones included, with a `BeforeActionEvent` (`Index`, the same one that action's `OnAction` event gets, and `Source`). Use it to capture the screen an action started on. The step waits for it, and it does not wait for the screen to settle first. If it throws, the step fails before the action runs, with a message that starts with `agent.act onBeforeAction failed`. An action can still fail after it, with no `OnAction` call.
+
+```csharp
+await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
+{
+    OnBeforeAction = e => App.ScreenshotAsync($"before {e.Index}"),
+});
+```
+
 Exploring an app and the package map stay on [the guide](/guide/). The repository sample is [`samples/E2E.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.Sample).

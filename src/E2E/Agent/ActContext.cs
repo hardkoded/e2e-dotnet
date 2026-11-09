@@ -29,6 +29,9 @@ internal sealed class StepSpec
     /// <summary>Act only: the test's hook for each completed action.</summary>
     public ActionHook? OnAction { get; init; }
 
+    /// <summary>Act only: the test's hook before each action.</summary>
+    public BeforeActionHook? OnBeforeAction { get; init; }
+
     /// <summary>Assert only: whether the runtime keeps a redacted screenshot after the verdict. <c>false</c> opts out.</summary>
     public bool? Screenshot { get; init; }
 }
