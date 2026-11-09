@@ -456,7 +456,7 @@ internal sealed class SessionCatalog
     {
         Description = tool.Description,
         InputSchema = JsonSerializer.SerializeToElement(tool.InputSchema),
-        Execute = async (args, token) => await tool.ExecuteAsync(args.ValueKind == JsonValueKind.Object ? JsonNode.Parse(args.GetRawText())!.AsObject() : [], token).ConfigureAwait(false),
+        Execute = async (args, token) => await tool.ExecuteAsync(args.ValueKind == JsonValueKind.Object ? JsonNode.Parse(args.GetRawText())!.AsObject() : throw new ConfigurationException("INVALID_ARGUMENT", "a project tool takes an object"), token).ConfigureAwait(false),
     };
 
     private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen)

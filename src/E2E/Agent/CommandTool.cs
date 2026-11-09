@@ -13,12 +13,14 @@ namespace E2E;
 /// A project tool that <c>e2e.config.json</c> can declare (<c>agents.&lt;name&gt;.tools</c>), where upstream's config holds a
 /// <c>defineTool</c> call: .NET-only, since a JSON file has no code. The tool runs a command with the project root as its working directory,
 /// writes the model's input as JSON on its stdin, and answers what the command wrote on stdout. What it writes on stderr is printed on the
-/// process's stderr, line by line, as user code's output is. A command that exits with a code other than 0 fails the call.
+/// process's stderr, line by line, as user code's output is (the MCP server redacts it; a test run prints it as it is). A command that exits with a code other than 0 fails the call.
 /// </summary>
 internal static class CommandTool
 {
     /// <summary>How long a command may run before it is killed.</summary>
     internal static readonly TimeSpan Timeout = TimeSpan.FromMinutes(2);
+
+    private static readonly TimeSpan PipeGrace = TimeSpan.FromSeconds(2);
 
     private static readonly string[] Keys = ["description", "command", "inputSchema", "mutates", "platforms"];
 
@@ -114,11 +116,13 @@ internal static class CommandTool
 
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(Timeout);
+        Task<string>? stdout = null;
+        Task? stderr = null;
         try
         {
             // Both pipes are read at once, so a command that fills one cannot block on the other.
-            var stdout = process.StandardOutput.ReadToEndAsync(limit.Token);
-            var stderr = ForwardStderrAsync(process.StandardError, limit.Token);
+            stdout = process.StandardOutput.ReadToEndAsync(limit.Token);
+            stderr = ForwardStderrAsync(process.StandardError, limit.Token);
             try
             {
                 await process.StandardInput.WriteAsync(input.ToJsonString().AsMemory(), limit.Token).ConfigureAwait(false);
@@ -130,10 +134,20 @@ internal static class CommandTool
             }
 
             await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
+            try
+            {
+                // A grandchild that kept a pipe open must not hold the call: give the pipes a moment, then kill the tree and read what came.
+                await Task.WhenAll(stdout, stderr).WaitAsync(PipeGrace, limit.Token).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                KillTree(process);
+                await Task.WhenAll(stdout, stderr).WaitAsync(PipeGrace, limit.Token).ConfigureAwait(false);
+            }
+
             var text = await stdout.ConfigureAwait(false);
-            await stderr.ConfigureAwait(false);
             return process.ExitCode == 0
-                ? text.TrimEnd('\r', '\n')
+                ? text.TrimEnd((char)13, (char)10)
                 : throw new TestException("TOOL_FAILED", argv[0] + " exited with code " + process.ExitCode);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -142,17 +156,28 @@ internal static class CommandTool
         }
         finally
         {
-            if (!process.HasExited)
+            KillTree(process);
+            foreach (var read in new Task?[] { stdout, stderr })
             {
-                try
+                if (read is not null)
                 {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch (InvalidOperationException)
-                {
-                    // It exited between the check and the kill.
+                    // The reads end with the process; observe how, so none of them is left unobserved.
+                    await Task.WhenAny(read, Task.Delay(PipeGrace)).ConfigureAwait(false);
+                    _ = read.Exception;
                 }
             }
+        }
+    }
+
+    private static void KillTree(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+            // It exited already.
         }
     }
 

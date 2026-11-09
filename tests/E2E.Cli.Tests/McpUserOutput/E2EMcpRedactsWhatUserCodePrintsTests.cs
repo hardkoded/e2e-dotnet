@@ -55,6 +55,7 @@ public sealed class E2EMcpRedactsWhatUserCodePrintsTests
             }
 
             stderr = served.Stderr;
+            Assert.True(stderr.Contains("tool stderr no newline: <secret:apiToken>", StringComparison.Ordinal), "the line printed without a newline was never released; stderr was: " + stderr);
         }
 
         Assert.DoesNotContain(ServedToken, stderr, StringComparison.Ordinal);

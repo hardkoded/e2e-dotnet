@@ -809,7 +809,7 @@ public sealed class E2EConfig
                         ? Integer(tokens, label + ".maxInputTokens", 1, ResolvedAgent.MaxInputTokensLimit)
                         : E2EDefaults.MaxInputTokens,
                     ProviderOptions = ReadProviderOptions(Property(value, "providerOptions"), label),
-                    Tools = Property(value, "tools") is { } tools ? CommandTool.Read(tools, label + ".tools", projectRoot) : null,
+                    Tools = Property(value, "tools") is { ValueKind: not JsonValueKind.Null } tools ? CommandTool.Read(tools, label + ".tools", projectRoot) : null,
                 };
             }
         }
