@@ -3,7 +3,7 @@ title: From Maestro
 description: Turn Maestro YAML flows into C# tests that tap, type, and assert on the same simulator or emulator.
 ---
 
-This guide ports upstream's `docs/migrate/maestro.mdx` (tester-army/e2e at `7b1b8b27`, tester-army/e2e#1441). Maestro flows are YAML, so a Maestro project gets a .NET test project beside it, with a `MobileAppTest` base class.
+This guide ports upstream's `docs/migrate/maestro.mdx` (tester-army/e2e at `a016b3e4`: tester-army/e2e#1441, #1602, #1610, and #1618). Maestro flows are YAML, so a Maestro project gets a .NET test project beside it, with a `MobileAppTest` base class.
 
 e2e replaces Maestro's YAML flows with C# tests. Each command becomes an awaited call, usually on a locator, or one agent goal covers several. Both runners can use the same simulator or emulator while you move one flow at a time.
 
@@ -17,11 +17,12 @@ Migrate this project's Maestro flows to e2e, one flow at a time. Docs: the "From
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port the flows' appId into the target's app.bundleId and the build path into app.appPath, with the guide's config table.
-6. List the flow files and ask me which one to move first. Suggest a flow whose optional steps and runFlow branches often need updating.
-7. Rewrite that flow as a test class that derives from MobileAppTest, one awaited call per command, with the guide's tables. Apply "Rewrite selectors" to every selector.
-8. Keep the final assertions deterministic, with Expect.That. Where a run of commands breaks often, propose an Agent.ActAsync goal for it instead.
-9. Run the new class on a booted simulator with `dotnet test --filter` and fix it until it passes. Keep the Maestro flow until I confirm it can go.
-10. Summarize which flows moved, which stayed in Maestro, and why.
+6. Run `e2e doctor` and fix what it reports.
+7. List the flow files and ask me which one to move first. Suggest a flow whose optional steps and runFlow branches often need updating.
+8. Rewrite that flow as a test class that derives from MobileAppTest, one awaited call per command, with the guide's tables. Apply "Rewrite selectors" to every selector. Where the guide says "Not yet" or "No equivalent", use the workaround it gives, or leave that flow in Maestro and tell me why.
+9. Keep the final assertions deterministic, with Expect.That. Where a run of commands breaks often, propose an Agent.ActAsync goal for it instead.
+10. Run the new class on a booted simulator with `dotnet test --filter` and fix it until it passes. Keep the Maestro flow until I confirm it can go.
+11. Summarize which flows moved, which stayed in Maestro, and why.
 ```
 
 For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the old suite running until you retire each flow. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
@@ -48,7 +49,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
 | `maestro record` | `E2E_VIDEO=on dotnet test`, one MP4 of the device per attempt, or `video` in the config |
 | `maestro test -c`, Maestro Studio | Not yet. `e2e mcp` gives a coding agent a live session on the device, see [Coding agents](/coding-agents/) |
-| `maestro hierarchy` | Not yet. `Device.Locator(selector)` takes agent-device selectors for nodes `Screen` cannot name |
+| `maestro hierarchy` | Not yet. `await Device.UnstableRaw.Client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), cancellationToken)` returns agent-device's node tree as a `JsonNode`, see [`UnstableRaw`](/get-started/mobile/#3-write-a-test) and [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.Locator(selector)` takes agent-device selectors for nodes `Screen` cannot name |
 | Maestro Cloud | your CI |
 
 ## Rewrite one flow
@@ -112,7 +113,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `stopApp`, then `launchApp` | `App.RestartAsync()` |
 | `clearKeychain` | `Device.ClearKeychainAsync()`, the whole simulator's keychain; iOS only |
 | `openLink` | `Device.OpenLinkAsync(url, app)`; on iOS the link opens into `app`, default the pinned app |
-| `addMedia` | Not yet |
+| `addMedia` | Not yet. On an iOS simulator, run `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID), then `App.OpenAsync()` |
 | `back` | `App.BackAsync()`, or `Device.BackAsync()` |
 
 ### Taps and input
@@ -123,7 +124,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `tapOn: { id: x }` | `Screen.GetByTestId("x").TapAsync()` |
 | `tapOn: { text, index: 2 }` | `.Nth(2)` |
 | `tapOn: { below: "Email" }`, `above`, `leftOf`, `rightOf`, `containsDescendants` | No equivalent, see [Rewrite selectors](#rewrite-selectors) |
-| `tapOn: { point: "x,y" }` | Not yet: neither the screen-level `TapAt` nor the tap `position` is ported |
+| `tapOn: { point: "x,y" }` | `Screen.TapAtAsync(new Point(x, y))`; inside a node, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
 | `retryTapIfNoChange`, `waitToSettleTimeoutMs` | `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds`, engine-wide; no per-call knob |
 | `doubleTapOn`, `longPressOn` | `.DoubleTapAsync()`, `.LongPressAsync(new LongPressOptions { Duration = ... })` |
 | `inputText` | `Screen.GetByTestId("field").FillAsync("text")` |
@@ -135,16 +136,16 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `pressKey: lock`, `power`, `volume up`, `volume down` | Not yet. `Device.UnstableRaw.Client` does not take `command.hardwareButton` (upstream's `power`, `volume-up`, `volume-down`; no `lock`) either, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | TV remote keys | Not yet |
 | `copyTextFrom`, `pasteText` | `await locator.TextContentAsync()`, then `.FillAsync(text)` |
-| `setClipboard` | `Device.SetClipboardAsync(text)`; `Device.ClipboardAsync()` reads it |
+| `setClipboard` | `Device.SetClipboardAsync(text)`; `Device.ClipboardAsync()` reads it. Neither works on an Android build with no clipboard shell command |
 | `label: "..."` on a command | Not yet. Every `Screen`, `Device`, and `Agent` call is a report step named by the call |
 
 ### Gestures
 
 | Maestro | e2e |
 | --- | --- |
-| `swipe: { direction: UP }` | `locator.SwipeAsync(new SwipeOptions { Direction = ... })` inside one node; the screen-level `Swipe` is not ported. Maestro names the finger's direction, e2e the content's |
-| `swipe: { start, end }` | Not yet |
-| `scroll` | `locator.SwipeAsync(...)` on the scroll view |
+| `swipe: { direction: UP }` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `locator.SwipeAsync(...)` inside one node. Maestro names the finger's direction, e2e the content's |
+| `swipe: { start, end }` | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x, y), To = new Point(x, y) })` |
+| `scroll` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` |
 | `scrollUntilVisible: { element }` | `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction = ... })` |
 | `waitForAnimationToEnd` | an assertion on the settled state; `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds` for the engine |
 

@@ -37,15 +37,19 @@ page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
 | Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `selenium` | `setup` (web) |
 | Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `cypress` for Cypress; `playwright` for Playwright, with Node names for .NET ones | `setup` (web) |
 | Detox, Maestro | `.detoxrc*`, YAML flows opening with `appId:` and `---` | `detox`, `maestro` | `mobile` |
-| Appium | `Appium.WebDriver` in a `.csproj` | none: map the device commands with `detox` and `maestro`; no table covers Appium C# calls, so tell the user the mapping is by hand | `mobile` |
+| Appium | `Appium.WebDriver` in a `.csproj`, `appium:` capabilities in a `wdio.conf.*` or test setup, `appium` in `package.json`, `io.appium` in a `pom.xml` or `build.gradle`, `Appium-Python-Client` in `requirements.txt` | `appium` | `mobile` |
 | TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
+
+WebdriverIO for the web has no guide. Map its WebDriver calls with the
+`selenium` guide, and tell the user the mapping is partial. WebdriverIO with
+Appium capabilities is an Appium project.
 
 Also read `writing-tests-nunit` when the e2e project uses NUnit, or
 `writing-tests-xunit` when it uses xUnit v3. Follow the source project's
 framework when it is a .NET one; otherwise ask the user.
 
-A guide marks each feature `missing`, `by design`, or `web only`. Where it
-gives a workaround, use it. Where it gives none, the test stays in the old
+A guide marks each feature `missing`, `by design`, `web only`, "Not yet", or
+"No equivalent". Where it gives a workaround, use it. Where it gives none, the test stays in the old
 runner and the progress file says why. A project with two source runners
 migrates one at a time, one section of the progress file each.
 
@@ -171,7 +175,8 @@ which. When they leave it to you, suggest in this order:
 1. Tests whose shared helpers are already ported.
 2. Tests that break often in the old runner: retries, flaky history in CI,
    comments explaining a workaround for the runner. They gain the most.
-3. Tests that need a capability the port lacks, last (read `COMPATIBILITY.md`).
+3. Tests that need a capability the guide marks "Not yet", "No equivalent", or
+   `missing`, last (read `COMPATIBILITY.md`).
 
 Write the slice into the progress file's `Next` section before starting, so
 an interrupted session leaves a trail.
@@ -211,8 +216,9 @@ Then each test, one at a time:
   coordinate tap, a retry loop) is a workaround for the old runner. Try the
   plain step first; keep a workaround only when e2e needs it too, with its
   own comment saying why.
-- Where the port lacks a feature, the test stays in the old runner: mark it
-  `stays` with the reason, and offer to open an issue at
+- Where the guide marks a step "Not yet", "No equivalent", or `missing`, use
+  its workaround. When there is none, the test stays in the old runner: mark
+  it `stays` with the reason, and offer to open an issue at
   `hardkoded/e2e-dotnet` with the gap. Open it only when the user agrees.
 - Do not change app code. A test that needs a test id the app lacks gets
   `Agent.ActAsync` or a different locator; propose the app change to the
@@ -309,7 +315,7 @@ Defect check: on
 
 ## Gaps
 
-- The source test uses a feature the port does not have; issue filed.
+- A Maestro `addMedia` step has no e2e equivalent (guide: Not yet); issue filed.
 
 ## Next
 
