@@ -48,12 +48,12 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     // checked against before it is recorded.
     public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null, BeforeActionHook? onBeforeAction = null)
     {
-        _onBeforeAction = onBeforeAction;
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
         _secrets = secrets;
         _onAction = onAction;
+        _onBeforeAction = onBeforeAction;
         _instruction = instruction;
         _params = parameters;
     }
