@@ -1840,9 +1840,12 @@ internal sealed class ToolOutcome
     /// <summary>A refusal that keeps its error code, which the model never reads and a host driving the tools does.</summary>
     public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code };
 
-    public static ToolOutcome Finish(string status, string? summary, string? code) => new()
+    /// <summary>A verdict the policy accepted. <paramref name="droppedCode"/> is the code a passed verdict carried (empty when it is not a code the model may send, so the answer does not echo it); the answer says it was ignored.</summary>
+    public static ToolOutcome Finish(string status, string? summary, string? code, string? droppedCode = null) => new()
     {
-        Content = "done " + status,
+        Content = droppedCode is null
+            ? "Step concluded."
+            : "Step concluded as passed; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent does not apply to a passed verdict and was ignored.",
         Succeeded = true,
         Done = true,
         Status = status,

@@ -45,7 +45,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
         var model = new ScriptedModel(_ => next < calls.Length ? calls[next++] : ModelResponses.Done("passed", "Done."));
         var step = await StepCachePipelineTests.StepAsync(World(), new FileStepCache(CoreTests.TempCache()), "/", null, model, wrap: inner => declared ? engine = new TapModifiersEngine(inner) : inner);
         Assert.Null(step.Error);
-        var results = model.Requests[^1].Messages.Where(message => message.Role == "tool").Select(message => message.Content ?? "").Where(content => !content.StartsWith("done", StringComparison.Ordinal)).ToList();
+        var results = model.Requests[^1].Messages.Where(message => message is { Role: "tool" } && message.Name != "done").Select(message => message.Content ?? "").ToList();
         return (results, engine);
     }
 

@@ -616,7 +616,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
     private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)
     {
-        if (string.Equals(call.Name, "done", StringComparison.Ordinal))
+        if (string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal))
         {
             return Verdict.Decide(call);
         }
@@ -624,7 +624,10 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var tool = tools.FirstOrDefault(item => string.Equals(item.Definition.Name, call.Name, StringComparison.Ordinal));
         if (tool is null)
         {
-            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+            // The AI SDK's refusal of a tool the step does not offer: it names the tool and lists the vocabulary the step does offer.
+            return ToolOutcome.Fail(
+                "Model tried to call unavailable tool '" + call.Name + "'. Available tools: " +
+                string.Join(", ", tools.Select(item => item.Definition.Name).Append(VerdictTool.Name)) + ".");
         }
 
         try
