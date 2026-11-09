@@ -180,6 +180,18 @@ such as `"Ctrl+a"`, `"ab"`, or `""`, fails with `INVALID_ARGUMENT` before the
 locator is resolved, on every engine; the agent's `press` is checked the same way
 before any action is performed.
 
+`FillAsync` sets the value with no key events. When the app reacts to
+keystrokes (autocomplete, a masked input), use `PressSequentiallyAsync(text)`:
+it focuses the one matching field and types through the engine's keyboard,
+appending to the current content. With no `Delay` the whole text is one
+keyboard call; with `new PressSequentiallyOptions { Delay = ... }` each code
+point is its own call, with the delay waited between them. The focus, the
+pauses, and the keystrokes share the one action `Timeout`: a pause is cut at it,
+no character is sent past it, and the call fails with `ACTION_FAILED` saying
+how many characters it typed. An engine that declares no `Keyboard`, or does
+not list `focus` in `ActionKinds`, fails with `UNSUPPORTED_CAPABILITY` before
+any node resolves. A `Secret` has no overload: pass it to `FillAsync`.
+
 `ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
 `DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
 own step: `locator.click` and `locator.dblclick`, as in a report or trace.

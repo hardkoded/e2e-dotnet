@@ -433,7 +433,6 @@ public sealed class DeviceActions : IDeviceActions
         LocatorAction.DoubleTap => "doubleTap",
         LocatorAction.Fill => "fill",
         LocatorAction.Press => "press",
-        LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
         LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",

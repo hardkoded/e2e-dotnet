@@ -173,19 +173,6 @@ public sealed class DocumentEngine : IEngine
                     _focused = element;
                     Activate(element, press.Key);
                     break;
-                case LocatorAction.PressSequentially typed:
-                    RequireText(element);
-                    _focused = element;
-                    // A surrogate pair is one keystroke, as upstream splits by code point.
-                    for (var index = 0; index < typed.Text.Length;)
-                    {
-                        var length = char.IsSurrogatePair(typed.Text, index) ? 2 : 1;
-                        element.Value = (element.Value ?? "") + typed.Text.Substring(index, length);
-                        element.OnFill?.Invoke(element.Value);
-                        index += length;
-                    }
-
-                    break;
                 case LocatorAction.Select select:
                     element.Value = select.Text ?? select.Option?.Label ?? select.Option?.Value
                         ?? throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} lists no options to select by index.");

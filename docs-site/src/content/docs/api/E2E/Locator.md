@@ -1058,8 +1058,12 @@ public Task PressSequentiallyAsync(string text, PressSequentiallyOptions? option
 ```
 
 
-Focuses the input and types &lt;code class="paramref"&gt;text&lt;/code&gt; one character at a time,
-so the app receives key events. [Delay](/api/E2E/PressSequentiallyOptions/#E2E_PressSequentiallyOptions_Delay) waits between characters.
+Focuses the input and types &lt;code class="paramref"&gt;text&lt;/code&gt;, so the app receives key events. Core composes it from the engine's
+`focus` action and its keyboard: with no [Delay](/api/E2E/PressSequentiallyOptions/#E2E_PressSequentiallyOptions_Delay) the whole text is one keyboard call, and with one
+each code point is its own call, with the delay waited between them. The whole call shares one [Timeout](/api/E2E/ActionOptions/#E2E_ActionOptions_Timeout): a
+pause is cut at the deadline, no character is sent past it, and the call fails with `ACTION_FAILED` naming how many it typed. A target
+whose engine declares no keyboard, or does not declare `focus`, is refused with `UNSUPPORTED_CAPABILITY` before any node
+resolves. A secret is not typed as keystrokes; pass it to `FillAsync`.
 
 **Parameters**
 

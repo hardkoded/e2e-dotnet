@@ -160,7 +160,7 @@ Declare `Keyboard` and override `TypeTextAsync` to type into a control after the
 
 - Throw `NOT_ACTIONABLE` when no editable control has focus.
 - Leave `CanDismissKeyboard` at `false` on platforms without an on-screen keyboard.
-- `Locator.PressSequentiallyAsync` reaches `PerformAsync` as `LocatorAction.PressSequentially`, which the harness gates on the `focus` kind: list `focus` in `ActionKinds` and type the text one character at a time through the keyboard path.
+- `Locator.PressSequentiallyAsync` has no action of its own: the harness focuses the node with a `Focus` action, then types through `TypeTextAsync`, in one call for the whole text or one call per code point with a `Delay`. Keep `focus` in `ActionKinds` and declare `Keyboard`; an engine with neither is refused with `UNSUPPORTED_CAPABILITY` before any node resolves. The typing never retries, because a keystroke may already have landed.
 
 `PressAsync` receives a key such as `Enter` or `ControlOrMeta+a`. The harness rejects keys outside the grammar with `INVALID_ARGUMENT` before the engine sees them (`Locator.PressAsync` checks before it resolves the node, and the agent's `press` checks in its dispatcher). Map valid keys to your platform, and throw `UNSUPPORTED_CAPABILITY` for keys it can't send. See the [key grammar](/reference/engine/#keys).
 

@@ -2991,16 +2991,6 @@ public sealed partial class WebEngine : IEngine
                 case LocatorAction.Press press:
                     await element.PressAsync(press.Key, new ElementHandlePressOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
-                case LocatorAction.PressSequentially typed:
-                    await element.FocusAsync().ConfigureAwait(false);
-
-                    // A focus the deadline cut off must not type later, into whatever holds focus then.
-                    budget.ThrowIfExpired();
-                    await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
-                    {
-                        Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
-                    }).ConfigureAwait(false);
-                    break;
                 case LocatorAction.Select select:
                     var chosen = new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout };
                     if (select.Option is { } form)

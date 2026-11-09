@@ -377,6 +377,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Locate = engine.CanLocate ? engine.LocateAsync : null,
                 Perform = engine.PerformAsync,
                 PerformAt = engine.PerformAtAsync,
+                TypeText = engine.TypeTextAsync,
                 Cancellation = () => timeout.Token,
                 ActionTimeout = options.ActionTimeout,
                 AssertionTimeout = options.AssertionTimeout,

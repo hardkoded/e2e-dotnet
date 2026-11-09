@@ -183,7 +183,7 @@ Upstream's `type_at`, `press_at`, and `select_at` verbs, and the fallback of `ta
 | `Modifiers` on a tap | `TapModifiers`; the keys are held for the click |
 | `Screen.TapAtAsync`, a tap's `Position` | `PerformAtAsync` with the `tap` pointer kind |
 | `Screen.SwipeAsync(SwipePathOptions)` | `PerformAtAsync` with the `swipeTo` pointer kind |
-| `Locator.PressSequentiallyAsync` | the `focus` kind in `ActionKinds`; `LocatorAction.PressSequentially` |
+| `Locator.PressSequentiallyAsync` | the `focus` kind in `ActionKinds` and `Keyboard`; the harness composes a `Focus` action and `TypeTextAsync` |
 | `ToHaveScreenshotAsync` | `Screenshot` |
 | saved sessions | `State` |
 | `App.ScreenshotAsync()` | `ScreenshotArtifactAsync` |
@@ -346,7 +346,7 @@ When a semantic read fails, an engine may return masked pixels in place of the t
 | `clear` | `Clear` | yes | - |
 | `press` | `Press(Key)` | yes | - |
 | `check`, `uncheck` | `Check`, `Uncheck` | yes | - |
-| `focus` | `Focus`, and `PressSequentially(Text, Delay?)` | yes | - |
+| `focus` | `Focus` | yes | - |
 | `hover` | `Hover` | yes | yes |
 | `scrollIntoView` | `ScrollIntoView` | yes | - |
 | `selectOption` | `Select(Text, Option)` | yes | - |

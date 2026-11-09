@@ -147,15 +147,6 @@ public sealed class PerformTests
     }
 
     [Fact]
-    public async Task Pressing_sequentially_types_the_text_literally_into_the_focused_node()
-    {
-        var (harness, session, observation) = await OpenAsync();
-        await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.PressSequentially("ab c"), CancellationToken.None);
-        Assert.Equal(["focus edit-name", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:ab c"], harness.Driver.Calls);
-    }
-
-    [Fact]
     public async Task The_session_press_goes_to_the_main_window()
     {
         var (harness, session, _) = await OpenAsync();

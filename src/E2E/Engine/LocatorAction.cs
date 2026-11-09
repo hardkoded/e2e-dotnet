@@ -33,9 +33,6 @@ public abstract record LocatorAction
 
     public sealed record Press(string Key) : LocatorAction;
 
-    /// <summary>Focuses the node and types <paramref name="Text"/> one character at a time.</summary>
-    public sealed record PressSequentially(string Text, TimeSpan? Delay = null) : LocatorAction;
-
     /// <summary>
     /// Selects one option: the one whose value or label is <paramref name="Text"/>, or the one <paramref name="Option"/> names by its label,
     /// its value, or its index. Exactly one of the two is set.

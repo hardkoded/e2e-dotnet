@@ -33,13 +33,31 @@ internal sealed class ScriptedScene : IDisposable
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromMilliseconds(500),
-            TimeSpan.FromMilliseconds(500));
+            TimeSpan.FromMilliseconds(500),
+            typeText: (text, replace, _) =>
+            {
+                Type(text, replace);
+                return Task.CompletedTask;
+            });
+        Screen.Capabilities = EngineCapabilities.Keyboard;
     }
 
     public Screen Screen { get; }
 
     /// <summary>Every action the scene performed, as the node id and the action.</summary>
     public List<(string Id, LocatorAction Action)> Performs { get; } = [];
+
+    /// <summary>Every keystroke call the scene received, as the text and whether it replaced the field's value.</summary>
+    public List<(string Text, bool Replace)> Typed { get; } = [];
+
+    /// <summary>
+    /// Every action and keyboard call, in order, as <c>kind:id</c> for an action and <c>type:text</c> (<c>:replace</c> when it replaces) for a
+    /// keystroke call: upstream's <c>log</c> of its in-memory engine.
+    /// </summary>
+    public List<string> Log { get; } = [];
+
+    /// <summary>How many observations the scene answered: how often a locator resolved a node.</summary>
+    public int Observations { get; private set; }
 
     /// <summary>Runs <paramref name="mutate"/> once, <paramref name="milliseconds"/> from now; disposing the scene cancels it.</summary>
     public void After(int milliseconds, Action mutate) =>
@@ -98,6 +116,7 @@ internal sealed class ScriptedScene : IDisposable
     {
         lock (_gate)
         {
+            Observations++;
             return ObserveLocked();
         }
     }
@@ -120,11 +139,25 @@ internal sealed class ScriptedScene : IDisposable
         }
     }
 
+    /// <summary>Types into the focused node, as the engine's keyboard does; nothing focused is <c>NOT_ACTIONABLE</c>.</summary>
+    public void Type(string text, bool replace)
+    {
+        lock (_gate)
+        {
+            var node = All(_nodes).FirstOrDefault(entry => entry.Focused)
+                ?? throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus");
+            Typed.Add((text, replace));
+            Log.Add("type:" + text + (replace ? ":replace" : ""));
+            node.Value = (replace ? "" : node.Value ?? "") + text;
+        }
+    }
+
     private void PerformLocked(string id, LocatorAction action)
     {
         var node = All(_nodes).FirstOrDefault(entry => entry.Id == id)
             ?? throw new EngineException(EngineErrorCodes.NodeStale, "node " + id + " is no longer in the tree");
         Performs.Add((id, action));
+        Log.Add(EngineActionKinds.Of(action) + ":" + id);
         Apply(node, action);
         node.On?.Invoke(action, node);
     }
@@ -147,10 +180,6 @@ internal sealed class ScriptedScene : IDisposable
                 break;
             case LocatorAction.Focus:
                 Focus(node);
-                break;
-            case LocatorAction.PressSequentially typed:
-                Focus(node);
-                node.Value = (node.Value ?? "") + typed.Text;
                 break;
             case LocatorAction.Press { Key: "Backspace" }:
                 node.Value = (node.Value ?? "")[..Math.Max(0, (node.Value ?? "").Length - 1)];

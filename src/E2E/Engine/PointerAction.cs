@@ -60,10 +60,7 @@ public static class EngineActionKinds
     public static IReadOnlyList<string> Pointer { get; } =
         ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"];
 
-    /// <summary>
-    /// The upstream name of a locator action's kind. <see cref="LocatorAction.PressSequentially"/> is upstream's <c>focus</c> followed by
-    /// the keyboard, so it needs the engine to declare <c>focus</c>.
-    /// </summary>
+    /// <summary>The upstream name of a locator action's kind.</summary>
     public static string Of(LocatorAction action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -76,7 +73,6 @@ public static class EngineActionKinds
             LocatorAction.Fill => "fill",
             LocatorAction.Clear => "clear",
             LocatorAction.Press => "press",
-            LocatorAction.PressSequentially => "focus",
             LocatorAction.Check => "check",
             LocatorAction.Uncheck => "uncheck",
             LocatorAction.Focus => "focus",
