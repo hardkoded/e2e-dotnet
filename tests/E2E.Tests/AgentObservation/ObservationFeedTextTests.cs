@@ -77,10 +77,10 @@ public sealed class ObservationFeedTextTests
             Location = "https://shop.test/pay?card=" + Value,
             Roots = [new SemanticNode { Ref = "n1", Role = "button", Name = "Pay with " + Value }],
         };
-        _ = feed.View(look, scope, new ExecutorObserveOptions { Tree = true });
+        _ = feed.View(feed.PreparedOf(look), scope, new ExecutorObserveOptions { Tree = true });
 
         scope.Register("CARD", Value);
-        var view = feed.View(look, scope, new ExecutorObserveOptions { Tree = true });
+        var view = feed.View(feed.PreparedOf(look), scope, new ExecutorObserveOptions { Tree = true });
 
         Assert.Equal("/pay?card=%3Csecret:CARD%3E", view.Path);
         Assert.Equal("Pay with <secret:CARD>", view.Tree!.Single().Name);
@@ -96,7 +96,7 @@ public sealed class ObservationFeedTextTests
         var feed = new ObservationFeed(null!, TimeProvider.System) { Scope = scope };
         var look = new Observation { Route = "/pay?card=" + Value, Location = "https://shop.test/pay?card=" + Value, Roots = [], TreeUnavailable = true };
 
-        Assert.Equal("/pay?card=%3Csecret:CARD%3E", feed.View(look, scope).Path);
+        Assert.Equal("/pay?card=%3Csecret:CARD%3E", feed.View(feed.PreparedOf(look), scope).Path);
     }
 
     [Fact]

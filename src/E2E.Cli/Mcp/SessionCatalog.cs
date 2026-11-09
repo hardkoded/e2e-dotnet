@@ -88,7 +88,7 @@ internal sealed class SessionCatalog
         var kinds = actionKinds ?? [];
         var lines = new SessionTestLines(new TestLineOptions
         {
-            Newest = () => context.Session.Agent.Feed.Latest?.Roots,
+            Newest = () => context.Session.Agent.Feed.Latest?.Tree,
             Resolve = () => LineResolver(context.Session.Engine),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,

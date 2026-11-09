@@ -24,7 +24,7 @@ public sealed class ReplayTraceTests
     {
         var host = MakeHost();
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade], new ReplayOptions { Initial = Screen([Upgrade, Email]) });
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade], new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) });
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -109,7 +109,7 @@ public sealed class ReplayTraceTests
         var host = MakeHost();
         host.Capture = () => throw new EngineException("ACTION_FAILED", "the surface went away");
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail], new ReplayOptions { Initial = Screen([Upgrade, Email]) });
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail], new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) });
 
         Assert.False(outcome.Completed);
         Assert.Equal(1, outcome.Executed);

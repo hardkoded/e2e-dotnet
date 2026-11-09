@@ -76,6 +76,6 @@ public sealed class SessionTestsTests
     {
         public IReadOnlyList<SessionTestInfo> Select(Assembly tests, string name) => selected;
 
-        public Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null) => throw new NotSupportedException();
     }
 }

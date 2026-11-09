@@ -96,7 +96,7 @@ internal static class Relocate
 
     /// <summary>
     /// The projection of one observation under one redactor, shared by every lookup into it. Upstream's <c>projections</c> <c>WeakMap</c>.
-    /// The port keeps raw nodes, so the projection also depends on the redactor it was made under: a lookup under another one projects again.
+    /// The projection also depends on the redactor it was made under: a lookup under another one projects again.
     /// </summary>
     private sealed class Projection(Redactor redactor, IReadOnlyList<DescribedNode> described, IReadOnlyList<SemanticNode> roots)
     {
@@ -109,7 +109,7 @@ internal static class Relocate
         public IReadOnlyDictionary<SemanticNode, SemanticNode> Parents => _parents ??= AgentActions.ParentsOf(roots);
     }
 
-    private static readonly ConditionalWeakTable<Observation, Projection> Projections = new();
+    private static readonly ConditionalWeakTable<PreparedObservation, Projection> Projections = new();
 
     /// <summary>
     /// A descriptor with nothing to identify the control by: no test id, name, text, or placeholder, only a role. An icon button and a form
@@ -243,14 +243,14 @@ internal static class Relocate
     /// The node of an observation a relocation named by its reference. No upstream counterpart: upstream's result names a key of the map of
     /// nodes it was given (<c>nodes.get(id)</c>); the port names nodes by their <see cref="SemanticNode.Ref"/>.
     /// </summary>
-    internal static SemanticNode? NodeOf(Observation observation, string id)
+    internal static SemanticNode? NodeOf(PreparedObservation observation, string id)
     {
         ArgumentNullException.ThrowIfNull(observation);
-        return LocatorResolver.Walk(observation.Roots).FirstOrDefault(node => string.Equals(node.Ref, id, StringComparison.Ordinal));
+        return observation.Nodes.GetValueOrDefault(id);
     }
 
     /// <summary>Projects every node of an observation the way the recorder described its targets, once per observation and redactor. Hidden nodes are not candidates.</summary>
-    private static Projection Project(Observation observation, Redactor redactor)
+    private static Projection Project(PreparedObservation observation, Redactor redactor)
     {
         if (Projections.TryGetValue(observation, out var cached) && ReferenceEquals(cached.Redactor, redactor))
         {
@@ -258,7 +258,7 @@ internal static class Relocate
         }
 
         var described = new List<DescribedNode>();
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        foreach (var node in LocatorResolver.Walk(observation.Tree))
         {
             if (node.States.Hidden || node.States.AriaHidden)
             {
@@ -272,7 +272,7 @@ internal static class Relocate
             }
         }
 
-        var projection = new Projection(redactor, described, observation.Roots);
+        var projection = new Projection(redactor, described, observation.Tree);
         Projections.AddOrUpdate(observation, projection);
         return projection;
     }
@@ -282,10 +282,10 @@ internal static class Relocate
     /// Ambiguity at any tier diverges immediately: two candidates sharing the matched identity cannot be told apart by waiting, and acting on
     /// either would be a guess. The one exception is a recorded <c>position</c>: the recording itself found the same twins and noted which one it
     /// acted on, so the same count of twins resolves to the same one; any other count diverges as before.
-    /// Upstream takes a map of redacted nodes; the port takes the live observation and the redactor its nodes are read through, and the result
+    /// Upstream takes a map of redacted nodes; the port takes the prepared observation that holds that map and the redactor the descriptors are read through, and the result
     /// names nodes by their reference.
     /// </summary>
-    public static RelocationResult RelocateDescriptor(RecordedTarget descriptor, Observation observation, Redactor redactor)
+    public static RelocationResult RelocateDescriptor(RecordedTarget descriptor, PreparedObservation observation, Redactor redactor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         var (matches, tier) = MatchingIds(descriptor, observation, redactor);
@@ -313,7 +313,7 @@ internal static class Relocate
     /// one to its shape. No tier when nothing matches. The recorder uses the same projection to notice, before it writes a target, that the
     /// description alone would not tell the target from its twins.
     /// </summary>
-    private static (IReadOnlyList<string> Ids, DescriptorTier? Tier) MatchingIds(RecordedTarget descriptor, Observation observation, Redactor redactor)
+    private static (IReadOnlyList<string> Ids, DescriptorTier? Tier) MatchingIds(RecordedTarget descriptor, PreparedObservation observation, Redactor redactor)
     {
         var keyed = CandidatesWithin(descriptor.Within, observation, redactor);
         foreach (var tier in DescriptorTiers(descriptor))
@@ -336,7 +336,7 @@ internal static class Relocate
     }
 
     /// <summary>The candidates in the recorded container.</summary>
-    private static IReadOnlyList<DescribedNode> CandidatesWithin(string? within, Observation observation, Redactor redactor)
+    private static IReadOnlyList<DescribedNode> CandidatesWithin(string? within, PreparedObservation observation, Redactor redactor)
     {
         var projection = Project(observation, redactor);
         if (within is null)
@@ -365,10 +365,10 @@ internal static class Relocate
     /// <summary>
     /// Where <paramref name="node"/> stands among the controls its own description matches on the screen it was acted on, or null when the
     /// description already names it alone. Recorded with the target so a replay can tell one "Set up" button per card apart without an app
-    /// change; a distinct label makes it unnecessary. Upstream takes a map of redacted nodes; the port takes the live observation and the
+    /// change; a distinct label makes it unnecessary. Upstream takes a map of redacted nodes; the port takes the prepared observation and the
     /// redactor its nodes are read through.
     /// </summary>
-    public static TracePosition? DescribePosition(SemanticNode node, string? within, Observation observation, Redactor redactor)
+    public static TracePosition? DescribePosition(SemanticNode node, string? within, PreparedObservation observation, Redactor redactor)
     {
         ArgumentNullException.ThrowIfNull(node);
         var described = TraceRecorder.DescribeTarget(node, redactor);

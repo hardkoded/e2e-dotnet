@@ -20,7 +20,7 @@ public sealed class ContainerKeysTests
     private static SemanticNode Node(string role, string? name = null, string? text = null, params SemanticNode[] children) =>
         new() { Ref = "n" + Interlocked.Increment(ref _next), Role = role, Name = name, Text = text, Children = children };
 
-    private static Observation Screen(params SemanticNode[] roots) => new() { Route = "/", Roots = roots };
+    private static PreparedObservation Screen(params SemanticNode[] roots) => global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
 
     private static string? KeyOf(SemanticNode root, SemanticNode node) =>
         AgentActions.ContainerKey(node, AgentActions.ParentsOf([root]), Redactor.None);
@@ -64,7 +64,8 @@ public sealed class ContainerKeysTests
         var (table, _, _, delete2) = Table();
         var screen = Screen(table);
 
-        Assert.Same(delete2, Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list")));
+        // The match is the prepared (redacted) node of the screen, so it is the same node by its ref, not the same object.
+        Assert.Same(screen.Nodes[delete2.Ref], Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list")));
         Assert.Equal(2, E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None).Count);
         // The row is gone: not found, never the other row's button.
         Assert.Empty(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Offsite plan"));
@@ -127,7 +128,8 @@ public sealed class ContainerKeysTests
         Assert.Equal("Budget draft", KeyOf(table, delete1));
 
         var (live, liveRows) = List(501);
-        Assert.Same(liveRows[512].Row, Assert.Single(E2E.Agent.Find(Screen(live), "group", "Row 0512", "row-512", null, Redactor.None)));
+        var liveScreen = Screen(live);
+        Assert.Same(liveScreen.Nodes[liveRows[512].Row.Ref], Assert.Single(E2E.Agent.Find(liveScreen, "group", "Row 0512", "row-512", null, Redactor.None)));
     }
 
     [Fact]

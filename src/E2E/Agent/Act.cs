@@ -205,7 +205,7 @@ public sealed partial class Agent
             var start = session?.Start;
             if (start is null && !custom)
             {
-                start = await feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+                start = feed.PreparedOf(await feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false));
             }
 
             // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.

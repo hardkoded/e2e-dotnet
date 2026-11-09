@@ -16,7 +16,7 @@ public sealed class DescribePositionTests
 {
     internal static SemanticNode Button(string id, string name = "Set up") => new() { Ref = id, Role = "button", Name = name };
 
-    internal static Observation Screen(params SemanticNode[] roots) => new() { Route = "/", Roots = roots };
+    internal static PreparedObservation Screen(params SemanticNode[] roots) => global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
 
     [Fact]
     public void Records_where_a_target_stands_among_the_twins_its_description_matches()

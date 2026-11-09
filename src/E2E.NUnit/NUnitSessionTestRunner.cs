@@ -56,10 +56,10 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
             ? "test \"" + test.FullName + "\" starts from session \"" + saved + "\", which a setup test saves first; a session does not run setup tests yet, so run it with dotnet test"
             : null;
 
-    public async Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken)
+    public async Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null)
     {
         ArgumentNullException.ThrowIfNull(tests);
-        using var request = SessionHandover.Begin(name);
+        using var request = SessionHandover.Begin(name, host);
 
         // NUnitLite's console is stdout, which carries the MCP protocol: its report goes nowhere.
         using var output = new StringWriter();

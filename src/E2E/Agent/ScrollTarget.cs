@@ -54,13 +54,13 @@ internal static class ScrollTarget
     }
 
     /// <summary>Upstream's <c>samePlace</c>: the listed node of the role whose box overlaps <paramref name="box"/> most, when it overlaps enough.</summary>
-    public static SemanticNode? SamePlace(Observation observation, string? role, BoundingBox box)
+    public static SemanticNode? SamePlace(PreparedObservation observation, string? role, BoundingBox box)
     {
         ArgumentNullException.ThrowIfNull(observation);
         ArgumentNullException.ThrowIfNull(box);
         SemanticNode? best = null;
         var bestOverlap = 0.0;
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        foreach (var node in LocatorResolver.Walk(observation.Tree))
         {
             if (!string.Equals(node.Role, role, StringComparison.Ordinal) || node.Rect is not { } rect || node.States.Hidden)
             {

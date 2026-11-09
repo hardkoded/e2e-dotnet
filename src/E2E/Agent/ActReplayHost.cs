@@ -36,11 +36,11 @@ public sealed partial class Agent
 
         public TimeProvider Time => TimeProvider.System;
 
-        public Observation? FirstActedOn => feed.FirstActedOn;
+        public PreparedObservation? FirstActedOn => feed.FirstActedOn;
 
         public bool TraceEligible => feed.TraceEligible;
 
-        public Task<Observation> ObserveAsync(SettleMode mode) => feed.ObserveAsync(mode, token);
+        public async Task<PreparedObservation> ObserveAsync(SettleMode mode) => feed.PreparedOf(await feed.ObserveAsync(mode, token).ConfigureAwait(false));
 
         public bool TryReserve() => budget.TryReserve();
 

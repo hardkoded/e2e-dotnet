@@ -58,7 +58,7 @@ internal sealed partial class ActContext : StepExecutorContext
     private const int MaxOutcomeChars = 2048;
 
     [SetsRequiredMembers]
-    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, LedgerContext ledger, Observation? start, ReplayedPrefix? prefix)
+    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, LedgerContext ledger, PreparedObservation? start, ReplayedPrefix? prefix)
     {
         _scope = scope;
         _feed = feed;

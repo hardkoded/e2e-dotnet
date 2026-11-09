@@ -80,20 +80,18 @@ internal static class Anchors
     private static readonly Regex Digits = new(@"\d+", RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Every node of an observation that can serve as an anchor, in document order: a visible node with a
+    /// Every node of a prepared observation's node map that can serve as an anchor, in document order: a visible node with a
     /// name, a text, a test id, or a placeholder. The text is kept only when it differs from the name: for an
     /// anchor the text is the effect, a status reading "saved" rather than "empty". <paramref name="record"/> is the
     /// form a name, text, or value is stored in, such as with secrets redacted, and <paramref name="redact"/> the
-    /// form a test id or placeholder is. <paramref name="cut"/>, when given, redacts a name, text, or value as the
-    /// engine observed it, before it is read as one line, with the limit it is cut at: a secret the cut stopped
-    /// partway through leaves a part no whole-value match sees. A secure field's value is never read.
+    /// form a test id or placeholder is. The nodes are a prepared observation's, whose
+    /// strings were redacted as the engine cut them, so a secret the cut stopped partway through leaves no part to see. A secure field's value is never read.
     /// </summary>
-    public static List<AnchorNode> Project(Observation observation, Func<string, string> record, Func<string, string> redact, Func<string, int, string>? cut = null)
+    public static List<AnchorNode> Project(IReadOnlyDictionary<string, SemanticNode> nodes, Func<string, string> record, Func<string, string> redact)
     {
         static string? Field(string? value) => value is null || TextRules.Normalize(value) is not { Length: > 0 } text ? null : text;
-        string Read(string raw, int limit, string field) => cut is null ? field : Field(cut(raw, limit)) ?? field;
         var anchors = new List<AnchorNode>();
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        foreach (var node in nodes.Values)
         {
             var name = Field(node.Name);
             var text = Field(node.Text) is { } read && read != name ? read : null;
@@ -109,12 +107,12 @@ internal static class Anchors
             var target = new RecordedTarget
             {
                 Role = Field(node.Role) is { } role ? redact(role) : null,
-                Name = name is null ? null : record(Read(node.Name!, ObservationLimits.Name, name)),
-                Text = text is null ? null : record(Read(node.Text!, ObservationLimits.Text, text)),
+                Name = name is null ? null : record(name),
+                Text = text is null ? null : record(text),
                 TestId = testId is null ? null : redact(testId),
                 Placeholder = placeholder is null ? null : redact(placeholder),
                 InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
-                Value = value is null ? null : record(Read(node.Value!, ObservationLimits.Text, value)),
+                Value = value is null ? null : record(value),
                 States = states.Count == 0 ? null : states,
             };
             anchors.Add(new AnchorNode(target, KeyOf(target), node.Children.Count == 0));

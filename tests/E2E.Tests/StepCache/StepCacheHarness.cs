@@ -210,16 +210,16 @@ internal sealed class StepHost : IStepCacheHost
 
     public TimeProvider Time { get; }
 
-    public Observation? Latest { get; private set; }
+    public PreparedObservation? Latest { get; private set; }
 
-    public Observation? FirstActedOn { get; private set; }
+    public PreparedObservation? FirstActedOn { get; private set; }
 
-    public Task<Observation> ObserveAsync(SettleMode mode)
+    public Task<PreparedObservation> ObserveAsync(SettleMode mode)
     {
         Looks.Add(mode);
         if (Capture is { } capture)
         {
-            return Task.FromResult(Latest = capture(mode));
+            return Task.FromResult(Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(capture(mode), Redact));
         }
 
         if (_paths.Count > 0)
@@ -232,7 +232,7 @@ internal sealed class StepHost : IStepCacheHost
             _nodes = _screens.Count > 1 ? _screens.Dequeue() : _screens.Peek();
         }
 
-        return Task.FromResult(Latest = new Observation { Route = _path, Roots = _nodes });
+        return Task.FromResult(Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = _path, Roots = _nodes }, Redact));
     }
 
     public bool TryReserve() => true;
