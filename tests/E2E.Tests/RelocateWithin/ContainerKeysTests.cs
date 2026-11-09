@@ -65,7 +65,7 @@ public sealed class ContainerKeysTests
         var screen = Screen(table);
 
         // The match is the prepared (redacted) node of the screen, so it is the same node by its ref, not the same object.
-        Assert.Equal(delete2.Ref, Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list")).Ref);
+        Assert.Same(screen.Nodes[delete2.Ref], Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list")));
         Assert.Equal(2, E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None).Count);
         // The row is gone: not found, never the other row's button.
         Assert.Empty(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Offsite plan"));
@@ -128,7 +128,8 @@ public sealed class ContainerKeysTests
         Assert.Equal("Budget draft", KeyOf(table, delete1));
 
         var (live, liveRows) = List(501);
-        Assert.Equal(liveRows[512].Row.Ref, Assert.Single(E2E.Agent.Find(Screen(live), "group", "Row 0512", "row-512", null, Redactor.None)).Ref);
+        var liveScreen = Screen(live);
+        Assert.Same(liveScreen.Nodes[liveRows[512].Row.Ref], Assert.Single(E2E.Agent.Find(liveScreen, "group", "Row 0512", "row-512", null, Redactor.None)));
     }
 
     [Fact]

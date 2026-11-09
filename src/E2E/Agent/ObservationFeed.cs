@@ -31,7 +31,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     private readonly List<PreparedObservation> _recent = [];
 
     // What the engine's look the feed read was prepared as (upstream keeps each capture prepared; the port's engine hands back the raw look, so the feed pairs them).
-    private readonly ConditionalWeakTable<Observation, PreparedObservation> _preparedByLook = new();
+    private readonly ConditionalWeakTable<Observation, Prepared> _preparedByLook = new();
 
     // The newest raw look, whose shape the next change wait is armed against (upstream's changeShapeOf reads the prepared capture).
     private Observation? _latestLook;
@@ -257,7 +257,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         var prepared = Prepare(observation, pixels);
-        _preparedByLook.AddOrUpdate(observation, prepared);
+        _preparedByLook.AddOrUpdate(observation, _prepared!);
         _recent.Add(prepared);
         if (_recent.Count > MaxRecentObservations)
         {
@@ -281,6 +281,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             Revision = observation.Revision,
             Text = UnavailableTreeMarker,
             Bytes = System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker),
+            KeyboardVisible = observation.KeyboardVisible,
             Viewport = observation.Viewport,
         };
     }
@@ -292,7 +293,21 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public PreparedObservation PreparedOf(Observation observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
-        return observation.TreeUnavailable ? PixelsOnly(observation) : _preparedByLook.TryGetValue(observation, out var prepared) ? prepared : Prepare(observation, false);
+        if (observation.TreeUnavailable)
+        {
+            return PixelsOnly(observation);
+        }
+
+        // A secret registered since the look was prepared replaces the attempt's redactor, and what the model reads is never the old preparation.
+        _ = _preparedByLook.TryGetValue(observation, out var held);
+        if (held is not null && ReferenceEquals(held.Redactor, Scope?.Redactor ?? Redactor.None))
+        {
+            return held.Value;
+        }
+
+        var value = Prepare(observation, held?.Pixels ?? false);
+        _preparedByLook.AddOrUpdate(observation, _prepared!);
+        return value;
     }
 
     /// <summary>
