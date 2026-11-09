@@ -259,7 +259,7 @@ internal sealed class StepTraceSession
         if (_info is not null && Pending.ParamCollision && Pending.Entry is not null)
         {
             // The recording cannot be templated safely, so it is not written, and the result says why.
-            _info = new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = "param-collision", Entry = _info.Entry };
+            _info = new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, Derived = _info.Derived, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = "param-collision", Entry = _info.Entry };
         }
     }
 
@@ -386,7 +386,7 @@ internal sealed class StepTraceSession
                 // A prefix that performed nothing is a miss with a name, not a hand-off: the executor starts from the top and owes
                 // the notice nothing, whatever stopped the replay.
                 _recorder.Clear();
-                _info = Missed(reason, entry.Actions.Count, StoppedAt(outcome.StopReason is ReplayHandOffReason.ActionUncertain or ReplayHandOffReason.ActionFailed ? outcome.Detail : null));
+                _info = Missed(reason, entry.Actions.Count, StoppedAt(outcome.StopReason is ReplayHandOffReason.ActionUncertain or ReplayHandOffReason.ActionFailed ? outcome.Detail : null), outcome.Derived);
                 return null;
             }
 
@@ -399,7 +399,7 @@ internal sealed class StepTraceSession
                     HandOff(reason, StoppedAt(outcome.Detail));
                     return null;
                 default:
-                    HandOff(reason, StoppedAt());
+                    HandOff(reason, StoppedAt(), derived: outcome.Derived);
                     return null;
             }
         }
@@ -429,7 +429,7 @@ internal sealed class StepTraceSession
         return _handedOffMs is null || (_recorder.LastActionAtMs ?? 0) > _handedOffMs ? lastActionAtMs : _executorCompletedMs ?? _handedOffMs.Value;
     }
 
-    private void HandOff(string reason, string? detail, string? uncertain = null)
+    private void HandOff(string reason, string? detail, string? uncertain = null, DerivedReason? derived = null)
     {
         _handedOffMs = NowMs();
         if (string.Equals(reason, "end-mismatch", StringComparison.Ordinal))
@@ -438,11 +438,11 @@ internal sealed class StepTraceSession
         }
 
         _prefix = new ReplayedPrefix(_recorder.Actions.Select(SummaryOf).ToList(), Pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
-        _info = new CacheInfo { Mode = "agent-concluded", Entry = Pending.Key, Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
+        _info = new CacheInfo { Mode = "agent-concluded", Entry = Pending.Key, Reason = reason, Derived = derived, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
     }
 
-    private CacheInfo Missed(string reason, int totalActions, string? detail = null) =>
-        new() { Mode = "missed", Entry = Pending.Key, Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = totalActions, Detail = detail };
+    private CacheInfo Missed(string reason, int totalActions, string? detail = null, DerivedReason? derived = null) =>
+        new() { Mode = "missed", Entry = Pending.Key, Reason = reason, Derived = derived, ReplayedActions = _recorder.RecordedCount, TotalActions = totalActions, Detail = detail };
 
     // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
     // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.

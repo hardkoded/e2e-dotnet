@@ -118,6 +118,9 @@ internal sealed class ReplayOutcome
     /// <summary>The action whose commit state is unknown, on <see cref="ReplayHandOffReason.ActionUncertain"/> only.</summary>
     public string? UncertainAction { get; init; }
 
+    /// <summary>On a <see cref="ReplayHandOffReason.Gap"/> at a typed value: the rule that made the value this run's data.</summary>
+    public DerivedReason? Derived { get; init; }
+
     /// <summary>
     /// The redacted first line of the error that stopped the replay, on <see cref="ReplayHandOffReason.ActionFailed"/> and
     /// <see cref="ReplayHandOffReason.ActionUncertain"/>. Upstream's report does not name it; the port's cache detail does.
@@ -152,14 +155,14 @@ internal static class Replay
         var total = trace.Count;
         var token = host.Signal;
 
-        ReplayOutcome Stop(ReplayHandOffReason stopReason, string? partial = null, string? detail = null, string? uncertainAction = null)
+        ReplayOutcome Stop(ReplayHandOffReason stopReason, string? partial = null, string? detail = null, string? uncertainAction = null, DerivedReason? derived = null)
         {
             if (partial is not null)
             {
                 summaries.Add(partial);
             }
 
-            return new ReplayOutcome { Completed = false, Executed = summaries.Count, Total = total, Summaries = summaries, StopReason = stopReason, Detail = detail, UncertainAction = uncertainAction };
+            return new ReplayOutcome { Completed = false, Executed = summaries.Count, Total = total, Summaries = summaries, StopReason = stopReason, Detail = detail, UncertainAction = uncertainAction, Derived = derived };
         }
 
         RecordedAction? previous = null;
@@ -174,7 +177,7 @@ internal static class Replay
             // A project tool ran here, and the grammar cannot reproduce it: the replay ends and the model takes over.
             if (string.Equals(action.Kind, "tool", StringComparison.Ordinal))
             {
-                return Stop(ReplayHandOffReason.Gap);
+                return Stop(ReplayHandOffReason.Gap, derived: action.Derived);
             }
 
             // The look before this action: the start capture serves the first one; after that, the previous action's settle

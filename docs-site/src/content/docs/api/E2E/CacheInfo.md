@@ -25,6 +25,21 @@ public sealed class CacheInfo
 
 ## Properties
 
+<a id="E2E_CacheInfo_Derived_"></a>
+<a id="E2E_CacheInfo_Derived"></a>
+
+### Derived
+
+
+```csharp
+public DerivedReason? Derived { get; init; }
+```
+
+
+On a `gap` at a typed value: the rule that made the value this run's data rather than the flow's (upstream's `derived`). Null for a gap at a project tool.
+
+**Value:** `DerivedReason?`
+
 <a id="E2E_CacheInfo_Detail_"></a>
 <a id="E2E_CacheInfo_Detail"></a>
 
