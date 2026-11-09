@@ -84,33 +84,46 @@ public static class AgentTools
         "Look at the screen again. Action results already include the screen, so call this only after waiting for something in progress, never right after an action.",
         Parse("""{ "type": "object", "properties": {} }"""));
 
-    private static readonly ModelTool ScrollTo = Tool(
-        "scroll_to",
-        "Scroll until a node is inside the viewport. With a target alone, one listed control above or below the fold. " +
-        "With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen " +
-        "until a node reading that text shows, as one action however far. Prefer either to blind scrolling.",
-        Extend(
-            Target,
-            $$"""
-            {
-              "text": { "type": "string", "maxLength": {{MaxScrollToText}}, "description": "The visible text of the node to reach, or a distinctive part of it. With text, the target is the list to page." },
-              "direction": {{Directions}}
-            }
-            """));
+    private const string ScrollToTextDescription = "The visible text of the node to reach, or a distinctive part of it, e.g. \"Row 4322\". The list is paged screen by screen until a node reading it is in view; the node need not be listed yet.";
 
-    private static readonly ModelTool Scroll = Tool(
-        "scroll",
-        "Scroll the viewport, or one scrollable control when a target is given, by a screen or a few. " +
-        "The result shows the screen after the scroll. For a row far down a long list, prefer scroll_to with the row's text.",
-        Extend(
-            Target,
-            $$"""
-            {
-              "direction": {{Directions}},
-              "times": { "type": "integer", "minimum": 1, "maximum": {{MaxScrollTimes}}, "description": "How many screens to scroll in this one call, 1 to {{MaxScrollTimes}}; default 1." }
-            }
-            """,
-            "direction"));
+    // scroll_to reaches a node the screen lists (scrollTo) or one it does not list yet (scrollUntil, paging a list screen by screen). One tool,
+    // each form offered only with its verb (upstream's createGrammarTools). With text, the target is the list to page.
+    private static ModelTool ScrollToTool(bool byNode, bool byText)
+    {
+        var textProperty = $$"""{ "type": "string", "minLength": 1, "maxLength": {{MaxScrollToText}}, "description": {{JsonSerializer.Serialize(ScrollToTextDescription)}} }""";
+        var directionProperty = $$"""{ "type": "string", "enum": ["up", "down", "left", "right"], "description": "Which way to page for text; down by default." }""";
+        if (byNode && byText)
+        {
+            return Tool(
+                "scroll_to",
+                "Scroll until a node is inside the viewport. With target alone, one listed node the screen shows above or below the fold (a button past the fold, a row far down the page). With text, a node the screen does not list yet: the list named by target (or the viewport) is paged screen by screen until a node reading that text shows, as one action however far, for a row deep in a long or windowed list. Prefer either to blind scrolling.",
+                Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }"""));
+        }
+
+        return byNode
+            ? Tool(
+                "scroll_to",
+                "Scroll until one listed node is inside the viewport: for a target the screen lists but that sits above or below what is shown (a button past the fold, a row far down a long page). Prefer it to blind scrolling whenever the node has an id.",
+                Target)
+            : Tool(
+                "scroll_to",
+                "Scroll until a node reading the given text is inside the viewport: the list named by target (or the viewport) is paged screen by screen until it shows, as one action however far, for a row deep in a long or windowed list the screen does not list yet. Prefer it to blind scrolling whenever you know what the target reads.",
+                Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""", "text"));
+    }
+
+    private static ModelTool ScrollTool(bool withTarget)
+    {
+        var times = $$"""{ "type": "integer", "minimum": 1, "maximum": {{MaxScrollTimes}}, "description": "How many screens to scroll in this one call, 1 to {{MaxScrollTimes}}; default 1. Use more to move far down a long list or feed." }""";
+        return withTarget
+            ? Tool(
+                "scroll",
+                "Scroll the viewport, or one scrollable node when target is given, by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long or windowed list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
+                Extend(Target, $$"""{ "direction": {{Directions}}, "times": {{times}} }""", "direction"))
+            : Tool(
+                "scroll",
+                "Scroll the viewport by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
+                Parse($$"""{ "type": "object", "properties": { "direction": {{Directions}}, "times": {{times}} }, "required": ["direction"] }"""));
+    }
 
     private static readonly ModelTool Upload = Tool(
         "upload",
@@ -461,11 +474,14 @@ public static class AgentTools
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
     /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
     /// </summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false)
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false) =>
+        GrammarToolDefinitions(ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard), capabilities.HasFlag(EngineCapabilities.TapModifiers), actionKinds, project);
+
+    /// <summary>The same over the verbs the engine's declarations unlock (upstream's <c>verbs</c> of <c>createGrammarTools</c>): each tool is shaped by them.</summary>
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(IReadOnlySet<ExecutorVerb> verbs, bool tapModifiers = false, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyList<ModelTool>? project = null)
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
-        var verbs = ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard);
         foreach (var (name, kind) in PointerToolKinds)
         {
             if (actionKinds?.Contains(kind) == true)
@@ -474,33 +490,42 @@ public static class AgentTools
             }
         }
 
-        var keyboard = capabilities.HasFlag(EngineCapabilities.Keyboard);
+        var keyboard = verbs.Contains(ExecutorVerb.TypeText) || verbs.Contains(ExecutorVerb.PressKey);
         var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs));
-        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
-        if (capabilities.HasFlag(EngineCapabilities.Upload))
+        tools.AddRange(tapModifiers ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
+        if (verbs.Contains(ExecutorVerb.Upload))
         {
             tools.Add(Upload);
         }
 
-        if (capabilities.HasFlag(EngineCapabilities.Scroll))
+        if (verbs.Contains(ExecutorVerb.ScrollTo) || verbs.Contains(ExecutorVerb.ScrollUntil))
         {
-            tools.Add(ScrollTo);
-            tools.Add(Scroll);
+            tools.Add(ScrollToTool(verbs.Contains(ExecutorVerb.ScrollTo), verbs.Contains(ExecutorVerb.ScrollUntil)));
         }
 
-        tools.Add(Navigate);
-        if (capabilities.HasFlag(EngineCapabilities.History))
+        // Node-targeted scrolling rides a tap; without it only the viewport scrolls.
+        if (verbs.Contains(ExecutorVerb.Scroll))
+        {
+            tools.Add(ScrollTool(verbs.Contains(ExecutorVerb.Tap)));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Navigate))
+        {
+            tools.Add(Navigate);
+        }
+
+        if (verbs.Contains(ExecutorVerb.Back))
         {
             tools.Add(Back);
         }
 
-        if (capabilities.HasFlag(EngineCapabilities.Resize))
+        if (verbs.Contains(ExecutorVerb.Resize))
         {
             tools.Add(ResizeViewport);
         }
 
         // Upstream offers dismiss_keyboard with the dismissKeyboard verb, which an engine with a keyboard that can be hidden lists.
-        if (keyboard && dismissKeyboard)
+        if (verbs.Contains(ExecutorVerb.DismissKeyboard))
         {
             tools.Add(DismissKeyboard);
         }
@@ -522,7 +547,7 @@ public static class AgentTools
     /// <c>type_at</c> and <c>press_at</c> are offered with the keyboard too, <c>select_at</c> with <c>select</c>. With a
     /// <paramref name="keyboard"/>, <c>type_at</c> and <c>press_at</c> on a point on nothing listed tap it to focus it and go through the keyboard.
     /// </summary>
-    private static List<ModelTool> CreatePointTools(HashSet<ExecutorVerb> verbs, bool keyboard)
+    private static List<ModelTool> CreatePointTools(IReadOnlySet<ExecutorVerb> verbs, bool keyboard)
     {
         var tools = new List<ModelTool>();
         foreach (var (tool, bareVerb, nodeVerb, does, byId) in PointTools)

@@ -41,6 +41,7 @@ public static class DeviceMethods
     public const string AppsClose = "apps.close";
     public const string AppsInstall = "apps.install";
     public const string AppsReinstall = "apps.reinstall";
+    public const string AppsUninstall = "apps.uninstall";
     public const string AppsList = "apps.list";
     public const string SessionsList = "sessions.list";
     public const string SessionsClose = "sessions.close";
@@ -58,6 +59,7 @@ public static class DeviceMethods
     public const string InteractionsDrag = "interactions.drag";
     public const string CommandKeyboard = "command.keyboard";
     public const string CommandAlert = "command.alert";
+    public const string CommandHardwareButton = "command.hardwareButton";
     public const string CommandHome = "command.home";
     public const string CommandOrientation = "command.orientation";
     public const string CommandFold = "command.fold";

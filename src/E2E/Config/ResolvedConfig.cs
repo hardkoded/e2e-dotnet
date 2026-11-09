@@ -181,7 +181,8 @@ internal sealed record ResolvedConfig
     /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, the app
     /// as declared (env values reduced to their names and the run's port never), and the engine's declaration, never its live
     /// handle: name, version, contract version, platform, and the sorted capabilities, so two workers whose engines declare different
-    /// platforms do not agree on the digest. Only <see cref="Resolve"/> reads a target's engine; <c>HostTestFilters.Resolve</c>, the run path, has none until #1339. Differences: a JSON target has no engine, so none enters for it, and an engine has no
+    /// platforms do not agree on the digest.
+    /// Differences: a JSON target has no engine, so none enters for it, and an engine has no
     /// <c>workers</c>; a target's platform is always its own, since the port requires one.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
@@ -330,9 +331,9 @@ internal sealed record ResolvedConfig
     /// Resolves a config whose targets may hold an engine (upstream's <c>resolve</c>, <c>config/resolve.ts</c>, the part that builds
     /// <c>ResolvedTarget</c> from each target's <c>engine</c> and runs <see cref="CheckEngineSecrets"/> at load). .NET-only name and place beside
     /// <c>HostTestFilters.Resolve</c>: the port has no full resolver yet, and this builds only the targets and the checked secrets. Differences:
-    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none. <c>Filters</c> stay empty;
-    /// <c>HostTestFilters.Resolve</c> is the run path and does not call this until a public
-    /// engine-in-config API exists (#1339).
+    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code with <see cref="E2EConfig.WithTarget(string, IEngine)"/>; a JSON target
+    /// has none. <c>Filters</c> stay empty. <c>HostTestFilters.Resolve</c>, the run path, builds its one target with <see cref="ResolveTarget"/> and
+    /// runs <see cref="CheckEngineSecrets"/> too.
     /// </summary>
     internal static ResolvedConfig Resolve(E2EConfig config)
     {
@@ -340,10 +341,7 @@ internal sealed record ResolvedConfig
         var targets = new List<ResolvedTarget>(config.Targets.Count);
         foreach (var target in config.Targets)
         {
-            var engine = target.Engine is { } held
-                ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets)
-                : null;
-            targets.Add(new ResolvedTarget(target.Name, target.Platform, target.App, engine));
+            targets.Add(ResolveTarget(target));
         }
 
         CheckEngineSecrets(targets, config.Secrets, config.Credentials);
@@ -357,6 +355,13 @@ internal sealed record ResolvedConfig
             AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
         };
     }
+
+    /// <summary>The resolved form of one target: its engine, when it holds one, reduced to what selection and the secret check read.</summary>
+    internal static ResolvedTarget ResolveTarget(TargetConfig target) => new(
+        target.Name,
+        target.Platform,
+        target.App,
+        target.Engine is { } held ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets) : null);
 
     private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
         [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
