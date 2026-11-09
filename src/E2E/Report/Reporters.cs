@@ -102,6 +102,7 @@ internal static class Reporters
             }
         }
 
+        reporters.AddRange(config.CustomReporters);
         return reporters;
     }
 }
