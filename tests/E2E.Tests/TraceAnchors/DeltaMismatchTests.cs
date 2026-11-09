@@ -117,4 +117,19 @@ public sealed class DeltaMismatchTests
         Assert.True(Holds([Anchor("link", "PB-Twin-Alpha", testId: "row-1a2b")], [rerendered]));
         Assert.False(Holds([Anchor("listitem", testId: "row-1a2b")], [rerendered]));
     }
+
+    [Fact]
+    public void Reads_a_minted_test_id_by_its_shape_when_nothing_else_identifies_the_node()
+    {
+        const string mintedA = "rf__node-3f9c2a1b-7d4e-4c1a-9b2e-0a1b2c3d4e5f";
+        const string mintedB = "rf__node-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f";
+        var anchor = Anchor("box", testId: mintedA);
+
+        Assert.True(Holds([anchor], [Node("box", testId: mintedB)]));
+        Assert.False(Holds([anchor], [Node("box", testId: "rf__edge-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]));
+        Assert.False(Holds([anchor], [Node("button", "Delete", testId: mintedB)]));
+        // A vanished one stays exact: an older entry recorded it beside siblings of its shape.
+        Assert.True(Holds([], [Heading, Node("box", testId: mintedB)], [Heading, Node("box", testId: mintedA)], [anchor]));
+        Assert.False(Holds([], [Heading, Node("box", testId: mintedA)], [Heading, Node("box", testId: mintedA)], [anchor]));
+    }
 }
