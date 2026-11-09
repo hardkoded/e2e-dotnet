@@ -53,6 +53,13 @@
     {
         _query = args.Value as string ?? "";
         var url = Navigation.GetUriWithQueryParameter("q", _query.Length > 0 ? _query : null);
-        await JS.InvokeVoidAsync("history.replaceState", new { }, "", url);
+        try
+        {
+            await JS.InvokeVoidAsync("history.replaceState", new { }, "", url);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away: there is no page left to address.
+        }
     }
 }

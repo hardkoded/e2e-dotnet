@@ -77,18 +77,21 @@
     private async Task HandleScrollAsync()
     {
         var disposed = _disposed.Token;
-        double scrollTop, clientHeight, scrollHeight;
+        double[] geometry;
         try
         {
-            scrollTop = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollTop");
-            clientHeight = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "clientHeight");
-            scrollHeight = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollHeight");
+            // The three reads go out together: one round trip, not three.
+            geometry = await Task.WhenAll(
+                JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollTop").AsTask(),
+                JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "clientHeight").AsTask(),
+                JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollHeight").AsTask());
         }
-        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)
+        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException or JSException)
         {
             return;
         }
 
+        var (scrollTop, clientHeight, scrollHeight) = (geometry[0], geometry[1], geometry[2]);
         if (scrollTop + clientHeight < scrollHeight - 200)
         {
             return;
