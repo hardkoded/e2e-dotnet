@@ -75,7 +75,7 @@ public static class AgentTools
         "POLICY_DENIED",
     ];
 
-    private static readonly JsonElement Done = VerdictSchema(["passed", "failed", "blocked"], ModelErrorCodes);
+    private static readonly JsonElement Done = VerdictSchema(["passed", "failed", "blocked"], ModelErrorCodes, "Why the step failed or what blocked it. Only with status failed or blocked; a passed step carries none.");
 
     private static readonly JsonElement JudgeDone = VerdictSchema(["passed", "failed"], ["ASSERTION_FAILED", "ASSERTION_INCONCLUSIVE"]);
 
@@ -287,7 +287,7 @@ public static class AgentTools
             {
                 Name = verb.Name,
                 Description = verb.Description + " Pass modifiers to hold keys for the click.",
-                Parameters = Extend(Target, new JsonObject { ["modifiers"] = ModifiersSchema() }.ToJsonString()),
+                Parameters = Closed(Extend(Target, new JsonObject { ["modifiers"] = ModifiersSchema() }.ToJsonString())),
             }
             : verb;
 
@@ -360,11 +360,11 @@ public static class AgentTools
     }
 
     /// <summary>
-    /// Upstream's <c>schemaTool</c>: a grammar tool's schema is closed, so a field it does not declare fails validation and the call never runs.
+    /// Upstream's <c>schemaTool</c>: the schema of a grammar tool and of the verdict tool is closed, so a field it does not declare fails validation and the call never runs.
     /// Returns the refusal the model reads in the call's place (the AI SDK's <c>Invalid input for tool</c> error over a zod <c>unrecognized_keys</c>
     /// issue), or null when the call declares nothing but what the tool does. Only undeclared fields are checked: the tools read their own values.
     /// </summary>
-    private static string? SchemaTool(ModelTool definition, ModelToolCall call)
+    internal static string? SchemaTool(ModelTool definition, ModelToolCall call)
     {
         if (call.Arguments.ValueKind != JsonValueKind.Object
             || !definition.Parameters.TryGetProperty("properties", out var declared)
@@ -532,7 +532,7 @@ public static class AgentTools
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     internal static ModelTool Project(string name, AgentTool tool) =>
-        Tool(name, tool.Description, JsonSerializer.SerializeToElement(tool.InputSchema));
+        Open(name, tool.Description, JsonSerializer.SerializeToElement(tool.InputSchema));
 
     /// <summary>The extract tools, with <c>data</c> described by the JSON schema of the requested type.</summary>
     internal static IReadOnlyList<ModelTool> ExtractFor(JsonNode schema)
@@ -545,18 +545,37 @@ public static class AgentTools
         };
         return
         [
-            Tool("extract", "Return the data read from the screen.", JsonSerializer.SerializeToElement(parameters)),
-            Tool("done", "Use this only when the data is not on screen.", JudgeDone),
+            Open("extract", "Return the data read from the screen.", JsonSerializer.SerializeToElement(parameters)),
+            Open("done", "Use this only when the data is not on screen.", JudgeDone),
         ];
     }
 
-    private static ModelTool Tool(string name, string description, JsonElement parameters)
+    // Upstream's schemaTool: the schema of every grammar tool and of the verdict tool is closed, so a provider receives
+    // additionalProperties: false and refuses a field the tool does not declare.
+    private static ModelTool Tool(string name, string description, JsonElement parameters) => Open(name, description, Closed(parameters));
+
+    // A tool whose schema is not the grammar's to close: a project tool's is the author's own, and the extract tools' are upstream's own.
+    private static ModelTool Open(string name, string description, JsonElement parameters)
     {
         return new ModelTool { Name = name, Description = description, Parameters = parameters };
     }
 
-    private static JsonElement VerdictSchema(string[] statuses, string[] codes)
+    private static JsonElement Closed(JsonElement schema)
     {
+        if (JsonNode.Parse(schema.GetRawText()) is not JsonObject root || root.ContainsKey("additionalProperties"))
+        {
+            return schema;
+        }
+
+        root["additionalProperties"] = false;
+        return JsonSerializer.SerializeToElement(root);
+    }
+
+    private static JsonElement VerdictSchema(string[] statuses, string[] codes, string? codeDescription = null)
+    {
+        var codeProperty = codeDescription is null
+            ? $$"""{ "type": "string", "enum": {{JsonSerializer.Serialize(codes)}} }"""
+            : $$"""{ "type": "string", "enum": {{JsonSerializer.Serialize(codes)}}, "description": {{JsonSerializer.Serialize(codeDescription)}} }""";
         return Parse(
             $$"""
             {
@@ -564,7 +583,7 @@ public static class AgentTools
               "properties": {
                 "status": { "type": "string", "enum": {{JsonSerializer.Serialize(statuses)}} },
                 "summary": { "type": "string", "minLength": 1, "maxLength": {{MaxVerdictSummaryChars}}, "description": "One to three sentences for the next step: what you did, what the screen shows now, and any value it will need (a name or id you created, a message you saw). No page narration; under 400 characters." },
-                "code": { "type": "string", "enum": {{JsonSerializer.Serialize(codes)}} }
+                "code": {{codeProperty}}
               },
               "required": ["status", "summary"]
             }
@@ -690,6 +709,12 @@ public sealed class VerdictTool
     // The model picks only from a closed set of codes, and the runtime assigns the rest. Stateless: the loop reads the outcome itself.
     internal ToolOutcome Decide(ModelToolCall call)
     {
+        // The verdict tool's schema is closed too (upstream's schemaTool): a field it does not declare refuses the call.
+        if (AgentTools.SchemaTool(Tool, call) is { } refusal)
+        {
+            return new ToolOutcome { Content = refusal, Succeeded = false };
+        }
+
         var status = Args.String(call.Arguments, "status");
         if (status is not ("passed" or "failed" or "blocked"))
         {
