@@ -525,17 +525,61 @@ internal sealed partial class AcpSession
         }
 
         _server?.Dispose();
+        // Try at once, then once the agent is gone: removing at once avoids leaking the directory when the worker exits before the
+        // agent does, and on Windows a process the agent started in the directory still holds it, so an early removal throws.
+        if (!TryRemoveDirectory() && process is not null)
+        {
+            _ = RetryRemoveDirectoryAfterExitAsync(process);
+        }
+        else
+        {
+            process?.Dispose();
+        }
+
+        _lifetime.Dispose();
+    }
+
+    private bool TryRemoveDirectory()
+    {
         try
         {
             Directory.Delete(_directory, recursive: true);
+            return true;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return true;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            // Left to the temporary directory's own cleanup.
+            return false;
         }
+    }
 
-        process?.Dispose();
-        _lifetime.Dispose();
+    /// <summary>Waits for the agent to exit, then retries the removal 10 times at 200 ms, and disposes the process. Left to the temporary directory's own cleanup if it still fails.</summary>
+    private async Task RetryRemoveDirectoryAfterExitAsync(Process process)
+    {
+        try
+        {
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is OperationCanceledException or InvalidOperationException)
+            {
+                // The agent did not exit in time: try anyway.
+            }
+
+            for (var attempt = 0; attempt < 10 && !TryRemoveDirectory(); attempt++)
+            {
+                await Task.Delay(200).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            process.Dispose();
+        }
     }
 
     private JsonNode? OnRequest(string method, JsonElement parameters) =>
