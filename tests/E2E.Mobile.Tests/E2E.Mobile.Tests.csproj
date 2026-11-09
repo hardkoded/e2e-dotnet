@@ -17,6 +17,10 @@
     <ProjectReference Include="..\..\src\E2E.Mobile\E2E.Mobile.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The executable docs example, as upstream's provider-example test loads docs/examples/mobile/device-cloud-provider.ts. -->
+    <Compile Include="..\..\docs\examples\mobile\DeviceCloudProvider.cs" Link="DocsExamples\DeviceCloudProvider.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

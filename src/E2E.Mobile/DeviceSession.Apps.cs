@@ -66,6 +66,15 @@ public sealed partial class DeviceSession
         ArgumentNullException.ThrowIfNull(app);
         DeviceLinks.AssertAppId(app);
         options ??= new OpenAppOptions();
+        if (options.Permissions is { } given)
+        {
+            // Before any device command, so one unknown name leaves the permissions of the others unchanged (upstream's `assertPermissions`).
+            foreach (var (permission, state) in given)
+            {
+                AssertPermission("device.openApp({ permissions })", permission, state);
+            }
+        }
+
         var relaunch = options.Relaunch;
         var configured = relaunch && app == PinnedApp;
         var launchArguments = options.LaunchArguments ?? (configured ? _app.LaunchArguments : null);

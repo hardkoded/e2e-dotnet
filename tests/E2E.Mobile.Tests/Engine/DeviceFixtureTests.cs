@@ -497,6 +497,23 @@ public sealed class DeviceFixtureTests
             ("apps.open", """{"platform":"ios","app":"com.other"}"""));
     }
 
+    // Partial: upstream passes the name `notification` as a string key. DevicePermission is a closed enum, so the name is a cast number (`42`) here, which the
+    // refusal quotes in the same words: `device.openApp({ permissions }) has unknown key "42"`.
+    [Fact]
+    public async Task Partial_Refuses_an_openApp_permission_name_it_does_not_know_before_any_device_command()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        var refused = await Assert.ThrowsAsync<TestException>(() => device.OpenAppAsync(
+            "com.other",
+            new OpenAppOptions { Relaunch = true, Permissions = new Dictionary<DevicePermission, PermissionState> { [(DevicePermission)42] = PermissionState.Grant } }));
+        Assert.Equal("INVALID_ARGUMENT", refused.Code);
+        Assert.Contains("device.openApp({ permissions }) has unknown key \"42\"", refused.Message);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
+
     [Fact]
     public async Task Partial_Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one()
     {
@@ -582,5 +599,49 @@ public sealed class DeviceFixtureTests
         var count = android.Fake.Calls.Count;
         await androidSession.Device.FoldAsync(FoldPose.HalfOpen);
         JsonAssert.Calls(android.Fake.Calls, count, ("command.fold", """{"platform":"android","pose":"half-open"}"""));
+    }
+
+    // Upstream reads the labels off the declared `openApp`, `openLink`, and `setClipboard` operations. The port records each fixture call as a step, so the labels are read off the steps.
+    [Fact]
+    public async Task Labels_openApp_and_openLink_steps_without_the_link_query_and_setClipboard_by_length_so_a_token_never_enters_the_report()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var screen = new Screen(
+            session.ObserveAsync,
+            session.PerformAsync,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            locate: session.LocateAsync)
+        {
+            Steps = new StepRecorder("attempt"),
+        };
+        ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen));
+        var device = session.Device;
+
+        async Task<string> LabelOf(Func<Task> call, string? refusedAs = null)
+        {
+            // The labelled step is recorded whether or not the call reaches the device: a link is no app id, and a bare path no link.
+            var error = await Record.ExceptionAsync(call);
+            if (refusedAs is null)
+            {
+                Assert.Null(error);
+            }
+            else
+            {
+                Assert.Equal(refusedAs, Assert.IsType<TestException>(error).Code);
+            }
+
+            return screen.Steps!.All()[^1].Label;
+        }
+
+        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenAppAsync("https://app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
+        Assert.Equal("com.apple.Preferences", await LabelOf(() => device.OpenAppAsync("com.apple.Preferences")));
+        Assert.Equal("myapp://orders/42", await LabelOf(() => device.OpenLinkAsync("myapp://orders/42?ref=mail")));
+        Assert.Equal("verify", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
+        // Clipboard text is often a code or token the test copied, never a configured secret the ledger would redact.
+        Assert.Equal("6 chars", await LabelOf(() => device.SetClipboardAsync("482913")));
     }
 }
