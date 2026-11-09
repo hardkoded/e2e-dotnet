@@ -682,6 +682,8 @@ internal sealed class StepTraceSession
             return screen;
         }
 
+        public void AuthorizeUpload(IReadOnlyList<string> paths) => inner.AuthorizeUpload(paths);
+
         public bool TryReserve() => inner.TryReserve();
 
         public Task BeforeAsync() => inner.BeforeAsync();

@@ -117,9 +117,8 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         });
     }
 
-    /// <summary>Partial: upstream also reads back a lone surrogate (<c>\ud800</c>) in a string result. <c>System.Text.Json</c> refuses to read one as a <c>string</c>, so the port cannot return it from <c>EvaluateAsync&lt;string&gt;</c> and the assertion is left out (#1456).</summary>
     [Fact]
-    public async Task Partial_Returns_JSON_only()
+    public async Task Returns_JSON_only()
     {
         await AttemptAsync(async session =>
         {
@@ -132,8 +131,22 @@ public sealed class BrowserEvaluateErrorBoundariesTests
                 [new Item("a"), new Item("a")],
                 (await session.Browser.EvaluateAsync<Item[]>("""() => { const item = { sku: "a" }; return [item, item]; }"""))!);
             Assert.Equal(
-                "quote \" line\n\u2028 \ud83d\ude00",
-                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00" """));
+                "quote \" line\n\u2028 \ud83d\ude00 lone \ud800",
+                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00 lone \ud800" """));
+        });
+    }
+
+    // .NET-only: System.Text.Json refuses a lone surrogate, which a page's string, property, or error message can hold.
+    [Fact]
+    public async Task Keeps_a_lone_surrogate_in_a_property_and_in_a_thrown_message()
+    {
+        await AttemptAsync(async session =>
+        {
+            var basket = await session.Browser.EvaluateAsync<Dictionary<string, string[]>>("""() => ({ items: ["a\ud800", "\\ b"] })""");
+            Assert.Equal(["a\ud800", "\\ b"], basket!["items"]);
+            var thrown = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("""() => { throw new Error("bad \ud800"); }"""));
+            Assert.Equal("EVALUATE_FAILED", thrown.Code);
+            Assert.Contains("bad \ud800", thrown.Message);
         });
     }
 

@@ -2,7 +2,11 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using E2E.Internal;
 
 namespace E2E.Engine;
 
@@ -107,6 +111,84 @@ internal static class Evaluation
         }
         """;
 
+    /// <summary>
+    /// Options that read an evaluation result into a caller's type. A .NET-only concern: JavaScript strings are UTF-16 and may hold a
+    /// lone surrogate, which <c>System.Text.Json</c> refuses to read as a <see cref="string"/>, so strings are read leniently.
+    /// </summary>
+    public static readonly JsonSerializerOptions ResultOptions = new(JsonDefaults.Options) { Converters = { new LoneSurrogateStringConverter() } };
+
+    internal sealed class LoneSurrogateStringConverter : JsonConverter<string>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType is JsonTokenType.Null)
+            {
+                return null;
+            }
+
+            if (reader.TokenType is not JsonTokenType.String)
+            {
+                throw new JsonException("The JSON value is not a string.");
+            }
+
+            try
+            {
+                return reader.GetString();
+            }
+            catch (InvalidOperationException)
+            {
+                // A lone surrogate escape, such as the six characters backslash-u-d-8-0-0: unescape the raw text by hand.
+                return Unescape(reader.HasValueSequence ? Encoding.UTF8.GetString(reader.ValueSequence) : Encoding.UTF8.GetString(reader.ValueSpan));
+            }
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
+
+        internal static string Unescape(string raw)
+        {
+            var text = new StringBuilder(raw.Length);
+            for (var i = 0; i < raw.Length; i++)
+            {
+                if (raw[i] != '\\' || i + 1 >= raw.Length)
+                {
+                    text.Append(raw[i]);
+                    continue;
+                }
+
+                var next = raw[++i];
+                switch (next)
+                {
+                    case 'b': text.Append('\b'); break;
+                    case 'f': text.Append('\f'); break;
+                    case 'n': text.Append('\n'); break;
+                    case 'r': text.Append('\r'); break;
+                    case 't': text.Append('\t'); break;
+                    case 'u' when i + 4 < raw.Length && int.TryParse(raw.AsSpan(i + 1, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var code):
+                        text.Append((char)code);
+                        i += 4;
+                        break;
+                    default: text.Append(next); break;
+                }
+            }
+
+            return text.ToString();
+        }
+    }
+
+    // A page's error text may hold a lone surrogate too; GetString refuses it, so read the raw text.
+    private static string ReadText(JsonElement element)
+    {
+        try
+        {
+            return element.GetString()!;
+        }
+        catch (InvalidOperationException)
+        {
+            var raw = element.GetRawText();
+            return LoneSurrogateStringConverter.Unescape(raw[1..^1]);
+        }
+    }
+
     /// <summary>The result of the boundary <see cref="CompileEvaluation"/> compiled, from the JSON text it resolved to; throws what the page threw.</summary>
     public static JsonElement? DecodeEvaluation(string? text)
     {
@@ -130,10 +212,10 @@ internal static class Evaluation
 
             if (root.TryGetProperty("invalid", out var invalid))
             {
-                throw new TestException("INVALID_ARGUMENT", "evaluate result " + invalid.GetString());
+                throw new TestException("INVALID_ARGUMENT", "evaluate result " + ReadText(invalid));
             }
 
-            throw new TestException("EVALUATE_FAILED", root.GetProperty("message").GetString()!);
+            throw new TestException("EVALUATE_FAILED", ReadText(root.GetProperty("message")));
         }
     }
 }

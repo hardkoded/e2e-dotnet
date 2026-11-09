@@ -81,7 +81,29 @@ internal sealed class TestHost : IReplayHost
     internal static PreparedObservation Prepare(Observation observation, Redactor redactor) =>
         global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor, MaxBytes = E2EDefaults.MaxObservationBytes });
 
-    public bool TryReserve() => true;
+    /// <summary>The order the replay asked the host for its upload authorization, an action slot, and the before hook (.NET-only).</summary>
+    public List<string> Gates { get; } = [];
+
+    /// <summary>The upload policy: throws to refuse the paths (.NET-only; upstream's dispatcher owns it).</summary>
+    public Action<IReadOnlyList<string>>? UploadPolicy { get; set; }
+
+    public void AuthorizeUpload(IReadOnlyList<string> paths)
+    {
+        Gates.Add("authorize");
+        UploadPolicy?.Invoke(paths);
+    }
+
+    public bool TryReserve()
+    {
+        Gates.Add("reserve");
+        return true;
+    }
+
+    public Task BeforeAsync()
+    {
+        Gates.Add("before");
+        return Task.CompletedTask;
+    }
 
     public void MarkActing()
     {
