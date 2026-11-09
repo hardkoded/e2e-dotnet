@@ -38,6 +38,8 @@ With no base ref, every test runs. A session that `e2e mcp` opens on a named tes
 
 A filter's name keys the report and errors, so the fixture checks the list when it resolves the config. A name follows the target name rules (ASCII letters, numbers, `_`, `-`, or `.`, and not only dots), is at most 256 characters, and is unique in the list. A null item is refused. Each refusal is a `ConfigurationException` with the code `INVALID_CONFIG`.
 
+In GitLab CI/CD, set `E2E_CHANGED_SINCE` to the merge request's base: see [Run only affected tests](/integrations/gitlab/#run-only-affected-tests).
+
 ## Rerun what failed
 
 Set `E2E_LAST_FAILED=1` (or `true`), or override `protected virtual bool LastFailed` on the run fixture, to run only the tests the last run did not pass. The fixture reads the previous `report.json` from the output folder. Without one, the run stops with `NO_LAST_RUN`: run once without the flag first. A rerun removes the files in `results/` that the previous report does not name, and writes its own attempts to `results/<test>/rerun-<n>/attempt-<n>`. The evidence of the attempt it reruns, its video included, stays, even when the rerun passes.

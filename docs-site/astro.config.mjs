@@ -103,7 +103,7 @@ export default defineConfig({
                         { label: "TesterArmy", slug: "migrate/testerarmy" },
                     ],
                 },
-                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }, { label: "BrowserStack", slug: "integrations/browserstack" }, { label: "Pull request comments", slug: "integrations/github" }] },
+                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }, { label: "BrowserStack", slug: "integrations/browserstack" }, { label: "Pull request comments", slug: "integrations/github" }, { label: "GitLab CI/CD", slug: "integrations/gitlab" }] },
                 {
                     label: "Reference",
                     items: [

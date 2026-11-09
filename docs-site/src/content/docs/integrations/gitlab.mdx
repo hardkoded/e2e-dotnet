@@ -1,0 +1,115 @@
+---
+title: GitLab CI/CD
+description: Run web tests with dotnet test on GitLab CI/CD, show the results in the merge request, and run only the tests a merge request can affect.
+---
+
+This ports upstream's GitLab CI/CD page (`docs/ci/gitlab.mdx`). The jobs run `dotnet test` where upstream runs `npx e2e run`. The port has no CI index page, so this page sits under Integrations, next to [Pull request comments](/integrations/github/) for GitHub Actions.
+
+Web tests run on GitLab's hosted Linux runners. iOS and Android tests need your own runners (see [Mobile](#ios-and-android)).
+
+## Web
+
+This job runs the tests in each merge request and on each push to the default branch. It assumes the app starts from the [command](/get-started/web/) in `e2e.config.json`. Use the `dotnet/sdk` image for your project's .NET version:
+
+```yaml title=".gitlab-ci.yml"
+e2e:
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  interruptible: true
+  timeout: 30 minutes
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    APP_URL: http://127.0.0.1:3000
+    NUGET_PACKAGES: $CI_PROJECT_DIR/.nuget
+    PLAYWRIGHT_BROWSERS_PATH: $CI_PROJECT_DIR/.cache/ms-playwright
+  cache:
+    key:
+      files:
+        - "**/*.csproj"
+    paths:
+      - .nuget/
+      - .cache/ms-playwright/
+  script:
+    - dotnet build -c Release MyApp.E2E
+    - pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+    - dotnet test -c Release --no-build MyApp.E2E --logger "junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml"
+  artifacts:
+    when: always
+    expire_in: 7 days
+    paths:
+      - .e2e/report.json
+      - .e2e/results/
+    reports:
+      junit: .e2e/junit.xml
+```
+
+- The rules are on the job, not in a `workflow:` block, so the same job works in a pipeline of its own or [beside your other jobs](#add-it-to-an-existing-pipeline).
+- GitLab caches only paths inside the project, so `PLAYWRIGHT_BROWSERS_PATH` moves the browsers there. The cache keeps them until a project file changes.
+- The `junit` logger is the [JunitXml.TestLogger](https://github.com/spekt/junit.testlogger) package, which you add to the test project. The port has no JUnit reporter of its own: `dotnet test` writes the report. With it, `reports: junit` shows the results in the merge request widget and on the pipeline's **Tests** tab. `when: always` keeps the reports when a test fails too.
+- Make the app's command listen on `127.0.0.1`, the host `APP_URL` names. In the container, a dev server that listens on `localhost` can bind only `::1`, and the run fails with `APP_UNREACHABLE`.
+- On GitLab.com, a new account must verify its identity before hosted runners take its jobs. Until then, each pipeline fails without starting a job.
+
+## Add it to an existing pipeline
+
+When the project already has a `.gitlab-ci.yml`, put the job in a file of its own, such as `.gitlab/e2e.gitlab-ci.yml`, and include it:
+
+```yaml title=".gitlab-ci.yml"
+include:
+  - local: .gitlab/e2e.gitlab-ci.yml
+```
+
+A job with no `rules` runs only in branch pipelines. So a merge request pipeline runs the `e2e` job alone, and your other jobs still run once per push.
+
+## Model key
+
+Add the model key, such as `AI_GATEWAY_API_KEY`, under **Settings > CI/CD > Variables**, with the visibility **Masked and hidden**. Or use the [GitLab CLI](https://gitlab.com/gitlab-org/cli), which reads the value from standard input:
+
+```bash
+printf %s "$AI_GATEWAY_API_KEY" | glab variable set AI_GATEWAY_API_KEY --masked --hidden --raw
+```
+
+Add user credentials the same way. Each job gets them as environment variables. See [Environment variables](/reference/environment/) for the names.
+
+- Clear **Expand variable reference** (`--raw` does this). Otherwise GitLab rejects a masked value with `$` and some other characters.
+- GitLab masks only values of 8 or more characters, on one line, with no spaces. Use **Visible** for a value it can't mask, such as a short username.
+- Clear **Protect variable** unless the tests run only on protected branches.
+- A merge request from a fork runs in the fork's project, with none of your variables. When a member runs it in your project, its code can read the key. Do that only for code you trust.
+
+[Commit the replay cache](/features/caching/) to make fewer model calls.
+
+## Run only affected tests
+
+To let a [test filter](/docs/test-filters/) leave out the tests a merge request can't affect, set `E2E_CHANGED_SINCE` to the merge request's base. Add `GIT_DEPTH: 0` to the job's `variables` to fetch the full history. Then replace the `dotnet test` line with this one, which skips the variable in merge trains:
+
+```yaml
+  script:
+    # ...
+    - |
+      if [ -n "$CI_MERGE_REQUEST_IID" ] && [ "$CI_MERGE_REQUEST_EVENT_TYPE" != merge_train ]; then
+        export E2E_CHANGED_SINCE="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-$CI_MERGE_REQUEST_DIFF_BASE_SHA}"
+      fi
+      dotnet test -c Release --no-build MyApp.E2E --logger "junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit.xml"
+```
+
+`CI_MERGE_REQUEST_TARGET_BRANCH_SHA` is set in merged results pipelines, and `CI_MERGE_REQUEST_DIFF_BASE_SHA` in the others. On the default branch the whole suite runs. The run fixture must list a filter, as in [Turn it on](/docs/test-filters/#turn-it-on).
+
+## Sharding
+
+The port has no `--shard` flag. Use `parallel` with a `dotnet test --filter` per job, or one project per shard. GitLab merges the JUnit reports of all jobs in the merge request widget:
+
+```yaml
+e2e:
+  parallel:
+    matrix:
+      - SHARD: [login, checkout, search]
+  script:
+    # ...
+    - dotnet test -c Release --no-build MyApp.E2E --filter "FullyQualifiedName~.$SHARD." --logger "junit;LogFilePath=$CI_PROJECT_DIR/.e2e/junit-$SHARD.xml"
+```
+
+## iOS and Android
+
+Run mobile jobs on self-managed runners with the shell executor: a Mac with Xcode for iOS, and Linux with KVM and the Android SDK for Android. GitLab's hosted macOS runners are headless and don't support `testmanagerd`, which XCUITest needs, and its hosted Linux runners don't list KVM. Add `tags` for your runners to the job, boot the simulator or emulator in `script`, and give each job its own emulator port (for example from `CI_CONCURRENT_ID`) so jobs on one runner don't share a device. See [Mobile](/get-started/mobile/) for how a test names its device. The port has no mobile job recipe of its own yet; upstream's iOS and Android jobs are the starting point.
+
+To run without a simulator or emulator on the runner, lease devices from a hosted device service ([BrowserStack](/integrations/browserstack/) or [Limrun](/integrations/limrun/)).
