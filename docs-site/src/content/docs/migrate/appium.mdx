@@ -298,7 +298,8 @@ An Appium job starts the server with `appium &`, then the test run. An e2e job h
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test --project .
+cd MyApp.E2ETests
+dotnet test
 ```
 
 Each platform needs its own job: iOS on macOS, Android on Linux with KVM. Boot exactly one device, or name it with `E2E_MOBILE_DEVICE`, see [Mobile](/get-started/mobile/#4-run).
