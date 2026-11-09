@@ -62,6 +62,13 @@ public sealed class CacheEntry
     [JsonConverter(typeof(KeyContextConverter))]
     public TraceKeyContext? KeyedBy { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>summary</c> of a trace: the recorded run's verdict, which a whole replay answers with. Null on an entry recorded before
+    /// it was stored: upstream refuses such an entry, the port keeps reading it and answers "step passed" (.NET-only leniency, so recorded
+    /// caches stay readable).
+    /// </summary>
+    public string? Summary { get; set; }
+
     public string? Route { get; set; }
 
     public string? EndRoute { get; set; }
@@ -102,6 +109,7 @@ public sealed class CacheEntry
     /// </summary>
     internal bool HasValidCaps() =>
         Actions.Count <= Trace.MaxTraceActions
+        && Summary is not { Length: > Trace.MaxTraceSummaryChars }
         && Route is not { Length: > Trace.MaxTraceInputChars }
         && EndRoute is not { Length: > Trace.MaxTraceInputChars }
         && Appeared.Count <= Trace.MaxTraceAnchors

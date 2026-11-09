@@ -11,8 +11,7 @@ namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
 /// Upstream's <c>templateTrace</c> and <c>expandTrace</c> are <see cref="CacheKeys.TemplateTrace"/> and <see cref="CacheKeys.ExpandTrace"/>,
-/// called on a <see cref="CacheEntry"/>. The port records no action summaries and no verdict summary, so the checks of those fields
-/// are not ported; a test that needs one is partial.
+/// called on a <see cref="CacheEntry"/>. The port records action summaries and the verdict summary like upstream.
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
@@ -38,6 +37,7 @@ public sealed class TemplateTraceAndExpandTraceTests
             new RecordedAction { Kind = "tap", Summary = $"tap option \"{name}\" in row \"{name}\"", Role = "option", Name = name, Within = name },
             new RecordedAction { Kind = "press", Summary = "press \"Enter\" on textbox \"Name\"", Role = "textbox", Name = "Name", Key = "Enter" },
         ],
+        Summary = $"created {name}",
         Route = "/companies",
         EndRoute = "/companies/123",
         Appeared = [new RecordedTarget { Role = "heading", Name = name }],
@@ -61,13 +61,8 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Null(CacheKeys.ExpandTrace(recorded, []));
     }
 
-    /// <summary>
-    /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's value": the
-    /// typed value, the action summary, the target descriptor and the end anchors carry the slot and fill from the next run. The port
-    /// records no verdict summary, so that check is not ported.
-    /// </summary>
     [Fact]
-    public void Partial_Templates_inputs_descriptors_anchors_and_action_summaries_and_expands_them_with_another_runs_value()
+    public void Templates_inputs_descriptors_anchors_and_action_summaries_and_expands_them_with_another_runs_value()
     {
         var recorded = CacheKeys.TemplateTrace(Recording("E2E abc Company"), Name("E2E abc Company"))!;
 
@@ -84,9 +79,27 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Equal("<secret:admin>", recorded.Actions[2].Value);
         Assert.Equal("Enter", recorded.Actions[4].Key);
 
-        Assert.Equal(Json(Recording("E2E xyz Company")), Json(CacheKeys.ExpandTrace(recorded, Name("E2E xyz Company"))));
+        var expected = Recording("E2E xyz Company");
+        expected.Summary = "created E2E abc Company";
+        Assert.Equal(Json(expected), Json(CacheKeys.ExpandTrace(recorded, Name("E2E xyz Company"))));
         Assert.Null(CacheKeys.ExpandTrace(recorded, [new("/title", "E2E xyz Company")]));
         Assert.Null(CacheKeys.ExpandTrace(recorded, []));
+    }
+
+    [Fact]
+    public void Keeps_the_verdict_summary_as_recorded_prose_about_the_recording_run_not_a_replay_input()
+    {
+        var entry = Recording("Daily");
+        entry.Summary = "set the title to Daily and left the daily frequency unchanged";
+        var recorded = CacheKeys.TemplateTrace(entry, [new("/title", "Daily")])!;
+
+        Assert.Equal("set the title to Daily and left the daily frequency unchanged", recorded.Summary);
+        Assert.Equal("{{param:/title}}", recorded.Actions[1].Value);
+
+        // An entry recorded before this rule still fills its summary slot at replay.
+        var older = recorded.Copy();
+        older.Summary = "created {{param:/title}}";
+        Assert.Equal("created Weekly", CacheKeys.ExpandTrace(older, [new("/title", "Weekly")])!.Summary);
     }
 
     [Fact]

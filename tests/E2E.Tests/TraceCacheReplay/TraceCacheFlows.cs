@@ -337,5 +337,6 @@ internal static class TraceCacheFlows
         Assert.Equal(StepStatus.Passed, step.Status);
         Assert.Equal(("self-finalized", actions, actions), (step.Cache?.Mode, step.Cache?.ReplayedActions, step.Cache?.TotalActions));
         Assert.Equal(0, step.Metrics?.ModelCalls);
+        Assert.Contains("zero-turn", step.Explanation);
     }
 }

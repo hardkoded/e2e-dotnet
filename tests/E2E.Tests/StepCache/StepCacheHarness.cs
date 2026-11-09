@@ -70,11 +70,13 @@ internal static class StepCacheHarness
         RecordedTarget[]? goneAnchors = null,
         RecordedAction[]? actions = null,
         int? endWaitMs = null,
-        bool truncated = false)
+        bool truncated = false,
+        string? summary = null)
     {
         var entry = new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
+            Summary = summary ?? "opened the customers page",
             Route = startPath,
             EndRoute = endPath,
             EndWaitMs = endWaitMs,
