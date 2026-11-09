@@ -627,11 +627,15 @@ public sealed class ResolveConfigTests
         Assert.NotEqual(Declare("ios", """{ "bundleId": "a", "launchArguments": ["-x"] }"""), Declare("ios", """{ "bundleId": "a" }"""));
     }
 
-    /// <summary>Partial: the port has no engine to declare a platform, so the target's own <c>platform</c> is what the digest reads and none is inherited (#1308).</summary>
+    /// <summary>
+    /// Partial: the port's target names its platform (the field is required), so a named target cannot inherit its engine's; the test checks that the
+    /// engine's declared platform enters the digest. The engine is set in code on the internal <see cref="TargetConfig.Engine"/> (#1339).
+    /// </summary>
     [Fact]
     public void Partial_Digests_the_platform_an_engine_declares_which_a_named_target_inherits()
     {
-        static string Of(string platform) => Digest($$"""{ "targets": [{ "name": "app", "platform": "{{platform}}" }] }""");
+        static string Of(string platform) => ResolvedConfig.Resolve(E2EConfig.Parse("{}", Root, Env()).WithTarget(
+            new TargetConfig { Name = "app", Platform = platform, App = new AppConfig(), Engine = new SecretHoldingEngine(platform: platform) })).ConfigDigest;
         Assert.Equal(Of("web"), Of("web"));
         Assert.NotEqual(Of("web"), Of("ios"));
     }
@@ -656,11 +660,17 @@ public sealed class ResolveConfigTests
         Assert.NotEqual(a, c);
     }
 
-    /// <summary>Partial: a target has no engine to hold a <c>secrets.get()</c> handle, so only the configured secret's value is shown to stay out (#1308, #1246).</summary>
+    /// <summary>The engine is set in code on the internal <see cref="TargetConfig.Engine"/> (#1339), holding the secret the way <c>defineEngine({ secrets })</c> does.</summary>
     [Fact]
-    public void Partial_Keeps_an_engine_options_secret_out_of_the_config_digest()
+    public void Keeps_an_engine_options_secret_out_of_the_config_digest()
     {
-        static string Of(string value) => Digest($$"""{ "secrets": { "key": "{{value}}" }, "targets": [{ "name": "web", "platform": "web" }] }""");
+        static string Of(string value)
+        {
+            var config = E2EConfig.Parse($$"""{ "secrets": { "key": "{{value}}" } }""", Root, Env());
+            return ResolvedConfig.Resolve(config.WithTarget(
+                new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Engine = new SecretHoldingEngine(Secret.Create("key", value)) })).ConfigDigest;
+        }
+
         Assert.Equal(Of("first-value"), Of("second-value"));
     }
 
@@ -745,17 +755,17 @@ public sealed class ResolveConfigTests
         return name => map.GetValueOrDefault(name);
     }
 
-    private sealed class SecretHoldingEngine(Secret secret) : E2E.Engine.IEngine
+    private sealed class SecretHoldingEngine(Secret? secret = null, string platform = "web") : E2E.Engine.IEngine
     {
         public string Name => "fake";
 
-        public string Platform => "web";
+        public string Platform => platform;
 
         public string Version => "0";
 
         public E2E.Engine.EngineCapabilities Capabilities => E2E.Engine.EngineCapabilities.None;
 
-        public IReadOnlyList<Secret> Secrets => [secret];
+        public IReadOnlyList<Secret> Secrets => secret is null ? [] : [secret];
 
         public Task<E2E.Engine.IEngineSession> StartAsync(E2E.Engine.EngineStartOptions options, CancellationToken cancellationToken) =>
             throw new NotSupportedException();

@@ -178,16 +178,34 @@ internal sealed record ResolvedConfig
     private static JsonObject SecretName(string name) => new() { ["secretName"] = name };
 
     /// <summary>
-    /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, and the app
-    /// as declared, env values reduced to their names and the run's port never. Differences: a port target has no engine handle, so
-    /// no engine declaration enters.
+    /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, the app
+    /// as declared (env values reduced to their names and the run's port never), and the engine's declaration, never its live
+    /// handle: name, version, contract version, platform, and the sorted capabilities, so two workers whose engines declare different
+    /// platforms do not agree on the digest. Differences: a JSON target has no engine, so none enters for it, and an engine has no
+    /// <c>workers</c>; a target's platform is always its own, since the port requires one.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
-        new([.. targets.Select(target => (JsonNode?)new JsonObject
+        new([.. targets.Select(target =>
         {
-            ["name"] = target.Name,
-            ["platform"] = target.Platform,
-            ["app"] = TargetApps.DigestTargetApp(target.App),
+            var digest = new JsonObject
+            {
+                ["name"] = target.Name,
+                ["platform"] = target.Platform,
+                ["app"] = TargetApps.DigestTargetApp(target.App),
+            };
+            if (target.Engine is { } engine)
+            {
+                digest["engine"] = new JsonObject
+                {
+                    ["name"] = engine.Name,
+                    ["version"] = engine.Version,
+                    ["spiVersion"] = BuildReport.EngineSpiVersion,
+                    ["platform"] = engine.Platform,
+                    ["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)JsonValue.Create(name))]),
+                };
+            }
+
+            return (JsonNode?)digest;
         })]);
 
     /// <summary>
@@ -305,8 +323,8 @@ internal sealed record ResolvedConfig
     /// Resolves a config whose targets may hold an engine (upstream's <c>resolve</c>, <c>config/resolve.ts</c>, the part that builds
     /// <c>ResolvedTarget</c> from each target's <c>engine</c> and runs <see cref="CheckEngineSecrets"/> at load). .NET-only name and place beside
     /// <c>HostTestFilters.Resolve</c>: the port has no full resolver yet, and this builds only the targets and the checked secrets. Differences:
-    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none. <c>Filters</c> stay empty and the
-    /// digest does not yet include the engine (#1308); <c>HostTestFilters.Resolve</c> is the run path and does not call this until a public
+    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none. <c>Filters</c> stay empty;
+    /// <c>HostTestFilters.Resolve</c> is the run path and does not call this until a public
     /// engine-in-config API exists (#1339).
     /// </summary>
     internal static ResolvedConfig Resolve(E2EConfig config)
