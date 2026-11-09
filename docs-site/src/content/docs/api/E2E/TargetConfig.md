@@ -40,6 +40,23 @@ public required AppConfig App { get; init; }
 
 **Value:** [AppConfig](/api/E2E/AppConfig/)
 
+<a id="E2E_TargetConfig_Engine_"></a>
+<a id="E2E_TargetConfig_Engine"></a>
+
+### Engine
+
+
+```csharp
+public IEngine? Engine { get; init; }
+```
+
+
+The engine this target runs, built in code (upstream's `engine` of a target, `defineEngine(...)`); null for a JSON target, whose
+engine its platform chooses. `WithTarget` sets it. A run resolves the config with it: the secrets its options
+hold are checked against `secrets`, and its name, version, platform, and capabilities enter the config digest.
+
+**Value:** [IEngine](/api/E2E.Engine/IEngine/)
+
 <a id="E2E_TargetConfig_Name_"></a>
 <a id="E2E_TargetConfig_Name"></a>
 

@@ -40,7 +40,7 @@ public abstract class E2EFixture
     protected Secrets Secrets => Config.Secrets;
 
     /// <summary>Browser engine. Override to supply a <see cref="DocumentEngine"/> or a custom engine.</summary>
-    protected virtual IEngine CreateEngine() => new WebEngine();
+    protected virtual IEngine CreateEngine() => DeclaredTarget.Engine ?? new WebEngine();
 
     /// <summary>The model for <c>agents.default</c>, or null when the config sets no model.</summary>
     protected virtual IAgentModel? CreateModel() => Config.Agent.CreateModel();

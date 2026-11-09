@@ -427,6 +427,14 @@ lines you changed:
   value under 6 code points fails the fill with `SECRET_UNAVAILABLE` (a
   credential's password: `AUTH_CREDENTIAL_UNAVAILABLE`). The `E2E_SECRET_*`
   and `E2E_USER_*` variables still win over it.
+- An engine built in code (upstream's `targets: [{ engine: ... }]`) is set with
+  `config.WithTarget(name, engine)` (an `IEngine`; the target keeps the app of
+  the target of that name, and its platform is the engine's) or
+  `TargetConfig.Engine`. `E2EFixture`'s default `CreateEngine`, `E2EHost.OpenAsync`, `e2e explore`, and `e2e mcp` run it; the `MobileAppTest` and `WinAppTest` fixtures build their own. A run
+  checks every secret the engine's options hold (`IEngine.Secrets`) against
+  `config.secrets` at load, naming the nearest secret for a typo and never
+  accepting a credential's password, and the engine's name, version, platform,
+  and capabilities enter the config digest.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`

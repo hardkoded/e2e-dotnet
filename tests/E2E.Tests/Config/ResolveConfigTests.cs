@@ -310,18 +310,17 @@ public sealed class ResolveConfigTests
         Assert.Matches("credential \"admin\" has no username; set username or E2E_USER_ADMIN_USERNAME", missing.Message);
     }
 
-    /// <summary>
-    /// Partial: upstream builds the target's engine with <c>defineEngine({ secrets: [secrets.get(name)] })</c> in a config object. The port has no
-    /// public engine-in-config API (#1339), so the test puts a fake <see cref="E2E.Engine.IEngine"/> in an internal <see cref="TargetConfig.Engine"/>
-    /// and calls the internal <see cref="ResolvedConfig.Resolve(E2EConfig)"/>, which runs the check <c>resolve</c> runs.
-    /// </summary>
     [Fact]
-    public void Partial_Checks_every_secret_an_engine_option_holds_against_the_configured_secrets_never_a_credential()
+    public void Checks_every_secret_an_engine_option_holds_against_the_configured_secrets_never_a_credential()
     {
         var config = E2EConfig.Parse(
             """{ "secrets": { "stagingPassword": "staging-pass" }, "credentials": { "admin": { "username": "admin", "password": "admin-pass" } } }""", Root, Env());
-        void Check(string name) => ResolvedConfig.Resolve(config.WithTarget(
-            new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Engine = new SecretHoldingEngine(Secret.Create(name, "synthetic-value")) }));
+        void Check(string name)
+        {
+            var held = config.WithTarget("web", new SecretHoldingEngine(Secret.Create(name, "synthetic-value")));
+            ResolvedConfig.Resolve(held);
+            HostTestFilters.Resolve(held, []);
+        }
 
         Check("stagingPassword");
         foreach (var name in new[] { "admin", "admin.password" })
@@ -339,6 +338,30 @@ public sealed class ResolveConfigTests
         Assert.Equal(
             "target \"web\" engine fake uses secrets.get(\"stagingPasword\"), which is not configured; add it to config.secrets; did you mean \"stagingPassword\"?",
             typo.Message);
+    }
+
+    [Fact]
+    public void A_target_engine_enters_the_config_digest_and_the_run_uses_it()
+    {
+        var plain = E2EConfig.Parse("{}", Root, Env());
+        var engine = new SecretHoldingEngine(Secret.Create("stagingPassword", "synthetic-value"));
+        var held = E2EConfig.Parse("""{ "secrets": { "stagingPassword": "staging-pass" } }""", Root, Env()).WithTarget("web", engine);
+
+        Assert.Same(engine, held.Target.Engine);
+        Assert.Same(engine, E2E.Engine.TargetEngines.Create(held.Target, null, null));
+        Assert.NotEqual(Digest(plain), Digest(held));
+        Assert.Equal(Digest(held), HostTestFilters.Resolve(held, []).ConfigDigest);
+        Assert.Single(held.Targets);
+    }
+
+    [Fact]
+    public void The_run_path_checks_the_engine_secrets_of_a_target_the_run_does_not_use()
+    {
+        var config = E2EConfig.Parse("""{ "secrets": { "stagingPassword": "staging-pass" } }""", Root, Env())
+            .WithTarget("other", new SecretHoldingEngine(Secret.Create("stagingPasword", "synthetic-value")));
+        var error = Assert.Throws<ConfigurationException>(() => HostTestFilters.Resolve(config, [], target: config.Targets[0]));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("did you mean \"stagingPassword\"?", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

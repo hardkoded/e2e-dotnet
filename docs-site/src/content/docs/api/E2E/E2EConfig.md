@@ -71,7 +71,7 @@ public AgentConfig Agent { get; }
 ```
 
 
-The first of `AgentNames`, `default` unless `--agent` picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.
+The first of [AgentNames](#E2E_E2EConfig_AgentNames), `default` unless `--agent` picked another: the run's agent where exactly one is wanted. It always exists; its model may be null.
 
 **Value:** [AgentConfig](/api/E2E/AgentConfig/)
 
@@ -605,5 +605,30 @@ must be a string of at least six code points when it is asked for: a shorter one
 | --- | --- | --- |
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `provider` | [SecretProvider](/api/E2E/SecretProvider/) |  |
+
+**Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithTarget_"></a>
+<a id="E2E_E2EConfig_WithTarget_System_String_E2E_Engine_IEngine_"></a>
+
+### WithTarget(string, IEngine)
+
+
+```csharp
+public E2EConfig WithTarget(string name, IEngine engine)
+```
+
+
+A copy of the config whose target `name` runs the `engine`, in place of the target of the same
+name (which keeps its app, trace, and video) or after the others when none has it. .NET-only: the config file cannot hold an engine
+(upstream's `targets: [{ engine: web(...) }]` builds it in code), so code puts one in a target. The target's platform is the
+engine's. The engine's secrets are checked against `secrets` when the run resolves the config (`checkEngineSecrets`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `engine` | [IEngine](/api/E2E.Engine/IEngine/) |  |
 
 **Returns:** [E2EConfig](./)

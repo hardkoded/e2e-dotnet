@@ -16,6 +16,11 @@ internal static class TargetEngines
     public static IEngine Create(TargetConfig target, bool? headless, Func<TargetConfig, IEngine>? mobile, Func<TargetConfig, IEngine>? windows = null)
     {
         ArgumentNullException.ThrowIfNull(target);
+        if (target.Engine is { } held)
+        {
+            return held;
+        }
+
         return target.Platform switch
         {
             "web" => new WebEngine(headless),

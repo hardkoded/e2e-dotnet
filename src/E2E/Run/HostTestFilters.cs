@@ -199,16 +199,23 @@ internal static class HostTestFilters
     }
 
     /// <summary>A one-target <see cref="ResolvedConfig"/> from the loaded config (.NET-only: the port has no resolver). <paramref name="agents"/> are the agents built in code, which the digest takes in place of the file's <c>agents</c>; <paramref name="target"/> is the one a session runs on, where the config declares several (default <see cref="E2EConfig.Target"/>).</summary>
-    internal static ResolvedConfig Resolve(E2EConfig config, IReadOnlyList<ITestFilter> filters, IReadOnlyDictionary<string, AgentOptions>? agents = null, TargetConfig? target = null) => new()
+    internal static ResolvedConfig Resolve(E2EConfig config, IReadOnlyList<ITestFilter> filters, IReadOnlyDictionary<string, AgentOptions>? agents = null, TargetConfig? target = null)
     {
-        ProjectRoot = config.ProjectRoot,
-        ConfigPath = config.ConfigPath,
-        Ci = config.Ci,
-        Targets = [new ResolvedTarget((target ?? config.Target).Name, (target ?? config.Target).Platform, (target ?? config.Target).App)],
-        Filters = ResolvedConfig.ResolveTestFilters(filters),
-        ConfigDigest = ResolvedConfig.ComputeConfigDigest(config, agents),
-        AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
-    };
+        ResolvedTarget[] targets = [ResolvedConfig.ResolveTarget(target ?? config.Target)];
+
+        // Upstream's resolve checks every target's engine secrets at load, so a typo fails before a run starts, even in a target the run does not use.
+        ResolvedConfig.CheckEngineSecrets([.. config.Targets.Select(ResolvedConfig.ResolveTarget)], config.Secrets, config.Credentials);
+        return new()
+        {
+            ProjectRoot = config.ProjectRoot,
+            ConfigPath = config.ConfigPath,
+            Ci = config.Ci,
+            Targets = targets,
+            Filters = ResolvedConfig.ResolveTestFilters(filters),
+            ConfigDigest = ResolvedConfig.ComputeConfigDigest(config, agents),
+            AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
+        };
+    }
 
     internal static Collection Collect(IReadOnlyList<DiscoveredTest> discovered, IReadOnlyList<string> sourceFiles, out Dictionary<string, string> keys)
     {
