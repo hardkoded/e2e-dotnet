@@ -1,0 +1,12 @@
+# WebBenchmark
+
+Upstream's `apps/web-benchmark/app` (a Next.js app of self-contained scenarios that are hard to automate) rebuilt as an ASP.NET Core Blazor Web App. The home page lists every scenario; one opens at `/e/<slug>`. `ExamplesCatalog.cs` is upstream's `examples.ts`: every slug, name, description, and planted bug. A scenario's `Component` is null until it is ported: it is listed, and its page answers 404.
+
+```bash
+dotnet run --project apps/WebBenchmark        # http://127.0.0.1:4280, as upstream's `next start app --port 4280`
+dotnet run --project apps/WebBenchmark --urls http://127.0.0.1:5000
+```
+
+Rules kept from upstream: the DOM a scenario exposes (test ids, texts, roles, styles) stays as upstream renders it, and a planted bug is never fixed.
+
+Ported so far: Login Form. The tests that drive the app are in [`apps/WebBenchmark.E2ETests`](../WebBenchmark.E2ETests).
