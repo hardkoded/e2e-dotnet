@@ -66,6 +66,10 @@ public sealed class CdpSessionRecoveryTests
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(stale, new LocatorAction.Tap(), None))).Code);
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code);
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None))).Code);
+            // A locate after the recovery stores a ref the page answers now, so an action on it needs no observation (upstream's perform
+            // requires one only for the pointer and keyboard paths).
+            var fresh = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("heading", "Login", new RoleOptions()), TimeSpan.FromSeconds(10), None));
+            await session.PerformAsync(fresh, new LocatorAction.Hover(), None);
             await session.ObserveAsync(None);
             await session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None);
             Assert.Equal(1, provisioned);

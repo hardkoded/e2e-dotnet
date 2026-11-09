@@ -1334,13 +1334,6 @@ public sealed record LocatorExpression
     public string? Selector { get; init; }
 
     /// <summary>
-    /// The refs of the nodes a <c>refs</c> expression names. .NET-only: upstream's web engine projects a <c>selector</c> or <c>frame</c>
-    /// expression onto a Playwright locator, but the port's web engine resolves over its semantic tree, so it asks Playwright which
-    /// elements a selector names and hands the resolver their refs.
-    /// </summary>
-    internal IReadOnlySet<string>? Refs { get; init; }
-
-    /// <summary>
     /// Asks an engine that resolves over its tree to match hidden nodes too, which a role query otherwise skips. .NET-only: upstream's
     /// engines resolve with Playwright, which has no such switch. <c>toBeAttached</c> and <c>waitFor</c> set it on the expression they hand
     /// the engine; an engine that does not read it leaves it off.
@@ -1399,7 +1392,7 @@ public sealed record LocatorExpression
                 return new ErrorDetails { TestId = Value?.Pattern is null ? Value?.Text : null };
             case "frame":
                 return Source!.ExpressionHints();
-            case "selector" or "refs":
+            case "selector":
                 return new ErrorDetails();
             default:
                 return new ErrorDetails { Name = PatternText(Value) };
@@ -1482,7 +1475,6 @@ public sealed record LocatorExpression
             "placeholder" => "getByPlaceholder(" + Value + visible + ")",
             "displayValue" => "getByDisplayValue(" + Value + visible + ")",
             "selector" => "locator(" + Quoted(Selector) + ")",
-            "refs" => "locator(" + string.Join(", ", Refs ?? (IEnumerable<string>)[]) + ")",
             _ => Kind,
         };
         return Parent is null ? core : Parent.Describe() + "." + core;
@@ -1670,7 +1662,6 @@ internal static class LocatorResolver
             "placeholder" => value!.Matches(node.Placeholder, query.Exact),
             // A checkbox or radio carries a value it never shows (`on` by default), so it is no candidate.
             "displayValue" => !IsCheckable(node) && value!.Matches(node.Value, query.Exact),
-            "refs" => query.Refs!.Contains(node.Ref),
             _ => false,
         };
     }

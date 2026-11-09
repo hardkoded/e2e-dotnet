@@ -60,7 +60,11 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         var observed = Flatten(fresh.Roots).ToList();
         var ids = observed.Select(node => node.Ref).ToList();
         Assert.Equal(ids.Count, ids.Distinct().Count());
-        Assert.Equal("Button A", Assert.Single(observed, node => node.Ref == located.Ref).Name);
+        // A located ref is the registry's own (upstream's storeLocated), distinct from every id the observation lists.
+        Assert.Equal("Button A", located.Name);
+        Assert.DoesNotContain(located.Ref, ids);
+        await session.PerformAsync(located, new LocatorAction.Tap(), CancellationToken.None);
+        Assert.Equal("A", await page.Locator("body").GetAttributeAsync("data-clicked"));
         foreach (var name in new[] { "Button B", "Button C", "Button D" })
         {
             var target = Assert.Single(observed, node => node.Name == name);

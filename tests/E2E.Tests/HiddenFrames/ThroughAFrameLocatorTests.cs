@@ -33,6 +33,8 @@ public sealed class ThroughAFrameLocatorTests
             await Expect.That(button).ToBeAttachedAsync();
             await button.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
             Assert.Equal(0, await session.Browser.FrameLocator("[name=frame]").GetByRole("button").CountAsync());
+            // .NET-only: toBeAttached asks for hidden role matches (LocatorExpression.IncludeHidden), a hidden frame's included.
+            await Expect.That(session.Browser.FrameLocator("[name=frame]").GetByRole("button")).ToBeAttachedAsync();
         });
     }
 
@@ -69,7 +71,8 @@ public sealed class ThroughAFrameLocatorTests
             TestTimeout = TimeSpan.FromSeconds(30),
         });
         await session.App.OpenAsync("/");
-        await Expect.That(session.Screen.GetByRole("button", "Parent")).ToBeVisibleAsync();
+        // A plain query does not enter an iframe, as upstream's: the page is ready when its visible frame has loaded.
+        await Expect.That(session.Browser.FrameLocator("[name=parent]").GetByRole("button", "Parent")).ToBeVisibleAsync();
         await body(session);
     }
 }

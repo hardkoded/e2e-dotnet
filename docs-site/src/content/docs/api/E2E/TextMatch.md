@@ -23,7 +23,9 @@ A string or a regular expression, the upstream `TextMatch`, used by
 both screen queries and expectations. In a query, a string matches exactly
 by default, and `exact: false` makes it a case-insensitive substring;
 a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) is tested against the whitespace-normalized text and
-ignores `exact`. Converts implicitly from both.
+ignores `exact`. On the web a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) runs in the page as
+the JavaScript regular expression of the same pattern, over the raw text.
+Converts implicitly from both.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

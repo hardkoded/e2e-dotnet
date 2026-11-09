@@ -9,7 +9,7 @@ internal static class PageScript
     // Each element keeps its ref under a registry symbol for the life of the
     // document, so a ref the model saw stays valid in the next observation.
     // The host passes the next free number, so refs never repeat across
-    // documents. The latest observation's elements are kept for RefsOrForce. The
+    // documents. The latest observation's elements are kept on the window for the trace. The
     // walk reads one document: it goes through open shadow roots and closed
     // ones the init script recorded, and lists an iframe as a boundary node
     // the host fills with that frame's own observation. When the document has
@@ -23,6 +23,7 @@ internal static class PageScript
     public const string Collect = $$"""
         ({ seed, max, testIdAttribute, publish }) => {
         {{ReadSemantics.Prelude}}
+        {{ReadSemantics.NodeMode}}
           const refKey = Symbol.for("e2e.observation.ref");
           const elements = new Map();
           let next = seed;
@@ -36,42 +37,22 @@ internal static class PageScript
             elements.set(id, el);
             return id;
           };
-          // The elements a locator's selector named that this tree does not list (upstream reads any element the selector matches).
-          // The host sets them just before an observation that publishes, which takes them: they are listed as nodes like the rest.
-          const forcedKey = Symbol.for("e2e.observation.forced");
-          const forced = publish ? globalThis[forcedKey] ?? null : null;
-          if (publish) delete globalThis[forcedKey];
-          const isForced = (el) => forced !== null && forced.has(el);
-          // The ancestors of the marked elements, shadow hosts included: a leaf lists no children, unless a selector named one of them.
-          const holders = new Set();
-          if (forced !== null) {
-            for (const named of forced) {
-              for (let node = named.parentNode ?? named.host ?? null; node && !holders.has(node); node = node.parentNode ?? node.host ?? null) holders.add(node);
-            }
-          }
-          const holdsForced = (el) => holders.has(el);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
           // Port only: upstream has no leaf set, since its walk lists every child. An
           // editing host lists its children (the editor's document, and the editors nested in it).
           const isLeaf = (el, role) => !!role && leaves.has(role) && !isEditingHost(el);
           const maxSelectOptions = 60;
-          const textLimit = 512;
+          const textLimit = treeTextLimit;
           let count = 0;
           let textCount = 0;
           let textCut = false;
           let full = false;
-          let gate = null;
           let offBudget = max;
           let offCount = 0;
           let scroll = Math.round(scrollX) + "," + Math.round(scrollY);
           // Upstream reads the focused element once per observation (focusedElement); this script's `focused` is that.
-          let focused = document.activeElement;
-          while (focused) {
-            const inner = shadowOf(focused)?.activeElement ?? null;
-            if (!inner) break;
-            focused = inner;
-          }
+          const focused = focusedElementOf();
           // An option paints inside its select, so it is on screen when the select is.
           const inView = (el) => {
             const box = el.tagName === "OPTION" ? (el.closest("select") ?? el) : el;
@@ -188,10 +169,10 @@ internal static class PageScript
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
           // so <iframe role="none"> stays listed, with the role none.
-          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el) || isForced(el);
+          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
           // A node listed for its text alone. It draws on its own allowance, so
           // a page full of text cannot push controls out of the snapshot.
-          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute) && !isForced(el);
+          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute);
           // The inline elements read in the element's line that have no node of
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
@@ -226,7 +207,7 @@ internal static class PageScript
             return true;
           };
           const tally = (el, visible) => {
-            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el)) return 0;
+            if (!el || skip.has(el.tagName) || isInert(el)) return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
             const role = roleOf(el);
@@ -242,7 +223,7 @@ internal static class PageScript
                 }
                 return n + offered;
               }
-              if (isLeaf(el, role) && !holdsForced(el)) return n;
+              if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
             const shadow = shadowOf(el);
@@ -254,35 +235,29 @@ internal static class PageScript
           // parentAria is whether an ancestor is aria-hidden: the node paints
           // and is visible, but the accessibility tree drops it.
           const walk = (el, into, parentHidden, parentAria) => {
-            if (!el || (skip.has(el.tagName) && !isForced(el)) || isInert(el) || (full && (forced === null || (!holders.has(el) && !isForced(el))))) return;
-            if (gate !== null && !gate(el)) return;
+            if (!el || skip.has(el.tagName) || isInert(el) || full) return;
             const style = getComputedStyle(el);
             const isHidden = !!parentHidden || hidden(el, style);
             const isAriaHidden = !!parentAria || ariaHidden(el);
             const childrenHidden = !!parentHidden || hidesSubtree(el, style);
             const role = roleOf(el);
-            const testId = el.getAttribute(testIdAttribute);
             const isFrame = el.tagName === "IFRAME";
-            // A frame the page hides is no boundary of the tree, unless a frame locator named it: then the host reads its document as hidden.
-            if (isFrame && (isHidden || isAriaHidden) && !isForced(el)) return;
+            // A frame the page hides is no boundary of the tree.
+            if (isFrame && (isHidden || isAriaHidden)) return;
             if (listed(el, role)) {
               const textNode = textOnly(el, role);
-              // A node a selector named is read whatever the budget says: the locate must reach what it names.
-              const named = isForced(el);
-              if (!named && (textNode ? textCount >= max : count >= max)) {
+              if (textNode ? textCount >= max : count >= max) {
                 if (!textNode) {
                   full = true;
-                  // The walk goes on to the elements a selector named, which are listed past the cut.
-                  if (holdsForced(el)) walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
                 textCut = true;
                 walkChildren(el, into, childrenHidden, isAriaHidden);
                 return;
               }
-              if (!named && !textNode && offBudget < max && !inView(el)) {
+              if (!textNode && offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
-                  if ((isLeaf(el, role) && !holdsForced(el)) || el.tagName === "SELECT") return;
+                  if (isLeaf(el, role) || el.tagName === "SELECT") return;
                   walkChildren(el, into, childrenHidden, isAriaHidden);
                   return;
                 }
@@ -290,65 +265,18 @@ internal static class PageScript
               }
               if (textNode) textCount++;
               else count++;
-              // An editor's document is its value, as a textarea's text is: kept as
-              // rendered, spaces and newlines included. An empty editor renders
-              // <p><br></p>, which innerText reads as a newline, so a document with no
-              // text nodes, or with only markup whitespace that renders as that one
-              // newline, is an empty value; typed spaces are text nodes and stay. The
-              // zero-width no-break space Slate and Quill pad an empty line with
-              // renders nothing, so it is no text either.
-              let editorValue = null;
-              if (isEditingHost(el)) {
-                const rendered = el.innerText.replace(/\uFEFF/g, "");
-                const text = (el.textContent || "").replace(/\uFEFF/g, "");
-                editorValue = text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
-              }
-              const type = (el.getAttribute("type") || "").toLowerCase();
-              const secure = type === "password" || el.getAttribute("autocomplete") === "current-password";
+              // What the element reports on its own is the reader's, shared with node mode; the walk adds its own fields.
+              const fields = fieldsOf(el, role, { isHidden, isAriaHidden, focused, testIdAttribute, textLimit });
+              const secure = fields.secure;
               const ownsChildren = !isLeaf(el, role) && el.tagName !== "SELECT" && !isFrame;
               const node = {
                 ref: stamp(el),
-                role,
-                name: isFrame ? cut(el.getAttribute("title") || "", 256) || null : nameOf(el, role),
-                // A leaf keeps its own text too: a labelled status or button
-                // reads its content, not its label, as upstream's node read
-                // does. A secure field withholds it. innerText is empty for a
-                // node that does not render, and for a textarea; its DOM text is
-                // what a text query matches.
-                text: secure ? "" : cut((isHidden || el.tagName === "TEXTAREA" ? el.textContent : el.innerText) || "", 512),
+                ...fields,
                 // A node that lists its children shows the snapshot only the
                 // text it owns, read as a line: its inline words stay in place.
                 ownText: secure || !ownsChildren ? null : cut(lineTextOf(el), textLimit),
                 // A leaf lists no children, but a text query still finds the words it holds in an inline element.
                 inline: secure || isFrame || el.tagName === "SELECT" || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
-                domText: secure ? "" : domTextOf(el, textLimit),
-                labels: labelsOf(el),
-                value: secure ? null : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? String(el.value ?? "") : editorValue,
-                selection: el === focused && !secure ? selectedTextOf(el)?.slice(0, textLimit) ?? null : null,
-                testId,
-                placeholder: el.getAttribute("placeholder"),
-                inputPurpose: secure ? "password" : null,
-                level: levelOf(el, role),
-                disabled: disabledOf(el, role),
-                checked: checkedOf(el),
-                checkedReported: checkedReportedOf(el),
-                mixed: mixedOf(el),
-                // A box with no width or height; an option has none while its select is closed.
-                emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
-                expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || "") && el.tagName !== "DETAILS",
-                expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
-                selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
-                pressed: el.getAttribute("aria-pressed") === "true",
-                focused: el === focused,
-                hidden: isHidden,
-                ariaHidden: isAriaHidden,
-                secure,
-                frame: isFrame,
-                attributes: attributesOf(el, secure, testIdAttribute),
-                // Upstream's node read keeps the whole href; here every read comes from this tree.
-                wholeHref: el.getAttribute("href"),
-                rect: rectOf(el),
-                origin: originOf(el),
                 children: []
               };
               into.push(node);
@@ -366,7 +294,7 @@ internal static class PageScript
                 }
                 return;
               }
-              if (isLeaf(el, role) && !holdsForced(el)) return;
+              if (isLeaf(el, role)) return;
               walkChildren(el, node.children, childrenHidden, isAriaHidden);
               return;
             }
@@ -393,11 +321,7 @@ internal static class PageScript
             const body = document.documentElement.inert ? null : document.body;
             truncated = !!body && tally(body, false) > max;
             if (truncated) offBudget = Math.max(0, max - tally(body, true));
-            // An element outside the body (html, head, and what is in it) is walked from the root, down the paths that lead to one.
-            if (body && forced !== null && [...forced].some((el) => !body.contains(el))) {
-              gate = (el) => el === body || body.contains(el) || forced.has(el) || holders.has(el);
-              walk(document.documentElement, roots, false, false);
-            } else if (body) walk(body, roots, false, false);
+            if (body) walk(body, roots, false, false);
           } finally {
             document.adoptedStyleSheets = sheets;
           }
@@ -484,24 +408,6 @@ internal static class PageScript
         (el) => el[Symbol.for("e2e.observation.ref")] ?? null
         """;
 
-    // What a locator's selector names, in one frame: per element, its ref when the last observation lists it, else null. Those are marked,
-    // so the observation that follows lists them as nodes (the page-side half of upstream's e2e-read engine).
-    public const string RefsOrForce = """
-        (els, mark) => {
-          const listed = window[Symbol.for("e2e.observation.elements")];
-          const key = Symbol.for("e2e.observation.forced");
-          return els.map((el) => {
-            const id = el[Symbol.for("e2e.observation.ref")];
-            if (id !== undefined && listed?.get(id) === el && el.isConnected) return id;
-            if (!mark) return null;
-            const forced = globalThis[key] ?? new Set();
-            forced.add(el);
-            globalThis[key] = forced;
-            return null;
-          });
-        }
-        """;
-
     // Whether each element is a frame, the only element a frame locator can enter. An element gone since the count lists nothing.
     public const string AreFrameElements = """
         (els) => els.map((el) => el.tagName === "IFRAME" || el.tagName === "FRAME")
@@ -553,18 +459,21 @@ internal static class PageScript
     // Playwright selector engine name; e2e-closed=<css> matches inside recorded closed shadow roots.
     public const string ClosedShadowSelectorEngine = "e2e-closed";
 
-    // The engine behind e2e-closed=<css>: every element matching the CSS selector inside a closed shadow root
-    // the init script recorded, reached from the query root through light DOM and open roots, and through roots
-    // of either kind nested below a closed one. Playwright's own selectors stop at a closed root, so this is what
-    // lets a screenshot mask cover a secure field there. A closed root is searched only as an entry of the first
-    // list, never by recursion from the tree above it, so each element is reached from exactly one root. A document
-    // that has attached no closed root has none to find, and the walk is skipped. It runs in the page's main world
-    // (not as a content script) because that is where the record lives. A document without the record is refused:
-    // a mask that cannot prove its coverage must fail closed. The record counts as present when the init script
-    // defined it on the global, checked with in because it calls nothing the page can replace: instanceof WeakMap
-    // reads the page's own WeakMap, which a polyfill may swap out.
-    public const string ClosedShadowSelectorEngineSource = """
-        () => {
+    // Playwright selector engine name for the roots a semantic query searches (upstream's SEARCH_ROOTS_SELECTOR_ENGINE). e2e-roots= (an
+    // empty body) resolves to the query root followed by every closed shadow root recorded under it, so the Playwright query part that
+    // follows (internal:role, internal:text, internal:label, ...) runs its own matching in each of them; e2e-roots=<css> resolves to the
+    // elements the CSS selector matches in the query root and in every closed root under it.
+    public const string SearchRootsSelectorEngine = "e2e-roots";
+
+    // The in-page helpers the selector engines below and the label engine (LabelSelector) are built on (upstream's
+    // CLOSED_SHADOW_HELPERS_SOURCE): the closed roots the init script recorded under a query root (the root's own, when it is a closed
+    // host, and every one below through open and closed roots alike), and the elements a CSS selector matches in one tree and the open
+    // roots below it. A closed root is searched only as an entry of the first list, never by recursion from the tree above it, so each
+    // element is reached from exactly one root. A document that has attached no closed root has none to find, and the walk over every
+    // element is skipped: every locator resolution runs this, so a page without closed roots must pay nothing for the reach. The record
+    // counts as present when the init script defined it on the global, checked with in because it calls nothing the page can replace:
+    // instanceof WeakMap reads the page's own WeakMap, which a polyfill may swap out.
+    public const string ClosedShadowHelpersSource = """
           const key = Symbol.for("e2e.closedShadowRoots");
           const tracked = key in globalThis;
           const roots = globalThis[key];
@@ -588,9 +497,40 @@ internal static class PageScript
             }
             return out;
           };
+        """;
+
+    // The engine behind e2e-closed=<css>: every element matching the CSS selector inside a closed shadow root
+    // the init script recorded, reached from the query root through light DOM and open roots, and through roots
+    // of either kind nested below a closed one. Playwright's own selectors stop at a closed root, so this is what
+    // lets a screenshot mask cover a secure field there. It runs in the page's main world
+    // (not as a content script) because that is where the record lives. A document without the
+    // record is refused: a mask that cannot prove its coverage must fail closed.
+    public const string ClosedShadowSelectorEngineSource = $$"""
+        () => {
+        {{ClosedShadowHelpersSource}}
           const queryAll = (root, selector) => {
             if (!tracked) throw new Error("closed-shadow root tracking is unavailable for this document");
             const out = [];
+            for (const closed of closedRootsUnder(root, [])) matchesIn(closed, selector, out);
+            return out;
+          };
+          return { queryAll, query: (root, selector) => queryAll(root, selector)[0] ?? null };
+        }
+        """;
+
+    // The engine behind e2e-roots=: the roots a semantic query searches, or the elements a CSS selector matches across them.
+    // Playwright's own query engines accept a shadow root as their root and never cross a closed boundary downward, so listing
+    // every closed root as a root of its own lets them match inside with the same role, name, text, label, and attribute rules
+    // they apply outside, and finds each element exactly once. A CSS selector list is matched here rather than by Playwright's
+    // CSS engine, which sorts a list's matches in DOM order through shadowRoot and so drops the direct children of a closed
+    // root; the matches of one root keep their document order and roots follow in the order they were found. A document without
+    // the record answers as Playwright alone would, so a locator never fails where it used to work.
+    public const string SearchRootsSelectorEngineSource = $$"""
+        () => {
+        {{ClosedShadowHelpersSource}}
+          const queryAll = (root, selector) => {
+            if (selector === "") return [root, ...closedRootsUnder(root, [])];
+            const out = matchesIn(root, selector, []);
             for (const closed of closedRootsUnder(root, [])) matchesIn(closed, selector, out);
             return out;
           };

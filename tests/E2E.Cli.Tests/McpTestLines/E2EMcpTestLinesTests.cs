@@ -63,11 +63,11 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterOfferB, "button \"Reserve\"") },
-                "await Screen.GetByRole(\"listitem\", \"Offer B Reserve\").GetByRole(\"button\", \"Reserve\").TapAsync();"),
+                "await Screen.GetByRole(\"listitem\").Filter(\"Offer B\").GetByRole(\"button\", \"Reserve\").TapAsync();"),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(screen, "button \"Keep\"") },
-                "await Screen.GetByRole(\"button\", \"Keep\").First().TapAsync(); // 1 of 2 matches, by position; a unique name or test id holds up better"),
+                "await Screen.GetByRole(\"button\", \"Keep\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterRowTwo, "button \"Pick\"") },

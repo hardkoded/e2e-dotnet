@@ -30,7 +30,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
     [InlineData("clicks hold the modifiers they name")]
-    [InlineData("contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value")]
+    [InlineData("contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value")]
     public async Task Ported_scenario_passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
@@ -529,7 +529,7 @@ public sealed class WebPlatformIntegrationTests
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("toString"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("__proto__"));
         },
-        ["contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value"] = async session =>
+        ["contenteditable hosts are textboxes: reached by label and by role (an explicit role only), filled, and read as a value"] = async session =>
         {
             await session.App.OpenAsync("/editor");
             var notes = session.Screen.GetByLabel("Notes");
@@ -538,9 +538,9 @@ public sealed class WebPlatformIntegrationTests
             await Expect.That(notes).ToHaveValueAsync("Hello");
             Assert.Equal("Hello", await notes.InputValueAsync());
             await Expect.That(session.Screen.GetByTestId("notes")).ToHaveValueAsync("Hello");
-            // Upstream's getByRole runs Playwright's role selector, which knows a textbox only by an explicit role, so it
-            // finds no bare host. The port's getByRole reads the tree, where the bare host is a textbox too.
-            await Expect.That(session.Screen.GetByRole("textbox", "Notes")).ToHaveCountAsync(1);
+            // getByRole runs Playwright's role selector, which knows a textbox only by an explicit role, so it finds no bare host
+            // (the agent's tree lists it as a textbox, which a query by label or test id reaches), as upstream's.
+            await Expect.That(session.Screen.GetByRole("textbox", "Notes")).ToHaveCountAsync(0);
             await Expect.That(session.Screen.GetByRole("textbox", "Message")).ToHaveCountAsync(1);
             await session.Screen.GetByRole("textbox", "Message").FillAsync("Hi");
             await Expect.That(session.Screen.GetByLabel("Message")).ToHaveValueAsync("Hi");

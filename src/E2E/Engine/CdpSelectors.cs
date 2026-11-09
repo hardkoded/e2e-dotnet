@@ -8,14 +8,14 @@ using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
-/// <summary>Registers the engine's selector engines in a CDP default context (upstream's <c>web/src/cdp-selectors.ts</c>); every secure-field mask needs them.</summary>
+/// <summary>Registers the engine's selector engines in a CDP default context (upstream's <c>web/src/cdp-selectors.ts</c>); every locator and secure-field mask needs them.</summary>
 internal static class CdpSelectors
 {
     /// <summary>
     /// Playwright seeds custom selectors only in newly created contexts, not the persistent context
     /// <c>ConnectOverCDPAsync</c> returns, and its public register API rejects an already registered name before reaching that
     /// context. This sends the same <c>registerSelectorEngine</c> message <c>Selectors.RegisterAsync</c> sends to a context
-    /// (upstream <c>registerCdpSelectors</c>). A Playwright that cannot take the message fails the connection: every secure-field mask
+    /// (upstream <c>registerCdpSelectors</c>). A Playwright that cannot take the message fails the connection: every locator and secure-field mask
     /// resolves through these engines.
     /// </summary>
     public static Task RegisterCdpSelectorsAsync(IBrowserContext context, TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -35,7 +35,7 @@ internal static class CdpSelectors
 
         if (channel is null)
         {
-            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; secure-field masks need them", retryable: false);
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; locators and secure-field masks need them", retryable: false);
         }
 
         foreach (var (name, source) in SelectorEngines.All)
@@ -91,7 +91,7 @@ internal static class CdpSelectors
             try
             {
                 return send.Invoke(context, ["registerSelectorEngine", arguments, false, (float?)timeout.TotalMilliseconds]) as Task
-                    ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; secure-field masks need them", retryable: false);
+                    ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; locators and secure-field masks need them", retryable: false);
             }
             catch (TargetInvocationException ex) when (ex.InnerException is not null)
             {

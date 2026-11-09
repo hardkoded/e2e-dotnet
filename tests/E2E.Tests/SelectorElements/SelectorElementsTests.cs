@@ -7,9 +7,8 @@ using E2E.Engine;
 namespace E2E.Tests.SelectorElements;
 
 /// <summary>
-/// .NET-only: upstream has no <c>it</c> for a <c>selector</c> that names an element the page script does not list. Upstream resolves
-/// every selector with Playwright and reads each match through its <c>e2e-read</c> engine, so any element is a node; the port lists
-/// those elements in a second observation, so they are nodes with refs of that observation.
+/// .NET-only: upstream has no <c>it</c> for a <c>selector</c> that names an element the agent's tree does not list. Upstream resolves
+/// every selector with Playwright and reads each match through its <c>e2e-read</c> engine, so any element is a node, and so does the port.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class SelectorElementsTests
