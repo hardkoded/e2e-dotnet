@@ -128,7 +128,7 @@ public sealed class WholeObservationCaptureOwnershipTests
     {
         await using var fixture = await Fixture.StartAsync("elements");
 
-        var failure = Assert.ThrowsAsync<EngineException>(() => fixture.Session.ObserveAsync(null, Operation, CancellationToken.None));
+        var failure = Assert.ThrowsAsync<EngineException>(() => fixture.Session.ObserveAsync(null, TimeSpan.FromSeconds(30), CancellationToken.None));
         await Fixture.UntilAsync(() => fixture.Captured.Count == 1 && fixture.Captured[0].Held);
         await WebEngine.SurfaceOf(fixture.Session)!.Page().CloseAsync();
         await fixture.Session.OpenAsync("about:blank", CancellationToken.None);
