@@ -2747,6 +2747,15 @@ public sealed partial class WebEngine : IEngine
                     // The destroyed context is reported before the frame's new document is announced: one round trip to the page lets
                     // the announcement land (upstream's caret cleanup is that round trip).
                     await SettleDocumentEventsAsync(page, documents, budget).ConfigureAwait(false);
+
+                    // The capture can reject before FrameNavigated is delivered. The event is already in flight when the context was
+                    // destroyed, so a short wait tells a real navigation from an error that only looks like one.
+                    if (!documents.Replaced && WebErrors.IsNavigationRace(ex) && ex is not System.TimeoutException)
+                    {
+                        var grace = TimeSpan.FromMilliseconds(Math.Min(NavigationEventGraceMs, Math.Max(0, budget.Remaining().TotalMilliseconds)));
+                        await documents.WhenReplacedAsync(grace, cancellationToken).ConfigureAwait(false);
+                    }
+
                     if (!documents.Replaced)
                     {
                         throw WebErrors.IsPlaywright(ex) ? WebErrors.Translate(ex, "screenshot") : ex;
@@ -2777,6 +2786,9 @@ public sealed partial class WebEngine : IEngine
             return relative;
         });
 
+        /// <summary>How long a screenshot waits for the navigation event after Playwright has already reported the document's context destroyed (upstream's <c>NAVIGATION_EVENT_GRACE_MS</c>).</summary>
+        private const int NavigationEventGraceMs = 250;
+
         // Round trips to the page until one is answered or the watch heard of a new document: a page mid-navigation fails them too, until its new document is announced.
         private static async Task SettleDocumentEventsAsync(IPage page, DocumentWatch documents, OperationBudget budget)
         {
@@ -2799,6 +2811,7 @@ public sealed partial class WebEngine : IEngine
         {
             private readonly IPage _page;
             private volatile bool _replaced;
+            private readonly TaskCompletionSource _signal = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public DocumentWatch(IPage page)
             {
@@ -2809,13 +2822,34 @@ public sealed partial class WebEngine : IEngine
 
             public bool Replaced => _replaced;
 
+            /// <summary>Completes when a document has been replaced, or after <paramref name="timeout"/> if none was.</summary>
+            public async Task WhenReplacedAsync(TimeSpan timeout, CancellationToken cancellationToken)
+            {
+                if (_replaced || timeout <= TimeSpan.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    await _signal.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (System.TimeoutException)
+                {
+                }
+            }
+
             public void Dispose()
             {
                 _page.FrameNavigated -= Mark;
                 _page.FrameDetached -= Mark;
             }
 
-            private void Mark(object? sender, IFrame frame) => _replaced = true;
+            private void Mark(object? sender, IFrame frame)
+            {
+                _replaced = true;
+                _signal.TrySetResult();
+            }
         }
 
         /// <summary>
@@ -4513,7 +4547,7 @@ internal sealed class OperationBudget
     /// <summary>Sleeps on the budget's clock, ending early when the operation is cancelled.</summary>
     public Task DelayAsync(TimeSpan delay) => Task.Delay(delay, _clock, _cancellationToken);
 
-    private TimeSpan Remaining()
+    public TimeSpan Remaining()
     {
         _cancellationToken.ThrowIfCancellationRequested();
         var left = _timeout - _clock.GetElapsedTime(_startedAt);

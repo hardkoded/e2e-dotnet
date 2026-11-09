@@ -44,6 +44,33 @@ public sealed class SurfaceScreenshotWhileNavigatingTests
     });
 
     [Fact]
+    public async Task Partial_Retries_the_capture_when_the_navigation_event_arrives_after_the_screenshot_error()
+    {
+        var captures = 0;
+        await WithSessionAsync(async (page, site, options) =>
+        {
+            if (Interlocked.Increment(ref captures) > 1)
+            {
+                return await page.ScreenshotAsync(options);
+            }
+
+            // Upstream emits framenavigated on a timer, after the rejection. Playwright for .NET cannot emit its events, so the
+            // page commits a real navigation a moment after the rejection instead, which delivers the event late the same way.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(100);
+                await page.GotoAsync(site.Url + "hop?n=40");
+            });
+            throw new PlaywrightException(Race);
+        }, TimeSpan.FromSeconds(10), async (session, page, site) =>
+        {
+            await page.GotoAsync(site.Url + "hop?n=40");
+            await ExpectMaskedShotAsync(session, "late-event");
+        });
+        Assert.Equal(2, captures);
+    }
+
+    [Fact]
     public async Task Takes_the_capture_again_masked_of_the_document_that_replaced_the_one_its_masks_were_resolved_in()
     {
         var captures = 0;
