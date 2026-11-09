@@ -1,0 +1,123 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/InfiniteScroll.tsx. *@
+@implements IDisposable
+@inject IJSRuntime JS
+<div style="@Container">
+    <p style="@Hint">Scroll until you find the Golden Ticket, then claim it.</p>
+    @if (_claimed)
+    {
+        <p data-testid="success-message" style="@SuccessText">Golden Ticket claimed</p>
+    }
+    <div data-testid="feed" style="@Feed" @ref="_feed" @onscroll="HandleScrollAsync">
+        @foreach (var item in _items)
+        {
+            <div @key="item.Index" data-testid="feed-item" style="@Row">
+                <div style="@RowText">
+                    <span style="@RowTitle">@item.Title</span>
+                    <span style="@RowSubtitle">@item.Subtitle</span>
+                </div>
+                @if (item.Index == TargetIndex)
+                {
+                    <button type="button" data-testid="claim-button" style="@Button" @onclick="() => _claimed = true">Claim</button>
+                }
+            </div>
+        }
+        @if (_loading)
+        {
+            <div data-testid="loading-more" style="@LoadingRow">Loading more…</div>
+        }
+    </div>
+</div>
+
+@code {
+    private const int PageSize = 20;
+    private const int TargetIndex = 137;
+    private const int LoadDelayMs = 400;
+    private const int TotalItems = 200;
+
+    private sealed record FeedItem(int Index, string Title, string Subtitle);
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Feed = "height: 480px; overflow: auto; border: 1px solid #e5e5e5; border-radius: 8px;";
+    private const string Row = "display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #f0f0f0;";
+    private const string RowText = "display: flex; flex-direction: column; gap: 2px;";
+    private const string RowTitle = "font-size: 15px; font-weight: 600;";
+    private const string RowSubtitle = "font-size: 13px; color: #666;";
+    private const string LoadingRow = "padding: 16px; text-align: center; font-size: 14px; color: #666;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly CancellationTokenSource _disposed = new();
+    private ElementReference _feed;
+    private List<FeedItem> _items = BuildPage(0);
+    private bool _loading;
+    private bool _claimed;
+    private int _page = 1;
+
+    /// <summary>Builds one deterministic page of feed items; the target index is titled "Golden Ticket" instead of its plain numbered title.</summary>
+    private static List<FeedItem> BuildPage(int page)
+    {
+        var start = page * PageSize;
+        var end = Math.Min(start + PageSize, TotalItems);
+        var items = new List<FeedItem>();
+        for (var i = start; i < end; i++)
+        {
+            items.Add(new FeedItem(i, i == TargetIndex ? "Golden Ticket" : $"Item {i + 1}", $"Feed entry {i + 1} of {TotalItems}"));
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// Appends the next deterministic page after <see cref="LoadDelayMs"/> when the user scrolls within 200px of the bottom and more pages
+    /// remain. A Blazor scroll event carries no geometry, so the feed's <c>scrollTop</c>, <c>clientHeight</c> and <c>scrollHeight</c> are read
+    /// from the element.
+    /// </summary>
+    private async Task HandleScrollAsync()
+    {
+        var disposed = _disposed.Token;
+        double scrollTop, clientHeight, scrollHeight;
+        try
+        {
+            scrollTop = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollTop");
+            clientHeight = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "clientHeight");
+            scrollHeight = await JS.InvokeAsync<double>("Reflect.get", disposed, _feed, "scrollHeight");
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)
+        {
+            return;
+        }
+
+        if (scrollTop + clientHeight < scrollHeight - 200)
+        {
+            return;
+        }
+
+        if (_loading || _page * PageSize >= TotalItems)
+        {
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+        try
+        {
+            await Task.Delay(LoadDelayMs, disposed);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _items.AddRange(BuildPage(_page));
+        _page++;
+        _loading = false;
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}

@@ -1,0 +1,81 @@
+@* Upstream's app/src/Examples/DivSoup.tsx.
+   ADVERSARIAL: a PIN pad built entirely from bare divs. There are no semantic elements, no buttons, no inputs, no aria attributes, no
+   roles, no tabIndex, and no test ids - even the cursor stays "default" over the tappable tiles. *@
+<div style="@Container">
+    @if (_granted)
+    {
+        <div style="@SuccessText">Access granted</div>
+    }
+    else
+    {
+        <div style="@Hint">Enter the code @SecretCode and press the arrow</div>
+        <div style="@DotsRow">
+            @for (var index = 0; index < SecretCode.Length; index++)
+            {
+                <div @key="index" style="@(index < _entered.Length ? DotFilled : Dot)"></div>
+            }
+        </div>
+        @if (_wrong)
+        {
+            <div style="@ErrorText">Wrong code</div>
+        }
+        <div style="@Grid">
+            @foreach (var tile in PadTiles)
+            {
+                <div @key="tile" style="@Tile" @onclick="() => HandleTile(tile)">@tile</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const string SecretCode = "7291";
+    private static readonly string[] PadTiles = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "‹", "0", "→"];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0; align-items: center;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center;";
+    private const string DotsRow = "display: flex; gap: 12px; justify-content: center; padding: 8px 0;";
+    private const string Dot = "width: 14px; height: 14px; border-radius: 50%; border: 1px solid #ccc; background-color: #fff;";
+    private const string DotFilled = "width: 14px; height: 14px; border-radius: 50%; border: 1px solid #111; background-color: #111;";
+    private const string ErrorText = "color: #c00; font-size: 14px; text-align: center;";
+    private const string Grid = "display: grid; grid-template-columns: repeat(3, 72px); gap: 12px;";
+    private const string Tile = "display: flex; align-items: center; justify-content: center; height: 56px; background-color: #111; color: #fff; font-size: 16px; font-weight: 600; border-radius: 8px; cursor: default; user-select: none;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center;";
+
+    private string _entered = "";
+    private bool _wrong;
+    private bool _granted;
+
+    /// <summary>Routes a tile tap: digits append up to the code length, "‹" deletes the last digit, and "→" validates the entered code against the secret.</summary>
+    private void HandleTile(string tile)
+    {
+        if (_granted)
+        {
+            return;
+        }
+
+        if (tile == "‹")
+        {
+            _entered = _entered[..Math.Max(0, _entered.Length - 1)];
+            _wrong = false;
+            return;
+        }
+
+        if (tile == "→")
+        {
+            if (_entered == SecretCode)
+            {
+                _wrong = false;
+                _granted = true;
+                return;
+            }
+
+            _entered = "";
+            _wrong = true;
+            return;
+        }
+
+        _wrong = false;
+        _entered = _entered.Length >= SecretCode.Length ? _entered : _entered + tile;
+    }
+}
