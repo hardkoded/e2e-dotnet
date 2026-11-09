@@ -1125,6 +1125,14 @@ public sealed class E2ESession : IAsyncDisposable
     {
         _status = StatusOf(error, cancellationToken);
         _error = VerdictOf(error, _status);
+
+        // A step the session's own timeout cut short is the timeout, as the host's hand-over reads it.
+        if (_status == AttemptStatus.Failed && VerdictOf(error, cancellationToken) is TestException { Code: "TEST_TIMEOUT" } timedOut)
+        {
+            _status = AttemptStatus.TimedOut;
+            _error = timedOut;
+        }
+
         _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {

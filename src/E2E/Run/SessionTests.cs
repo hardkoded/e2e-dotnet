@@ -317,6 +317,12 @@ internal static class SessionHandover
                 return false;
             }
 
+            // A second offer (a retried test) finds the first taken: it keeps no run of its own.
+            if (request.Taken.Task.IsCompleted)
+            {
+                return false;
+            }
+
             return request.Taken.TrySetResult(new SessionTestOutcome(testName, session, engine, failure, RunPhase.Body, null, StrayRejections.Keep(testName)));
         }
     }

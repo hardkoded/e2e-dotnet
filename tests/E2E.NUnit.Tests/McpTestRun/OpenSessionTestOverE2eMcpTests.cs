@@ -168,7 +168,7 @@ public sealed class OpenSessionTestOverE2eMcpTests
                 Assert.That(early.Run!.End(), Is.Empty);
             }
 
-            await Task.Delay(2_500);
+            await Task.Delay(3_500);
             Assert.That(warnings, Does.Contain("a promise rejected after its session closed, most likely left by test \"" + early.TestName + "\": later failure"));
 
             var after = await runner.RunAsync(assembly, typeof(SessionFixture).FullName + "." + nameof(SessionFixture.Opens_the_browser_page), CancellationToken.None);
@@ -319,7 +319,7 @@ public sealed class SloppySessionFixture : E2ETest
         await App.OpenAsync("/browser");
         _ = Task.Run(async () =>
         {
-            await Task.Delay(1_500);
+            await Task.Delay(1_000);
             throw new InvalidOperationException("later failure");
         });
     }

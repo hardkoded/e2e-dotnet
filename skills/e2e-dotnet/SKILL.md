@@ -115,7 +115,7 @@ working directory it resolved against.
 `open_session` names the app URL, the port a free-port `url` was assigned, and the
 app command (its executable, readiness URL, and `env` and `inheritEnv` names; no
 `args`, no `env` values). The config reads the MCP server's environment, not
-your shell's.
+your shell's. `open_session {test}` opens with how the test ended: `HOOK_FAILED in beforeAll` (no steps, no screen) when a `[OneTimeSetUp]` failed, `TEST_TIMEOUT` when it ran out of time, the error of a task it left faulted and unobserved (`UNHANDLED_REJECTION` at `close_session` when that task faults after the body), and `Also failed:` lines for later failures; see [references/mcp.md](references/mcp.md).
 
 ```csharp
 using E2E;
