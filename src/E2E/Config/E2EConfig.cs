@@ -271,9 +271,28 @@ public sealed class E2EConfig
     }
 
     /// <summary>
-    /// A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.
-    /// .NET-only: the config file cannot hold an engine, so code puts one in a target (internal until a public API exists, #1339).
+    /// A copy of the config whose target <c>name</c> runs the <c>engine</c>, in place of the target of the same
+    /// name (which keeps its app, trace, and video) or after the others when none has it. .NET-only: the config file cannot hold an engine
+    /// (upstream's <c>targets: [{ engine: web(...) }]</c> builds it in code), so code puts one in a target. The target's platform is the
+    /// engine's. The engine's secrets are checked against <c>secrets</c> when the run resolves the config (<c>checkEngineSecrets</c>).
     /// </summary>
+    public E2EConfig WithTarget(string name, IEngine engine)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(engine);
+        var existing = Targets.FirstOrDefault(target => string.Equals(target.Name, name, StringComparison.Ordinal));
+        return WithTarget(new TargetConfig
+        {
+            Name = name,
+            Platform = engine.Platform,
+            App = existing?.App ?? new AppConfig(),
+            Trace = existing?.Trace ?? new(RecordingMode.RetainOnFailure, RecordingSource.Default),
+            Video = existing?.Video ?? new(RecordingMode.Off, RecordingSource.Default),
+            Engine = engine,
+        });
+    }
+
+    /// <summary>A copy of the config with <paramref name="target"/> in place of the target of the same name, or after the others when none has it.</summary>
     internal E2EConfig WithTarget(TargetConfig target)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -1479,11 +1498,11 @@ public sealed class TargetConfig
     internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video, Engine = Engine };
 
     /// <summary>
-    /// The engine this target runs, built in code (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c>); null for a JSON target, whose engine
-    /// the fixture's <c>CreateEngine</c> chooses. Internal until a public engine-in-config API exists (#1339): only <see cref="ResolvedConfig.Resolve"/>
-    /// reads it, to check the secrets its options hold.
+    /// The engine this target runs, built in code (upstream's <c>engine</c> of a target, <c>defineEngine(...)</c>); null for a JSON target, whose
+    /// engine its platform chooses. <see cref="E2EConfig.WithTarget(string, IEngine)"/> sets it. A run resolves the config with it: the secrets its options
+    /// hold are checked against <c>secrets</c>, and its name, version, platform, and capabilities enter the config digest.
     /// </summary>
-    internal IEngine? Engine { get; init; }
+    public IEngine? Engine { get; init; }
 
     /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
     public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);

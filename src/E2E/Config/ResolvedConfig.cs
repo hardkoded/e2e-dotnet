@@ -179,16 +179,35 @@ internal sealed record ResolvedConfig
 
     /// <summary>
     /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, and the app
-    /// as declared, env values reduced to their names and the run's port never. Differences: a port target has no engine handle, so
-    /// no engine declaration enters.
+    /// as declared, env values reduced to their names and the run's port never, then the engine when the target holds one (name, version,
+    /// platform, capabilities sorted). Differences: the engine has no <c>spiVersion</c> or <c>workers</c> here.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
-        new([.. targets.Select(target => (JsonNode?)new JsonObject
+        new([.. targets.Select(DigestTarget)]);
+
+    private static JsonNode DigestTarget(TargetConfig target)
+    {
+        var digest = new JsonObject
         {
             ["name"] = target.Name,
             ["platform"] = target.Platform,
             ["app"] = TargetApps.DigestTargetApp(target.App),
-        })]);
+        };
+        if (target.Engine is { } engine)
+        {
+            digest["engine"] = DigestEngine(engine);
+        }
+
+        return digest;
+    }
+
+    private static JsonObject DigestEngine(IEngine engine) => new()
+    {
+        ["name"] = engine.Name,
+        ["version"] = engine.Version,
+        ["platform"] = engine.Platform,
+        ["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)name)]),
+    };
 
     /// <summary>
     /// The agents as the digest records them (upstream's <c>digestAgents</c>): the plain options, the tools named, and the executor reduced
@@ -305,9 +324,9 @@ internal sealed record ResolvedConfig
     /// Resolves a config whose targets may hold an engine (upstream's <c>resolve</c>, <c>config/resolve.ts</c>, the part that builds
     /// <c>ResolvedTarget</c> from each target's <c>engine</c> and runs <see cref="CheckEngineSecrets"/> at load). .NET-only name and place beside
     /// <c>HostTestFilters.Resolve</c>: the port has no full resolver yet, and this builds only the targets and the checked secrets. Differences:
-    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code; a JSON target has none. <c>Filters</c> stay empty and the
-    /// digest does not yet include the engine (#1308); <c>HostTestFilters.Resolve</c> is the run path and does not call this until a public
-    /// engine-in-config API exists (#1339).
+    /// a target's engine comes from <see cref="TargetConfig.Engine"/>, set in code with <see cref="E2EConfig.WithTarget(string, IEngine)"/>; a JSON target
+    /// has none. <c>Filters</c> stay empty. <c>HostTestFilters.Resolve</c>, the run path, builds its one target with <see cref="ResolveTarget"/> and
+    /// runs <see cref="CheckEngineSecrets"/> too.
     /// </summary>
     internal static ResolvedConfig Resolve(E2EConfig config)
     {
@@ -315,10 +334,7 @@ internal sealed record ResolvedConfig
         var targets = new List<ResolvedTarget>(config.Targets.Count);
         foreach (var target in config.Targets)
         {
-            var engine = target.Engine is { } held
-                ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets)
-                : null;
-            targets.Add(new ResolvedTarget(target.Name, target.Platform, target.App, engine));
+            targets.Add(ResolveTarget(target));
         }
 
         CheckEngineSecrets(targets, config.Secrets, config.Credentials);
@@ -332,6 +348,13 @@ internal sealed record ResolvedConfig
             AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
         };
     }
+
+    /// <summary>The resolved form of one target: its engine, when it holds one, reduced to what selection and the secret check read.</summary>
+    internal static ResolvedTarget ResolveTarget(TargetConfig target) => new(
+        target.Name,
+        target.Platform,
+        target.App,
+        target.Engine is { } held ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets) : null);
 
     private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
         [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
