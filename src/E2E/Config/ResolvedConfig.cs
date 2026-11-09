@@ -181,7 +181,7 @@ internal sealed record ResolvedConfig
     /// The targets as they enter the config digest (upstream's <c>digestTargets</c>, <c>config/targets.ts</c>): name, platform, the app
     /// as declared (env values reduced to their names and the run's port never), and the engine's declaration, never its live
     /// handle: name, version, contract version, platform, and the sorted capabilities, so two workers whose engines declare different
-    /// platforms do not agree on the digest. Differences: a JSON target has no engine, so none enters for it, and an engine has no
+    /// platforms do not agree on the digest. Only <see cref="Resolve"/> reads a target's engine; <c>HostTestFilters.Resolve</c>, the run path, has none until #1339. Differences: a JSON target has no engine, so none enters for it, and an engine has no
     /// <c>workers</c>; a target's platform is always its own, since the port requires one.
     /// </summary>
     internal static JsonArray DigestTargets(IReadOnlyList<TargetConfig> targets) =>
@@ -195,14 +195,21 @@ internal sealed record ResolvedConfig
             };
             if (target.Engine is { } engine)
             {
-                digest["engine"] = new JsonObject
+                // Upstream leaves out a version or platform the engine does not declare.
+                var declaration = new JsonObject { ["name"] = engine.Name };
+                if (!string.IsNullOrEmpty(engine.Version))
                 {
-                    ["name"] = engine.Name,
-                    ["version"] = engine.Version,
-                    ["spiVersion"] = BuildReport.EngineSpiVersion,
-                    ["platform"] = engine.Platform,
-                    ["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)JsonValue.Create(name))]),
-                };
+                    declaration["version"] = engine.Version;
+                }
+
+                declaration["spiVersion"] = BuildReport.EngineSpiVersion;
+                if (!string.IsNullOrEmpty(engine.Platform))
+                {
+                    declaration["platform"] = engine.Platform;
+                }
+
+                declaration["capabilities"] = new JsonArray([.. CapabilityNames(engine.Capabilities).Order(StringComparer.Ordinal).Select(name => (JsonNode?)JsonValue.Create(name))]);
+                digest["engine"] = declaration;
             }
 
             return (JsonNode?)digest;

@@ -629,13 +629,13 @@ public sealed class ResolveConfigTests
 
     /// <summary>
     /// Partial: the port's target names its platform (the field is required), so a named target cannot inherit its engine's; the test checks that the
-    /// engine's declared platform enters the digest. The engine is set in code on the internal <see cref="TargetConfig.Engine"/> (#1339).
+    /// engine's declared platform enters the digest, the target's own held constant. The engine is set in code on the internal <see cref="TargetConfig.Engine"/> (#1339).
     /// </summary>
     [Fact]
     public void Partial_Digests_the_platform_an_engine_declares_which_a_named_target_inherits()
     {
         static string Of(string platform) => ResolvedConfig.Resolve(E2EConfig.Parse("{}", Root, Env()).WithTarget(
-            new TargetConfig { Name = "app", Platform = platform, App = new AppConfig(), Engine = new SecretHoldingEngine(platform: platform) })).ConfigDigest;
+            new TargetConfig { Name = "app", Platform = "web", App = new AppConfig(), Engine = new SecretHoldingEngine(platform: platform) })).ConfigDigest;
         Assert.Equal(Of("web"), Of("web"));
         Assert.NotEqual(Of("web"), Of("ios"));
     }
@@ -666,7 +666,7 @@ public sealed class ResolveConfigTests
     {
         static string Of(string value)
         {
-            var config = E2EConfig.Parse($$"""{ "secrets": { "key": "{{value}}" } }""", Root, Env());
+            var config = E2EConfig.Parse("""{ "secrets": { "key": "configured" } }""", Root, Env());
             return ResolvedConfig.Resolve(config.WithTarget(
                 new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Engine = new SecretHoldingEngine(Secret.Create("key", value)) })).ConfigDigest;
         }
