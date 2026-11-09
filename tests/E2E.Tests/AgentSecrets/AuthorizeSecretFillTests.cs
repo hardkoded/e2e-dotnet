@@ -119,7 +119,7 @@ public sealed class AuthorizeSecretFillTests
         public Task<Secret> ResolveAsync(Secret secret, CancellationToken cancellationToken)
         {
             Resolved.Add(secret.Name);
-            return Task.FromResult(AdminPassword);
+            return Task.FromResult(secret);
         }
     }
 

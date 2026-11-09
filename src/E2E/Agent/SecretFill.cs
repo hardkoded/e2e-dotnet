@@ -39,7 +39,7 @@ internal static class SecretFill
     /// Authorizes one secret fill and resolves the plaintext only after every check passes. The resolved secret is returned to the caller
     /// for a single immediate handoff to the trusted engine and is never logged, cached, or sent to a model. Upstream's
     /// <c>authorizeSecretFill</c> returns the plaintext string; the port returns the resolved <see cref="Secret"/>, which holds it.
-    /// The checks: a secret the attempt knows, an enabled editable field, and a password field for a password (judged by the secret the
+    /// The plaintext is the registered secret's, so name, purpose and value come from one object. The checks: a secret the attempt knows, an enabled editable field, and a password field for a password (judged by the secret the
     /// attempt registered, not by the handle). There is no origin check.
     /// </summary>
     public static async Task<Secret> AuthorizeSecretFillAsync(ISecretFillHost host, ISecretFillRuntime runtime, Secret secret, SemanticNode node, CancellationToken cancellationToken = default)
@@ -79,7 +79,7 @@ internal static class SecretFill
         }
 
         host.RecordPolicy("secret.fill", PolicyDecision.Allowed);
-        return await runtime.ResolveAsync(secret, cancellationToken).ConfigureAwait(false);
+        return await runtime.ResolveAsync(registered, cancellationToken).ConfigureAwait(false);
     }
 
     private static AgentException Denied(string reason) => new("POLICY_DENIED", reason, blocked: true);
