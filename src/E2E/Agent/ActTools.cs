@@ -530,7 +530,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             budget.ClearPrepaid();
         }
 
-        output = output.Length > OverflowShrink.TextClipChars ? output[..OverflowShrink.TextClipChars] + "\n[output cut]" : output;
+        // A text result is bounded like every other thing the model reads (upstream's default-agent wrapper).
+        output = ToolOutput.BoundToolOutput(output).Text;
         return tool.Mutates ? await DescribeOutcomeAsync(output, token).ConfigureAwait(false) : ToolOutcome.Ok(output);
     }
 
