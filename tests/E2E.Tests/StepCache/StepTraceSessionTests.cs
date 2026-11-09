@@ -709,18 +709,18 @@ public sealed class StepTraceSessionTests
         Assert.Empty(staged.Appeared);
     }
 
-    /// <summary>Partial port of "stages the entry it replayed whole to keep, never as a recording, and reports the recorded verdict": an entry records no verdict.</summary>
     [Fact]
-    public async Task Stages_the_entry_it_replayed_whole_to_keep_never_as_a_recording()
+    public async Task Stages_the_entry_it_replayed_whole_to_keep_never_as_a_recording_and_reports_the_recorded_verdict()
     {
         var context = EntryContext(endPath: "/customers");
         var host = MakeHost(["/pricing", "/customers#top"]);
         var session = MakeSession(context, host);
         var verdict = await session.BeginAsync();
         Assert.Equal(StepVerdictStatus.Passed, verdict?.Status);
+        Assert.Contains("recorded verdict: opened the customers page", verdict?.Summary);
 
         session.Record(Navigate("/customers"));
-        await session.ConcludeAsync(StepOutcome.Passed);
+        await session.ConcludeAsync(StepOutcome.Passed, verdict?.Summary);
 
         // The passing screen is never captured for a kept entry: the start and the end check are the only looks.
         Assert.True(session.Pending.ReplayedWhole);

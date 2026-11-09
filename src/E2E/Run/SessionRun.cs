@@ -47,6 +47,7 @@ internal static class SessionRun
             }
 
             Stores.Clear();
+            SetupDependencies.Reset();
         }
     }
 }

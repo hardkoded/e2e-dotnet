@@ -236,6 +236,23 @@ public int Schema { get; set; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_CacheEntry_Summary_"></a>
+<a id="E2E_CacheEntry_Summary"></a>
+
+### Summary
+
+
+```csharp
+public string? Summary { get; set; }
+```
+
+
+Upstream's `summary` of a trace: the recorded run's verdict, which a whole replay answers with. Null on an entry recorded before
+it was stored: upstream refuses such an entry, the port keeps reading it and answers "step passed" (.NET-only leniency, so recorded
+caches stay readable).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_CacheEntry_TargetId_"></a>
 <a id="E2E_CacheEntry_TargetId"></a>
 

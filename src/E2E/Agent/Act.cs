@@ -243,7 +243,7 @@ public sealed partial class Agent
 
             if (session is not null)
             {
-                await session.ConcludeAsync(StepOutcome.Passed, agent.Model?.Name).ConfigureAwait(false);
+                await session.ConcludeAsync(StepOutcome.Passed, summary, agent.Model?.Name).ConfigureAwait(false);
             }
 
             return new ActResult { Summary = summary, Cache = session?.CacheInfo, ModelCalls = budget.ModelCalls, Actions = budget.Used };

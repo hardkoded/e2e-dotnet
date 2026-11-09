@@ -15,10 +15,12 @@ namespace E2E.NUnit;
 /// unsaved fails the test with <c>SESSION_CONTRACT</c>. The sessions are saved when the test passes. A test that restores one is marked
 /// <see cref="E2ESessionAttribute"/>.
 /// <para>
-/// NUnit decides the order, not the attribute's dependents: a setup test runs before the other tests of its own fixture, and
-/// no earlier than that. Put the setup tests and the tests that use their sessions in one fixture, or give the fixtures an <c>[Order]</c>
-/// that runs the setup fixture first. A test that restores a session nobody has saved yet fails with <c>SESSION_UNAVAILABLE</c>. Unlike upstream's
-/// runner, NUnit runs a setup test even when no selected test needs its session.
+/// A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
+/// alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
+/// session of its own and without the class's own <c>[SetUp]</c> and <c>[TearDown]</c> methods; exactly one setup test of the assembly must
+/// declare the name, or the restore fails with <c>SESSION_UNAVAILABLE</c>, as it does when the setup fails. NUnit then skips that setup test
+/// when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. The setup test gets an early
+/// <c>[Order]</c>, so it runs before the other tests of its own fixture.
 /// </para>
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
