@@ -214,6 +214,9 @@ internal sealed class SessionStore
         await AtomicWrite.WriteFileAtomicAsync(FilePath(identity.TargetId, name), envelope.ToJsonString(EnvelopeOptions) + "\n", UnixFileMode.UserRead | UnixFileMode.UserWrite, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Whether a file for the session is in the store. It says nothing about the file being valid or unexpired: <see cref="LoadAsync"/> checks that.</summary>
+    public bool Exists(string name, SessionIdentity identity) => File.Exists(FilePath(identity.TargetId, name));
+
     /// <summary>
     /// Validates identity and expiry, then decrypts one session state. A session is immutable for the life of the run that produced it, so the
     /// decrypted state is memoized per store: a worker running many consumers of one session reads and decrypts its file once. Its expiry is

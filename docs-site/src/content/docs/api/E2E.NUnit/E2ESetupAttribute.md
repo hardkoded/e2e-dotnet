@@ -27,10 +27,12 @@ unsaved fails the test with `SESSION_CONTRACT`. The sessions are saved when the 
 [E2ESessionAttribute](/api/E2E/E2ESessionAttribute/).
 
 &lt;p&gt;
-NUnit decides the order, not the attribute's dependents: a setup test runs before the other tests of its own fixture, and
-no earlier than that. Put the setup tests and the tests that use their sessions in one fixture, or give the fixtures an `[Order]`
-that runs the setup fixture first. A test that restores a session nobody has saved yet fails with `SESSION_UNAVAILABLE`. Unlike upstream's
-runner, NUnit runs a setup test even when no selected test needs its session.
+A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run
+alone (upstream's runner schedules the setup too). The dependent runs it on a new instance of the class (parameterless constructor), in a
+session of its own and without the class's own `[SetUp]` and `[TearDown]` methods; exactly one setup test of the assembly must
+declare the name, or the restore fails with `SESSION_UNAVAILABLE`, as it does when the setup fails. NUnit then skips that setup test
+when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. The setup test gets an early
+`[Order]`, so it runs before the other tests of its own fixture.
 &lt;/p&gt;
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [Attribute](https://learn.microsoft.com/dotnet/api/system.attribute) → `NUnitAttribute` → `TestAttribute`
