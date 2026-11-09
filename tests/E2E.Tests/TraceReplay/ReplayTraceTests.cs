@@ -12,7 +12,7 @@ namespace E2E.Tests.TraceReplay;
 /// Replay relocates a target with <c>Relocate.RelocateDescriptor</c> (upstream's <c>relocateDescriptor</c>), so "keeps looking
 /// while a positioned target is ambiguous, since a form still rendering shows fewer twins" and "relocates by semantic identity
 /// when a recorded test id churned" are ported here. "Names the rule behind a run-time value gap, so the report can cite it" is
-/// not ported; it is not part of this change.
+/// ported too.
 /// </summary>
 public sealed class ReplayTraceTests
 {
@@ -100,7 +100,19 @@ public sealed class ReplayTraceTests
         Assert.False(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.Gap, outcome.StopReason);
+        Assert.Null(outcome.Derived);
         Assert.Equal(["tap"], host.Calls);
+    }
+
+    [Fact]
+    public async Task Names_the_rule_behind_a_run_time_value_gap_so_the_report_can_cite_it()
+    {
+        var outcome = await Replay.ReplayTrace(MakeHost(), [TapUpgrade, new RecordedAction { Kind = "tool", Text = "type (run-time value)", Derived = DerivedReason.MintedToken }, TypeEmail]);
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.Gap, outcome.StopReason);
+        Assert.Equal(DerivedReason.MintedToken, outcome.Derived);
     }
 
     [Fact]

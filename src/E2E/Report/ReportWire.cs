@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
@@ -219,6 +220,7 @@ internal static partial class ReportWire
             ("mode", cache.Mode),
             ("recordedBy", recordedBy),
             ("reason", cache.Reason),
+            ("derived", cache.Derived is { } derived ? JsonSerializer.SerializeToNode(derived, JsonDefaults.Options) : null),
             ("notRecorded", cache.NotRecorded),
             ("replayedActions", Math.Max(0, cache.ReplayedActions)),
             ("totalActions", Math.Max(0, cache.TotalActions)),

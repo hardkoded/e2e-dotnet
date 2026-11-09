@@ -7,7 +7,6 @@ using E2E.Tests.CacheModelProvenance;
 namespace E2E.Tests.StepCache;
 
 /// <summary>
-/// "leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.
 /// "says a confirmed recording the store did not write was not written, rather than saved" runs <c>E2ESession.Flush</c> (upstream's <c>settleStagedTraces</c>) over a file store with a 16-byte cap.
 /// </summary>
 public sealed class FlushPipelineTests
@@ -48,6 +47,45 @@ public sealed class FlushPipelineTests
         var replaced = await File.ReadAllTextAsync(Assert.Single(BillingSession.Entries(directory)));
         Assert.NotEqual(written, replaced);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(replaced, "\"kind\":\\s*\"tap\""));
+    }
+
+    [Fact]
+    public async Task Leaves_an_entry_untouched_when_only_the_rule_that_flagged_a_typed_value_differs()
+    {
+        var directory = BillingSession.TempCache();
+        var key = new string('d', 64);
+
+        CacheEntry Recording(DerivedReason? derived) => new()
+        {
+            Test = "tests/a.e2e.ts::a",
+            Instruction = "apply the coupon",
+            Engine = "web",
+            ParamsDigest = new string('d', 64),
+            CallIndex = 0,
+            Agent = "default",
+            Route = "/e/iframe-form",
+            EndRoute = "/e/iframe-form",
+            Actions =
+            [
+                new RecordedAction { Kind = "tool", Text = "type (run-time value)", Derived = derived },
+                new RecordedAction { Kind = "tap", Role = "button", Name = "Apply" },
+            ],
+        };
+
+        void Flush(DerivedReason? derived) => E2ESession.Flush(
+            new FileStepCache(directory, FileStepCache.MaxCacheWireBytes, true),
+            [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = Recording(derived) }],
+            preserve: false);
+
+        // An entry recorded before gaps carried their rule, then live runs whose agent read the value off pixels once and off a node
+        // the next time: a replay stops at the gap whatever the rule, so none of them is a new flow.
+        Flush(null);
+        var file = Assert.Single(BillingSession.Entries(directory));
+        var written = await File.ReadAllTextAsync(file);
+        Flush(DerivedReason.Pixels);
+        Flush(DerivedReason.MintedToken);
+
+        Assert.Equal(written, await File.ReadAllTextAsync(file));
     }
 
     [Fact]
