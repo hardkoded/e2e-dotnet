@@ -6,8 +6,9 @@ namespace E2E.Engine;
 
 // Upstream's in-page/read-semantics.ts, the part that reads one element on its own: role, accessible name, state,
 // labels, DOM text, attributes and rect. It is a fragment of function-body declarations, not a function of its own, so
-// the tree reader (PageScript.Collect) and the readers a selector engine embeds (upstream's e2e-label and e2e-shown call
-// readSemanticsFunction in mode node and hidden) declare the same helpers. A helper here reads the element it is given
+// the tree reader (PageScript.Collect) embeds it first. Only Collect uses it today; the readers a selector engine embeds
+// (upstream's e2e-label and e2e-shown call readSemanticsFunction in mode node and hidden) are a later step of #1313, and
+// will declare the same helpers (each embedding has its own memo caches). A helper here reads the element it is given
 // and no walk state: it closes over nothing the walk owns, and takes what the walk keeps as arguments (domTextOf its
 // text limit, attributesOf the test id attribute).
 internal static class ReadSemantics
@@ -31,8 +32,7 @@ internal static class ReadSemantics
           };
           // Tags a contenteditable never makes an editing host: a drawn or embedded
           // surface, a void element, and a native control with a value of its own.
-          // Named and shaped as upstream's OPAQUE_TAGS and NON_HOST_TAGS in read-semantics.ts. Upstream
-          // reads the focused element once per observation (focusedElement); this script's `focused` is that.
+          // Named and shaped as upstream's OPAQUE_TAGS and NON_HOST_TAGS in read-semantics.ts.
           const OPAQUE_TAGS = ["svg", "math", "canvas", "video", "audio"];
           const NON_HOST_TAGS = [...OPAQUE_TAGS, "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
           const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1

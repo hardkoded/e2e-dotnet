@@ -65,6 +65,7 @@ internal static class PageScript
           let offBudget = max;
           let offCount = 0;
           let scroll = Math.round(scrollX) + "," + Math.round(scrollY);
+          // Upstream reads the focused element once per observation (focusedElement); this script's `focused` is that.
           let focused = document.activeElement;
           while (focused) {
             const inner = shadowOf(focused)?.activeElement ?? null;
