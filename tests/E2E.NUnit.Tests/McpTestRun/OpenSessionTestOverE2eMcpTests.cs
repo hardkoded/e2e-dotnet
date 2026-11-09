@@ -91,6 +91,8 @@ public sealed class OpenSessionTestOverE2eMcpTests
             Assert.That(first.Failure, Is.Not.Null);
             Assert.That(first.Failure!.Message, Does.Contain("no stored screenshot"));
 
+            // Upstream's store of written screenshots is per store, so the second session starts with none; the port's is per process.
+            ScreenshotContext.ForgetWrittenUnder(snapshots);
             var second = await RunAsync(name);
             Assert.That(second.Failure, Is.Null);
         }
