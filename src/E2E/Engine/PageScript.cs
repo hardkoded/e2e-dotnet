@@ -59,28 +59,6 @@ internal static class PageScript
             const r = box.getBoundingClientRect();
             return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
           };
-          // Text owned directly by an element, not by its child elements. An
-          // element with content-visibility: hidden renders none of it. The
-          // budget tally and the walk both ask, so each answer is kept.
-          const directTexts = new Map();
-          const directTextOf = (el) => {
-            if (directTexts.has(el)) return directTexts.get(el);
-            let out = "";
-            for (const child of el.childNodes) {
-              if (child.nodeType === 3) out += child.nodeValue ?? "";
-            }
-            out = out.replace(/\s+/g, " ").trim();
-            if (out && getComputedStyle(el).getPropertyValue("content-visibility") === "hidden") out = "";
-            directTexts.set(el, out);
-            return out;
-          };
-          const memoized = (read) => {
-            const answers = new Map();
-            return (el) => {
-              if (!answers.has(el)) answers.set(el, read(el));
-              return answers.get(el);
-            };
-          };
           // Elements whose content is not text in a line: a form control's
           // options or value, a picture, a frame, a drawn surface. Like a line
           // break, each separates the words around it.

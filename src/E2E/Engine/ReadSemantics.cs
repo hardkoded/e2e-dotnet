@@ -18,6 +18,14 @@ internal static class ReadSemantics
           // Router's route announcer echoes the title on a hydration schedule of its own, which an observation must
           // not read as an alert.
           const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "NEXT-ROUTE-ANNOUNCER"]);
+          // One answer per element, kept for the life of the reader (upstream's memoized).
+          const memoized = (read) => {
+            const answers = new Map();
+            return (el) => {
+              if (!answers.has(el)) answers.set(el, read(el));
+              return answers.get(el);
+            };
+          };
           const closedRoots = globalThis[Symbol.for("e2e.closedShadowRoots")];
           const shadowOf = (el) => el.shadowRoot ?? closedRoots?.get(el) ?? null;
           const hasOwnName = (el) => ["aria-label", "aria-labelledby", "title"].some((attribute) => (el.getAttribute(attribute) || "").trim() !== "");
@@ -179,6 +187,38 @@ internal static class ReadSemantics
           // focusable element or one with a global ARIA attribute, and the tag's role stands.
           const hasPresentationConflict = (el) =>
             isFocusable(el) || hasGlobalAriaAttribute(el, NAME_PROHIBITED_TAG_ROLES[el.tagName.toLowerCase()] ?? null);
+          // Smallest side, in CSS pixels, an empty box must have to be worth reporting.
+          const MIN_BOX_SIDE = 12;
+          // True when a computed style paints something a person can see.
+          const hasPaint = (style) => {
+            if (style.backgroundImage !== "none" && style.backgroundImage !== "") return true;
+            // A fully transparent color serializes with a zero alpha component.
+            const background = style.backgroundColor;
+            if (background !== "" && background !== "transparent" && !/,\s*0\)$/.test(background)) return true;
+            if (parseFloat(style.outlineWidth) > 0 && style.outlineStyle !== "none") return true;
+            const sides = ["borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth"];
+            const styles = ["borderTopStyle", "borderRightStyle", "borderBottomStyle", "borderLeftStyle"];
+            for (let index = 0; index < sides.length; index += 1) {
+              const width = parseFloat(style[sides[index]]);
+              const kind = style[styles[index]];
+              if (width > 0 && kind !== "none" && kind !== "hidden") return true;
+            }
+            return false;
+          };
+          // True when an element is an empty painted rectangle: no children, no text, no role, no name, and yet plainly visible, because
+          // it has a border, an outline, or a background of its own. A drop zone, a canvas, a chart placeholder, a colour swatch: a person
+          // sees a rectangle and can aim at it. The size floor and the paint requirement keep this from admitting every layout div.
+          const isVisibleEmptyBox = memoized((el) => {
+            const style = styleOf(el);
+            if (style === undefined) return false;
+            if (el.children.length > 0) return false;
+            const explicit = (el.getAttribute("role") ?? "").trim();
+            if (explicit !== "") return false;
+            if (directTextOf(el) !== "") return false;
+            const rect = el.getBoundingClientRect();
+            if (rect.width < MIN_BOX_SIDE || rect.height < MIN_BOX_SIDE) return false;
+            return hasPaint(style);
+          });
           const roleOf = (el) => {
             const explicit = explicitRole(el);
             if (explicit !== null && !((explicit === "presentation" || explicit === "none") && hasPresentationConflict(el))) {
@@ -259,7 +299,8 @@ internal static class ReadSemantics
             }
             if (/^H[1-6]$/.test(tag)) return "heading";
             if (el.getAttribute("aria-live")) return "status";
-            return null;
+            // Last: an element with no role of its own that is an empty painted rectangle is a `box`, so the walk and a re-read agree.
+            return isVisibleEmptyBox(el) ? "box" : null;
           };
           // The accessible name, by upstream's accname rules. A walk's
           // inReference is set inside an aria-labelledby traversal, where a
@@ -324,6 +365,16 @@ internal static class ReadSemantics
             if (!style) styles.set(el, style = getComputedStyle(el));
             return style;
           };
+          // Text owned directly by an element, excluding descendant elements. An element with content-visibility: hidden renders none of
+          // it, as its innerText reads empty, so it owns none.
+          const directTextOf = memoized((el) => {
+            if (styleOf(el)?.getPropertyValue("content-visibility") === "hidden") return "";
+            let out = "";
+            for (const child of Array.from(el.childNodes)) {
+              if (child.nodeType === 3) out += child.nodeValue ?? "";
+            }
+            return out.replace(/\s+/g, " ").trim();
+          });
           const generated = new Map();
           const generatedOf = (el, pseudo) => {
             let entry = generated.get(el);
