@@ -23,7 +23,7 @@ model tests use the GitHub Copilot login (`e2e login github-copilot`).
 ## Doctor
 
 ```bash
-dotnet test --project samples/TodoMvc --filter "FullyQualifiedName~AddingTodosTests.Adds_a_single_todo"   # opens the app, adds a todo; exit 0
+dotnet test samples/TodoMvc --filter "FullyQualifiedName~AddingTodosTests.Adds_a_single_todo"   # opens the app, adds a todo; exit 0
 ```
 
 The sample has no model-free test, so its Doctor uses the model; a project
