@@ -6,9 +6,9 @@ namespace E2E.Engine;
 
 // Upstream's in-page/read-semantics.ts, the part that reads one element on its own: role, accessible name, state,
 // labels, DOM text, attributes and rect. It is a fragment of function-body declarations, not a function of its own, so
-// the tree reader (PageScript.Collect) embeds it first. Only Collect uses it today; the readers a selector engine embeds
-// (upstream's e2e-label and e2e-shown call readSemanticsFunction in mode node and hidden) are a later step of #1313, and
-// will declare the same helpers (each embedding has its own memo caches). A helper here reads the element it is given
+// the tree reader (PageScript.Collect) and the selector engines embed it first (upstream's e2e-label and e2e-shown embed
+// readSemanticsFunction and call it in mode node and hidden: here LabelSelector calls labelsOf and ShownSelector calls
+// HiddenMode); each embedding has its own memo caches. A helper here reads the element it is given
 // and no walk state: it closes over nothing the walk owns, and takes what the walk keeps as arguments (domTextOf its
 // text limit, attributesOf the test id attribute).
 internal static class ReadSemantics
@@ -722,6 +722,26 @@ internal static class ReadSemantics
             };
             read(el);
             return cut(out, limit);
+          };
+        """;
+
+    /// <summary>
+    /// Upstream's <c>read(element, { mode: 'hidden' })</c>: whether one element reads as shown, as the tree reads it. Port-only name:
+    /// upstream's reader is one function with a mode, this one a fragment that follows <see cref="Prelude"/>. A node is hidden when
+    /// it is (<c>hidden</c>), or an ancestor in the flat tree hides its subtree (<c>display: none</c>, <c>content-visibility: hidden</c>),
+    /// which is the verdict the tree walk carries down as <c>parentHidden</c>; it is not shown when it lays out a box with no size
+    /// either (the tree's <c>emptyBox</c>), except an <c>option</c>. The engine's own <c>isNodeVisible</c> (<c>!Hidden &amp;&amp; !EmptyBox</c>)
+    /// reads the same two facts.
+    /// </summary>
+    public const string HiddenMode = """
+          const shownInTree = (el) => {
+            for (let parent = parentOrHostOf(el); parent !== null; parent = parentOrHostOf(parent)) {
+              if (hidesSubtree(parent, getComputedStyle(parent))) return false;
+            }
+            if (hidden(el)) return false;
+            if (el.tagName === "OPTION") return true;
+            const box = rectOf(el);
+            return box === null || (box.width > 0 && box.height > 0);
           };
         """;
 }

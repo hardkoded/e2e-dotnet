@@ -553,18 +553,21 @@ internal static class PageScript
     // Playwright selector engine name; e2e-closed=<css> matches inside recorded closed shadow roots.
     public const string ClosedShadowSelectorEngine = "e2e-closed";
 
-    // The engine behind e2e-closed=<css>: every element matching the CSS selector inside a closed shadow root
-    // the init script recorded, reached from the query root through light DOM and open roots, and through roots
-    // of either kind nested below a closed one. Playwright's own selectors stop at a closed root, so this is what
-    // lets a screenshot mask cover a secure field there. A closed root is searched only as an entry of the first
-    // list, never by recursion from the tree above it, so each element is reached from exactly one root. A document
-    // that has attached no closed root has none to find, and the walk is skipped. It runs in the page's main world
-    // (not as a content script) because that is where the record lives. A document without the record is refused:
-    // a mask that cannot prove its coverage must fail closed. The record counts as present when the init script
-    // defined it on the global, checked with in because it calls nothing the page can replace: instanceof WeakMap
-    // reads the page's own WeakMap, which a polyfill may swap out.
-    public const string ClosedShadowSelectorEngineSource = """
-        () => {
+    // Playwright selector engine name for the roots a semantic query searches (upstream's SEARCH_ROOTS_SELECTOR_ENGINE). e2e-roots= (an
+    // empty body) resolves to the query root followed by every closed shadow root recorded under it, so the Playwright query part that
+    // follows (internal:role, internal:text, internal:label, ...) runs its own matching in each of them; e2e-roots=<css> resolves to the
+    // elements the CSS selector matches in the query root and in every closed root under it.
+    public const string SearchRootsSelectorEngine = "e2e-roots";
+
+    // The in-page helpers the selector engines below and the label engine (LabelSelector) are built on (upstream's
+    // CLOSED_SHADOW_HELPERS_SOURCE): the closed roots the init script recorded under a query root (the root's own, when it is a closed
+    // host, and every one below through open and closed roots alike), and the elements a CSS selector matches in one tree and the open
+    // roots below it. A closed root is searched only as an entry of the first list, never by recursion from the tree above it, so each
+    // element is reached from exactly one root. A document that has attached no closed root has none to find, and the walk over every
+    // element is skipped: every locator resolution runs this, so a page without closed roots must pay nothing for the reach. The record
+    // counts as present when the init script defined it on the global, checked with in because it calls nothing the page can replace:
+    // instanceof WeakMap reads the page's own WeakMap, which a polyfill may swap out.
+    public const string ClosedShadowHelpersSource = """
           const key = Symbol.for("e2e.closedShadowRoots");
           const tracked = key in globalThis;
           const roots = globalThis[key];
@@ -588,9 +591,40 @@ internal static class PageScript
             }
             return out;
           };
+        """;
+
+    // The engine behind e2e-closed=<css>: every element matching the CSS selector inside a closed shadow root
+    // the init script recorded, reached from the query root through light DOM and open roots, and through roots
+    // of either kind nested below a closed one. Playwright's own selectors stop at a closed root, so this is what
+    // lets a screenshot mask cover a secure field there. It runs in the page's main world
+    // (not as a content script) because that is where the record lives. A document without the
+    // record is refused: a mask that cannot prove its coverage must fail closed.
+    public const string ClosedShadowSelectorEngineSource = $$"""
+        () => {
+        {{ClosedShadowHelpersSource}}
           const queryAll = (root, selector) => {
             if (!tracked) throw new Error("closed-shadow root tracking is unavailable for this document");
             const out = [];
+            for (const closed of closedRootsUnder(root, [])) matchesIn(closed, selector, out);
+            return out;
+          };
+          return { queryAll, query: (root, selector) => queryAll(root, selector)[0] ?? null };
+        }
+        """;
+
+    // The engine behind e2e-roots=: the roots a semantic query searches, or the elements a CSS selector matches across them.
+    // Playwright's own query engines accept a shadow root as their root and never cross a closed boundary downward, so listing
+    // every closed root as a root of its own lets them match inside with the same role, name, text, label, and attribute rules
+    // they apply outside, and finds each element exactly once. A CSS selector list is matched here rather than by Playwright's
+    // CSS engine, which sorts a list's matches in DOM order through shadowRoot and so drops the direct children of a closed
+    // root; the matches of one root keep their document order and roots follow in the order they were found. A document without
+    // the record answers as Playwright alone would, so a locator never fails where it used to work.
+    public const string SearchRootsSelectorEngineSource = $$"""
+        () => {
+        {{ClosedShadowHelpersSource}}
+          const queryAll = (root, selector) => {
+            if (selector === "") return [root, ...closedRootsUnder(root, [])];
+            const out = matchesIn(root, selector, []);
             for (const closed of closedRootsUnder(root, [])) matchesIn(closed, selector, out);
             return out;
           };

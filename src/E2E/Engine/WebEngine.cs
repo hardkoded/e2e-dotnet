@@ -1078,7 +1078,7 @@ public sealed partial class WebEngine : IEngine
     private sealed partial class WebSession : IBrowserSession
     {
         // The fields the page script marks secure.
-        private const string SecureFieldSelector = "input[type=password i], input[autocomplete=current-password]";
+        private const string SecureFieldSelector = ReadNode.SecureFieldSelector;
 
         // The same fields inside the closed shadow roots Playwright's own selectors stop at.
         private const string ClosedSecureFieldSelector = PageScript.ClosedShadowSelectorEngine + "=" + SecureFieldSelector;

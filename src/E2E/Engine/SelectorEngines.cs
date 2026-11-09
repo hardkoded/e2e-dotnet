@@ -6,8 +6,7 @@ namespace E2E.Engine;
 
 /// <summary>
 /// Every selector engine the web engine registers, in a launched browser and in a CDP context alike (upstream's
-/// <c>web/src/selector-engines.ts</c>). Upstream also lists the exact-label, read and shown engines; the port has only the
-/// closed-shadow one.
+/// <c>web/src/selector-engines.ts</c>). Upstream also lists the read engine (<c>e2e-read</c>), which the port does not have yet.
 /// </summary>
 internal static class SelectorEngines
 {
@@ -15,5 +14,8 @@ internal static class SelectorEngines
     public static readonly IReadOnlyList<(string Name, string Source)> All =
     [
         (PageScript.ClosedShadowSelectorEngine, PageScript.ClosedShadowSelectorEngineSource),
+        (PageScript.SearchRootsSelectorEngine, PageScript.SearchRootsSelectorEngineSource),
+        (LabelSelector.ExactLabelSelectorEngine, LabelSelector.ExactLabelSelectorEngineSource),
+        (ShownSelector.ShownSelectorEngine, ShownSelector.ShownSelectorEngineSource),
     ];
 }
