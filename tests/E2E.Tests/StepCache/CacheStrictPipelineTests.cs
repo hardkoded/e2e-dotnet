@@ -30,7 +30,7 @@ public sealed class CacheStrictPipelineTests
 
         public CacheLookup Read(string key) => new() { Entry = entry };
 
-        public int? Write(string key, CacheEntry written) => null;
+        public int? Write(string key, CacheEntry written) => 0;
 
         public void Delete(string key)
         {

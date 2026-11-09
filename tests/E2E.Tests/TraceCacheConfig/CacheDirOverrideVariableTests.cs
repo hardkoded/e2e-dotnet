@@ -43,7 +43,7 @@ public sealed class CacheDirOverrideVariableTests
 
         public CacheLookup Read(string key) => new() { Reason = "no-entry" };
 
-        public int? Write(string key, CacheEntry entry) => null;
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {

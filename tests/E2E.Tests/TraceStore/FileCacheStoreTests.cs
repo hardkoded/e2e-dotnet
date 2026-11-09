@@ -4,10 +4,6 @@
 
 namespace E2E.Tests.TraceStore;
 
-/// <summary>
-/// The byte-cap and not-writable tests call
-/// <c>FileStepCache.Write</c> directly: <c>IStepCache.Write</c> returns nothing (issue #1259).
-/// </summary>
 public sealed class FileCacheStoreTests : IDisposable
 {
     private static readonly string Key = new('a', 64);

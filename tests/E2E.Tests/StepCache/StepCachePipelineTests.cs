@@ -845,7 +845,7 @@ public sealed class StepCachePipelineTests
 
         public CacheLookup Read(string key) => throw new InvalidOperationException("redis connection refused");
 
-        public int? Write(string key, CacheEntry entry) => null;
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {
@@ -859,7 +859,7 @@ public sealed class StepCachePipelineTests
 
         public CacheLookup Read(string key) => new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
 
-        public int? Write(string key, CacheEntry entry) => null;
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {
