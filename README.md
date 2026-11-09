@@ -469,14 +469,14 @@ Sign in once with the GitHub CLI already logged in, then run the sample:
 
 ```bash
 dotnet run --project src/E2E.Cli -- login github-copilot
-dotnet test --project samples/E2E.Sample
+dotnet test samples/E2E.Sample
 ```
 
 To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.config.json`, for example to `"provider": "openai", "model": "gpt-4.1-mini"` with `OPENAI_API_KEY` set.
 
-[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test --project samples/E2E.XUnit.V3.Sample`.
+[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`.
 
-Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test --project samples/E2E.Sample`.
+Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test samples/E2E.Sample`.
 
 [`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps. Its README compares the two.
 
