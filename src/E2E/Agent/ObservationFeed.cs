@@ -60,11 +60,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public IReadOnlyCollection<string> ShownText() => _shown;
 
     // Upstream's noteShown on a look read as the feed prepares it.
-    internal void NoteShown(Observation observation)
+    internal void NoteShown(Observation observation, bool pixels = false)
     {
         if (!observation.TreeUnavailable)
         {
-            NoteShown(Prepare(observation, false));
+            NoteShown(Prepare(observation, pixels));
         }
     }
 
@@ -236,10 +236,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
-        if (!observation.TreeUnavailable)
-        {
-            NoteShown(Prepare(observation, pixels));
-        }
+        NoteShown(observation, pixels);
 
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
