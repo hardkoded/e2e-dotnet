@@ -106,9 +106,11 @@ public sealed class CacheWriteTests
 
     private sealed class FailingWrites : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Reason = "no-entry" };
 
-        public void Write(string key, CacheEntry entry) => throw new IOException("the store is full");
+        public int? Write(string key, CacheEntry entry) => throw new IOException("the store is full");
 
         public void Delete(string key)
         {

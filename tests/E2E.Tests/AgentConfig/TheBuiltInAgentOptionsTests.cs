@@ -55,9 +55,11 @@ public sealed class TheBuiltInAgentOptionsTests
     {
         public Config.ResolveConfigTests.Cycle Client { get; } = new();
 
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => throw new InvalidOperationException("not called");
 
-        public void Write(string key, CacheEntry entry) => throw new InvalidOperationException("not called");
+        public int? Write(string key, CacheEntry entry) => throw new InvalidOperationException("not called");
 
         public void Delete(string key) => throw new InvalidOperationException("not called");
     }

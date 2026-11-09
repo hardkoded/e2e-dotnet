@@ -254,7 +254,7 @@ public sealed class E2EHost : IAsyncDisposable
             ProjectRoot = _config.ProjectRoot,
             ResultsDirectory = OutputLayout.Of(_config.Output).Results,
             TargetName = _target.Name,
-            Cache = cacheMode == CacheMode.Off ? null : _config.Cache.Store ?? new FileStepCache(_config.Cache.Directory),
+            Cache = cacheMode == CacheMode.Off ? null : _config.Cache.Store ?? new FileStepCache(_config.Cache.Directory, FileStepCache.MaxCacheWireBytes, cacheMode == CacheMode.ReadWrite && !_config.Cache.Strict),
             ArtifactStore = _config.ArtifactStore,
             CacheEnabled = cacheMode != CacheMode.Off,
             CacheMode = cacheMode,

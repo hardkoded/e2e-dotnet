@@ -281,11 +281,11 @@ public sealed class Trace1EntryTests
 
     private sealed class FixedCache(CacheEntry entry) : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Entry = entry };
 
-        public void Write(string key, CacheEntry written)
-        {
-        }
+        public int? Write(string key, CacheEntry written) => null;
 
         public void Delete(string key)
         {

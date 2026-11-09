@@ -26,11 +26,11 @@ public sealed class CacheStrictPipelineTests
 
     private sealed class FixedEntryCache(CacheEntry entry) : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Entry = entry };
 
-        public void Write(string key, CacheEntry written)
-        {
-        }
+        public int? Write(string key, CacheEntry written) => null;
 
         public void Delete(string key)
         {

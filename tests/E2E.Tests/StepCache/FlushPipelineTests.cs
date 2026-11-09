@@ -6,7 +6,10 @@ using E2E.Tests.CacheModelProvenance;
 
 namespace E2E.Tests.StepCache;
 
-/// <summary>"leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.</summary>
+/// <summary>
+/// "leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.
+/// "says a confirmed recording the store did not write was not written, rather than saved" runs <c>E2ESession.Flush</c> (upstream's <c>settleStagedTraces</c>) over a file store with a 16-byte cap.
+/// </summary>
 public sealed class FlushPipelineTests
 {
     [Fact]
@@ -45,6 +48,32 @@ public sealed class FlushPipelineTests
         var replaced = await File.ReadAllTextAsync(Assert.Single(BillingSession.Entries(directory)));
         Assert.NotEqual(written, replaced);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(replaced, "\"kind\":\\s*\"tap\""));
+    }
+
+    [Fact]
+    public void Says_a_confirmed_recording_the_store_did_not_write_was_not_written_rather_than_saved()
+    {
+        var directory = BillingSession.TempCache();
+        var key = new string('e', 64);
+        var recording = new CacheEntry
+        {
+            Test = "tests/a.e2e.ts::a",
+            Instruction = "tap Save",
+            Engine = "web",
+            ParamsDigest = new string('e', 64),
+            CallIndex = 0,
+            Agent = "default",
+            Route = "/",
+            EndRoute = "/",
+            Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }],
+        };
+
+        CacheWrite? Outcome(int maxBytes) => E2ESession
+            .Flush(new FileStepCache(directory, maxBytes, true), [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = recording }], preserve: false)
+            .GetValueOrDefault(0);
+
+        Assert.Equal(CacheWrite.NotWritten, Outcome(16));
+        Assert.Equal(CacheWrite.Saved, Outcome(FileStepCache.MaxCacheWireBytes));
     }
 
     /// <summary>A model that taps Upgrade to Pro twice before it concludes, and passes the judgment.</summary>

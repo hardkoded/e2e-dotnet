@@ -841,11 +841,11 @@ public sealed class StepCachePipelineTests
     /// <summary>A store whose every read rejects, as a store behind a network can.</summary>
     internal sealed class ThrowingCache : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => throw new InvalidOperationException("redis connection refused");
 
-        public void Write(string key, CacheEntry entry)
-        {
-        }
+        public int? Write(string key, CacheEntry entry) => null;
 
         public void Delete(string key)
         {
@@ -855,11 +855,11 @@ public sealed class StepCachePipelineTests
     /// <summary>A store that hits with an entry whose actions are not a list.</summary>
     internal sealed class MalformedCache : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
 
-        public void Write(string key, CacheEntry entry)
-        {
-        }
+        public int? Write(string key, CacheEntry entry) => null;
 
         public void Delete(string key)
         {
@@ -877,16 +877,18 @@ public sealed class StepCachePipelineTests
 
         public int Deletes { get; private set; }
 
+        public bool Writable => true;
+
         public CacheLookup Read(string key)
         {
             Reads++;
             return _inner.Read(key);
         }
 
-        public void Write(string key, CacheEntry entry)
+        public int? Write(string key, CacheEntry entry)
         {
             Writes++;
-            _inner.Write(key, entry);
+            return _inner.Write(key, entry);
         }
 
         public void Delete(string key)

@@ -257,7 +257,7 @@ public abstract class E2EFixture
                 UpdateSnapshots = UpdateSnapshots,
                 ResultsDirectory = ResultsDirectory,
                 RerunDir = HostRun.RerunDir,
-                Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory),
+                Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory, FileStepCache.MaxCacheWireBytes, cacheMode == CacheMode.ReadWrite && !CacheStrict),
                 CacheEnabled = cacheMode != CacheMode.Off,
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,

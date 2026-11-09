@@ -38,7 +38,7 @@ internal static class CacheContexts
 
         var strict = cache.Strict;
         var mode = strict ? CacheMode.ReadOnly : cache.Mode;
-        var store = cache.Store ?? new FileStepCache(cache.Directory);
+        var store = cache.Store ?? new FileStepCache(cache.Directory, FileStepCache.MaxCacheWireBytes, mode == CacheMode.ReadWrite);
         return new AgentCacheContext(
             mode,
             store,

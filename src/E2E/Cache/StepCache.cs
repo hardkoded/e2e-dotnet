@@ -489,11 +489,19 @@ public sealed class CacheLookup
     public string? Reason { get; init; }
 }
 
+/// <summary>
+/// Where the replay cache keeps its entries: the file store by default, or a host's own through <c>cache.store</c> (upstream's <c>CacheStore</c>,
+/// <c>cache/store.ts</c>).
+/// </summary>
 public interface IStepCache
 {
+    /// <summary>Upstream's <c>CacheStore.writable</c>: false when the store never writes or deletes. Its digest in the config is this flag.</summary>
+    bool Writable { get; }
+
     CacheLookup Read(string key);
 
-    void Write(string key, CacheEntry entry);
+    /// <summary>Persists one trace, returning its size in bytes, or null when not written (upstream's <c>write</c> returns <c>{ bytes } | undefined</c>).</summary>
+    int? Write(string key, CacheEntry entry);
 
     /// <summary>Returns when the entry is absent; throws when deletion fails, so the best-effort caller can avoid reporting a successful eviction.</summary>
     void Delete(string key);
@@ -530,7 +538,7 @@ public sealed class FileStepCache : IStepCache
         Writable = writable;
     }
 
-    /// <summary>False when the store never writes or deletes (upstream's <c>CacheStore.writable</c>; <see cref="IStepCache"/> has no such member, the mode decides).</summary>
+    /// <summary>False when the store never writes or deletes (upstream's <c>FileCacheStore.writable</c>).</summary>
     public bool Writable { get; }
 
     /// <summary>The directory the entry files are in, where a trace page names a step's entry.</summary>
@@ -575,11 +583,8 @@ public sealed class FileStepCache : IStepCache
         }
     }
 
-    void IStepCache.Write(string key, CacheEntry entry) => Write(key, entry);
-
     /// <summary>
     /// Persists one entry, returning its size in bytes, or null when not written: the store is not writable, or the entry is over the byte cap.
-    /// (.NET-only shape: <see cref="IStepCache.Write"/> returns nothing, so this overload is public beside it; upstream's <c>write</c> returns <c>{ bytes } | undefined</c>.)
     /// </summary>
     public int? Write(string key, CacheEntry entry)
     {
