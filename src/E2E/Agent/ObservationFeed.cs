@@ -2,10 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
-using System.Runtime.CompilerServices;
 using RelocateRules = E2E.Relocate;
 
 namespace E2E;
