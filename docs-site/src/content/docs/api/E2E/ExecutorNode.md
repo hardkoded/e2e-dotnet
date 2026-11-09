@@ -54,6 +54,21 @@ public IReadOnlyList<ExecutorNode> Children { get; init; }
 
 **Value:** [IReadOnlyList&lt;ExecutorNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_ExecutorNode_FramePath_"></a>
+<a id="E2E_ExecutorNode_FramePath"></a>
+
+### FramePath
+
+
+```csharp
+public IReadOnlyList<string>? FramePath { get; init; }
+```
+
+
+The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_ExecutorNode_Id_"></a>
 <a id="E2E_ExecutorNode_Id"></a>
 
