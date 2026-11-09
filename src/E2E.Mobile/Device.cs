@@ -328,9 +328,9 @@ public sealed class Device
     public Task HomeAsync(CancellationToken cancellationToken = default) =>
         RunAsync("device.home", "", () => _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token), cancellationToken));
 
-    /// <summary>Navigates back once (in-app back).</summary>
+    /// <summary>Navigates back once (in-app back). It settles as <see cref="MobileOptions.Settle"/> and <see cref="MobileOptions.SettleMilliseconds"/> say, which a test's own steps do not.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.back", "", () => _session.ScreenCommandAsync("device.back", (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.ActionSettle(OperationContext.Test), token), cancellationToken));
+        RunAsync("device.back", "", () => _session.ScreenCommandAsync("device.back", (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.SettleArgs(), token), cancellationToken));
 
     /// <summary>Accepts or dismisses the visible system alert.</summary>
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>
