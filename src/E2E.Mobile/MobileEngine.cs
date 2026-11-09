@@ -326,10 +326,8 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
     /// </summary>
     public async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
-        foreach (var session in ActiveSessions)
-        {
-            await session.CloseAsync(timeout, cancellationToken).ConfigureAwait(false);
-        }
+        // Together, so one budget bounds the lot and one failing close does not leave the others running.
+        await Task.WhenAll(ActiveSessions.Select(session => session.CloseAsync(timeout, cancellationToken))).ConfigureAwait(false);
     }
 
     /// <summary>
