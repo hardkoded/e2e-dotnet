@@ -535,7 +535,7 @@ internal static class WebLocators
 
             case "filter" or "index":
                 return FrameSelectors(expression.Source!);
-            case "selector" or "refs":
+            case "selector":
                 return [];
             case "frame":
                 return [expression.Selector!, .. FrameSelectors(expression.Source!)];
@@ -564,7 +564,7 @@ internal static class WebLocators
     /// The expression with the frame scopes of its queries taken off, for a filter that resolves inside the matches of a source that has
     /// them. A <c>selector</c> keeps its frame: the page decides which elements it names.
     /// </summary>
-    public static LocatorExpression WithoutFrameScopes(LocatorExpression expression)
+    private static LocatorExpression WithoutFrameScopes(LocatorExpression expression)
     {
         switch (expression.Kind)
         {
@@ -589,16 +589,6 @@ internal static class WebLocators
                 return expression.Parent is null ? expression : expression with { Parent = WithoutFrameScopes(expression.Parent) };
         }
     }
-
-    /// <summary>Whether resolving the expression needs the page: it holds a <c>selector</c> or a <c>frame</c> somewhere.</summary>
-    public static bool NeedsPage(LocatorExpression expression) =>
-        expression.Kind is "selector" or "frame"
-        || (expression.Source is { } source && NeedsPage(source))
-        || (expression.Parent is { } parent && NeedsPage(parent))
-        || (expression.Left is { } left && NeedsPage(left))
-        || (expression.Right is { } right && NeedsPage(right))
-        || (expression.Has is { } has && NeedsPage(has))
-        || (expression.HasNot is { } hasNot && NeedsPage(hasNot));
 
     /// <summary>
     /// Refuses a selector that captures with <c>*</c> before its last part. Upstream reads every match through a selector engine

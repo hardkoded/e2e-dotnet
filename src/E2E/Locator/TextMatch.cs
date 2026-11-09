@@ -13,7 +13,9 @@ namespace E2E;
 /// both screen queries and expectations. In a query, a string matches exactly
 /// by default, and <c>exact: false</c> makes it a case-insensitive substring;
 /// a <see cref="Regex"/> is tested against the whitespace-normalized text and
-/// ignores <c>exact</c>. Converts implicitly from both.
+/// ignores <c>exact</c>. On the web a <see cref="Regex"/> runs in the page as
+/// the JavaScript regular expression of the same pattern, over the raw text.
+/// Converts implicitly from both.
 /// </summary>
 public sealed class TextMatch
 {

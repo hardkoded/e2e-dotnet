@@ -85,8 +85,9 @@ public sealed class WebAndDocumentEngineLocateTests
         using var site = await TinySite.StartAsync(Rows);
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var observed = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Single(node => node.Role == "button" && node.Name == "Delete");
+        // A located node has a ref of its own (upstream's storeLocated), apart from the observation's.
         var located = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Delete", new RoleOptions()), Budget, CancellationToken.None));
-        Assert.Equal(observed.Ref, located.Ref);
+        Assert.NotEqual(observed.Ref, located.Ref);
         var add = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Add", new RoleOptions()), Budget, CancellationToken.None));
         await session.PerformAsync(add, new LocatorAction.Tap(), CancellationToken.None);
 

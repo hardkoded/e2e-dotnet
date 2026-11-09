@@ -526,7 +526,7 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>
     /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
-    /// them. Every secure-field mask needs them.
+    /// them. Every locator and secure-field mask needs them.
     /// </summary>
     private static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
     {
@@ -1289,19 +1289,22 @@ public sealed partial class WebEngine : IEngine
         public bool CanLocate => true;
 
         /// <summary>
-        /// Resolves a locator against the page as it is now, in the engine: it reads the semantic tree and resolves the expression over
-        /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
-        /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
-        /// resolve is the tree's, and only a <c>selector</c> or <c>frame</c> expression asks Playwright which elements it names
-        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken, Forcing)"/>). <paramref name="timeout"/> is the budget left for the
-        /// wait: the read runs under it, or under the action timeout when that is shorter.
+        /// Resolves a locator against the page as it is now, in the engine: it projects the expression onto a Playwright locator over the
+        /// selector engines (<see cref="WebLocators.ProjectExpression"/>) and reads every match, fully, in one in-page round trip (upstream's
+        /// <c>locate</c> in <c>surface.ts</c>). Each match is read by the <c>e2e-read</c> engine in the task that finds it
+        /// (<see cref="ReadSelector"/>), so a page that replaces it a frame later cannot detach it before the read. A <c>displayValue</c> query
+        /// is filtered here by the value each element reported, so no per-node calls are needed; any <c>first</c>/<c>last</c>/<c>nth</c>
+        /// on such a query then selects among those matches, and a filter placed after a position is checked on the selected element. A
+        /// <c>visible</c> query drops the candidates whose hidden state the same read reported before either of those, so a position is among
+        /// shown matches. <paramref name="timeout"/> is the budget left for the wait: the read runs under it, or under the action timeout
+        /// when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
             try
             {
-                return await LocateNowAsync(expression, timeout, cancellationToken).ConfigureAwait(false);
+                return await GuardAsync("locate", cancellationToken, () => LocateNowAsync(expression, timeout, cancellationToken)).ConfigureAwait(false);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.EngineFailure && ex.InnerException is PlaywrightException cause)
             {
@@ -1311,141 +1314,164 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        /// <summary>The body of <see cref="LocateAsync"/>, inside its page-script guard.</summary>
+        /// <summary>The body of <see cref="LocateAsync"/>, inside its guard (upstream's <c>locateNow</c>).</summary>
         private async Task<IReadOnlyList<SemanticNode>> LocateNowAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
-            var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
-            var projected = expression;
-            if (WebLocators.NeedsPage(expression))
-            {
-                var forcing = new Forcing();
-                // The elements a projection marks are taken by the next observation that publishes, and the observation that lists them is
-                // the one the projection is read against. Both, and the projection onto it (upstream reads whatever the selector matches;
-                // here every match must be a node of the observation the caller acts on), run in one turn: another call's observation in
-                // between would take the marks, or replace the listed elements.
-                var (listed, onto) = await GuardAsync("locate", cancellationToken, async () =>
-                {
-                    var budget = ObserveBudget(cancellationToken, timeout);
-                    return await ObserveInTurnAsync(budget, async () =>
-                    {
-                        var first = await ProjectAsync(expression, timeout, cancellationToken, forcing).ConfigureAwait(false);
-                        if (!forcing.Marked)
-                        {
-                            return ((Observation?)null, first);
-                        }
-
-                        var observed = await ReadObservationAsync(budget).ConfigureAwait(false);
-                        return (observed, await ProjectAsync(expression, timeout, cancellationToken, new Forcing { Mark = false }).ConfigureAwait(false));
-                    }).ConfigureAwait(false);
-                }).ConfigureAwait(false);
-                projected = onto;
-                observation = listed ?? observation;
-            }
-
-            _trace?.ShowScreen(observation);
-            var matches = LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
-            // As upstream's locate: a single match keeps the strict locator, so a node that turns ambiguous between locate and perform
-            // is stale instead of acted on. A match of several is pinned to its own element, and so is every match of a predicate
-            // query (display value, exact label), which upstream pins to the handles of the elements it read.
-            if (matches.Count == 1 && !PinsToElements(expression))
-            {
-                _strict.AddOrUpdate(matches[0], expression);
-            }
-
-            return matches;
-        }
-
-        /// <summary>
-        /// The expression with every <c>selector</c> and <c>frame</c> in it replaced by the nodes Playwright says it names, as <c>refs</c>:
-        /// the elements the page script listed in the observation just taken, which is every element that has a ref. An element the tree
-        /// leaves out (no role, test id, or text of its own) is marked in <paramref name="forcing"/> and has no ref yet: the caller observes
-        /// again, which lists it, and projects once more. The content of a frame the tree does not show matches nothing.
-        /// Upstream's <c>project</c> (<c>locators.ts</c>) and <c>frameBox</c> (<c>surface.ts</c>), over the tree.
-        /// </summary>
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken, Forcing forcing)
-        {
-            WebLocators.FrameSelectors(expression);
             var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
+            // Handles a predicate query pins, disposed on every path that hands none of them out.
+            IReadOnlyList<IElementHandle>? handles = null;
+            var handed = false;
             try
             {
-                return await ProjectAsync(expression, budget, forcing).ConfigureAwait(false);
+                RefuseCaptures(expression);
+                var frame = await FrameOfAsync(WebLocators.FrameSelectors(expression), budget).ConfigureAwait(false);
+                var projected = WebLocators.ProjectExpression(Page, expression, new ProjectionOptions(_testIdAttribute, frame.Hidden, expression.IncludeHidden));
+                // Every match is read by the `e2e-read` selector engine in the task that finds it, so a page that replaces it a frame later
+                // cannot detach it before the read. A predicate-filtered match is one element among many candidates (every input with a
+                // value, every control the label engine kept). Re-resolving it by position at action time would act on a neighbor whenever
+                // the page inserted or removed an element in between, so such matches are pinned to the handles of the elements the query
+                // returned, and their reads are taken back from those very handles: what was read and what is acted on are one set of
+                // elements by construction.
+                var read = ReadSelector.Create(_testIdAttribute, ReadNode.SecureFieldSelector);
+                var reading = projected.Locator.Locator(read.Selector);
+                if (projected.DisplayValue is not null || projected.Name is not null)
+                {
+                    handles = await budget.WithinAsync(reading.ElementHandlesAsync()).ConfigureAwait(false);
+                }
+
+                // The reads are data: a missing one is a null in the array, which only a typed read turns into a node.
+                var json = handles is null
+                    ? await budget.WithinAsync(reading.EvaluateAllAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = read.Token })).ConfigureAwait(false)
+                    : handles.Count == 0
+                        ? default
+                        : await budget.WithinAsync(handles[0].EvaluateAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = read.Token, elements = handles })).ConfigureAwait(false);
+                var taken = json.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? System.Text.Json.JsonSerializer.Deserialize<WebNode?[]>(json, JsonDefaults.Options)!
+                    : [];
+                if (taken.Any(raw => raw is null))
+                {
+                    throw new TestException("INVALID_LOCATOR", "a selector that captures with * (*css=article >> text=Hello) is not supported: use Filter(Locator) instead");
+                }
+
+                var reads = taken.Select(raw => raw!).ToList();
+                foreach (var raw in reads)
+                {
+                    if (frame.Hidden)
+                    {
+                        raw.Hidden = true;
+                    }
+
+                    if (frame.InFrame)
+                    {
+                        // A node read in a frame is in the top-level viewport's space, as the observation tree reports it.
+                        Place([raw], frame.Content);
+                    }
+                }
+
+                var nodes = reads.Select(raw => ToNode(raw, _testIdAttribute)).ToList();
+                var candidates = nodes
+                    .Select((node, index) => (Node: node, Index: index))
+                    .Where(candidate => !(projected.Visible && !LocatorEngine.IsNodeVisible(candidate.Node)))
+                    .ToList();
+
+                // An exact label query matches any of the control's labels as the reader names them, so text a label marks aria-hidden (a
+                // required-field marker) never hides a field, and an aria-label override or a second label does not either.
+                Func<SemanticNode, bool>? predicate = projected switch
+                {
+                    { DisplayValue: { } value } => node => value.Match.Matches(node.Value ?? "", value.Exact),
+                    { Name: { } name } => node => node.Labels is { } labels && labels.Any(label => name.Match.Matches(label, name.Exact)),
+                    _ => null,
+                };
+                var matches = predicate is null
+                    ? candidates
+                    : await WebLocators.ApplyPostSteps(
+                        candidates.Where(candidate => predicate(candidate.Node)).ToList(),
+                        projected.Steps,
+                        // A filter after a position runs on that one element alone.
+                        async (candidate, options) => await budget.WithinAsync(projected.Locator.Nth(candidate.Index).Filter(options).CountAsync()).ConfigureAwait(false) > 0).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (handles is not null)
+                {
+                    // Only the matches keep their handles; the rest would otherwise live until the page goes.
+                    var kept = matches.Select(match => match.Index).ToHashSet();
+                    for (var index = 0; index < handles.Count; index++)
+                    {
+                        if (!kept.Contains(index))
+                        {
+                            WebSupport.DisposeQuietly(handles[index]);
+                        }
+                    }
+                }
+
+                var located = new List<SemanticNode>(matches.Count);
+                foreach (var (node, index) in matches)
+                {
+                    // A single match keeps the strict locator, so a ref that turns ambiguous between locate and perform is stale instead of
+                    // acting on whichever element is first.
+                    ActionTarget target = handles is not null
+                        ? new ElementTarget(handles[index])
+                        : new LocatorTarget(reads.Count == 1 ? projected.Locator : projected.Locator.Nth(index));
+                    var id = _refs.StoreLocated(target);
+                    reads[index].Ref = id;
+                    var stored = ToNode(reads[index], _testIdAttribute);
+                    if (handles is null && reads.Count == 1)
+                    {
+                        _strict.AddOrUpdate(stored, expression);
+                    }
+
+                    located.Add(stored);
+                }
+
+                handed = true;
+                return located;
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.StaleOr(ex, "locate");
             }
-        }
-
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, OperationBudget budget, Forcing forcing)
-        {
-            switch (expression.Kind)
+            finally
             {
-                case "union":
-                    return expression with { Left = await ProjectAsync(expression.Left!, budget, forcing).ConfigureAwait(false), Right = await ProjectAsync(expression.Right!, budget, forcing).ConfigureAwait(false) };
-                case "filter":
-                    return expression with
+                if (!handed)
+                {
+                    foreach (var handle in handles ?? [])
                     {
-                        Source = await ProjectAsync(expression.Source!, budget, forcing).ConfigureAwait(false),
-                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!, "has"), budget, forcing).ConfigureAwait(false),
-                        HasNot = expression.HasNot is null ? null : await ProjectAsync(WithinSource(expression.HasNot, expression.Source!, "hasNot"), budget, forcing).ConfigureAwait(false),
-                    };
-                case "index":
-                    return expression with { Source = await ProjectAsync(expression.Source!, budget, forcing).ConfigureAwait(false) };
-                case "selector":
-                    return Named(await RefsOfAsync([], expression.Selector!, budget, forcing).ConfigureAwait(false));
-                case "frame":
-                    {
-                        var frames = new List<string>();
-                        var leaf = expression;
-                        while (leaf.Kind == "frame")
-                        {
-                            frames.Add(leaf.Selector!);
-                            leaf = leaf.Source!;
-                        }
-
-                        var frame = await FrameAsync(frames, budget, forcing).ConfigureAwait(false);
-                        return leaf.Kind switch
-                        {
-                            "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget, forcing).ConfigureAwait(false)),
-                            "role" or "text" or "label" or "testid" or "placeholder" or "displayValue" when leaf.Parent is null => leaf with { Parent = Named([frame]) },
-                            _ => throw new EngineException("UNSUPPORTED_CAPABILITY", "a frame scopes a query or a selector, not " + leaf.Kind, retryable: false),
-                        };
+                        WebSupport.DisposeQuietly(handle);
                     }
-
-                default:
-                    return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget, forcing).ConfigureAwait(false) };
+                }
             }
         }
 
-        /// <summary>
-        /// A <c>has</c> filter resolves inside each match of its source, so a frame the two share is already the source's: the frame's
-        /// iframe would otherwise scope the filter to descendants of the iframe, which the match is not one of. A <c>has</c> in another
-        /// document cannot be joined to its source.
-        /// </summary>
-        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source, string key)
+        /// <summary>Refuses a <c>selector</c> that captures with <c>*</c>, wherever the expression holds one.</summary>
+        private static void RefuseCaptures(LocatorExpression expression)
         {
-            if (!WebLocators.FrameSelectors(has).SequenceEqual(WebLocators.FrameSelectors(source), StringComparer.Ordinal))
+            if (expression.Kind == "selector")
             {
-                throw new EngineException("UNSUPPORTED_CAPABILITY", $"locator.filter({{ {key} }}) requires both locators in the same document", retryable: false);
+                WebLocators.RefuseCapture(expression.Selector!);
             }
 
-            return WebLocators.WithoutFrameScopes(has);
+            foreach (var inner in new[] { expression.Parent, expression.Source, expression.Left, expression.Right, expression.Has, expression.HasNot })
+            {
+                if (inner is not null)
+                {
+                    RefuseCaptures(inner);
+                }
+            }
         }
-
-        private static LocatorExpression Named(IEnumerable<string> refs) => new() { Kind = "refs", Refs = new HashSet<string>(refs, StringComparer.Ordinal) };
 
         /// <summary>
         /// Checks that every frame selector along <paramref name="frames"/> matches exactly one element, each counted inside the frame
-        /// before it (upstream's <c>frameBox</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
-        /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns the ref the innermost iframe node has in the observation. An iframe the
-        /// observation does not list, because it is hidden, is marked in <paramref name="forcing"/> like any element a selector names: the
-        /// observation that follows lists it, hidden, with every node of its document hidden too (upstream's <c>frameOf</c>).
+        /// before it (upstream's <c>frameOf</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
+        /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns whether a frame along the chain is hidden: a frame element's own hidden state,
+        /// read in the document around it, so a cross-origin frame reads too. Every node in a hidden frame is hidden, and so are the frames
+        /// under it. Also returns the innermost frame's content box in the top-level viewport, where its document's viewport starts (null for
+        /// a frame with no box); <see cref="FrameScope.InFrame"/> is false for an expression in the main document.
         /// </summary>
-        private async Task<string> FrameAsync(IReadOnlyList<string> frames, OperationBudget budget, Forcing forcing)
+        private async Task<FrameScope> FrameOfAsync(IReadOnlyList<string> frames, OperationBudget budget)
         {
             ILocator? element = null;
             IFrameLocator? scope = null;
-            var refs = new List<string?>();
+            var hidden = false;
             foreach (var selector in frames)
             {
                 element = scope is null ? Page.Locator(selector) : scope.Locator(selector);
@@ -1460,14 +1486,21 @@ public sealed partial class WebEngine : IEngine
                     throw new EngineException(EngineErrorCodes.FrameAmbiguous, $"{count} frames match {selector}", retryable: false);
                 }
 
-                // The iframe can go between the count and this read: it then lists nothing, as a count of zero says.
-                var listed = await budget.WithinAsync(element.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false);
-                refs.Add(listed.Length > 0 ? listed[0] : throw NoFrame(selector));
+                if (!hidden)
+                {
+                    hidden = await budget.WithinAsync(element.Locator(ShownSelector.Selector).CountAsync()).ConfigureAwait(false) == 0;
+                }
+
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
+            if (element is null)
+            {
+                return new FrameScope(Hidden: false, InFrame: false, Content: null);
+            }
+
             // A selector counts one element; only an iframe is a frame boundary. Read without waiting for the element: an iframe that went since the count is no frame, not an element to wait for.
-            var isFrame = await budget.WithinAsync(element!.EvaluateAllAsync<bool[]>(PageScript.AreFrameElements)).ConfigureAwait(false);
+            var isFrame = await budget.WithinAsync(element.EvaluateAllAsync<bool[]>(PageScript.AreFrameElements)).ConfigureAwait(false);
             if (isFrame.Length == 0)
             {
                 throw NoFrame(frames[^1]);
@@ -1478,48 +1511,29 @@ public sealed partial class WebEngine : IEngine
                 throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
             }
 
-            if (refs.Contains(null))
+            var border = await budget.WithinAsync(element.BoundingBoxAsync(new LocatorBoundingBoxOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+            WebRect? content = null;
+            if (border is not null)
             {
-                if (!forcing.Mark)
-                {
-                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: the page changed after it", retryable: true);
-                }
-
-                // The caller observes again and projects once more, so this projection is discarded and its ref is a placeholder.
-                forcing.Marked = true;
-                return "";
+                var inset = await budget.WithinAsync(element.EvaluateAsync<WebRect>(PageScript.FrameInset, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                content = new WebRect { X = border.X + inset.X, Y = border.Y + inset.Y, Width = inset.Width, Height = inset.Height };
             }
 
-            return refs[^1]!;
+            return new FrameScope(hidden, InFrame: true, content);
         }
+
+        /// <summary>What <see cref="FrameOfAsync"/> found: whether a frame on the way is hidden, and the content box of the innermost one (null for a frame with no box).</summary>
+        private sealed record FrameScope(bool Hidden, bool InFrame, WebRect? Content);
 
         private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
-
-        /// <summary>
-        /// The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page. An element
-        /// the observation does not list is marked in the page and counted in <paramref name="forcing"/>: the next observation lists it.
-        /// </summary>
-        private async Task<List<string>> RefsOfAsync(IReadOnlyList<string> frames, string selector, OperationBudget budget, Forcing forcing)
-        {
-            WebLocators.RefuseCapture(selector);
-            IFrameLocator? scope = null;
-            foreach (var frame in frames)
-            {
-                scope = scope is null ? Page.FrameLocator(frame) : scope.FrameLocator(frame);
-            }
-
-            var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
-            // One round trip for every match.
-            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>(PageScript.RefsOrForce, forcing.Mark)).ConfigureAwait(false);
-            forcing.Marked |= found.Any(id => id is null);
-            return found.OfType<string>().ToList();
-        }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
-            RequireObservation();
+
+            // An action on a node needs no observation after a recovery, as upstream's: a ref from before it is retired, and one a locate
+            // stored after it names an element of the page now.
             var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
             var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
@@ -1547,8 +1561,9 @@ public sealed partial class WebEngine : IEngine
         }));
 
         /// <summary>
-        /// The page's element for an observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made it owns the
-        /// handle: it stays valid until the next observation replaces the generation.
+        /// The page's element for a located or observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made an
+        /// observed one owns the handle: it stays valid until the next observation replaces the generation. A located node's locator is
+        /// resolved now (upstream's <c>dispatchLocatorAction</c> acts through it), and its handle is released with the pin.
         /// </summary>
         private async Task<(IElementHandle Element, IDisposable Pin)> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
         {
@@ -1556,6 +1571,26 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                if (target is LocatorTarget located)
+                {
+                    var resolving = located.Locator.ElementHandleAsync(new LocatorElementHandleOptions { Timeout = budget.PlaywrightTimeout });
+                    try
+                    {
+                        var handle = await budget.WithinAsync(resolving).ConfigureAwait(false);
+                        return (handle, new HandlePin(handle));
+                    }
+                    catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+                    {
+                        WebSupport.DisposeWhenSettled(resolving);
+                        throw WebErrors.ClassifyAction(ex, action);
+                    }
+                    catch
+                    {
+                        WebSupport.DisposeWhenSettled(resolving);
+                        throw;
+                    }
+                }
+
                 return (((ElementTarget)target).Element, pin);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
@@ -1571,6 +1606,12 @@ public sealed partial class WebEngine : IEngine
                 WebSupport.DisposePinWhenSettled(lookup);
                 throw;
             }
+        }
+
+        /// <summary>Releases the element handle a located node's locator resolved to, when the action that used it ends. .NET-only: upstream's locator actions hold no handle.</summary>
+        private sealed class HandlePin(IElementHandle handle) : IDisposable
+        {
+            public void Dispose() => WebSupport.DisposeQuietly(handle);
         }
 
         /// <summary>A pointer drag between two elements, as Playwright's <c>dragTo</c> does it: hover the source, press, hover the target, release.</summary>
@@ -2821,7 +2862,7 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            // The reader may stamp more refs than the walk reserved (nodes a selector forced past the cut), so what it minted past the
+            // The reader may stamp more refs than the walk reserved (an inline text node has a ref of its own and counts against no budget), so what it minted past the
             // reservation is taken too: the next document never starts inside this one's range. Port only; upstream reserves the budget alone.
             var overrun = dto.Next - (seed + walk.Remaining);
             if (overrun > 0)
@@ -2882,20 +2923,6 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// Whether upstream's projection leaves the terminal query's predicate to the surface (<c>ProjectedLocator.displayValue</c> and
-        /// <c>name</c>): a display-value query, or an exact label query. Its matches are pinned to the elements the read returned.
-        /// </summary>
-        private static bool PinsToElements(LocatorExpression expression)
-        {
-            while (expression.Kind is "filter" or "index" or "frame")
-            {
-                expression = expression.Source!;
-            }
-
-            return expression.Kind == "displayValue" || (expression.Kind == "label" && expression.Value?.Text is not null && expression.Exact);
-        }
-
-        /// <summary>
         /// A node located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
         /// it, the node is ambiguous: acting could hit the wrong element, so it is stale. A node the observation listed, or one of several
         /// matches, names its own element and is never ambiguous.
@@ -2907,30 +2934,11 @@ public sealed partial class WebEngine : IEngine
                 return;
             }
 
-            // The twin check reads the page to count its matches and publishes nothing: the lists it makes are released with it.
-            var walks = new List<FrameWalk>();
             try
             {
-                var walk = new FrameWalk();
-                walks.Add(walk);
-                var roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
-                var projected = expression;
-                if (WebLocators.NeedsPage(expression))
-                {
-                    var forcing = new Forcing();
-                    projected = await ProjectAsync(expression, budget, forcing).ConfigureAwait(false);
-                    if (forcing.Marked)
-                    {
-                        // The twin check keeps the page's elements as the located node's observation set them, forced ones included.
-                        var again = new FrameWalk();
-                        walks.Add(again);
-                        roots = await CollectAsync(Page.MainFrame, again, budget).ConfigureAwait(false);
-                        projected = await ProjectAsync(expression, budget, new Forcing { Mark = false }).ConfigureAwait(false);
-                    }
-                }
-
-                var observation = new Observation { Route = Route, Roots = roots.Select(each => ToNode(each, _testIdAttribute)).ToList() };
-                if (LocatorResolver.Resolve(observation, projected, expression.IncludeHidden).Count > 1)
+                // As upstream's strict locator: the locator is counted in the page, and a second match is a twin.
+                var projected = WebLocators.ProjectExpression(Page, expression, new ProjectionOptions(_testIdAttribute, FrameHidden: false, expression.IncludeHidden));
+                if (await budget.WithinAsync(projected.Locator.CountAsync()).ConfigureAwait(false) > 1)
                 {
                     throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
                 }
@@ -2938,13 +2946,6 @@ public sealed partial class WebEngine : IEngine
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
-            }
-            finally
-            {
-                foreach (var each in walks)
-                {
-                    each.Release();
-                }
             }
         }
 
@@ -4159,18 +4160,6 @@ public sealed partial class WebEngine : IEngine
     private sealed record TargetIdentity(string TargetId, string? BrowserContextId);
 
     private sealed record SessionBinding(IBrowser Browser, IBrowserContext Context, IPage? Page, string ContextId, TargetIdentity? Target);
-
-    /// <summary>
-    /// Whether a projection met a <c>selector</c> match the observation does not list. .NET-only: upstream reads every match through its
-    /// <c>e2e-read</c> engine, and the port's reader is the observation, so those matches are listed by a second observation first.
-    /// </summary>
-    private sealed class Forcing
-    {
-        /// <summary>False for the projection after the observation that listed the marked elements: what it still misses is not marked again.</summary>
-        public bool Mark { get; init; } = true;
-
-        public bool Marked { get; set; }
-    }
 
     private sealed class FrameWalk
     {

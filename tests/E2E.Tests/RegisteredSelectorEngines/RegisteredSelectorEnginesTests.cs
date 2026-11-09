@@ -9,7 +9,7 @@ namespace E2E.Tests.RegisteredSelectorEngines;
 
 /// <summary>
 /// .NET-only (no upstream <c>it</c> runs the engines on a page: upstream's <c>closed-shadow.test.ts</c> runs <c>e2e-roots</c> against a
-/// scripted document, and its integration tests reach <c>e2e-label</c> and <c>e2e-shown</c> through locators). Each engine the web engine
+/// scripted document, and its integration tests reach <c>e2e-label</c>, <c>e2e-read</c> and <c>e2e-shown</c> through locators). Each engine the web engine
 /// registers (<see cref="E2E.Engine.SelectorEngines"/>) is run here through a real Playwright selector on a real page, since
 /// <c>LabelSelector</c> and <c>ShownSelector</c> embed the port's reader (<c>ReadSemantics.Prelude</c>), which a scripted document cannot exercise.
 /// </summary>
@@ -90,6 +90,29 @@ public sealed class RegisteredSelectorEnginesTests : IAsyncLifetime
         // The body is JSON, so a quote or a chain separator in a label travels whole.
         var odd = LabelSelector.ExactLabelSelector(new ExactLabelSelectorBody("a \"b\" >> c", "data-testid", E2E.Engine.ReadNode.SecureFieldSelector));
         Assert.Empty(await IdsAsync(_page.Locator(odd)));
+    }
+
+    [Fact]
+    public async Task E2e_read_records_each_match_under_its_token_and_the_take_function_hands_it_back_once()
+    {
+        var first = ReadSelector.Create("data-testid", E2E.Engine.ReadNode.SecureFieldSelector);
+        var second = ReadSelector.Create("data-testid", E2E.Engine.ReadNode.SecureFieldSelector);
+        var buttons = _page.Locator("button").Locator(first.Selector).Locator(second.Selector);
+        // The engine returns its query root as it is: the locator still matches every button.
+        Assert.Equal(7, await buttons.CountAsync());
+
+        var reads = await _page.Locator("button").Locator(first.Selector).EvaluateAllAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = first.Token });
+        Assert.Equal(7, reads.GetArrayLength());
+        var shown = reads.EnumerateArray().Single(read => read.GetProperty("name").GetString() == "Shown");
+        Assert.False(shown.GetProperty("hidden").GetBoolean());
+        var gone = reads.EnumerateArray().Single(read => read.GetProperty("text").GetString() == "Gone");
+        Assert.True(gone.GetProperty("hidden").GetBoolean());
+
+        // Each read is taken back once, and another token's reads are a locate of their own.
+        var again = await _page.Locator("button").EvaluateAllAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = first.Token });
+        Assert.All(again.EnumerateArray(), read => Assert.Equal(System.Text.Json.JsonValueKind.Null, read.ValueKind));
+        var other = await _page.Locator("button").EvaluateAllAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = second.Token });
+        Assert.All(other.EnumerateArray(), read => Assert.Equal(System.Text.Json.JsonValueKind.Object, read.ValueKind));
     }
 
     [Fact]

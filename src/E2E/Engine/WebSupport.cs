@@ -222,8 +222,14 @@ internal sealed class ErrorLatch
 /// </summary>
 internal abstract record RefTarget;
 
-/// <summary>What an action runs on (upstream's <c>ActionTarget</c>, <c>web/src/support.ts</c>). The port has no strict locator target: it pins no node to a Playwright locator.</summary>
+/// <summary>What an action runs on (upstream's <c>ActionTarget</c>, <c>web/src/support.ts</c>).</summary>
 internal abstract record ActionTarget : RefTarget;
+
+/// <summary>
+/// An action target that is a Playwright locator, resolved when the action runs (upstream's <c>{ kind: 'locator' }</c>): a single match keeps the
+/// strict locator, so the action re-resolves it and a page that replaced the element in between loses no action.
+/// </summary>
+internal sealed record LocatorTarget(ILocator Locator) : ActionTarget;
 
 /// <summary>An action target that is already an element handle (upstream's <c>{ kind: 'element' }</c>).</summary>
 internal sealed record ElementTarget(IElementHandle Element) : ActionTarget;

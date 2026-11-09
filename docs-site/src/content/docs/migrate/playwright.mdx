@@ -148,7 +148,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `Page.WaitForSelectorAsync(selector)` | `Browser.Locator(selector).WaitForAsync()`; a locator is strict | renamed |
 | `Page.ClickAsync(selector)`, `FillAsync(selector, value)`, `GetAttributeAsync(selector, name)`, and the other `Page` methods that take a selector | `Browser.Locator(selector).TapAsync()`, `.FillAsync(value)`, `.GetAttributeAsync(name)`. Playwright acts on the first match; a locator is strict, so add `First()` for the old behavior | renamed |
 | `Locator.Locator("css")` | a semantic query inside the scope (`cell.GetByRole("textbox")` for `cell.Locator("input")`), `Browser.Locator("css").GetByRole(...)` the other way round, or one `Browser.Locator` selector for the whole path | missing |
-| `Page.FrameLocator("#frame")` | `Browser.FrameLocator("#frame")`, then `Screen` queries inside it | web only |
+| `Page.FrameLocator("#frame")` | `Browser.FrameLocator("#frame")`, then `Screen` queries inside it. A plain query never enters an iframe, as in Playwright | web only |
 
 ### Actions
 
@@ -341,7 +341,7 @@ A page object that reads `Browser` makes every test that uses it web only. `ILoc
 
 ## What differs on purpose
 
-- A string name is exact. Playwright's `GetByRole` names, `GetByLabel`, `GetByPlaceholder`, and `GetByText` match a case-insensitive substring, so `Save` also hits `Save as draft`. In e2e a string matches the whole text, case-sensitive. Pass `exact: false` or a .NET `Regex` for a fragment, and drop Playwright's `Exact = true`, which is the default here. A query that misses passes a negated assertion, so check it with a positive one first.
+- A string name is exact. Playwright's `GetByRole` names, `GetByLabel`, `GetByPlaceholder`, and `GetByText` match a case-insensitive substring, so `Save` also hits `Save as draft`. In e2e a string matches the whole text, case-sensitive. Pass `exact: false` or a .NET `Regex` for a fragment (on the web it runs in the page as a JavaScript regular expression, tested against the raw text, as Playwright's does), and drop Playwright's `Exact = true`, which is the default here. A query that misses passes a negated assertion, so check it with a positive one first.
 
   ```csharp
   // <button>Save changes</button>, <label>Email address <input></label>

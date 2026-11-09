@@ -69,7 +69,8 @@ public sealed class ThroughAFrameLocatorTests
             TestTimeout = TimeSpan.FromSeconds(30),
         });
         await session.App.OpenAsync("/");
-        await Expect.That(session.Screen.GetByRole("button", "Parent")).ToBeVisibleAsync();
+        // A plain query does not enter an iframe, as upstream's: the page is ready when its visible frame has loaded.
+        await Expect.That(session.Browser.FrameLocator("[name=parent]").GetByRole("button", "Parent")).ToBeVisibleAsync();
         await body(session);
     }
 }

@@ -41,9 +41,15 @@ internal static class LabelSelector
     public static readonly string ExactLabelSelectorEngineSource = $$"""
         () => {
         {{PageScript.ClosedShadowHelpersSource}}
+          // A reader of its own for each query, as upstream calls the reader once per read: its memo caches hold computed styles, which
+          // would go stale between two queries of an engine that lives as long as the document.
+          const readerOf = () => {
         {{ReadSemantics.Prelude}}
+            return labelsOf;
+          };
           const normalize = (text) => text.replace(/\s+/gu, " ").trim();
           const queryAll = (root, selector) => {
+            const labelsOf = readerOf();
             const body = JSON.parse(selector);
             const expected = normalize(body.value);
             const candidates = matchesIn(root, {{JsonSerializer.Serialize(LabelableSelector, Json)}}, []);

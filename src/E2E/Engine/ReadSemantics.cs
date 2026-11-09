@@ -744,4 +744,103 @@ internal static class ReadSemantics
             return box === null || (box.width > 0 && box.height > 0);
           };
         """;
+
+    /// <summary>
+    /// Upstream's <c>read(element, { mode: 'node' })</c> and the projection both modes share: what the reader reports for one element, as
+    /// <c>fieldsOf</c>, with the state the walk carries down (hidden, aria-hidden, the focused element) given in, and as <c>nodeOf</c> for one
+    /// element on its own, whose hidden state it reads up the flat tree. Port-only name: upstream's reader is one function with a mode, this
+    /// one a fragment that follows <see cref="Prelude"/>. The tree walk (<see cref="PageScript.Collect"/>) adds its own fields (the ref, the
+    /// line text, the inline nodes, the children); node mode is the full locator-read surface, so it cuts no text.
+    /// </summary>
+    public const string NodeMode = """
+          const treeTextLimit = 512;
+          // The element holding focus, through the shadow trees on the way down (upstream's focusedElement).
+          const focusedElementOf = () => {
+            let focused = document.activeElement;
+            while (focused) {
+              const inner = shadowOf(focused)?.activeElement ?? null;
+              if (!inner) break;
+              focused = inner;
+            }
+            return focused;
+          };
+          // A text limit cuts and collapses whitespace; none reads the text as it is.
+          const clip = (value, limit) => limit === null ? value || "" : cut(value, limit);
+          // Everything one element reports on its own. `state` carries what the caller knows about the element's place: whether it is hidden
+          // or aria-hidden (a tree walk carries both down), the focused element, the test id attribute, and the text limit (null for none).
+          const fieldsOf = (el, role, state) => {
+            const { isHidden, isAriaHidden, focused, testIdAttribute, textLimit } = state;
+            const isFrame = el.tagName === "IFRAME";
+            // An editor's document is its value, as a textarea's text is: kept as
+            // rendered, spaces and newlines included. An empty editor renders
+            // <p><br></p>, which innerText reads as a newline, so a document with
+            // no text nodes, or with only markup whitespace that renders as that one
+            // newline, is an empty value; typed spaces are text nodes and stay. The
+            // zero-width no-break space Slate and Quill pad an empty line with
+            // renders nothing, so it is no text either.
+            let editorValue = null;
+            if (isEditingHost(el)) {
+              const rendered = el.innerText.replace(/﻿/g, "");
+              const text = (el.textContent || "").replace(/﻿/g, "");
+              editorValue = text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
+            }
+            const type = (el.getAttribute("type") || "").toLowerCase();
+            const secure = type === "password" || el.getAttribute("autocomplete") === "current-password";
+            return {
+              role,
+              name: isFrame ? cut(el.getAttribute("title") || "", 256) || null : nameOf(el, role),
+              // A leaf keeps its own text too: a labelled status or button
+              // reads its content, not its label, as upstream's node read
+              // does. A secure field withholds it. innerText is empty for a
+              // node that does not render, and for a textarea; its DOM text is
+              // what a text query matches.
+              text: secure ? "" : clip(isHidden || el.tagName === "TEXTAREA" ? el.textContent : el.innerText, textLimit),
+              domText: secure ? "" : domTextOf(el, textLimit ?? domTextBound),
+              labels: labelsOf(el),
+              value: secure ? null : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? String(el.value ?? "") : editorValue,
+              selection: el === focused && !secure ? selectedTextOf(el)?.slice(0, textLimit ?? Infinity) ?? null : null,
+              testId: el.getAttribute(testIdAttribute),
+              placeholder: el.getAttribute("placeholder"),
+              inputPurpose: secure ? "password" : null,
+              level: levelOf(el, role),
+              disabled: disabledOf(el, role),
+              checked: checkedOf(el),
+              checkedReported: checkedReportedOf(el),
+              mixed: mixedOf(el),
+              // A box with no width or height; an option has none while its select is closed.
+              emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
+              expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || "") && el.tagName !== "DETAILS",
+              expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
+              selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
+              pressed: el.getAttribute("aria-pressed") === "true",
+              focused: el === focused,
+              hidden: isHidden,
+              ariaHidden: isAriaHidden,
+              secure,
+              frame: isFrame,
+              attributes: attributesOf(el, secure, testIdAttribute),
+              // Upstream's node read keeps the whole href; the tree's attributes reduce it to origin and path.
+              wholeHref: el.getAttribute("href"),
+              rect: rectOf(el),
+              origin: originOf(el),
+            };
+          };
+          // One element read on its own: hidden when it is or an ancestor in the flat tree hides its subtree, aria-hidden when it or an
+          // ancestor is, the verdicts the tree walk carries down.
+          const nodeOf = (el, testIdAttribute) => {
+            let isHidden = false;
+            let isAriaHidden = false;
+            for (let parent = parentOrHostOf(el); parent !== null; parent = parentOrHostOf(parent)) {
+              if (hidesSubtree(parent, getComputedStyle(parent))) isHidden = true;
+              if (ariaHidden(parent)) isAriaHidden = true;
+            }
+            return fieldsOf(el, roleOf(el), {
+              isHidden: isHidden || hidden(el),
+              isAriaHidden: isAriaHidden || ariaHidden(el),
+              focused: focusedElementOf(),
+              testIdAttribute,
+              textLimit: null,
+            });
+          };
+        """;
 }

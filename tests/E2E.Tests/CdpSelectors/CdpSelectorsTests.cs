@@ -14,18 +14,14 @@ public sealed class CdpSelectorsTests
 {
     private static readonly TimeSpan Budget = TimeSpan.FromSeconds(10);
 
-    /// <summary>
-    /// Partial of upstream "refuses an unsupported context before any locator or capture can run, naming both": the message names
-    /// only the secure-field masks, because the port's locators do not resolve through its selector engines (the check that it
-    /// names locators waits for that).
-    /// </summary>
+    /// <summary>Upstream "refuses an unsupported context before any locator or capture can run, naming both".</summary>
     [Fact]
-    public async Task Partial_refuses_an_unsupported_context_before_any_locator_or_capture_can_run()
+    public async Task Refuses_an_unsupported_context_before_any_locator_or_capture_can_run()
     {
         var context = DispatchProxy.Create<IBrowserContext, UnsupportedContext>();
         var failure = await Assert.ThrowsAsync<EngineException>(() => E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, Budget, CancellationToken.None));
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
-        Assert.Matches("secure-field masks", failure.Message);
+        Assert.Matches("locators and secure-field masks", failure.Message);
     }
 
     /// <summary>Upstream "tolerates only the exact owned-name duplicates from a version that already seeded the context".</summary>

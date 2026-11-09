@@ -139,8 +139,11 @@ public sealed class WebSemanticsTests
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
-            await session.Screen.GetByRole("button", "Pay").TapAsync();
-            await Expect.That(session.Screen.GetByRole("status")).ToContainTextAsync("Paid");
+            // A plain query does not enter an iframe, as upstream's (a frame locator does): the stitched tree is the agent's.
+            Assert.Equal(0, await session.Screen.GetByRole("button", "Pay").CountAsync());
+            var checkout = session.Browser.FrameLocator("iframe[title=Checkout]");
+            await checkout.GetByRole("button", "Pay").TapAsync();
+            await Expect.That(checkout.GetByRole("status")).ToContainTextAsync("Paid");
         });
     }
 

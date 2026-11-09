@@ -122,18 +122,25 @@ public sealed class NestedFrameLocatorsTests
         Assert.Equal(["Hello iframe"], nodes.Select(node => node.Name));
     }
 
-    // .NET-only, as the test above: upstream's text engine and hasText filter read one document, so the frame's text is not the box's.
+    // .NET-only, as the test above: upstream's text engine and hasText filter read one document, so a plain text query matches the outer
+    // document's text alone and the frame's text is a frame locator's.
     [Fact]
-    public async Task A_text_query_keeps_an_outer_match_that_a_nested_frame_repeats()
+    public async Task A_text_query_matches_the_outer_document_and_a_frame_locator_the_nested_frame()
     {
         await using var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetContentAsync($"<div>Greeting<iframe srcdoc=\"{Attribute("<p>Greeting</p>")}\"></iframe></div>");
         await page.FrameLocator("iframe").GetByText("Greeting").WaitForAsync();
 
-        var nodes = await session.LocateAsync(new LocatorExpression { Kind = "text", Value = "Greeting" }, TimeSpan.FromSeconds(10), CancellationToken.None);
+        var outer = await session.LocateAsync(new LocatorExpression { Kind = "text", Value = "Greeting" }, TimeSpan.FromSeconds(10), CancellationToken.None);
+        var inFrame = await session.LocateAsync(
+            new LocatorExpression { Kind = "frame", Selector = "iframe", Source = new LocatorExpression { Kind = "text", Value = "Greeting" } },
+            TimeSpan.FromSeconds(10),
+            CancellationToken.None);
 
-        Assert.Equal(2, nodes.Count);
+        Assert.Single(outer);
+        Assert.Single(inFrame);
+        Assert.NotEqual(outer[0].Ref, inFrame[0].Ref);
     }
 
     [Fact]

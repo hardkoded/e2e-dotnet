@@ -316,6 +316,11 @@ lines you changed:
   matches nothing or too many, the message lists the candidates each filter
   step left, counted after the failure; the step where the count jumps or
   drops to 0 is the one to change.
+- On the web, queries are Playwright's, run on the page: a plain query does
+  not enter an iframe (use `Browser.FrameLocator(css)`), `GetByRole("textbox")`
+  finds a `contenteditable` host only with `role="textbox"` on it (otherwise
+  use `GetByLabel` or `GetByTestId`), and a `Regex` is a JavaScript regular
+  expression tested against the raw text (topic `writing-tests`).
 - Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
   of the four, at least one. `hasText` and `hasNotText` are case-insensitive
   substrings (or a `Regex`) over the subtree text. `has` keeps, and `hasNot`

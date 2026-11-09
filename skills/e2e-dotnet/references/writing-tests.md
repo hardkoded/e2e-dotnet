@@ -93,7 +93,11 @@ Members of `E2ETest` in both frameworks:
   `GetByTestId`, and `GetByDisplayValue`. Prefer a role with the accessible
   name the app renders.
 - Text matches are **exact by default**. Pass `exact: false` for a
-  case-insensitive substring, or a .NET `Regex`.
+  case-insensitive substring, or a .NET `Regex`. On the web a `Regex` runs in
+  the page as the JavaScript regular expression of the same pattern (its
+  `IgnoreCase`, `Multiline`, and `Singleline` options travel as flags), over
+  the raw text rather than whitespace-normalized text, so write a pattern both
+  syntaxes read the same way: no `\z` or `\A`.
 - `GetByText` and `GetByLabel` return the innermost match, so a container
   echoing its child does not count twice: `GetByText("$42.00")` finds the
   `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. On a web page,
@@ -131,7 +135,8 @@ Members of `E2ETest` in both frameworks:
   `LOCATOR_AMBIGUOUS`; no match fails with `LOCATOR_NOT_FOUND`.
 - `Browser.Locator(css)` and `Browser.FrameLocator(css)` (see the browser
   fixture) reach a control a role, label, or text query cannot name, and an
-  iframe. Use a selector only when those can't find the element.
+  iframe. Use a selector only when those can't find the element. A plain
+  query never enters an iframe: query its content through `FrameLocator`.
 - `Visible = true` (on `TextMatchOptions` or `RoleOptions`) drops nodes the
   page hides (a closed drawer) before the exactly-one rule. Visibility is
   what renders, as `ToBeVisibleAsync` reads it: `display: none`, a
@@ -143,14 +148,14 @@ Members of `E2ETest` in both frameworks:
   it. Everything inside a hidden `<iframe>` is hidden too, cross-origin frames
   included. Unlike upstream, a box with no size reads as visible.
 - On the web a `contenteditable` editing host, the root a TipTap, ProseMirror,
-  Lexical, or Slate editor renders into, is a `textbox` for the agent and the
-  locators. Its value is its text as rendered, spaces and newlines kept, so
+  Lexical, or Slate editor renders into, is a `textbox` for the agent. Its value is its text as rendered, spaces and newlines kept, so
   `ToHaveValueAsync` and `InputValueAsync` read it and `FillAsync` fills it;
   an empty editor reads `""`. It is named by its `aria-label`,
   `aria-placeholder`, or the `data-placeholder` its editor paints, and the
   blocks inside it are content, not textboxes. A native control or a drawn
   surface made editable keeps its own role. `GetByRole("textbox", name)` finds
-  a bare host; upstream's finds it only with `role="textbox"`. Anchor a test
+  a host only with `role="textbox"` on it, as upstream's does; reach a bare
+  host with `GetByLabel` or `GetByTestId`. Anchor a test
   on a label or a test id, since a name taken from a block's
   `data-placeholder` goes once the editor has content.
 - `GetByDisplayValue` never matches a checkbox or radio. An accessible name
@@ -500,7 +505,8 @@ misses.
 - `FrameLocator("#payment")`: a `Screen` scoped to one iframe
   (`Browser.FrameLocator("#payment").GetByLabel("Card number")`); it keeps
   `Locator(css)` and `FrameLocator(css)` for nesting. Every `Screen` query
-  answers from inside the frame. The frame is the one element the selector
+  answers from inside the frame, and only a frame locator reaches it: a plain
+  query does not read the content of an iframe. The frame is the one element the selector
   names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
   `ToBeHiddenAsync`, `ToHaveCountAsync`, `WaitForAsync` for `Detached` or
   `Hidden`) answers no match while it is missing, and an action polls for it
