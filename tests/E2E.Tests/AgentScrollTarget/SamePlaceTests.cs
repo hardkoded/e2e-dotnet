@@ -16,7 +16,7 @@ public sealed class SamePlaceTests
     private static readonly BoundingBox Carousel = new(0, 300, 402, 160);
 
     // A renumbered screen: the main list named after its new first row, a carousel of the same role inside it.
-    private static readonly Observation Screen = new()
+    private static readonly PreparedObservation Screen = global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation
     {
         Route = "main",
         Viewport = new TraceViewport(402, 874),
@@ -40,7 +40,7 @@ public sealed class SamePlaceTests
                 ],
             },
         ],
-    };
+    }, global::E2E.Internal.Redactor.None);
 
     [Fact]
     public void Re_finds_the_list_in_its_old_frame_not_the_carousel_of_the_same_role_inside_it()

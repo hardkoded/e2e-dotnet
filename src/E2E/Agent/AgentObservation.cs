@@ -91,6 +91,12 @@ internal sealed record PreparedObservation
     /// </summary>
     public required string Path { get; init; }
 
+    /// <summary>
+    /// The redacted route the engine reported, which the cache compares. .NET-only: upstream's <c>path</c> serves, and the port's
+    /// engines report a route that is not always a location.
+    /// </summary>
+    public required string Route { get; init; }
+
     public required string Revision { get; init; }
 
     /// <summary>Redacted, size-bounded serialization sent to the model.</summary>
@@ -255,6 +261,7 @@ internal static partial class AgentObservation
                 Kind = PreparedKind.Pixels,
                 Location = location,
                 Path = path,
+                Route = options.Redactor.Redact(observation.Route),
                 Revision = observation.Revision,
                 Text = ObservationFeed.UnavailableTreeMarker,
                 Bytes = Encoding.UTF8.GetByteCount(ObservationFeed.UnavailableTreeMarker),
@@ -277,6 +284,7 @@ internal static partial class AgentObservation
             Kind = PreparedKind.Semantic,
             Location = location,
             Path = path,
+            Route = options.Redactor.Redact(observation.Route),
             Revision = observation.Revision,
             Text = text,
             Bytes = Encoding.UTF8.GetByteCount(text),

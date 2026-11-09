@@ -273,7 +273,7 @@ public sealed class PrepareObservationTests
         Assert.Equal("say <secret:phrase> now", prepared.Nodes["n2"].Name);
         Assert.Equal("<secret:phrase>", prepared.Nodes["n2"].TestId);
         // The anchors read the redacted nodes, as upstream's describeDelta reads the node index.
-        var anchors = Anchors.Describe([], Anchors.Project(new Observation { Route = "/", Roots = prepared.Tree }, value => value, value => value), false).Appeared;
+        var anchors = Anchors.Describe([], Anchors.Project(prepared.Nodes, value => value, value => value), false).Appeared;
         Assert.DoesNotContain("horse", Json(anchors), StringComparison.Ordinal);
     }
 

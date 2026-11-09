@@ -72,7 +72,7 @@ public sealed class RelocationByTestIdShapeTests
         var ordered = new RecordedTarget { Role = "box", TestId = B, Position = new TracePosition { Index = 1, Of = 2 } };
         AssertNotFound(Relocated(ordered, CanvasNode("x", A), CanvasNode("y", C)));
         var recorded = Screen(Row("r1", "Start", CanvasNode("a", A)), Row("r2", "End", CanvasNode("b", B)));
-        var b = recorded.Roots[1].Children[1];
+        var b = recorded.Tree[1].Children[1];
         var position = Relocate.DescribePosition(b, "End", recorded, Redactor.None);
         Assert.Equal((0, 1), (position!.Index, position.Of));
         var end = new RecordedTarget { Role = "box", TestId = B, Within = "End", Position = new TracePosition { Index = 0, Of = 1 } };
