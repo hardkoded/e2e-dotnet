@@ -115,15 +115,8 @@ public sealed partial class Agent
         {
             var secret = dispatcher.DeclaredSecret(secretName);
             // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
-            // It runs before the provider is asked, for the node as it is now.
-            dispatcher.AuthorizeSecretFill(secret, Resolve(target));
-            // A provider's value is computed for this fill and joins redaction before it is typed.
-            var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
-            if (secret.Provider is not null)
-            {
-                scope.Register(resolved.Name, resolved.Value);
-            }
-
+            // It runs before the provider is asked, for the node as it is now; a provider's value joins redaction before it is typed.
+            var resolved = await SecretFill.AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, Resolve(target), cancellationToken).ConfigureAwait(false);
             await PerformAsync(target, new LocatorAction.Fill(resolved.Value, true), "fill", cancellationToken, armed).ConfigureAwait(false);
         }
 

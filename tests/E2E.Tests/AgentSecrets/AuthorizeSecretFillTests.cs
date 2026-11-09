@@ -3,107 +3,131 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using E2E.Reports;
+using E2E.Internal;
+using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E.Tests.AgentSecrets;
 
 /// <summary>
-/// The port has no credentials, no purpose-by-config check, and no sink check for a disabled or non-editable field.
-/// So these upstream its are not ported: "lets a credential password into an Android password field as the mobile
-/// engine projects it" and "judges the purpose by the config, not by what a handle claims". "refuses $sink before reading
-/// the plaintext" (a disabled password field, a button) is partial: the port has no plaintext read to count, since a
-/// <c>Secret</c> holds its value, so only the refusal, the empty fill, and the recorded <c>secret.sink</c> event are checked.
+/// Host-side secret fill authorization against the node shapes engines project, ported from upstream <c>agent-secrets.test.ts</c>
+/// (<c>describe('authorizeSecretFill')</c>). The Android password field is the case that motivated it: the mobile engine once projected it
+/// as a plain textbox, which this policy refuses for a credential's password, so the shape core accepts is pinned here next to the shape
+/// it turns away. Each <c>it</c> calls <c>SecretFill.AuthorizeSecretFillAsync</c> directly, as upstream calls <c>authorizeSecretFill</c>.
+/// Difference: the credential's password is the handle the <c>admin</c> credential carries, not <c>Credentials.User("admin").Password</c>,
+/// because the registry <c>Credentials.User</c> reads is process-wide and the tests run in parallel.
 /// </summary>
 public sealed class AuthorizeSecretFillTests
 {
-    /// <summary>Partial: the refusal reaches the model as the failed call it is.</summary>
-    [Fact]
-    public async Task Refuses_a_secret_fill_into_a_plain_textbox_and_never_types_into_it()
+    private static readonly Secret AdminPassword = Secret.Create("admin.password", "hunter2", "password");
+    private static readonly ResolvedCredential Admin = new("admin", "admin@example.com", AdminPassword);
+
+    /// <summary>
+    /// An Android password <c>EditText</c> as <c>E2E.Mobile</c> projects it: UIAutomator flags it <c>password</c> while the class stays the
+    /// plain one, so the engine derives <c>secure</c> and the purpose from the flag and drops the value.
+    /// </summary>
+    private static SemanticNode AndroidPasswordField(bool disabled = false, string role = "textbox", bool secure = true) => new()
     {
-        var typed = new List<string>();
-        var world = new DocumentWorld().Map("/login", page =>
-        {
-            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Password", Value = "", OnFill = typed.Add });
-        });
-        string? refusal = null;
-        var calls = 0;
-        var model = new ScriptedModel(request =>
-        {
-            if (calls++ == 0)
-            {
-                return ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "admin-password" });
-            }
+        Ref = "n3",
+        Role = role,
+        Name = "Password",
+        Text = "Password",
+        InputPurpose = "password",
+        States = new NodeStates { Secure = secure, Disabled = disabled },
+        TestId = "com.example:id/password",
+        Rect = new BoundingBox(0, 270, 390, 44),
+        Selector = "id=com.example:id/password",
+    };
 
-            refusal = request.Messages.Last(message => message.Role == "tool").Content;
-            return ModelResponses.Done("passed", "the field is not a secret field");
-        });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://login.test",
-            TestTitle = "plain textbox",
-        });
-        await session.App.OpenAsync("/login");
+    /// <summary>The same field as the engine projected it before it read the flag: an open textbox carrying the typed value.</summary>
+    private static SemanticNode AsPlainTextbox() => new()
+    {
+        Ref = "n3",
+        Role = "textbox",
+        Name = "Password",
+        Text = "Password",
+        Value = "hunter2",
+        TestId = "com.example:id/password",
+        Rect = new BoundingBox(0, 270, 390, 44),
+        Selector = "id=com.example:id/password",
+    };
 
-        await session.Agent.ActAsync(
-            "sign in",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
+    [Fact]
+    public async Task Lets_a_credential_password_into_an_Android_password_field_as_the_mobile_engine_projects_it()
+    {
+        var recorder = new RecordingHost();
 
-        Assert.Contains(" failed: POLICY_DENIED: field purpose none is incompatible with secret purpose password", refusal, StringComparison.Ordinal);
-        Assert.Empty(typed);
-        Assert.DoesNotContain(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
-        session.Complete();
-        var purposeEvent = Assert.Single(session.StepRecords.Single(candidate => candidate.Api == "agent.act").Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.purpose");
-        Assert.Equal(PolicyDecision.Denied, purposeEvent.Decision);
-        Assert.Equal("POLICY_DENIED", purposeEvent.Code);
+        var resolved = await SecretFill.AuthorizeSecretFillAsync(recorder, new Runtime(), Admin.Password, AndroidPasswordField());
+
+        Assert.Equal("hunter2", resolved.Value);
+        Assert.Equal(["secret.fill:allowed"], recorder.Decisions);
     }
 
-    /// <summary>Partial: the port reads no plaintext through a resolver.</summary>
+    [Fact]
+    public async Task Refuses_the_same_field_projected_as_a_plain_textbox_the_shape_before_the_mobile_fix()
+    {
+        var recorder = new RecordingHost();
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, new Runtime(), Admin.Password, AsPlainTextbox()));
+
+        Assert.Equal("POLICY_DENIED", error.Code);
+        Assert.Equal("field purpose none is incompatible with secret purpose password", error.Message);
+        Assert.Equal(["secret.purpose:denied:POLICY_DENIED"], recorder.Decisions);
+    }
+
+    [Fact]
+    public async Task Judges_the_purpose_by_the_config_not_by_what_a_handle_claims()
+    {
+        var claimsGeneric = Secret.Create(AdminPassword.Name, "hunter2", "generic-secret");
+        var recorder = new RecordingHost();
+        var runtime = new Runtime();
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, runtime, claimsGeneric, AsPlainTextbox()));
+
+        Assert.Equal("POLICY_DENIED", error.Code);
+        Assert.Equal("field purpose none is incompatible with secret purpose password", error.Message);
+        Assert.Equal(["secret.purpose:denied:POLICY_DENIED"], recorder.Decisions);
+        Assert.Empty(runtime.Resolved);
+    }
+
     [Theory]
     [InlineData("a disabled password field", "textbox", true, "the target field is disabled")]
     [InlineData("a button", "button", false, "the target is not an editable input (role button)")]
-    public async Task Partial_Refuses_a_secret_fill_into_a_sink_that_cannot_take_it_and_never_types_into_it(string sink, string role, bool disabled, string message)
+    public async Task Refuses_sink_before_reading_the_plaintext(string sink, string role, bool disabled, string message)
     {
         _ = sink;
-        var typed = new List<string>();
-        var world = new DocumentWorld().Map("/login", page =>
-        {
-            page.Roots.Add(new DocumentElement { Role = role, Name = "Password", Secure = true, InputPurpose = "password", Disabled = disabled, OnFill = typed.Add });
-        });
-        string? refusal = null;
-        var calls = 0;
-        var model = new ScriptedModel(request =>
-        {
-            if (calls++ == 0)
-            {
-                return ModelResponses.Call("fill_secret", new { role, name = "Password", secret = "admin-password" });
-            }
+        var recorder = new RecordingHost();
+        var runtime = new Runtime();
+        var node = AndroidPasswordField(disabled: disabled, role: role, secure: !string.Equals(role, "button", StringComparison.Ordinal));
 
-            refusal = request.Messages.Last(item => item.Role == "tool").Content;
-            return ModelResponses.Done("passed", "the field cannot take a secret");
-        });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        var error = await Assert.ThrowsAsync<AgentException>(() => SecretFill.AuthorizeSecretFillAsync(recorder, runtime, Admin.Password, node));
+
+        Assert.Equal("POLICY_DENIED", error.Code);
+        Assert.Equal(message, error.Message);
+        Assert.Equal(["secret.sink:denied:POLICY_DENIED"], recorder.Decisions);
+        Assert.Empty(runtime.Resolved);
+    }
+
+    /// <summary>The two members <c>AuthorizeSecretFillAsync</c> reads off the runtime, over one registered credential; <see cref="Resolved"/> hears each plaintext read.</summary>
+    private sealed class Runtime : ISecretFillRuntime
+    {
+        public List<string> Resolved { get; } = [];
+
+        public Redactor Redactor => Redactor.None;
+
+        public Secret? RegisteredSecret(string name) => string.Equals(name, AdminPassword.Name, StringComparison.Ordinal) ? AdminPassword : null;
+
+        public Task<Secret> ResolveAsync(Secret secret, CancellationToken cancellationToken)
         {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://login.test",
-            TestTitle = "secret sink",
-        });
-        await session.App.OpenAsync("/login");
+            Resolved.Add(secret.Name);
+            return Task.FromResult(secret);
+        }
+    }
 
-        await session.Agent.ActAsync(
-            "sign in",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
+    private sealed class RecordingHost : ISecretFillHost
+    {
+        public List<string> Decisions { get; } = [];
 
-        Assert.Contains(" failed: POLICY_DENIED: " + message, refusal, StringComparison.Ordinal);
-        Assert.Empty(typed);
-        var step = session.StepRecords.Single(candidate => candidate.Api == "agent.act");
-        var sinkEvent = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.sink");
-        Assert.Equal(PolicyDecision.Denied, sinkEvent.Decision);
-        Assert.Equal("POLICY_DENIED", sinkEvent.Code);
-        Assert.DoesNotContain(step.Events, item => item.Kind == StepEventKind.Policy && item.Name == "secret.fill");
-        Assert.DoesNotContain(model.Requests, request => request.Messages.Any(item => item.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
-        session.Complete();
+        public void RecordPolicy(string name, PolicyDecision decision, string? code = null) =>
+            Decisions.Add(code is null ? name + ":" + decision.ToString().ToLowerInvariant() : name + ":" + decision.ToString().ToLowerInvariant() + ":" + code);
     }
 }

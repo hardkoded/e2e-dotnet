@@ -16,7 +16,7 @@ namespace E2E;
 /// Upstream's action dispatcher (<c>agent/action-dispatcher.ts</c>): the <see cref="IExecutorActions"/> of one act step. Each
 /// verb performs the action on the engine, records it in the step's accounting, and arms the change wait its settle policy
 /// asks for. Upstream's <c>commitTargeted</c> is <see cref="CommitAsync(RecordedAction)"/>, and its private <c>targeted</c> is
-/// <see cref="TargetedAsync(SemanticNode, CancellationToken, Func{SemanticNode, int, Task}, Action{SemanticNode}?)"/>.
+/// <see cref="TargetedAsync(SemanticNode, CancellationToken, Func{SemanticNode, int, Task})"/>.
 /// </summary>
 internal sealed partial class ActionDispatcher : IExecutorActions
 {
@@ -217,15 +217,9 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     token,
                     async (found, _) =>
                     {
-                        var resolved = await secret.ResolveAsync(token).ConfigureAwait(false);
-                        if (secret.Provider is not null)
-                        {
-                            _scope.Register(resolved.Name, resolved.Value);
-                        }
-
+                        var resolved = await SecretFill.AuthorizeSecretFillAsync(PolicyHost, _scope, secret, found, token).ConfigureAwait(false);
                         await _scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), OperationContext.Agent, token).ConfigureAwait(false);
-                    },
-                    found => AuthorizeSecretFill(secret, found)).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
             },
@@ -375,9 +369,9 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         UploadPaths.AuthorizeUploadPaths(new StepPolicyHost(scope.Steps), paths, scope.ProjectRoot ?? Directory.GetCurrentDirectory());
 
     /// <summary>The seam a policy records its decisions through, onto this step's events (upstream's <c>policyHost</c>).</summary>
-    internal IUploadPolicyHost PolicyHost => new StepPolicyHost(_scope.Steps);
+    internal StepPolicyHost PolicyHost => new(_scope.Steps);
 
-    private sealed class StepPolicyHost(StepRecorder steps) : IUploadPolicyHost
+    internal sealed class StepPolicyHost(StepRecorder steps) : IUploadPolicyHost, ISecretFillHost
     {
         public void RecordPolicy(string name, PolicyDecision decision, string? code = null) => Phases.RecordPolicyEvent(steps, name, decision, code);
     }
@@ -569,42 +563,6 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             ?? (target.Node = _feed.LastSeen(target.Id.TrimStart('#'))?.Node)
             ?? throw new TestException("LOCATOR_NOT_FOUND", "node " + target.Id + " is not on the current screen; it was removed or never existed");
     }
-
-    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons: a secret the attempt
-    // knows, an enabled editable field, and a password field for a password. There is no origin check.
-    internal void AuthorizeSecretFill(Secret secret, SemanticNode node)
-    {
-        if (!_scope.Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal)))
-        {
-            Phases.RecordPolicyEvent(_scope.Steps, "secret.registered", PolicyDecision.Denied, "AUTH_CREDENTIAL_UNAVAILABLE");
-            throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "secret \"" + secret.Name + "\" is not configured", blocked: true);
-        }
-
-        if (node.States.Disabled)
-        {
-            Phases.RecordPolicyEvent(_scope.Steps, "secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
-            throw Denied("the target field is disabled");
-        }
-
-        if (!Roles.IsEditable(node))
-        {
-            Phases.RecordPolicyEvent(_scope.Steps, "secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
-            throw Denied("the target is not an editable input (role " + (node.Role is null ? "none" : AgentObservation.RedactText(node.Role, _scope.Redactor)) + ")");
-        }
-
-        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
-        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
-        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
-        if (secret.Purpose == "password" && inputPurpose != "password")
-        {
-            Phases.RecordPolicyEvent(_scope.Steps, "secret.purpose", PolicyDecision.Denied, "POLICY_DENIED");
-            throw Denied("field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose);
-        }
-
-        Phases.RecordPolicyEvent(_scope.Steps, "secret.fill", PolicyDecision.Allowed);
-    }
-
-    private static AgentException Denied(string reason) => new("POLICY_DENIED", reason, blocked: true);
 
     /// <summary>
     /// Pages a list, or the viewport, until a node reading <paramref name="text"/> is on the
@@ -853,25 +811,21 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// by its description in a fresh look (<see cref="ObservationFeed.Relocate"/>) and the action retried,
     /// <see cref="MaxStaleRelocations"/> times: a list that remounts its rows between the look and the action keeps the
     /// control on screen under a dead ref. A description that matches nothing, or several nodes, fails the action.
-    /// <paramref name="authorize"/> checks each node before the action reaches it, the relocated one too. Returns the node the
-    /// action reached, which is what the trace records.
+    /// Returns the node the action reached, which is what the trace records.
     /// </summary>
-    private Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token, Action<SemanticNode>? authorize = null) =>
+    private Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token) =>
         TargetedAsync(
             node,
             token,
-            (found, _) => _scope.Session.PerformAsync(found, action, OperationContext.Agent, token),
-            authorize);
+            (found, _) => _scope.Session.PerformAsync(found, action, OperationContext.Agent, token));
 
     // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
-    private async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform, Action<SemanticNode>? authorize = null)
+    private async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform)
     {
         for (var relocations = 0; ; relocations++)
         {
             try
             {
-                // Runs on every attempt, so a node found again after a stale answer is authorized as it is now.
-                authorize?.Invoke(node);
                 await perform(node, relocations).ConfigureAwait(false);
                 return node;
             }
