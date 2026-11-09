@@ -997,7 +997,7 @@ public sealed class E2EConfig
         var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
 
         // E2E_NO_CACHE is the port's --no-cache (upstream's `cli.cache = 'off'`, `noCache` of the run options): it turns the cache off whatever the config says, even a store.
-        var noCache = IsFlagOn(environment("E2E_NO_CACHE"));
+        var noCache = cli.NoCache || IsFlagOn(environment("E2E_NO_CACHE"));
         if (raw is null)
         {
             return new CacheConfig { Mode = noCache ? CacheMode.Off : ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Strict = cli.CacheStrict, StrictSource = cli.CacheStrict ? new CacheStrictSource(false, true) : null, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : sharedSource };
@@ -1724,11 +1724,14 @@ public sealed class AgentConfig
 /// <summary>What turned <c>cache.strict</c> on for the run: the config key, the <c>--strict-cache</c> flag, or both (upstream's <c>CacheStrictSource</c>).</summary>
 internal sealed record CacheStrictSource(bool Config, bool Flag);
 
-/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c>, <c>cacheDir</c>, and <c>agents</c> exist in the port.</summary>
+/// <summary>Flags that replace config keys (upstream's <c>CliOverrides</c>). Only <c>cacheStrict</c>, <c>cacheDir</c>, <c>noCache</c>, and <c>agents</c> exist in the port.</summary>
 internal sealed record CliOverrides
 {
     /// <summary>Upstream's <c>--agent</c> (<c>agents</c>): the configured agents unpinned tests run as, instead of <c>default</c> alone.</summary>
     public IReadOnlyList<string>? Agents { get; init; }
+
+    /// <summary>Upstream's <c>--no-cache</c> (<c>noCache</c> of the run options, <c>cli.cache = 'off'</c>): turns the cache off for the run, whatever the config says.</summary>
+    public bool NoCache { get; init; }
 
     /// <summary>Upstream's <c>--strict-cache</c>: turns <c>cache.strict</c> on for the run.</summary>
     public bool CacheStrict { get; init; }

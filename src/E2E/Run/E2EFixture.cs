@@ -209,6 +209,9 @@ public abstract class E2EFixture
     /// <summary><c>agents.default.maxSteps</c>: actions one <c>ActAsync</c> may take. <c>ActOptions.MaxSteps</c> can only lower it.</summary>
     protected virtual int MaxSteps => Config.Agent.MaxSteps ?? E2EDefaults.MaxSteps;
 
+    /// <summary>The file the test is reported in: its class by default (.NET-only: a .NET test has no source file of its own, see <see cref="E2ESessionOptions.TestFile"/>).</summary>
+    protected virtual string? TestFile => GetType().FullName;
+
     private E2ESession Session => _session ?? throw new InvalidOperationException("The E2E session is available after setup, during the test.");
 
     /// <summary>
@@ -292,7 +295,7 @@ public abstract class E2EFixture
                 CacheStrict = CacheStrict,
                 CacheStrictSource = Config.Cache.StrictSource,
                 TestTitle = title,
-                TestFile = GetType().FullName,
+                TestFile = TestFile,
                 TestMethod = testMethod?.Name,
                 Debug = Debug,
                 AiTrace = AiTrace,

@@ -15,6 +15,63 @@ internal static class TwoTapCounter
 {
     public const string Instruction = "increment the counter twice";
 
+    /// <summary>The test title upstream's trace cache suite gives the step.</summary>
+    public const string Title = "cached step increments twice";
+
+    /// <summary>What an executor was asked: upstream's <c>ExecutorRecord</c>.</summary>
+    public sealed class ExecutorRecord
+    {
+        public int Calls { get; set; }
+
+        public List<ReplayedPrefix?> Prefixes { get; } = [];
+    }
+
+    /// <summary>
+    /// Upstream's <c>twoTapExecutor</c>: taps Increment until the counter reads 2, resuming after any replayed prefix rather than redoing it.
+    /// No model.
+    /// </summary>
+    public static IStepExecutor Executor(ExecutorRecord record)
+    {
+        return new TestExecutor("two-tap-executor", async (context, cancellationToken) =>
+        {
+            record.Calls++;
+            record.Prefixes.Add(context.ReplayedPrefix);
+            var alreadyDone = context.ReplayedPrefix?.ReplayedActions.Count ?? 0;
+            var observation = await context.ObserveAsync(cancellationToken: cancellationToken);
+            for (var tap = alreadyDone; tap < 2; tap++)
+            {
+                await context.Actions.TapAsync(ExecutorKit.TargetFor(observation.Text, "button \"Increment\""), cancellationToken);
+                observation = await context.ObserveAsync(cancellationToken: cancellationToken);
+            }
+
+            return System.Text.RegularExpressions.Regex.IsMatch(observation.Text, "\"Counter\"[^\\n]*(text|value)=\"2\"|status[^\\n]*\"2\"")
+                ? ExecutorKit.Passed("the counter shows 2")
+                : ExecutorKit.Failed("the counter did not reach 2");
+        })
+        {
+            Version = "test",
+        };
+    }
+
+    /// <summary>The fixture suite: upstream's <c>SUITE</c>, one test that opens the app, acts, and expects the counter to read 2.</summary>
+    public static IReadOnlyList<InMemoryTest> Suite() => [new InMemoryTest(Title, session => RunAsync(session))];
+
+    /// <summary>The options of a run of <see cref="Suite"/> with the two-tap executor of <paramref name="record"/> and a read-write cache.</summary>
+    public static RunProjectOptions RunOptions(ExecutorRecord record) => new()
+    {
+        Tests = Suite(),
+        Engine = new DocumentEngine(CounterPage.World()),
+        Config = """{ "cache": { "mode": "read-write" } }""",
+        Agents = new Dictionary<string, AgentOptions> { ["default"] = new AgentOptions { Executor = Executor(record) } },
+    };
+
+    /// <summary>The act step of the only test of the run (upstream's <c>actStep</c>).</summary>
+    public static E2E.Reports.ReportStep ActStep(RunOutcome outcome)
+    {
+        var attempt = RunProject.ResultByTitle(outcome, Title).Attempts[^1];
+        return Assert.Single(attempt.Steps, candidate => candidate.Api == "agent.act");
+    }
+
     public static string NewDirectory() => Path.Combine(Path.GetTempPath(), "e2e-two-tap", Guid.NewGuid().ToString("n"));
 
     public static ScriptedModel Model()
