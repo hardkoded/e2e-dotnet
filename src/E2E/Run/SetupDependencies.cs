@@ -40,18 +40,9 @@ internal static class SetupDependencies
         }
 
         var key = plan.Identity.TargetId + "\0" + name;
-        var lazy = Runs.GetOrAdd(key, _ => new Lazy<Task<bool>>(() => RunAsync(setup, run, cancellationToken), LazyThreadSafetyMode.ExecutionAndPublication));
-        bool passed;
-        try
-        {
-            passed = await lazy.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // A cancelled run is not an outcome: the next test tries again.
-            Runs.TryRemove(new KeyValuePair<string, Lazy<Task<bool>>>(key, lazy));
-            throw;
-        }
+        var lazy = Runs.GetOrAdd(key, _ => new Lazy<Task<bool>>(() => RunAsync(setup, run), LazyThreadSafetyMode.ExecutionAndPublication));
+        // A caller that is cancelled stops waiting; the run goes on for the others.
+        var passed = await lazy.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         if (!passed)
         {
@@ -103,30 +94,40 @@ internal static class SetupDependencies
         return found;
     }
 
-    private static async Task<bool> RunAsync((Type Type, MethodInfo Method) setup, Func<E2EFixture, MethodInfo, CancellationToken, Task> run, CancellationToken cancellationToken)
+    private static async Task<bool> RunAsync((Type Type, MethodInfo Method) setup, Func<E2EFixture, MethodInfo, CancellationToken, Task> run)
     {
         if (setup.Type.GetConstructor(Type.EmptyTypes) is null)
         {
             return false;
         }
 
-        Ran[KeyOf(setup.Type, setup.Method.Name)] = true;
-
+        // The run belongs to every dependent, so no one test's token drives it: the setup is bounded by its own timeouts.
         var fixture = (E2EFixture)Activator.CreateInstance(setup.Type)!;
         try
         {
-            await run(fixture, setup.Method, cancellationToken).ConfigureAwait(false);
+            await run(fixture, setup.Method, CancellationToken.None).ConfigureAwait(false);
+
+            // Only a setup that saved is skipped later; a failed one runs again when the framework reaches it, so its failure is reported.
+            Ran[KeyOf(setup.Type, setup.Method.Name)] = true;
             return true;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-#pragma warning disable CA1031 // The setup's own failure is in its report; each dependent fails with SESSION_UNAVAILABLE.
+#pragma warning disable CA1031 // The setup's failure is reported when the framework runs it; each dependent fails with SESSION_UNAVAILABLE.
         catch (Exception)
 #pragma warning restore CA1031
         {
             return false;
+        }
+        finally
+        {
+            switch (fixture)
+            {
+                case IAsyncDisposable asyncDisposable:
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                    break;
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+            }
         }
     }
 }

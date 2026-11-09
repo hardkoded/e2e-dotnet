@@ -344,7 +344,7 @@ public abstract class E2EFixture
         Exception? error = null;
         try
         {
-            var invoked = method.Invoke(fixture, method.GetParameters().Select(parameter => parameter.HasDefaultValue ? parameter.DefaultValue : parameter.ParameterType == typeof(CancellationToken) ? cancellationToken : null).ToArray());
+            var invoked = method.Invoke(fixture, method.GetParameters().Select(parameter => parameter.HasDefaultValue ? parameter.DefaultValue : parameter.ParameterType == typeof(CancellationToken) ? cancellationToken : parameter.ParameterType.IsValueType ? Activator.CreateInstance(parameter.ParameterType) : null).ToArray());
             switch (invoked)
             {
                 case Task task:
@@ -372,9 +372,10 @@ public abstract class E2EFixture
             {
                 await session.CaptureFailureEvidenceAsync(error).ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+#pragma warning disable CA1031 // The look is a courtesy: the setup's own failure is the one to report.
+            catch (Exception)
+#pragma warning restore CA1031
             {
-                // The look is a courtesy: the setup's own failure is the one to report.
             }
 
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
