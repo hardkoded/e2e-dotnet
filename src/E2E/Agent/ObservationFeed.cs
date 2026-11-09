@@ -17,10 +17,11 @@ namespace E2E;
 /// </summary>
 internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 {
-    // The newest text rendered, which the same look reuses while the redactor it was rendered under is the attempt's current one.
-    private Rendered? _rendered;
+    // The newest look prepared (upstream's feed keeps each capture prepared; the port keeps the raw look the engine reads and prepares it
+    // here), which the same look reuses while the redactor it was prepared under is the attempt's current one.
+    private Prepared? _prepared;
 
-    private sealed record Rendered(Observation Observation, bool Pixels, Redactor Redactor, string Text, bool Cut);
+    private sealed record Prepared(Observation Observation, bool Pixels, Redactor Redactor, PreparedObservation Value);
 
     private readonly Dictionary<string, Resolved> _seen = [];
     private PendingChange? _pending;
@@ -58,14 +59,22 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>What the step's screens have shown so far, one string per node; what a typed value is checked against (upstream's <c>shownText</c>).</summary>
     public IReadOnlyCollection<string> ShownText() => _shown;
 
+    // Upstream's noteShown on a look read as the feed prepares it.
+    internal void NoteShown(Observation observation, bool pixels = false)
+    {
+        if (!observation.TreeUnavailable)
+        {
+            NoteShown(Prepare(observation, pixels));
+        }
+    }
+
     // Upstream's noteShown: remembers what a screen displayed, the name and text of every node but those that echo input (an editable
     // field, whose name is its value or its placeholder example; any node carrying a value) and the wrappers that restate a field,
     // which some platforms name after the field they hold.
-    // The text is kept redacted, as upstream keeps it: its feed remembers the prepared (redacted) capture.
-    internal void NoteShown(Observation observation)
+    // The text is the prepared (redacted) capture's, as upstream keeps it.
+    private void NoteShown(PreparedObservation observation)
     {
-        var redactor = Scope?.Redactor ?? Redactor.None;
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        foreach (var node in observation.Nodes.Values)
         {
             if (EchoesInput(node) || node.Children.Any(EchoesInput))
             {
@@ -79,10 +88,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                     continue;
                 }
 
-                var redacted = redactor.Redact(text);
-                if (_shown.Add(redacted))
+                if (_shown.Add(text))
                 {
-                    _shownOrder.Enqueue(redacted);
+                    _shownOrder.Enqueue(text);
                 }
             }
         }
@@ -148,7 +156,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         Phases.InstrumentPhaseAsync(
             new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe, name),
-            () => LookAsync(mode, settledWhen, token),
+            () => LookAsync(mode, pixels, settledWhen, token),
             observation => Book(observation, pixels));
 
     /// <summary>The size in bytes of the largest observation the step read, as a model reads it (upstream's <c>metrics.observationBytes</c>).</summary>
@@ -163,7 +171,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return new PhaseDetail(count);
         }
 
-        var bytes = System.Text.Encoding.UTF8.GetByteCount(Text(observation, pixels));
+        var bytes = observation.TreeUnavailable ? System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker) : Prepare(observation, pixels).Bytes;
         MaxObservationBytes = Math.Max(MaxObservationBytes, bytes);
         return new PhaseDetail(count, bytes);
     }
@@ -195,7 +203,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // The agent lets the engine answer a screen it cannot read with pixels alone (upstream's `pixelFallback: true`).
     private static readonly ObserveOptions PixelFallbackLook = new() { PixelFallback = true };
 
-    private async Task<Observation> LookAsync(SettleMode mode, Func<Observation, bool>? settledWhen, CancellationToken token)
+    private async Task<Observation> LookAsync(SettleMode mode, bool pixels, Func<Observation, bool>? settledWhen, CancellationToken token)
     {
         Looks.Add(mode);
         Observation observation;
@@ -228,7 +236,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
-        NoteShown(observation);
+        NoteShown(observation, pixels);
 
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
@@ -291,15 +299,16 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     internal ExecutorObservation View(Observation observation, AttemptScope scope, ExecutorObserveOptions? options = null)
     {
-        var text = Text(observation, options?.Pixels == true, out var cut);
-        return new ExecutorObservation(text)
+        // A screen with no tree is the marker and its pixels; any other is the prepared capture.
+        var prepared = observation.TreeUnavailable ? null : Prepare(observation, options?.Pixels == true);
+        return new ExecutorObservation(prepared?.Text ?? UnavailableTreeMarker)
         {
             TreeUnavailable = observation.TreeUnavailable,
-            Truncated = observation.Truncated || cut || observation.TreeUnavailable,
+            Truncated = observation.Truncated || prepared?.Truncated == true || observation.TreeUnavailable,
             KeyboardVisible = observation.KeyboardVisible,
-            Path = scope.Redactor.Redact(observation.Route),
+            Path = prepared?.Path ?? AgentObservation.PathOf(observation, scope.Redactor),
             Revision = observation.Revision.Length > 0 ? observation.Revision : null,
-            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
+            Tree = options?.Tree == true ? AgentObservation.ProjectTree(prepared?.Tree ?? [], scope.Redactor, scope.AppOrigin) : null,
             Viewport = observation.Viewport,
         };
     }
@@ -308,38 +317,34 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// The screen as the model reads it, cut at <see cref="ByteBudget"/> (upstream's <c>prepareObservation</c> under <c>capture</c>'s
     /// <c>maxBytes</c>). A step with a cut screen reports its observation as truncated.
     /// </summary>
-    public string Text(Observation observation, bool pixels = false) => Text(observation, pixels, out _);
-
-    /// <inheritdoc cref="Text(Observation, bool)"/>
     /// <param name="observation">The look to render.</param>
     /// <param name="pixels">Whether a screenshot travels with the text.</param>
-    /// <param name="cut">Whether the byte budget cut the screen.</param>
-    public string Text(Observation observation, bool pixels, out bool cut)
+    public string Text(Observation observation, bool pixels = false)
     {
-        // One look is read for its size, for the executor, and for the model; it is rendered once. A secret registered since
-        // replaces the attempt's redactor, and text rendered under the old one is never reused.
-        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        if (observation.TreeUnavailable)
+        _ = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        return observation.TreeUnavailable ? UnavailableTreeMarker : Prepare(observation, pixels).Text;
+    }
+
+    // Upstream's capture prepares each look once (prepareObservation): the text, the node index and the tree come from the one
+    // redaction pass. A secret registered since replaces the attempt's redactor, and a look prepared under the old one is never reused.
+    private PreparedObservation Prepare(Observation observation, bool pixels)
+    {
+        var redactor = Scope?.Redactor ?? Redactor.None;
+        if (_prepared is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels && ReferenceEquals(last.Redactor, redactor))
         {
-            cut = false;
-            return UnavailableTreeMarker;
+            return last.Value;
         }
 
-        var redactor = scope.Redactor;
-        if (_rendered is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels && ReferenceEquals(last.Redactor, redactor))
-        {
-            cut = last.Cut;
-            return last.Text;
-        }
-
-        var text = SnapshotText.Render(observation, redactor, scope.AppOrigin, ByteBudget(pixels), out cut);
-        if (cut)
+        var value = AgentObservation.PrepareObservation(
+            observation,
+            new PrepareObservationOptions { Redactor = redactor, MaxBytes = ByteBudget(pixels), PixelsAllowed = true, AppOrigin = Scope?.AppOrigin });
+        if (value.Truncated)
         {
             _observationTruncated = true;
         }
 
-        _rendered = new Rendered(observation, pixels, redactor, text, cut);
-        return text;
+        _prepared = new Prepared(observation, pixels, redactor, value);
+        return value;
     }
 
     /// <summary>

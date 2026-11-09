@@ -241,7 +241,7 @@ internal static partial class AgentObservation
         ArgumentNullException.ThrowIfNull(observation);
         ArgumentNullException.ThrowIfNull(options);
         var location = observation.Location is null ? null : options.Redactor.Redact(observation.Location);
-        var path = location is null ? options.Redactor.Redact(observation.Route) : ObservationPath(location);
+        var path = PathOf(observation, options.Redactor);
         var pixels = observation.Pixels is null ? new PixelsOutcome(null, null) : PixelsForModel(observation, observation.Pixels);
         if (observation.TreeUnavailable)
         {
@@ -290,6 +290,13 @@ internal static partial class AgentObservation
             PixelsWithheld = pixels.Withheld,
         };
     }
+
+    /// <summary>
+    /// The path <see cref="PrepareObservation"/> gives a look: <see cref="ObservationPath"/> of its redacted location, else its redacted
+    /// route. .NET-only helper: the feed reads it for a screen with no tree, which is not prepared.
+    /// </summary>
+    internal static string PathOf(Observation observation, Redactor redactor) =>
+        observation.Location is null ? redactor.Redact(observation.Route) : ObservationPath(redactor.Redact(observation.Location));
 
     /// <summary>
     /// Upstream's <c>observationPath</c>: the address without its origin, so trace and executor locations share the capture. What the

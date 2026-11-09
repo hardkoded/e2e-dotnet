@@ -311,7 +311,8 @@ Upstream's `reuseSignal` and `EngineDisposeContext` (leaving run-owned resources
 
 | Field | Type | Upstream |
 | --- | --- | --- |
-| `Route` | `string` | `location`. Required. A path, query, and fragment without the origin; empty when the platform has no current location. |
+| `Route` | `string` | Required. A path, query, and fragment without the origin; empty when the platform has no current location. .NET-only: upstream derives this path from `location`. |
+| `Location` | `string?` | `location`. Where the surface is: the page's address on the web. Null on a platform with none. The agent's `ExecutorObservation.Path` is the path, query, and fragment of its redacted value (a secret marker in the query is percent-encoded), as upstream's `observationPath`; without a `Location` it is the redacted `Route`. |
 | `Roots` | `IReadOnlyList<SemanticNode>` | `root`. A list of roots where upstream has one root. |
 | `Viewport` | `TraceViewport?` | `viewport`. The viewport `SemanticNode.Rect` and `Point` are measured in, in CSS pixels. Null when the engine did not measure it. |
 | `Truncated` | `bool` | `truncated` |
