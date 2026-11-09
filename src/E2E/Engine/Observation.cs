@@ -155,6 +155,12 @@ public sealed class Observation
 {
     public required string Route { get; init; }
 
+    /// <summary>
+    /// Where the surface was when captured (upstream's <c>location</c>): the page's address on the web. Null on a platform with no
+    /// location. <see cref="Route"/> is the same address without its origin (.NET-only; upstream derives that path from this).
+    /// </summary>
+    public string? Location { get; init; }
+
     public required IReadOnlyList<SemanticNode> Roots { get; init; }
 
     /// <summary>True when the engine left nodes out to stay within its node budget. Scrolling brings them in.</summary>
