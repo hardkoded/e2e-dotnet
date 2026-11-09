@@ -108,10 +108,10 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Partial_Retries_the_session_directory_removal_after_the_agent_exits_when_the_first_try_fails()
     {
-        // Partial: POSIX only, as upstream's `it` (a read-only directory makes the first removal fail; Windows locks differ). The port stops the
-        // agent with a kill, not SIGTERM, so there is no ACP_EXIT_DELAY_MS handler to hold the agent alive: the check that the directory is still
-        // there while the agent is stopping, and upstream's second `it` (removes the directory at once while the agent is alive), are not ported.
-        if (OperatingSystem.IsWindows() || Environment.UserName == "root")
+        // Partial: the port stops the agent with a kill, not SIGTERM, so there is no ACP_EXIT_DELAY_MS handler to hold the agent alive. The check that
+        // the directory is still there while the agent is stopping, and upstream's second `it` (removes the directory at once while the agent is
+        // alive), are not ported. Upstream skips this `it` on Windows; the port runs it there too, failing the first removal with an open handle.
+        if (!OperatingSystem.IsWindows() && Environment.UserName == "root")
         {
             return;
         }
@@ -121,19 +121,36 @@ public sealed class AcpTests : IDisposable
         await session.Agent.ActAsync("add a todo");
         var pid = Assert.Single(agent.Pids());
         var cwd = Assert.Single(agent.Sessions())["session"]!["cwd"]!.GetValue<string>();
-        File.WriteAllText(Path.Combine(cwd, "held"), "");
-        File.SetUnixFileMode(cwd, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        var held = Path.Combine(cwd, "held");
+        var handle = new FileStream(held, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+        if (!OperatingSystem.IsWindows())
+        {
+            handle.Dispose();
+            handle = null;
+            File.SetUnixFileMode(cwd, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        }
+
         try
         {
             session.Complete();
-            await EventuallyAsync(() => Assert.False(IsRunning(pid)));
-            Assert.True(Directory.Exists(cwd));
-            File.SetUnixFileMode(cwd, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            await EventuallyAsync(() => Assert.False(Directory.Exists(cwd)));
+            Assert.True(Directory.Exists(cwd), "the first removal fails while the directory is held");
+            handle?.Dispose();
+            handle = null;
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(cwd, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            }
+
+            await EventuallyAsync(() =>
+            {
+                Assert.False(IsRunning(pid));
+                Assert.False(Directory.Exists(cwd));
+            });
         }
         finally
         {
-            if (Directory.Exists(cwd))
+            handle?.Dispose();
+            if (!OperatingSystem.IsWindows() && Directory.Exists(cwd))
             {
                 File.SetUnixFileMode(cwd, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }

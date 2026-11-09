@@ -566,7 +566,7 @@ internal sealed partial class AcpSession
             {
                 await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
             }
-            catch (Exception error) when (error is OperationCanceledException or InvalidOperationException)
+            catch (Exception error) when (error is OperationCanceledException or InvalidOperationException or ObjectDisposedException)
             {
                 // The agent did not exit in time: try anyway.
             }
