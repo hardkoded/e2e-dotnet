@@ -310,12 +310,13 @@ internal static class WebLocators
     /// hidden, and the engine's hold of a terminal query to the batch-read state agrees with it.
     /// </summary>
     private static ILocator VisibleQueryToPw(PwScope scope, LocatorExpression query, ProjectionOptions options) =>
-        NarrowedToVisible(QueryToPw(scope, query, options), query, options.FrameHidden);
+        NarrowedToVisible(QueryToPw(scope, query, options), query, options.FrameHidden, options.IncludeHidden);
 
     /// <summary>The visibility narrowing above, on a locator already built for <paramref name="query"/>; identity unless the query keeps shown nodes alone.</summary>
-    private static ILocator NarrowedToVisible(ILocator located, LocatorExpression query, bool frameHidden)
+    private static ILocator NarrowedToVisible(ILocator located, LocatorExpression query, bool frameHidden, bool includeHidden)
     {
-        if (frameHidden && (query.Visible || query.Kind == "role"))
+        // A role query matches a hidden node only when the expression asks for it (IncludeHidden, .NET-only: toBeAttached and waitFor).
+        if (frameHidden && (query.Visible || (query.Kind == "role" && !includeHidden)))
         {
             return located.Locator(NothingSelector);
         }

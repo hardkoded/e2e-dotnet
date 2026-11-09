@@ -780,8 +780,8 @@ internal static class ReadSemantics
             // renders nothing, so it is no text either.
             let editorValue = null;
             if (isEditingHost(el)) {
-              const rendered = el.innerText.replace(/﻿/g, "");
-              const text = (el.textContent || "").replace(/﻿/g, "");
+              const rendered = el.innerText.replace(/\uFEFF/g, "");
+              const text = (el.textContent || "").replace(/\uFEFF/g, "");
               editorValue = text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
             }
             const type = (el.getAttribute("type") || "").toLowerCase();
