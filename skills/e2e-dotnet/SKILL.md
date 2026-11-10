@@ -317,7 +317,7 @@ lines you changed:
   step left, counted after the failure; the step where the count jumps or
   drops to 0 is the one to change.
 - On the web, queries are Playwright's, run on the page: a plain query does
-  not enter an iframe (use `Browser.FrameLocator(css)`), `GetByRole("textbox")`
+  not enter an iframe (use `Browser.FrameLocator(css)`; the agent's tree leaves out a frame from another site, so reach it with that and pixels), `GetByRole("textbox")`
   finds a `contenteditable` host only with `role="textbox"` on it (otherwise
   use `GetByLabel` or `GetByTestId`), and a `Regex` is a JavaScript regular
   expression tested against the raw text (topic `writing-tests`).

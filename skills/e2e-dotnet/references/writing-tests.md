@@ -510,8 +510,12 @@ misses.
   (`Browser.FrameLocator("#payment").GetByLabel("Card number")`); it keeps
   `Locator(css)` and `FrameLocator(css)` for nesting. Every `Screen` query
   answers from inside the frame, and only a frame locator reaches it: a plain
-  query does not read the content of an iframe. The frame is the one element the selector
-  names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
+  query does not read the content of an iframe. The agent's tree shows a frame
+  from another site (a hosted card field) as its `iframe` node with none of
+  its content, so an agent step reaches it only through pixels: script steps
+  there with `Browser.FrameLocator`, and judge its content with `Vision`. An
+  `Agent.ActAsync` whose only change is in that frame records no replay. The
+  frame is the one element the selector names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
   `ToBeHiddenAsync`, `ToHaveCountAsync`, `WaitForAsync` for `Detached` or
   `Hidden`) answers no match while it is missing, and an action polls for it
   until its timeout, then fails with `LOCATOR_NOT_FOUND`. Two frames match: `LOCATOR_AMBIGUOUS`.
