@@ -293,9 +293,18 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 }
 
             case "press":
-                return target is null
-                    ? LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line")
-                    : await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
+                if (target is null)
+                {
+                    return LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line");
+                }
+
+                // A key pressed several times in one call has no one-line equivalent (upstream's press case).
+                if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("times", out var times) && times.ValueKind == JsonValueKind.Number && times.TryGetInt32(out var count) && count > 1)
+                {
+                    return LinePlan.None("a key pressed several times in one call has no one-line equivalent; press it once per call for lines");
+                }
+
+                return await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
             case "select":
                 return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")", token).ConfigureAwait(false);
             case "upload":

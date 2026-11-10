@@ -267,6 +267,9 @@ public sealed class SessionTestLinesTests
             "No test line: a sample file exists only for the agent; save a file in the project and upload its path for a line.",
             NoteOf(await session.RunAsync("upload", """{ "target": "n62", "files": ["sample:photo.png"] }""")));
         Assert.Matches(@"^No test line: the key went to whatever had focus", NoteOf(await session.RunAsync("press", """{ "key": "Enter" }""")));
+        Assert.Equal(
+            "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
+            NoteOf(await session.RunAsync("press", """{ "target": "n60", "key": "ArrowDown", "times": 3 }""")));
         Assert.Matches(@"^No test line: a test action brings its node into view itself", NoteOf(await session.RunAsync("scroll", """{ "direction": "down" }""")));
         Assert.Matches(@"^No test line: scrolling to a text has none", NoteOf(await session.RunAsync("scroll_to", """{ "text": "Row 40" }""")));
         Assert.Matches(@"^No test line: the secret is neither", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
