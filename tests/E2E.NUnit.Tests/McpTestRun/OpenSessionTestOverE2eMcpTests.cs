@@ -6,19 +6,21 @@ namespace E2E.NUnit.Tests.McpTestRun;
 
 /// <summary>
 /// <c>describe('open_session {test}')</c> &gt; <c>describe('over e2e mcp')</c> of <c>tests/integration/mcp-test-run.test.ts</c> (tester-army/e2e#1315).
-/// All ported <c>it</c>s are <c>Partial_</c>: they run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and not the MCP server
+/// All seven ported <c>it</c>s are <c>Partial_</c>: they run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and not the MCP server
 /// (the server path was checked by hand; <c>McpSessionTest/SessionTestsTests</c> covers the loading and the refusals, and
 /// <c>McpTestOutcome/TestOutcomeTests</c> the opening text). The first leaves out <c>afterEach</c> at <c>close_session</c> (hooks run before the
 /// hand-over). The second checks the session holds the failing step's line and the evidence the text prints, not the text itself. The third
 /// has no <c>file:line</c>, no target, no serial group, no several agents, and refuses a saved session before the run, where upstream also refuses the
 /// setup test. The fourth ("compares a screenshot against the baseline an earlier session wrote") runs a fixture twice through the runner and
 /// checks the first outcome fails with <c>no stored screenshot</c> and the second passes; it does not check the opening text or name the test
-/// as <c>file:line</c>. The fifth ("keeps a body its timeout cut short from driving the session") runs a fixture with a 5 s timeout (upstream's is 1 s,
-/// and the port's clock starts before the engine launches, so the first page must open inside it). It checks the step count and the screen the
-/// session observes after its body timed out, but not the <c>TEST_TIMEOUT</c> code or the opening text, which need the outcome phases of #1410.
-/// Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
-/// (an assembly loads once per server; hardkoded/e2e-dotnet#1411), "fails a test on a promise it left rejected, and keeps serving",
-/// "reports a beforeAll failure as the outcome, once" (no outcome phases; #1410),
+/// as <c>file:line</c>. Three more run the same seam and leave out the text and the server too (#1410): "reports a beforeAll failure as the outcome, once"
+/// checks the outcome (no session, <c>HOOK_FAILED</c>, phase <c>beforeAll</c>, nothing to end), and not <c>0 steps ran</c> or <c>No screen to show</c>;
+/// "fails a test on a promise it left rejected, and keeps serving" checks the failure, the close's report, and the operator's warning of the
+/// seam's <see cref="StrayRejections"/>, and not the opening text; "keeps a body its timeout cut short from driving the session" runs a fixture with a
+/// 5 s timeout (upstream's is 1 s, and the port's clock starts before the engine launches, so the first page must open inside it). It checks the
+/// <c>TEST_TIMEOUT</c> failure, the step count, and the screen the session observes after its body timed out, but not the opening text; NUnit awaits the body, so the outcome
+/// lands after it, and not at the timeout. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
+/// (an assembly loads once per server; hardkoded/e2e-dotnet#1411),
 /// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
 /// the two <c>test.fail</c> <c>it</c>s ("tells a test that
 /// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
@@ -33,7 +35,8 @@ public sealed class OpenSessionTestOverE2eMcpTests
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, typeof(SessionFixture).FullName + "." + nameof(SessionFixture.Opens_the_browser_page), CancellationToken.None);
 
         Assert.That(outcome, Is.Not.Null);
-        await using var session = outcome!.Session;
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
         Assert.That(outcome.Failure, Is.Null);
         await Expect.That(session.Screen.GetByLabel("Loads")).ToBeVisibleAsync();
     }
@@ -44,7 +47,8 @@ public sealed class OpenSessionTestOverE2eMcpTests
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, typeof(SessionFixture).FullName + "." + nameof(SessionFixture.Fails_on_the_browser_page), CancellationToken.None);
 
         Assert.That(outcome, Is.Not.Null);
-        await using var session = outcome!.Session;
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
         Assert.That(outcome.Failure, Is.Not.Null);
         Assert.That(outcome.Failure!.Message, Does.Contain("the count"));
 
@@ -109,12 +113,89 @@ public sealed class OpenSessionTestOverE2eMcpTests
         }
     }
 
+    [Test]
+    public async Task Partial_Reports_a_beforeAll_failure_as_the_outcome_once()
+    {
+        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, typeof(HooksSessionFixture).FullName + "." + nameof(HooksSessionFixture.Needs_the_database), CancellationToken.None);
+
+        // The test never opened the app, and the outcome is the hook's: no session to show, and nothing for the close to repeat.
+        Assert.That(outcome, Is.Not.Null);
+        Assert.That(outcome!.Session, Is.Null);
+        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.BeforeAll));
+        Assert.That(outcome.Failure, Is.TypeOf<TestException>());
+        Assert.That(((TestException)outcome.Failure!).Code, Is.EqualTo("HOOK_FAILED"));
+        Assert.That(outcome.Failure!.Message, Is.EqualTo("beforeAll failed: database is down"));
+        Assert.That(outcome.Run, Is.Null);
+    }
+
+    [Test]
+    [NonParallelizable]
+    public async Task Partial_Fails_a_test_on_a_promise_it_left_rejected_and_keeps_serving()
+    {
+        var runner = new NUnitSessionTestRunner();
+        var assembly = typeof(SessionFixture).Assembly;
+        var warnings = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var warn = StrayRejections.Warn;
+        StrayRejections.Warn = warnings.Enqueue;
+        try
+        {
+            var forgot = await runner.RunAsync(assembly, typeof(SloppySessionFixture).FullName + "." + nameof(SloppySessionFixture.Forgets_an_await), CancellationToken.None);
+            Assert.That(forgot, Is.Not.Null);
+            await using (forgot!.Session)
+            {
+                Assert.That(forgot.Failure?.Message, Is.EqualTo("seed endpoint returned 500"));
+                Assert.That(forgot.Run!.End(), Is.Empty);
+            }
+
+            // One that rejects after the body ended is the test's too, reported at close.
+            var left = await runner.RunAsync(assembly, typeof(SloppySessionFixture).FullName + "." + nameof(SloppySessionFixture.Leaves_a_promise_behind), CancellationToken.None);
+            Assert.That(left, Is.Not.Null);
+            Assert.That(left!.Failure, Is.Null);
+            await Task.Delay(300);
+            await using (left.Session)
+            {
+                var closed = left.Run!.End();
+                Assert.That(closed.Select(cause => (cause as TestException)?.Code + ": " + cause.Message), Is.EqualTo(["UNHANDLED_REJECTION: a promise rejected after the test's body ended, most likely left by \"" + left.TestName + "\": late failure"]));
+            }
+
+            // One that rejects once its session closed is a warning for the operator, not a crash.
+            var early = await runner.RunAsync(assembly, typeof(SloppySessionFixture).FullName + "." + nameof(SloppySessionFixture.Leaves_a_promise_for_after_the_close), CancellationToken.None);
+            Assert.That(early, Is.Not.Null);
+            Assert.That(early!.Failure, Is.Null);
+            await using (early.Session)
+            {
+                Assert.That(early.Run!.End(), Is.Empty);
+            }
+
+            // .NET reports the faulted task when it is collected: look until it lands, as the host does for a few seconds after a close.
+            for (var look = 0; look < 40 && warnings.IsEmpty; look++)
+            {
+                await Task.Delay(250);
+                StrayRejections.Collect();
+            }
+
+            Assert.That(warnings, Does.Contain("a promise rejected after its session closed, most likely left by test \"" + early.TestName + "\": later failure"));
+
+            var after = await runner.RunAsync(assembly, typeof(SessionFixture).FullName + "." + nameof(SessionFixture.Opens_the_browser_page), CancellationToken.None);
+            Assert.That(after, Is.Not.Null);
+            await using (after!.Session)
+            {
+                Assert.That(after.Failure, Is.Null);
+            }
+        }
+        finally
+        {
+            StrayRejections.Warn = warn;
+        }
+    }
+
     /// <summary>Runs the named test as a session and disposes its session; what is left is the outcome's name and failure.</summary>
     private static async Task<(string TestName, Exception? Failure)> RunAsync(string name)
     {
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
         Assert.That(outcome, Is.Not.Null);
-        await using var session = outcome!.Session;
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
         return (outcome.TestName, outcome.Failure);
     }
 
@@ -176,8 +257,12 @@ public sealed class OpenSessionTestOverE2eMcpTests
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
 
         Assert.That(outcome, Is.Not.Null);
-        await using var session = outcome!.Session;
-        Assert.That(outcome.Failure, Is.Not.Null);
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
+        Assert.That(outcome.Failure, Is.TypeOf<TestException>());
+        Assert.That(((TestException)outcome.Failure!).Code, Is.EqualTo("TEST_TIMEOUT"));
+        Assert.That(outcome.Failure!.Message, Is.EqualTo("test timed out after 5000 ms in phase body"));
+        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.Body));
 
         // Upstream's "1 step ran": the step its timeout cut short (app.open('/about')) is not recorded.
         Assert.That(session.StepRecords, Has.Count.EqualTo(1));
@@ -271,4 +356,73 @@ public sealed class ScreenshotSessionFixture : E2ETest
         await App.OpenAsync("/swatches");
         await Expect.That(Screen.GetByTestId("far")).ToHaveScreenshotAsync("far.png");
     }
+}
+
+/// <summary>The tests of <c>sloppy.e2e.ts</c> that <see cref="OpenSessionTestOverE2eMcpTests"/> runs, but the one that outlives its timeout (<see cref="TimedOutSessionFixture"/>).</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class SloppySessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    private static async Task SeedAsync()
+    {
+        await Task.Yield();
+        throw new InvalidOperationException("seed endpoint returned 500");
+    }
+
+    [Test]
+    public async Task Forgets_an_await()
+    {
+        await App.OpenAsync("/browser");
+        _ = SeedAsync();
+        await Task.Delay(100);
+        await Expect.That(Screen.GetByLabel("Loads")).ToBeVisibleAsync();
+    }
+
+    [Test]
+    public async Task Leaves_a_promise_behind()
+    {
+        await App.OpenAsync("/browser");
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(50);
+            throw new InvalidOperationException("late failure");
+        });
+    }
+
+    [Test]
+    public async Task Leaves_a_promise_for_after_the_close()
+    {
+        await App.OpenAsync("/browser");
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(1_000);
+            throw new InvalidOperationException("later failure");
+        });
+    }
+}
+
+/// <summary>The test of <c>hooks.e2e.ts</c> that <see cref="OpenSessionTestOverE2eMcpTests"/> runs: its <c>beforeAll</c> fails.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class HooksSessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    [OneTimeSetUp]
+    public void BeforeAll() => throw new InvalidOperationException("database is down");
+
+    [Test]
+    public async Task Needs_the_database() => await App.OpenAsync("/browser");
 }
