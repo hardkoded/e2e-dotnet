@@ -37,4 +37,11 @@ public abstract class TestsAgentTest : BenchmarkTest
         E2EConfig.Discover().ProjectRoot);
 
     protected override E2EConfig Config => AgentConfig;
+
+    /// <summary>
+    /// The step deadline of every <c>act</c> and <c>assert</c> in the suite: upstream's act has no deadline of its own, so the test timeout
+    /// (the config's <c>timeout</c>, five minutes) bounds it. The fixture's default is a fixed 30 s that the config does not change, so the
+    /// suite sets it here, once, rather than on every call.
+    /// </summary>
+    protected override TimeSpan StepTimeout => AgentConfig.Timeout;
 }

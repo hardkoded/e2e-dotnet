@@ -2,7 +2,7 @@
    Deliberately hostile accessibility: every visible string on this screen comes from CSS ::before content, so the DOM holds nothing but empty
    divs with meaningless class names. Text extraction and a11y snapshots come back blank; the rendered pixels are the only place the labels exist. *@
 <div style="@Container">
-    <style>@StyleSheet</style>
+    <style>@((MarkupString)StyleSheet)</style>
     @if (_step == Step.Pick)
     {
         <div class="wb-css-instruction" style="@Instruction"></div>

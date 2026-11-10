@@ -121,8 +121,16 @@
             return;
         }
 
-        _reviewsLoaded = true;
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(() =>
+        {
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _reviewsLoaded = true;
+            StateHasChanged();
+        });
     }
 
     /// <summary>Upstream's <c>toFixed(2)</c>.</summary>

@@ -112,7 +112,7 @@ public static class ExamplesCatalog
             "Browse a promo-heavy storefront, handle its overlays, and complete a purchase."),
         new(typeof(GiftCardPurchase), "gift-card-purchase", "Gift Card Purchase",
             "Pick a gift card amount, enter a recipient, and complete the purchase."),
-        new(null, "control-inventory", "Control Inventory",
+        new(typeof(ControlInventory), "control-inventory", "Control Inventory",
             "The deterministic contract surface: plain controls with every state exposed, one exercise per agent verb. Not a hard surface."),
 
     ];

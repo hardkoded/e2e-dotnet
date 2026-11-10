@@ -81,6 +81,12 @@ else
     /// <summary>Reads the uploaded file and checks that it is the issued voucher, ignoring surrounding whitespace.</summary>
     private async Task HandleUploadAsync(InputFileChangeEventArgs args)
     {
+        // Upstream returns early when no file is chosen (a cancelled picker), keeping the current state.
+        if (args.FileCount == 0)
+        {
+            return;
+        }
+
         _selectedFileName = args.File.Name;
         using var reader = new StreamReader(args.File.OpenReadStream());
         var content = await reader.ReadToEndAsync();

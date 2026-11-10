@@ -165,11 +165,9 @@ public sealed class ScenariosTests : TestsAgentTest
     private async Task CompleteAsync(string slug, string goal, string success, int? maxSteps = null)
     {
         await App.OpenAsync($"/e/{slug}");
-        // Upstream's act has no step deadline of its own (its test timeout bounds it). This port's default act deadline is 30 s, which a
-        // model-driven scroll exceeds, so the act gets the five-minute test budget as its deadline.
         await Agent.ActAsync(
             $"Complete this scenario as the page instructs: {goal}",
-            new ActOptions { Timeout = TimeSpan.FromMinutes(5), MaxSteps = maxSteps });
+            new ActOptions { MaxSteps = maxSteps });
         await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync(success);
     }
 }
