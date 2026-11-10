@@ -280,7 +280,7 @@ public static partial class AgentDeviceDaemon
     private static (string Program, string[] Arguments) Launcher() =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
             ? (ResolveProgram(OperatingSystem.IsWindows() ? "node.exe" : "node"), [binary])
-            : (ResolveProgram(OperatingSystem.IsWindows() ? "npx.cmd" : "npx"),["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]);
+            : (ResolveProgram(OperatingSystem.IsWindows() ? "npx.cmd" : "npx"), ["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]);
 
     /// <summary>
     /// The full path of a program, found on the absolute entries of <c>PATH</c>. Starting a bare name made
