@@ -444,10 +444,16 @@ public sealed partial class Agent
     private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token, Action<Exception?> guard)
     {
         // The look and the tree a model reads of it are one phase, whose event tells the nodes read and the bytes of that tree.
-        var (observation, tree, body, judged, cut) = await Phases.InstrumentPhaseAsync<(Observation Seen, string Tree, string Body, JudgedLocation? Judged, bool Cut)>(
+        // The phase returns the observation; its other parts are captured here, so no tuple has to be inferred.
+        var observation = (Observation)null!;
+        var tree = string.Empty;
+        var body = string.Empty;
+        JudgedLocation? judged = null;
+        var cut = false;
+        _ = await Phases.InstrumentPhaseAsync(
             new PhaseHost(_scope.Steps, _scope.Debug),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
-            async Task<(Observation Seen, string Tree, string Body, JudgedLocation? Judged, bool Cut)> () =>
+            async () =>
             {
                 var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
                 var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
@@ -455,9 +461,14 @@ public sealed partial class Agent
                 // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
                 var judgedLocation = seen.Location is null ? null : AgentObservation.JudgeLocation(_scope.Redactor.Redact(seen.Location), _scope.AppOrigin);
                 var where = judgedLocation?.Text ?? _scope.Redactor.Redact(seen.Route);
-                return (Seen: seen, Tree: "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Body: listing, Judged: judgedLocation, Cut: overBudget);
+                observation = seen;
+                body = listing;
+                judged = judgedLocation;
+                cut = overBudget;
+                tree = "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing);
+                return seen;
             },
-            look => new PhaseDetail(LocatorResolver.Walk(look.Seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(look.Tree))).ConfigureAwait(false);
+            seen => new PhaseDetail(LocatorResolver.Walk(seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(tree))).ConfigureAwait(false);
 
         // Bytes the request carries, so a tree the call withholds reads as the zero it is.
         _scope.Steps.AttachAgentDetails(new StepAgentDetails
