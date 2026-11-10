@@ -17,4 +17,12 @@ public sealed class ValidateTitleTests
         Assert.Null(IdHelpers.ValidateTitle(new string('a', 512)));
         Assert.NotNull(IdHelpers.ValidateTitle("a\u0000b"));
     }
+
+    // .NET-only: no upstream it. A JS string may hold an unpaired surrogate, which TextEncoder encodes as U+FFFD (three bytes).
+    [Fact]
+    public void Counts_an_unpaired_surrogate_as_the_replacement_character()
+    {
+        Assert.Null(IdHelpers.ValidateTitle("a\ud800"));
+        Assert.Equal("a%EF%BF%BD", IdHelpers.EncodeTitle("a\ud800"));
+    }
 }

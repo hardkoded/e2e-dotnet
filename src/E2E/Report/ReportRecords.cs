@@ -236,12 +236,12 @@ internal sealed record ReportResult
 
     /// <summary>
     /// The id the test keeps over its targets, agents, and repeats (upstream's <c>testId</c>). Unset, it names the file and the title path. A .NET
-    /// test is named by its class and method (<see cref="AttemptReport.TestId"/>), so every row of a parameterized test is one test, and the host
+    /// test is named by its class and method (<see cref="Ids.TestId"/>), so every row of a parameterized test is one test, and the host
     /// finds a test again by the class and method it discovered. That is what <c>--last-failed</c> reads back.
     /// </summary>
     public string TestId
     {
-        get => field ?? AttemptReport.TestId(File, TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath));
+        get => field ?? Ids.TestId(File, [TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath)]);
         init;
     }
 

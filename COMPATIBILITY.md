@@ -196,7 +196,7 @@ Ported in part (the test name carries `Partial_` or a `PARTIAL` suffix):
 - `never sends a secret value to the model`: runs on a scripted model, not a real one
 - `diverges with target-not-found when relocation never matches`: no `observations == 9` check, because the port retries every 20 ms up to `ReplayTimeout`
 - `masks a password inside an iframe in artifact screenshots and observed pixels`: the port has one screenshot path
-- `pins the id of a non-ASCII title path` and `rejects an empty name, or an empty, repeated, or blank-entry agent list at registration`: a .NET test has one title, and `[Agent]` takes one name
+- `rejects an empty name, or an empty, repeated, or blank-entry agent list at registration`: `[Agent]` takes one name
 - `uses CI defaults for retries, workers, trace, and video`: the port has no workers, and its trace default is deliberate (see [Defaults](#defaults))
 - `refuses both spellings side by side, and an explicit path that does not exist`: the port has one config file name and throws `INVALID_CONFIG`
 - `refuses another screen's locator or a non-locator before any engine call` (`locator-union`): `Or(Locator)` is typed, so only the other screen's locator can be refused
@@ -217,7 +217,7 @@ Left for other work:
 
 - `detectVcs` and the `error stacks` test: covered by #496
 
-`tests/unit/ids.test.ts` (#1153) ports to `tests/E2E.Tests/Ids/`. `Ids.ValidateTitle` is `validateTitle` and `Ids.Uuidv7` is `uuidv7` (`internal/ids.ts`); nothing in `src/` calls `ValidateTitle` yet. `ResultIdTests` pins upstream's bytes through `Ids.ResultId`. `TestIdsTests` has two `Partial_` tests, since a .NET test has one title and not a title path (`AttemptReport.TestId` is `testId`); `prefixes setup IDs` is not ported (no `setupTestId`, no setup tests), and `drops undefined object members` of `canonicalJson` is not ported (a `JsonNode` has no undefined).
+`tests/unit/ids.test.ts` (#1153) ports to `tests/E2E.Tests/Ids/`. `Ids.ValidateTitle` is `validateTitle`, `Ids.EncodeTitle` is `encodeTitle`, `Ids.TestId` is `testId` over a title path, `Ids.SetupTestId` is `setupTestId`, and `Ids.Uuidv7` is `uuidv7` (`internal/ids.ts`); `Ids.ValidateTitle` runs where a test title registers (`HostTestFilters.RegisteredTitle`, upstream's registry `title()`): on the raw title, and again once the run's secrets are redacted. The result ids keep the raw title, where upstream's use the registered one. `Ids.Wellformed` maps an unpaired surrogate to U+FFFD before a title is normalized, as `TextEncoder` does; .NET's `Normalize` throws on one (port-only). `ResultIdTests` pins upstream's bytes through `Ids.ResultId`. `drops undefined object members` of `canonicalJson` is not ported (a `JsonNode` has no undefined). `prefixes setup IDs` is ported, but the production path has no setup tests to name with it: the test kit builds setup ids. `Uuidv7` wraps .NET's `Guid.CreateVersion7`, and takes a `DateTimeOffset` where upstream takes milliseconds. `AttemptReport.ResultId` is the port's own digest (a NUL-marked hash of the test id), not upstream's `resultId`, which `Ids.ResultId` is.
 
 ## Debug
 

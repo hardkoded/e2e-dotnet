@@ -42,7 +42,7 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
                 Url = Hosted,
                 MediaType = "video/mp4",
                 RunId = report.Run.Id,
-                TestId = AttemptReport.TestId("", "taps a node"),
+                TestId = E2E.Internal.Ids.TestId("", ["taps a node"]),
                 AttemptId = attempt.Id,
                 StartedAt = hosted.StartedAt!.Value,
             },

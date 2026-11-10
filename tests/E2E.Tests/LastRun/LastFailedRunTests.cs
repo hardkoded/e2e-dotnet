@@ -39,7 +39,7 @@ public sealed class LastFailedRunTests : IDisposable
 
     private static DiscoveredTest Found(string method) => new($"{Namespace}.{Class}.{method}", Namespace, Class, method, []);
 
-    private static string TestIdOf(string method) => AttemptReport.TestId($"{Namespace}.{Class}", method);
+    private static string TestIdOf(string method) => E2E.Internal.Ids.TestId($"{Namespace}.{Class}", [method]);
 
     private static JsonObject Row(E2EConfig config, string method, string status, params (string Name, JsonNode? Value)[] extra) =>
         Result([("id", method), ("testId", TestIdOf(method)), ("targetId", config.Target.Name), ("status", status), .. extra]);

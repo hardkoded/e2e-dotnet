@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using E2E.Engine;
@@ -45,36 +44,11 @@ internal static class AttemptReport
 
     /// <summary>
     /// The id of the result of the test titled <paramref name="title"/> in <paramref name="file"/>, whose head ends the result's directory
-    /// name. It hashes the test id, <see cref="TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
+    /// name. It hashes the test id, <see cref="Ids.TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
     /// file hashes the title alone.
     /// </summary>
     public static string ResultId(string? file, string title) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))));
-
-    /// <summary>
-    /// The test id <c>file::title</c>, with the title percent-encoded so a <c>::</c> in a title cannot pass for the separator. Upstream's
-    /// <c>testId</c> (<c>internal/ids.ts</c>) with a title path of one title.
-    /// </summary>
-    public static string TestId(string file, string title) => file + "::" + EncodeTitle(title);
-
-    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c>. Upstream's <c>encodeTitle</c>.</summary>
-    public static string EncodeTitle(string title)
-    {
-        var encoded = new StringBuilder();
-        foreach (var value in Encoding.UTF8.GetBytes(title.Normalize(NormalizationForm.FormC)))
-        {
-            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
-            {
-                encoded.Append((char)value);
-            }
-            else
-            {
-                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
-            }
-        }
-
-        return encoded.ToString();
-    }
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + Ids.TestId(file, [title]))));
 
     /// <summary>
     /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
@@ -155,7 +129,7 @@ internal static class AttemptReport
         // A test run by a framework is named by its class and method, which the host discovers too.
         if (scope.TestFile is { Length: > 0 } testFile && scope.TestMethod is { } method)
         {
-            result = result with { TestId = TestId(testFile, method) };
+            result = result with { TestId = Ids.TestId(testFile, [method]) };
         }
 
         return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);

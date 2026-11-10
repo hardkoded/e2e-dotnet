@@ -1398,7 +1398,7 @@ public sealed class E2ESessionOptions
     /// </summary>
     public string? TestFile { get; init; }
 
-    /// <summary>The name of the test's method (.NET-only). With <see cref="TestFile"/> it is the test's id in the report (<see cref="AttemptReport.TestId"/>), shared by every row of a parameterized test.</summary>
+    /// <summary>The name of the test's method (.NET-only). With <see cref="TestFile"/> it is the test's id in the report (<see cref="Ids.TestId"/>), shared by every row of a parameterized test.</summary>
     internal string? TestMethod { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;

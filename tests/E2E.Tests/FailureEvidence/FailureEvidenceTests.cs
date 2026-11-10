@@ -172,8 +172,8 @@ public sealed class FailureEvidenceTests : IDisposable
         Assert.NotEqual(AttemptReport.ResultId("Shop.CartTests", "same title"), AttemptReport.ResultId(null, "Shop.CartTests::same title"));
         Assert.NotEqual(AttemptReport.ResultId("Shop", "CartTests::same"), AttemptReport.ResultId("Shop::CartTests", "same"));
         Assert.NotEqual(AttemptReport.ResultId("Shop", "cart"), AttemptReport.ResultId(null, "Shop::cart"));
-        Assert.Equal("caf%C3%A9", AttemptReport.EncodeTitle("cafe\u0301"));
-        Assert.Equal("Shop::a%3A%3Ab%20c", AttemptReport.TestId("Shop", "a::b c"));
+        Assert.Equal("caf%C3%A9", E2E.Internal.Ids.EncodeTitle("cafe\u0301"));
+        Assert.Equal("Shop::a%3A%3Ab%20c", E2E.Internal.Ids.TestId("Shop", ["a::b c"]));
         Assert.Equal(AttemptReport.ResultId(null, "title"), AttemptReport.ResultId("", "title"));
     }
 
