@@ -441,7 +441,11 @@ internal sealed class SessionHost : IDisposable
         {
             if (attempt is null)
             {
-                loadedTests?.Dispose();
+                // A test the caller cancelled may still be running in this assembly: it unloads once the turns queued so far have settled.
+                if (loadedTests is { } unloaded)
+                {
+                    _ = SessionHandover.Drained.ContinueWith(_ => unloaded.Dispose(), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+                }
             }
             else
             {

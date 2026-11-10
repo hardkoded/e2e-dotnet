@@ -38,12 +38,55 @@ internal sealed record SessionTestOutcome(string TestName, E2ESession Session, I
 
 /// <summary>
 /// The one test a host asked to keep open (.NET-only). A fixture offers its session at teardown; when its test is the requested one, the
-/// host owns the session from then on and the fixture does not complete or dispose it. One request at a time, as the host runs one.
+/// host owns the session from then on and the fixture does not complete or dispose it. One test runs at a time per process: a request
+/// waits for its turn (<see cref="TakeTurnAsync{T}"/>), as upstream's test runs take turns in <c>standalone-test.ts</c>.
 /// </summary>
 internal static class SessionHandover
 {
     private static readonly Lock Gate = new();
     private static Request? _current;
+
+    /// <summary>The last turn queued; the next turn starts once it has settled. Guarded by <see cref="Gate"/>.</summary>
+    private static Task _tail = Task.CompletedTask;
+
+    /// <summary>
+    /// Runs <paramref name="work"/> once every turn queued before it has settled, so one test runs at a time per process (upstream's
+    /// <c>takeTurn</c>). A caller that cancels while it waits gets the cancel at once, and its work then never starts: a test whose open was
+    /// cancelled while it waited for its turn runs none of its code. The turn holds until <paramref name="work"/> has ended, whatever the
+    /// caller does, so a test still running never overlaps the next one.
+    /// </summary>
+    public static Task<T> TakeTurnAsync<T>(Func<Task<T>> work, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        Task<T> turn;
+        lock (Gate)
+        {
+            turn = _tail.ContinueWith(_ => Turn(work, cancellationToken), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default).Unwrap();
+            // The queue goes on past a turn that failed or was cancelled, and observes its failure so none is left unobserved.
+            _tail = turn.ContinueWith(static finished => { _ = finished.Exception; }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        }
+
+        return turn.WaitAsync(cancellationToken);
+    }
+
+    /// <summary>Completes once every turn queued so far has settled, so a test's assembly can be unloaded after the test has stopped running.</summary>
+    public static Task Drained
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _tail;
+            }
+        }
+    }
+
+    private static Task<T> Turn<T>(Func<Task<T>> work, CancellationToken cancellationToken)
+    {
+        // A caller cancelled while it waited for its turn: none of its code runs.
+        cancellationToken.ThrowIfCancellationRequested();
+        return work();
+    }
 
     /// <summary>Whether a host is running one test for its session; the test filters leave such a run alone, as upstream's open-session path never applies <c>changedSince</c>.</summary>
     public static bool IsActive
@@ -73,7 +116,10 @@ internal static class SessionHandover
         }
     }
 
-    /// <summary>Asks for the session of the test named <paramref name="testName"/>. Dispose the request to withdraw it.</summary>
+    /// <summary>
+    /// Asks for the session of the test named <paramref name="testName"/>. Dispose the request to withdraw it. Called within a turn
+    /// (<see cref="TakeTurnAsync{T}"/>), so a second request while one is open is a bug, not a wait.
+    /// </summary>
     public static Request Begin(string testName, E2EConfig? host = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(testName);
