@@ -328,6 +328,12 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   of `T`, and the answer must deserialize into `T`. Data the screen does not
   show is `ASSERTION_INCONCLUSIVE`; to accept absence, make the member
   nullable and ask for it (`"the phone, or null when none is shown"`).
+- The observation shows a frame from another site (a hosted card field) as its
+  `iframe` node with none of its content, so the agent reaches that content
+  only through pixels: script steps there with `Browser.FrameLocator`, and
+  judge it with `Vision = VisionMode.On` (or `Only`). An act whose only change
+  is inside that frame records no replay (`no-change`), and runs live on every
+  run.
 - `Vision` says what the judge is shown: `VisionMode.Off` (the default) is the
   text snapshot, `On` adds a masked screenshot, and `Only` sends the screenshot
   and no snapshot. Use `On` when the answer is in pixels, such as a chart, a

@@ -453,6 +453,7 @@ public sealed partial class WebEngine : IEngine
                     initScripts,
                     context => SetUpContextAsync(context, app, options.Permissions),
                     url => SiteHeadersFor(url, app),
+                    SiteOf(app),
                     seams,
                     lease,
                     VideoSetupOf(options, lease),
@@ -481,7 +482,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, app, options.Permissions), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, app, options.Permissions), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir, Site = SiteOf(app) };
                 session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
@@ -566,6 +567,24 @@ public sealed partial class WebEngine : IEngine
         return Uri.TryCreate(url, UriKind.Absolute, out var target)
             && (target.Scheme == Uri.UriSchemeHttp || target.Scheme == Uri.UriSchemeHttps)
             && string.Equals(target.Host, app.Host, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The app's site: the registrable domain of its URL's host, as upstream's <c>app.site</c>. Null without an app URL.</summary>
+    internal static string? SiteOf(Uri? app) => app is null ? null : Urls.SiteOf(app.Host);
+
+    /// <summary>
+    /// True when a child frame's document is on the app's site (upstream's <c>isOnSiteFrame</c>). <c>about:blank</c> and <c>srcdoc</c>
+    /// documents inherit their parent's origin, so they are the app's own content and always admitted. A <c>data:</c> document is not,
+    /// since its origin is opaque. Without a site no other frame is admitted.
+    /// </summary>
+    internal static bool IsOnSiteFrame(string url, string? site)
+    {
+        if (url is "" or "about:blank" or "about:srcdoc") return true;
+        if (site is null) return false;
+        return Uri.TryCreate(url, UriKind.Absolute, out var target)
+            && target.Scheme != Uri.UriSchemeFile
+            && target.Scheme != "data"
+            && Urls.SiteOf(target.Host) == site;
     }
 
     /// <summary>The <c>playwright install</c> arguments for Chromium: <c>--only-shell</c> on a headless run, which launches the headless shell.</summary>
@@ -1112,6 +1131,9 @@ public sealed partial class WebEngine : IEngine
 
         /// <summary>The attempt's artifact directory (<see cref="EngineStartOptions.ArtifactsDir"/>); null when the session started without one.</summary>
         public string? ArtifactsDir { get; init; }
+
+        /// <summary>The app's site (its registrable domain). A child frame off it is left out of the observation; null admits no child frame (upstream's <c>app.site</c>).</summary>
+        public string? Site { get; init; }
         private IPage? _page;
         private readonly object _pageLock = new();
         private Task<IPage>? _pendingPage;
@@ -1238,7 +1260,7 @@ public sealed partial class WebEngine : IEngine
         {
             var page = Page;
             var capture = _refs.BeginCapture();
-            var walk = new FrameWalk();
+            var walk = new FrameWalk { Site = Site };
             try
             {
                 var fallback = options?.PixelFallback == true;
@@ -3047,6 +3069,14 @@ public sealed partial class WebEngine : IEngine
             Index(roots, owners);
             foreach (var child in frame.ChildFrames.ToArray())
             {
+                // Only frames on the app's site enter the observation. A third-party frame (an ad, a tracker, an embed) stays a boundary
+                // node and is left out by design: leaving it out is not truncation, and it costs no budget (upstream's isOnSiteFrame).
+                // Checked before the owner lookup, so a skipped frame costs no round trip.
+                if (!IsOnSiteFrame(child.Url, walk.Site))
+                {
+                    continue;
+                }
+
                 var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
                 if (owner is not null && owners.TryGetValue(owner, out var node))
                 {
@@ -3433,6 +3463,7 @@ public sealed partial class WebEngine : IEngine
             List<string> initScripts,
             Func<IBrowserContext, Task> setUpContext,
             Func<string, IReadOnlyDictionary<string, string>?> siteHeaders,
+            string? site,
             SessionSeams seams,
             LeaseScope? lease,
             VideoSetup video,
@@ -3452,7 +3483,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir };
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir, Site = site };
             try
             {
                 if (!persistent.Claim(binding.ContextId))
@@ -4319,6 +4350,9 @@ public sealed partial class WebEngine : IEngine
     {
         /// <summary>False for a read that must leave the page's element map as the last observation set it: the trace's.</summary>
         public bool Publish { get; init; } = true;
+
+        /// <summary>The app's site. A child frame whose document is not on it is left out, and does not count toward truncation.</summary>
+        public string? Site { get; init; }
 
         public int Remaining { get; set; } = ObservationLimits.Nodes;
 
