@@ -79,7 +79,7 @@ internal sealed class SessionCatalog
     /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
     /// <paramref name="canDismissKeyboard"/> is <see cref="IEngineSession.CanDismissKeyboard"/>: <c>dismiss_keyboard</c> is a tool only where it is true.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false, IReadOnlyDictionary<string, AgentTool>? projectTools = null, string? platform = null, Action<string>? warn = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -224,7 +224,30 @@ internal sealed class SessionCatalog
         }
 
         Add("test_lines", lines.Tool());
-        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines, screen);
+
+        // The agent's project tools (agents.<name>.tools) follow the built-in ones, as upstream's catalog serves them. A name a built-in tool holds is not served.
+        var readOnly = new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal);
+        foreach (var (name, tool) in projectTools ?? new Dictionary<string, AgentTool>())
+        {
+            if (platform is not null && !tool.AppliesTo(platform))
+            {
+                continue;
+            }
+
+            if (tools.Any(entry => entry.Key == name))
+            {
+                warn?.Invoke("project tool \"" + name + "\" is not served over MCP: the name belongs to a built-in session tool");
+                continue;
+            }
+
+            tools.Add(new(name, ProjectTool(tool)));
+            if (!tool.Mutates)
+            {
+                readOnly.Add(name);
+            }
+        }
+
+        return new SessionCatalog(tools, readOnly, lines, screen);
     }
 
     /// <summary>
@@ -427,6 +450,14 @@ internal sealed class SessionCatalog
             },
         };
     }
+
+    /// <summary>A project tool as a catalog tool: the model's input as the tool reads it, and its answer as text.</summary>
+    private static CatalogTool ProjectTool(AgentTool tool) => new()
+    {
+        Description = tool.Description,
+        InputSchema = JsonSerializer.SerializeToElement(tool.InputSchema),
+        Execute = async (args, token) => await tool.ExecuteAsync(args.ValueKind == JsonValueKind.Object ? JsonNode.Parse(args.GetRawText())!.AsObject() : throw new ConfigurationException("INVALID_ARGUMENT", "a project tool takes an object"), token).ConfigureAwait(false),
+    };
 
     private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen)
     {
