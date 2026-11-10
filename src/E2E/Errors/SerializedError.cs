@@ -173,12 +173,21 @@ internal static class ErrorSerializer
 
     /// <summary>
     /// What a provisioning hook's failure is reported as: an e2e error stays itself, a caller's cancel is a cancel (an engine may call a
-    /// lease that was cancelled a failed one), and anything else, such as an installer's plain exception, is an engine failure. Upstream's
-    /// <c>translateProvisioningError</c> (<c>internal/errors.ts</c>).
+    /// lease that was cancelled a failed one), an engine error of a closed engine code is an infrastructure <c>ENGINE_FAILURE</c> with the
+    /// suffix, and anything else, such as an installer's plain exception, is an engine failure. Upstream's <c>translateProvisioningError</c>
+    /// (<c>internal/errors.ts</c>). The engine-code split is the one <see cref="Classify"/> uses: an error the runner already named
+    /// (<see cref="EngineException.Mapped"/>, or a code outside the closed set) stays as it is.
     /// </summary>
     internal static Exception TranslateProvisioningError(Exception cause, string suffix, CancellationToken cancellationToken)
     {
-        if (cause is E2EException { Code: EngineErrorCodes.Cancelled })
+        if (cause is EngineException { Mapped: false, Code: EngineErrorCodes.Cancelled })
+        {
+            return TranslateEngineError(cause);
+        }
+
+        // An e2e error the harness named keeps its category, even during a caller's cancel, as upstream's isE2EError does.
+        var engineError = cause is EngineException { Mapped: false } engine && IsEngineErrorCode(engine.Code);
+        if (cause is E2EException && !engineError)
         {
             return cause;
         }
@@ -188,7 +197,13 @@ internal static class ErrorSerializer
             return new EngineException(EngineErrorCodes.Cancelled, "preparing the engine was cancelled", cause);
         }
 
-        return cause is E2EException or OperationCanceledException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
+        if (cause is EngineException { Mapped: false } closed && engineError)
+        {
+            return new EngineException(EngineErrorCodes.EngineFailure, closed.Message + suffix, closed);
+        }
+
+        // An abort that is not the caller's cancel, such as an installer's own timeout, is an engine failure, as upstream makes it.
+        return new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
     }
 
     /// <summary>

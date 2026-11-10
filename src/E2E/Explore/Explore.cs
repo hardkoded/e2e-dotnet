@@ -360,7 +360,6 @@ public static class Explore
 
         var cleanupErrors = cleanup
             .Select(failure => ErrorSerializer.TranslateProvisioningError(failure, " while closing the exploration", CancellationToken.None))
-            .Select(failure => failure as E2EException ?? new EngineException(EngineErrorCodes.EngineFailure, failure.Message + " while closing the exploration", failure))
             .Select(failure => (E2EException)ErrorRedaction.Cause(failure, redactor.Redact)!)
             .ToList();
         var exitCode = ErrorSerializer.CombineExitCodes(
