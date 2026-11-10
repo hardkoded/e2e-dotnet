@@ -172,7 +172,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `setAirplaneMode`, `toggleAirplaneMode` | `Device.SetAirplaneModeAsync(true)` or `false`, the state you want; `true` is Android only |
 | `setDarkMode`, `toggleDarkMode` | `Device.SetAppearanceAsync(Appearance.Dark)` or `Appearance.Light` |
 | `setOrientation` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
-| `setPermissions` | `Device.SetPermissionAsync(permission, PermissionState.Grant)`, one permission per call, on the target's app, which need not be running; call it before the app launches. A permission or state outside `DevicePermission` and `PermissionState` (a cast number) throws `INVALID_ARGUMENT` before any device command |
+| `setPermissions` | `Device.SetPermissionAsync(permission, PermissionState.Grant)`, one permission per call, on the target's app, which need not be running; call it before the app launches. A permission or state outside `DevicePermission` and `PermissionState` (a cast number) throws `INVALID_ARGUMENT` before any device command. A name read from outside the code can go in as a string: `Device.SetPermissionAsync("camera", "grant")` takes the wire names, and a misspelled one is refused with a `did you mean` hint before any device command |
 | platform-specific selectors | `Device.Locator("role=text label=\"...\"")`, agent-device's selector terms |
 
 ### AI commands and flow control

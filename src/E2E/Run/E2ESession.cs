@@ -35,6 +35,7 @@ public sealed class E2ESession : IAsyncDisposable
     private int _evidenceTried;
     private FailureEvidence? _evidence;
     private Exception? _error;
+    private TimeSpan _testTimeout;
 
     // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
     private readonly List<Exception> _cleanupErrors = [];
@@ -443,7 +444,7 @@ public sealed class E2ESession : IAsyncDisposable
             var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
             try
             {
-                var session = new E2ESession(scope, timeout, budget, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events };
+                var session = new E2ESession(scope, timeout, budget, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events, _testTimeout = options.TestTimeout };
                 events?.Started();
                 return session;
             }
@@ -1109,13 +1110,47 @@ public sealed class E2ESession : IAsyncDisposable
         return _timeout.IsCancellationRequested ? AttemptStatus.TimedOut : AttemptStatus.Failed;
     }
 
+    /// <summary>
+    /// The failure the attempt ends with for <paramref name="error"/>, as <see cref="Complete"/> keeps it. A cancellation nobody asked for fails the
+    /// test: left as is, its CANCELLED error would read as the interrupt category and exit 130. The session's own timeout is upstream's
+    /// <c>TestTimeoutError</c>, <c>test timed out after N ms in phase body</c>.
+    /// </summary>
+    internal Exception? VerdictOf(Exception? error, CancellationToken cancellationToken)
+    {
+        // A step the session's own timeout cut short fails with its CANCELLED error: that is the timeout.
+        if (error is E2EException { Code: "CANCELLED" } && !cancellationToken.IsCancellationRequested && _timeout.IsCancellationRequested)
+        {
+            return TimeoutFailure(error);
+        }
+
+        return VerdictOf(error, StatusOf(error, cancellationToken));
+    }
+
+    private TestException TimeoutFailure(Exception cause) =>
+        new("TEST_TIMEOUT", "test timed out after " + ((long)_testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms in phase body", cause);
+
+    private Exception? VerdictOf(Exception? error, AttemptStatus status)
+    {
+        if (error is null || status is not (AttemptStatus.Failed or AttemptStatus.TimedOut) || ExecuteVideo.StatusOf(error) != AttemptStatus.Interrupted)
+        {
+            return error;
+        }
+
+        return status == AttemptStatus.TimedOut ? TimeoutFailure(error) : new TestException("TEST_FAILED", error.Message, error);
+    }
+
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
         _status = StatusOf(error, cancellationToken);
-        // A cancellation nobody asked for fails the test: left as is, its CANCELLED error would read as the interrupt category and exit 130.
-        _error = error is not null && _status is AttemptStatus.Failed or AttemptStatus.TimedOut && ExecuteVideo.StatusOf(error) == AttemptStatus.Interrupted
-            ? new TestException(_status == AttemptStatus.TimedOut ? "TEST_TIMEOUT" : "TEST_FAILED", error.Message, error)
-            : error;
+        _error = VerdictOf(error, _status);
+
+        // A step the session's own timeout cut short is the timeout, as the host's hand-over reads it.
+        if (_status == AttemptStatus.Failed && VerdictOf(error, cancellationToken) is TestException { Code: "TEST_TIMEOUT" } timedOut)
+        {
+            _status = AttemptStatus.TimedOut;
+            _error = timedOut;
+        }
+
         _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {

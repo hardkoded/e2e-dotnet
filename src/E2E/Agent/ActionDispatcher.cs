@@ -849,7 +849,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             (found, _) => _scope.Session.PerformAsync(found, action, OperationContext.Agent, token));
 
     // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
-    private async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform)
+    internal async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform)
     {
         for (var relocations = 0; ; relocations++)
         {

@@ -28,7 +28,7 @@ internal static class TestOutcome
     /// The opening lines of a session that ran the test named <paramref name="name"/>, before its summary and catalog. <paramref name="steps"/> and <paramref name="evidence"/> are the session's; <paramref name="elapsed"/> is
     /// how long the run took, set-up and tear-down included. Upstream's <c>describeTestOutcome</c>.
     /// </summary>
-    public static string Describe(string name, Exception? failure, TimeSpan elapsed, IReadOnlyList<StepRecord> steps, FailureEvidence? evidence, Func<string, string> redact, string projectRoot)
+    public static string Describe(string name, Exception? failure, TimeSpan elapsed, IReadOnlyList<StepRecord> steps, FailureEvidence? evidence, Func<string, string> redact, string projectRoot, RunPhase phase = RunPhase.Body, IReadOnlyList<Exception>? secondary = null)
     {
         ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(redact);
@@ -38,7 +38,7 @@ internal static class TestOutcome
         List<string> lines = ["Test \"" + name + "\" " + status + " after " + Format.FormatTime(elapsed) + "; " + MarkdownText.Plural(steps.Count, "step") + " ran."];
         if (error is not null)
         {
-            lines.Add(error.Code + ": " + error.Message);
+            lines.Add(error.Code + PhaseText(phase) + ": " + error.Message);
 
             // The line the failure unwound through, else the failing step's own call.
             var source = error.Source ?? steps.LastOrDefault(step => step.Status != StepStatus.Passed)?.Source;
@@ -63,6 +63,12 @@ internal static class TestOutcome
             }
         }
 
+        foreach (var other in secondary ?? [])
+        {
+            var alsoFailed = ErrorSerializer.Serialize(other, projectRoot, redact);
+            lines.Add("Also failed: " + alsoFailed.Code + ": " + alsoFailed.Message);
+        }
+
         // A pass needs no story; where a run stopped does.
         if (failure is not null && steps.Count > 0)
         {
@@ -74,6 +80,14 @@ internal static class TestOutcome
         lines.Add(NextSteps(name, failure));
         return redact(string.Join('\n', lines));
     }
+
+    /// <summary>What names where a failure landed: nothing for the body, <c> in beforeAll</c> for a hook.</summary>
+    private static string PhaseText(RunPhase phase) => phase switch
+    {
+        RunPhase.BeforeAll => " in beforeAll",
+        RunPhase.BeforeEach => " in beforeEach",
+        _ => string.Empty,
+    };
 
     /// <summary><c>7. ✗ locator.fill getByLabel('Name') LOCATOR_NOT_FOUND (tests/a.e2e.ts:13)</c>.</summary>
     private static string StepLine(StepRecord step)

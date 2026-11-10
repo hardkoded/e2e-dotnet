@@ -48,30 +48,27 @@ public sealed class TraceRecorderTests
     internal static JsonNode Stored(CacheEntry entry) => JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!;
 
     /// <summary>
-    /// Whether the stored entry with <paramref name="patch"/> applied to its action at <paramref name="index"/> still reads as an entry: the
-    /// stand-in for upstream's <c>readTraceEntry(...)</c> being defined. The port has no such function (its checks run at the agent's read site),
-    /// so this deserializes the JSON, which rejects a field of the wrong JSON type, and runs the action validators the read site runs.
+    /// Upstream's <c>broken(patch)</c> of the <c>rejects a stored ...</c> its: a copy of the stored entry with <paramref name="patch"/> applied to
+    /// its action at <paramref name="index"/>, read back through <see cref="TraceRead.ReadTraceEntry(System.Text.Json.Nodes.JsonNode?)"/>.
     /// </summary>
-    internal static bool ReadsAfter(JsonNode stored, int index, Action<JsonObject> patch)
+    internal static CacheEntry? ReadPatched(JsonNode stored, int index, Action<JsonObject> patch)
     {
         var copy = stored.DeepClone();
         patch(copy["actions"]![index]!.AsObject());
-        try
-        {
-            var entry = copy.Deserialize<CacheEntry>(JsonDefaults.Options);
-            return entry is { Actions.Count: > 0 } && entry.Actions.All(action => action.HasValidInputs() && action.HasValidSummary() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize());
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
+        return TraceRead.ReadTraceEntry(copy);
     }
 
+    /// <summary>
+    /// The entry written to a store and read back, which upstream's <c>readTraceEntry(JSON.parse(JSON.stringify(buildTraceEntry(trace))))</c> does
+    /// in one step. The read-back must also pass <see cref="TraceRead.ReadTraceEntry(CacheEntry?)"/>, so every round trip is checked by the reader.
+    /// </summary>
     internal static CacheEntry RoundTrip(CacheEntry entry)
     {
         var store = new FileStepCache(CoreTests.TempCache());
         store.Write(StepCacheHarness.Key, entry);
-        return Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
+        var read = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
+        Assert.NotNull(TraceRead.ReadTraceEntry(read));
+        return read;
     }
 
     /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no CSS selector.</summary>
@@ -96,9 +93,9 @@ public sealed class TraceRecorderTests
             entry.Actions.Select(action => action.Summary));
     }
 
-    /// <summary>Partial port of "always finalizes into a trace the reader accepts": the reader is the file store, which has no entry validation beyond reading the entry back.</summary>
+    /// <summary>Upstream's "always finalizes into a trace the reader accepts": the round trip reads through <see cref="TraceRead.ReadTraceEntry(CacheEntry?)"/>.</summary>
     [Fact]
-    public void Always_finalizes_into_an_entry_the_store_reads_back()
+    public void Always_finalizes_into_a_trace_the_reader_accepts()
     {
         var recorder = MakeRecorder();
         recorder.Record("tap", UpgradeButton);
@@ -393,9 +390,8 @@ public sealed class TraceRecorderTests
     }
 
     /// <summary>
-    /// Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the port has no <c>readTraceEntry</c> to call (its
-    /// checks run at the agent's read site; see <see cref="ReadsAfter"/>), and no <c>checked</c> field on a <c>check</c> (it is its own kind),
-    /// so upstream's <c>checked: 'yes'</c> case is not checked. Its unknown action name (<c>fly</c>) is not checked either: no port validator rejects an unknown kind.
+    /// Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the port's <c>check</c> is its own kind with no
+    /// <c>checked</c> field, so upstream's <c>checked: 'yes'</c> case is not checked. The rest reads through <see cref="TraceRead.ReadTraceEntry(System.Text.Json.Nodes.JsonNode?)"/>.
     /// </summary>
     [Fact]
     public void Partial_Rejects_a_stored_check_upload_drag_or_resize_that_lost_a_field()
@@ -412,22 +408,21 @@ public sealed class TraceRecorderTests
         var entry = Finalize(recorder)!;
         var stored = Stored(entry);
 
-        Assert.True(ReadsAfter(stored, 1, _ => { }));
-        Assert.True(ReadsAfter(stored, 2, _ => { }));
-        Assert.True(ReadsAfter(stored, 3, _ => { }));
-        Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray()));
-        Assert.False(ReadsAfter(stored, 1, action => action["paths"] = new JsonArray("")));
-        Assert.False(ReadsAfter(stored, 2, action => action.Remove("destination")));
-        Assert.False(ReadsAfter(stored, 3, action => action.Remove("size")));
-        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390.5, ["height"] = 844 }));
+        Assert.NotNull(TraceRead.ReadTraceEntry(stored));
+        Assert.Null(ReadPatched(stored, 1, action => action["paths"] = new JsonArray()));
+        Assert.Null(ReadPatched(stored, 1, action => action["paths"] = new JsonArray("")));
+        Assert.Null(ReadPatched(stored, 2, action => action.Remove("destination")));
+        Assert.Null(ReadPatched(stored, 3, action => action.Remove("size")));
+        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390.5, ["height"] = 844 }));
         Assert.Equal(new TraceViewport(390, 844), RoundTrip(entry).Actions[3].Size);
-        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
-        Assert.False(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
-        Assert.True(ReadsAfter(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 }));
+        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
+        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
+        Assert.NotNull(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 }));
+        Assert.Null(ReadPatched(stored, 0, action => action["kind"] = "fly"));
 
         // .NET-only: a field on an action of another kind, and a destination that names nothing, are rejected too.
-        Assert.False(ReadsAfter(stored, 0, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 844 }));
-        Assert.False(ReadsAfter(stored, 0, action => action["destination"] = new JsonObject { ["role"] = "region", ["name"] = "Done column" }));
-        Assert.False(ReadsAfter(stored, 2, action => action["destination"] = new JsonObject()));
+        Assert.Null(ReadPatched(stored, 0, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 844 }));
+        Assert.Null(ReadPatched(stored, 0, action => action["destination"] = new JsonObject { ["role"] = "region", ["name"] = "Done column" }));
+        Assert.Null(ReadPatched(stored, 2, action => action["destination"] = new JsonObject()));
     }
 }

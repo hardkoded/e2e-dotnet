@@ -63,6 +63,31 @@ public sealed class TestOutcomeTests
     }
 
     [Fact]
+    public void Names_the_phase_of_a_hook_that_failed_and_tells_a_test_that_ran_no_step()
+    {
+        var text = TestOutcome.Describe("Shop.Hooks.NeedsTheDatabase", new TestException("HOOK_FAILED", "beforeAll failed: database is down"), TimeSpan.FromMilliseconds(40), [], null, text => text, Root, RunPhase.BeforeAll);
+
+        var lines = text.Split('\n');
+        Assert.Equal("Test \"Shop.Hooks.NeedsTheDatabase\" failed after 40ms; 0 steps ran.", lines[0]);
+        Assert.Equal("HOOK_FAILED in beforeAll: beforeAll failed: database is down", lines[1]);
+        Assert.DoesNotContain("Steps:", lines);
+    }
+
+    [Fact]
+    public void Tells_a_test_that_timed_out_and_lists_the_failures_that_landed_after_the_first()
+    {
+        var failure = new TestException("TEST_TIMEOUT", "test timed out after 1000 ms in phase body");
+        var late = new E2EException("UNHANDLED_REJECTION", "a promise rejected after the test's body ended: late failure");
+
+        var text = TestOutcome.Describe("A.B.C", failure, TimeSpan.FromMilliseconds(1_040), [Step(0, "app.open", "/", StepStatus.Passed)], null, text => text, Root, RunPhase.Body, [late]);
+
+        var lines = text.Split('\n');
+        Assert.Equal("Test \"A.B.C\" timed out after 1.04s; 1 step ran.", lines[0]);
+        Assert.Equal("TEST_TIMEOUT: test timed out after 1000 ms in phase body", lines[1]);
+        Assert.Contains("Also failed: UNHANDLED_REJECTION: a promise rejected after the test's body ended: late failure", lines);
+    }
+
+    [Fact]
     public void Redacts_the_text_with_the_sessions_redactor()
     {
         var text = TestOutcome.Describe("A.B.C", new E2EException("ACTION_FAILED", "sk-live-0000 is wrong"), TimeSpan.Zero, [], null, text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal), Root);

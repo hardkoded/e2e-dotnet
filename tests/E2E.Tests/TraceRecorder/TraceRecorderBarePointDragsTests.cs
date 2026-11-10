@@ -11,9 +11,7 @@ using static E2E.Tests.TraceRecorder.TraceRecorderTests;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// <c>describe('TraceRecorder: bare-point drags')</c> of <c>trace-recorder.test.ts</c>. The last <c>it</c> is partial: it reads the broken entry
-/// through <see cref="TraceRecorderTests.ReadsAfter"/>, the port's stand-in for upstream's <c>readTraceEntry</c>, and omits upstream's case of <c>from</c>
-/// as a bare <c>{ x, y }</c>: <see cref="RecordedPointEnd.Point"/> is a non-nullable struct, so the port reads that <c>from</c> as the point (0, 0) and accepts it.
+/// <c>describe('TraceRecorder: bare-point drags')</c> of <c>trace-recorder.test.ts</c>.
 /// </summary>
 public sealed class TraceRecorderBarePointDragsTests
 {
@@ -74,16 +72,17 @@ public sealed class TraceRecorderBarePointDragsTests
     }
 
     [Fact]
-    public void Partial_Rejects_a_stored_drag_whose_point_viewport_or_fraction_is_malformed()
+    public void Rejects_a_stored_drag_whose_point_viewport_or_fraction_is_malformed()
     {
         var recorder = MakeRecorder();
         recorder.Record(new PlacedPoint(new Point(200, 250)), new PlacedPoint(new Point(700, 600)), Viewport);
         var stored = Stored(TraceRecorderTests.Finalize(recorder, "/canvas")!);
 
-        Assert.True(ReadsAfter(stored, 0, _ => { }));
-        Assert.False(ReadsAfter(stored, 0, action => action.Remove("to")));
-        Assert.False(ReadsAfter(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 1280, ["height"] = -1 }));
-        Assert.False(ReadsAfter(stored, 0, action => action["to"] = new JsonObject
+        Assert.NotNull(TraceRead.ReadTraceEntry(stored));
+        Assert.Null(ReadPatched(stored, 0, action => action.Remove("to")));
+        Assert.Null(ReadPatched(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 1280, ["height"] = -1 }));
+        Assert.Null(ReadPatched(stored, 0, action => action["from"] = new JsonObject { ["x"] = 200, ["y"] = 250 }));
+        Assert.Null(ReadPatched(stored, 0, action => action["to"] = new JsonObject
         {
             ["point"] = new JsonObject { ["x"] = 700, ["y"] = 600 },
             ["under"] = new JsonObject { ["target"] = new JsonObject { ["role"] = "img" }, ["fx"] = 0, ["fy"] = 2 },
