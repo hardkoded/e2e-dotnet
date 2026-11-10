@@ -1,0 +1,127 @@
+@* Upstream's app/src/Examples/PlaybookCleanup.tsx.
+   Regression scenario for post-delete reasoning. The only success evidence is that an exact-name search no longer finds the playbook
+   after confirmation. *@
+<div style="@Container">
+    <div style="@Toolbar">
+        <div>
+            <h2 style="@Heading">Playbooks</h2>
+            <p style="@Subheading">Reusable review guidance for your team.</p>
+        </div>
+        <label style="@SearchLabel">
+            Search playbooks
+            <input type="search" value="@_query" placeholder="Search" style="@SearchInput" @oninput="HandleQueryInput" />
+        </label>
+    </div>
+    @if (Filtered.Count > 0)
+    {
+        <ul style="@List">
+            @foreach (var playbook in Filtered)
+            {
+                <li @key="playbook.Id" style="@Card">
+                    <div>
+                        <h3 style="@CardTitle">@playbook.Name</h3>
+                        <p style="@CardMeta">@playbook.Rules @(playbook.Rules == 1 ? "rule" : "rules")</p>
+                    </div>
+                    <div style="@MenuContainer">
+                        <button type="button" aria-label="More actions for @playbook.Name" aria-haspopup="menu" aria-expanded="@(_openMenuId == playbook.Id ? "true" : "false")" style="@MenuButton" @onclick="() => ToggleMenu(playbook.Id)">⋯</button>
+                        @if (_openMenuId == playbook.Id)
+                        {
+                            <div role="menu" aria-label="Actions for @playbook.Name" style="@Menu">
+                                <button type="button" role="menuitem" style="@DeleteButton" @onclick="() => StartRemoval(playbook)">Delete</button>
+                            </div>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p data-testid="@(ExactDeletedSearch ? "success-message" : "empty-state")" style="@EmptyState">No playbooks match "@_query.Trim()".</p>
+    }
+    @if (_pendingRemoval is { } pending)
+    {
+        <div style="@Overlay">
+            <section role="dialog" aria-modal="true" aria-labelledby="remove-playbook-title" style="@Dialog">
+                <h2 id="remove-playbook-title" style="@DialogTitle">Remove Playbook</h2>
+                <p style="@DialogText">Are you sure you want to remove "@pending.Name"?</p>
+                <div style="@DialogActions">
+                    <button type="button" style="@CancelButton" @onclick="() => _pendingRemoval = null">Cancel</button>
+                    <button type="button" style="@RemoveButton" @onclick="RemovePlaybook">Remove</button>
+                </div>
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record Playbook(string Id, string Name, int Rules);
+
+    private const string TargetName = "Launch Approval Draft";
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string Toolbar = "display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;";
+    private const string Heading = "font-size: 18px; margin: 0;";
+    private const string Subheading = "color: #666; font-size: 13px; margin: 4px 0 0;";
+    private const string SearchLabel = "display: flex; flex-direction: column; gap: 4px; color: #555; font-size: 12px;";
+    private const string SearchInput = "width: 220px; border: 1px solid #ccc; border-radius: 8px; padding: 9px 11px; font-size: 14px;";
+    private const string List = "display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; list-style: none; margin: 0; padding: 0;";
+    private const string Card = "display: flex; justify-content: space-between; align-items: flex-start; min-height: 84px; border: 1px solid #ddd; border-radius: 10px; padding: 14px;";
+    private const string CardTitle = "font-size: 15px; margin: 0;";
+    private const string CardMeta = "color: #777; font-size: 12px; margin: 6px 0 0;";
+    private const string MenuContainer = "position: relative;";
+    private const string MenuButton = "width: 32px; height: 28px; border: 1px solid #ccc; border-radius: 6px; background-color: #fff; cursor: pointer; font-size: 18px; line-height: 1;";
+    private const string Menu = "position: absolute; z-index: 2; top: 32px; right: 0; min-width: 100px; border: 1px solid #ddd; border-radius: 8px; background-color: #fff; padding: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);";
+    private const string DeleteButton = "width: 100%; border: none; border-radius: 5px; background-color: transparent; color: #b42318; cursor: pointer; padding: 8px 10px; text-align: left;";
+    private const string EmptyState = "border: 1px dashed #ccc; border-radius: 10px; color: #555; margin: 0; padding: 28px; text-align: center;";
+    private const string Overlay = "position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; background-color: rgba(0, 0, 0, 0.35); padding: 24px;";
+    private const string Dialog = "width: min(420px, 100%); border-radius: 12px; background-color: #fff; padding: 20px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.2);";
+    private const string DialogTitle = "font-size: 18px; margin: 0;";
+    private const string DialogText = "color: #555; font-size: 14px; margin: 10px 0 20px;";
+    private const string DialogActions = "display: flex; justify-content: flex-end; gap: 8px;";
+    private const string CancelButton = "border: 1px solid #ccc; border-radius: 7px; background-color: #fff; cursor: pointer; padding: 8px 12px;";
+    private const string RemoveButton = "border: 1px solid #b42318; border-radius: 7px; background-color: #b42318; color: #fff; cursor: pointer; padding: 8px 12px;";
+
+    private readonly List<Playbook> _playbooks =
+    [
+        new("nda-review", "NDA Review", 8),
+        new("launch-approval", TargetName, 4),
+        new("vendor-onboarding", "Vendor Onboarding", 6),
+    ];
+
+    private string _query = string.Empty;
+    private string? _openMenuId;
+    private Playbook? _pendingRemoval;
+
+    private string NormalizedQuery => _query.Trim().ToLowerInvariant();
+
+    private List<Playbook> Filtered => _playbooks.Where(playbook => playbook.Name.ToLowerInvariant().Contains(NormalizedQuery, StringComparison.Ordinal)).ToList();
+
+    private bool ExactDeletedSearch =>
+        !_playbooks.Any(playbook => playbook.Name == TargetName)
+        && NormalizedQuery == TargetName.ToLowerInvariant()
+        && Filtered.Count == 0;
+
+    private void HandleQueryInput(ChangeEventArgs args) => _query = args.Value?.ToString() ?? string.Empty;
+
+    private void ToggleMenu(string id) => _openMenuId = _openMenuId == id ? null : id;
+
+    private void StartRemoval(Playbook playbook)
+    {
+        _pendingRemoval = playbook;
+        _openMenuId = null;
+    }
+
+    /// <summary>Removes the selected playbook and returns to the filtered list.</summary>
+    private void RemovePlaybook()
+    {
+        if (_pendingRemoval is null)
+        {
+            return;
+        }
+
+        var removedId = _pendingRemoval.Id;
+        _playbooks.RemoveAll(playbook => playbook.Id == removedId);
+        _pendingRemoval = null;
+    }
+}

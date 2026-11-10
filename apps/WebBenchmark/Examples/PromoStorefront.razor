@@ -1,0 +1,136 @@
+@implements IDisposable
+@using System.Globalization
+@* Upstream's app/src/Examples/PromoStorefront.tsx.
+   NO PLANTED BUG - a false-positive trap. It piles up patterns the agent must NOT report: a sticky header over scrollable content, a
+   cookie banner, a chat widget, correct strikethrough sale math, and a skeleton section that resolves after a fixed delay. The purchase
+   flow works end to end. *@
+<div style="@Container">
+    <header style="@StickyHeader">
+        <strong>SoundShop</strong>
+        <span style="@HeaderBadge">Summer sale - up to 50% off</span>
+    </header>
+    <ul data-testid="deal-list" style="@List">
+        @foreach (var deal in Deals)
+        {
+            var discount = (int)Math.Round((deal.OriginalPrice - deal.SalePrice) / deal.OriginalPrice * 100, MidpointRounding.AwayFromZero);
+            <li @key="deal.Id" data-testid="deal-@deal.Id" style="@DealCard">
+                <div>
+                    <p style="@DealName">@deal.Name</p>
+                    <p style="@DealPricing">
+                        <s style="@OriginalPrice">$@Money(deal.OriginalPrice)</s>
+                        <strong>$@Money(deal.SalePrice)</strong>
+                        <span style="@DiscountBadge">@discount% OFF</span>
+                    </p>
+                </div>
+                @if (_purchasedId == deal.Id)
+                {
+                    <p data-testid="success-message" style="@PurchasedText">Order confirmed</p>
+                }
+                else
+                {
+                    <button type="button" data-testid="buy-@deal.Id" style="@BuyButton" @onclick="() => _purchasedId = deal.Id">Buy now</button>
+                }
+            </li>
+        }
+    </ul>
+    <section data-testid="reviews-section" style="@ReviewsSection">
+        @if (_reviewsLoaded)
+        {
+            <p style="@ReviewText"><strong>Jonas</strong> ★★★★★ Great bass and the battery lasts all week.</p>
+            <p style="@ReviewText"><strong>Amelia</strong> ★★★★ Comfortable fit, pairing was instant.</p>
+        }
+        else
+        {
+            <div style="@Skeleton"></div>
+            <div style="@Skeleton"></div>
+        }
+    </section>
+    @if (!_cookiesDismissed)
+    {
+        <div data-testid="cookie-banner" style="@CookieBanner">
+            <span style="@CookieText">We use cookies to improve your experience.</span>
+            <button type="button" data-testid="accept-cookies" style="@CookieButton" @onclick="() => _cookiesDismissed = true">Accept</button>
+        </div>
+    }
+    <div style="@ChatCorner">
+        @if (_chatOpen)
+        {
+            <div data-testid="chat-panel" style="@ChatPanel">
+                <p style="@ChatText">Hi! How can we help?</p>
+                <button type="button" data-testid="chat-close" style="@ChatCloseButton" @onclick="() => _chatOpen = false">Close</button>
+            </div>
+        }
+        else
+        {
+            <button type="button" data-testid="chat-bubble" aria-label="Open support chat" style="@ChatBubble" @onclick="() => _chatOpen = true">💬</button>
+        }
+    </div>
+</div>
+
+@code {
+    private sealed record Deal(string Id, string Name, decimal OriginalPrice, decimal SalePrice);
+
+    private static readonly Deal[] Deals =
+    [
+        new("headphones", "Wireless Headphones", 80, 40),
+        new("speaker", "Pocket Speaker", 50, 35),
+    ];
+
+    private const int ReviewsDelayMs = 1200;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0 96px;";
+    private const string StickyHeader = "position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; background-color: #111; color: #fff; border-radius: 8px; padding: 12px 16px; font-size: 14px;";
+    private const string HeaderBadge = "font-size: 12px; color: #ffd400;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px;";
+    private const string DealCard = "display: flex; justify-content: space-between; align-items: center; gap: 12px; border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;";
+    private const string DealName = "font-size: 15px; font-weight: 600; margin: 0 0 4px;";
+    private const string DealPricing = "font-size: 14px; margin: 0;";
+    private const string OriginalPrice = "color: #999; font-size: 13px;";
+    private const string DiscountBadge = "background-color: #ffd400; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-weight: 700;";
+    private const string BuyButton = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer;";
+    private const string PurchasedText = "color: #0a0; font-weight: 600; font-size: 14px; margin: 0;";
+    private const string ReviewsSection = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px;";
+    private const string ReviewText = "font-size: 14px; margin: 0;";
+    private const string Skeleton = "height: 16px; border-radius: 4px; background-color: #eee;";
+    private const string CookieBanner = "position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 3; display: flex; justify-content: space-between; align-items: center; gap: 12px; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);";
+    private const string CookieText = "font-size: 13px;";
+    private const string CookieButton = "background-color: #111; color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-size: 13px; cursor: pointer;";
+    private const string ChatCorner = "position: fixed; right: 16px; bottom: 72px; z-index: 3;";
+    private const string ChatBubble = "width: 44px; height: 44px; border-radius: 22px; border: none; background-color: #111; font-size: 18px; cursor: pointer;";
+    private const string ChatPanel = "background-color: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); display: flex; flex-direction: column; gap: 8px;";
+    private const string ChatText = "font-size: 13px; margin: 0;";
+    private const string ChatCloseButton = "border: 1px solid #ccc; background-color: #fff; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer;";
+
+    private readonly CancellationTokenSource _disposed = new();
+    private bool _cookiesDismissed;
+    private bool _chatOpen;
+    private bool _reviewsLoaded;
+    private string? _purchasedId;
+
+    protected override void OnInitialized() => _ = LoadReviewsAsync(_disposed.Token);
+
+    /// <summary>The review skeletons resolve after a fixed delay.</summary>
+    private async Task LoadReviewsAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(ReviewsDelayMs, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _reviewsLoaded = true;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>Upstream's <c>toFixed(2)</c>.</summary>
+    private static string Money(decimal amount) => amount.ToString("F2", CultureInfo.InvariantCulture);
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}
