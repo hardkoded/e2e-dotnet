@@ -620,13 +620,19 @@ public static class AgentTools
     }
 
     /// <summary>
-    /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>. A
-    /// project tool named like one would be replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the
-    /// port's other harness tool, <c>done</c>, is reserved with the grammar's names.
+    /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>, and
+    /// <c>locate</c>, <c>test_lines</c>, <c>start_recording</c>, and <c>stop_recording</c> under an e2e mcp session (the session
+    /// catalog, <c>SessionCatalog.Create</c>; upstream's <c>run_code</c> has no port). A project tool named like one would be
+    /// replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>done</c>,
+    /// is reserved with the grammar's names.
     /// </summary>
     internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         [ExploreExecutor.FindingToolName] = "e2e explore",
+        ["locate"] = "an e2e mcp session",
+        ["test_lines"] = "an e2e mcp session",
+        ["start_recording"] = "an e2e mcp session",
+        ["stop_recording"] = "an e2e mcp session",
     };
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>

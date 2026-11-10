@@ -6,9 +6,8 @@ using System.Text.Json.Nodes;
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported for
-// report_finding alone: the port has none of the other tools it names (complete_step, locate, the recording tools). Neither has
-// a model instance as the entry.
+// Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported as
+// Partial_ (the port's verdict tool is done, not complete_step, and run_code has no port). Neither has a model instance as the entry.
 public sealed class TheBuiltInAgentOptionsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -64,19 +63,42 @@ public sealed class TheBuiltInAgentOptionsTests
         public void Delete(string key) => throw new InvalidOperationException("not called");
     }
 
-    /// <summary>Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": only report_finding exists here, and the list of those tools is not compared with what the surfaces add.</summary>
+    /// <summary>
+    /// Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore". Every
+    /// name the port's harness adds in an e2e mcp session and under explore is refused, each with its surface. Not ported: the
+    /// agent step's <c>complete_step</c> is the port's <c>done</c> (the verdict tool, refused below with the agent's own names),
+    /// and <c>run_code</c> has no port.
+    /// </summary>
     [Fact]
-    public void Rejects_the_name_of_the_tool_the_harness_adds_in_explore()
+    public void Partial_Rejects_the_names_of_the_tools_the_harness_adds_in_an_agent_step_an_e2e_mcp_session_and_explore()
     {
-        var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["report_finding"] = ReadOnlyTool() } }));
+        var where = new Dictionary<string, string>
+        {
+            ["locate"] = "an e2e mcp session",
+            ["test_lines"] = "an e2e mcp session",
+            ["start_recording"] = "an e2e mcp session",
+            ["stop_recording"] = "an e2e mcp session",
+            ["report_finding"] = "e2e explore",
+        };
+        foreach (var (name, surface) in where)
+        {
+            var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
 
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Equal("agents.ux.tools.report_finding: the report_finding tool name is reserved for the tool the harness adds in e2e explore; rename it", error.Message);
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Equal($"agents.ux.tools.{name}: the {name} tool name is reserved for the tool the harness adds in {surface}; rename it", error.Message);
+        }
+
+        var agentStep = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["done"] = ReadOnlyTool() } }));
+        Assert.Equal("agents.ux.tools.done: the done tool name is reserved for the agent's own tools", agentStep.Message);
     }
 
-    /// <summary>Partial port of "rejects a tool defineTool did not build, a tools value that is not an object, and a reserved name": the types leave only the reserved name to check, and the port has no screenshot tool.</summary>
+    /// <summary>
+    /// Partial port of "rejects a tool defineTool did not build, a tools value that is not an object, and a reserved name". Only the
+    /// reserved names are checked here: a tool that was not built with <c>defineTool</c> and a tools value that is not an object
+    /// cannot be written in C#. The port has no screenshot tool, so <c>screenshot</c> is not reserved.
+    /// </summary>
     [Fact]
-    public void Rejects_a_reserved_tool_name()
+    public void Partial_Rejects_a_reserved_tool_name()
     {
         foreach (var name in new[] { "tap", "observe", "done" })
         {
