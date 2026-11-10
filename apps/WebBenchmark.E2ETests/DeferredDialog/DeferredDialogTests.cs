@@ -19,9 +19,15 @@ public sealed class DeferredDialogTests : BenchmarkTest
             Interlocked.Increment(ref dialogs);
             await dialog.AcceptAsync();
         });
-        await Screen.GetByRole("button", "Submit report").DoubleTapAsync();
-        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Report submitted after deferred confirmation");
-        Assert.That(Volatile.Read(ref dialogs), Is.EqualTo(1));
-        await dispose();
+        try
+        {
+            await Screen.GetByRole("button", "Submit report").DoubleTapAsync();
+            await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Report submitted after deferred confirmation");
+            Assert.That(Volatile.Read(ref dialogs), Is.EqualTo(1));
+        }
+        finally
+        {
+            await dispose();
+        }
     }
 }

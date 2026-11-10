@@ -9,4 +9,4 @@ dotnet run --project apps/WebBenchmark --urls http://127.0.0.1:5000
 
 Rules kept from upstream: the DOM a scenario exposes (test ids, texts, roles, styles) stays as upstream renders it, and a planted bug is never fixed.
 
-Ported so far: Login Form, Overlay Trap, Hover Menu, Checkout Review, Product Reviews, Aria Hidden Flow, Div Soup, Cart Totals, Filter Deep Link, Sticky Chrome, Infinite Scroll. The tests that drive the app are in [`apps/WebBenchmark.E2ETests`](../WebBenchmark.E2ETests).
+Every scenario of upstream's `examples.ts` has a page: one Razor component per scenario in `Examples/`, `control-inventory` included. To add a scenario, create `Examples/YourCase.razor`, register it in `ExamplesCatalog.cs` (the doc comment there states the rules for task and bug-book entries), and write its tests in `apps/WebBenchmark.E2ETests`. The tests that drive the app are in [`apps/WebBenchmark.E2ETests`](../WebBenchmark.E2ETests).

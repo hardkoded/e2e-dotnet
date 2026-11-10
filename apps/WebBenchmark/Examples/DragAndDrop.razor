@@ -1,0 +1,92 @@
+@* Upstream's app/src/Examples/DragAndDrop.tsx.
+   Sabotage scenario: the gate is real HTML5 drag and drop. Plain clicks do nothing - the agent must fire genuine dragstart, dragover, and
+   drop events so the dragged item name reaches the dropzone. Items must land in REQUIRED_ORDER exactly; Apple or any out-of-order drop
+   resets the dropzone.
+   .NET-only: Blazor's drag event args carry no dataTransfer.setData/getData, so the name of the dragged item is kept on the component
+   from dragstart and read on drop, where upstream reads it from dataTransfer. *@
+<div style="@Container">
+    <p style="@Hint">Drag Banana into the dropzone, then Cherry. Leave Apple alone.</p>
+    <div style="@ItemsRow">
+        @foreach (var name in Items)
+        {
+            var used = _dropped.Contains(name);
+            var fadedCard = used || _done;
+            <div @key="name" data-testid="@($"drag-{name.ToLowerInvariant()}")" draggable="@(!used && !_done ? "true" : "false")"
+                 style="@(fadedCard ? CardFaded : Card)" @ondragstart="() => HandleDragStart(name)">@name</div>
+        }
+    </div>
+    <div data-testid="dropzone" style="@Dropzone" @ondragover:preventDefault="true" @ondrop="HandleDrop" @ondrop:preventDefault="true">
+        @if (_dropped.Count == 0)
+        {
+            <span style="@DropzoneEmpty">Drop items here</span>
+        }
+        else
+        {
+            @foreach (var name in _dropped)
+            {
+                <span @key="name" style="@DroppedItem">@name</span>
+            }
+        }
+    </div>
+    @if (_error is not null)
+    {
+        <p data-testid="error-message" style="@ErrorText">@_error</p>
+    }
+    @if (_done)
+    {
+        <p data-testid="success-message" style="@SuccessText">Items dropped in the right order</p>
+    }
+</div>
+
+@code {
+    private static readonly string[] RequiredOrder = ["Banana", "Cherry"];
+
+    private static readonly string[] Items = ["Apple", "Banana", "Cherry"];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string ItemsRow = "display: flex; gap: 12px; justify-content: center;";
+    private const string Card = "border: 1px solid #ccc; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; background-color: #fff; cursor: grab; user-select: none;";
+    private const string CardFaded = "border: 1px solid #ccc; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; background-color: #fff; cursor: default; user-select: none; opacity: 0.35;";
+    private const string Dropzone = "min-height: 120px; border: 2px dashed #ccc; border-radius: 8px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 12px;";
+    private const string DropzoneEmpty = "font-size: 14px; color: #666;";
+    private const string DroppedItem = "border: 1px solid #ccc; border-radius: 8px; padding: 8px 12px; font-size: 15px; font-weight: 600; background-color: #f4f4f4;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly List<string> _dropped = [];
+    private string? _dragged;
+    private string? _error;
+    private bool _done;
+
+    /// <summary>Remembers the dragged item, the stand-in for upstream's dataTransfer.setData("text/plain", name).</summary>
+    private void HandleDragStart(string name) => _dragged = name;
+
+    /// <summary>
+    /// Reads the dragged item name and enforces the required drop sequence, resetting the dropzone on any wrong or out-of-order item.
+    /// </summary>
+    private void HandleDrop()
+    {
+        var name = _dragged;
+        _dragged = null;
+        if (string.IsNullOrEmpty(name) || _done)
+        {
+            return;
+        }
+
+        var expected = RequiredOrder[_dropped.Count];
+        if (name != expected)
+        {
+            _dropped.Clear();
+            _error = "Wrong item order, starting over";
+            return;
+        }
+
+        _error = null;
+        _dropped.Add(name);
+        if (_dropped.Count == RequiredOrder.Length)
+        {
+            _done = true;
+        }
+    }
+}

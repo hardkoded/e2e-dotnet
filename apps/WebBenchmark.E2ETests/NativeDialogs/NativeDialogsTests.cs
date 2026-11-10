@@ -29,19 +29,31 @@ public sealed class NativeDialogsTests : BenchmarkTest
 
             await dialog.AcceptAsync();
         });
-        await Screen.GetByRole("button", "Place order").TapAsync();
-        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Order placed with code GIFT-7");
-        Assert.That(seen, Is.EqualTo(new[] { "Place this order?", "Enter your gift code", "Order placed. Thank you!" }));
-        await dispose();
+        try
+        {
+            await Screen.GetByRole("button", "Place order").TapAsync();
+            await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Order placed with code GIFT-7");
+            Assert.That(seen, Is.EqualTo(new[] { "Place this order?", "Enter your gift code", "Order placed. Thank you!" }));
+        }
+        finally
+        {
+            await dispose();
+        }
     }
 
     [Test]
     public async Task Dismissing_the_confirm_cancels_the_order()
     {
         var dispose = await Browser.OnDialogAsync(DialogHandler.Dismiss);
-        await Screen.GetByRole("button", "Place order").TapAsync();
-        await Expect.That(Screen.GetByTestId("error-message")).ToHaveTextAsync("Order was cancelled");
-        await dispose();
+        try
+        {
+            await Screen.GetByRole("button", "Place order").TapAsync();
+            await Expect.That(Screen.GetByTestId("error-message")).ToHaveTextAsync("Order was cancelled");
+        }
+        finally
+        {
+            await dispose();
+        }
     }
 
     [Test]
@@ -51,8 +63,14 @@ public sealed class NativeDialogsTests : BenchmarkTest
         {
             await dialog.AcceptAsync(dialog.Message == "Enter your gift code" ? "GIFT-9" : null);
         });
-        await Screen.GetByRole("button", "Place order").TapAsync();
-        await Expect.That(Screen.GetByTestId("error-message")).ToHaveTextAsync("Invalid gift code");
-        await dispose();
+        try
+        {
+            await Screen.GetByRole("button", "Place order").TapAsync();
+            await Expect.That(Screen.GetByTestId("error-message")).ToHaveTextAsync("Invalid gift code");
+        }
+        finally
+        {
+            await dispose();
+        }
     }
 }
