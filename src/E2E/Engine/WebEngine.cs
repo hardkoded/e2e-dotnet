@@ -401,25 +401,72 @@ public sealed partial class WebEngine : IEngine
     private BrowserName PermissionBrowser(WebConnectOptions? connect) =>
         connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium;
 
+    // Upstream's `attempt` of the web engine: one attempt at a time, held from startAttempt until its session is disposed (endAttempt).
+    private readonly object _attemptGate = new();
+    private bool _attemptOpen;
+
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
-        if (_leases is null)
-        {
-            return await StartSessionAsync(options, _options.Connect, UsedContexts, null, cancellationToken).ConfigureAwait(false);
-        }
 
-        // A leased browser is given back on every path: here when the start fails, and by the session when it ends.
-        var lease = await OpenLeaseAsync(options, cancellationToken).ConfigureAwait(false);
+        // Refused before anything is leased or launched, so the attempt that is running keeps its browser.
+        ReserveAttempt();
         try
         {
-            return await StartSessionAsync(options, lease.Connect, lease.UsedContexts, lease, cancellationToken).ConfigureAwait(false);
+            IEngineSession session;
+            if (_leases is null)
+            {
+                session = await StartSessionAsync(options, _options.Connect, UsedContexts, null, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // A leased browser is given back on every path: here when the start fails, and by the session when it ends.
+                var lease = await OpenLeaseAsync(options, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    session = await StartSessionAsync(options, lease.Connect, lease.UsedContexts, lease, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    await lease.CloseAsync(connected: false).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    throw;
+                }
+            }
+
+            // The attempt holds the engine until its session is disposed.
+            if (session is WebSession web)
+            {
+                web.Retired = ReleaseAttempt;
+            }
+
+            return session;
         }
         catch
         {
-            await lease.CloseAsync(connected: false).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            ReleaseAttempt();
             throw;
+        }
+    }
+
+    private void ReserveAttempt()
+    {
+        lock (_attemptGate)
+        {
+            if (_attemptOpen)
+            {
+                throw new EngineException("INVALID_STATE", "an attempt is already running");
+            }
+
+            _attemptOpen = true;
+        }
+    }
+
+    private void ReleaseAttempt()
+    {
+        lock (_attemptGate)
+        {
+            _attemptOpen = false;
         }
     }
 
@@ -2997,17 +3044,28 @@ public sealed partial class WebEngine : IEngine
                 }
                 finally
                 {
-                    _playwright.Dispose();
-                    _lifetime.Dispose();
-
-                    // A leased browser is released after its connection closes, whether or not the close succeeded.
-                    if (_lease is not null)
+                    try
                     {
-                        await _lease.CloseAsync(connected).ConfigureAwait(false);
+                        _playwright.Dispose();
+                        _lifetime.Dispose();
+
+                        // A leased browser is released after its connection closes, whether or not the close succeeded.
+                        if (_lease is not null)
+                        {
+                            await _lease.CloseAsync(connected).ConfigureAwait(false);
+                        }
+                    }
+                    finally
+                    {
+                        // The engine may start its next attempt only once this one has closed everything it owned.
+                        Retired?.Invoke();
                     }
                 }
             }
         }
+
+        /// <summary>Runs once, when this session is disposed: the engine uses it to end the attempt it held (upstream's <c>endAttempt</c>). .NET-only: upstream's engine tracks its attempt itself.</summary>
+        internal Action? Retired { get; set; }
 
         /// <summary>
         /// Runs a close that finds its target already gone: a grid that dropped the session before the connection noticed answers the close with

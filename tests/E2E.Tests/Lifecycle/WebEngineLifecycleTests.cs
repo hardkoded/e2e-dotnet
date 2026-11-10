@@ -43,6 +43,27 @@ public sealed class WebEngineLifecycleTests
     }
 
     [Fact]
+    public async Task Refuses_a_second_startAttempt_while_one_is_running_and_keeps_the_first_intact()
+    {
+        using var site = await FixtureApp.StartAsync();
+        var engine = new WebEngine(new WebEngineOptions { Headless = true });
+        await using var first = await OpenAttemptAsync(engine, site.Url);
+
+        var refused = await Assert.ThrowsAsync<EngineException>(() => engine.StartAsync(new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None));
+        Assert.Equal("INVALID_STATE", refused.Code);
+        Assert.False(refused.Retryable);
+
+        await first.OpenAsync(site.Url, CancellationToken.None);
+        Assert.Equal("Home", await HeadingAsync(first));
+        Assert.Equal("/", (await first.ObserveAsync(CancellationToken.None)).Route);
+
+        // Once the first attempt closes, the engine starts the next one.
+        await first.DisposeAsync();
+        await using var second = await OpenAttemptAsync(engine, site.Url);
+        Assert.Equal("Home", await HeadingAsync(second));
+    }
+
+    [Fact]
     public async Task Round_trips_persisted_state_through_capture_and_restore_and_reset_drops_it()
     {
         using var site = await FixtureApp.StartAsync();
