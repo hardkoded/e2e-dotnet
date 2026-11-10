@@ -1754,15 +1754,11 @@ public sealed partial class WebEngine : IEngine
             return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), label, cancellationToken, context.Timeout);
         }));
 
-        /// <summary>How long an abandoned drag may take to release the mouse button before the call stops waiting for it.</summary>
-        private static readonly TimeSpan DragReleaseTimeout = TimeSpan.FromSeconds(5);
-
         /// <summary>
         /// A pointer drag under the operation's budget (upstream's <c>dispatchPointerAction</c> takes the operation's signal). The drag ends with
-        /// its budget or with a cancel, so it never keeps moving after the call fails. When the budget or the caller ends the call first, the drag
-        /// is cancelled, and the call waits up to <see cref="DragReleaseTimeout"/> for its mouse release before it returns. The release is best effort:
-        /// a page that does not answer within that wait may still hold the button. The wait is .NET-only: upstream's <c>performAt</c> rejects at the
-        /// deadline without waiting for the drag's <c>mouse.up</c>.
+        /// its budget or with a cancel, so it never keeps moving after the call fails. The call does not wait for the drag's mouse release, as
+        /// upstream's <c>performAt</c> does not: the drag's <c>finally</c> releases the button after the call has failed. The token linking is
+        /// .NET-only: the .NET engine links the drag's token itself, where upstream passes the operation's signal.
         /// </summary>
         private async Task DragAtPointAsync(Point point, PointerAction action, string label, CancellationToken cancellationToken, TimeSpan? timeout)
         {
@@ -1780,17 +1776,8 @@ public sealed partial class WebEngine : IEngine
                 failure = ex;
             }
 
-            // The budget or the caller abandoned the drag: stop it, and wait, bounded, for its mouse release.
+            // The budget or the caller abandoned the drag: cancel it. Its release runs after this call has failed, as upstream's does.
             ended.Cancel();
-            try
-            {
-                await drag.WaitAsync(DragReleaseTimeout).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // The drag's own failure, or the release wait's timeout: the call reports the failure that ended it.
-            }
-
             if (WebErrors.IsPlaywright(failure) || failure is EngineException { Code: EngineErrorCodes.OperationTimeout })
             {
                 throw WebErrors.ClassifyInput(failure, label);

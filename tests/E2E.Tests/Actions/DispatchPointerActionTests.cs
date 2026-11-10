@@ -116,6 +116,7 @@ public sealed class DispatchPointerActionTests
             await cancel.CancelAsync();
             Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
 
+            await WaitForReleaseAsync(session);
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
             Assert.DoesNotContain("move 1010,20", log);
@@ -123,10 +124,10 @@ public sealed class DispatchPointerActionTests
     }
 
     [Fact]
-    public async Task A_drag_that_outlives_its_call_budget_fails_and_releases_the_mouse_before_the_call_returns()
+    public async Task A_drag_that_outlives_its_call_budget_fails_and_then_releases_the_mouse()
     {
-        // The drag is paced over an hour and the call's own budget is under a second: the budget ends the call, and the drag must stop with
-        // the button released before the failed call returns, so no later action runs with the button still down.
+        // The drag is paced over an hour and the call's own budget is under a second: the budget ends the call, the drag is cancelled, and its
+        // release runs after the failed call, as upstream's does. The release must land shortly after, and no move may follow it.
         await RunAsync(Page, async session =>
         {
             var context = new OperationContext(OperationOrigin.Test) { Timeout = TimeSpan.FromMilliseconds(800) };
@@ -134,8 +135,18 @@ public sealed class DispatchPointerActionTests
                 session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)), context, CancellationToken.None));
             Assert.Equal(EngineErrorCodes.ActionMayHaveCommitted, failure.Code);
 
+            var released = false;
+            for (var attempt = 0; attempt < 100 && !released; attempt++)
+            {
+                released = (await DragLogAsync(session)).LastOrDefault() == "up";
+                if (!released)
+                {
+                    await Task.Delay(50);
+                }
+            }
+            Assert.True(released, "the drag releases the button after the call has failed");
+
             var log = await DragLogAsync(session);
-            Assert.Equal("up", log[^1]);
             Assert.DoesNotContain("move 1010,20", log);
 
             await Task.Delay(300);
@@ -158,10 +169,27 @@ public sealed class DispatchPointerActionTests
             await cancel.CancelAsync();
             Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)))).Code);
 
+            await WaitForReleaseAsync(session);
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
             Assert.True(log.Count(entry => entry.StartsWith("move ", StringComparison.Ordinal)) < 20, "the drag stopped soon after the abort");
         }, TimeSpan.FromHours(1));
+    }
+
+    /// <summary>
+    /// Waits, bounded, until the page sees the button released. An abandoned drag releases after its call has failed, as upstream's does, so the
+    /// log is read only once the release has landed.
+    /// </summary>
+    private static async Task WaitForReleaseAsync(IEngineSession session)
+    {
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            if ((await DragLogAsync(session)).LastOrDefault() == "up")
+            {
+                return;
+            }
+            await Task.Delay(50);
+        }
     }
 
     /// <summary>Waits until the page has seen a move after the button went down, so the abort never depends on the clock.</summary>
