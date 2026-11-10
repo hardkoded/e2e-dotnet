@@ -104,15 +104,17 @@ internal static class Anchors
 
             var value = node.Value is null || node.States.Secure ? null : Field(node.Value);
             var states = States.Where(state => StateOf(node.States, state)).ToList();
+            // Each field is bounded to the descriptor budget after it is redacted (upstream's describeTarget bounds each field the same way), so
+            // a stored anchor is one the reader accepts.
             var target = new RecordedTarget
             {
-                Role = Field(node.Role) is { } role ? redact(role) : null,
-                Name = name is null ? null : record(name),
-                Text = text is null ? null : record(text),
-                TestId = testId is null ? null : redact(testId),
-                Placeholder = placeholder is null ? null : redact(placeholder),
-                InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
-                Value = value is null ? null : record(value),
+                Role = Field(node.Role) is { } role ? Trace.BoundDescriptor(redact(role)) : null,
+                Name = name is null ? null : Trace.BoundDescriptor(record(name)),
+                Text = text is null ? null : Trace.BoundDescriptor(record(text)),
+                TestId = testId is null ? null : Trace.BoundDescriptor(redact(testId)),
+                Placeholder = placeholder is null ? null : Trace.BoundDescriptor(redact(placeholder)),
+                InputPurpose = node.InputPurpose is null or "none" or "" ? null : node.InputPurpose,
+                Value = value is null ? null : Trace.BoundDescriptor(record(value)),
                 States = states.Count == 0 ? null : states,
             };
             anchors.Add(new AnchorNode(target, KeyOf(target), node.Children.Count == 0));
