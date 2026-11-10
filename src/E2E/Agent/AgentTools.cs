@@ -419,7 +419,7 @@ public static class AgentTools
                     // Upstream's schemaTool closes the schema of every grammar tool; a project tool's schema is the author's own.
                     if (!project.ContainsKey(definition.Name) && SchemaTool(definition, call) is { } refusal)
                     {
-                        return new ToolLoopResult(refusal, Failed: true);
+                        return new ToolLoopResult(refusal, Failed: true, ErrorText: true);
                     }
 
                     ToolOutcome? outcome = null;
@@ -433,7 +433,7 @@ public static class AgentTools
 
                     // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
                     // changed on a body that ran keeps the body's result and its screenshot.
-                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
+                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
                 }))
             .ToList();
     }
@@ -802,7 +802,7 @@ public sealed class VerdictTool
 
             if (!outcome.Done)
             {
-                return new ToolLoopResult(outcome.Content, Failed: true);
+                return new ToolLoopResult(outcome.Content, Failed: true, ErrorText: outcome.ErrorText);
             }
 
             _verdict = new StepVerdict(
@@ -825,7 +825,7 @@ public sealed class VerdictTool
         // The verdict tool's schema is closed too (upstream's schemaTool): a field it does not declare refuses the call.
         if (AgentTools.SchemaTool(Tool, call) is { } refusal)
         {
-            return new ToolOutcome { Content = refusal, Succeeded = false };
+            return new ToolOutcome { Content = refusal, Succeeded = false, ErrorText = true };
         }
 
         var status = Args.String(call.Arguments, "status");

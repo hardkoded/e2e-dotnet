@@ -102,7 +102,7 @@ public sealed record ToolLoopTool(ModelTool Definition, Func<ModelToolCall, Canc
 /// screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model
 /// in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to.
 /// </summary>
-public readonly record struct ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null);
+public readonly record struct ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null, bool ErrorText = false);
 
 /// <summary>Loop services for the tool bodies that run work of their own (upstream's <c>ToolLoopHelpers</c>).</summary>
 public sealed class ToolLoopHelpers
@@ -427,7 +427,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = TextReplyNotice });
-                results.Add(new GuardToolResult(Failed: true));
+                results.Add(new GuardToolResult(TextReplyNotice, Failed: true));
                 previous = [];
                 continue;
             }
@@ -449,13 +449,15 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     throw hardStop;
                 }
 
-                messages.Add(new ModelMessage
+                var toolMessage = new ModelMessage
                 {
                     Role = "tool",
                     ToolCallId = toolCall.Id,
                     Name = toolCall.Name,
                     Content = redactor.Redact(outcome.Content),
-                });
+                    ErrorText = outcome.ErrorText,
+                };
+                messages.Add(toolMessage);
                 if (outcome.Pixels is { } shot)
                 {
                     screenshots.Add((toolCall.Name, shot));
@@ -463,7 +465,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
                 if (!outcome.Done)
                 {
-                    results.Add(new GuardToolResult(!outcome.Succeeded));
+                    results.AddRange(LoopGuards.ExtractToolResults([toolMessage], VerdictTool.Name));
                     continue;
                 }
 
@@ -633,7 +635,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         try
         {
             var result = await tool.ExecuteAsync(call, token).ConfigureAwait(false);
-            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed, Pixels = result.Pixels };
+            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed, Pixels = result.Pixels, ErrorText = result.ErrorText };
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
