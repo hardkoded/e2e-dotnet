@@ -129,9 +129,60 @@ public sealed partial class DeviceSession
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a permission or state outside <see cref="DevicePermission"/> and <see cref="PermissionState"/>.</exception>
     public async Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default)
     {
+        // A cast number is the port's non-string name: upstream refuses a name that is not a string by its type (`got type number`).
+        if (!Enum.IsDefined(permission))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission permission must be one of {PermissionNames()}, got type number");
+        }
+
         AssertPermission("device.setPermission", permission, state);
         await SetPermissionAsync(permission, state, PinnedApp, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// One permission change for <c>device.setPermission</c> by name and state, the string form of
+    /// <see cref="SetPermissionAsync(DevicePermission, PermissionState, CancellationToken)"/>. A name or state agent-device does not
+    /// set is refused before any device command: a misspelled name with the name it means, a missing state as <c>undefined</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a name or state that is not one of the wire names.</exception>
+    public async Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default)
+    {
+        var permissions = Enum.GetValues<DevicePermission>();
+        var names = permissions.Select(known => known.WireName()).ToList();
+        if (permission is null)
+        {
+            // Upstream's `undefined` name: no string at all, so the type is named, as it is for a cast number.
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission permission must be one of {string.Join(", ", names)}, got type undefined");
+        }
+
+        var index = names.IndexOf(permission);
+        if (index < 0)
+        {
+            var hint = Suggestions.DidYouMean(permission, names);
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission has unknown key \"{permission}\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint));
+        }
+
+        var states = Enum.GetValues<PermissionState>();
+        var stateNames = states.Select(known => known.WireName()).ToList();
+        var stateIndex = state is null ? -1 : stateNames.IndexOf(state);
+        if (stateIndex < 0)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission.{permission} must be one of {string.Join(", ", stateNames)}, got {(state is null ? "undefined" : $"\"{state}\"")}");
+        }
+
+        await SetPermissionAsync(permissions[index], states[stateIndex], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The permission names agent-device sets, in the order upstream's <c>DEVICE_PERMISSIONS</c> lists them.</summary>
+    private static string PermissionNames() => string.Join(", ", Enum.GetValues<DevicePermission>().Select(known => known.WireName()));
 
     /// <summary>
     /// Refuses one permission before any device command: a name agent-device does not set, naming the nearest, or a state
