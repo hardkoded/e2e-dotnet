@@ -7,7 +7,7 @@ sidebar:
 
 This page ports upstream's `docs/writing-an-engine.mdx`. An engine connects `Screen`, `App`, and agent calls to a UI platform through the `E2E.Engine` contract. Write one to test a desktop app, a TV, or another platform. `WebEngine`, `MobileEngine`, and `WinAppEngine` implement the same public `IEngine` and `IEngineSession` and are complete examples.
 
-An engine runs in the test's own process. Upstream's out-of-process engine protocol and `defineEngine` have no port (see [Not in the port](#not-in-the-port)), so a .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt.
+An engine runs in the test's own process. Upstream's out-of-process engine protocol has no port (see [Not in the port](#not-in-the-port)). A .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt. The SPI layer (`EngineManifest.DefineEngine` and `EngineSessions.CreateEngineSession`, upstream's `defineEngine` and `createEngineSession`) is an alternative for an engine written as a set of functions; it checks the spec when it is built and runs the same routing rules as upstream. The test runner still takes an `IEngine`.
 
 Engines drive user interfaces only. For an inbox, a database, or a test API, write an ordinary test fixture of your own.
 
@@ -211,7 +211,7 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 
 | Upstream | In the port |
 | --- | --- |
-| `defineEngine`, `EngineHandle`, `engine.capabilities` | No factory validates a spec. `IEngine.Capabilities` is a flags enum you declare, and nothing checks that the members match it. |
+| `defineEngine`, `EngineHandle`, `engine.capabilities` | Ported as `EngineManifest.DefineEngine`, `EngineHandle`, and the computed `Capabilities` set. `IEngine.Capabilities` remains a flags enum you declare, and the test runner does not run a `DefineEngine` handle. |
 | The `e2e/engine` import path and the `e2e` peer dependency | `E2E.Engine` types in the `E2E` package. |
 | `prepare`/`init`/`startAttempt` as three hooks, `endAttempt`/`dispose` as two | `StartAsync` and `DisposeAsync` do the work of each pair. |
 | `workers`, `reuseSignal`, per-hook `signal` and `timeoutMs` | Not in the port: there is no worker pool. The harness bounds a start by the launch timeout and a dispose by the cleanup timeout. |

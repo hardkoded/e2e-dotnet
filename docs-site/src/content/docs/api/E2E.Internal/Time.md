@@ -225,6 +225,30 @@ nothing: the poll ends there, and a negation passes if it had held long enough b
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Internal_Time_Sleep_"></a>
+<a id="E2E_Internal_Time_Sleep_System_TimeSpan_System_TimeProvider_System_Threading_CancellationToken_"></a>
+
+### Sleep(TimeSpan, TimeProvider, CancellationToken)
+
+
+```csharp
+public static Task Sleep(TimeSpan duration, TimeProvider clock, CancellationToken cancellationToken = default)
+```
+
+
+Waits for &lt;code class="paramref"&gt;duration&lt;/code&gt; on &lt;code class="paramref"&gt;clock&lt;/code&gt; (upstream's `sleep`). A cancel rejects with `CANCELLED`,
+immediately when it was already cancelled.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `duration` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `clock` | [TimeProvider](https://learn.microsoft.com/dotnet/api/system.timeprovider) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Internal_Time_StepBudget_"></a>
 <a id="E2E_Internal_Time_StepBudget_System_Nullable_System_TimeSpan__System_String_System_TimeSpan_E2E_Internal_Deadline_System_TimeProvider_"></a>
 

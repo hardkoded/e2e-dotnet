@@ -331,6 +331,28 @@ public static class Time
     }
 
     /// <summary>
+    /// Waits for <paramref name="duration"/> on <paramref name="clock"/> (upstream's <c>sleep</c>). A cancel rejects with <c>CANCELLED</c>,
+    /// immediately when it was already cancelled.
+    /// </summary>
+    public static async Task Sleep(TimeSpan duration, TimeProvider clock, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+
+        try
+        {
+            await Task.Delay(duration, clock, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+    }
+
+    /// <summary>
     /// Races <paramref name="work"/> against a timeout; on timeout throws what <paramref name="onTimeout"/> builds (upstream's
     /// <c>withTimeout</c>). An infinite timeout sets no timer.
     /// </summary>

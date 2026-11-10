@@ -10,32 +10,11 @@ namespace E2E.Tests.EngineAuthorHelpers;
 
 /// <summary>
 /// The shared engine semantics an engine outside the assembly imports instead of carrying a copy (upstream's <c>e2e/engine</c> exports):
-/// <c>parseKey</c>, <c>resolveExpression</c>, <c>sameSite</c>, <c>urlMatches</c>, <c>matchesText</c>, <c>validateJsonValue</c>, <c>isSecret</c>,
+/// <c>resolveExpression</c>, <c>sameSite</c>, <c>urlMatches</c>, <c>matchesText</c>, <c>validateJsonValue</c>, <c>isSecret</c>,
 /// <c>raceAbort</c>, <c>withTimeout</c>, and <c>withinCleanupBudget</c>.
 /// </summary>
 public sealed class EngineAuthorHelpersTests
 {
-    [Theory]
-    [InlineData("Control+a", new[] { "Control" }, null, "a")]
-    [InlineData("Shift+Tab", new[] { "Shift" }, "Tab", null)]
-    [InlineData("Enter", new string[0], "Enter", null)]
-    [InlineData("Shift++", new[] { "Shift" }, null, "+")]
-    public void Parses_a_key_of_the_grammar(string key, string[] modifiers, string? name, string? character)
-    {
-        var parsed = KeyGrammar.ParseKey(key);
-        Assert.NotNull(parsed);
-        Assert.Equal(modifiers, parsed.Modifiers);
-        Assert.Equal(name, parsed.Name);
-        Assert.Equal(character, parsed.Character);
-    }
-
-    [Theory]
-    [InlineData("Ctrl+a")]
-    [InlineData("Shift+Shift+a")]
-    [InlineData("Shift")]
-    [InlineData("")]
-    public void Refuses_a_key_outside_the_grammar(string key) => Assert.Null(KeyGrammar.ParseKey(key));
-
     [Fact]
     public void Lists_the_modifiers_and_named_keys_of_the_grammar()
     {

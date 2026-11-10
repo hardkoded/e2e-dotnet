@@ -70,7 +70,7 @@ The body of one target. Upstream's `Engine`, without the members that belong to 
 
 `Name` is what the report records in `run.targets[].engine` and what the replay cache keys on. `Version` is recorded in reports and sessions: a saved session never restores across engine versions, and a cached trace replays across them and re-finds its nodes.
 
-Upstream's `spiVersion`, `workers`, `defineEngine`, and `isEngineHandle` have no port: nothing validates an engine when it is built, so a mistake shows when the member is first used. The `E2E.NUnit` and `E2E.XUnit.V3` test classes, `OpenHostOptions.EngineFactory`, and `ExploreOptions.Engine` take an `IEngine` directly.
+`EngineManifest.DefineEngine` is upstream's `defineEngine`. It checks the spec when it is built (`SpiVersion` must be `1`, `Version` is required, and each declared member needs the members it depends on) and returns an `EngineHandle` with the declared `Capabilities`. `EngineSessions.CreateEngineSession` is upstream's `createEngineSession`: it wraps a handle as an `ITargetSession`, mints revisions for observed refs, and routes each verb to the member that implements it. `Workers` is validated and copied onto the handle, but no worker pool enforces it. The `E2E.NUnit` and `E2E.XUnit.V3` test classes, `OpenHostOptions.EngineFactory`, and `ExploreOptions.Engine` take an `IEngine` directly; the agent and the test runner still run an `IEngine`, and the SPI layer sits beside it.
 
 #### IEngineSession
 
@@ -649,7 +649,6 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 
 | Upstream | Why |
 | --- | --- |
-| `defineEngine`, `EngineHandle`, `isEngineHandle`, `spiVersion`, `engine.capabilities`, the validation table | No factory validates an engine. `Capabilities` is declared. |
 | `workers`, `EngineInitInfo.workerSlot` at a hook, `EngineDisposeContext.reuseSignal` | No worker pool or runner. |
 | `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |

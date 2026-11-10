@@ -14,7 +14,11 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
+| [AppEvent](/api/E2E.Engine/AppEvent/) | What the app did on its own, as the session passes it on: a log line, or where it went. |
 | [AppLogEntry](/api/E2E.Engine/AppLogEntry/) | One line of what the app did on its own, as an engine reports it to AppLog (upstream's AppLogEntry): console output, an exception nothing caught, a failed request. The harness redacts and bounds it. |
+| [AppLogEvent](/api/E2E.Engine/AppLogEvent/) | An app log entry the engine reported. |
+| [AppLogRoute](/api/E2E.Engine/AppLogRoute/) | Upstream's AppLogRoute (engine/session.ts): where the engine's app log goes. The engine reports from startAttempt on, before any step records; what arrives before a sink is set waits, up to a bound per kind, and each kind has its own quota so chatter never crowds out an error. |
+| [AppNavigationEvent](/api/E2E.Engine/AppNavigationEvent/) | A line saying where the app went (upstream's navigated). |
 | [BoundingBox](/api/E2E.Engine/BoundingBox/) | A viewport-relative rectangle in CSS pixels. |
 | [BrowserCookie](/api/E2E.Engine/BrowserCookie/) | A browser cookie. When setting one, give either Url, or Domain with an optional Path, never both. |
 | [BrowserDownload](/api/E2E.Engine/BrowserDownload/) | A download the browser saved as an artifact of the attempt (upstream's waitForDownload result, { path, absolutePath, suggestedFilename }). |
@@ -35,15 +39,29 @@ Public types in the `E2E.Engine` namespace.
 | [EngineAppCheckInfo](/api/E2E.Engine/EngineAppCheckInfo/) | Handed to ValidateApp beside the declaration (upstream's EngineAppCheckInfo). |
 | [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/) | The app a target declares, as its engine reads it at config load (upstream's EngineAppDeclaration): the target's app, with the URL the target opens. The harness has checked the shape of every field before ValidateApp sees it. |
 | [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/) | The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device launches. The URL itself stays with the harness. Upstream's EngineAppInfo, with the members the port's config declares. |
+| [EngineArtifactsSpec](/api/E2E.Engine/EngineArtifactsSpec/) | Upstream's artifacts hooks of an engine: the screenshot, and video started and stopped together. |
+| [EngineCleanupContext](/api/E2E.Engine/EngineCleanupContext/) | Upstream's EngineCleanupContext: the signal and the cleanup budget the harness hands an engine's cleanup hooks. |
 | [EngineDoctorCheck](/api/E2E.Engine/EngineDoctorCheck/) | One finding of DoctorAsync. Upstream's EngineDoctorCheck. |
 | [EngineDoctorInfo](/api/E2E.Engine/EngineDoctorInfo/) | The facts handed to an engine's doctor (DoctorAsync), once per target in the process e2e doctor runs in. Upstream's EngineDoctorInfo; its signal is the CancellationToken of the call. |
 | [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (FinishAsync), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
 | [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
+| [EngineHandle](/api/E2E.Engine/EngineHandle/) | Upstream's engine handle (defineEngine's result, engine/manifest.ts): the validated engine with its capability set. A handle is only built by DefineEngine(EngineSpec). |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
+| [EngineKeyboardSpec](/api/E2E.Engine/EngineKeyboardSpec/) | Upstream's keyboard hooks of an engine (engine/index.ts): typing, pressing, and dismissing. |
+| [EngineManifest](/api/E2E.Engine/EngineManifest/) | Upstream's defineEngine and isEngineHandle (engine/manifest.ts). The engine manifest: DefineEngine(EngineSpec) validates an engine at config load, synchronously and loudly, and computes its capability set. A combination the contract does not allow is INVALID_CONFIG, never a silent demotion to a lower tier. .NET-only holder name: C# has no free functions. |
+| [EngineNode](/api/E2E.Engine/EngineNode/) | Upstream's SemanticNode (engine/contract.ts): one node of an engine's tree. Named EngineNode because the port's IEngine already has a SemanticNode, which carries the port's own observation fields. |
+| [EngineNodeStates](/api/E2E.Engine/EngineNodeStates/) | Upstream's SemanticNode.states: the flags of a node the harness reads. |
 | [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (PrepareAsync), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
 | [EnginePrepareResult](/api/E2E.Engine/EnginePrepareResult/) | What prepare learned that the run must honour. Upstream's EnginePrepareResult. |
 | [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/) | A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes. |
+| [EngineSessionOptions](/api/E2E.Engine/EngineSessionOptions/) | Upstream's createEngineSession options (engine/session.ts). |
+| [EngineSessions](/api/E2E.Engine/EngineSessions/) | Upstream's createEngineSession (engine/session.ts): the engine-to-session adapter. One adapter per attempt satisfies ITargetSession over the engine contract, and is the single seam every engine call crosses. A capability the engine does not declare fails loud with UNSUPPORTED_CAPABILITY at the moment of use, a press key outside the grammar fails with INVALID_ARGUMENT before any engine sees it, and anything an engine throws that is not an EngineException is normalized to a non-retryable ENGINE_FAILURE. .NET-only holder name: C# has no free functions. |
+| [EngineSessionSpec](/api/E2E.Engine/EngineSessionSpec/) | Upstream's session hooks of an engine: opening, navigating back, resizing, restarting, and resetting the app. |
+| [EngineSnapshot](/api/E2E.Engine/EngineSnapshot/) | Upstream's EngineSnapshot (engine/index.ts): what an engine's observe returns. A snapshot with TreeUnavailable carries only the root reference and the pixels. |
+| [EngineSpec](/api/E2E.Engine/EngineSpec/) | Upstream's Engine (engine/index.ts): what an engine author declares, handed to DefineEngine(EngineSpec). Every member is optional; DefineEngine(EngineSpec) validates the combination and computes the capability set. |
 | [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to StartAsync once per test attempt. |
+| [EngineStateSpec](/api/E2E.Engine/EngineStateSpec/) | Upstream's state hooks of an engine: capturing and restoring the app's state. |
+| [EnvironmentFacts](/api/E2E.Engine/EnvironmentFacts/) | Upstream's EnvironmentFacts (engine/session.ts): what the engine said the attempt runs on, bounded to eight facts, with each name and value redacted before it is clipped. |
 | [ExpressionResolution](/api/E2E.Engine/ExpressionResolution/) | The reference locator semantics over a semantic tree, as upstream's resolveExpression in engine/resolve.ts. An engine over such a tree (a device's accessibility snapshot, an in-memory fake) calls this instead of interpreting the expression itself; an engine with a native query engine (a browser) reproduces these rules. One immediate pass, every match in document order; polling, strictness, and staleness stay with the runner. .NET-only holder name: C# has no free functions. |
 | [KeyGrammar](/api/E2E.Engine/KeyGrammar/) | .NET-only holder name (C# has no free functions): upstream's KEY_MODIFIERS, KEY_NAMES and parseKey in engine/contract.ts. The key grammar of press, shared by every engine so a test's key names are portable: zero or more modifiers and one key, joined by +. A modifier is Shift, Control, Alt, Meta, or ControlOrMeta. A named key is one of KeyNames. Any single printable character is typed as itself. The harness refuses a key outside it with INVALID_ARGUMENT (Keys.RequireKey); an engine without a grammar-valid key refuses it with UNSUPPORTED_CAPABILITY. It never reinterprets the spelling. |
 | [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEY_MODIFIERS and isKeyModifier. |
@@ -64,9 +82,12 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
 | [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
+| [NodeRef](/api/E2E.Engine/NodeRef/) | Upstream's NodeRef (engine/contract.ts): a node's stable id and the revision of the observation or resolution that minted it. |
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
 | [ObservationLimits](/api/E2E.Engine/ObservationLimits/) | Limits from the engine contract. Engines cut names and text before they reach the model. |
+| [ObservationPixels](/api/E2E.Engine/ObservationPixels/) | Upstream's ObservationPixels: an encoded image of the screen with every secure field covered, and its geometry. Named apart from the port's EngineScreenshot, which carries no geometry. |
+| [ObservationRedaction](/api/E2E.Engine/ObservationRedaction/) | Upstream's Observation.redaction: the counts a capture's pixels are judged by. |
 | [ObserveOptions](/api/E2E.Engine/ObserveOptions/) | What an observation takes besides the tree. Upstream's EngineObserveOptions. |
 | [OperationContext](/api/E2E.Engine/OperationContext/) | What an engine call carries about the call itself. Upstream's OperationContext. origin, runId and attemptId are members here: upstream's signal is the CancellationToken every engine call takes, and timeoutMs is Timeout (or the per-call timeout of a read, such as ObserveAsync). |
 | [ParsedKey](/api/E2E.Engine/ParsedKey/) | Upstream's ParsedKey (engine/contract.ts): one parsed press key: its modifiers, and either a named key or a single character. |
@@ -88,7 +109,9 @@ Public types in the `E2E.Engine` namespace.
 | [ResolveExpressionOptions](/api/E2E.Engine/ResolveExpressionOptions/) | Options for ResolveExpression: upstream's ResolveExpressionOptions (engine/resolve.ts). |
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
+| [ScreenRoute](/api/E2E.Engine/ScreenRoute/) | Upstream's ScreenRoute (engine/session.ts): where the screens of an attempt go for its trace. Without a sink they are dropped, and nothing waits for them. |
 | [SemanticNode](/api/E2E.Engine/SemanticNode/) | One node of an observation tree. Ref is valid only for the observation it came from. |
+| [SessionObservation](/api/E2E.Engine/SessionObservation/) | Upstream's Observation (engine/surface.ts) as the session returns it: a semantic capture with a Tree, or a pixel-only capture with Pixels and no tree. |
 | [Timing](/api/E2E.Engine/Timing/) | Cancellation with the engine error taxonomy (upstream engine/timing.ts). |
 | [TraceViewport](/api/E2E.Engine/TraceViewport/) | Upstream's TraceViewport: the size of the viewport a capture was taken in, in CSS pixels. |
 | [VideoFile](/api/E2E.Engine/VideoFile/) | A video file in the attempt artifact directory. |
@@ -122,6 +145,10 @@ Public types in the `E2E.Engine` namespace.
 | [IEngineFixtureHost](/api/E2E.Engine/IEngineFixtureHost/) | An engine session that contributes a fixture, which the harness tells about the attempt when it starts. .NET-only: upstream's engine declares fixtures, factories the harness calls with an EngineFixtureContext; the port's session builds its own fixture (Device), so this hands it the context. |
 | [IEngineSession](/api/E2E.Engine/IEngineSession/) | One attempt's session with the app. Disposed at the end of the attempt, after afterEach. |
 | [IPreparableEngine](/api/E2E.Engine/IPreparableEngine/) | An engine with upstream's optional prepare and finish hooks (declared in engine/index.ts): what a run provisions once per target before any worker starts, such as a hosted device, and gives back after the last worker ended, so the provisioning happens once per run instead of per worker. The port has no test runner that calls them: a host that starts the engine on its own, as e2e explore and e2e mcp do, calls them around the one attempt (upstream's openStandaloneAttempt), prepare when the session opens and finish when it closes, on every path; the mobile adapters' MobileAppTest runs them once per test process. .NET-only name: upstream tests the engine handle for the members. WebEngine does not implement it, because it leases for the attempt it starts. |
+| [ISessionApp](/api/E2E.Engine/ISessionApp/) | Upstream's SessionApp: the app's session hooks, each failing with UNSUPPORTED_CAPABILITY when the engine lacks it. |
+| [ISessionArtifacts](/api/E2E.Engine/ISessionArtifacts/) | Upstream's SessionArtifacts: the screenshot, and video started and stopped together when the engine declares them. |
+| [ISessionKeyboard](/api/E2E.Engine/ISessionKeyboard/) | Upstream's SessionKeyboard: typing, pressing, and dismissing for whatever holds focus. |
+| [ITargetSession](/api/E2E.Engine/ITargetSession/) | Upstream's TargetSession (engine/surface.ts): the internal session surface the harness consumes for one attempt. It is produced only by CreateEngineSession(EngineSessionOptions), the engine-to-session adapter, so revision minting, staleness checks, and capability gating exist once. |
 
 ## Enums
 

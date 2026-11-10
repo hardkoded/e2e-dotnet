@@ -44,7 +44,7 @@ public sealed class WebAndTheTargetAppTests
             return error;
         }
 
-        ValidateWeb(new WebEngine(), 
+        ValidateWeb(new WebEngine(),
             new AppConfig
             {
                 Url = url,

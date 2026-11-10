@@ -44,8 +44,8 @@ public static class KeyGrammar
             return new ParsedKey([], null, "+");
         }
 
-        // A trailing + is the key itself, so the separator before it (the last two characters) is cut and + appended as the final part.
-        string[] parts = key.EndsWith('+') && key.Length > 1 ? [.. key[..^2].Split('+'), "+"] : key.Split('+');
+        // A trailing ++ is a separator then the key +, so the last two characters are cut and + appended as the final part. A lone trailing + names no key.
+        string[] parts = key.EndsWith("++") ? [.. key[..^2].Split('+'), "+"] : key.Split('+');
         var last = parts[^1];
         if (last.Length == 0)
         {
@@ -75,7 +75,27 @@ public static class KeyGrammar
 
     /// <summary>Control, format, surrogate, private-use, unassigned, and line or paragraph separators are never a printable key.</summary>
     private static bool IsPrintable(string character) =>
-        !character.EnumerateRunes().Any(rune => Rune.GetUnicodeCategory(rune) is
+        !HasLoneSurrogate(character) && !character.EnumerateRunes().Any(rune => Rune.GetUnicodeCategory(rune) is
             UnicodeCategory.Control or UnicodeCategory.Format or UnicodeCategory.Surrogate or UnicodeCategory.PrivateUse
             or UnicodeCategory.OtherNotAssigned or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator);
+
+    /// <summary>
+    /// <c>EnumerateRunes</c> maps a lone surrogate to U+FFFD, which is printable, so the surrogate is checked on the UTF-16 units first.
+    /// </summary>
+    private static bool HasLoneSurrogate(string text)
+    {
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                i++;
+            }
+            else if (char.IsSurrogate(text[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

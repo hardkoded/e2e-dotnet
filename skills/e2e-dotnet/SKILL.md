@@ -439,6 +439,15 @@ lines you changed:
   `config.secrets` at load, naming the nearest secret for a typo and never
   accepting a credential's password, and the engine's name, version, platform,
   and capabilities enter the config digest.
+- An engine written as a set of functions (upstream's `defineEngine`) is
+  `EngineManifest.DefineEngine(EngineSpec)`: it checks the spec when it is built
+  (`SpiVersion` must be `1`, `Version` is required, a declared member needs the
+  members it depends on, and the fixture names are lower-camel) and returns an
+  `EngineHandle` with the computed `Capabilities`. `EngineSessions.CreateEngineSession`
+  (upstream's `createEngineSession`) wraps a handle as an `ITargetSession`: it
+  mints the refs' revisions, routes each verb to the member that implements it,
+  and refuses an action kind the engine did not declare. It sits beside `IEngine`;
+  the test runner and the agent still take an `IEngine`.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`
