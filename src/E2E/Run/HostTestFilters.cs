@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E;
@@ -226,7 +227,7 @@ internal static class HostTestFilters
             var file = FileOf(test, sourceFiles);
 
             // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
-            var id = AttemptReport.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, test.Title);
+            var id = Ids.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, [test.Title]);
             keys[id] = test.Key;
             tests.Add(new CollectedTest
             {

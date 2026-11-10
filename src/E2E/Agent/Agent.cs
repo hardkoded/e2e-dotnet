@@ -1588,7 +1588,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
                         CurrentStepId = Steps.ArtifactStepId,
                         Store = ArtifactStore,
                         Ledger = () => Redactor,
-                        Identity = new ArtifactIdentity(AttemptReport.RunId, AttemptReport.TestId(TestFile ?? "", TestTitle)),
+                        Identity = new ArtifactIdentity(AttemptReport.RunId, Ids.TestId(TestFile ?? "", [TestTitle])),
                     });
                 });
         }

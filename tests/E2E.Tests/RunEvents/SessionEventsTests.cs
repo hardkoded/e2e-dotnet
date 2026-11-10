@@ -33,7 +33,7 @@ public sealed class SessionEventsTests : IDisposable
 
         var facts = events.Select(runEvent => runEvent.Fact).ToList();
         var started = Assert.IsType<TestStartedEvent>(facts[0]);
-        var testId = AttemptReport.TestId(File, Title);
+        var testId = E2E.Internal.Ids.TestId(File, [Title]);
         Assert.Equal(new TestStartedEvent(testId, "default", 0, Title, File, null, "document"), started);
         var finished = Assert.IsType<TestFinishedEvent>(facts[^1]).Result;
         Assert.All(facts[1..^1], fact => Assert.Equal(new StepProgressEvent(testId, "default", 0, "document", ((StepProgressEvent)fact).Progress), fact));

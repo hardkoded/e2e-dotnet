@@ -46,6 +46,34 @@ internal static class Ids
         return normalized.Contains('\0', StringComparison.Ordinal) ? "title must not contain NUL" : null;
     }
 
+    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c> (upstream's <c>encodeTitle</c>).</summary>
+    public static string EncodeTitle(string title)
+    {
+        var encoded = new StringBuilder();
+        foreach (var value in Encoding.UTF8.GetBytes(title.Normalize(NormalizationForm.FormC)))
+        {
+            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
+            {
+                encoded.Append((char)value);
+            }
+            else
+            {
+                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return encoded.ToString();
+    }
+
+    /// <summary>
+    /// Builds a test id, <c>&lt;file&gt;::&lt;encoded title&gt;::...</c>, from the file and the title path (upstream's <c>testId</c>). Each title is
+    /// percent-encoded, so a <c>::</c> inside a title cannot pass for the separator.
+    /// </summary>
+    public static string TestId(string file, IReadOnlyList<string> titlePath) => file + "::" + string.Join("::", titlePath.Select(EncodeTitle));
+
+    /// <summary>Builds a setup test id, <c>setup::&lt;test id&gt;</c> (upstream's <c>setupTestId</c>).</summary>
+    public static string SetupTestId(string file, IReadOnlyList<string> titlePath) => "setup::" + TestId(file, titlePath);
+
     /// <summary>Generates one lowercase UUIDv7 string for a time (upstream's <c>uuidv7</c>).</summary>
     public static string Uuidv7(DateTimeOffset? now = null) => Guid.CreateVersion7(now ?? DateTimeOffset.UtcNow).ToString();
 
