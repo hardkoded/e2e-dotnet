@@ -187,7 +187,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     }
 
     /// <summary>Upstream's node verbs: the actions that name the node they act on, so they replay only by re-finding it.</summary>
-    private static readonly HashSet<string> TargetedKinds =
+    internal static readonly HashSet<string> TargetedKinds =
         ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag"];
 
     /// <summary>The descriptor an action holds flat (the port's shape; upstream nests it as <c>target</c>).</summary>
@@ -339,22 +339,26 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null, TracePosition? position = null)
     {
         ArgumentNullException.ThrowIfNull(node);
-        var name = RedactLabel(node, redactor);
+        // Each field is bounded to the descriptor budget at record time, as upstream's describeTarget bounds it (`field`), so a recording
+        // never holds a field the reader would reject. A blank field is absent, as upstream's `field` makes it.
         // The label of a node with no name is its text (upstream records that text as the name's absence and a text), so a text is a second
-        // field only beside a name of its own, and only when it says something else.
+        // field only beside a name of its own, and only when it says something else. "Says something else" is compared before the bound, so two
+        // texts that agree in their first characters are still two fields.
+        var label = RedactLabel(node, redactor);
         var text = node.Name is null ? null : NonEmpty(RedactField(node.Text, ObservationLimits.Text, redactor));
         return new RecordedTarget
         {
-            Role = node.Role is null ? null : AgentObservation.RedactText(node.Role, redactor),
-            Name = name,
-            Text = text == name ? null : text,
-            TestId = Redact(node.TestId, redactor),
-            Placeholder = NonEmpty(RedactField(node.Placeholder, ObservationLimits.Text, redactor)),
-            InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
+            Role = node.Role is null ? null : NonEmpty(Trace.BoundDescriptor(AgentObservation.RedactText(node.Role, redactor))),
+            Name = NonEmpty(Trace.BoundDescriptor(label)),
+            Text = text == label ? null : NonEmpty(Trace.BoundDescriptor(text)),
+            TestId = NonEmpty(Trace.BoundDescriptor(Redact(node.TestId, redactor))),
+            Placeholder = NonEmpty(Trace.BoundDescriptor(RedactField(node.Placeholder, ObservationLimits.Text, redactor))),
+            InputPurpose = node.InputPurpose is null or "none" or "" ? null : node.InputPurpose,
             Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
             Position = position,
         };
     }
 
     private static string? NonEmpty(string? text) => string.IsNullOrEmpty(text) ? null : text;
+
 }

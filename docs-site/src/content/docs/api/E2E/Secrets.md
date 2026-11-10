@@ -89,7 +89,10 @@ public Secret Get(string name)
 ```
 
 
-The configured secret. A name the config does not declare throws `SECRET_UNAVAILABLE`.
+The configured secret (upstream's `secrets.get`, `secrets.ts`). A name the config does not declare throws `SECRET_UNAVAILABLE`,
+naming the `E2E_SECRET_<NAME>` variable and, when the name is a credential or its password handle, that the password is
+`Credentials.User(name).Password` (upstream's `credentialNamed` hint). The message holds names only, never a value.
+Differences: the port has no registry slot, so the credentials come with the [Secrets](./) the config built.
 
 **Parameters**
 

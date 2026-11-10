@@ -110,6 +110,25 @@ internal static class TargetApps
             command is null ? null : readyUrl);
     }
 
+    /// <summary>
+    /// The target's app as the engine reads it at config load (upstream's <c>EngineAppDeclaration</c>): the declaration, and the site its URL
+    /// names. The site is a URL's registrable domain, as <see cref="Urls.SiteOf"/> reads it, and null for an app without a URL.
+    /// </summary>
+    public static EngineAppDeclaration EngineAppDeclarationOf(AppConfig app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        var site = app.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? Urls.SiteOf(uri.Host) : null;
+        return new EngineAppDeclaration
+        {
+            Url = app.Url,
+            Site = site,
+            BundleId = app.BundleId,
+            AppPath = app.AppPath,
+            LaunchArguments = app.LaunchArguments is null ? null : [.. app.LaunchArguments],
+            Permissions = app.Permissions,
+        };
+    }
+
     /// <summary>What an engine's doctor receives about the target's app: its site policy and what a device launches (upstream's <c>engineAppInfo</c>).</summary>
     public static EngineAppInfo EngineAppInfoOf(ResolvedApp app)
     {

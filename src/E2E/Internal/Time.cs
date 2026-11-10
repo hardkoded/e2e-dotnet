@@ -8,7 +8,7 @@ using E2E.Engine;
 namespace E2E.Internal;
 
 /// <summary>A point in time a wait must end by, as upstream's <c>Deadline</c>.</summary>
-internal sealed class Deadline(DateTimeOffset endsAt)
+public sealed class Deadline(DateTimeOffset endsAt)
 {
     public Deadline(TimeSpan timeout, TimeProvider clock)
         : this(clock.GetUtcNow() + timeout)
@@ -115,7 +115,7 @@ internal sealed class PollReadsOptions
 }
 
 /// <summary>What <see cref="Time.PollConditionAsync"/> polls, and how it ends.</summary>
-internal sealed class PollConditionOptions
+public sealed class PollConditionOptions
 {
     public required Deadline Deadline { get; init; }
 
@@ -140,7 +140,7 @@ internal sealed class PollConditionOptions
 }
 
 /// <summary>Deadline and polling helpers, as upstream's <c>internal/time.ts</c>.</summary>
-internal static class Time
+public static class Time
 {
     /// <summary>A budget as a message names it, exactly, in the largest unit that divides it: <c>5m</c>, <c>30s</c>, <c>1500ms</c> (upstream's <c>budgetText</c>).</summary>
     public static string BudgetText(long ms)
@@ -258,7 +258,7 @@ internal static class Time
     /// the deadline by the longest read the poll has finished, and a read cut off (see <see cref="ReadWindow.CutOff"/>) is one that
     /// started with under one poll tick, or that longest read, left.
     /// </summary>
-    public static async Task PollReadsAsync(PollReadsOptions options)
+    internal static async Task PollReadsAsync(PollReadsOptions options)
     {
         var (deadline, reads, clock, token, negated) = (options.Deadline, options.Reads, options.Clock, options.Token, options.Negated);
         var startedAt = clock.GetUtcNow();
@@ -327,6 +327,84 @@ internal static class Time
 
                 throw options.OnTimeout(null);
             }
+        }
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="duration"/> on <paramref name="clock"/> (upstream's <c>sleep</c>). A cancel rejects with <c>CANCELLED</c>,
+    /// immediately when it was already cancelled.
+    /// </summary>
+    public static async Task Sleep(TimeSpan duration, TimeProvider clock, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+
+        try
+        {
+            await Task.Delay(duration, clock, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+    }
+
+    /// <summary>
+    /// Races <paramref name="work"/> against a timeout; on timeout throws what <paramref name="onTimeout"/> builds (upstream's
+    /// <c>withTimeout</c>). An infinite timeout sets no timer.
+    /// </summary>
+    public static async Task<T> WithTimeout<T>(Task<T> work, TimeSpan timeout, Func<Exception> onTimeout)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        ArgumentNullException.ThrowIfNull(onTimeout);
+        if (timeout == Timeout.InfiniteTimeSpan)
+        {
+            return await work.ConfigureAwait(false);
+        }
+
+        using var timer = new CancellationTokenSource();
+        var expired = Task.Delay(timeout, timer.Token);
+        try
+        {
+            if (await Task.WhenAny(work, expired).ConfigureAwait(false) == expired)
+            {
+                throw onTimeout();
+            }
+        }
+        finally
+        {
+            timer.Cancel();
+        }
+
+        return await work.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Best-effort cleanup (upstream's <c>withinCleanupBudget</c>): returns when <paramref name="work"/> settles, when <paramref name="abort"/>
+    /// fires, or after <paramref name="timeout"/>, and absorbs the work's failure, so a cleanup never fails the attempt it closes.
+    /// </summary>
+    public static async Task WithinCleanupBudget(Task work, CancellationToken abort, TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        if (abort.IsCancellationRequested)
+        {
+            return;
+        }
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(abort);
+        budget.CancelAfter(timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout);
+        var settled = work.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        var stop = Task.Delay(Timeout.Infinite, budget.Token);
+        try
+        {
+            await Task.WhenAny(settled, stop).ConfigureAwait(false);
+        }
+        finally
+        {
+            budget.Cancel();
         }
     }
 }

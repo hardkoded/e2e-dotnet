@@ -58,7 +58,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as drag-and-drop (blocked: automation) | test | 1 |
 | `MODEL_UNAVAILABLE` | No model configured, or GitHub Copilot does not serve the configured model to this account (`model_not_supported`) | configuration | 2 |
 | `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, or a read from a secure field | configuration | 2 |
-| `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |
+| `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. With a `log`, the startup error quotes the log's output since the command started, `command.env` values redacted, or says there was none. A long log keeps its first and last 20 lines, with `[startup output omitted]` between them. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |
 | `APP_ALREADY_RUNNING` | The ready URL answered before the target's app command was spawned | infrastructure | 3 |
 | `BROWSER_INSTALL_FAILED` | Browser provisioning failed: the first-launch Playwright install exited non-zero. The message names the exit code | infrastructure | 3 |
 | `MODEL_PROVIDER_FAILED` | Provider transport failure (network error, 5xx, rate limit, or no response within 120 s) after the adapter's transport retries | infrastructure | 3 |

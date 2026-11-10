@@ -49,6 +49,6 @@ public string? Reason { get; init; }
 ```
 
 
-`no-entry` or `invalid-entry` when [Entry](#E2E_CacheLookup_Entry) is null.
+`no-entry` or `invalid-entry` (an unreadable or oversized entry, or a key that is not a SHA-256 digest) when [Entry](#E2E_CacheLookup_Entry) is null.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

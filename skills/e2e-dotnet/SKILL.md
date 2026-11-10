@@ -31,7 +31,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides; `BodyAsync()`, `BodyBytes`, and `DropHeaders` carry binary bodies and header drops), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser (an empty list clears the input), and the pointer actions `SecondaryTapAsync`, `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync` and tap `Modifiers` and `Position` (an offset from the node's top-left corner, inside its border), the viewport points `Screen.TapAtAsync` and `Screen.SwipeAsync(SwipePathOptions)`, the `SelectOption` forms of `SelectOptionAsync`, that `ClickAsync` and `DblClickAsync` record `locator.click` and `locator.dblclick` steps, and that `PressSequentiallyAsync` focuses the field then types through the engine keyboard (one call, or one per code point with `Delay`, all within one `Timeout`, `ACTION_FAILED` when a pause reaches it, `UNSUPPORTED_CAPABILITY` before any node resolves on an engine with no `Keyboard` or `focus`; a `Secret` goes through `FillAsync`) | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
-| Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors, the agent's `upload` tool (project-relative paths, never hidden files or files outside the project) | `agent` | [references/agent.md](references/agent.md) |
+| Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors, the agent's `upload` tool (project-relative paths, never hidden files or files outside the project; `sample:` names one of six small sample files e2e ships) | `agent` | [references/agent.md](references/agent.md) |
 | Running tests: `dotnet test` filters, the `e2e` tool (`e2e doctor` checks that `e2e explore` and `e2e mcp` can start; `--json` prints the `doctor-1` report for a host, `--check-model` calls each model once; `e2e cache ls|stats|clear` lists, sizes, or empties the replay cache), `report.json` for scripts, exit codes, CI, test filters (NUnit and xUnit v3, mobile and Windows adapters included: `E2ERunFixture.Filters` and `ChangedSince`, or `E2E_CHANGED_SINCE`; `run.changes`, `run.filters`, and `filtered` skips in `report.json`), `--last-failed` reruns (`E2ERunFixture.LastFailed` or `E2E_LAST_FAILED=1`; `run.carried` in `report.json`, `FinishedRun.LastRun` for reporters, folded into the GitHub comment) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
@@ -91,14 +91,14 @@ and share it. It stops when the last of them lets go: a test's hold lasts until
 the run fixture stops it (`E2ERunFixture`, topic `setup`; it also calls the
 `reporters` of `e2e.config.json`), or until the test
 process ends. Never ready is `APP_UNREACHABLE`, with
-the last lines of `log` quoted. A `url` answering before the spawn is
+the output of `log` quoted: its first and last lines when it is long. A `url` answering before the spawn is
 `APP_ALREADY_RUNNING` unless `reuseExisting` is `true` (CI ignores it). The
 process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 `COMSPEC`, `command.env`, and the host variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
 `[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
 `readyUrl`; port `0` needs a `command`. `app.identity` and `app.environment`
 (`test`, `staging`, `production`) key the replay cache beside the target; a
-device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `WebEngine.ValidateApp` checks a web `app` explicitly (`app.url` required, device-app fields refused, permissions the browser grants); config loading does not run it. Topic
+device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `IEngine.ValidateApp` (upstream's `validateApp`) checks a target's `app` at config load: `WebEngine` requires `app.url`, refuses device-app fields, and takes the permissions the browser grants; `MobileEngine` and `WinAppEngine` check their own app. Engines outside the assembly implement it with `EngineAppDeclaration` and `EngineAppCheckInfo`. The engine helpers (`KeyGrammar.ParseKey`, `ExpressionResolution.ResolveExpression`, `Urls.SameSite`, `Time.PollConditionAsync`, and the rest) are public for the same reason. Topic
 `setup` has the full rules.
 
 `targets` may list several entries, each with a unique `name` (default: its platform). A fixture names its target by overriding `E2EFixture.TargetName`; `E2EHost.OpenAsync` takes `Target`, `e2e mcp` takes `--target`, and `e2e explore` takes `--target` or the first target. A host or an MCP session with several targets and no name fails with `TARGET_REQUIRED`.
@@ -446,6 +446,15 @@ lines you changed:
   `config.secrets` at load, naming the nearest secret for a typo and never
   accepting a credential's password, and the engine's name, version, platform,
   and capabilities enter the config digest.
+- An engine written as a set of functions (upstream's `defineEngine`) is
+  `EngineManifest.DefineEngine(EngineSpec)`: it checks the spec when it is built
+  (`SpiVersion` must be `1`, `Version` is required, a declared member needs the
+  members it depends on, and the fixture names are lower-camel) and returns an
+  `EngineHandle` with the computed `Capabilities`. `EngineSessions.CreateEngineSession`
+  (upstream's `createEngineSession`) wraps a handle as an `ITargetSession`: it
+  mints the refs' revisions, routes each verb to the member that implements it,
+  and refuses an action kind the engine did not declare. It sits beside `IEngine`;
+  the test runner and the agent still take an `IEngine`.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`

@@ -214,8 +214,8 @@ public sealed class DeviceActions : IDeviceActions
     /// </summary>
     private static string? SoftKeyboardKey(string key)
     {
-        var parsed = KeyGrammar.Parse(key)
-            ?? throw DeviceSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.Names)}) or one character");
+        var parsed = KeyGrammar.ParseKey(key)
+            ?? throw DeviceSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.KeyNames)}) or one character");
         if (parsed.Modifiers.Count > 0)
         {
             throw DeviceSupport.Unsupported($"agent-device cannot hold {string.Join('+', parsed.Modifiers)} on a device surface; press the key alone");

@@ -437,6 +437,9 @@ public sealed partial class Agent
         return Enum.IsDefined(vision) ? vision : throw new TestException("INVALID_ARGUMENT", "vision must be Off, On, or Only");
     }
 
+    // The look a judgment asks for when vision allows pixels: the pixel fallback (upstream's `pixelFallback: true`).
+    private static readonly ObserveOptions JudgmentFallbackLook = new() { PixelFallback = true };
+
     /// <summary>
     /// Captures one fresh look. A capture the engine cannot make and masking the engine cannot prove
     /// each degrade the call to the tree alone, except under <see cref="VisionMode.Only"/>, which fails.
@@ -452,15 +455,29 @@ public sealed partial class Agent
         var cut = false;
         Func<Task<Observation>> look = async () =>
         {
-            var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
-            var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
+            // Upstream's judgment look asks the pixel fallback unless vision is off (`pixelFallback: vision !== false`), so a screen whose tree
+            // cannot be read still answers with its pixels, and its listing says the tree is unavailable instead of listing nothing.
+            var seen = await Phases.RetryingObserveAsync(
+                () => vision == VisionMode.Off
+                    ? _scope.ObserveAsync(OperationContext.Agent, token)
+                    : _scope.ObserveAsync(JudgmentFallbackLook, OperationContext.Agent, token),
+                guard,
+                token).ConfigureAwait(false);
 
             // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
             var judgedLocation = seen.Location is null ? null : AgentObservation.JudgeLocation(_scope.Redactor.Redact(seen.Location), _scope.AppOrigin, text => _scope.Redactor.Redact(text));
             var where = judgedLocation?.Text ?? _scope.Redactor.Redact(seen.Route);
             observation = seen;
-            body = listing;
             judged = judgedLocation;
+            if (seen.TreeUnavailable)
+            {
+                body = ObservationFeed.UnavailableTreeMarker;
+                tree = "Screen (" + SnapshotText.Quote(where) + "):\n" + ObservationFeed.UnavailableTreeMarker;
+                return seen;
+            }
+
+            var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
+            body = listing;
             cut = overBudget;
             tree = "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing);
             return seen;

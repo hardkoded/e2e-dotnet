@@ -56,8 +56,17 @@ internal static class Trace
     /// </summary>
     public const int MaxTraceInputChars = 4_096;
 
-    /// <summary>Upstream's <c>MAX_TRACE_DESCRIPTOR_CHARS</c>: the longest test id, target id, or agent name a recording's provenance holds.</summary>
+    /// <summary>
+    /// Upstream's <c>MAX_TRACE_DESCRIPTOR_CHARS</c>: the longest text a descriptor field holds, a target's role, name, test id, container key, text,
+    /// placeholder, input purpose, and value, and a recording's provenance (test id, target id, agent name).
+    /// </summary>
     public const int MaxTraceDescriptorChars = 300;
+
+    /// <summary>
+    /// Bounds a descriptor field to <see cref="MaxTraceDescriptorChars"/>, or passes null through. Upstream's <c>bound</c> in <c>describeTarget</c>'s
+    /// <c>field</c>. Redaction does not bound a field, so every place that records one calls this after it redacts.
+    /// </summary>
+    internal static string? BoundDescriptor(string? text) => text is null ? null : E2E.Internal.TextRules.Bound(text, MaxTraceDescriptorChars);
 
     /// <summary>
     /// Upstream's <c>mapTraceText</c>: applies <paramref name="map"/> to every recorded string a screen value can appear in: typed and
@@ -167,6 +176,12 @@ internal static class Trace
         mapped.Within = within;
         mapped.Placeholder = placeholder;
         mapped.Text = targetText;
+        if (!TryMap(action.TargetText, map, out var pagedTargetText))
+        {
+            return null;
+        }
+
+        mapped.TargetText = pagedTargetText;
         switch (action.Kind)
         {
             case "tapAt" or "hoverAt":

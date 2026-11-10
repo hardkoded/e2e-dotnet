@@ -116,6 +116,22 @@ still compiles).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_OperationContext_Signal_"></a>
+<a id="E2E_Engine_OperationContext_Signal"></a>
+
+### Signal
+
+
+```csharp
+public CancellationToken Signal { get; init; }
+```
+
+
+The caller's cancellation for the call. Upstream's `signal`: the SPI adapter (`EngineSessions`) reads it, and the port's engine calls
+take it as their [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) argument. Default: never cancelled.
+
+**Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
+
 <a id="E2E_Engine_OperationContext_Test_"></a>
 <a id="E2E_Engine_OperationContext_Test"></a>
 

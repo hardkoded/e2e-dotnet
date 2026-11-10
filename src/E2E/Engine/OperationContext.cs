@@ -27,6 +27,12 @@ public enum OperationOrigin
 public sealed record OperationContext(OperationOrigin Origin)
 {
     /// <summary>
+    /// The caller's cancellation for the call. Upstream's <c>signal</c>: the SPI adapter (<c>EngineSessions</c>) reads it, and the port's engine calls
+    /// take it as their <see cref="CancellationToken"/> argument. Default: never cancelled.
+    /// </summary>
+    public CancellationToken Signal { get; init; }
+
+    /// <summary>
     /// The run id. Upstream's <c>runId</c>. The runtime fills it in before the call reaches the engine; <see cref="Test"/> and <see cref="Agent"/>
     /// carry none (.NET-only: they are shared values, and the properties are <c>init</c> with an empty default so a context built before they existed
     /// still compiles).

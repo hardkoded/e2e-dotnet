@@ -577,7 +577,8 @@ internal static class Replay
         Name = action.Name,
         TestId = action.TestId,
         Within = action.Within,
-        Text = action.Text,
+        // A scrollUntil's Text is the text it paged toward; its target's own text is TargetText (upstream's target.text).
+        Text = action.Kind == "scrollUntil" ? action.TargetText : action.Text,
         Placeholder = action.Placeholder,
         InputPurpose = action.InputPurpose,
         Position = action.Position,

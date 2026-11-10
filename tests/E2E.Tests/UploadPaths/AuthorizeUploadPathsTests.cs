@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E.Tests.UploadPaths;
@@ -92,6 +93,36 @@ public sealed class AuthorizeUploadPathsTests : IDisposable
         Assert.Equal("INVALID_ARGUMENT", Authorize(["fixtures/a.txt", ""]).Code);
         Assert.Equal("INVALID_ARGUMENT", Authorize(null).Code);
         Assert.Equal("INVALID_ARGUMENT", Authorize([.. Enumerable.Repeat("fixtures/a.txt", 17)]).Code);
+    }
+
+    [Fact]
+    public void Resolves_a_sample_name_to_e2e_s_own_file_outside_the_project_kept_as_given()
+    {
+        var host = new RecordingHost();
+
+        var authorized = E2E.UploadPaths.AuthorizeUploadPaths(host, ["sample:photo.png", "sample:document.pdf", "sample:empty.txt"], _root);
+
+        Assert.Equal(["sample:photo.png", "sample:document.pdf", "sample:empty.txt"], authorized.Given);
+        var png = File.ReadAllBytes(authorized.Resolved[0]);
+        var pdf = Encoding.Latin1.GetString(File.ReadAllBytes(authorized.Resolved[1]));
+        Assert.Equal("PNG", Encoding.Latin1.GetString(png, 1, 3));
+        Assert.StartsWith("%PDF-1.4", pdf, StringComparison.Ordinal);
+        Assert.Matches(@"startxref\n\d+\n%%EOF\n$", pdf);
+        Assert.Empty(File.ReadAllBytes(authorized.Resolved[2]));
+        Assert.All(authorized.Resolved, file => Assert.False(file.StartsWith(_root, StringComparison.Ordinal)));
+        Assert.Equal(["upload.path allowed"], host.Recorded);
+    }
+
+    [Fact]
+    public void Names_the_samples_for_an_unknown_sample_never_for_a_missing_project_file_a_step_may_have_named()
+    {
+        var sampleError = Assert.ThrowsAny<E2EException>(() => E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["sample:video.mp4"], _root));
+        Assert.Equal("INVALID_ARGUMENT", sampleError.Code);
+        Assert.Contains("sample:photo.png, sample:photo.jpg, sample:document.pdf", sampleError.Message, StringComparison.Ordinal);
+
+        var missingError = Assert.ThrowsAny<E2EException>(() => E2E.UploadPaths.AuthorizeUploadPaths(new RecordingHost(), ["fixtures/invoice.pdf"], _root));
+        Assert.Equal("INVALID_ARGUMENT", missingError.Code);
+        Assert.Equal("no file at \"fixtures/invoice.pdf\" under the project root", missingError.Message);
     }
 
     [Fact]

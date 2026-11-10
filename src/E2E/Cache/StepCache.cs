@@ -103,9 +103,9 @@ public sealed class CacheEntry
 
     /// <summary>
     /// Whether the entry is within the caps a recording keeps: at most <see cref="Trace.MaxTraceActions"/> actions, locations within
-    /// <see cref="Trace.MaxTraceInputChars"/>, at most <see cref="Trace.MaxTraceAnchors"/> anchors on each side of the delta, and anchor states that
-    /// are known, sorted, and unrepeated. Upstream's <c>readActionTrace</c>, <c>readAnchors</c>, and <c>readStates</c>, which make an entry over a
-    /// cap a miss.
+    /// <see cref="Trace.MaxTraceInputChars"/>, and at most <see cref="Trace.MaxTraceAnchors"/> anchors on each side of the delta, each a well
+    /// formed descriptor (<see cref="RecordedTarget.HasValidDescriptor"/>). Upstream's <c>readActionTrace</c> and <c>readAnchors</c>, which make an
+    /// entry over a cap a miss.
     /// </summary>
     internal bool HasValidCaps() =>
         Actions.Count <= Trace.MaxTraceActions
@@ -114,8 +114,8 @@ public sealed class CacheEntry
         && EndRoute is not { Length: > Trace.MaxTraceInputChars }
         && Appeared.Count <= Trace.MaxTraceAnchors
         && Gone.Count <= Trace.MaxTraceAnchors
-        && Appeared.All(anchor => anchor.HasValidStates())
-        && Gone.All(anchor => anchor.HasValidStates());
+        && Appeared.All(anchor => anchor.HasValidDescriptor())
+        && Gone.All(anchor => anchor.HasValidDescriptor());
 
     private const int MaxRecordedByChars = 300;
 
@@ -270,6 +270,14 @@ public sealed class RecordedAction
     public string? Text { get; set; }
 
     /// <summary>
+    /// The text of the node a <c>scrollUntil</c> paged to, which is the <c>text</c> of its target descriptor (upstream's <c>target.text</c>). It is
+    /// kept apart from <see cref="Text"/>, because that holds the text the action paged toward. Internal: a stored field the reader checks, not
+    /// public API. Null when the node names no text, and on every other action.
+    /// </summary>
+    [JsonInclude]
+    internal string? TargetText { get; set; }
+
+    /// <summary>
     /// Upstream's <c>spans</c>: the share of the viewport the scrolled list covered when recorded, 0 to 1. A list that filled the screen
     /// (<see cref="CacheKeys.MainListShare"/>) scrolls as the viewport does when a replay cannot re-find it; a smaller region never does.
     /// Null for a scroll with no list, and for a list on an engine that does not measure the viewport.
@@ -316,6 +324,40 @@ public sealed class RecordedAction
     public RecordedPointEnd? To { get; set; }
 
     /// <summary>
+    /// Whether the target the action holds flat is well formed. A targeted verb (<see cref="E2E.Cache.TraceRecorder.TargetedKinds"/>) must hold a
+    /// descriptor a replay can read: one that names the node, with no field over its budget (<see cref="RecordedTarget.HasValidDescriptor"/>).
+    /// A <c>scroll</c> holds its target optionally, so one with no field reads as no target, and one with fields must be well formed. A
+    /// <c>scrollUntil</c>'s target is read with its own <see cref="TargetText"/>, not <see cref="Text"/>, which holds the text it pages toward. Upstream's
+    /// <c>readDescriptor</c> on the <c>target</c> of each node action, which makes a target that names nothing a miss.
+    /// </summary>
+    internal bool HasValidTarget() => (Kind == "scrollUntil" || TargetText is null) && Kind switch
+    {
+        _ when E2E.Cache.TraceRecorder.TargetedKinds.Contains(Kind) => TargetDescriptor().HasValidDescriptor(),
+        "scroll" or "scrollUntil" when HasTargetFields() => TargetDescriptor().HasValidDescriptor(),
+        _ => true,
+    };
+
+    /// <summary>The target the action names, read as upstream's <c>target</c>: a <c>scrollUntil</c> takes its text from <see cref="TargetText"/>.</summary>
+    private RecordedTarget TargetDescriptor()
+    {
+        var target = E2E.Cache.TraceRecorder.TargetOf(this);
+        target.Text = Kind == "scrollUntil" ? TargetText : target.Text;
+        return target;
+    }
+
+    /// <summary>
+    /// Whether the action holds a target. A present target counts even when a field is empty, and a position alone does not make one: the
+    /// port's recorder writes a position for an unnamed list container with no field to name it by, and a stored recording must still read.
+    /// .NET-only leniency; upstream's <c>describePlaced</c> drops such a target.
+    /// </summary>
+    private bool HasTargetFields()
+    {
+        var target = TargetDescriptor();
+        return target.Role is not null || target.Name is not null || target.TestId is not null || target.Within is not null || target.Text is not null
+            || target.Placeholder is not null || target.InputPurpose is not null;
+    }
+
+    /// <summary>
     /// Whether the point fields are well formed: a <c>tapAt</c> or <c>hoverAt</c> holds a finite <see cref="Point"/> and a positive
     /// <see cref="Viewport"/>, a <c>dragAt</c> holds both ends and a viewport, and every other action holds none of them. Upstream's
     /// <c>readAction</c>, which makes a malformed entry a miss.
@@ -351,7 +393,7 @@ public sealed class RecordedAction
     /// </summary>
     internal bool HasValidDestination() =>
         Kind == "drag"
-            ? Destination is { } destination && (destination.Role is not null || destination.Name is not null || destination.TestId is not null)
+            ? Destination is { } destination && (destination.Role is not null || destination.Name is not null || destination.TestId is not null) && destination.HasValidDescriptor()
             : Destination is null;
 
     /// <summary>
@@ -400,7 +442,7 @@ public sealed class RecordedPointPlace
 
     internal static bool IsFinite(Point point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
 
-    internal bool IsValid() => Target is not null && IsFraction(Fx) && IsFraction(Fy);
+    internal bool IsValid() => Target is { } target && target.HasValidDescriptor() && IsFraction(Fx) && IsFraction(Fy);
 
     // Upstream's isFraction: a place inside a box is a number from 0 to 1.
     private static bool IsFraction(double value) => value is >= 0 and <= 1;
@@ -470,6 +512,19 @@ public sealed class RecordedTarget
 
     /// <summary>An anchor's <c>checked</c>, <c>expanded</c>, <c>pressed</c>, and <c>selected</c> states that are on. Null for none.</summary>
     public List<string>? States { get; set; }
+
+    /// <summary>
+    /// Whether the descriptor is one a replay can re-find: a text field names the node (an empty one names nothing), no text field is over
+    /// <see cref="Trace.MaxTraceDescriptorChars"/>, and <see cref="Position"/> and <see cref="States"/> are well formed. Upstream's
+    /// <c>readDescriptor</c>, which makes a target with no field, or with a field over its budget, a miss.
+    /// </summary>
+    internal bool HasValidDescriptor() =>
+        TextFields.Any(field => !string.IsNullOrEmpty(field))
+        && TextFields.All(field => field is not { Length: > Trace.MaxTraceDescriptorChars })
+        && (Position?.IsValid() ?? true)
+        && HasValidStates();
+
+    private IEnumerable<string?> TextFields => [Role, Name, TestId, Within, Text, Placeholder, InputPurpose, Value];
 
     /// <summary>
     /// Whether <see cref="States"/> is well formed: absent, or a non-empty list of <see cref="Trace.TraceAnchorStates"/>, each once, in sorted order, as

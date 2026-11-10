@@ -12,6 +12,10 @@
     "slug": "api/E2E.Engine"
   },
   {
+    "label": "E2E.Internal",
+    "slug": "api/E2E.Internal"
+  },
+  {
     "label": "E2E.NUnit",
     "slug": "api/E2E.NUnit"
   },

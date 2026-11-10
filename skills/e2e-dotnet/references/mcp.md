@@ -126,7 +126,7 @@ node changed within the wait after this action` when it should have changed
 something), focus moving is not a change, and a screen that changed mostly is
 sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
-catalog: `tap` needs the `tap` action kind, `double_tap` `doubleTap`, `type` `fill` (or a keyboard, without a target), `press` `press` (or a keyboard), `select` `selectOption`, `check` and `uncheck` both `check` and `uncheck`, `clear` `clear`, `scroll` and `scroll_to` need scrolling, `back` needs history, `resize_viewport` needs an engine that can resize the viewport,
+catalog: `tap` needs the `tap` action kind, `double_tap` `doubleTap`, `type` `fill` (or a keyboard, without a target), `press` `press` (or a keyboard), `select` `selectOption`, `check` and `uncheck` both `check` and `uncheck`, `clear` `clear`, `upload` the `upload` verb (the `EngineCapabilities.Upload` engine), `scroll` and `scroll_to` need scrolling, `back` needs history, `resize_viewport` needs an engine that can resize the viewport,
 `long_press`, `right_click`, `hover`, and `drag` need the engine to declare the
 action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `tap_at`, `hover_at`, and `drag_at` need the engine to take a bare point or to declare the node verb, `type_at` and `press_at` a `fill` or `press` kind or a keyboard, `select_at` a `selectOption` kind, `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares `credentials` or a `secrets` entry.
@@ -134,6 +134,7 @@ config declares `credentials` or a `secrets` entry.
 | Tool | Does |
 | --- | --- |
 | `observe` | The whole current screen |
+| `upload {target, files}` | Attaches project-relative files (or `sample:<name>` files e2e ships) to a file input or an upload control, under the same path policy as the agent's `upload`. Its test line is `SetInputFilesAsync(...)`; a sample file has none. |
 | `tap`, `double_tap`, `long_press`, `right_click`, `hover`, `check`, `uncheck`, `clear` `{target}` | Act on one node. `long_press` is for a control with a long-press menu, `right_click` opens a context menu, `hover` shows what the pointer resting on a node reveals. On an engine that declares `TapModifiers` (the web engine), `tap`, `double_tap`, and `right_click` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
 | `drag {target, to}` | Drag one node and drop it on another, both by node id |
 | `type {target, text}` | Replace the text in a field. With a keyboard (the web engine), `target` is optional: without one the text is typed into whatever has focus, and `replace` clears the field first |
@@ -202,6 +203,7 @@ into a test, then add the assertions.
 | `press` on a node | `PressAsync(key)` |
 | `select`, `check`, `uncheck`, `clear` | `SelectOptionAsync(value)`, `CheckAsync()`, `UncheckAsync()`, `ClearAsync()` |
 | `scroll_to` a node | `ScrollIntoViewAsync()` |
+| `upload` a node, one file or several | `SetInputFilesAsync("fixtures/photo.png")`, or a list for several files |
 | `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
 
 No line: `type` or `press` with no target, `resize_viewport` (set the size with `Browser.SetViewportAsync` on the web engine), a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with

@@ -67,6 +67,7 @@ Extra line in the timeout error.
 public TimeSpan? Timeout { get; init; }
 ```
 
+
 Deadline for the matcher to hold. The default is 5 seconds. Zero sets no deadline: the poll runs until the cancellation token it is
 given ends, so it needs a token that can end (`INVALID_CONFIG` otherwise). A negative value is `INVALID_CONFIG`.
 

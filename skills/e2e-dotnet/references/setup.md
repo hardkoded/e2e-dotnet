@@ -312,8 +312,11 @@ and in CI.
   unless a name or prefix matches them.
 - Output is discarded unless `log` names a file inside the config's directory,
   such as `.e2e/logs/app.log`; without it a server dying on boot is
-  invisible. A startup failure quotes the last 20 lines of what the process
-  wrote, with `command.env` and `inheritEnv` values redacted.
+  invisible. A startup failure quotes what the process appended since it
+  started, with `command.env` and `inheritEnv` values redacted: a log of up to
+  40 lines inside 8 KiB whole, otherwise its first and last 20 lines with
+  `[startup output omitted]` between them, so the error a service printed before
+  it kept logging survives.
 - A `url` answering before the spawn is `APP_ALREADY_RUNNING`;
   `command.reuseExisting: true` attaches to a running dev server (CI ignores
   it).

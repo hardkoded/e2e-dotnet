@@ -128,8 +128,9 @@ public static class AgentTools
     private static readonly ModelTool Upload = Tool(
         "upload",
         "Attach one or more files to a file input node, or to a control that opens a file chooser when clicked (an upload button). " +
-        "Paths are relative to the project root, e.g. \"fixtures/photo.png\"; use the paths the step gives you. " +
-        "A file outside the project, a hidden one, or one that does not exist is refused.",
+        "Use the project-relative paths the step gives you; when it names none, attach a sample: " +
+        string.Join(", ", SampleFiles.SampleNames.Select(name => SampleFiles.SamplePrefix + name)) + ". " +
+        "Any other file outside the project, a hidden one, or one that does not exist is refused.",
         Extend(Target, """{ "files": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 } }""", "files"));
 
     private static readonly ModelTool Back = Tool(
