@@ -1,0 +1,119 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/VirtualizedTable.tsx.
+   Windowed table gate: only the rows inside the visible range (plus the overscan) are in the DOM. Off-screen rows do not exist as elements, so the
+   Golden Row can only be found by scrolling the viewport until its index enters the rendered window. *@
+<div style="@Container">
+    <p style="@Hint">The Golden Row is deep in the table; off-screen rows are not in the DOM.</p>
+    @if (_claimed)
+    {
+        <p data-testid="success-message" style="@SuccessText">Golden Row claimed</p>
+    }
+    <div data-testid="table-viewport" @ref="_viewport" style="@Viewport">
+        <div style="@Spacer">
+            @for (var index = StartIndex; index < EndIndex; index++)
+            {
+                var isTarget = index == TargetRow;
+                <div @key="index" data-testid="table-row" style="@RowStyle(index)">
+                    @if (isTarget)
+                    {
+                        <span style="@TargetLabel">Row @(TargetRow + 1) — Golden Row</span>
+                        <button type="button" data-testid="claim-button" style="@Button" @onclick="() => _claimed = true">Claim</button>
+                    }
+                    else
+                    {
+                        <span style="@RowLabel">Row @(index + 1)</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private const int TotalRows = 5000;
+    private const int RowHeight = 36;
+    private const int ViewportHeight = 480;
+    private const int Overscan = 5;
+    private const int TargetRow = 4321;
+
+    /// <summary>
+    /// Adds the viewport's native scroll listener, which hands the new <c>scrollTop</c> to .NET. Upstream's <c>onScroll</c> reads the
+    /// position from the element in the event, so the position travels with the event: one round trip per scroll, not three.
+    /// </summary>
+    private const string ListenScript = """
+        window.webBenchmarkVirtualizedTable = {
+          listen(viewport, callback) {
+            const onScroll = () => callback.invokeMethodAsync("HandleScroll", viewport.scrollTop);
+            viewport.webBenchmarkOnScroll = onScroll;
+            viewport.addEventListener("scroll", onScroll);
+          },
+          unlisten(viewport) {
+            viewport.removeEventListener("scroll", viewport.webBenchmarkOnScroll);
+          },
+        };
+        """;
+
+    private ElementReference _viewport;
+    private DotNetObjectReference<VirtualizedTable>? _callback;
+    private bool _listening;
+    private double _scrollTop;
+    private bool _claimed;
+
+    private int StartIndex => Math.Max(0, (int)Math.Floor(_scrollTop / RowHeight) - Overscan);
+
+    private int EndIndex => Math.Min(TotalRows, (int)Math.Ceiling((_scrollTop + ViewportHeight) / RowHeight) + Overscan);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("eval", ListenScript);
+        _callback = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("webBenchmarkVirtualizedTable.listen", _viewport, _callback);
+        _listening = true;
+    }
+
+    /// <summary>Takes the viewport's new scroll position and renders the window that covers it.</summary>
+    [JSInvokable]
+    public void HandleScroll(double scrollTop)
+    {
+        _scrollTop = scrollTop;
+        StateHasChanged();
+    }
+
+    private static string RowStyle(int index) => $"{Row} top: {index * RowHeight}px;";
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening)
+            {
+                await JS.InvokeVoidAsync("webBenchmarkVirtualizedTable.unlisten", _viewport);
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, so the viewport and its listener are gone with it.
+        }
+        finally
+        {
+            _callback?.Dispose();
+        }
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Viewport = "height: 480px; overflow: auto; border: 1px solid #e5e5e5; border-radius: 8px;";
+    private const string Spacer = "height: 180000px; position: relative;";
+    private const string Row = "position: absolute; left: 0; right: 0; height: 36px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 16px; border-bottom: 1px solid #f0f0f0; box-sizing: border-box;";
+    private const string RowLabel = "font-size: 14px;";
+    private const string TargetLabel = "font-size: 14px; font-weight: 600;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 4px 12px; font-size: 14px; font-weight: 600; cursor: pointer;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+}
