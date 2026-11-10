@@ -65,13 +65,12 @@ public sealed class TheBuiltInAgentOptionsTests
     }
 
     /// <summary>
-    /// Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore". Every
-    /// name the harness adds is refused with its surface, as upstream's list has them. Not ported: the port's verdict tool is
-    /// <c>done</c>, which is refused below with the agent's own names, and the names are checked against the port's own harness
-    /// tools, which the test lists by hand.
+    /// Port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": every name in
+    /// upstream's <c>HARNESS_TOOL_NAMES</c> is refused with its surface. The port's verdict tool is <c>done</c>, which is refused
+    /// below with the agent's own names. The list is kept by hand, so a new harness tool needs a new entry here.
     /// </summary>
     [Fact]
-    public void Partial_Rejects_the_names_of_the_tools_the_harness_adds_in_an_agent_step_an_e2e_mcp_session_and_explore()
+    public void Rejects_the_names_of_the_tools_the_harness_adds_in_an_agent_step_an_e2e_mcp_session_and_explore()
     {
         var where = new Dictionary<string, string>
         {

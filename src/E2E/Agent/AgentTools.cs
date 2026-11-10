@@ -622,7 +622,7 @@ public static class AgentTools
     /// <summary>
     /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>, and
     /// <c>locate</c>, <c>test_lines</c>, <c>start_recording</c>, and <c>stop_recording</c> under an e2e mcp session (the session
-    /// catalog, <c>SessionCatalog.Create</c>; upstream's <c>run_code</c> has no port). A project tool named like one would be
+    /// catalog, <c>SessionCatalog.Create</c>; <c>run_code</c> is reserved, and the port has no tool of that name). A project tool named like one would be
     /// replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>done</c>,
     /// is reserved with the grammar's names.
     /// </summary>
