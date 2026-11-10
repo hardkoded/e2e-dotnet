@@ -128,4 +128,31 @@ public sealed class LimrunHeartbeatTests
         await clock.AdvanceAsync(TimeSpan.FromSeconds(60));
         Assert.Equal(3, beats);
     }
+
+    /// <summary>A driver that returned no scope cannot start a heartbeat: the guard refuses before any client is created.</summary>
+    [Theory]
+    [InlineData("""{"leaseId":"lease"}""")]
+    [InlineData("""{"stateDir":"/worker"}""")]
+    [InlineData("""{"stateDir":"","leaseId":"lease"}""")]
+    [InlineData("""{"stateDir":"/worker","leaseId":""}""")]
+    [InlineData("""{"stateDir":7,"leaseId":"lease"}""")]
+    public async Task Refuses_a_scope_without_a_state_directory_or_lease_id_before_creating_a_client(string client)
+    {
+        var created = 0;
+        var binding = new LimrunBinding(JsonNode.Parse(client)!.AsObject(), "device");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => LimrunHeartbeat.StartAsync(
+            binding,
+            (_, _) =>
+            {
+                created++;
+                return new FakeDeviceClient();
+            },
+            _ => { },
+            new ManualDelay().Delay,
+            CancellationToken.None));
+
+        Assert.Equal("Limrun driver returned no agent-device state directory or lease id", error.Message);
+        Assert.Equal(0, created);
+    }
 }

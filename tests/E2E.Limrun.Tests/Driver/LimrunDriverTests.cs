@@ -42,7 +42,7 @@ public sealed class LimrunDriverTests
         Assert.Equal("com.example.app", binding.InstalledApp);
         Assert.Equal($"limrun:{platform.WireName()}:lease", binding.DeviceId);
         Assert.NotEmpty(sessions);
-        Assert.All(sessions, named => Assert.Matches("^e2e-lease-[0-9a-f]{8}$", named));
+        Assert.All(sessions, named => Assert.Matches(@"^e2e-lease-[0-9a-f]{8}\z", named));
         Assert.Single(sessions.Distinct());
         JsonAssert.Args(
             $$"""{"tenant":"e2e","runId":"run","clientId":"worker-0","leaseBackend":"{{platform.WireName()}}-instance","leaseProvider":"limrun","retainOnClose":true}""",
@@ -86,13 +86,12 @@ public sealed class LimrunDriverTests
             created,
             allocator =>
             {
-                Assert.Equal(LimrunSessions.LeaseSession("/daemon"), allocator.Session);
-                Assert.Matches("^e2e-lease-[0-9a-f]{8}$", allocator.Session);
+                Assert.Equal("e2e-lease-06e36932", allocator.Session);
                 JsonAssert.Args("""{"stateDir":"/daemon"}""", allocator.Client);
             },
             worker =>
             {
-                Assert.Equal(LimrunSessions.LeaseSession("/daemon"), worker.Session);
+                Assert.Equal("e2e-lease-06e36932", worker.Session);
                 JsonAssert.Args(
                     """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
                     worker.Client);
