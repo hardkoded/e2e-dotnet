@@ -54,6 +54,53 @@ public sealed class LimrunDriverTests
     }
 
     [Fact]
+    public async Task Names_a_session_for_its_own_clients_and_keeps_it_out_of_the_client_configuration_the_engine_receives()
+    {
+        var client = new FakeDeviceClient();
+        client.Respond(DeviceMethods.LeasesAllocate, _ => new JsonObject
+        {
+            ["retainOnClose"] = true,
+            ["tenantId"] = "e2e",
+            ["runId"] = "run",
+            ["leaseId"] = "lease",
+            ["backend"] = "ios-instance",
+        });
+        client.Respond(DeviceMethods.AppsInstall, _ => new JsonObject { ["appId"] = "com.example.app" });
+        var created = new List<(string Session, JsonObject? Client)>();
+
+        var binding = await LimrunDriver.AttachAsync(
+            new LimrunDriverRequest("/daemon", "run", 0, MobilePlatform.Ios, null, "/build"),
+            (session, connection) =>
+            {
+                created.Add((session, connection!.Client));
+                return client;
+            },
+            CancellationToken.None);
+
+        // Exact: the engine rejects a lease whose client names `session` or the daemon connection.
+        JsonAssert.Args(
+            """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
+            binding.Client);
+        Assert.Equal("limrun:ios:lease", binding.DeviceId);
+        Assert.Equal("com.example.app", binding.InstalledApp);
+        Assert.Collection(
+            created,
+            allocator =>
+            {
+                Assert.Equal(LimrunDriver.LeaseSession("/daemon"), allocator.Session);
+                Assert.Matches("^e2e-lease-[0-9a-f]{8}$", allocator.Session);
+                JsonAssert.Args("""{"stateDir":"/daemon"}""", allocator.Client);
+            },
+            worker =>
+            {
+                Assert.Equal(LimrunDriver.LeaseSession("/daemon"), worker.Session);
+                JsonAssert.Args(
+                    """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
+                    worker.Client);
+            });
+    }
+
+    [Fact]
     public async Task Scopes_the_worker_client_to_the_lease_the_daemon_allocated()
     {
         var client = new FakeDeviceClient();
