@@ -3,7 +3,7 @@ title: From Appium
 description: Move Appium mobile tests, from the .NET client or WebdriverIO, to C# tests with locators, device calls, and agent goals.
 ---
 
-This guide ports upstream's `docs/migrate/appium.mdx` (tester-army/e2e at `a016b3e4`, from tester-army/e2e#1597, #1579, and #1602). Upstream's examples are WebdriverIO and its target is TypeScript. The port's target is a .NET test project with a `MobileAppTest` base class, and the source examples use the Appium .NET client (`Appium.WebDriver`). The tables name the WebdriverIO calls and the `mobile:` commands every client sends. A .NET call maps the same way: `driver.FindElement(AppiumBy.AccessibilityId("x")).Click()` is `$('~x').click()`, `SendKeys` is `setValue`, `driver.ActivateApp(id)` is `driver.activateApp(id)`, and `driver.ExecuteScript("mobile: ...")` is `driver.execute('mobile: ...')`.
+This guide ports upstream's `docs/migrate/appium.mdx` (tester-army/e2e at `e83fdf9`, from tester-army/e2e#1597, #1579, #1602, and #1651). Upstream's examples are WebdriverIO and its target is TypeScript. The port's target is a .NET test project with a `MobileAppTest` base class, and the source examples use the Appium .NET client (`Appium.WebDriver`). The tables name the WebdriverIO calls and the `mobile:` commands every client sends. A .NET call maps the same way: `driver.FindElement(AppiumBy.AccessibilityId("x")).Click()` is `$('~x').click()`, `SendKeys` is `setValue`, `driver.ActivateApp(id)` is `driver.activateApp(id)`, and `driver.ExecuteScript("mobile: ...")` is `driver.execute('mobile: ...')`.
 
 e2e replaces the Appium server, its drivers, and the client library with the `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` package. It drives iOS simulators, Android emulators, and connected phones through [agent-device](https://github.com/callstack/agent-device), which it starts through `npx`, so Node 22.12 or newer must be on `PATH`. Your app build and its accessibility ids stay as they are.
 
@@ -221,7 +221,8 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `mobile: clearApp` | `App.ClearStateAsync()` |
 | `driver.installApp(path)` | `Device.InstallAppAsync(path)` |
 | `driver.removeApp(id)` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsUninstall, ...)` with `app` set to the id removes it, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app first and installs it with no data (not on TestMu) |
-| `driver.isAppInstalled(id)`, `queryAppState(id)` | Not yet. On Android, `Device.ForegroundAppAsync()` names the app on screen |
+| `driver.isAppInstalled(id)` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsList, Device.UnstableRaw.Selection.ToArgs(), CancellationToken.None)` lists the installed user apps as `Name (id)`; on Android, only apps with a launcher icon |
+| `queryAppState(id)` | Not yet. On Android, `Device.ForegroundAppAsync()` names the app on screen |
 | `driver.background(seconds)` | `Device.HomeAsync()`, `await Task.Delay(TimeSpan.FromSeconds(seconds))` for a positive `seconds`, then `Device.OpenAppAsync(id)` |
 | `driver.url('myapp://x')`, `mobile: deepLink` | `Device.OpenLinkAsync("myapp://x")` |
 | `driver.back()` | `App.BackAsync()` |
@@ -245,6 +246,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `mobile: enrollBiometric` | `Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true)` |
 | `mobile: sendBiometricMatch`, `driver.fingerPrint(1)` | `Device.SetBiometricsAsync(BiometricSensor.FaceId, BiometricResult.Match)`, `Device.SetBiometricsAsync(BiometricSensor.Fingerprint, BiometricResult.Match)` |
 | `pressKeyCode` for Home | `Device.HomeAsync()` |
+| `driver.lock()`, `pressKeyCode` for power or volume, `mobile: pressButton` for volume | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.CommandHardwareButton, ...)` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"` presses one; on iOS only the volume keys, on a physical device, not a simulator. See [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
 | `mobile: clearKeychains` | `Device.ClearKeychainAsync()`; iOS simulator only |
 | `driver.isIOS`, `driver.isAndroid` | the `Platform` property of `MobileAppTest`, `MobilePlatform.Ios` or `Android`, with `Assume.That` (NUnit) |
 
@@ -318,7 +320,7 @@ Each platform needs its own job: iOS on macOS, Android on Linux with KVM. Boot e
 The tables above mark single commands. These gaps cut across a whole suite:
 
 - **Webview contexts.** Not yet. There is no `getContexts` or `switchContext`, and no script runs in a webview.
-- **Device shell and files.** Not yet. No `mobile: shell`, `pushFile`, `pullFile`, `startActivity`, `lock`, or performance data. For what agent-device supports, `Device.UnstableRaw` exposes its client, but it takes only the calls the engine makes, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes). Its calls aren't steps, so they skip the report and secret redaction.
+- **Device shell and files.** Not yet. No `mobile: shell`, `pushFile`, `pullFile`, `startActivity`, or performance data. For what agent-device supports, `Device.UnstableRaw` exposes its client, but it takes only the calls the engine makes, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes). Its calls aren't steps, so they skip the report and secret redaction.
 - **Sauce Labs and other Appium grids.** Not yet. BrowserStack, TestMu AI, Limrun, and Expo Simulators have providers.
 - **Session reuse.** No equivalent. A device has no saved sessions. Sign in inside the test or in `[SetUp]`, see [Mobile](/get-started/mobile/).
 

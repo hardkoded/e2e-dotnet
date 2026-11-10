@@ -162,11 +162,18 @@ once and the progress file says so; later sessions skip this step.
      environment and read it with `Credentials.User(name)` (topic `setup`).
      The config has no `credentials` key. Other secrets go under `secrets`
      with `null`, read from `E2E_SECRET_<NAME>`.
-4. Port the simplest source test, often the sign-in or the launch, as the
+4. Restore and build the test project (`dotnet build`), then run `e2e doctor`
+   and fix every check it fails. It loads the config and checks each target's
+   engine without starting the app: the browser on a web target; agent-device,
+   the toolchain, the devices, and the build at `AppPath` on a local-device
+   mobile target (a device-provider target, such as Limrun or TestMu, skips
+   these). When step 2 configured a model, add `--check-model` to call each
+   model once.
+5. Port the simplest source test, often the sign-in or the launch, as the
    smoke test. It must pass on every target before any other port. When it
    cannot, the harness is wrong, not the test: fix the harness.
-5. Keep the old suite's project and scripts as they were.
-6. Mark the harness done in the progress file, with the commands that start
+6. Keep the old suite's project and scripts as they were.
+7. Mark the harness done in the progress file, with the commands that start
    the dependencies, run the old suite, and run the new one.
 
 ## 4. Pick the slice
