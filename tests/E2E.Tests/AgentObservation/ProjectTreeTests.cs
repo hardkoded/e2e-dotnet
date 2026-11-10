@@ -39,17 +39,25 @@ public sealed class ProjectTreeTests
         Assert.Equal("root", projected.Id);
         Assert.Equal("document", projected.Role);
         var secure = projected.Children[0];
+        Assert.Equal("n1", secure.Id);
+        Assert.Equal("textbox", secure.Role);
         Assert.Equal("Password", secure.Name);
         Assert.Null(secure.Value);
         Assert.Null(secure.Selection);
         Assert.True(secure.States.Secure);
         Assert.True(secure.States.Focused);
         var plain = projected.Children[1];
+        Assert.Equal("n3", plain.Id);
+        Assert.Equal("textbox", plain.Role);
         Assert.Equal("<secret:password> stays", plain.Value);
         Assert.Null(plain.Selection);
         // Upstream compares the whole projection: n1 carries no value, text, attributes, or rect, and the root no name.
         Assert.Null(projected.Name);
         Assert.Null(projected.Value);
+        Assert.Null(projected.Text);
+        Assert.Null(projected.Selection);
+        Assert.Null(projected.Attributes);
+        Assert.Null(projected.Rect);
         Assert.Null(secure.Text);
         Assert.Null(secure.Attributes);
         Assert.Null(secure.Rect);
@@ -58,11 +66,15 @@ public sealed class ProjectTreeTests
         Assert.Null(plain.Attributes);
         Assert.Null(plain.Rect);
         var link = projected.Children[2];
+        Assert.Equal("n2", link.Id);
+        Assert.Equal("link", link.Role);
         Assert.Equal("<secret:password> profile", link.Name);
         Assert.Equal("see <secret:password>", link.Text);
         Assert.Equal("/u/<secret:password>", link.Attributes!["href"]);
         Assert.Equal(rect, link.Rect);
+        Assert.Null(link.Value);
+        Assert.Null(link.Selection);
         Assert.DoesNotContain("hunter2", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.Ordinal);
-        Assert.DoesNotContain("selector", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.Ordinal);
+        Assert.DoesNotContain("selector", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.OrdinalIgnoreCase);
     }
 }
