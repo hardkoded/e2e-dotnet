@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Engine;
@@ -315,7 +317,8 @@ public sealed partial class DevicePool
     /// run here too: the first attempt could only meet the same runner and fail its first observation with the app
     /// blamed. A runner that did not start leaves the slot unopened: the open would start it again under a shorter
     /// budget. A build <c>appPath</c> is not on the device yet, so that slot boots and starts the runner only, unless a
-    /// lease says the build is already there.
+    /// lease says the build is already there. Each slot logs one line of how long its boot, runner start, and open
+    /// took, a failed step included.
     /// </summary>
     private async Task WarmAsync(IReadOnlyList<SlotBinding> bindings, MobilePrepareInfo info, CancellationToken cancellationToken)
     {
@@ -329,37 +332,62 @@ public sealed partial class DevicePool
             var client = _createClient(session, binding);
             Retain(info.TargetName, client);
             info.Log($"booting {label} ({slot + 1} of {bindings.Count})");
-            await DeviceErrors.RunCommandAsync(
-                "boot",
-                token => client.CallAsync(DeviceMethods.DevicesBoot, where.ToArgs(), token),
-                cancellationToken,
-                at).ConfigureAwait(false);
-            var runnerUp = _options.Platform != MobilePlatform.Ios || await PrepareRunnerAsync(client, where, info, at, cancellationToken).ConfigureAwait(false);
-            var app = DeviceBindings.PinnedApp(info.App, binding.InstalledApp);
-            if (app is null || !runnerUp)
-            {
-                continue;
-            }
-
-            // A build the suite installs itself is not on the device yet, so there is nothing to open: the first attempt installs it.
-            if (info.App.AppPath is not null && binding.InstalledApp is null)
-            {
-                info.Log($"{label}: {app} awaits the suite's device.installApp()");
-                continue;
-            }
-
+            var took = new List<string>();
             try
             {
-                await DeviceErrors.RunCommandAsync(
-                    $"open {app}",
-                    token => client.CallAsync(DeviceMethods.AppsOpen, where.ToArgs(("app", JsonValue.Create(app))), token),
+                await TimedAsync(took, "boot", () => DeviceErrors.RunCommandAsync(
+                    "boot",
+                    token => client.CallAsync(DeviceMethods.DevicesBoot, where.ToArgs(), token),
                     cancellationToken,
-                    at).ConfigureAwait(false);
+                    at)).ConfigureAwait(false);
+                var runnerUp = _options.Platform != MobilePlatform.Ios || await TimedAsync(took, "iOS runner", () => PrepareRunnerAsync(client, where, info, at, cancellationToken)).ConfigureAwait(false);
+                var app = DeviceBindings.PinnedApp(info.App, binding.InstalledApp);
+                if (app is null || !runnerUp)
+                {
+                    continue;
+                }
+
+                // A build the suite installs itself is not on the device yet, so there is nothing to open: the first attempt installs it.
+                if (info.App.AppPath is not null && binding.InstalledApp is null)
+                {
+                    info.Log($"{label}: {app} awaits the suite's device.installApp()");
+                    continue;
+                }
+
+                try
+                {
+                    await TimedAsync(took, $"open {app}", () => DeviceErrors.RunCommandAsync(
+                        $"open {app}",
+                        token => client.CallAsync(DeviceMethods.AppsOpen, where.ToArgs(("app", JsonValue.Create(app))), token),
+                        cancellationToken,
+                        at)).ConfigureAwait(false);
+                }
+                catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+                {
+                    info.Log($"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it");
+                }
             }
-            catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+            finally
             {
-                info.Log($"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it");
+                info.Log($"{label}: {string.Join(", ", took)}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Runs one warm-up step and appends <c>&lt;name&gt; &lt;seconds&gt;s</c> to <paramref name="took"/>, also when the
+    /// step throws, so the line warm logs for the slot says where a slow or failed prepare spent its time.
+    /// </summary>
+    private static async Task<T> TimedAsync<T>(List<string> took, string name, Func<Task<T>> step)
+    {
+        var start = Stopwatch.GetTimestamp();
+        try
+        {
+            return await step().ConfigureAwait(false);
+        }
+        finally
+        {
+            took.Add($"{name} {Stopwatch.GetElapsedTime(start).TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)}s");
         }
     }
 

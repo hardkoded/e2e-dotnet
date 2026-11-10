@@ -84,7 +84,12 @@ public sealed class LifecycleTests
         JsonAssert.Args("""{"action":"ios-runner","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[1].Args);
         JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[2].Args);
         JsonAssert.Args("""{"platform":"ios","device":"iPhone 17 Pro"}""", h.Fake.Calls[3].Args);
-        Assert.Equal(["booting iPhone 17 (1 of 2)", "booting iPhone 17 Pro (2 of 2)"], lines);
+        // One line of step times per slot, after its `booting` line.
+        Assert.Equal(4, lines.Count);
+        Assert.Equal("booting iPhone 17 (1 of 2)", lines[0]);
+        Assert.Matches(@"^iPhone 17: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", lines[1]);
+        Assert.Equal("booting iPhone 17 Pro (2 of 2)", lines[2]);
+        Assert.Matches(@"^iPhone 17 Pro: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", lines[3]);
 
         // Without a pinned app there is nothing to open, so it boots and starts the runner only. So does a build
         // `appPath` nobody has installed and no bundle id, since the engine installs nothing on its own and the
@@ -101,6 +106,7 @@ public sealed class LifecycleTests
         await pinnedBuild.Engine.PrepareAsync(pinnedBuild.PrepareInfo(1, log: pinnedLines.Add), CancellationToken.None);
         Assert.Equal(["devices.boot", "command.prepare"], pinnedBuild.Fake.Methods());
         Assert.Matches(@"Settings awaits the suite's device.installApp\(\)", pinnedLines[1]);
+        Assert.Matches(@"^iPhone 16e: boot \d+\.\ds, iOS runner \d+\.\ds$", pinnedLines[2]);
 
         var single = Harness.Create(options => options with { Device = "iPhone 16e", Session = "qa" });
         Assert.Equal(1, single.Engine.Pool.Size);
@@ -165,8 +171,10 @@ public sealed class LifecycleTests
 
         // Android has no XCTest runner to start.
         var android = Harness.Create(options => options with { Device = "emulator-5556", Platform = MobilePlatform.Android });
-        await android.Engine.PrepareAsync(android.PrepareInfo(1, targetName: "android"), CancellationToken.None);
+        var androidLines = new List<string>();
+        await android.Engine.PrepareAsync(android.PrepareInfo(1, targetName: "android", log: androidLines.Add), CancellationToken.None);
         Assert.DoesNotContain("command.prepare", android.Fake.Methods());
+        Assert.Matches(@"^emulator-5556: boot \d+\.\ds, open Settings \d+\.\ds$", androidLines[1]);
     }
 
     [Fact]
