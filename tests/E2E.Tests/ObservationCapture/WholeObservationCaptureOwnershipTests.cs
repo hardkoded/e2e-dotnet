@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using E2E.Engine;
+using E2E.Tests.SemanticFallback;
 using Microsoft.Playwright;
 
 namespace E2E.Tests.ObservationCapture;
@@ -12,7 +13,8 @@ namespace E2E.Tests.ObservationCapture;
 /// Upstream's <c>describe('whole observation capture ownership')</c> (<c>packages/web/tests/unit/observation-capture.test.ts</c>, tester-army/e2e
 /// at <c>f185ca8</c>, #1582). Upstream scripts a browser whose page returns handles and holds one stage of the read. The port reads a real page:
 /// <see cref="WebEngine.ReadFrame"/> hands the reader a <c>HeldHandle</c> around the real handle the page script returned, which counts
-/// disposals and holds the stage's reply; <see cref="WebEngine.CapturePage"/> counts and holds the screenshot.
+/// disposals and holds the stage's reply; <see cref="WebEngine.CapturePage"/> counts and holds the screenshot. The two mask cases hold the mask
+/// probes on the fake page of <see cref="SemanticCaptureFallbackTests"/>, which counts them.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class WholeObservationCaptureOwnershipTests
@@ -85,10 +87,8 @@ public sealed class WholeObservationCaptureOwnershipTests
         Assert.Equal(1, fixture.Captured[0].Disposals);
     }
 
-    // Partial: upstream's it.each is ['mask', 'screenshot']. The mask probes are locator counts the port gives no seam to hold, so only the
-    // screenshot variant is ported; the mask variant is named in the PR report.
     [Fact]
-    public async Task Partial_Keeps_a_complete_tree_when_optional_screenshot_capture_exhausts_its_deadline()
+    public async Task Keeps_a_complete_tree_when_optional_screenshot_capture_exhausts_its_deadline()
     {
         await using var fixture = await Fixture.StartAsync(null);
         fixture.HoldScreenshot = true;
@@ -101,6 +101,53 @@ public sealed class WholeObservationCaptureOwnershipTests
         Assert.Equal(0, fixture.Elements.Sum(list => list.Disposals));
         fixture.Gate.SetResult();
         await Task.Delay(100);
+    }
+
+    // The mask probes are locator counts the fake page holds (SemanticCaptureFallbackTests.Setup), so the mask variant runs on that fake.
+    [Fact]
+    public async Task Keeps_a_complete_tree_when_optional_mask_capture_exhausts_its_deadline()
+    {
+        await using var setup = await SemanticCaptureFallbackTests.SetupAsync();
+        var gate = new TaskCompletionSource<int>();
+        setup.Count[0] = () => gate.Task;
+        var disposed = 0;
+        setup.Reader = () => Task.FromResult(setup.Document(["n1"], () => Interlocked.Increment(ref disposed)));
+
+        var snapshot = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(1), CancellationToken.None);
+
+        Assert.False(snapshot.TreeUnavailable);
+        Assert.Null(snapshot.Pixels);
+        Assert.NotEmpty(snapshot.Roots);
+        Assert.Equal(0, Volatile.Read(ref disposed));
+        gate.SetResult(0);
+        await Task.Delay(100);
+        Assert.Empty(setup.Screenshots);
+    }
+
+    [Fact]
+    public async Task Does_not_start_a_screenshot_when_cancelled_mask_probes_eventually_finish()
+    {
+        await using var setup = await SemanticCaptureFallbackTests.SetupAsync();
+        var gate = new TaskCompletionSource<int>();
+        var probing = new TaskCompletionSource();
+        setup.Count[0] = () =>
+        {
+            probing.TrySetResult();
+            return gate.Task;
+        };
+        var disposed = 0;
+        setup.Reader = () => Task.FromResult(setup.Document(["n1"], () => Interlocked.Increment(ref disposed)));
+        using var controller = new CancellationTokenSource();
+
+        var failure = Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, Operation, controller.Token));
+        await probing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        controller.Cancel();
+
+        Assert.Equal(EngineErrorCodes.Cancelled, (await failure).Code);
+        gate.SetResult(0);
+        await Fixture.UntilAsync(() => Volatile.Read(ref disposed) == 1);
+        await Task.Delay(100);
+        Assert.Empty(setup.Screenshots);
     }
 
     [Fact]

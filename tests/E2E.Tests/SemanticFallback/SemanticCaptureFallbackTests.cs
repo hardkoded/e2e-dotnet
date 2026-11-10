@@ -144,7 +144,7 @@ public sealed class SemanticCaptureFallbackTests
     }
 
     /// <summary>Opens an actual attempt whose independent mask probes can fail without a semantic reader.</summary>
-    private static async Task<Setup> SetupAsync()
+    internal static async Task<Setup> SetupAsync()
     {
         var setup = new Setup();
         try
@@ -159,7 +159,7 @@ public sealed class SemanticCaptureFallbackTests
         }
     }
 
-    private sealed class Setup : IAsyncDisposable
+    internal sealed class Setup : IAsyncDisposable
     {
         /// <summary>The page's reader (upstream's <c>captureDocument</c> mock): rejected with the timeout until a test says otherwise.</summary>
         public Func<Task<IJSHandle>> Reader { get; set; } = () => Task.FromException<IJSHandle>(Timeout);
