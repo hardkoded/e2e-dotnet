@@ -1,0 +1,97 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/FileRoundTrip.tsx. *@
+@inject IJSRuntime JS
+@if (_verified)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Voucher verified
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">
+            Download the voucher file, then upload the same file back to verify it.
+        </p>
+        <button type="button" data-testid="download-button" style="@Button" @onclick="HandleDownloadAsync">
+            Download voucher
+        </button>
+        @if (_downloaded)
+        {
+            <p data-testid="download-status" style="@StatusText">
+                Voucher downloaded
+            </p>
+        }
+        @* The key changes after a mismatch: a new input is the only way to clear a file input, as upstream resets its value. *@
+        <InputFile @key="_inputKey" data-testid="upload-input" accept=".txt" OnChange="HandleUploadAsync" style="@FileInput" />
+        <p style="@FileNameText">
+            @(_selectedFileName is null ? "No file selected" : $"Selected file: {_selectedFileName}")
+        </p>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                @_error
+            </p>
+        }
+    </div>
+}
+
+@code {
+    private const string VoucherContent = "VOUCHER:WEB-5521";
+    private const string FileName = "voucher.txt";
+
+    // The voucher as a data URL: the anchor carries the file, so a click downloads it without a Blob the server cannot build.
+    private static readonly string VoucherDataUrl = "data:text/plain;charset=utf-8," + Uri.EscapeDataString(VoucherContent);
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string StatusText = "font-size: 13px; color: #666; margin: 0;";
+    private const string FileInput = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string FileNameText = "font-size: 13px; color: #666; margin: 0;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private bool _downloaded;
+    private bool _verified;
+    private string? _selectedFileName;
+    private string? _error;
+    private int _inputKey;
+
+    /// <summary>Downloads the voucher through a detached anchor, as upstream clicks one it builds, so the browser saves <c>voucher.txt</c>.</summary>
+    private async Task HandleDownloadAsync()
+    {
+        try
+        {
+            await using var anchor = await JS.InvokeAsync<IJSObjectReference>("document.createElement", CancellationToken.None, "a");
+            await anchor.InvokeVoidAsync("setAttribute", CancellationToken.None, "href", VoucherDataUrl);
+            await anchor.InvokeVoidAsync("setAttribute", CancellationToken.None, "download", FileName);
+            await anchor.InvokeVoidAsync("click", CancellationToken.None);
+            _downloaded = true;
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away: there is no page left to download into.
+        }
+    }
+
+    /// <summary>Reads the uploaded file and checks that it is the issued voucher, ignoring surrounding whitespace.</summary>
+    private async Task HandleUploadAsync(InputFileChangeEventArgs args)
+    {
+        _selectedFileName = args.File.Name;
+        using var reader = new StreamReader(args.File.OpenReadStream());
+        var content = await reader.ReadToEndAsync();
+        if (content.Trim() == VoucherContent)
+        {
+            _error = null;
+            _verified = true;
+            return;
+        }
+
+        _error = "That is not the voucher we issued";
+        _inputKey++;
+    }
+}
