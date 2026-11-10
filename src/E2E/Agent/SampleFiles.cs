@@ -97,26 +97,36 @@ internal static class SampleFiles
     private static string WriteSamples()
     {
         var created = Directory.CreateTempSubdirectory("e2e-samples-").FullName;
-        foreach (var (file, bytes) in Samples)
+        // Registered before the first write, so a write that throws still leaves nothing behind for the next process to find.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => RemoveQuietly(created);
+        try
         {
-            File.WriteAllBytes(Path.Combine(created, file), bytes());
+            foreach (var (file, bytes) in Samples)
+            {
+                File.WriteAllBytes(Path.Combine(created, file), bytes());
+            }
+        }
+        catch
+        {
+            RemoveQuietly(created);
+            throw;
         }
 
-        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-        {
-            try
-            {
-                Directory.Delete(created, recursive: true);
-            }
-            catch (IOException)
-            {
-                // The samples are e2e's own copies; a file another process still holds is left for the temp cleaner.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // As above.
-            }
-        };
         return created;
+    }
+
+    // The samples are e2e's own copies; a file another process still holds, or a directory already gone, is left for the temp cleaner.
+    private static void RemoveQuietly(string directory)
+    {
+        try
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }
