@@ -12,7 +12,7 @@ namespace E2E.Tests.ExpectValues;
 /// matching everything</c> (<c>ToMatch</c> takes a string or a <see cref="Regex"/>, so a predicate cannot be passed), <c>toMatch gives the
 /// same answer on every test of a global or sticky regexp</c> (a .NET <see cref="Regex"/> keeps no <c>lastIndex</c>), and <c>compares a
 /// non-index key on an array, so "01" is a property and not a hole</c> (a .NET array has no named keys). Upstream's four
-/// <c>toMatchSchema</c> its are not ported: .NET has no Standard Schema. <c>undefined</c> is <see cref="Expect.Undefined"/>, so the its that tell it from <c>null</c> are full
+/// <c>toMatchSchema</c> its are in <see cref="ToMatchSchemaTests"/>. <c>undefined</c> is <see cref="Expect.Undefined"/>, so the its that tell it from <c>null</c> are full
 /// ports (hardkoded/e2e-dotnet#1368). Ported in part (<c>Partial_</c>): the two its that read JavaScript-only values (#1369): sparse arrays,
 /// wrapper methods, and <c>new String</c>.
 /// </summary>
