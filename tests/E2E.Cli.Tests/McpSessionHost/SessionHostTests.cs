@@ -426,7 +426,7 @@ public sealed class SessionHostTests : IAsyncLifetime
         var opened = await keyboard.OpenAsync(new Mcp.OpenSessionOptions());
         Assert.Equal(["observe", "type", "press", "navigate", "locate", "test_lines"], ServedCli.CatalogNames(opened));
         Assert.Contains("- type {text, replace?}: ", opened, StringComparison.Ordinal);
-        Assert.Contains("- press {key}: ", opened, StringComparison.Ordinal);
+        Assert.Contains("- press {key, times?}: ", opened, StringComparison.Ordinal);
         await keyboard.CloseAsync("done");
     }
 
