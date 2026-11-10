@@ -446,7 +446,7 @@ public sealed partial class Agent
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>
             {
-                var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(token), guard, token).ConfigureAwait(false);
+                var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
                 var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
                 return (Seen: seen, Tree: "Screen (" + _scope.Redactor.Redact(seen.Route) + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Cut: overBudget);
             },
@@ -1370,16 +1370,16 @@ internal sealed class AttemptScope : ISecretFillRuntime
     public ScreenshotContext? Screenshots { get; set; }
 
     /// <summary>One look at the screen, shown to the trace. Upstream's <c>session.observe</c> shows each observation it takes.</summary>
-    public Task<Observation> ObserveAsync(CancellationToken token) => ShowAsync(Session.ObserveAsync(token));
+    public Task<Observation> ObserveAsync(OperationContext context, CancellationToken token) => ShowAsync(Session.ObserveAsync(context, token));
 
-    /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget the engine bounds its reads by.</summary>
-    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken token) => ShowAsync(Session.ObserveAsync(timeout, token));
+    /// <summary><see cref="ObserveAsync(OperationContext, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget the engine bounds its reads by.</summary>
+    public Task<Observation> ObserveAsync(TimeSpan timeout, OperationContext context, CancellationToken token) => ShowAsync(Session.ObserveAsync(timeout, context, token));
 
     /// <summary>
-    /// <see cref="ObserveAsync(CancellationToken)"/> with <paramref name="options"/>, under the action timeout the engine bounds its reads by
+    /// <see cref="ObserveAsync(OperationContext, CancellationToken)"/> with <paramref name="options"/>, under the action timeout the engine bounds its reads by
     /// (upstream's <c>observe(operation, options)</c>). An engine that takes no options reads as it does without them.
     /// </summary>
-    public Task<Observation> ObserveAsync(ObserveOptions options, CancellationToken token) => ShowAsync(Session.ObserveAsync(options, ActionTimeout, token));
+    public Task<Observation> ObserveAsync(ObserveOptions options, OperationContext context, CancellationToken token) => ShowAsync(Session.ObserveAsync(options, ActionTimeout, context, token));
 
     private async Task<Observation> ShowAsync(Task<Observation> look)
     {
@@ -1401,7 +1401,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
         try
         {
-            return await Session.ScreenshotAsync(token).ConfigureAwait(false);
+            return await Session.ScreenshotAsync(OperationContext.Agent, token).ConfigureAwait(false);
         }
         catch (EngineException ex) when (string.Equals(ex.Code, EngineErrorCodes.UnsupportedCapability, StringComparison.Ordinal))
         {

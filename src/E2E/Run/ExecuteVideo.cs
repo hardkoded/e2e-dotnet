@@ -76,7 +76,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            await recordings.StartAttemptVideoAsync(launch.Token).ConfigureAwait(false);
+            await recordings.StartAttemptVideoAsync(launchTimeout, launch.Token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt goes on without one.
         catch (Exception) when (recording.Policy == VideoPolicy.BestEffort && !cancellationToken.IsCancellationRequested)
@@ -84,7 +84,7 @@ internal sealed class ExecuteVideo
         {
             return null;
         }
-        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout }) && launch.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             throw new EngineException("ENVIRONMENT_UNAVAILABLE", "The video did not start within the launch timeout (" + launchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
         }
@@ -121,7 +121,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            var segments = await _recordings.StopAttemptVideoAsync(cleanup.Token).ConfigureAwait(false);
+            var segments = await _recordings.StopAttemptVideoAsync(cleanupTimeout, cleanup.Token).ConfigureAwait(false);
 
             // Recorded so a failure could be looked at; a pass has nothing to show.
             if (!RecordingModes.Keeps(_recording.Keep, status))

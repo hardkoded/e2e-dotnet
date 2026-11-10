@@ -104,7 +104,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     /// <summary>
     /// Whether the engine resolves a locator itself. Upstream's engines all do; a port engine that does not has its locator resolved
-    /// over <see cref="ObserveAsync(CancellationToken)"/> (.NET-only), until it implements <see cref="IEngineSession.LocateAsync"/>.
+    /// over <see cref="ObserveAsync(CancellationToken)"/> (.NET-only), until it implements <see cref="IEngineSession.LocateAsync(LocatorExpression, TimeSpan, CancellationToken)"/>.
     /// </summary>
     internal bool LocatesInEngine => options.Locate is not null;
 

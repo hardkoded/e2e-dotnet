@@ -193,7 +193,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         // Retried at the engine while it reports a race, the step's clock checked each time it fails (upstream's retryingObserve).
         var observation = await Phases.RetryingObserveAsync(
-            () => Scope is { } scope ? scope.ObserveAsync(PixelFallbackLook, token) : session.ObserveAsync(token),
+            () => Scope is { } scope ? scope.ObserveAsync(PixelFallbackLook, OperationContext.Agent, token) : session.ObserveAsync(OperationContext.Agent, token),
             cause => Accounting?.Checkpoint(cause),
             token).ConfigureAwait(false);
         if (observation.Truncated)

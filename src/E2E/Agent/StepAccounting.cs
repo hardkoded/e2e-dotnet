@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using E2E.Cache;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -20,6 +21,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private AttemptScope? _scope;
     private DateTimeOffset? _deadline;
     private TimeSpan _timeout;
+    private bool _replaying;
     private CancellationToken _cancellation;
     private CancellationTokenSource? _stop;
     private AgentException? _hardStop;
@@ -72,6 +74,39 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         _toolRan = toolRan;
         _beforeTool = beforeTool;
     }
+
+    /// <summary>Upstream's <c>MAX_TARGETED_ACTION_MS</c>: the longest one targeted action may run, whatever the action timeout is.</summary>
+    private static readonly TimeSpan MaxTargetedAction = TimeSpan.FromMilliseconds(15_000);
+
+    /// <summary>
+    /// Upstream's <c>operation()</c>: <paramref name="context"/> bounded by <paramref name="actionTimeout"/> and by the time the step has
+    /// left. Its origin is the test's while a recorded trace replays (<see cref="Replaying"/>), the agent's otherwise.
+    /// </summary>
+    internal OperationContext Operation(OperationContext context, TimeSpan actionTimeout) => Stamped(Bounded(context, actionTimeout));
+
+    /// <summary>Upstream's <c>actionOperation()</c>: as <see cref="Operation"/>, with the targeted action capped at <see cref="MaxTargetedAction"/>.</summary>
+    internal OperationContext ActionOperation(OperationContext context, TimeSpan actionTimeout) =>
+        Stamped(Bounded(context, actionTimeout < MaxTargetedAction ? actionTimeout : MaxTargetedAction));
+
+    /// <summary>True while a recorded trace replays: its actions are then the test's, not the model's (upstream's <c>replayingTrace</c>).</summary>
+    internal bool ReplayingTrace => _replaying;
+
+    /// <summary>Marks the span in which the step's actions come from a recorded trace (upstream's <c>replaying(active)</c>).</summary>
+    internal void Replaying(bool active) => _replaying = active;
+
+    // Upstream's boundedOperation: the timeout, or the time the step has left when that is shorter, at least 1 ms.
+    private OperationContext Bounded(OperationContext context, TimeSpan timeout)
+    {
+        var within = timeout;
+        if (_deadline is { } deadline && deadline - DateTimeOffset.UtcNow < within)
+        {
+            within = deadline - DateTimeOffset.UtcNow;
+        }
+
+        return context with { Timeout = Time.Between(within, TimeSpan.FromMilliseconds(1), Time.Unbounded) };
+    }
+
+    private OperationContext Stamped(OperationContext context) => _replaying ? context with { Origin = OperationOrigin.Test } : context;
 
     /// <summary>Whether the books are closed.</summary>
     public bool Closed => _ended;

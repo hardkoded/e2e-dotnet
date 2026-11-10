@@ -176,6 +176,7 @@ public sealed partial class Agent
                     new StepCacheOptions
                     {
                         Cache = cache,
+                        Replaying = active => budget.Replaying(active),
                         Write = _scope.CacheWrite,
                         Strict = _scope.CacheStrict,
                         StrictAdvice = _scope.CacheStrict ? _scope.StrictAdvice : "",

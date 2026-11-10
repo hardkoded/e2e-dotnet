@@ -79,14 +79,14 @@ public sealed class AppRecordingsTests : IDisposable
     public async Task Refuses_a_span_while_the_attempts_video_holds_the_recorder_and_leaves_the_attempts_video_alone()
     {
         var recordings = Recordings();
-        await recordings.StartAttemptVideoAsync(default);
+        await recordings.StartAttemptVideoAsync(default, default);
         var refused = await Assert.ThrowsAsync<ConfigurationException>(() => recordings.StartSpanAsync("x", default));
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
         Assert.Contains("video: 'off'", refused.Message, StringComparison.Ordinal);
         var nothing = await Assert.ThrowsAsync<TestException>(() => recordings.StopSpanAsync(Sink(), default));
         Assert.Equal("INVALID_ARGUMENT", nothing.Code);
         Assert.Equal(["start"], _calls);
-        Assert.Equal([new VideoFile { Path = "video/video.webm", StartedAt = StartedAt }], await recordings.StopAttemptVideoAsync(default));
+        Assert.Equal([new VideoFile { Path = "video/video.webm", StartedAt = StartedAt }], await recordings.StopAttemptVideoAsync(default, default));
         await recordings.StartSpanAsync("after", default);
         Assert.Equal(["start", "stop", "start"], _calls);
     }

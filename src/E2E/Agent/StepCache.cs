@@ -70,6 +70,9 @@ internal sealed class StepCacheOptions
     /// <summary>The step's recorder, which the step's budget also holds.</summary>
     public required TraceRecorder Recorder { get; init; }
 
+    /// <summary>Marks the span in which the recording's actions run (upstream's <c>accounting.replaying</c>). Null outside an act.</summary>
+    public Action<bool>? Replaying { get; init; }
+
     /// <summary>
     /// The origin the app is served on. .NET-only: upstream maps a screen to its path in the host's <c>observe</c>
     /// (<c>screenOf</c>, <c>agent/act.ts</c>); the port's host returns the observation, so the session maps it.
@@ -370,10 +373,10 @@ internal sealed class StepTraceSession
 
         var endRoute = entry.EndRoute;
         var watched = new WatchedHost(_host, screens);
-        var outcome = await Replay.ReplayTrace(
+        var outcome = await ReplayingAsync(() => Replay.ReplayTrace(
             watched,
             entry.Actions,
-            new ReplayOptions { Initial = _start, LooksBeforeFree = () => screens.Count == 0 || !CacheRoute.Same(ScreenPath(screens[^1]), endRoute) }).ConfigureAwait(false);
+            new ReplayOptions { Initial = _start, LooksBeforeFree = () => screens.Count == 0 || !CacheRoute.Same(ScreenPath(screens[^1]), endRoute) })).ConfigureAwait(false);
 
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
@@ -581,6 +584,20 @@ internal sealed class StepTraceSession
 
     // Upstream's ObservedScreen.path: where the screen is, as the cache compares it (CacheRoute.AppLocation).
     private string ScreenPath(PreparedObservation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
+
+    // The span of the replay is the test's: its actions carry the test origin until it ends.
+    private async Task<T> ReplayingAsync<T>(Func<Task<T>> replay)
+    {
+        _options.Replaying?.Invoke(true);
+        try
+        {
+            return await replay().ConfigureAwait(false);
+        }
+        finally
+        {
+            _options.Replaying?.Invoke(false);
+        }
+    }
 
     // Anchors as the recording records them: every field has secrets redacted.
     private List<AnchorNode> Project(IReadOnlyDictionary<string, SemanticNode> nodes)
