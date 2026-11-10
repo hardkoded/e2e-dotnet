@@ -26,11 +26,11 @@ public enum EngineCapabilities
     /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
     TapModifiers = 128,
 
-    /// <summary><see cref="IEngineSession.StartVideoAsync"/> and <see cref="IEngineSession.StopVideoAsync"/>: the engine can record the attempt as video.</summary>
+    /// <summary><see cref="IEngineSession.StartVideoAsync(CancellationToken)"/> and <see cref="IEngineSession.StopVideoAsync(CancellationToken)"/>: the engine can record the attempt as video.</summary>
     Video = 256,
 
     /// <summary>
-    /// The engine opens no URL: <see cref="IEngineSession.OpenAsync"/> relaunches the app the target pins. .NET-only name for upstream's
+    /// The engine opens no URL: <see cref="IEngineSession.OpenAsync(string, CancellationToken)"/> relaunches the app the target pins. .NET-only name for upstream's
     /// <c>launchesPinnedApp</c>, which tests for a session with a <c>restart</c> and no <c>open</c>; the port's <c>OpenAsync</c> is not optional.
     /// </summary>
     PinnedApp = 512,
@@ -42,7 +42,7 @@ public enum EngineCapabilities
     Upload = 1024,
 
     /// <summary>
-    /// <see cref="IEngineSession.CaptureStateAsync"/> and <see cref="IEngineSession.RestoreStateAsync"/>: the engine saves and restores the
+    /// <see cref="IEngineSession.CaptureStateAsync(CancellationToken)"/> and <see cref="IEngineSession.RestoreStateAsync(EngineState, CancellationToken)"/>: the engine saves and restores the
     /// app's state, which a saved session needs. .NET-only name for upstream's optional <c>engine.state</c>, which the report records as
     /// <c>stateCapability</c>; the report's <c>capabilities</c> does not list it.
     /// </summary>
@@ -231,7 +231,17 @@ public interface IEngineSession : IAsyncDisposable
 
     Task OpenAsync(string url, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="OpenAsync(string, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>session.open</c>. The default drops the context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does (.NET-only: it keeps the engines that ignore it compiling).
+    /// </summary>
+    Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken) => OpenAsync(url, cancellationToken);
+
     Task<Observation> ObserveAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>observe(operation)</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken) => ObserveAsync(cancellationToken);
 
     /// <summary>
     /// <see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget left for the read: upstream's
@@ -242,12 +252,22 @@ public interface IEngineSession : IAsyncDisposable
     Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(cancellationToken);
 
     /// <summary>
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>observe(operation)</c> with its <c>operation.timeoutMs</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<Observation> ObserveAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => ObserveAsync(timeout, cancellationToken);
+
+    /// <summary>
     /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: upstream's
     /// <c>observe(operation, { pixels, comparable })</c>. With <see cref="ObserveOptions.Pixels"/> the observation carries the screen's
     /// <see cref="Observation.Pixels"/>, taken under the same budget as the tree. An engine that takes none returns the tree alone, and the
     /// default does (.NET-only: it keeps the engines that capture no pixels compiling).
     /// </summary>
     Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(timeout, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(ObserveOptions?, TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>observe(operation, { pixels, comparable })</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => ObserveAsync(options, timeout, cancellationToken);
 
     Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
@@ -288,17 +308,27 @@ public interface IEngineSession : IAsyncDisposable
     Task PressAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
+    /// <see cref="PressAsync(string, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>keyboard.press(key, operation)</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task PressAsync(string key, OperationContext context, CancellationToken cancellationToken) => PressAsync(key, cancellationToken);
+
+    /// <summary>
     /// Types <paramref name="text"/> into whatever holds focus, with no node resolved: how a field the tree does not list (drawn on a
     /// canvas, flattened out of a platform's tree) gets its text after a tap gave it focus. With <paramref name="replace"/> the field's
     /// value is cleared first, select all and delete. An engine that finds nothing that takes text focused refuses with
     /// <c>NOT_ACTIONABLE</c>. Engines that declare <see cref="EngineCapabilities.Keyboard"/> implement it; the default refuses with
     /// <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an engine written before the member compiling). Upstream's <c>keyboard.type</c>,
-    /// with <see cref="PressAsync"/> its <c>keyboard.press</c>.
+    /// with <see cref="PressAsync(string, CancellationToken)"/> its <c>keyboard.press</c>.
     /// </summary>
     Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => Unsupported("keyboard input");
 
     /// <summary>
-    /// Whether the engine hides an on-screen keyboard (<see cref="DismissKeyboardAsync"/>). The harness lists <c>dismissKeyboard</c> in the
+    /// <see cref="TypeTextAsync(string, bool, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>keyboard.type</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task TypeTextAsync(string text, bool replace, OperationContext context, CancellationToken cancellationToken) => TypeTextAsync(text, replace, cancellationToken);
+
+    /// <summary>
+    /// Whether the engine hides an on-screen keyboard (<see cref="DismissKeyboardAsync(CancellationToken)"/>). The harness lists <c>dismissKeyboard</c> in the
     /// target's verbs only for an engine that says true. .NET-only: upstream's <c>keyboard.dismiss</c> is an optional hook, and a hook that is
     /// defined is what lists the verb; C# has no optional member to test, so this declares it. The default is false, so an engine written
     /// before the member keeps compiling.
@@ -313,7 +343,12 @@ public interface IEngineSession : IAsyncDisposable
     Task DismissKeyboardAsync(CancellationToken cancellationToken) => Unsupported("keyboard dismissal");
 
     /// <summary>
-    /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
+    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>keyboard.dismiss</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task DismissKeyboardAsync(OperationContext context, CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken);
+
+    /// <summary>
+    /// Whether <see cref="LocateAsync(LocatorExpression, TimeSpan, CancellationToken)"/> is implemented. A session that says false has its locators resolved in core over
     /// <see cref="ObserveAsync(CancellationToken)"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
     /// engines do.
     /// </summary>
@@ -330,6 +365,11 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException("UNSUPPORTED_CAPABILITY", "locators (screen) is not supported by this engine."));
+
+    /// <summary>
+    /// <see cref="LocateAsync(LocatorExpression, TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>locate(expression, operation)</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => LocateAsync(expression, timeout, cancellationToken);
 
     /// <summary>
     /// Scrolls the viewport about three quarters of a screen. Engines that declare
@@ -370,8 +410,18 @@ public interface IEngineSession : IAsyncDisposable
     /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>
     Task RestartAsync(CancellationToken cancellationToken) => Unsupported("app.restart");
 
+    /// <summary>
+    /// <see cref="RestartAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>session.restart</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task RestartAsync(OperationContext context, CancellationToken cancellationToken) => RestartAsync(cancellationToken);
+
     /// <summary>Discards cookies, storage, and history, and opens a blank document.</summary>
     Task ClearStateAsync(CancellationToken cancellationToken) => Unsupported("app.clearState");
+
+    /// <summary>
+    /// <see cref="ClearStateAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>session.reset</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task ClearStateAsync(OperationContext context, CancellationToken cancellationToken) => ClearStateAsync(cancellationToken);
 
     /// <summary>
     /// Captures the viewport as a PNG for <c>toHaveScreenshot</c>, with animations stopped, the text caret hidden,
@@ -382,11 +432,21 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<EngineScreenshot>(new EngineException("UNSUPPORTED_CAPABILITY", "toHaveScreenshot is not supported by this engine."));
 
     /// <summary>
+    /// <see cref="ScreenshotAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.screenshot</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<EngineScreenshot> ScreenshotAsync(OperationContext context, CancellationToken cancellationToken) => ScreenshotAsync(cancellationToken);
+
+    /// <summary>
     /// <see cref="ScreenshotAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget left for the capture
     /// (upstream's <c>operation.timeoutMs</c>). An engine that bounds its reads overrides it and ends the capture at the budget with
-    /// <c>OPERATION_TIMEOUT</c>; the default drops the budget (.NET-only, as <see cref="ObserveAsync(TimeSpan, CancellationToken)"/>).
+    /// <c>OPERATION_TIMEOUT</c>; the default passes it on as the call's timeout (.NET-only, as <see cref="ObserveAsync(TimeSpan, CancellationToken)"/>).
     /// </summary>
-    Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(cancellationToken);
+    Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(OperationContext.Test with { Timeout = timeout }, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ScreenshotAsync(TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.screenshot</c> with its <c>operation.timeoutMs</c>. The default passes the timeout on as the context's timeout (.NET-only).
+    /// </summary>
+    Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => ScreenshotAsync(context with { Timeout = timeout }, cancellationToken);
 
     /// <summary>
     /// Captures a redacted screenshot into the attempt's artifact directory and returns its artifact-relative path, <c>screenshots/NNN-label.png</c>.
@@ -397,11 +457,21 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "screenshots is not supported by this engine."));
 
     /// <summary>
+    /// <see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.screenshot</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<string> ScreenshotArtifactAsync(string? label, OperationContext context, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, cancellationToken);
+
+    /// <summary>
     /// <see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot
-    /// and capture share (upstream's <c>artifacts.screenshot(label, operation)</c>). The default drops the budget (.NET-only, as
+    /// and capture share (upstream's <c>artifacts.screenshot</c>). The default passes it on as the call's timeout (.NET-only, as
     /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/>).
     /// </summary>
-    Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, cancellationToken);
+    Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, OperationContext.Test with { Timeout = timeout }, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ScreenshotArtifactAsync(string?, TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.screenshot</c>. The default passes the timeout on as the context's timeout (.NET-only).
+    /// </summary>
+    Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, context with { Timeout = timeout }, cancellationToken);
 
     /// <summary>
     /// Starts recording the surface, once its page can be recorded. Engines that declare
@@ -412,12 +482,22 @@ public interface IEngineSession : IAsyncDisposable
     Task StartVideoAsync(CancellationToken cancellationToken) => Unsupported("video recording");
 
     /// <summary>
+    /// <see cref="StartVideoAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.startVideo</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken) => StartVideoAsync(cancellationToken);
+
+    /// <summary>
     /// Stops the recording and returns the segments written, in order: files in the attempt's <c>video</c> directory, or
     /// links to recordings a hosted service keeps. Engines that declare <see cref="EngineCapabilities.Video"/> implement
     /// it. Upstream's <c>stopVideo</c>.
     /// </summary>
     Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<VideoSegment>>(new EngineException("UNSUPPORTED_CAPABILITY", "video recording is not supported by this engine."));
+
+    /// <summary>
+    /// <see cref="StopVideoAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>artifacts.stopVideo</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<IReadOnlyList<VideoSegment>> StopVideoAsync(OperationContext context, CancellationToken cancellationToken) => StopVideoAsync(cancellationToken);
 
     /// <summary>
     /// Captures the app's state (cookies and storage) as a payload another session can restore. The payload's <c>Data</c> is a mutable
@@ -427,8 +507,18 @@ public interface IEngineSession : IAsyncDisposable
     Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) =>
         Task.FromException<EngineState>(new EngineException("UNSUPPORTED_CAPABILITY", "capturing a state is not supported by this engine."));
 
-    /// <summary>Replaces the app's current state with one <see cref="CaptureStateAsync"/> captured. Upstream's optional <c>restoreState</c>.</summary>
+    /// <summary>
+    /// <see cref="CaptureStateAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>state.capture</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task<EngineState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken) => CaptureStateAsync(cancellationToken);
+
+    /// <summary>Replaces the app's current state with one <see cref="CaptureStateAsync(CancellationToken)"/> captured. Upstream's optional <c>restoreState</c>.</summary>
     Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) => Unsupported("restoring a state");
+
+    /// <summary>
+    /// <see cref="RestoreStateAsync(EngineState, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>state.restore</c>. The default drops the context (.NET-only).
+    /// </summary>
+    Task RestoreStateAsync(EngineState state, OperationContext context, CancellationToken cancellationToken) => RestoreStateAsync(state, cancellationToken);
 
     /// <summary>
     /// After the body has settled, and again after teardown, before the verdict, within the cleanup budget: report a failure that landed
@@ -437,6 +527,11 @@ public interface IEngineSession : IAsyncDisposable
     /// MUST report each failure once. Upstream's <c>settleAttempt</c>, whose <c>EngineCleanupContext</c> is the timeout and the token.
     /// </summary>
     Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// <see cref="SettleAttemptAsync(TimeSpan, CancellationToken)"/> with <paramref name="context"/>: upstream's <c>settle(operation)</c>, whose <c>operation.timeoutMs</c> is the cleanup budget. The default drops the context (.NET-only).
+    /// </summary>
+    Task SettleAttemptAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) => SettleAttemptAsync(timeout, cancellationToken);
 
     private static Task Unsupported(string operation) =>
         Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", operation + " is not supported by this engine."));

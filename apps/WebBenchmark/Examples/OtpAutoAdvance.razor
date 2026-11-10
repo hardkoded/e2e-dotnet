@@ -1,0 +1,206 @@
+@implements IDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/OtpAutoAdvance.tsx.
+   Six segmented boxes: a digit fills its box and moves focus on, Backspace on an empty box clears the previous one, and a paste spreads
+   its digits across the boxes. A full code verifies 300ms after the last box fills; a wrong code clears every box and starts over.
+   Focus moves and the paste event run in the page script installed below, synchronously in the browser the way upstream's focus() calls
+   do: a round trip to the server would let the next keystroke land in the old box. Digit state and verification stay here. *@
+<div style="@Container">
+    @if (_verified)
+    {
+        <p data-testid="success-message" style="@SuccessText">Code verified</p>
+    }
+    else
+    {
+        <p style="@Hint">Enter code @OtpCode.</p>
+        <div @ref="_row" style="@OtpRow">
+            @for (var index = 0; index < OtpLength; index++)
+            {
+                var i = index;
+                <input @key="i" data-testid="@($"otp-input-{i}")" data-otp-index="@i" @ref="_inputs[i]" style="@OtpInput"
+                       value="@_digits[i]" maxlength="1" inputmode="numeric" autocomplete="one-time-code"
+                       @oninput="(ChangeEventArgs args) => HandleChange(i, args.Value?.ToString() ?? string.Empty)"
+                       @onkeydown="(KeyboardEventArgs args) => HandleKeyDown(i, args)" />
+            }
+        </div>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+    }
+</div>
+
+@code {
+    private const string OtpCode = "493027";
+    private const int OtpLength = 6;
+
+    /// <summary>
+    /// The page script (upstream's focus moves and paste handling, as .NET-only glue). Installed once per page with eval, because a Razor
+    /// component cannot ship a script file.
+    /// </summary>
+    private const string PageScript = """
+        window.__benchOtp = (row, self) => {
+          const boxAt = (index) => row.querySelector(`[data-otp-index="${index}"]`);
+          row.addEventListener("input", (event) => {
+            const index = Number(event.target.dataset.otpIndex);
+            if (event.target.value && index < 5) boxAt(index + 1).focus();
+          });
+          row.addEventListener("keydown", (event) => {
+            const index = Number(event.target.dataset.otpIndex);
+            if (event.key === "Backspace" && event.target.value === "" && index > 0) {
+              event.preventDefault();
+              boxAt(index - 1).focus();
+            }
+          });
+          row.addEventListener("paste", (event) => {
+            event.preventDefault();
+            const index = Number(event.target.dataset.otpIndex);
+            self.invokeMethodAsync("HandlePaste", index, event.clipboardData.getData("text"));
+          });
+        };
+        """;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string OtpRow = "display: flex; gap: 8px; justify-content: center;";
+    private const string OtpInput = "border: 1px solid #ccc; border-radius: 8px; width: 44px; height: 52px; font-size: 20px; text-align: center; padding: 0;";
+    private const string ErrorText = "color: #c00; font-size: 14px; text-align: center; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly ElementReference[] _inputs = new ElementReference[OtpLength];
+    private ElementReference _row;
+    private string[] _digits = Enumerable.Repeat("", OtpLength).ToArray();
+    private string? _error;
+    private bool _verified;
+    private CancellationTokenSource? _verifyTimer;
+    private DotNetObjectReference<OtpAutoAdvance>? _self;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("eval", PageScript);
+            await JS.InvokeVoidAsync("__benchOtp", _row, _self);
+        }
+    }
+
+    /// <summary>Handles a digit typed into box <paramref name="index"/>: keeps only the last numeric character and fills the box.</summary>
+    private void HandleChange(int index, string value)
+    {
+        var digits = new string(value.Where(char.IsAsciiDigit).ToArray());
+        var digit = digits.Length > 0 ? digits[^1..] : "";
+        var nextDigits = (string[])_digits.Clone();
+        nextDigits[index] = digit;
+        _error = null;
+        ApplyDigits(nextDigits);
+    }
+
+    /// <summary>Backspace on an already-empty box clears the box before it, mirroring native OTP input behavior.</summary>
+    private void HandleKeyDown(int index, KeyboardEventArgs args)
+    {
+        if (args.Key == "Backspace" && _digits[index] == "" && index > 0)
+        {
+            var nextDigits = (string[])_digits.Clone();
+            nextDigits[index - 1] = "";
+            ApplyDigits(nextDigits);
+        }
+    }
+
+    /// <summary>Distributes pasted digits across the boxes starting at the paste target, then focuses the box after the last filled one.</summary>
+    [JSInvokable]
+    public Task HandlePaste(int index, string text) => InvokeAsync(async () =>
+    {
+        var pasted = new string(text.Where(char.IsAsciiDigit).ToArray());
+        if (pasted.Length == 0)
+        {
+            return;
+        }
+
+        var nextDigits = (string[])_digits.Clone();
+        var cursor = index;
+        foreach (var character in pasted)
+        {
+            if (cursor >= OtpLength)
+            {
+                break;
+            }
+
+            nextDigits[cursor] = character.ToString();
+            cursor += 1;
+        }
+
+        _error = null;
+        ApplyDigits(nextDigits);
+        StateHasChanged();
+        await _inputs[Math.Min(cursor, OtpLength - 1)].FocusAsync();
+    });
+
+    /// <summary>Commits the next digit state and manages the pending verification: a full code arms the verify timer, while any incomplete state cancels it.</summary>
+    private void ApplyDigits(string[] nextDigits)
+    {
+        _digits = nextDigits;
+        if (nextDigits.All(digit => digit != ""))
+        {
+            ScheduleVerify(nextDigits);
+            return;
+        }
+
+        CancelVerify();
+    }
+
+    /// <summary>Schedules verification 300ms after the last box fills, replacing any pending one.</summary>
+    private void ScheduleVerify(string[] nextDigits)
+    {
+        CancelVerify();
+        var timer = _verifyTimer = new CancellationTokenSource();
+        _ = VerifyAfterDelayAsync(string.Concat(nextDigits), timer.Token);
+    }
+
+    private async Task VerifyAfterDelayAsync(string code, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300), cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(async () =>
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (code == OtpCode)
+            {
+                _error = null;
+                _verified = true;
+                StateHasChanged();
+                return;
+            }
+
+            _error = "Incorrect code";
+            Array.Fill(_digits, "");
+            StateHasChanged();
+            await _inputs[0].FocusAsync();
+        });
+    }
+
+    private void CancelVerify()
+    {
+        _verifyTimer?.Cancel();
+        _verifyTimer?.Dispose();
+        _verifyTimer = null;
+    }
+
+    public void Dispose()
+    {
+        CancelVerify();
+        _self?.Dispose();
+    }
+}

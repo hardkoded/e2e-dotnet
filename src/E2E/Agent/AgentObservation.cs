@@ -153,6 +153,13 @@ internal static partial class AgentObservation
         Shape(observation.TreeUnavailable ? "" : SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition
         + (observation.Pixels is { } pixels ? "\n<pixels " + PixelDigest(pixels.Png) + ">" : "");
 
+    /// <summary>
+    /// The shape a settle compares, or null for a look with no tree to compare. A pixel-only look settles at once, as upstream's
+    /// <c>observationShape</c> returns undefined for <c>kind: 'pixels'</c>: its pixels are the only evidence, and a beat of waiting for
+    /// them to hold would read the same screen twice before the cache probe could use it.
+    /// </summary>
+    public static string? SettleShape(Observation observation) => observation.TreeUnavailable ? null : Shape(observation);
+
     /// <summary>Roles the model can act on by name: the lines that mark a screen as one the tree can drive at all (upstream's <c>INTERACTIVE_ROLES</c>).</summary>
     internal static readonly HashSet<string> InteractiveRoles = new(
         ["button", "link", "textbox", "searchbox", "combobox", "listbox", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "slider", "spinbutton", "treeitem"],

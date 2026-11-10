@@ -81,16 +81,21 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Keeps_a_resolve_that_hung_with_budget_to_spare_a_timeout_never_a_missing_node()
     {
+        // The reads move a fake clock, so a loaded runner cannot shift the deadline the hang runs into.
+        var clock = new SteppingTime();
         var calls = 0;
         var screen = LocatingScreen(
             [
-                budget => { calls++; return SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(100), [], budget); },
-                budget => { calls++; return SlowLocate.HangAsync(budget); },
+                budget => { calls++; return SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(100), [], budget); },
+                budget => { calls++; return SlowLocate.HangAsync(clock, budget); },
             ],
-            []);
+            [],
+            clock: clock);
         var deadline = new Deadline(TimeSpan.FromMilliseconds(2_000), screen.Clock);
 
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None));
+        var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => resolving);
 
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.Equal(2, calls);

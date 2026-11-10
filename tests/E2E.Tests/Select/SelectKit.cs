@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using IdHelpers = E2E.Internal.Ids;
+
 namespace E2E.Tests.Select;
 
 /// <summary>
@@ -59,7 +61,7 @@ internal static class SelectKit
     private static CollectedTest Collected(string file, Decl decl, int index)
     {
         string[] titlePath = [.. decl.Describe, decl.Title];
-        var id = file + "::" + string.Join("::", titlePath.Select(AttemptReport.EncodeTitle));
+        var id = IdHelpers.TestId(file, titlePath);
         var setup = decl.Sessions is not null;
         return new CollectedTest
         {
@@ -70,8 +72,8 @@ internal static class SelectKit
             Sessions = decl.Sessions ?? [],
             Tags = [.. decl.DescribeTags.Concat(decl.Tags).Distinct()],
             File = file,
-            Id = setup ? "setup::" + id : id,
-            SerialId = decl.Serial is null ? null : file + "::serial::" + AttemptReport.EncodeTitle(decl.Serial),
+            Id = setup ? IdHelpers.SetupTestId(file, titlePath) : id,
+            SerialId = decl.Serial is null ? null : file + "::serial::" + IdHelpers.EncodeTitle(decl.Serial),
             SerialRoot = decl.Serial is null ? null : new GroupNode(decl.Serial),
             Mode = decl.Only ? TestMode.Only : decl.Skip ? TestMode.Skip : TestMode.Normal,
             Options = new ResolvedTestOptions(decl.Platforms, decl.Requires, decl.Session, decl.Agents, decl.Skip ? "skipped" : null, decl.Serial is not null),

@@ -104,7 +104,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     /// <summary>
     /// Whether the engine resolves a locator itself. Upstream's engines all do; a port engine that does not has its locator resolved
-    /// over <see cref="ObserveAsync(CancellationToken)"/> (.NET-only), until it implements <see cref="IEngineSession.LocateAsync"/>.
+    /// over <see cref="ObserveAsync(CancellationToken)"/> (.NET-only), until it implements <see cref="IEngineSession.LocateAsync(LocatorExpression, TimeSpan, CancellationToken)"/>.
     /// </summary>
     internal bool LocatesInEngine => options.Locate is not null;
 
@@ -423,7 +423,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 throw await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false);
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(PollInterval, Clock, token).ConfigureAwait(false);
         }
     }
 

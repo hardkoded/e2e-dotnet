@@ -298,7 +298,7 @@ public sealed class E2ESession : IAsyncDisposable
                 {
                     var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, restoreBudget.Token).ConfigureAwait(false);
                     ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
-                    await engine.RestoreStateAsync(saved.State, restoreBudget.Token).ConfigureAwait(false);
+                    await engine.RestoreStateAsync(saved.State, OperationContext.Test, restoreBudget.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && restoreBudget.IsCancellationRequested && !timeout.IsCancellationRequested)
                 {
@@ -386,14 +386,15 @@ public sealed class E2ESession : IAsyncDisposable
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => budget.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
+            app.OperationBudget = api => browser.OperationBudget(api);
             browser.Failed = scope.Implicate;
             browser.Attach = scope.AttachArtifact;
             var agent = new Agent(scope);
             var locatorEngine = new LocatorEngine(new LocatorEngineOptions
             {
-                Observe = scope.ObserveAsync,
-                ObserveWithin = scope.ObserveAsync,
-                Locate = engine.CanLocate ? engine.LocateAsync : null,
+                Observe = token => scope.ObserveAsync(OperationContext.Test, token),
+                ObserveWithin = (timeout, token) => scope.ObserveAsync(timeout, OperationContext.Test, token),
+                Locate = engine.CanLocate ? (expression, timeout, token) => engine.LocateAsync(expression, timeout, OperationContext.Test, token) : null,
                 Perform = engine.PerformAsync,
                 PerformAt = engine.PerformAtAsync,
                 TypeText = engine.TypeTextAsync,
@@ -431,7 +432,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-                Capture = (budget, token) => engine.ScreenshotAsync(budget, token),
+                Capture = (budget, token) => engine.ScreenshotAsync(budget, OperationContext.Test, token),
             };
             var context = new TestContext
             {
@@ -492,7 +493,7 @@ public sealed class E2ESession : IAsyncDisposable
             linked.CancelAfter(_scope.ActionTimeout);
         }
 
-        var state = await _engine.CaptureStateAsync(linked.Token).ConfigureAwait(false);
+        var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
         staging.Stage(name, state, _scope.Learned());
     }
 
@@ -534,7 +535,7 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     public async Task SettleAttemptAsync(CancellationToken cancellationToken = default)
     {
-        var settling = _scope.Session.SettleAttemptAsync(_scope.CleanupTimeout, cancellationToken);
+        var settling = _scope.Session.SettleAttemptAsync(_scope.CleanupTimeout, OperationContext.Test, cancellationToken);
         try
         {
             await (Bounded(_scope.CleanupTimeout) ? settling.WaitAsync(_scope.CleanupTimeout, cancellationToken) : settling).ConfigureAwait(false);
@@ -822,7 +823,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             // Like the attempt's video, the recording belongs to the attempt: no step links it.
-            await recordings.StopSpanAsync(sink, cleanup.Token).ConfigureAwait(false);
+            await recordings.StopSpanAsync(sink, OperationContext.Test with { Timeout = Bounded(_scope.CleanupTimeout) ? _scope.CleanupTimeout : null }, cleanup.Token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A recording that cannot be finalized is a cleanup failure, and the rest of the teardown goes on.
         catch (Exception ex)
@@ -963,7 +964,7 @@ public sealed class E2ESession : IAsyncDisposable
         {
             _evidence = await FailureEvidence.CaptureAsync(new FailureEvidenceOptions
             {
-                Observe = token => _scope.Session.ObserveAsync(token),
+                Observe = token => _scope.Session.ObserveAsync(OperationContext.Test, token),
                 Capture = token => _scope.CaptureAsync(token),
                 Error = error,
                 Redactor = _scope.Redactor,
@@ -1409,7 +1410,7 @@ public sealed class E2ESessionOptions
     /// </summary>
     public string? TestFile { get; init; }
 
-    /// <summary>The name of the test's method (.NET-only). With <see cref="TestFile"/> it is the test's id in the report (<see cref="AttemptReport.TestId"/>), shared by every row of a parameterized test.</summary>
+    /// <summary>The name of the test's method (.NET-only). With <see cref="TestFile"/> it is the test's id in the report (<see cref="Ids.TestId"/>), shared by every row of a parameterized test.</summary>
     internal string? TestMethod { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;

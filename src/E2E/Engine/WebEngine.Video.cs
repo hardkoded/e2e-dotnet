@@ -26,8 +26,12 @@ public sealed partial class WebEngine
         /// <summary>How the session records video. Null for a session started without an artifact directory.</summary>
         public VideoSetup? Video { get; init; }
 
-        public Task StartVideoAsync(CancellationToken cancellationToken) => GuardAsync("video", cancellationToken, async () =>
+        public Task StartVideoAsync(CancellationToken cancellationToken) => StartVideoAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>artifacts.startVideo</c> bounded by <paramref name="context"/>'s timeout.</summary>
+        public Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("video", cancellationToken, async () =>
         {
+            var budget = Budget("video", cancellationToken, context.Timeout);
             var setup = Video;
             var dir = setup?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "video needs the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
@@ -37,7 +41,7 @@ public sealed partial class WebEngine
                 // The page opens first, so a provider's recording of the browser starts on the attempt's own tab.
                 if (_page is null || _page.IsClosed)
                 {
-                    await NewPageAsync(RequireContext()).ConfigureAwait(false);
+                    await budget.WithinAsync(NewPageAsync(RequireContext())).ConfigureAwait(false);
                 }
 
                 var page = Page;
@@ -45,14 +49,14 @@ public sealed partial class WebEngine
                 // An attempt may start and stop more than once, never overlapping: the recorder the first start made records again.
                 if (_video is { } again)
                 {
-                    await again.ArmAsync(page, token).ConfigureAwait(false);
+                    await budget.WithinAsync(again.ArmAsync(page, token)).ConfigureAwait(false);
                     return;
                 }
 
                 if (setup.Record is { } record)
                 {
                     var provided = new ProviderVideo(record, dir);
-                    await provided.ArmAsync(page, token).ConfigureAwait(false);
+                    await budget.WithinAsync(provided.ArmAsync(page, token)).ConfigureAwait(false);
                     if (provided.IsRecording)
                     {
                         _video = provided;
@@ -61,7 +65,7 @@ public sealed partial class WebEngine
                 }
 
                 var screencast = new VideoRecorder(dir, setup.Screencast);
-                await screencast.ArmAsync(page, token).ConfigureAwait(false);
+                await budget.WithinAsync(screencast.ArmAsync(page, token)).ConfigureAwait(false);
                 _video = screencast;
             }
             catch (OperationCanceledException ex) when (token.IsCancellationRequested)
@@ -78,16 +82,27 @@ public sealed partial class WebEngine
         /// Collects this attempt's video, independently of a failed connection: a recording is stopped on its own, and a
         /// caller that gives up leaves a stop already under way to finish.
         /// </summary>
-        public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken)
+        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) => StopVideoAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>artifacts.stopVideo</c> bounded by <paramref name="context"/>'s timeout.</summary>
+        public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(OperationContext context, CancellationToken cancellationToken)
         {
             if (_video is not { } video)
             {
                 return [];
             }
 
+            var budget = Budget("video", cancellationToken, context.Timeout);
+
             try
             {
-                return await video.StopAsync(cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
+                return await budget.WithinAsync(video.StopAsync(cancellationToken).WaitAsync(cancellationToken)).ConfigureAwait(false);
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+            {
+                // The budget ended the wait, not the stop: the stop keeps running (as above), so the recorder is let go and a later start records afresh.
+                _video = null;
+                throw;
             }
             catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {

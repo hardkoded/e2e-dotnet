@@ -10,15 +10,13 @@ namespace E2E.Tests.Errors;
 public sealed class TranslateProvisioningErrorTests
 {
     [Fact]
-    public void Partial_Never_yields_a_test_error_an_engine_error_of_any_code_is_infrastructure()
+    public void Never_yields_a_test_error_an_engine_error_of_any_code_is_infrastructure()
     {
-        // PARTIAL: the port has one EngineException for upstream's EngineError and its infrastructure error, so an engine
-        // exception of any code is returned as itself, and so is any other E2EException (a TestException stays category test);
-        // upstream rewraps an engine error as ENGINE_FAILURE with the suffix. Tracked in #1206.
-        // Classify now applies the canonical mapping to an engine error of any code (#1207), so only a code that maps to infrastructure fits
-        // this check: a NODE_STALE returned as itself classifies as a test error until #1206 rewraps it as upstream does.
-        var stale = ErrorSerializer.TranslateProvisioningError(new EngineException(EngineErrorCodes.EngineFailure, "ref gone"), " while preparing", CancellationToken.None);
-        Assert.Equal("infrastructure", ErrorSerializer.Classify(stale).Category);
+        var stale = ErrorSerializer.TranslateProvisioningError(new EngineException(EngineErrorCodes.NodeStale, "ref gone", retryable: true), " while preparing", CancellationToken.None);
+        var (staleCategory, staleCode, staleMessage, _) = ErrorSerializer.Classify(stale);
+        Assert.Equal("infrastructure", staleCategory);
+        Assert.Equal(EngineErrorCodes.EngineFailure, staleCode);
+        Assert.Equal("ref gone while preparing", staleMessage);
         var plain = ErrorSerializer.TranslateProvisioningError(new InvalidOperationException("download failed"), " while preparing", CancellationToken.None);
         var (category, code, message, _) = ErrorSerializer.Classify(plain);
         Assert.Equal("infrastructure", category);
@@ -33,6 +31,54 @@ public sealed class TranslateProvisioningErrorTests
         var (category, code, _, _) = ErrorSerializer.Classify(cancelled);
         Assert.Equal("infrastructure", category);
         Assert.Equal(EngineErrorCodes.Cancelled, code);
+    }
+
+    // .NET-only: upstream has no caller token, so these pin the caller's cancel, not a case the upstream it names.
+    [Fact]
+    public void A_caller_cancel_during_provisioning_is_a_cancel_even_for_a_plain_failure()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new InvalidOperationException("download failed"), " while preparing", cancellation.Token);
+        var (category, code, _, _) = ErrorSerializer.Classify(translated);
+        Assert.Equal("infrastructure", category);
+        Assert.Equal(EngineErrorCodes.Cancelled, code);
+    }
+
+    [Fact]
+    public void A_caller_cancel_during_provisioning_is_a_cancel_even_for_a_stale_node()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new EngineException(EngineErrorCodes.NodeStale, "ref gone", retryable: true), " while preparing", cancellation.Token);
+        Assert.Equal(EngineErrorCodes.Cancelled, ErrorSerializer.Classify(translated).Code);
+    }
+
+    [Fact]
+    public void A_harness_named_error_keeps_its_category_during_a_caller_cancel()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new ConfigurationException("INVALID_CONFIG", "no such browser"), "", cancellation.Token);
+        Assert.Equal("configuration", ErrorSerializer.Classify(translated).Category);
+    }
+
+    [Fact]
+    public void A_runner_named_engine_error_passes_through_unchanged()
+    {
+        var unreachable = new EngineException("APP_UNREACHABLE", "nothing answered") { Mapped = true };
+        var translated = ErrorSerializer.TranslateProvisioningError(unreachable, " while preparing", CancellationToken.None);
+        Assert.Same(unreachable, translated);
+    }
+
+    [Fact]
+    public void An_abort_that_is_not_the_callers_cancel_is_an_engine_failure()
+    {
+        var translated = ErrorSerializer.TranslateProvisioningError(new OperationCanceledException("installer timed out"), " while preparing", CancellationToken.None);
+        var (category, code, message, _) = ErrorSerializer.Classify(translated);
+        Assert.Equal("infrastructure", category);
+        Assert.Equal(EngineErrorCodes.EngineFailure, code);
+        Assert.Equal("installer timed out while preparing", message);
     }
 
     [Fact]

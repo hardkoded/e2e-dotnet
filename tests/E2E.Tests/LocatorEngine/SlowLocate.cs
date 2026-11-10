@@ -44,6 +44,13 @@ internal static class SlowLocate
         return Task.FromResult(nodes);
     }
 
+    /// <summary>A locate that never answers on its own, on a fake clock: it takes the whole <paramref name="budget"/> and ends with <c>OPERATION_TIMEOUT</c>.</summary>
+    public static Task<IReadOnlyList<SemanticNode>> HangAsync(FakeTimeProvider clock, TimeSpan budget)
+    {
+        clock.Advance(budget);
+        return Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false));
+    }
+
     /// <summary>A locate that never answers on its own, ended at <paramref name="budget"/>.</summary>
     public static async Task<IReadOnlyList<SemanticNode>> HangAsync(TimeSpan budget)
     {

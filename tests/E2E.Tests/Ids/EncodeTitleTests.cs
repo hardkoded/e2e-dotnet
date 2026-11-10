@@ -10,17 +10,17 @@ public sealed class EncodeTitleTests
     [Fact]
     public void Percent_encodes_every_other_byte_as_uppercase_HH()
     {
-        Assert.Equal("a%20b", AttemptReport.EncodeTitle("a b"));
-        Assert.Equal("a%2Fb", AttemptReport.EncodeTitle("a/b"));
-        Assert.Equal("a%25b", AttemptReport.EncodeTitle("a%b"));
-        Assert.Equal("a%3Ab", AttemptReport.EncodeTitle("a:b"));
+        Assert.Equal("a%20b", E2E.Internal.Ids.EncodeTitle("a b"));
+        Assert.Equal("a%2Fb", E2E.Internal.Ids.EncodeTitle("a/b"));
+        Assert.Equal("a%25b", E2E.Internal.Ids.EncodeTitle("a%b"));
+        Assert.Equal("a%3Ab", E2E.Internal.Ids.EncodeTitle("a:b"));
     }
 
     [Fact]
     public void Applies_NFC_normalization_then_encodes_the_UTF_8_bytes()
     {
         var decomposed = "e\u0301"; // e + combining acute
-        Assert.Equal("%C3%A9", AttemptReport.EncodeTitle(decomposed));
-        Assert.Equal("%E6%97%A5", AttemptReport.EncodeTitle("日"));
+        Assert.Equal("%C3%A9", E2E.Internal.Ids.EncodeTitle(decomposed));
+        Assert.Equal("%E6%97%A5", E2E.Internal.Ids.EncodeTitle("日"));
     }
 }

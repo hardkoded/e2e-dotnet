@@ -36,7 +36,7 @@ internal static class Ids
     /// <summary>Validates one raw title (1..512 UTF-8 bytes after NFC, no NUL); null when it is valid, else the reason (upstream's <c>validateTitle</c>).</summary>
     public static string? ValidateTitle(string title)
     {
-        var normalized = title.Normalize(NormalizationForm.FormC);
+        var normalized = Wellformed(title).Normalize(NormalizationForm.FormC);
         var bytes = Encoding.UTF8.GetByteCount(normalized);
         if (bytes is < 1 or > 512)
         {
@@ -45,6 +45,57 @@ internal static class Ids
 
         return normalized.Contains('\0', StringComparison.Ordinal) ? "title must not contain NUL" : null;
     }
+
+    /// <summary>
+    /// Replaces each unpaired surrogate with U+FFFD, as JavaScript's <c>TextEncoder</c> does before a title is encoded or counted. A JS string
+    /// may hold one, and <c>normalize</c> accepts it; .NET's <c>Normalize</c> throws on it, so the port maps it first (a port-only step).
+    /// </summary>
+    internal static string Wellformed(string text)
+    {
+        var builder = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
+            {
+                builder.Append(c).Append(text[++i]);
+            }
+            else
+            {
+                builder.Append(char.IsSurrogate(c) ? '�' : c);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c> (upstream's <c>encodeTitle</c>).</summary>
+    public static string EncodeTitle(string title)
+    {
+        var encoded = new StringBuilder();
+        foreach (var value in Encoding.UTF8.GetBytes(Wellformed(title).Normalize(NormalizationForm.FormC)))
+        {
+            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
+            {
+                encoded.Append((char)value);
+            }
+            else
+            {
+                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return encoded.ToString();
+    }
+
+    /// <summary>
+    /// Builds a test id, <c>&lt;file&gt;::&lt;encoded title&gt;::...</c>, from the file and the title path (upstream's <c>testId</c>). Each title is
+    /// percent-encoded, so a <c>::</c> inside a title cannot pass for the separator.
+    /// </summary>
+    public static string TestId(string file, IReadOnlyList<string> titlePath) => file + "::" + string.Join("::", titlePath.Select(EncodeTitle));
+
+    /// <summary>Builds a setup test id, <c>setup::&lt;test id&gt;</c> (upstream's <c>setupTestId</c>).</summary>
+    public static string SetupTestId(string file, IReadOnlyList<string> titlePath) => "setup::" + TestId(file, titlePath);
 
     /// <summary>Generates one lowercase UUIDv7 string for a time (upstream's <c>uuidv7</c>).</summary>
     public static string Uuidv7(DateTimeOffset? now = null) => Guid.CreateVersion7(now ?? DateTimeOffset.UtcNow).ToString();

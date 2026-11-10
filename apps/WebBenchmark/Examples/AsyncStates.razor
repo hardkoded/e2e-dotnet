@@ -1,0 +1,142 @@
+@implements IDisposable
+@* Upstream's app/src/Examples/AsyncStates.tsx.
+   Async-states gate: the screen starts as a skeleton for the initial load, the verification code only exists inside a toast that
+   auto-dismisses, and the Verify button stays disabled until a code was sent. The agent must wait out loading, catch the transient
+   toast, and submit in time. *@
+@if (_loading)
+{
+    <div data-testid="initial-loading" style="@Container">
+        <div style="@Skeleton"></div>
+        <div style="@Skeleton"></div>
+        <div style="@Skeleton"></div>
+    </div>
+}
+else if (_verified)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">Code verified successfully</p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Send the code, read it from the toast before it disappears, then verify.</p>
+        <button type="button" data-testid="send-code-button" style="@Button" @onclick="HandleSendCode">Send code</button>
+        <input data-testid="code-input" style="@Input" placeholder="Verification code" inputmode="numeric" value="@_code" @oninput="HandleCodeInput" />
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+        <button type="button" data-testid="verify-button" style="@(_codeSent ? Button : ButtonDisabled)" disabled="@(!_codeSent)" @onclick="HandleVerify">Verify</button>
+        @if (_toastVisible)
+        {
+            <div data-testid="toast" style="@Toast">Your code is @Code</div>
+        }
+    </div>
+}
+
+@code {
+    private const int InitialLoadMs = 2000;
+    private const int ToastMs = 2500;
+    private const string Code = "4407";
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Skeleton = "height: 48px; background-color: #e5e5e5; border-radius: 8px;";
+    private const string Input = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ButtonDisabled = "background-color: #999; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: not-allowed;";
+    private const string Toast = "position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background-color: #111; color: #fff; border-radius: 8px; padding: 12px 20px; font-size: 15px; font-weight: 600;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly CancellationTokenSource _disposed = new();
+    private CancellationTokenSource? _toastTimer;
+    private bool _loading = true;
+    private bool _toastVisible;
+    private bool _codeSent;
+    private string _code = string.Empty;
+    private string? _error;
+    private bool _verified;
+
+    protected override void OnInitialized() => _ = EndInitialLoadAsync(_disposed.Token);
+
+    /// <summary>The skeleton lasts <see cref="InitialLoadMs"/>, then the form appears.</summary>
+    private async Task EndInitialLoadAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(InitialLoadMs, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            if (_disposed.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _loading = false;
+            StateHasChanged();
+        });
+    }
+
+    /// <summary>Shows the code toast and schedules its auto-dismiss, replacing any timer from a previous send so resends restart the window.</summary>
+    private void HandleSendCode()
+    {
+        _codeSent = true;
+        _toastVisible = true;
+        _toastTimer?.Cancel();
+        _toastTimer?.Dispose();
+        _toastTimer = CancellationTokenSource.CreateLinkedTokenSource(_disposed.Token);
+        _ = HideToastAsync(_toastTimer.Token);
+    }
+
+    private async Task HideToastAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(ToastMs, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await InvokeAsync(() =>
+        {
+            if (_disposed.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _toastVisible = false;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleCodeInput(ChangeEventArgs args) => _code = args.Value?.ToString() ?? string.Empty;
+
+    private void HandleVerify()
+    {
+        if (_code.Trim() != Code)
+        {
+            _error = "Wrong code - send it again and retry";
+            return;
+        }
+
+        _error = null;
+        _verified = true;
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _toastTimer?.Dispose();
+        _disposed.Dispose();
+    }
+}

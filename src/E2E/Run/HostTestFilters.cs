@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
+using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E;
@@ -94,7 +96,7 @@ internal static class HostTestFilters
 
         // With no filter nothing judges a file, so the tree is not walked.
         var files = filters.Count == 0 ? [] : SourceFiles(config.ProjectRoot);
-        var collection = Collect(discovered, files, out var keys);
+        var collection = Collect(discovered, files, config.AllSecrets.Select(secret => (secret.Name, secret.Value)).ToList(), out var keys);
 
         // The previous run's report is read where this run will write its own, before anything replaces it; no report is NO_LAST_RUN.
         var previous = lastFailed ? await LastRun.ReadPreviousRunAsync(ReportFile.PathFor(OutputLayout.Of(config.Output).Results), cancellationToken).ConfigureAwait(false) : null;
@@ -217,7 +219,29 @@ internal static class HostTestFilters
         };
     }
 
-    internal static Collection Collect(IReadOnlyList<DiscoveredTest> discovered, IReadOnlyList<string> sourceFiles, out Dictionary<string, string> keys)
+    /// <summary>
+    /// The title as it registers (upstream's <c>Collector.title</c>, <c>collect/registry.ts</c>): validated as written, redacted with the run's
+    /// secrets, normalized to NFC, and validated again when redaction changed it, since a marker can be longer than the value it replaces.
+    /// Throws when the title is invalid. The result ids keep the raw title (see the Upstream parity section of the PR).
+    /// </summary>
+    internal static string RegisteredTitle(string raw, IEnumerable<(string Name, string Value)> secrets)
+    {
+        if (Ids.ValidateTitle(raw) is { } rawError)
+        {
+            throw new ArgumentException(rawError, nameof(raw));
+        }
+
+        var normalized = raw.Normalize(NormalizationForm.FormC);
+        var title = Redactor.For(secrets).Redact(raw).Normalize(NormalizationForm.FormC);
+        if (title != normalized && Ids.ValidateTitle(title) is { } error)
+        {
+            throw new ArgumentException(error + " once secret values are redacted", nameof(raw));
+        }
+
+        return title;
+    }
+
+    internal static Collection Collect(IReadOnlyList<DiscoveredTest> discovered, IReadOnlyList<string> sourceFiles, IReadOnlyList<(string Name, string Value)> secrets, out Dictionary<string, string> keys)
     {
         keys = new Dictionary<string, string>(StringComparer.Ordinal);
         var tests = new List<CollectedTest>();
@@ -225,8 +249,11 @@ internal static class HostTestFilters
         {
             var file = FileOf(test, sourceFiles);
 
+            // Each title is checked where it registers, as upstream's registry checks a test() title (the port's registration is discovery).
+            _ = RegisteredTitle(test.Title, secrets);
+
             // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
-            var id = AttemptReport.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, test.Title);
+            var id = Ids.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, [test.Title]);
             keys[id] = test.Key;
             tests.Add(new CollectedTest
             {

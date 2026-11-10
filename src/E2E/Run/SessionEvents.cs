@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E;
@@ -28,7 +29,7 @@ internal sealed class SessionEvents
         _title = title;
         _agent = agent;
         _target = target;
-        _testId = AttemptReport.TestId(file, title);
+        _testId = Ids.TestId(file, [title]);
     }
 
     /// <summary>The events of the session <paramref name="options"/> starts on <paramref name="target"/>; null for a session that does not emit them.</summary>

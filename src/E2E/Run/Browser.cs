@@ -68,6 +68,9 @@ public sealed class Browser
     /// <summary>The budget of a call on its own <paramref name="timeout"/>, the action timeout by default (upstream's <c>context.operation(stepTimeout(timeout, api))</c>); zero is what is left of the test.</summary>
     private TimeSpan StepBudget(TimeSpan? timeout, string api) => Time.StepBudget(timeout, api, _actionTimeout, BudgetDeadline, TimeProvider.System);
 
+    /// <summary>The budget an app call on <paramref name="api"/> has when no timeout is given: the action timeout, bounded by what is left of the test (upstream's <c>context.operation(stepTimeout(undefined, api))</c>).</summary>
+    internal TimeSpan OperationBudget(string api) => StepBudget(null, api);
+
     internal string? BaseUrl => _baseUrl;
 
     internal void NotifyVerified() => _verified();

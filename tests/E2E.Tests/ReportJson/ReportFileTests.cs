@@ -95,7 +95,7 @@ public sealed class ReportFileTests : IDisposable
 
         var results = Read()["run"]!["results"]!.AsArray();
         Assert.Equal(2, results.Count);
-        Assert.All(results, result => Assert.Equal(AttemptReport.TestId("App.Tests.CartTests", "Pays"), (string)result!["testId"]!));
+        Assert.All(results, result => Assert.Equal(E2E.Internal.Ids.TestId("App.Tests.CartTests", ["Pays"]), (string)result!["testId"]!));
     }
 
     [Fact]
