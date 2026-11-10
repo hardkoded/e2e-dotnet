@@ -423,7 +423,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
                 throw await NotFoundAsync(expression, Clock.GetElapsedTime(started), token).ConfigureAwait(false);
             }
 
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
+            await Task.Delay(PollInterval, Clock, token).ConfigureAwait(false);
         }
     }
 
