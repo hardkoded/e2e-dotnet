@@ -8,16 +8,15 @@ using E2E.Mobile;
 namespace E2E.Limrun.Tests.Driver;
 
 /// <summary>
-/// The driver against a scripted agent-device client. Ports <c>packages/limrun/tests/unit/driver.test.ts</c>. The first test is partial:
-/// upstream asserts that the binding's <c>client</c> carries the lease session, and the port keeps <c>session</c> out of a binding's client
-/// (the engine reserves it), so the test asserts the session the driver's clients are created with.
+/// The driver against a scripted agent-device client. Ports <c>packages/limrun/tests/unit/driver.test.ts</c>. Upstream's first test no
+/// longer names the lease session in the binding's client, so the port asserts the session the driver's clients are created with.
 /// </summary>
 public sealed class LimrunDriverTests
 {
     [Theory]
     [InlineData(MobilePlatform.Ios)]
     [InlineData(MobilePlatform.Android)]
-    public async Task Partial_Uses_the_requested_app_when_installation_returns_no_identifier(MobilePlatform platform)
+    public async Task Uses_the_requested_app_when_installation_returns_no_identifier(MobilePlatform platform)
     {
         var client = new FakeDeviceClient();
         client.Respond(DeviceMethods.LeasesAllocate, _ => new JsonObject
@@ -87,13 +86,13 @@ public sealed class LimrunDriverTests
             created,
             allocator =>
             {
-                Assert.Equal(LimrunDriver.LeaseSession("/daemon"), allocator.Session);
+                Assert.Equal(LimrunSessions.LeaseSession("/daemon"), allocator.Session);
                 Assert.Matches("^e2e-lease-[0-9a-f]{8}$", allocator.Session);
                 JsonAssert.Args("""{"stateDir":"/daemon"}""", allocator.Client);
             },
             worker =>
             {
-                Assert.Equal(LimrunDriver.LeaseSession("/daemon"), worker.Session);
+                Assert.Equal(LimrunSessions.LeaseSession("/daemon"), worker.Session);
                 JsonAssert.Args(
                     """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
                     worker.Client);
