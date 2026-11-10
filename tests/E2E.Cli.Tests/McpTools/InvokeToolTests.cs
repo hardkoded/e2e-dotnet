@@ -65,6 +65,22 @@ public sealed class InvokeToolTests
     }
 
     [Fact]
+    public async Task Says_why_a_repeated_press_has_no_line_through_the_session_tool()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
+        await Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("{}"), Extra);
+
+        var result = await Tools.InvokeToolAsync("press", catalog.Find("press")!, Json("""{ "target": "k-1", "key": "ArrowDown", "times": 3 }"""), Extra);
+
+        Assert.Contains(
+            "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
+            string.Join('\n', Parts(result).Select(part => part.Value)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Refuses_an_argument_a_grammar_tool_does_not_declare_before_anything_is_dispatched()
     {
         var engine = new FakeEngine();

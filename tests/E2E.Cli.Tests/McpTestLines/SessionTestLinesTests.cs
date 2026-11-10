@@ -24,14 +24,25 @@ public sealed class SessionTestLinesTests
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
         const EngineCapabilities all = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
-            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers | EngineCapabilities.Resize;
+            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers | EngineCapabilities.Resize | EngineCapabilities.Upload;
         var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: ["tap", "hover", "dragTo"], canDismissKeyboard: true);
 
         // Only what looks at the screen, acts at a point, or reads the draft prints no line.
         Assert.Equal(["observe", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
         Assert.Equal(
-            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "type_secret"],
+            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "upload", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "type_secret"],
             catalog.Entries.Select(pair => pair.Key).Where(SessionTestLines.HasLine));
+    }
+
+    [Fact]
+    public async Task Offers_press_times_so_a_repeated_key_reaches_its_reason()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, EngineCapabilities.Observation | EngineCapabilities.Actions, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: [], canDismissKeyboard: false);
+        var press = catalog.Find("press")!;
+        Assert.True(press.InputSchema.GetProperty("properties").TryGetProperty("times", out var times));
+        Assert.Equal(20, times.GetProperty("maximum").GetInt32());
     }
 
     [Fact]
@@ -236,6 +247,16 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
+    public async Task Answers_an_upload_of_a_project_file_with_its_set_input_files_line()
+    {
+        var attach = new Fake("n62", "button", "Attach", Y: 120);
+        var session = new TestLineHarness([attach]);
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"button\", \"Attach\").SetInputFilesAsync(\"fixtures/photo.png\");",
+            NoteOf(await session.RunAsync("upload", """{ "target": "n62", "files": ["fixtures/photo.png"] }""")));
+    }
+
+    [Fact]
     public async Task Says_why_a_keyboard_fallback_has_no_line()
     {
         var field = new Fake("n60", "textbox", "Notes", Y: 40);
@@ -248,11 +269,18 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Partial_Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_and_a_stale_ref()
+    public async Task Partial_Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_a_stale_ref_and_a_sample_file()
     {
         var field = new Fake("n60", "textbox", "Notes", Y: 40);
-        var session = new TestLineHarness([field, Save]);
+        var attach = new Fake("n62", "button", "Attach", Y: 120);
+        var session = new TestLineHarness([field, Save, attach]);
+        Assert.Equal(
+            "No test line: a sample file exists only for the agent; save a file in the project and upload its path for a line.",
+            NoteOf(await session.RunAsync("upload", """{ "target": "n62", "files": ["sample:photo.png"] }""")));
         Assert.Matches(@"^No test line: the key went to whatever had focus", NoteOf(await session.RunAsync("press", """{ "key": "Enter" }""")));
+        Assert.Equal(
+            "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
+            NoteOf(await session.RunAsync("press", """{ "target": "n60", "key": "ArrowDown", "times": 3 }""")));
         Assert.Matches(@"^No test line: a test action brings its node into view itself", NoteOf(await session.RunAsync("scroll", """{ "direction": "down" }""")));
         Assert.Matches(@"^No test line: scrolling to a text has none", NoteOf(await session.RunAsync("scroll_to", """{ "text": "Row 40" }""")));
         Assert.Matches(@"^No test line: the secret is neither", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));

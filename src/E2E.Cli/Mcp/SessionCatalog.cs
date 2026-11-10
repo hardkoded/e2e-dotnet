@@ -148,7 +148,7 @@ internal sealed class SessionCatalog
         if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
         {
             var pressTarget = verbs.Contains(ExecutorVerb.Press) ? OptionalTarget : [];
-            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true))));
+            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true), ("times", PressTimes, false))));
         }
 
         if (verbs.Contains(ExecutorVerb.Select))
@@ -165,6 +165,13 @@ internal sealed class SessionCatalog
         if (verbs.Contains(ExecutorVerb.Clear))
         {
             Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+        }
+
+        // Upstream's grammarTools serves upload with the agent's description; the session takes the agent tool's text and names its node as target.
+        if (verbs.Contains(ExecutorVerb.Upload))
+        {
+            var upload = AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Single(tool => tool.Name == "upload");
+            Add("upload", Verb(context, screen, "upload", "upload", upload.Description, Schema(Target, ("files", Files, true))));
         }
 
         if (kinds.Contains("dragTo"))
@@ -346,8 +353,11 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
+
+    // The files an upload names: one or more non-empty project-relative paths, or a sample (upstream's grammar schema).
+    private static JsonNode Files => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1 }, ["minItems"] = 1, ["description"] = "Project-relative paths of the files to attach, or sample:<name> for one of e2e's sample files" };
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
         [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), true)];
@@ -363,6 +373,15 @@ internal sealed class SessionCatalog
         ["minimum"] = 1,
         ["maximum"] = AgentTools.MaxScrollTimes,
         ["description"] = "How many screens to scroll in this one call; default 1",
+    };
+
+    // The repeat count of a key press, bounded as the agent's press tool bounds it (upstream's press times).
+    private static JsonNode PressTimes => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = 1,
+        ["maximum"] = AgentTools.MaxPressTimes,
+        ["description"] = "Press the key this many times in this one call, 1 to " + AgentTools.MaxPressTimes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "; default 1. Use more to extend a selection or move a caret several steps at once.",
     };
 
     private static JsonNode ViewportSide(string what) => new JsonObject

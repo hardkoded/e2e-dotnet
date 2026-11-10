@@ -47,7 +47,7 @@ End-to-end tests use e2e; read .agents/skills/e2e-dotnet/SKILL.md before writing
 
 Run `e2e doctor` first. It checks that `e2e explore` and `e2e mcp` can start here, and exits 2 when they cannot.
 
-`e2e mcp` gives the agent a live session on your app. It walks the flow in a session and writes each step as it takes it, and checks its locators against the screen before it writes them. Install the tool, then register it once:
+`e2e mcp` gives the agent a live session on your app. It walks the flow in a session and writes each step as it takes it, and checks its locators against the screen before it writes them. Its `upload` tool attaches project files, or one of six small sample files e2e ships (`sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`, `sample:notes.txt`, `sample:table.csv`, `sample:empty.txt`), under the same path rules as the agent. A project file's upload writes a `SetInputFilesAsync` line; a sample has none, since a test needs a file in the project. A key press with `times` above 1 writes no line either: press it once per call to get lines. Install the tool, then register it once:
 
 ```bash
 dotnet tool install --global E2E.Cli

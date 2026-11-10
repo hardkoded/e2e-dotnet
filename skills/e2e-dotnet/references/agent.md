@@ -268,6 +268,14 @@ more than 16 files is `INVALID_ARGUMENT`. A refused upload costs no action
 slot. The allow and each `POLICY_DENIED` refusal are `policy` events named
 `upload.path` on the step. The paths are recorded as given and authorized
 again on replay.
+A path `sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`,
+`sample:notes.txt`, `sample:table.csv`, or `sample:empty.txt` names one of
+e2e's own small sample files (upstream's `sample-files.ts`; the port's internal
+`SampleFiles`), so the agent can try an
+upload when the project has no file to give it. The files are written once per
+process to a temporary directory and removed when the process exits. An unknown
+`sample:` name is `INVALID_ARGUMENT` and lists the samples. The tool description
+lists them.
 On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
 `tap`, `double_tap`, and `right_click` take an optional `modifiers` list (`Shift`, `Control`,
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
