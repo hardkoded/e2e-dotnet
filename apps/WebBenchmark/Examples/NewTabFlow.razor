@@ -1,0 +1,97 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/NewTabFlow.tsx. *@
+@inject IJSRuntime JS
+@if (_verified)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Verified successfully
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">
+            Open the verification tab, read the code there, come back and enter it.
+        </p>
+        <button type="button" data-testid="open-tab-button" style="@Button" @onclick="HandleOpenTabAsync">
+            Open verification tab
+        </button>
+        <input data-testid="code-input" style="@Input" placeholder="Verification code" autocapitalize="none"
+               @bind="_code" @bind:event="oninput" />
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                @_error
+            </p>
+        }
+        <button type="button" data-testid="verify-button" style="@Button" @onclick="HandleVerify">
+            Verify
+        </button>
+    </div>
+}
+
+@code {
+    private const string VerificationCode = "TAB-88421";
+
+    // The page the second tab shows. The code exists only there, so the agent must switch tabs, read it, and come back to enter it.
+    private static readonly string VerificationPageHtml = $"""
+        <!DOCTYPE html>
+        <html>
+          <head><title>Verification</title></head>
+          <body style="margin:0;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:16px;background:#f6f6f6;">
+            <h2 style="font-size:20px;font-weight:600;color:#111;margin:0;">Verification code</h2>
+            <p style="font-family:monospace;font-size:32px;font-weight:600;color:#111;margin:0;">{VerificationCode}</p>
+            <p style="font-size:13px;color:#666;margin:0;">Return to the original tab and enter this code.</p>
+          </body>
+        </html>
+        """;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Input = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0 0 16px;";
+
+    private string _code = "";
+    private string? _error;
+    private bool _verified;
+
+    /// <summary>
+    /// Opens a blank second tab and writes the verification page into it, as upstream does with <c>window.open("", "_blank")</c> and
+    /// <c>document.write</c>. A popup the browser blocks returns null, and nothing opens, as upstream's optional chaining does.
+    /// </summary>
+    private async Task HandleOpenTabAsync()
+    {
+        try
+        {
+            await using var tab = await JS.InvokeAsync<IJSObjectReference?>("window.open", CancellationToken.None, "", "_blank");
+            if (tab is null)
+            {
+                return;
+            }
+
+            await tab.InvokeVoidAsync("document.write", CancellationToken.None, VerificationPageHtml);
+            await tab.InvokeVoidAsync("document.close", CancellationToken.None);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away: there is no window left to write into.
+        }
+    }
+
+    /// <summary>Checks the entered code, ignoring surrounding whitespace and case.</summary>
+    private void HandleVerify()
+    {
+        if (_code.Trim().ToUpperInvariant() == VerificationCode)
+        {
+            _error = null;
+            _verified = true;
+            return;
+        }
+
+        _error = "Wrong verification code";
+    }
+}
