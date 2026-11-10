@@ -79,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "dismiss_keyboard"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "dismiss_keyboard"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -298,6 +298,17 @@ internal sealed class SessionTestLines(TestLineOptions options)
                     : await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
             case "select":
                 return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")", token).ConfigureAwait(false);
+            case "upload":
+                {
+                    var files = Strings(args, "files");
+                    if (files.Any(file => file.StartsWith(SampleFiles.SamplePrefix, StringComparison.Ordinal)))
+                    {
+                        return LinePlan.None("a sample file exists only for the agent; save a file in the project and upload its path for a line");
+                    }
+
+                    var paths = files.Count == 1 ? SessionCatalog.Quote(files[0]) : "[" + string.Join(", ", files.Select(SessionCatalog.Quote)) + "]";
+                    return await OnTargetAsync(target, locator => locator + ".SetInputFilesAsync(" + paths + ")", token).ConfigureAwait(false);
+                }
             case "scroll_to":
                 return target is not null && Field(args, "text") is null
                     ? await OnTargetAsync(target, locator => locator + ".ScrollIntoViewAsync()", token).ConfigureAwait(false)
@@ -730,6 +741,12 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     private static string? Field(JsonElement args, string name) =>
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    // The string items of a list field, as upload's files: the ones that are not strings are left out, as the policy never sees them.
+    private static List<string> Strings(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? [.. value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)]
+            : [];
 
     // A viewport side as the model sent it, for the reason a resize has no line.
     private static string Side(JsonElement args, string name) =>

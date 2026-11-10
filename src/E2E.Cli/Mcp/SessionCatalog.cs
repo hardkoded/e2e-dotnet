@@ -167,6 +167,13 @@ internal sealed class SessionCatalog
             Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
         }
 
+        // Upstream's grammarTools serves upload with the agent's description; the session takes the agent tool's text and names its node as target.
+        if (verbs.Contains(ExecutorVerb.Upload))
+        {
+            var upload = AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Single(tool => tool.Name == "upload");
+            Add("upload", Verb(context, screen, "upload", "upload", upload.Description, Schema(Target, ("files", Files, true))));
+        }
+
         if (kinds.Contains("dragTo"))
         {
             Add("drag", Verb(context, screen, "drag", "drag", "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.", Schema(Target, ("to", Property("string", "Node id of the drop target"), true))));
@@ -346,8 +353,11 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
+
+    // The files an upload names: one or more non-empty project-relative paths, or a sample (upstream's grammar schema).
+    private static JsonNode Files => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1 }, ["minItems"] = 1, ["description"] = "Project-relative paths of the files to attach, or sample:<name> for one of e2e's sample files" };
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
         [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), true)];
