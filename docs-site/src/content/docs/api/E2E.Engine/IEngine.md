@@ -121,3 +121,25 @@ Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken ca
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IEngine_ValidateApp_"></a>
+<a id="E2E_Engine_IEngine_ValidateApp_E2E_Engine_EngineAppDeclaration_E2E_Engine_EngineAppCheckInfo_"></a>
+
+### ValidateApp(EngineAppDeclaration, EngineAppCheckInfo)
+
+
+```csharp
+void ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+```
+
+
+Checks the app a target declares against what this engine can drive, at config load, synchronously: throw `INVALID_CONFIG`
+naming [TargetName](/api/E2E.Engine/EngineAppCheckInfo/#E2E_Engine_EngineAppCheckInfo_TargetName) for a field the platform needs and the target left out (a URL, a bundle id) or one
+it cannot drive. The harness has already checked every field's shape. Upstream's optional `validateApp`; the default checks nothing.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `app` | [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/) |  |
+| `info` | [EngineAppCheckInfo](/api/E2E.Engine/EngineAppCheckInfo/) |  |

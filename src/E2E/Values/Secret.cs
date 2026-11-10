@@ -13,6 +13,9 @@ namespace E2E;
 /// </summary>
 public sealed class Secret
 {
+    /// <summary>Whether a value is a <see cref="Secret"/> handle (upstream's <c>isSecret</c>).</summary>
+    public static bool IsSecret(object? value) => value is Secret;
+
     private readonly SecretProvider? _provider;
 
     private Secret(string name, string value, string? purpose, SecretProvider? provider = null)

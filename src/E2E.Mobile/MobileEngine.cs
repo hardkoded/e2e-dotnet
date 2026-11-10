@@ -223,7 +223,19 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
     /// (a website in the device's browser) is not supported yet, and a link as the bundle id is a mistake: a test opens
     /// one with <c>device.openLink</c>.
     /// </summary>
-    public static void ValidateApp(MobileApp app, string? url, string targetName, MobilePlatform platform)
+    void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(info);
+        ValidateApp(
+            new MobileApp { BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments },
+            app.Url,
+            info.TargetName,
+            Options.Platform);
+    }
+
+    /// <summary>The device-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
+    internal static void ValidateApp(MobileApp app, string? url, string targetName, MobilePlatform platform)
     {
         ArgumentNullException.ThrowIfNull(app);
         var where = $"target \"{targetName}\"";

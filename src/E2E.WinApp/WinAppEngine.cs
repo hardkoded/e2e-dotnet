@@ -96,7 +96,15 @@ public sealed class WinAppEngine : IEngine
     /// A Windows target launches an executable or attaches to a running app: one of the build path and the app name is required.
     /// A URL is a website, which a desktop app engine cannot open.
     /// </summary>
-    public static void ValidateApp(WinAppApp app, string? url, string targetName)
+    void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(info);
+        ValidateApp(new WinAppApp { BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments }, app.Url, info.TargetName);
+    }
+
+    /// <summary>The desktop-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
+    internal static void ValidateApp(WinAppApp app, string? url, string targetName)
     {
         ArgumentNullException.ThrowIfNull(app);
         var where = $"target \"{targetName}\"";

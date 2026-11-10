@@ -14,8 +14,8 @@ public sealed class WebAndTheTargetAppTests
     {
         var web = new WebEngine();
         const string name = "chromium";
-        web.ValidateApp(new AppConfig { Url = "http://localhost:3000" }, name);
-        var missing = Assert.Throws<ConfigurationException>(() => web.ValidateApp(new AppConfig(), name));
+        ValidateWeb(web, new AppConfig { Url = "http://localhost:3000" }, name);
+        var missing = Assert.Throws<ConfigurationException>(() => ValidateWeb(web, new AppConfig(), name));
         Assert.Equal("INVALID_CONFIG", missing.Code);
         Assert.Contains("target \"chromium\" needs app.url", missing.Message, StringComparison.Ordinal);
         foreach (var key in new[] { "bundleId", "appPath", "launchArguments" })
@@ -26,7 +26,7 @@ public sealed class WebAndTheTargetAppTests
                 "appPath" => new AppConfig { Url = "http://localhost:3000", AppPath = "x" },
                 _ => new AppConfig { Url = "http://localhost:3000", LaunchArguments = ["-x"] },
             };
-            var error = Assert.Throws<ConfigurationException>(() => web.ValidateApp(app, name));
+            var error = Assert.Throws<ConfigurationException>(() => ValidateWeb(web, app, name));
             Assert.Equal($"target \"chromium\" declares app.{key}, which describes an installed device app; a web() target opens app.url", error.Message);
         }
     }
@@ -39,12 +39,12 @@ public sealed class WebAndTheTargetAppTests
             new() { Url = url, Permissions = new Dictionary<string, AppPermissionState> { [name] = state } };
         static ConfigurationException Refused(WebEngine engine, AppConfig app)
         {
-            var error = Assert.Throws<ConfigurationException>(() => engine.ValidateApp(app, "web"));
+            var error = Assert.Throws<ConfigurationException>(() => ValidateWeb(engine, app, "web"));
             Assert.Equal("INVALID_CONFIG", error.Code);
             return error;
         }
 
-        new WebEngine().ValidateApp(
+        ValidateWeb(new WebEngine(), 
             new AppConfig
             {
                 Url = url,
@@ -55,7 +55,7 @@ public sealed class WebAndTheTargetAppTests
                 },
             },
             "web");
-        new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Webkit }).ValidateApp(Of("clipboard-read", AppPermissionState.Grant), "web");
+        ValidateWeb(new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Webkit }), Of("clipboard-read", AppPermissionState.Grant), "web");
         Assert.Contains(
             "target \"web\" app.permissions on firefox has unknown key \"clipboard-read\"",
             Refused(new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Firefox }), Of("clipboard-read", AppPermissionState.Grant)).Message,
@@ -71,4 +71,7 @@ public sealed class WebAndTheTargetAppTests
                 Refused(new WebEngine(), Of("camera", state)).Message);
         }
     }
+
+    private static void ValidateWeb(WebEngine engine, AppConfig app, string targetName) =>
+        ((IEngine)engine).ValidateApp(TargetApps.EngineAppDeclarationOf(app), new EngineAppCheckInfo { TargetName = targetName });
 }

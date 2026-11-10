@@ -95,6 +95,27 @@ public static Secret Create(string name, string value, string? purpose = null)
 
 **Returns:** [Secret](./)
 
+<a id="E2E_Secret_IsSecret_"></a>
+<a id="E2E_Secret_IsSecret_System_Object_"></a>
+
+### IsSecret(object?)
+
+
+```csharp
+public static bool IsSecret(object? value)
+```
+
+
+Whether a value is a [Secret](./) handle (upstream's `isSecret`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `value` | [object](https://learn.microsoft.com/dotnet/api/system.object) |  |
+
+**Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Secret_ToString_"></a>
 <a id="E2E_Secret_ToString"></a>
 

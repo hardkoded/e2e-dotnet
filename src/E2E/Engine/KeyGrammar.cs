@@ -8,20 +8,20 @@ using System.Text;
 namespace E2E.Engine;
 
 /// <summary>Upstream's <c>ParsedKey</c> (<c>engine/contract.ts</c>): one parsed <c>press</c> key: its modifiers, and either a named key or a single character.</summary>
-internal sealed record ParsedKey(IReadOnlyList<string> Modifiers, string? Name, string? Character);
+public sealed record ParsedKey(IReadOnlyList<string> Modifiers, string? Name, string? Character);
 
 /// <summary>
 /// .NET-only holder name (C# has no free functions): upstream's <c>KEY_MODIFIERS</c>, <c>KEY_NAMES</c> and <c>parseKey</c> in <c>engine/contract.ts</c>.
 /// The key grammar of <c>press</c>, shared by every engine so a test's key names are portable: zero or more modifiers
 /// and one key, joined by <c>+</c>. A modifier is <c>Shift</c>, <c>Control</c>, <c>Alt</c>, <c>Meta</c>, or
-/// <c>ControlOrMeta</c>. A named key is one of <see cref="Names"/>. Any single printable character is typed as itself.
+/// <c>ControlOrMeta</c>. A named key is one of <see cref="KeyNames"/>. Any single printable character is typed as itself.
 /// The harness refuses a key outside it with <c>INVALID_ARGUMENT</c> (<c>Keys.RequireKey</c>); an engine without a grammar-valid key refuses it with <c>UNSUPPORTED_CAPABILITY</c>. It never reinterprets the spelling.
 /// </summary>
-internal static class KeyGrammar
+public static class KeyGrammar
 {
-    public static IReadOnlyList<string> Modifiers => KeyModifiers.Names;
+    public static IReadOnlyList<string> KeyModifiers => Engine.KeyModifiers.Names;
 
-    public static IReadOnlyList<string> Names { get; } =
+    public static IReadOnlyList<string> KeyNames { get; } =
     [
         "Enter", "Escape", "Tab", "Backspace", "Delete", "Insert", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight",
         "Home", "End", "PageUp", "PageDown", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
@@ -32,7 +32,7 @@ internal static class KeyGrammar
     /// modifier, a bare modifier, or several characters. A literal <c>+</c> is the character after the last separator,
     /// so <c>Shift++</c> presses <c>+</c> with Shift held.
     /// </summary>
-    public static ParsedKey? Parse(string key)
+    public static ParsedKey? ParseKey(string key)
     {
         if (key.Length == 0)
         {
@@ -55,7 +55,7 @@ internal static class KeyGrammar
         var modifiers = new List<string>();
         foreach (var part in parts[..^1])
         {
-            if (!Modifiers.Contains(part) || modifiers.Contains(part))
+            if (!KeyModifiers.Contains(part) || modifiers.Contains(part))
             {
                 return null;
             }
@@ -63,7 +63,7 @@ internal static class KeyGrammar
             modifiers.Add(part);
         }
 
-        if (Names.Contains(last))
+        if (KeyNames.Contains(last))
         {
             return new ParsedKey(modifiers, last, null);
         }

@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed record EngineAppInfo : IEquatable<EngineAppInfo>
+public record EngineAppInfo : IEquatable<EngineAppInfo>
 ```
 
 
@@ -25,6 +25,8 @@ launches. The URL itself stays with the harness. Upstream's `EngineAppInfo`, wit
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;EngineAppInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
+
+**Derived:** [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 

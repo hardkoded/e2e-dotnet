@@ -251,6 +251,21 @@ Text appended to the act rules. Judges never see it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_AgentConfig_Tools_"></a>
+<a id="E2E_AgentConfig_Tools"></a>
+
+### Tools
+
+
+```csharp
+public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
+```
+
+
+The project tools `tools` declares, each a command (.NET-only: upstream's config holds `defineTool` calls, and a JSON file has no code). Null when the entry declares none.
+
+**Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 ## Methods
 
 <a id="E2E_AgentConfig_CreateJudge_"></a>

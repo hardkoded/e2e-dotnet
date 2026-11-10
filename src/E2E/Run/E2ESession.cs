@@ -228,6 +228,9 @@ public sealed class E2ESession : IAsyncDisposable
                     RunId = AttemptReport.RunId,
                     AttemptId = attemptId,
                     Permissions = options.Permissions,
+                    BundleId = options.BundleId,
+                    AppPath = options.AppPath,
+                    LaunchArguments = options.LaunchArguments,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
                     Env = env,
@@ -1343,6 +1346,15 @@ public sealed class E2ESessionOptions
 
     /// <summary>The target's <c>app.permissions</c>: what the engine grants the app. Upstream's <c>EngineAppInfo.permissions</c>.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
+    /// <summary>The target's <c>app.bundleId</c>, handed to the engine as <see cref="EngineStartOptions.BundleId"/>.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>The target's <c>app.appPath</c>, handed to the engine as <see cref="EngineStartOptions.AppPath"/>.</summary>
+    public string? AppPath { get; init; }
+
+    /// <summary>The target's <c>app.launchArguments</c>, handed to the engine as <see cref="EngineStartOptions.LaunchArguments"/>.</summary>
+    public IReadOnlyList<string>? LaunchArguments { get; init; }
 
     /// <summary>Anchors the files a test names, such as a route's fulfill <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }

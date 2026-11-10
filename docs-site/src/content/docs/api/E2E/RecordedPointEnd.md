@@ -34,11 +34,14 @@ Upstream's `TracePointEnd`: a recorded point and, when a listed node with a dura
 
 
 ```csharp
-public Point Point { get; set; }
+public Point? Point { get; set; }
 ```
 
 
-**Value:** [Point](/api/E2E.Engine/Point/)
+The point the end was placed at. Null when a stored end lost it: upstream's `readPointEnd` then reads the end as undefined, so
+`ReadTraceEntry(CacheEntry)` makes the entry a miss, where a 0,0 default would replay a point nobody recorded.
+
+**Value:** `Point?`
 
 <a id="E2E_RecordedPointEnd_Under_"></a>
 <a id="E2E_RecordedPointEnd_Under"></a>

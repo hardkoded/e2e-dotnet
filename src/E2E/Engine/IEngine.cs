@@ -102,6 +102,15 @@ public sealed class EngineStartOptions
     /// <summary>The target's name, for the errors an engine raises about its <c>app</c>. Upstream's <c>EngineInitContext.targetName</c>.</summary>
     public string? TargetName { get; init; }
 
+    /// <summary>The installed app to launch, as the target declared it (upstream's <c>EngineAppInfo.bundleId</c>). Unset for a target without one.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>The build to install, as the target declared it, relative to <see cref="ProjectRoot"/> (upstream's <c>EngineAppInfo.appPath</c>).</summary>
+    public string? AppPath { get; init; }
+
+    /// <summary>Arguments every fresh launch passes the app (upstream's <c>EngineAppInfo.launchArguments</c>).</summary>
+    public IReadOnlyList<string>? LaunchArguments { get; init; }
+
     /// <summary>
     /// The permissions the app holds, by name: the target's <c>app.permissions</c> (upstream's <c>EngineAppInfo.permissions</c>). What each
     /// state means is the engine's. A browser grants each name to every page of the attempt and takes <c>grant</c> only.
@@ -203,6 +212,15 @@ public interface IEngine
     IReadOnlyList<Secret> Secrets => [];
 
     Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Checks the app a target declares against what this engine can drive, at config load, synchronously: throw <c>INVALID_CONFIG</c>
+    /// naming <see cref="EngineAppCheckInfo.TargetName"/> for a field the platform needs and the target left out (a URL, a bundle id) or one
+    /// it cannot drive. The harness has already checked every field's shape. Upstream's optional <c>validateApp</c>; the default checks nothing.
+    /// </summary>
+    void ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+    {
+    }
 }
 
 /// <summary>One attempt's session with the app. Disposed at the end of the attempt, after <c>afterEach</c>.</summary>
@@ -518,7 +536,7 @@ public sealed record EngineFinishInfo
 /// The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device
 /// launches. The URL itself stays with the harness. Upstream's <c>EngineAppInfo</c>, with the members the port's config declares.
 /// </summary>
-public sealed record EngineAppInfo
+public record EngineAppInfo
 {
     /// <summary>The site of the app's URL, its registrable domain. Null for an app without a URL, which is no policy at all.</summary>
     public string? Site { get; init; }
@@ -534,6 +552,23 @@ public sealed record EngineAppInfo
 
     /// <summary>Permissions the app holds, by name; what each state means is the engine's.</summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+}
+
+/// <summary>
+/// The app a target declares, as its engine reads it at config load (upstream's <c>EngineAppDeclaration</c>): the target's <c>app</c>, with the
+/// URL the target opens. The harness has checked the shape of every field before <see cref="IEngine.ValidateApp"/> sees it.
+/// </summary>
+public sealed record EngineAppDeclaration : EngineAppInfo
+{
+    /// <summary>Base URL the target opens, as declared; see <c>app.url</c>.</summary>
+    public string? Url { get; init; }
+}
+
+/// <summary>Handed to <see cref="IEngine.ValidateApp"/> beside the declaration (upstream's <c>EngineAppCheckInfo</c>).</summary>
+public sealed record EngineAppCheckInfo
+{
+    /// <summary>The target declaring the app, for the message of a refusal.</summary>
+    public required string TargetName { get; init; }
 }
 
 /// <summary>

@@ -5,7 +5,7 @@
 namespace E2E.Engine;
 
 /// <summary>Cancellation with the engine error taxonomy (upstream <c>engine/timing.ts</c>).</summary>
-internal static class Timing
+public static class Timing
 {
     /// <summary>
     /// Checks cancellation before dispatching the work, then abandons the wait on abort. The work an abort abandons keeps running,

@@ -163,6 +163,21 @@ The digest of the target app's resolved `identity` and `environment` that the re
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_E2ESessionOptions_AppPath_"></a>
+<a id="E2E_E2ESessionOptions_AppPath"></a>
+
+### AppPath
+
+
+```csharp
+public string? AppPath { get; init; }
+```
+
+
+The target's `app.appPath`, handed to the engine as [AppPath](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_AppPath).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_E2ESessionOptions_ArtifactStore_"></a>
 <a id="E2E_E2ESessionOptions_ArtifactStore"></a>
 
@@ -218,6 +233,21 @@ public int Attempt { get; init; }
 public string? BaseUrl { get; init; }
 ```
 
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_E2ESessionOptions_BundleId_"></a>
+<a id="E2E_E2ESessionOptions_BundleId"></a>
+
+### BundleId
+
+
+```csharp
+public string? BundleId { get; init; }
+```
+
+
+The target's `app.bundleId`, handed to the engine as [BundleId](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_BundleId).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -352,6 +382,21 @@ public TimeSpan JudgmentTimeout { get; init; }
 The default agent's `judgmentTimeout`: the deadline of one `assert`, `waitFor`, or `extract`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
+
+<a id="E2E_E2ESessionOptions_LaunchArguments_"></a>
+<a id="E2E_E2ESessionOptions_LaunchArguments"></a>
+
+### LaunchArguments
+
+
+```csharp
+public IReadOnlyList<string>? LaunchArguments { get; init; }
+```
+
+
+The target's `app.launchArguments`, handed to the engine as [LaunchArguments](/api/E2E.Engine/EngineStartOptions/#E2E_Engine_EngineStartOptions_LaunchArguments).
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_E2ESessionOptions_LaunchTimeout_"></a>
 <a id="E2E_E2ESessionOptions_LaunchTimeout"></a>
