@@ -1,0 +1,222 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/KanbanBoard.tsx.
+   Sabotage scenario: a dnd-kit style kanban board driven purely by pointer events. Nothing is HTML5 draggable, so dragstart/dragover/drop
+   and dataTransfer do nothing. A drag only activates after pointerdown followed by pointer movement past an 8px threshold, and the drop
+   column is resolved from the pointerup coordinates. Plain clicks on cards are no-ops. The board must match the target layout when
+   Submit board is pressed.
+   Pointer capture is set by the page script installed below, inside the browser's own pointerdown, the way upstream's
+   setPointerCapture does. *@
+@using System.Globalization
+@inject IJSRuntime JS
+<div @ref="_root" style="@Container">
+    <p style="@Hint">Move Fix payment bug to Done and Refactor onboarding to In Progress, then press Submit board.</p>
+    <div style="@BoardRow">
+        @foreach (var column in Columns)
+        {
+            <div @key="column.Id" data-testid="@($"column-{column.Id}")" @ref="_columnRefs[column.Id]" style="@Column">
+                <p style="@ColumnTitle">@column.Title</p>
+                @foreach (var cardId in _board[column.Id])
+                {
+                    var lifted = _drag is { Active: true } && _drag.CardId == cardId;
+                    <div @key="cardId" data-testid="@($"card-{cardId}")" style="@(lifted ? CardLifted : Card)"
+                         @onpointerdown="(args) => HandlePointerDown(args, cardId, column.Id)"
+                         @onpointermove="HandlePointerMove" @onpointerup="HandlePointerUp" @onpointercancel="HandlePointerCancel">@CardLabels[cardId]</div>
+                }
+                @if (_board[column.Id].Count == 0)
+                {
+                    <p style="@EmptyColumn">Empty</p>
+                }
+            </div>
+        }
+    </div>
+    @if (_drag is { Active: true } activeDrag)
+    {
+        <div style="@($"{Ghost} left: {(activeDrag.X + 8).ToString(CultureInfo.InvariantCulture)}px; top: {(activeDrag.Y + 8).ToString(CultureInfo.InvariantCulture)}px;")">@CardLabels[activeDrag.CardId]</div>
+    }
+    <button type="button" data-testid="submit-board" style="@SubmitButton" @onclick="HandleSubmit">Submit board</button>
+    @if (_error is not null)
+    {
+        <p data-testid="error-message" style="@ErrorText">@_error</p>
+    }
+    @if (_done)
+    {
+        <p data-testid="success-message" style="@SuccessText">Board matches the goal</p>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// The page script (upstream's column rect read and pointer capture, as .NET-only glue). Installed once per page with eval, because a
+    /// Razor component cannot ship a script file.
+    /// </summary>
+    private const string PageScript = """
+        window.__benchRect = (element) => {
+          const box = element.getBoundingClientRect();
+          return { left: box.left, top: box.top, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
+        };
+        window.__benchCapture = (root, selector) => {
+          root.addEventListener("pointerdown", (event) => {
+            event.target.closest(selector)?.setPointerCapture(event.pointerId);
+          });
+        };
+        """;
+
+    private const double DragThresholdPx = 8;
+
+    private static readonly ColumnInfo[] Columns =
+    [
+        new("todo", "Todo"),
+        new("in-progress", "In Progress"),
+        new("done", "Done"),
+    ];
+
+    private static readonly Dictionary<string, string> CardLabels = new()
+    {
+        ["fix-payment-bug"] = "Fix payment bug",
+        ["update-pricing-page"] = "Update pricing page",
+        ["refactor-onboarding"] = "Refactor onboarding",
+        ["polish-empty-states"] = "Polish empty states",
+    };
+
+    private static readonly Dictionary<string, string[]> TargetBoard = new()
+    {
+        ["todo"] = ["update-pricing-page"],
+        ["in-progress"] = ["polish-empty-states", "refactor-onboarding"],
+        ["done"] = ["fix-payment-bug"],
+    };
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string BoardRow = "display: flex; gap: 12px; align-items: stretch;";
+    private const string Column = "flex: 1; display: flex; flex-direction: column; gap: 8px; border: 1px solid #ccc; border-radius: 8px; padding: 12px; min-height: 220px; background-color: #fafafa;";
+    private const string ColumnTitle = "font-size: 13px; font-weight: 700; text-transform: uppercase; color: #666; margin: 0;";
+    private const string Card = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; background-color: #fff; cursor: grab; user-select: none; touch-action: none;";
+    private const string CardLifted = "border: 1px dashed #999; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; background-color: #f0f0f0; color: #aaa; cursor: grabbing; user-select: none; touch-action: none;";
+    private const string Ghost = "position: fixed; z-index: 10; border: 1px solid #999; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; background-color: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); pointer-events: none;";
+    private const string EmptyColumn = "font-size: 13px; color: #aaa; text-align: center; margin: auto 0;";
+    private const string SubmitButton = "align-self: center; border: 1px solid #333; border-radius: 8px; padding: 10px 20px; font-size: 15px; font-weight: 600; background-color: #fff; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly record struct ColumnInfo(string Id, string Title);
+
+    private sealed record DragState(string CardId, string FromColumn, double StartX, double StartY, double X, double Y, bool Active);
+
+    private sealed record Rect(double Left, double Top, double Width, double Height, double Right, double Bottom);
+
+    private readonly Dictionary<string, List<string>> _board = new()
+    {
+        ["todo"] = ["fix-payment-bug", "update-pricing-page", "refactor-onboarding"],
+        ["in-progress"] = ["polish-empty-states"],
+        ["done"] = [],
+    };
+
+    private readonly Dictionary<string, ElementReference> _columnRefs = new()
+    {
+        ["todo"] = default,
+        ["in-progress"] = default,
+        ["done"] = default,
+    };
+
+    private ElementReference _root;
+    private DragState? _drag;
+    private string? _error;
+    private bool _done;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", PageScript);
+            await JS.InvokeVoidAsync("__benchCapture", _root, "[data-testid^='card-']");
+        }
+    }
+
+    /// <summary>Starts a pending drag; it becomes active once the pointer moves past the threshold.</summary>
+    private void HandlePointerDown(PointerEventArgs args, string cardId, string fromColumn)
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        _drag = new DragState(cardId, fromColumn, args.ClientX, args.ClientY, args.ClientX, args.ClientY, Active: false);
+    }
+
+    /// <summary>Tracks the captured pointer: activates the drag once movement passes the threshold, then keeps the floating card glued to the pointer.</summary>
+    private void HandlePointerMove(PointerEventArgs args)
+    {
+        if (_drag is null)
+        {
+            return;
+        }
+
+        var distance = double.Hypot(args.ClientX - _drag.StartX, args.ClientY - _drag.StartY);
+        if (!_drag.Active && distance < DragThresholdPx)
+        {
+            return;
+        }
+
+        _drag = _drag with { X = args.ClientX, Y = args.ClientY, Active = true };
+    }
+
+    /// <summary>
+    /// Resolves the drop column from the release coordinates against the live column rects and moves the card there; a drag released
+    /// outside every column snaps the card back.
+    /// </summary>
+    private async Task HandlePointerUp(PointerEventArgs args)
+    {
+        if (_drag is null)
+        {
+            return;
+        }
+
+        var drag = _drag;
+        if (!drag.Active)
+        {
+            _drag = null;
+            return;
+        }
+
+        string? dropColumn = null;
+        foreach (var column in Columns)
+        {
+            var rect = await JS.InvokeAsync<Rect>("__benchRect", _columnRefs[column.Id]);
+            if (args.ClientX >= rect.Left && args.ClientX <= rect.Right && args.ClientY >= rect.Top && args.ClientY <= rect.Bottom)
+            {
+                dropColumn = column.Id;
+                break;
+            }
+        }
+
+        if (dropColumn is not null && dropColumn != drag.FromColumn)
+        {
+            _board[drag.FromColumn].Remove(drag.CardId);
+            _board[dropColumn].Add(drag.CardId);
+            _error = null;
+        }
+
+        _drag = null;
+    }
+
+    private void HandlePointerCancel(PointerEventArgs args) => _drag = null;
+
+    /// <summary>Compares the board against the target layout, ignoring order within a column, and flips to the terminal success state on a match.</summary>
+    private void HandleSubmit()
+    {
+        var matches = Columns.All(column =>
+        {
+            var actual = _board[column.Id].Order(StringComparer.Ordinal).ToArray();
+            var expected = TargetBoard[column.Id].Order(StringComparer.Ordinal).ToArray();
+            return actual.Length == expected.Length && actual.SequenceEqual(expected);
+        });
+        if (!matches)
+        {
+            _error = "Board does not match the goal yet";
+            return;
+        }
+
+        _error = null;
+        _done = true;
+    }
+}
