@@ -122,6 +122,27 @@ public sealed class DispatchPointerActionTests
         }, TimeSpan.FromHours(1));
     }
 
+    [Fact]
+    public async Task A_drag_that_outlives_its_call_budget_fails_and_releases_the_mouse_before_the_call_returns()
+    {
+        // The drag is paced over an hour and the call's own budget is under a second: the budget ends the call, and the drag must stop with
+        // the button released before the failed call returns, so no later action runs with the button still down.
+        await RunAsync(Page, async session =>
+        {
+            var context = new OperationContext(OperationOrigin.Test) { Timeout = TimeSpan.FromMilliseconds(800) };
+            var failure = await Assert.ThrowsAsync<EngineException>(() =>
+                session.PerformAtAsync(new Point(10, 20), new PointerAction.SwipeTo(new Point(1010, 20), TimeSpan.FromHours(1)), context, CancellationToken.None));
+            Assert.Equal(EngineErrorCodes.ActionMayHaveCommitted, failure.Code);
+
+            var log = await DragLogAsync(session);
+            Assert.Equal("up", log[^1]);
+            Assert.DoesNotContain("move 1010,20", log);
+
+            await Task.Delay(300);
+            Assert.Equal(log.Length, (await DragLogAsync(session)).Length);
+        });
+    }
+
     /// <summary>.NET-only: upstream's abort test has no case for a drag that is behind its schedule, where a step has no wait.</summary>
     [Fact]
     public async Task Stops_dispatching_moves_when_aborted_while_the_drag_is_behind_its_schedule()
