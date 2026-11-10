@@ -42,7 +42,7 @@ public sealed record RecordedVideoLink : RecordedVideo
     public required string MediaType { get; init; }
 }
 
-/// <summary>What <see cref="SessionRecordings.StopSpanAsync"/> hands back: the artifacts it registered and the videos the test sees.</summary>
+/// <summary>What <see cref="SessionRecordings.StopSpanAsync(IArtifactSink, CancellationToken)"/> hands back: the artifacts it registered and the videos the test sees.</summary>
 internal sealed record StoppedSpan(IReadOnlyList<string> Ids, IReadOnlyList<RecordedVideo> Videos);
 
 /// <summary>
@@ -81,6 +81,9 @@ internal sealed partial class SessionRecordings
         _recordsVideo = recordsVideo;
     }
 
+    // A window that is unbounded (zero or infinite) gives the call no timeout of its own.
+    private static TimeSpan? Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? timeout : null;
+
     /// <summary>True while a span records, so the attempt's end can stop it.</summary>
     public bool SpanRunning => _holder is Span;
 
@@ -88,28 +91,31 @@ internal sealed partial class SessionRecordings
     /// Starts the attempt's video. The recorder counts as held from the call on, even when the start fails: the engine may
     /// still be recording, and the attempt's close stops it either way.
     /// </summary>
-    public Task StartAttemptVideoAsync(CancellationToken cancellationToken)
+    public Task StartAttemptVideoAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         _holder = AttemptHolder;
-        return _session.StartVideoAsync(cancellationToken);
+        return _session.StartVideoAsync(OperationContext.Test with { Timeout = Bounded(timeout) }, cancellationToken);
     }
 
     /// <summary>Stops the attempt's video and returns its segments.</summary>
-    public Task<IReadOnlyList<VideoSegment>> StopAttemptVideoAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<VideoSegment>> StopAttemptVideoAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         if (ReferenceEquals(_holder, AttemptHolder))
         {
             _holder = null;
         }
 
-        return _session.StopVideoAsync(cancellationToken);
+        return _session.StopVideoAsync(OperationContext.Test with { Timeout = Bounded(timeout) }, cancellationToken);
     }
 
     /// <summary>
     /// Starts a span. Refused when the engine records no video, while the attempt's video records, and while another span
     /// records. A start that fails is stopped, so the next one begins from nothing.
     /// </summary>
-    public async Task StartSpanAsync(string? name, CancellationToken cancellationToken)
+    public Task StartSpanAsync(string? name, CancellationToken cancellationToken) => StartSpanAsync(name, OperationContext.Test, cancellationToken);
+
+    /// <summary><see cref="StartSpanAsync(string?, CancellationToken)"/> with the video start and any cleanup stop run on <paramref name="context"/>.</summary>
+    public async Task StartSpanAsync(string? name, OperationContext context, CancellationToken cancellationToken)
     {
         if (!_recordsVideo)
         {
@@ -133,7 +139,7 @@ internal sealed partial class SessionRecordings
         _holder = span;
         try
         {
-            await _session.StartVideoAsync(cancellationToken).ConfigureAwait(false);
+            await _session.StartVideoAsync(context, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -141,7 +147,7 @@ internal sealed partial class SessionRecordings
 
             // The engine may still have come up, so it is stopped within the cleanup budget: whatever that does, the start's own failure is the one to tell.
             using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-            await ((Task)_session.StopVideoAsync(budget.Token)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            await ((Task)_session.StopVideoAsync(context, budget.Token)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             throw;
         }
 
@@ -152,7 +158,10 @@ internal sealed partial class SessionRecordings
     /// Stops the running span, moves its files into <c>recordings/</c>, and registers each file or link as a video artifact;
     /// returns their artifact ids and what the test sees, absolute paths and links in play order.
     /// </summary>
-    public async Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, CancellationToken cancellationToken)
+    public Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, CancellationToken cancellationToken) => StopSpanAsync(sink, OperationContext.Test, cancellationToken);
+
+    /// <summary><see cref="StopSpanAsync(IArtifactSink, CancellationToken)"/> with the video stop run on <paramref name="context"/>.</summary>
+    public async Task<StoppedSpan> StopSpanAsync(IArtifactSink sink, OperationContext context, CancellationToken cancellationToken)
     {
         if (_holder is not Span span)
         {
@@ -160,7 +169,7 @@ internal sealed partial class SessionRecordings
         }
 
         _holder = null;
-        var segments = await _session.StopVideoAsync(cancellationToken).ConfigureAwait(false);
+        var segments = await _session.StopVideoAsync(context, cancellationToken).ConfigureAwait(false);
         var ids = new List<string>();
         var videos = new List<RecordedVideo>();
         var directory = Path.GetFullPath(sink.Dir);

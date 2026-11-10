@@ -76,7 +76,7 @@ public sealed class RunnerEngineContractTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Threads_a_consistent_live_OperationContext_through_every_engine_call()
+    public async Task Threads_a_consistent_live_OperationContext_through_every_engine_call()
     {
         var fake = Fake();
         await using var session = await StartAsync(fake, "taps a node");
@@ -98,9 +98,9 @@ public sealed class RunnerEngineContractTests : IDisposable
             }
         }
 
-        // Partial: only the calls that take an OperationContext carry the ids (Open, Observe, Press and the rest take none).
-        var withContext = calls.Where(call => call.Context is not null).ToList();
-        Assert.True(withContext.Count > 0);
+        // Every call the harness makes carries the context, the ids of the attempt included (DisposeAsync is the one member that takes none, and it runs after this).
+        var withContext = calls.Where(call => call.Method != nameof(IAsyncDisposable.DisposeAsync)).ToList();
+        Assert.All(withContext, call => Assert.NotNull(call.Context));
         Assert.Single(withContext.Select(call => call.Context!.AttemptId).Distinct());
 
         var performs = calls.Where(call => call.Method == nameof(IEngineSession.PerformAsync)).ToList();
@@ -113,6 +113,25 @@ public sealed class RunnerEngineContractTests : IDisposable
         Assert.Single(fake.AttemptIds);
         Assert.Equal(session.AttemptId, fake.AttemptIds[0]);
         Assert.Equal(session.RunId, Assert.Single(fake.RunIds));
+    }
+
+    /// <summary>.NET-only (no upstream <c>it</c>): the app's back carries the call's budget as its context's timeout, and so does the session's open.</summary>
+    [Fact]
+    public async Task Gives_the_app_back_and_open_calls_a_budget_on_their_context()
+    {
+        var fake = Fake();
+        await using var session = await StartAsync(fake, "goes back");
+        await session.App.OpenAsync("/settings/billing");
+        await session.App.BackAsync();
+        session.Complete();
+
+        foreach (var method in new[] { nameof(IEngineSession.OpenAsync), nameof(IEngineSession.BackAsync) })
+        {
+            var call = fake.Calls.Last(candidate => candidate.Method == method);
+            Assert.NotNull(call.Context);
+            Assert.NotNull(call.Context!.Timeout);
+            Assert.True(call.Context.Timeout >= TimeSpan.FromMilliseconds(1), method);
+        }
     }
 
     [Fact]

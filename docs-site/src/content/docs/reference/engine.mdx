@@ -100,7 +100,7 @@ One attempt's session with the app, disposed at the end of the attempt after `af
 | `SettleAttemptAsync(timeout, ct)` | | `settleAttempt` |
 | `DisposeAsync()` | always | `endAttempt` and `dispose` |
 
-The overloads without a `timeout` or a `context` are the ones an engine must write. The longer overloads default to calling the shorter one, so an engine that ignores the budget or the origin keeps compiling. That default is .NET-only; upstream passes one `OperationContext` to every call.
+The overloads without a `timeout` or a `context` are the ones an engine must write. The longer overloads default to calling the shorter one, so an engine that ignores the budget or the origin keeps compiling. That default is .NET-only; upstream passes one `OperationContext` to every call, and the runtime now calls the overload that takes one for every session call (`OpenAsync`, `ObserveAsync`, `PressAsync`, `TypeTextAsync`, `DismissKeyboardAsync`, `LocateAsync`, the screenshot, video, and state members, `RestartAsync`, `ClearStateAsync`, `SettleAttemptAsync`).
 
 #### OperationContext
 
@@ -120,9 +120,9 @@ public enum OperationOrigin { Test, Agent }
 | Upstream field | In the port |
 | --- | --- |
 | `signal` | The `CancellationToken` every call takes. It cancels when the attempt, or the hook running the call, ends. It does not cancel at the budget: bound each call by its budget yourself. |
-| `timeoutMs` | The `TimeSpan timeout` of `ObserveAsync`, `LocateAsync`, `ScreenshotAsync`, and `ScreenshotArtifactAsync`. A waiting call's last locate or read can get more than its deadline leaves, as long as the slowest read it has seen, within the test timeout. The action timeout of `PerformAsync` and `PerformAtAsync` is the next row. |
+| `timeoutMs` | The `TimeSpan timeout` of `ObserveAsync`, `LocateAsync`, `ScreenshotAsync`, and `ScreenshotArtifactAsync`, which is the `Timeout` of the context those overloads pass on. A waiting call's last locate or read can get more than its deadline leaves, as long as the slowest read it has seen, within the test timeout. The action timeout of `PerformAsync` and `PerformAtAsync` is the next row. |
 | `timeoutMs` | `OperationContext.Timeout` on `PerformAsync` and `PerformAtAsync`: the time left of the action's deadline, at least 1 ms. The web engine uses it as the Playwright `timeout` of the action, so a call's `timeout` option bounds the engine. Null leaves the engine its own action timeout. |
-| `runId`, `attemptId` | `OperationContext.RunId` and `OperationContext.AttemptId` on the overloads that take a context (`PerformAsync`, `PerformAtAsync`, `SwipeAsync`, `BackAsync`, `ResizeAsync`), and `EngineStartOptions.RunId` and `EngineStartOptions.AttemptId` at `StartAsync`. A session sets both, and the id of a call is the id it started with. The calls without a context (`OpenAsync`, `ObserveAsync`, and the rest) carry no ids. |
+| `runId`, `attemptId` | `OperationContext.RunId` and `OperationContext.AttemptId` on every call that takes a context, and `EngineStartOptions.RunId` and `EngineStartOptions.AttemptId` at `StartAsync`. A session sets both, and the id of a call is the id it started with. |
 | `origin` | `OperationContext.Origin`. A deterministic step verifies its outcome with `Expect`, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. |
 
 ### Capabilities
@@ -638,7 +638,7 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 | `validateApp`, `EngineAppDeclaration`, `EngineAppCheckInfo` | Not on `IEngine`; each first-party engine validates its own app ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)). |
 | `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
-| `OperationContext.signal` (the `CancellationToken` of each call), `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks; `runId` and `attemptId` on the calls that take no `OperationContext` | [#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366). |
+| `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
 | The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
 | `parseKey`, `KEY_NAMES`, `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `resolveExpression`, `pollCondition`, `rejectUnknownKeys` | `internal` ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)), or covered by C# types. |

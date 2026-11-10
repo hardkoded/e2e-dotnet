@@ -1178,7 +1178,10 @@ public sealed partial class WebEngine : IEngine
 
         public string Route => Routes.LocationOf(Page.Url);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("navigation", cancellationToken, async () =>
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => OpenAsync(url, OperationContext.Test, cancellationToken);
+
+        // The operation's timeout bounds the navigation (upstream's open(url, operation)); a context with none leaves the action timeout.
+        public Task OpenAsync(string url, OperationContext operation, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("navigation", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -1188,7 +1191,7 @@ public sealed partial class WebEngine : IEngine
                     await EnsurePageAsync().ConfigureAwait(false);
 
                     // The budget is the navigation's: opening the first page does not spend it.
-                    var budget = Budget("navigate to " + url, cancellationToken);
+                    var budget = Budget("navigate to " + url, cancellationToken, operation.Timeout);
                     await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions
                     {
                         WaitUntil = WaitUntilState.Load,
@@ -1830,10 +1833,13 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.press", cancellationToken, () =>
+        public Task PressAsync(string key, CancellationToken cancellationToken) => PressAsync(key, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="PressAsync(string, CancellationToken)"/> within <paramref name="context"/>'s timeout: upstream's <c>keyboard.press</c>.</summary>
+        public Task PressAsync(string key, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.press", cancellationToken, () =>
         {
             RequireObservation();
-            return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
+            return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken, context.Timeout);
         }));
 
         /// <summary>
@@ -1842,18 +1848,21 @@ public sealed partial class WebEngine : IEngine
         /// select-all and delete: the only locator-free clear, scoped by the browser to the whole editing host, so it is opt-in. Upstream's
         /// <c>typeText</c> of the web surface (<c>keyboard.type</c>).
         /// </summary>
-        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.type", cancellationToken, async () =>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => TypeTextAsync(text, replace, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="TypeTextAsync(string, bool, CancellationToken)"/> within <paramref name="context"/>'s timeout: upstream's <c>keyboard.type</c>.</summary>
+        public Task TypeTextAsync(string text, bool replace, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.type", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(text);
             RequireObservation();
-            await InputAsync(() => RequireEditableFocusAsync(), "keyboard.type", cancellationToken).ConfigureAwait(false);
+            await InputAsync(() => RequireEditableFocusAsync(), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
             if (replace)
             {
-                await InputAsync(() => Page.Keyboard.PressAsync("ControlOrMeta+A"), "keyboard.type", cancellationToken).ConfigureAwait(false);
-                await InputAsync(() => Page.Keyboard.PressAsync("Delete"), "keyboard.type", cancellationToken).ConfigureAwait(false);
+                await InputAsync(() => Page.Keyboard.PressAsync("ControlOrMeta+A"), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
+                await InputAsync(() => Page.Keyboard.PressAsync("Delete"), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
             }
 
-            await InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken).ConfigureAwait(false);
+            await InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
         }));
 
         /// <summary>
@@ -1893,13 +1902,16 @@ public sealed partial class WebEngine : IEngine
         public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.press", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
 
-        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("back", cancellationToken, async () =>
+        public Task BackAsync(CancellationToken cancellationToken) => BackAsync(OperationContext.Test, cancellationToken);
+
+        // The context's timeout bounds the navigation (upstream's back(operation)); a context with none leaves the action timeout.
+        public Task BackAsync(OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("back", cancellationToken, async () =>
         {
             try
             {
                 await NavigatingAsync(async () =>
                 {
-                    var budget = Budget("back", cancellationToken);
+                    var budget = Budget("back", cancellationToken, context.Timeout);
                     await budget.WithinAsync(Page.GoBackAsync(new PageGoBackOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
                 }).ConfigureAwait(false);
             }
@@ -1912,7 +1924,7 @@ public sealed partial class WebEngine : IEngine
 
         // Upstream's PlaywrightSurface.resize: the viewport `Browser.SetViewportAsync` sets, then the screen after it.
         public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
-            ActedAsync(cancellationToken, () => SetViewportAsync(size.Width, size.Height, cancellationToken));
+            ActedAsync(cancellationToken, () => SetViewportAsync(size.Width, size.Height, context, cancellationToken));
 
         public Task ForwardAsync(CancellationToken cancellationToken) => GuardAsync("forward", cancellationToken, async () =>
         {
@@ -1975,10 +1987,14 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task RestartAsync(CancellationToken cancellationToken) => GuardAsync("restart", cancellationToken, async () =>
+        public Task RestartAsync(CancellationToken cancellationToken) => RestartAsync(OperationContext.Test, cancellationToken);
+
+        // The operation's timeout bounds closing the old page and opening the new one (upstream's restart(operation)).
+        public Task RestartAsync(OperationContext operation, CancellationToken cancellationToken) => GuardAsync("restart", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
+            var budget = Budget("restart", cancellationToken, operation.Timeout);
             await VideoPageClosingAsync().ConfigureAwait(false);
 
             // The old page's nodes are gone with it: refs observed there read as stale, not as a closed target.
@@ -1986,13 +2002,15 @@ public sealed partial class WebEngine : IEngine
             _page = null;
             foreach (var page in context.Pages.ToList())
             {
-                await page.CloseAsync().ConfigureAwait(false);
+                await Within(budget, page.CloseAsync()).ConfigureAwait(false);
             }
 
-            await NewPageAsync(context).ConfigureAwait(false);
+            await Within(budget, NewPageAsync(context)).ConfigureAwait(false);
         });
 
-        public async Task ClearStateAsync(CancellationToken cancellationToken)
+        public Task ClearStateAsync(CancellationToken cancellationToken) => ClearStateAsync(OperationContext.Test, cancellationToken);
+
+        public async Task ClearStateAsync(OperationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (_persistent is not null)
@@ -2004,11 +2022,11 @@ public sealed partial class WebEngine : IEngine
                     $"app.clearState() is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context{remedy}");
             }
 
-            await ReplaceContextAsync(null).ConfigureAwait(false);
+            await ReplaceContextAsync(null, Budget("app.clearState", cancellationToken, context.Timeout)).ConfigureAwait(false);
         }
 
-        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one. A restore bounds each wait
-        // by its operation budget (upstream's transition budget); app.clearState() passes none, as it never did.
+        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one. A restore and app.clearState() bound each wait
+        // by its operation budget (upstream's transition budget); app.clearState() takes one too, as upstream's guard does.
         private async Task ReplaceContextAsync(string? storageState, OperationBudget? budget = null)
         {
             ThrowPending();
@@ -2031,9 +2049,12 @@ public sealed partial class WebEngine : IEngine
         private static Task Within(OperationBudget? budget, Task call) => budget is null ? call : budget.WithinAsync(call);
 
         /// <summary>Upstream's <c>captureState</c>: the context's cookies, local storage, and IndexedDB, as a Playwright storage state.</summary>
-        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => GuardAsync("state capture", cancellationToken, async () =>
+        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => CaptureStateAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>state.capture</c> within <paramref name="context"/>'s timeout.</summary>
+        public Task<EngineState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("state capture", cancellationToken, async () =>
         {
-            var budget = Budget("state capture", cancellationToken);
+            var budget = Budget("state capture", cancellationToken, context.Timeout);
             try
             {
                 var storageState = await budget.WithinAsync(RequireContext().StorageStateAsync(new BrowserContextStorageStateOptions { IndexedDB = true })).ConfigureAwait(false);
@@ -2046,7 +2067,10 @@ public sealed partial class WebEngine : IEngine
         });
 
         /// <summary>Upstream's <c>restoreState</c>: replaces the attempt's context with one seeded from the storage state.</summary>
-        public async Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken)
+        public Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) => RestoreStateAsync(state, OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>state.restore</c> within <paramref name="context"/>'s timeout.</summary>
+        public async Task RestoreStateAsync(EngineState state, OperationContext context, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(state);
             cancellationToken.ThrowIfCancellationRequested();
@@ -2068,7 +2092,7 @@ public sealed partial class WebEngine : IEngine
                     $"restoring a state is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context");
             }
 
-            var budget = Budget("state restore", cancellationToken);
+            var budget = Budget("state restore", cancellationToken, context.Timeout);
             try
             {
                 await ReplaceContextAsync(data.ToJsonString(), budget).ConfigureAwait(false);
@@ -2502,14 +2526,17 @@ public sealed partial class WebEngine : IEngine
             });
         });
 
-        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => GuardAsync("setViewport", cancellationToken, async () =>
+        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => SetViewportAsync(width, height, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="SetViewportAsync(int, int, CancellationToken)"/> within <paramref name="context"/>'s timeout: the viewport change upstream's <c>resize</c> bounds by its guard.</summary>
+        public Task SetViewportAsync(int width, int height, OperationContext context, CancellationToken cancellationToken) => GuardAsync("setViewport", cancellationToken, async () =>
         {
             if (width < 0 || height < 0)
             {
                 throw new ArgumentOutOfRangeException(width < 0 ? nameof(width) : nameof(height), "the viewport needs whole, non-negative pixels, got " + width.ToString(System.Globalization.CultureInfo.InvariantCulture) + "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            var budget = Budget("setViewport", cancellationToken);
+            var budget = Budget("setViewport", cancellationToken, context.Timeout);
             _viewport = new ViewportSize { Width = width, Height = height };
             if (_page is not null)
             {
@@ -2683,9 +2710,12 @@ public sealed partial class WebEngine : IEngine
             await Page.EvaluateAsync(PageScript.NextRenderedFrame).ConfigureAwait(false);
         }
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>artifacts.screenshot</c> bounded by <paramref name="context"/>'s timeout.</summary>
+        public Task<EngineScreenshot> ScreenshotAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
         {
-            var budget = Budget("screenshot", cancellationToken);
+            var budget = Budget("screenshot", cancellationToken, context.Timeout);
             try
             {
                 var page = Page;
@@ -2734,9 +2764,11 @@ public sealed partial class WebEngine : IEngine
         /// A redacted screenshot artifact: secure fields in every frame are masked at the source, as in observation pixels. The file is
         /// written through a unique temporary name and moved into place (upstream's <c>screenshot</c> in <c>web/src/surface.ts</c>).
         /// </summary>
-        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
+        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, OperationContext.Test, cancellationToken);
+
+        public Task<string> ScreenshotArtifactAsync(string? label, OperationContext context, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
         {
-            var budget = Budget("screenshot", cancellationToken);
+            var budget = Budget("screenshot", cancellationToken, context.Timeout);
             var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
 
             // The masks are resolved in the document showing when the capture starts. A capture that fails while the page replaces that

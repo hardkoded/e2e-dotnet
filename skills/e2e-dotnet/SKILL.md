@@ -344,16 +344,23 @@ lines you changed:
 - An engine that acts differently for a test's step than for the agent (a
   device that settles only for the agent) overrides the `IEngineSession`
   overloads that take an `OperationContext`: `PerformAsync`, `PerformAtAsync`,
-  `SwipeAsync`, and `BackAsync`. `context.Origin` is `OperationOrigin.Test` for
-  a step of the test and `OperationOrigin.Agent` for the agent. The overloads
-  without a context stay, and an engine that overrides only those acts the same
-  for both. The context also carries `RunId` and `AttemptId` (the ids
+  `SwipeAsync`, and `BackAsync`. Every other session call also takes one
+  (`OpenAsync`, `ObserveAsync`, `PressAsync`, `TypeTextAsync`, `LocateAsync`,
+  the screenshot, video, and state members, and the rest), and the runtime
+  passes it. `context.Origin` is `OperationOrigin.Test` for a step of the test
+  and `OperationOrigin.Agent` for the agent. The overloads without a context
+  stay, and an engine that overrides only those acts the same for both. The context also carries `RunId` and `AttemptId` (the ids
   `EngineStartOptions.RunId` and `AttemptId` named at start); `OperationContext.Test`
   and `Agent` themselves hold none. For a test's step on `PerformAsync` and
   `PerformAtAsync`, `OperationContext.Timeout` is the time left of the action's
   deadline (a call's `Timeout` option, else the action timeout), at least 1 ms;
   `WebEngine` uses it as the action's timeout. It is null for the agent and for
   a context built by hand: the engine then keeps its own action timeout.
+  `SwipeAsync`, `BackAsync`, and `ResizeAsync` carry the agent's remaining step
+  budget, and the app's open, back, restart, clear-state, and screenshot calls
+  carry the browser budget, so `context.Timeout` is the time the call has. The
+  agent's perform calls carry the step's remaining budget as well, and so does a
+  replayed recorded action.
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with

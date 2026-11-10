@@ -136,7 +136,7 @@ public sealed partial class Agent
         // A recorded keyboard input goes to whatever holds focus as given: the focus it relies on is the effect of the recorded actions before it.
         public async Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
         {
-            await scope.Session.TypeTextAsync(value, options?.Replace == true, cancellationToken).ConfigureAwait(false);
+            await scope.Session.TypeTextAsync(value, options?.Replace == true, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "typeText" });
         }
 
@@ -144,13 +144,13 @@ public sealed partial class Agent
         {
             // Upstream's `keyboard.press` session guard (engine/session.ts).
             Keys.RequireKey(key);
-            await scope.Session.PressAsync(key, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PressAsync(key, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
         }
 
         public async Task DismissKeyboardAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.DismissKeyboardAsync(cancellationToken).ConfigureAwait(false);
+            await scope.Session.DismissKeyboardAsync(budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "dismissKeyboard" });
         }
 
@@ -187,11 +187,11 @@ public sealed partial class Agent
             {
                 if (list is null)
                 {
-                    await scope.Session.SwipeAsync(direction, null, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.SwipeAsync(direction, null, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
                 }
 
                 feed.ArmAfter(new RecordedAction { Kind = "scroll" });
@@ -200,20 +200,20 @@ public sealed partial class Agent
 
         public async Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {
-            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, url), cancellationToken).ConfigureAwait(false);
+            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, url), budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "navigate" });
         }
 
         public async Task BackAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.BackAsync(OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.BackAsync(budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
         public async Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
         {
             var viewport = Geometry.RequireViewportSize(size);
-            await scope.Session.ResizeAsync(viewport, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.ResizeAsync(viewport, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
             feed.ArmAfter(new RecordedAction { Kind = "resize" });
         }
@@ -222,7 +222,7 @@ public sealed partial class Agent
         // prose is for a model, which a replay has none of.
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
             return new PointTapResult(point, null, "");
@@ -230,7 +230,7 @@ public sealed partial class Agent
 
         public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
             return new PointTapResult(point, null, "");
@@ -238,7 +238,7 @@ public sealed partial class Agent
 
         public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             _dragged = (from, to);
             feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
             return new PointDragResult(from, to, null, null, "");
@@ -259,7 +259,7 @@ public sealed partial class Agent
                 Keys.RequireKey(press.Key);
             }
 
-            await scope.Session.PerformAsync(Resolve(target), action, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAsync(Resolve(target), action, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = kind, Value = value });
         }
     }

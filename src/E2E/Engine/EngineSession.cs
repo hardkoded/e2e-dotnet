@@ -88,14 +88,26 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     public Task OpenAsync(string url, CancellationToken cancellationToken) =>
         Guard("navigation", cancellationToken, () => _engine.OpenAsync(url, cancellationToken));
 
+    public Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("navigation", cancellationToken, () => _engine.OpenAsync(url, Stamp(context), cancellationToken));
+
     public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
         Guard("observation", cancellationToken, () => _engine.ObserveAsync(cancellationToken));
+
+    public Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("observation", cancellationToken, () => _engine.ObserveAsync(Stamp(context), cancellationToken));
 
     public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("observation", cancellationToken, () => _engine.ObserveAsync(timeout, cancellationToken));
 
+    public Task<Observation> ObserveAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("observation", cancellationToken, () => _engine.ObserveAsync(timeout, Stamp(context), cancellationToken));
+
     public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("observation", cancellationToken, () => _engine.ObserveAsync(options, timeout, cancellationToken));
+
+    public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("observation", cancellationToken, () => _engine.ObserveAsync(options, timeout, Stamp(context), cancellationToken));
 
     public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
         Guard("actions", cancellationToken, () =>
@@ -124,14 +136,30 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
             return _engine.PressAsync(key, cancellationToken);
         });
 
+    public Task PressAsync(string key, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("keyboard input", cancellationToken, () =>
+        {
+            Keys.RequireKey(key);
+            return _engine.PressAsync(key, Stamp(context), cancellationToken);
+        });
+
     public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) =>
         Guard("keyboard input", cancellationToken, () => _engine.TypeTextAsync(text, replace, cancellationToken));
+
+    public Task TypeTextAsync(string text, bool replace, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("keyboard input", cancellationToken, () => _engine.TypeTextAsync(text, replace, Stamp(context), cancellationToken));
 
     public Task DismissKeyboardAsync(CancellationToken cancellationToken) =>
         Guard("keyboard dismissal", cancellationToken, () => _engine.DismissKeyboardAsync(cancellationToken));
 
+    public Task DismissKeyboardAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("keyboard dismissal", cancellationToken, () => _engine.DismissKeyboardAsync(Stamp(context), cancellationToken));
+
     public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("locators (screen)", cancellationToken, () => _engine.LocateAsync(expression, timeout, cancellationToken));
+
+    public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("locators (screen)", cancellationToken, () => _engine.LocateAsync(expression, timeout, Stamp(context), cancellationToken));
 
     public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
         Guard("actions", cancellationToken, () => _engine.SwipeAsync(direction, cancellationToken));
@@ -154,35 +182,68 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     public Task RestartAsync(CancellationToken cancellationToken) =>
         Guard("app restart", cancellationToken, () => _engine.RestartAsync(cancellationToken));
 
+    public Task RestartAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("app restart", cancellationToken, () => _engine.RestartAsync(Stamp(context), cancellationToken));
+
     public Task ClearStateAsync(CancellationToken cancellationToken) =>
         Guard("app state reset", cancellationToken, () => _engine.ClearStateAsync(cancellationToken));
+
+    public Task ClearStateAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("app state reset", cancellationToken, () => _engine.ClearStateAsync(Stamp(context), cancellationToken));
 
     public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         Guard("screenshots", cancellationToken, () => _engine.ScreenshotAsync(cancellationToken));
 
+    public Task<EngineScreenshot> ScreenshotAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("screenshots", cancellationToken, () => _engine.ScreenshotAsync(Stamp(context), cancellationToken));
+
     public Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("screenshots", cancellationToken, () => _engine.ScreenshotAsync(timeout, cancellationToken));
+
+    public Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("screenshots", cancellationToken, () => _engine.ScreenshotAsync(timeout, Stamp(context), cancellationToken));
 
     public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) =>
         Guard("screenshots", cancellationToken, () => _engine.ScreenshotArtifactAsync(label, cancellationToken));
 
+    public Task<string> ScreenshotArtifactAsync(string? label, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("screenshots", cancellationToken, () => _engine.ScreenshotArtifactAsync(label, Stamp(context), cancellationToken));
+
     public Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("screenshots", cancellationToken, () => _engine.ScreenshotArtifactAsync(label, timeout, cancellationToken));
+
+    public Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("screenshots", cancellationToken, () => _engine.ScreenshotArtifactAsync(label, timeout, Stamp(context), cancellationToken));
 
     public Task StartVideoAsync(CancellationToken cancellationToken) =>
         Guard("video recording", cancellationToken, () => _engine.StartVideoAsync(cancellationToken));
 
+    public Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("video recording", cancellationToken, () => _engine.StartVideoAsync(Stamp(context), cancellationToken));
+
     public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
         Guard("video recording", cancellationToken, () => _engine.StopVideoAsync(cancellationToken));
+
+    public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("video recording", cancellationToken, () => _engine.StopVideoAsync(Stamp(context), cancellationToken));
 
     public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) =>
         Guard("state capture", cancellationToken, () => _engine.CaptureStateAsync(cancellationToken));
 
+    public Task<EngineState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Guard("state capture", cancellationToken, () => _engine.CaptureStateAsync(Stamp(context), cancellationToken));
+
     public Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) =>
         Guard("state restore", cancellationToken, () => _engine.RestoreStateAsync(state, cancellationToken));
 
+    public Task RestoreStateAsync(EngineState state, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("state restore", cancellationToken, () => _engine.RestoreStateAsync(state, Stamp(context), cancellationToken));
+
     public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
         Guard("attempt settle", cancellationToken, () => _engine.SettleAttemptAsync(timeout, cancellationToken));
+
+    public Task SettleAttemptAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("attempt settle", cancellationToken, () => _engine.SettleAttemptAsync(timeout, Stamp(context), cancellationToken));
 
     /// <summary>Releasing the session belongs to the worker (upstream's <c>dispose()</c>), and is not normalized.</summary>
     public ValueTask DisposeAsync() => _engine.DisposeAsync();

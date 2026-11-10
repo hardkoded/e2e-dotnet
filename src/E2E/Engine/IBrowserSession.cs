@@ -109,7 +109,7 @@ public interface IBrowserSession : IEngineSession
     Task KeyboardTypeAsync(string text, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Sends one key as direct test input. Unlike <see cref="IEngineSession.PressAsync"/>,
+    /// Sends one key as direct test input. Unlike <see cref="IEngineSession.PressAsync(string, CancellationToken)"/>,
     /// it never needs a fresh observation.
     /// </summary>
     Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => PressAsync(key, cancellationToken);

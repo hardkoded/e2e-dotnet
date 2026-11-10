@@ -108,7 +108,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
                 dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
-                await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), OperationContext.Agent, token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
             }).ConfigureAwait(false);
         var recorded = Target(node, "drag", PlacementOf(node));
         recorded.Destination = DescribePlaced(dropped!);
@@ -218,7 +218,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     async (found, _) =>
                     {
                         var resolved = await SecretFill.AuthorizeSecretFillAsync(PolicyHost, _scope, secret, found, token).ConfigureAwait(false);
-                        await _scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), OperationContext.Agent, token).ConfigureAwait(false);
+                        await _scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                     }).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
@@ -279,7 +279,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "typeText",
             async token =>
             {
-                await _scope.Session.TypeTextAsync(value, replace, token).ConfigureAwait(false);
+                await _scope.Session.TypeTextAsync(value, replace, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitTypedAsync(new RecordedAction { Kind = "typeText", Replace = replace }, value).ConfigureAwait(false);
             },
             cancellationToken);
@@ -299,7 +299,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "pressKey",
             async token =>
             {
-                await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
+                await _scope.Session.PressAsync(key, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "pressKey", Key = key }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -311,7 +311,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "dismissKeyboard",
             async token =>
             {
-                await _scope.Session.DismissKeyboardAsync(token).ConfigureAwait(false);
+                await _scope.Session.DismissKeyboardAsync(_accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "dismissKeyboard" }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -382,7 +382,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var node = Resolve(target);
-                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), OperationContext.Agent, token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync("scrollTo", node).ConfigureAwait(false);
             },
             cancellationToken);
@@ -443,13 +443,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     var resolved = list is null ? null : ScrollTarget.ResolveScrollTarget(_feed, list);
                     if (resolved is null)
                     {
-                        await _scope.Session.SwipeAsync(direction, null, OperationContext.Agent, token).ConfigureAwait(false);
+                        await _scope.Session.SwipeAsync(direction, null, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                         RecordScroll(direction, null, null);
                         continue;
                     }
 
                     node = resolved.Node;
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), OperationContext.Agent, token).ConfigureAwait(false);
+                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                     RecordScroll(direction, node, resolved.Observation.Viewport);
                 }
 
@@ -474,7 +474,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "navigate",
             async token =>
             {
-                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
+                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheRoute.AppNavigation(url, _scope.AppOrigin) }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -485,7 +485,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "back",
             async token =>
             {
-                await _scope.Session.BackAsync(OperationContext.Agent, token).ConfigureAwait(false);
+                await _scope.Session.BackAsync(_accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "back" }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -498,7 +498,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "resize",
             async token =>
             {
-                await _scope.Session.ResizeAsync(viewport, OperationContext.Agent, token).ConfigureAwait(false);
+                await _scope.Session.ResizeAsync(viewport, _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 _scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
                 await CommitAsync(new RecordedAction { Kind = "resize", Size = viewport }).ConfigureAwait(false);
             },
@@ -594,7 +594,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             var found = Reading.NodeReading(observation, text, _scope.Redactor, within);
             if (found is not null)
             {
-                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), OperationContext.Agent, token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 return (paged.Node, paged.Spans, screens);
             }
 
@@ -664,11 +664,11 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         var resolved = list is null ? null : ScrollTargetOrLost(list);
         if (resolved is null)
         {
-            await _scope.Session.SwipeAsync(direction, null, OperationContext.Agent, token).ConfigureAwait(false);
+            await _scope.Session.SwipeAsync(direction, null, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
             return ((null, null), null);
         }
 
-        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), OperationContext.Agent, token).ConfigureAwait(false);
+        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
         return ((resolved.Node, SpansOf(resolved.Node, resolved.Observation.Viewport)), list);
     }
 
@@ -846,7 +846,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         TargetedAsync(
             node,
             token,
-            (found, _) => _scope.Session.PerformAsync(found, action, OperationContext.Agent, token));
+            (found, _) => _scope.Session.PerformAsync(found, action, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token));
 
     // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
     private async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform)
