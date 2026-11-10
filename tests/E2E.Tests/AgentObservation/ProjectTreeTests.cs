@@ -9,12 +9,8 @@ namespace E2E.Tests.AgentObservation;
 
 public sealed class ProjectTreeTests
 {
-    /// <summary>
-    /// Partial: the port has no selectors, so there is none to drop. It withholds the selection of a field whose value holds a secret,
-    /// where upstream redacts it, since a selection that is only part of a secret is not one a redaction can find.
-    /// </summary>
     [Fact]
-    public void Partial_Redacts_names_text_values_selections_and_attributes_and_drops_secure_values_secure_selections_and_selectors()
+    public void Renders_a_redacted_tree_names_text_values_and_attributes_redacted_no_secure_value_no_selection_a_secret_may_show_no_selector()
     {
         var redactor = Redactor.For([Secret.Create("password", "hunter2")]);
         var rect = new BoundingBox(1, 2, 3, 4);
@@ -24,7 +20,7 @@ public sealed class ProjectTreeTests
             Role = "document",
             Children =
             [
-                new SemanticNode { Ref = "n1", Role = "textbox", Name = "Password", Value = "hunter2", Selection = "hunter2", States = new NodeStates { Secure = true, Focused = true } },
+                new SemanticNode { Ref = "n1", Role = "textbox", Name = "Password", Value = "hunter2", Selection = "hunter2", Selector = "input[name=password]", States = new NodeStates { Secure = true, Focused = true } },
                 new SemanticNode { Ref = "n3", Role = "textbox", Value = "hunter2 stays", Selection = "hunter2" },
                 new SemanticNode
                 {
@@ -43,19 +39,42 @@ public sealed class ProjectTreeTests
         Assert.Equal("root", projected.Id);
         Assert.Equal("document", projected.Role);
         var secure = projected.Children[0];
+        Assert.Equal("n1", secure.Id);
+        Assert.Equal("textbox", secure.Role);
         Assert.Equal("Password", secure.Name);
         Assert.Null(secure.Value);
         Assert.Null(secure.Selection);
         Assert.True(secure.States.Secure);
         Assert.True(secure.States.Focused);
         var plain = projected.Children[1];
+        Assert.Equal("n3", plain.Id);
+        Assert.Equal("textbox", plain.Role);
         Assert.Equal("<secret:password> stays", plain.Value);
         Assert.Null(plain.Selection);
+        // Upstream compares the whole projection: n1 carries no value, text, attributes, or rect, and the root no name.
+        Assert.Null(projected.Name);
+        Assert.Null(projected.Value);
+        Assert.Null(projected.Text);
+        Assert.Null(projected.Selection);
+        Assert.Null(projected.Attributes);
+        Assert.Null(projected.Rect);
+        Assert.Null(secure.Text);
+        Assert.Null(secure.Attributes);
+        Assert.Null(secure.Rect);
+        Assert.Null(plain.Name);
+        Assert.Null(plain.Text);
+        Assert.Null(plain.Attributes);
+        Assert.Null(plain.Rect);
         var link = projected.Children[2];
+        Assert.Equal("n2", link.Id);
+        Assert.Equal("link", link.Role);
         Assert.Equal("<secret:password> profile", link.Name);
         Assert.Equal("see <secret:password>", link.Text);
         Assert.Equal("/u/<secret:password>", link.Attributes!["href"]);
         Assert.Equal(rect, link.Rect);
+        Assert.Null(link.Value);
+        Assert.Null(link.Selection);
         Assert.DoesNotContain("hunter2", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.Ordinal);
+        Assert.DoesNotContain("selector", System.Text.Json.JsonSerializer.Serialize(projected), StringComparison.OrdinalIgnoreCase);
     }
 }
