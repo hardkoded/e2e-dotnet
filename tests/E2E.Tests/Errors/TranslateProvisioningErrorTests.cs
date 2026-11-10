@@ -33,6 +33,37 @@ public sealed class TranslateProvisioningErrorTests
         Assert.Equal(EngineErrorCodes.Cancelled, code);
     }
 
+    // .NET-only: upstream has no caller token, so these pin the caller's cancel, not a case the upstream it names.
+    [Fact]
+    public void A_caller_cancel_during_provisioning_is_a_cancel_even_for_a_plain_failure()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new InvalidOperationException("download failed"), " while preparing", cancellation.Token);
+        var (category, code, _, _) = ErrorSerializer.Classify(translated);
+        Assert.Equal("infrastructure", category);
+        Assert.Equal(EngineErrorCodes.Cancelled, code);
+    }
+
+    [Fact]
+    public void A_caller_cancel_during_provisioning_is_a_cancel_even_for_a_stale_node()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new EngineException(EngineErrorCodes.NodeStale, "ref gone", retryable: true), " while preparing", cancellation.Token);
+        Assert.Equal(EngineErrorCodes.Cancelled, ErrorSerializer.Classify(translated).Code);
+    }
+
+    [Fact]
+    public void An_abort_that_is_not_the_callers_cancel_is_an_engine_failure()
+    {
+        var translated = ErrorSerializer.TranslateProvisioningError(new OperationCanceledException("installer timed out"), " while preparing", CancellationToken.None);
+        var (category, code, message, _) = ErrorSerializer.Classify(translated);
+        Assert.Equal("infrastructure", category);
+        Assert.Equal(EngineErrorCodes.EngineFailure, code);
+        Assert.Equal("installer timed out while preparing", message);
+    }
+
     [Fact]
     public void Keeps_the_category_of_a_harness_classified_error()
     {

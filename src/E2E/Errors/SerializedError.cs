@@ -195,7 +195,8 @@ internal static class ErrorSerializer
             return new EngineException(EngineErrorCodes.EngineFailure, engine.Message + suffix, engine);
         }
 
-        return cause is E2EException or OperationCanceledException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
+        // An abort that is not the caller's cancel, such as an installer's own timeout, is an engine failure, as upstream makes it.
+        return cause is E2EException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
     }
 
     /// <summary>
