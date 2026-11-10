@@ -1,0 +1,70 @@
+@* Upstream's app/src/Examples/CssContentUi.tsx.
+   Deliberately hostile accessibility: every visible string on this screen comes from CSS ::before content, so the DOM holds nothing but empty
+   divs with meaningless class names. Text extraction and a11y snapshots come back blank; the rendered pixels are the only place the labels exist. *@
+<div style="@Container">
+    <style>@StyleSheet</style>
+    @if (_step == Step.Pick)
+    {
+        <div class="wb-css-instruction" style="@Instruction"></div>
+        <div style="@TileRow">
+            <div class="wb-css-action-a" style="@Tile" @onclick="() => HandleAction(false)"></div>
+            <div class="wb-css-action-b" style="@Tile" @onclick="() => HandleAction(true)"></div>
+            <div class="wb-css-action-c" style="@Tile" @onclick="() => HandleAction(false)"></div>
+        </div>
+        @if (_failed)
+        {
+            <div class="wb-css-error" style="@ErrorText"></div>
+        }
+    }
+    @if (_step == Step.Confirm)
+    {
+        <div class="wb-css-confirm" style="@ConfirmButton" @onclick="() => _step = Step.Done"></div>
+    }
+    @if (_step == Step.Done)
+    {
+        <div class="wb-css-success" style="@SuccessText"></div>
+    }
+</div>
+
+@code {
+    private enum Step
+    {
+        Pick,
+        Confirm,
+        Done,
+    }
+
+    private const string StyleSheet = """
+        .wb-css-instruction::before { content: "Press Ship it, then confirm"; }
+        .wb-css-action-a::before { content: "Archive"; }
+        .wb-css-action-b::before { content: "Ship it"; }
+        .wb-css-action-c::before { content: "Delete"; }
+        .wb-css-confirm::before { content: "Confirm ship"; }
+        .wb-css-error::before { content: "Wrong action"; }
+        .wb-css-success::before { content: "Shipped successfully"; }
+        """;
+
+    private Step _step = Step.Pick;
+    private bool _failed;
+
+    /// <summary>Only the tile whose CSS-rendered label reads "Ship it" advances the flow; the other tiles flash the CSS-rendered error and keep the picker open.</summary>
+    private void HandleAction(bool correct)
+    {
+        if (!correct)
+        {
+            _failed = true;
+            return;
+        }
+
+        _failed = false;
+        _step = Step.Confirm;
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0; align-items: center;";
+    private const string Instruction = "font-size: 13px; color: #666;";
+    private const string TileRow = "display: flex; gap: 12px;";
+    private const string Tile = "min-width: 110px; border: 1px solid #ccc; border-radius: 8px; padding: 14px 16px; font-size: 16px; font-weight: 600; text-align: center; cursor: default; user-select: none;";
+    private const string ConfirmButton = "background-color: #111; color: #fff; border-radius: 8px; padding: 12px 24px; font-size: 16px; font-weight: 600; cursor: default; user-select: none;";
+    private const string ErrorText = "color: #c00; font-size: 14px;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0;";
+}

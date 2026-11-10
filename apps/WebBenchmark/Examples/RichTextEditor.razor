@@ -1,0 +1,119 @@
+@using System.Text.RegularExpressions
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/RichTextEditor.tsx.
+   Rich text scenario: the check passes only when the document text is exactly "release approved" and bold formatting wraps the word
+   "approved" but never "release", so the bold must land on a precise selection. *@
+@if (_approved)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">Document approved</p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Type &quot;@RequiredText&quot; in the editor and make the word @BoldWord bold, then check the document.</p>
+        <div style="@Toolbar">
+            <button type="button" data-testid="bold-button" style="@BoldButton"
+                    @onmousedown:preventDefault="true" @onmousedown="NoOpAsync" @onclick="HandleBoldAsync">B</button>
+        </div>
+        <div data-testid="editor" @ref="_editor" style="@Editor" contenteditable="true"></div>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+        <button type="button" data-testid="check-button" style="@Button" @onclick="HandleCheckAsync">Check document</button>
+    </div>
+}
+
+@code {
+    private const string RequiredText = "release approved";
+    private const string BoldWord = "approved";
+
+    private ElementReference _editor;
+    private string? _error;
+    private bool _approved;
+
+    /// <summary>Upstream's <c>onMouseDown</c> that calls <c>preventDefault</c>: the handler does nothing, the directive keeps the selection.</summary>
+    private static Task NoOpAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// Toggles bold on the current selection. Upstream focuses the editor and calls <c>document.execCommand("bold")</c>, which is deprecated but
+    /// universally supported, as the upstream comment says.
+    /// </summary>
+    private async Task HandleBoldAsync()
+    {
+        await _editor.FocusAsync();
+        await JS.InvokeVoidAsync("document.execCommand", "bold");
+    }
+
+    /// <summary>Reads the live editor DOM and verifies both conditions: the exact normalized text, and bold covering every character of "approved" and nothing else.</summary>
+    private async Task HandleCheckAsync()
+    {
+        var editor = await JS.InvokeAsync<EditorContents>("webBenchmarkRichText.inspect", _editor);
+        if (NormalizeText(editor.Text) != RequiredText)
+        {
+            _error = $"Text must be exactly \"{RequiredText}\"";
+            return;
+        }
+
+        // Bold is checked per character, not per element, so a selection that bolds "lease approved" or splits a word fails.
+        var boldFrom = RequiredText.Replace(" ", "", StringComparison.Ordinal).IndexOf(BoldWord, StringComparison.Ordinal);
+        var boldIsExact = editor.Bold.Select((bold, index) => bold == (index >= boldFrom)).All(exact => exact);
+        if (!boldIsExact)
+        {
+            _error = $"Only the word {BoldWord} must be bold";
+            return;
+        }
+
+        _error = null;
+        _approved = true;
+    }
+
+    /// <summary>Trims, collapses whitespace runs to single spaces, and lowercases. Upstream's <c>normalizeText</c>.</summary>
+    private static string NormalizeText(string text) => Regex.Replace(text.Trim(), @"\s+", " ").ToLowerInvariant();
+
+    /// <summary>The editor's text, and whether bold wraps each of its non-whitespace characters in document order.</summary>
+    private sealed record EditorContents(string Text, bool[] Bold);
+
+    /// <summary>
+    /// Script that reads the editor: its text, and for each non-whitespace character whether a bold element wraps it. Upstream's
+    /// <c>boldCharacters</c> plus the text read.
+    /// </summary>
+    private const string InspectScript = """
+        window.webBenchmarkRichText = {
+          inspect(editor) {
+            const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+            const bold = [];
+            for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+              const isBold = (node.parentElement?.closest("b, strong") ?? null) !== null;
+              for (const char of node.textContent ?? "") {
+                if (/\S/.test(char)) {
+                  bold.push(isBold);
+                }
+              }
+            }
+
+            return { text: editor.textContent ?? "", bold };
+          },
+        };
+        """;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", InspectScript);
+        }
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Toolbar = "display: flex; gap: 8px;";
+    private const string BoldButton = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 700; cursor: pointer; width: 44px;";
+    private const string Editor = "min-height: 140px; border: 1px solid #ccc; border-radius: 8px; padding: 12px; font-size: 16px; outline: none;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+}
