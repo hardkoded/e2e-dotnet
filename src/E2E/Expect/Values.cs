@@ -15,7 +15,8 @@ namespace E2E;
 /// </summary>
 /// <remarks>
 /// .NET has no <c>undefined</c>: <see cref="Expect.Undefined"/> stands for it, and <c>null</c> is only <c>null</c>. Values compare by structure whatever
-/// their class: see <see cref="ToEqual(object?)"/>. Upstream's <c>toMatchSchema</c> is not ported (no Standard Schema in .NET).
+/// their class: see <see cref="ToEqual(object?)"/>. There is no Standard Schema in .NET: <see cref="ToMatchSchema{TOutput}"/> takes a
+/// <see cref="StandardSchemaV1{TOutput}"/> instead, a delegate that any schema library can be adapted to.
 /// </remarks>
 public sealed class ValueExpectation<T>
 {
@@ -205,6 +206,27 @@ public sealed class ValueExpectation<T>
             () => $"expected {ValueFormat.Number(actual)} not to be close to {ValueFormat.Number(expected)} ({digits} digits)");
     }
 
+    /// <summary>
+    /// Validates the value with <paramref name="schema"/>, synchronously. Returns the schema's output (defaults applied, transforms run). A
+    /// failure lists every issue, one line each, by its path. A negated check returns <c>null</c> (the default) instead of an output.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when <paramref name="schema"/> is <c>null</c>.</exception>
+    public TOutput? ToMatchSchema<TOutput>(StandardSchemaV1<TOutput> schema)
+    {
+        if (schema is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "toMatchSchema schema must be a StandardSchemaV1 delegate");
+        }
+
+        var result = schema(_actual);
+        var issues = result.Issues ?? [];
+        Check(
+            result.Issues is null,
+            () => $"expected {ValueFormat.Of(_actual)} to match the schema:\n" + string.Join('\n', issues.Select(issue => "- " + StandardSchema.DescribeIssue(issue))),
+            () => $"expected {ValueFormat.Of(_actual)} not to match the schema");
+        return _negated || result.Issues is not null ? default : result.Value;
+    }
+
     private void HaveProperty(IReadOnlyList<string> keys, object path, object?[]? expected)
     {
         if (keys.Count == 0 || keys.Any(key => key.Length == 0))
@@ -333,6 +355,35 @@ public sealed class ValueExpectation<T>
 
     private static string[] KeysOf(IReadOnlyList<object> path) => [.. path.Select(key => Convert.ToString(key, CultureInfo.InvariantCulture) ?? string.Empty)];
 }
+
+/// <summary>
+/// Upstream's <c>StandardSchemaV1.Issue</c>: one problem with a value, and the path to it. .NET has no Standard Schema, so a schema is any
+/// <see cref="StandardSchemaV1{TOutput}"/>.
+/// </summary>
+/// <param name="Message">What is wrong, as the schema says it.</param>
+/// <param name="Path">The keys and indexes from the root to the value, or <c>null</c> for an issue at the root.</param>
+public sealed record StandardSchemaV1Issue(string Message, IReadOnlyList<object>? Path = null);
+
+/// <summary>
+/// Upstream's <c>StandardSchemaV1.Result</c>: the output when the value matches, or the issues when it does not. <see cref="Issues"/> is
+/// <c>null</c> on a match.
+/// </summary>
+public sealed record StandardSchemaV1Result<TOutput>(TOutput? Value, IReadOnlyList<StandardSchemaV1Issue>? Issues)
+{
+    /// <summary>A match, with the output to return.</summary>
+    public static StandardSchemaV1Result<TOutput> Success(TOutput value) => new(value, null);
+
+    /// <summary>A mismatch, with every issue found.</summary>
+    public static StandardSchemaV1Result<TOutput> Failure(IReadOnlyList<StandardSchemaV1Issue> issues) => new(default, issues);
+}
+
+/// <summary>
+/// .NET-only stand-in for a Standard Schema v1 (Zod, Valibot, ArkType, ...): validates a value synchronously and returns the output or the
+/// issues. Adapt a schema library with a lambda. A schema that validates asynchronously cannot be passed, because the return type is
+/// synchronous.
+/// </summary>
+/// <param name="value">The value under test, as <see cref="ValueExpectation{T}"/> holds it.</param>
+public delegate StandardSchemaV1Result<TOutput> StandardSchemaV1<TOutput>(object? value);
 
 /// <summary>.NET-only: the value of <see cref="Expect.Undefined"/>, JavaScript's <c>undefined</c>, which C# has no counterpart for.</summary>
 internal sealed class UndefinedValue

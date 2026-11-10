@@ -8,7 +8,7 @@ namespace E2E.Tests.ExpectSoft;
 
 /// <summary>
 /// The port's soft assertions take locator matchers only, so the value-matcher parts of upstream's describe are not
-/// ported. Not ported at all: the <c>toMatchSchema</c> describe (no Standard Schema in .NET). Two of upstream's value its are
+/// ported. The <c>toMatchSchema</c> describe is in <see cref="ExpectSoftToMatchSchemaTests"/>. Two of upstream's value its are
 /// ported below with <see cref="SoftValueExpectation{T}"/> on a <see cref="SoftFailures"/> of their own: "throws like expect outside an attempt"
 /// (a closed collection) and "keeps a usage failure too, since the matcher could not pass". The tests below that name what they
 /// check are partial: each runs a locator matcher where upstream runs a value matcher, and none reads a JavaScript stack.

@@ -345,12 +345,13 @@ matcher.
 - For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
   retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,
   `ToBeDefined`, `ToHaveLength`, `ToHaveProperty`, `ToContain`, `ToMatch`, `ToBeGreaterThan`,
-  `ToBeGreaterThanOrEqual`, `ToBeLessThan`, `ToBeLessThanOrEqual`, and `ToBeCloseTo`, each with `.Not`.
+  `ToBeGreaterThanOrEqual`, `ToBeLessThan`, `ToBeLessThanOrEqual`, `ToBeCloseTo`, and `ToMatchSchema`, each with `.Not`.
   The message opens every failure. `Expect.Any(typeof(int))`, `Anything()`, `ObjectContaining`,
   `ArrayContaining`, `StringContaining`, and `StringMatching` stand in for a value inside
   `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(Screen, value)` keeps a
-  failure. `Expect.Undefined` stands for `undefined` (`null` is only `null`, and `ToBeDefined` accepts `null`), and there is no `ToMatchSchema`. The framework's
+  failure. `Expect.Undefined` stands for `undefined` (`null` is only `null`, and `ToBeDefined` accepts `null`). The framework's
   asserts (`Assert.That`) still work.
+- There is no Standard Schema in .NET, so `ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate: `value => ...` returns `StandardSchemaV1Result<TOutput>.Success(output)` or `.Failure(issues)`, each `StandardSchemaV1Issue` with its path. Adapt your schema library in a lambda. `Expect.That<object?>(body).ToMatchSchema(usersSchema)` returns the typed output and fails listing every issue by its path. It is synchronous, so an async schema cannot be passed. `Expect.Soft(screen, value).ToMatchSchema(schema)` keeps a failure and returns `default` (`0` for an int) after it, where upstream returns `undefined`.
 
 ## Sign-in
 

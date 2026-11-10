@@ -31,7 +31,8 @@ Synchronous matchers over a plain value, from `That&lt;T&gt;`. A failure is an `
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 .NET has no `undefined`: [Undefined](/api/E2E/Expect/#E2E_Expect_Undefined) stands for it, and `null` is only `null`. Values compare by structure whatever
-their class: see `ToEqual`. Upstream's `toMatchSchema` is not ported (no Standard Schema in .NET).
+their class: see `ToEqual`. There is no Standard Schema in .NET: `ToMatchSchema&lt;T&gt;` takes a
+`StandardSchemaV1&lt;T&gt;` instead, a delegate that any schema library can be adapted to.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Values.cs)
 
@@ -424,3 +425,37 @@ Requires every property of &lt;code class="paramref"&gt;expected&lt;/code&gt; to
 | Name | Type | Description |
 | --- | --- | --- |
 | `expected` | [object](https://learn.microsoft.com/dotnet/api/system.object) |  |
+
+<a id="E2E_ValueExpectation_1_ToMatchSchema_"></a>
+<a id="E2E_ValueExpectation_1_ToMatchSchema__1_E2E_StandardSchemaV1___0__"></a>
+
+### `ToMatchSchema<TOutput>(StandardSchemaV1<TOutput>)`
+
+
+```csharp
+public TOutput? ToMatchSchema<TOutput>(StandardSchemaV1<TOutput> schema)
+```
+
+
+Validates the value with &lt;code class="paramref"&gt;schema&lt;/code&gt;, synchronously. Returns the schema's output (defaults applied, transforms run). A
+failure lists every issue, one line each, by its path. A negated check returns `null` (the default) instead of an output.
+
+**Type parameters**
+
+| Name | Description |
+| --- | --- |
+| `TOutput` |  |
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `schema` | `StandardSchemaV1&lt;TOutput&gt;` |  |
+
+**Returns:** `TOutput`
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when &lt;code class="paramref"&gt;schema&lt;/code&gt; is `null`. |

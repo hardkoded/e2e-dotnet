@@ -296,6 +296,17 @@ public sealed class SoftValueExpectation<T>
     /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
     public void ToBeCloseTo(double expected, int digits = 2) => Keep(() => _expect.ToBeCloseTo(expected, digits));
 
+    /// <summary>
+    /// The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept. It returns the schema's output when the value
+    /// matches, and <c>null</c> (the default) after a kept failure, as it does when negated.
+    /// </summary>
+    public TOutput? ToMatchSchema<TOutput>(StandardSchemaV1<TOutput> schema)
+    {
+        TOutput? output = default;
+        Keep(() => output = _expect.ToMatchSchema(schema));
+        return output;
+    }
+
     private void Keep(Action matcher)
     {
         try
