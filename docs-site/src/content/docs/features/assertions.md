@@ -42,7 +42,7 @@ A matcher that cannot evaluate its value fails as `ASSERTION_FAILED`, like a mis
 
 `Expect.Any(type)`, `Expect.Anything()`, `Expect.ObjectContaining(sample)`, `Expect.ArrayContaining(sample)`, `Expect.StringContaining(sample)`, and `Expect.StringMatching(sample)` stand in for a value inside `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(screen, value, message)` keeps a failure for the end of the test instead of throwing it.
 
-`ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate, since there is no Standard Schema in .NET: it returns the schema's output (defaults applied) when the value matches, lists every issue by its path when it does not, and negated returns `null`. A schema that validates asynchronously cannot be passed. `Expect.Undefined` is `undefined`, which C# has no value for: `null` is only `null`. `ToEqual` ignores a member that holds `Expect.Undefined`, and `Expect.Anything()` matches neither `null` nor `Expect.Undefined`.
+`ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate, since there is no Standard Schema in .NET: it returns the schema's output (defaults applied) when the value matches, lists every issue by its path when it does not, and negated returns `null`. A schema that validates asynchronously cannot be passed. `Expect.Soft(screen, value).ToMatchSchema(schema)` keeps a failure for the end of the test and returns `default` (`null` for a reference output, `0` for an int) instead of `undefined`. `Expect.Undefined` is `undefined`, which C# has no value for: `null` is only `null`. `ToEqual` ignores a member that holds `Expect.Undefined`, and `Expect.Anything()` matches neither `null` nor `Expect.Undefined`.
 
 ## Evidence screenshots
 

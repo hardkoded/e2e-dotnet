@@ -418,3 +418,31 @@ The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept
 | Name | Type | Description |
 | --- | --- | --- |
 | `expected` | [object](https://learn.microsoft.com/dotnet/api/system.object) |  |
+
+<a id="E2E_SoftValueExpectation_1_ToMatchSchema_"></a>
+<a id="E2E_SoftValueExpectation_1_ToMatchSchema__1_E2E_StandardSchemaV1___0__"></a>
+
+### `ToMatchSchema<TOutput>(StandardSchemaV1<TOutput>)`
+
+
+```csharp
+public TOutput? ToMatchSchema<TOutput>(StandardSchemaV1<TOutput> schema)
+```
+
+
+The matcher of the same name on `ValueExpectation&lt;T&gt;`, with a failure kept. It returns the schema's output when the value
+matches, and `null` (the default) after a kept failure, as it does when negated.
+
+**Type parameters**
+
+| Name | Description |
+| --- | --- |
+| `TOutput` |  |
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `schema` | `StandardSchemaV1&lt;TOutput&gt;` |  |
+
+**Returns:** `TOutput`

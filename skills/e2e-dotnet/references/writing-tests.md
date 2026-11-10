@@ -351,7 +351,7 @@ matcher.
   `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(Screen, value)` keeps a
   failure. `Expect.Undefined` stands for `undefined` (`null` is only `null`, and `ToBeDefined` accepts `null`). The framework's
   asserts (`Assert.That`) still work.
-- There is no Standard Schema in .NET, so `ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate: `value => ...` returns `StandardSchemaV1Result<TOutput>.Success(output)` or `.Failure(issues)`, each `StandardSchemaV1Issue` with its path. Adapt your schema library in a lambda. `Expect.That<object?>(body).ToMatchSchema(usersSchema)` returns the typed output and fails listing every issue by its path. It is synchronous, so an async schema cannot be passed.
+- There is no Standard Schema in .NET, so `ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate: `value => ...` returns `StandardSchemaV1Result<TOutput>.Success(output)` or `.Failure(issues)`, each `StandardSchemaV1Issue` with its path. Adapt your schema library in a lambda. `Expect.That<object?>(body).ToMatchSchema(usersSchema)` returns the typed output and fails listing every issue by its path. It is synchronous, so an async schema cannot be passed. `Expect.Soft(screen, value).ToMatchSchema(schema)` keeps a failure and returns `default` (`0` for an int) after it, where upstream returns `undefined`.
 
 ## Sign-in
 
