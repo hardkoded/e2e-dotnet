@@ -10,7 +10,8 @@ namespace E2E.Tests.ExpectValues;
 /// <summary>
 /// <c>describe('asymmetric matchers')</c> of upstream's <c>expect-values.test.ts</c>. A failure names a .NET type, so upstream's
 /// <c>Any&lt;Number&gt;</c> reads <c>Any&lt;Int32&gt;</c> here. <c>undefined</c> is <see cref="Expect.Undefined"/> (hardkoded/e2e-dotnet#1368). Ported in part
-/// (<c>Partial_</c>): <c>expect.any matches classes and primitives</c> has no <c>Symbol</c> (#1369).
+/// (<c>Partial_</c>): <c>expect.any matches classes and primitives</c> has no <c>Symbol</c>, a JavaScript-only primitive with no .NET
+/// type to match (#1369).
 /// </summary>
 public sealed class AsymmetricMatchersTests
 {
