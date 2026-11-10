@@ -525,6 +525,9 @@ public sealed class DeviceFixtureTests
         var number = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
         Assert.Equal("INVALID_ARGUMENT", number.Code);
         Assert.Matches(@"^device\.setPermission permission must be one of camera, .*, got type number\z", number.Message);
+        var cast = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
+        Assert.Equal("INVALID_ARGUMENT", cast.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", cast.Message);
         var typo = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camra", "grant"));
         Assert.Equal("INVALID_ARGUMENT", typo.Code);
         Assert.Equal("device.setPermission has unknown key \"camra\"; did you mean \"camera\"?", typo.Message);

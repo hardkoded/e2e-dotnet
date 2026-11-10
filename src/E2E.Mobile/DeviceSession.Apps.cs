@@ -149,23 +149,21 @@ public sealed partial class DeviceSession
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a name or state that is not one of the wire names.</exception>
     public async Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default)
     {
-        var permissions = Enum.GetValues<DevicePermission>();
-        var names = permissions.Select(known => known.WireName()).ToList();
         if (permission is null)
         {
             // Upstream's `undefined` name: no string at all, so the type is named, as it is for a cast number.
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission permission must be one of {string.Join(", ", names)}, got type undefined");
+                $"device.setPermission permission must be one of {PermissionNames()}, got type undefined");
         }
 
-        var index = names.IndexOf(permission);
+        var index = Array.IndexOf(PermissionWireNames, permission);
         if (index < 0)
         {
-            var hint = Suggestions.DidYouMean(permission, names);
+            var hint = Suggestions.DidYouMean(permission, PermissionWireNames);
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission has unknown key \"{permission}\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint));
+                $"device.setPermission has unknown key \"{permission}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
         }
 
         var states = Enum.GetValues<PermissionState>();
@@ -178,11 +176,13 @@ public sealed partial class DeviceSession
                 $"device.setPermission.{permission} must be one of {string.Join(", ", stateNames)}, got {(state is null ? "undefined" : $"\"{state}\"")}");
         }
 
-        await SetPermissionAsync(permissions[index], states[stateIndex], cancellationToken).ConfigureAwait(false);
+        await SetPermissionAsync(Enum.GetValues<DevicePermission>()[index], states[stateIndex], cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>The permission names agent-device sets, in the order upstream's <c>DEVICE_PERMISSIONS</c> lists them.</summary>
-    private static string PermissionNames() => string.Join(", ", Enum.GetValues<DevicePermission>().Select(known => known.WireName()));
+    internal static readonly string[] PermissionWireNames = [.. Enum.GetValues<DevicePermission>().Select(known => known.WireName())];
+
+    private static string PermissionNames() => string.Join(", ", PermissionWireNames);
 
     /// <summary>
     /// Refuses one permission before any device command: a name agent-device does not set, naming the nearest, or a state
@@ -192,12 +192,11 @@ public sealed partial class DeviceSession
     {
         if (!Enum.IsDefined(permission))
         {
-            var names = Enum.GetValues<DevicePermission>().Select(known => known.WireName()).ToList();
             var name = ((int)permission).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            var hint = Suggestions.DidYouMean(name, names);
+            var hint = Suggestions.DidYouMean(name, PermissionWireNames);
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"{label} has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint));
+                $"{label} has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
         }
 
         if (!Enum.IsDefined(state))
