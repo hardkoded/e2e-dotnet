@@ -112,7 +112,7 @@ public sealed class DocumentEngine : IEngine
             }
 
             _refs = refs;
-            return Task.FromResult(new Observation { Route = Route, Roots = roots, Viewport = DocumentViewport });
+            return Task.FromResult(new Observation { Route = Route, Location = Route, Roots = roots, Viewport = DocumentViewport });
         }
 
         /// <summary>The viewport every document is laid out in, which an element's <see cref="DocumentElement.Rect"/> is measured against: the web engine's default.</summary>

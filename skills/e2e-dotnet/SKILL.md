@@ -451,7 +451,9 @@ lines you changed:
   outcomes worth checking are two goals, so split them into two `ActAsync`
   calls (topic `agent`). Bad: `"add a todo and mark it done"`. Good: `"add a
   todo"`, check, then `"mark the todo as done"`, check. Judge meaning, not
-  phrasing. A judgment reads the text snapshot; when the answer is only in
+  phrasing. A judgment reads the text snapshot and where the screen is (its
+  path on the app, or the whole address off it); the address is evidence only
+  for a claim about the URL or route. When the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
   `VisionMode.Only` for the screenshot alone (topic `agent`).
   With a screenshot the model can aim at a point: `tap_at`, `hover_at`,

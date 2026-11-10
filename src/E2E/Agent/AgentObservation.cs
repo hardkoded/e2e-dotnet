@@ -16,6 +16,9 @@ namespace E2E;
 /// </summary>
 internal sealed record PendingChange(string Shape, DateTimeOffset Deadline);
 
+/// <summary>Where a capture is as a judgment reads it (upstream's <c>judgedLocation</c>): its text, and whether it is an http(s) address.</summary>
+internal sealed record JudgedLocation(string Text, bool Url);
+
 /// <summary>The waits of one settle, decided by the caller; the loop itself keeps no defaults for them.</summary>
 internal sealed class SettleOptions<T>
 {
@@ -189,6 +192,33 @@ internal static partial class AgentObservation
     /// clock ticked. <see cref="Shape(Observation)"/> and <see cref="Reading.ReadPage"/> both compare screens through it.
     /// </summary>
     public static string MaskClocks(string text) => Clock.Replace(text, ClockMask);
+
+    /// <summary>
+    /// Where a capture is, as a judgment reads it (upstream's <c>judgeLocation</c>): an http(s) address with its userinfo dropped, a path
+    /// on <paramref name="appOrigin"/> and the whole address off it, since a path on another site would read as the app's own route.
+    /// A location that is not an http(s) URL, such as a device's screen title, stays as it is. Bounded like a link target.
+    /// <paramref name="location"/> is already redacted, so a secret marker in an address reads percent-encoded.
+    /// </summary>
+    public static JudgedLocation JudgeLocation(string location, string? appOrigin)
+    {
+        if (!Uri.TryCreate(location, UriKind.Absolute, out var parsed) || parsed.Scheme is not ("http" or "https"))
+        {
+            return new JudgedLocation(SnapshotText.Bound(location), Url: false);
+        }
+
+        var url = new UriBuilder(parsed) { UserName = string.Empty, Password = string.Empty }.Uri;
+        var text = appOrigin is not null && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+            ? url.PathAndQuery + url.Fragment
+            : url.AbsoluteUri;
+        return new JudgedLocation(SnapshotText.Bound(text), Url: true);
+    }
+
+    /// <summary>
+    /// The part of a judged location a wait compares (upstream's <c>judgmentShape</c>): an address as it is, since a time in its path or
+    /// query names another page, and a device's title with its clock-like values masked, since a ticking clock in it is no change.
+    /// </summary>
+    public static string JudgedLocationShape(JudgedLocation location) =>
+        "\n<location " + (location.Url ? location.Text : MaskClocks(location.Text)) + ">";
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,
