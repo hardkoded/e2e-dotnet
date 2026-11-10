@@ -11,6 +11,17 @@ namespace E2E.Tests.FixtureRuntime;
 /// Upstream's <c>describe('explicit fixture operations')</c> in <c>fixture-runtime.test.ts</c>. Its other <c>it</c>s declare a contributed
 /// fixture through <c>context.fixture(...)</c>, which the port does not have: its fixtures record their steps through
 /// <see cref="EngineFixtureContext"/>, so they are not ported.
+/// <para>
+/// Skipped on purpose (.NET-only divergence, decided by the user, #1197; documented in COMPATIBILITY.md): which tests a fixture's steps
+/// group under belongs to the test client, so no <c>context.fixture</c> and no new public API.
+/// <list type="bullet">
+/// <item>preserves mutable state, identity, and private-field receivers</item>
+/// <item>wraps live namespaces once while preserving their getters and setters</item>
+/// <item>opens the step before invoking a method, preserves sync accessors, and verifies contributed assertions</item>
+/// <item>rejects a factory that returns a surface it did not declare through context.fixture</item>
+/// <item>rejects a factory that returns a surface another fixture declared</item>
+/// </list>
+/// </para>
 /// </summary>
 public sealed class ExplicitFixtureOperationsTests
 {
