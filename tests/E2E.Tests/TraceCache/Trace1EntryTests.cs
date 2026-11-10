@@ -6,8 +6,8 @@ using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
 using E2E.Tests.StepCache;
-using Recorder = E2E.Cache.TraceRecorder;
 using static E2E.Tests.StepCache.StepCachePipelineTests;
+using Recorder = E2E.Cache.TraceRecorder;
 
 namespace E2E.Tests.TraceCache;
 
