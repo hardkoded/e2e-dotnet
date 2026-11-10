@@ -9,8 +9,8 @@ namespace E2E.Tests.Evaluation;
 
 /// <summary>
 /// The page-side evaluation boundary, run on a live page. Not ported: "runs a keepNames-compiled source that references
-/// __name" and "gives the wrapped binding the name esbuild kept" (they cover the TypeScript loader's output), and the
-/// <c>pageFunctionSource</c> describe (the port takes the source as a string). The port has no <c>__name</c> helper, so upstream's
+/// __name" and "gives the wrapped binding the name esbuild kept" (they cover the TypeScript loader's output). The
+/// <c>pageFunctionSource</c> describe is in <c>PageFunctionSourceTests</c> (partial: the port takes the source as a string). The port has no <c>__name</c> helper, so upstream's
 /// "runs keepNames output after the code deleted Object" has nothing to port.
 /// </summary>
 [Collection(BrowserCollection.Name)]
