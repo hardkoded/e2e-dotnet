@@ -148,7 +148,7 @@ internal sealed class SessionCatalog
         if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
         {
             var pressTarget = verbs.Contains(ExecutorVerb.Press) ? OptionalTarget : [];
-            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true))));
+            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true), ("times", PressTimes, false))));
         }
 
         if (verbs.Contains(ExecutorVerb.Select))
@@ -373,6 +373,15 @@ internal sealed class SessionCatalog
         ["minimum"] = 1,
         ["maximum"] = AgentTools.MaxScrollTimes,
         ["description"] = "How many screens to scroll in this one call; default 1",
+    };
+
+    // The repeat count of a key press, bounded as the agent's press tool bounds it (upstream's press times).
+    private static JsonNode PressTimes => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = 1,
+        ["maximum"] = AgentTools.MaxPressTimes,
+        ["description"] = "Press the key this many times in this one call, 1 to " + AgentTools.MaxPressTimes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "; default 1. Use more to extend a selection or move a caret several steps at once.",
     };
 
     private static JsonNode ViewportSide(string what) => new JsonObject

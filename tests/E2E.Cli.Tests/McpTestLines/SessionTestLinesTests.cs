@@ -35,6 +35,17 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
+    public async Task Offers_press_times_so_a_repeated_key_reaches_its_reason()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, EngineCapabilities.Observation | EngineCapabilities.Actions, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: [], canDismissKeyboard: false);
+        var press = catalog.Find("press")!;
+        Assert.True(press.InputSchema.GetProperty("properties").TryGetProperty("times", out var times));
+        Assert.Equal(20, times.GetProperty("maximum").GetInt32());
+    }
+
+    [Fact]
     public async Task Answers_an_action_with_its_line_after_the_lead_and_test_lines_collects_it()
     {
         var session = new TestLineHarness([Save]);
