@@ -81,7 +81,7 @@ internal static class AgentActions
         {
             "tapAt" when action.Point is { } point => new TapAtActionEvent(index, action.Kind, summary, source, point),
             "hoverAt" when action.Point is { } point => new HoverAtActionEvent(index, action.Kind, summary, source, point),
-            "dragAt" when action.From is { } from && action.To is { } to => new DragAtActionEvent(index, action.Kind, summary, source, from.Point, to.Point),
+            "dragAt" when action.From is { Point: { } from } && action.To is { Point: { } to } => new DragAtActionEvent(index, action.Kind, summary, source, from, to),
             "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) => new ActionEvent(index, action.Kind, summary, source) { ActionName = ActionName.TypeSecret },
             _ => new ActionEvent(index, action.Kind, summary, source),
         };

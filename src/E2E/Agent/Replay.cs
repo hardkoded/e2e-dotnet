@@ -351,13 +351,14 @@ internal static class Replay
                     case "dragAt":
                         // Points, not ids, reach the drag, so each end may take its own look: nothing acts between the two, and a renumbered
                         // tree moves no box.
-                        var start = await PlacePoint(host, action.From!.Point, action.From.Under, action.Viewport!, look).ConfigureAwait(false);
+                        // A stored end always holds its point: TraceRead.ReadTraceEntry makes an end that lost it a miss before a replay starts.
+                        var start = await PlacePoint(host, action.From!.Point!.Value, action.From.Under, action.Viewport!, look).ConfigureAwait(false);
                         if (start.Failure is { } startFailure)
                         {
                             return Stop(startFailure, null, start.Why);
                         }
 
-                        var end = await PlacePoint(host, action.To!.Point, action.To.Under, action.Viewport!, look).ConfigureAwait(false);
+                        var end = await PlacePoint(host, action.To!.Point!.Value, action.To.Under, action.Viewport!, look).ConfigureAwait(false);
                         if (end.Failure is { } endFailure)
                         {
                             return Stop(endFailure, null, end.Why);

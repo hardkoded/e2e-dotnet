@@ -12,7 +12,7 @@ namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
 /// <c>describe('TraceRecorder: bare-point taps')</c> of <c>trace-recorder.test.ts</c>. The last <c>it</c> reads the broken entry
-/// through <see cref="TraceRecorderTests.ReadsAfter"/>, the port's stand-in for upstream's <c>readTraceEntry</c>.
+/// through <see cref="TraceRecorderTests.ReadPatched"/>, which reads it back with <see cref="TraceRead.ReadTraceEntry(System.Text.Json.Nodes.JsonNode?)"/>.
 /// </summary>
 public sealed class TraceRecorderBarePointTapsTests
 {
@@ -77,12 +77,12 @@ public sealed class TraceRecorderBarePointTapsTests
         recorder.Record("tapAt", new PlacedPoint(new Point(300, 60)), Viewport);
         var stored = Stored(TraceRecorderTests.Finalize(recorder, "/canvas")!);
 
-        Assert.True(ReadsAfter(stored, 0, _ => { }));
-        Assert.True(ReadsAfter(stored, 0, action => action["under"] = Place(0, 1)));
-        Assert.False(ReadsAfter(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 0, ["height"] = 720 }));
-        Assert.False(ReadsAfter(stored, 0, action => action["under"] = Place(1.5, 0)));
-        Assert.False(ReadsAfter(stored, 0, action => action["under"] = Place(-0.1, 0)));
-        Assert.False(ReadsAfter(stored, 0, action => action["point"] = new JsonObject { ["x"] = "left", ["y"] = 60 }));
+        Assert.NotNull(TraceRead.ReadTraceEntry(stored));
+        Assert.NotNull(ReadPatched(stored, 0, action => action["under"] = Place(0, 1)));
+        Assert.Null(ReadPatched(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 0, ["height"] = 720 }));
+        Assert.Null(ReadPatched(stored, 0, action => action["under"] = Place(1.5, 0)));
+        Assert.Null(ReadPatched(stored, 0, action => action["under"] = Place(-0.1, 0)));
+        Assert.Null(ReadPatched(stored, 0, action => action["point"] = new JsonObject { ["x"] = "left", ["y"] = 60 }));
     }
 
     private static JsonObject Place(double fx, double fy) => new() { ["target"] = new JsonObject { ["role"] = "img" }, ["fx"] = fx, ["fy"] = fy };
