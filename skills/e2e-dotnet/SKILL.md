@@ -91,7 +91,7 @@ and share it. It stops when the last of them lets go: a test's hold lasts until
 the run fixture stops it (`E2ERunFixture`, topic `setup`; it also calls the
 `reporters` of `e2e.config.json`), or until the test
 process ends. Never ready is `APP_UNREACHABLE`, with
-the last lines of `log` quoted. A `url` answering before the spawn is
+the output of `log` quoted: its first and last lines when it is long. A `url` answering before the spawn is
 `APP_ALREADY_RUNNING` unless `reuseExisting` is `true` (CI ignores it). The
 process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 `COMSPEC`, `command.env`, and the host variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
