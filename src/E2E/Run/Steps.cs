@@ -414,6 +414,9 @@ internal sealed record StepRecorderOptions
     /// <summary>Cuts every running step when it fires: the step fails with <c>CANCELLED</c> and its body is abandoned.</summary>
     public CancellationToken Cancellation { get; init; }
 
+    /// <summary>The running phase's signal, read when a step starts: a step that starts with it already cut is refused, and not recorded.</summary>
+    public Func<CancellationToken>? Signal { get; init; }
+
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }
 }

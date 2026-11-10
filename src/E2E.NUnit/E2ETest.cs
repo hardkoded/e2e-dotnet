@@ -111,6 +111,10 @@ public abstract class E2ETest : E2EFixture
             late = ex;
         }
 
+        // Upstream's enter('afterEach'): the rest of the teardown runs under a budget of its own, so a body its timeout
+        // cut short can still drive the session.
+        session.EnterTeardownBudget(current.CancellationToken);
+
         // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
         if (current.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Passed)
         {

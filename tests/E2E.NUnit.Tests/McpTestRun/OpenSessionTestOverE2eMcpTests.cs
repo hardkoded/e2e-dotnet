@@ -6,16 +6,19 @@ namespace E2E.NUnit.Tests.McpTestRun;
 
 /// <summary>
 /// <c>describe('open_session {test}')</c> &gt; <c>describe('over e2e mcp')</c> of <c>tests/integration/mcp-test-run.test.ts</c> (tester-army/e2e#1315).
-/// All four ported <c>it</c>s are <c>Partial_</c>: they run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and not the MCP server
+/// All ported <c>it</c>s are <c>Partial_</c>: they run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and not the MCP server
 /// (the server path was checked by hand; <c>McpSessionTest/SessionTestsTests</c> covers the loading and the refusals, and
 /// <c>McpTestOutcome/TestOutcomeTests</c> the opening text). The first leaves out <c>afterEach</c> at <c>close_session</c> (hooks run before the
 /// hand-over). The second checks the session holds the failing step's line and the evidence the text prints, not the text itself. The third
 /// has no <c>file:line</c>, no target, no serial group, no several agents, and refuses a saved session before the run, where upstream also refuses the
 /// setup test. The fourth ("compares a screenshot against the baseline an earlier session wrote") runs a fixture twice through the runner and
 /// checks the first outcome fails with <c>no stored screenshot</c> and the second passes; it does not check the opening text or name the test
-/// as <c>file:line</c>. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
-/// (an assembly loads once per server; hardkoded/e2e-dotnet#1411), "fails a test on a promise it left rejected, and keeps serving", "keeps a body
-/// its timeout cut short from driving the session", "reports a beforeAll failure as the outcome, once" (no outcome phases; #1410),
+/// as <c>file:line</c>. The fifth ("keeps a body its timeout cut short from driving the session") runs a fixture with a 5 s timeout (upstream's is 1 s,
+/// and the port's clock starts before the engine launches, so the first page must open inside it). It checks the step count and the screen the
+/// session observes after its body timed out, but not the <c>TEST_TIMEOUT</c> code or the opening text, which need the outcome phases of #1410.
+/// Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
+/// (an assembly loads once per server; hardkoded/e2e-dotnet#1411), "fails a test on a promise it left rejected, and keeps serving",
+/// "reports a beforeAll failure as the outcome, once" (no outcome phases; #1410),
 /// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
 /// the two <c>test.fail</c> <c>it</c>s ("tells a test that
 /// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
@@ -167,6 +170,24 @@ public sealed class OpenSessionTestOverE2eMcpTests
     private static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
 
     [Test]
+    public async Task Partial_Keeps_a_body_its_timeout_cut_short_from_driving_the_session()
+    {
+        var name = typeof(TimedOutSessionFixture).FullName + "." + nameof(TimedOutSessionFixture.Outlives_its_timeout);
+        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
+
+        Assert.That(outcome, Is.Not.Null);
+        await using var session = outcome!.Session;
+        Assert.That(outcome.Failure, Is.Not.Null);
+
+        // Upstream's "1 step ran": the step its timeout cut short (app.open('/about')) is not recorded.
+        Assert.That(session.StepRecords, Has.Count.EqualTo(1));
+
+        // Past the time the body's last line would have run: the session still observes the screen the body left, not the page that line opens.
+        await Expect.That(session.Screen.GetByRole("heading", "Playground")).ToBeVisibleAsync();
+        await Expect.That(session.Screen.GetByRole("heading", "About")).Not.ToBeVisibleAsync();
+    }
+
+    [Test]
     public async Task Finds_no_session_for_a_name_that_selects_no_test()
     {
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, "No.Such.Test", CancellationToken.None);
@@ -202,6 +223,30 @@ public sealed class SessionFixture : E2ETest
     {
         await App.OpenAsync("/browser");
         await Expect.That(Screen.GetByLabel("Loads")).ToHaveTextAsync("the count", timeout: TimeSpan.FromMilliseconds(200));
+    }
+}
+
+/// <summary>The test <see cref="OpenSessionTestOverE2eMcpTests"/> runs for a body its timeout cut short.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class TimedOutSessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    // The port's clock starts before the engine launches, so the timeout is longer than upstream's 1 s: the first page still opens inside it.
+    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(5);
+
+    [Test]
+    public async Task Outlives_its_timeout()
+    {
+        await App.OpenAsync("/");
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        await App.OpenAsync("/about");
     }
 }
 
