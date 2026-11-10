@@ -1746,11 +1746,44 @@ public sealed partial class WebEngine : IEngine
             ArgumentNullException.ThrowIfNull(action);
             ArgumentNullException.ThrowIfNull(context);
             RequireObservation();
-            // A drag watches the cancellation itself and releases the mouse before it ends: the budget must not abandon it at a cancel,
-            // or the call would end while the button is still down.
-            var budgetToken = action is PointerAction.SwipeTo or PointerAction.DragTo ? CancellationToken.None : cancellationToken;
-            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", budgetToken, context.Timeout);
+            var label = EngineActionKinds.Of(action) + " at point";
+            if (action is PointerAction.SwipeTo or PointerAction.DragTo)
+            {
+                return DragAtPointAsync(point, action, label, cancellationToken, context.Timeout);
+            }
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), label, cancellationToken, context.Timeout);
         }));
+
+        /// <summary>
+        /// A pointer drag under the operation's budget (upstream's <c>dispatchPointerAction</c> takes the operation's signal). The drag ends with
+        /// its budget or with a cancel, so it never keeps moving after the call fails. The call does not wait for the drag's mouse release, as
+        /// upstream's <c>performAt</c> does not: the drag's <c>finally</c> releases the button after the call has failed. The token linking is
+        /// .NET-only: the .NET engine links the drag's token itself, where upstream passes the operation's signal.
+        /// </summary>
+        private async Task DragAtPointAsync(Point point, PointerAction action, string label, CancellationToken cancellationToken, TimeSpan? timeout)
+        {
+            var budget = Budget(label, cancellationToken, timeout);
+            using var ended = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var drag = DispatchPointerActionAsync(point, action, ended.Token);
+            Exception failure;
+            try
+            {
+                await budget.WithinAsync(drag).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            // The budget or the caller abandoned the drag: cancel it. Its release runs after this call has failed, as upstream's does.
+            ended.Cancel();
+            if (WebErrors.IsPlaywright(failure) || failure is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                throw WebErrors.ClassifyInput(failure, label);
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
 
         private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
         {
