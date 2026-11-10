@@ -444,7 +444,7 @@ public sealed partial class Agent
     private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token, Action<Exception?> guard)
     {
         // The look and the tree a model reads of it are one phase, whose event tells the nodes read and the bytes of that tree.
-        var (observation, tree, body, judged, cut) = await Phases.InstrumentPhaseAsync(
+        var (observation, tree, body, judged, cut) = await Phases.InstrumentPhaseAsync<(Observation Seen, string Tree, string Body, JudgedLocation? Judged, bool Cut)>(
             new PhaseHost(_scope.Steps, _scope.Debug),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>
