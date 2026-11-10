@@ -24,6 +24,14 @@ public sealed class JudgmentShapeTests
     }
 
     [Fact]
+    public void Partial_ignores_node_ids_as_upstreams_observation_shape_does()
+    {
+        // The same screen with its nodes minted under other ids: a judgment compares it as no change.
+        string ShapeWith(string ids) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n" + ids + " heading \"A\"", ids + " heading \"A\"", E2E.AgentObservation.JudgeLocation("https://app.test/a", App), treeWithheld: false);
+        Assert.Equal(ShapeWith("#e1"), ShapeWith("#e7"));
+    }
+
+    [Fact]
     public void Partial_ignores_a_clock_in_a_device_title_as_the_screen_shape_does()
     {
         Assert.Equal(ShapeAt("com.example / Recording 00:12"), ShapeAt("com.example / Recording 00:13"));

@@ -223,7 +223,16 @@ internal static partial class AgentObservation
     /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included.
     /// </summary>
     public static string JudgmentShape(string tree, string listing, JudgedLocation? judged, bool treeWithheld) =>
-        treeWithheld ? Shape(listing) : judged is null ? Shape(tree) : Shape(listing) + JudgedLocationShape(judged);
+        treeWithheld ? Shape(WithoutNodeIds(listing)) : judged is null ? Shape(WithoutNodeIds(tree)) : Shape(WithoutNodeIds(listing)) + JudgedLocationShape(judged);
+
+    /// <summary>
+    /// The listing with each line's node id taken out (upstream's <c>observationShape</c> drops node ids, which an engine may mint per
+    /// observation). Only the judgment's comparison uses it: the settle shape keeps the ids, as the port's observation does.
+    /// </summary>
+    internal static string WithoutNodeIds(string text) => NodeIdPrefix().Replace(text, "$1");
+
+    [GeneratedRegex(@"^(\s*)#\S+ ", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex NodeIdPrefix();
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,
