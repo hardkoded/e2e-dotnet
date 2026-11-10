@@ -73,8 +73,16 @@ else
             return;
         }
 
-        _loading = false;
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(() =>
+        {
+            if (_disposed.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _loading = false;
+            StateHasChanged();
+        });
     }
 
     /// <summary>Shows the code toast and schedules its auto-dismiss, replacing any timer from a previous send so resends restart the window.</summary>
@@ -99,8 +107,16 @@ else
             return;
         }
 
-        _toastVisible = false;
-        await InvokeAsync(StateHasChanged);
+        await InvokeAsync(() =>
+        {
+            if (_disposed.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _toastVisible = false;
+            StateHasChanged();
+        });
     }
 
     private void HandleCodeInput(ChangeEventArgs args) => _code = args.Value?.ToString() ?? string.Empty;

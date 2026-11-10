@@ -166,15 +166,11 @@
     /// </summary>
     private async Task HandlePointerUp(PointerEventArgs args)
     {
-        if (_drag is null)
-        {
-            return;
-        }
-
+        // Take the drag and clear the shared field before the first await: a pointerdown during the JS calls below starts a new drag that this release must not clear.
         var drag = _drag;
-        if (!drag.Active)
+        _drag = null;
+        if (drag is null || !drag.Active)
         {
-            _drag = null;
             return;
         }
 
@@ -195,8 +191,6 @@
             _board[dropColumn].Add(drag.CardId);
             _error = null;
         }
-
-        _drag = null;
     }
 
     private void HandlePointerCancel(PointerEventArgs args) => _drag = null;
