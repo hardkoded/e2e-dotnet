@@ -114,7 +114,12 @@ public sealed class DeviceProviderTests
 
         // The leases come back in whatever order the service answers.
         Assert.Equal(["toy-cloud: leased lease-0 (sim-0)", "toy-cloud: leased lease-1 (sim-1)"], lines.Skip(3).Take(2).Order());
-        Assert.Equal(["booting sim-0 (1 of 2)", "booting sim-1 (2 of 2)"], lines.Skip(5));
+        var warm = lines.Skip(5).ToList();
+        Assert.Equal(4, warm.Count);
+        Assert.Equal("booting sim-0 (1 of 2)", warm[0]);
+        Assert.Matches(@"^sim-0: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", warm[1]);
+        Assert.Equal("booting sim-1 (2 of 2)", warm[2]);
+        Assert.Matches(@"^sim-1: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", warm[3]);
 
         // Warmed like a local device, through the leased daemon: a fresh hosted simulator is the coldest device there is.
         Assert.Equal([new DeviceDaemon("https://0.example", "token-0"), new DeviceDaemon("https://1.example", "token-1")], h.Connections.Select(connection => connection?.Daemon));
