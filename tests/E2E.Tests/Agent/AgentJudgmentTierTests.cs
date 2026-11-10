@@ -425,6 +425,21 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
+    public async Task A_judgment_redacts_a_secret_the_address_spells_with_an_escaped_letter()
+    {
+        var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?k=%68unter2");
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, Judge = judge, BaseUrl = "https://app.test", TestTitle = "agent judgment escaped letter", AssertionTimeout = TimeSpan.FromSeconds(2), TestTimeout = TimeSpan.FromSeconds(10), StepTimeout = TimeSpan.FromSeconds(5) });
+        session.Remember([Secret.Create("login.password", "hunter2", "password")]);
+        await session.Context.App.OpenAsync("/about");
+        await session.Context.Agent.AssertAsync("the callback page is open");
+        session.Complete(null);
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.DoesNotContain("hunter2", observation, StringComparison.Ordinal);
+        Assert.Contains("Screen (\"https://idp.test/cb?k=", observation, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Judges_again_when_only_the_URL_changed()
     {
         var engine = new LocationEngine(new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))), "https://app.test/moves", "https://app.test/moved");

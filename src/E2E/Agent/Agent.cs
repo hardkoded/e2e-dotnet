@@ -450,25 +450,23 @@ public sealed partial class Agent
         var body = string.Empty;
         JudgedLocation? judged = null;
         var cut = false;
-        _ = await Phases.InstrumentPhaseAsync<Observation>(
-            new PhaseHost(_scope.Steps, _scope.Debug),
-            new PhaseSpec(StepEventKind.Observation, Phases.Observe),
-            async () =>
-            {
-                var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
-                var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
+        Func<Task<Observation>> look = async () =>
+        {
+            var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
+            var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
 
-                // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
-                var judgedLocation = seen.Location is null ? null : AgentObservation.JudgeLocation(_scope.Redactor.Redact(seen.Location), _scope.AppOrigin);
-                var where = judgedLocation?.Text ?? _scope.Redactor.Redact(seen.Route);
-                observation = seen;
-                body = listing;
-                judged = judgedLocation;
-                cut = overBudget;
-                tree = "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing);
-                return seen;
-            },
-            seen => new PhaseDetail(LocatorResolver.Walk(seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(tree))).ConfigureAwait(false);
+            // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
+            var judgedLocation = seen.Location is null ? null : AgentObservation.JudgeLocation(_scope.Redactor.Redact(seen.Location), _scope.AppOrigin, text => _scope.Redactor.Redact(text));
+            var where = judgedLocation?.Text ?? _scope.Redactor.Redact(seen.Route);
+            observation = seen;
+            body = listing;
+            judged = judgedLocation;
+            cut = overBudget;
+            tree = "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing);
+            return seen;
+        };
+        Func<Observation, PhaseDetail> detail = seen => new PhaseDetail(LocatorResolver.Walk(seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(tree));
+        _ = await Phases.InstrumentPhaseAsync(new PhaseHost(_scope.Steps, _scope.Debug), new PhaseSpec(StepEventKind.Observation, Phases.Observe), look, detail).ConfigureAwait(false);
 
         // Bytes the request carries, so a tree the call withholds reads as the zero it is.
         _scope.Steps.AttachAgentDetails(new StepAgentDetails

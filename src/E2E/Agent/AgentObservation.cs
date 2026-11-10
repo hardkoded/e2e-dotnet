@@ -198,8 +198,10 @@ internal static partial class AgentObservation
     /// on <paramref name="appOrigin"/> and the whole address off it, since a path on another site would read as the app's own route.
     /// A location that is not an http(s) URL, such as a device's screen title, stays as it is. Bounded like a link target.
     /// <paramref name="location"/> is already redacted, so a secret marker in an address reads percent-encoded.
+    /// <paramref name="redact"/> runs again on the normalized address, since parsing decodes an escaped unreserved character
+    /// (<c>%68unter2</c> reads as <c>hunter2</c>) that the redaction before it could not match. Upstream does not do this (a port-only step).
     /// </summary>
-    public static JudgedLocation JudgeLocation(string location, string? appOrigin)
+    public static JudgedLocation JudgeLocation(string location, string? appOrigin, Func<string, string>? redact = null)
     {
         if (!Uri.TryCreate(location, UriKind.Absolute, out var parsed) || parsed.Scheme is not ("http" or "https"))
         {
@@ -207,7 +209,8 @@ internal static partial class AgentObservation
         }
 
         var url = new UriBuilder(parsed) { UserName = string.Empty, Password = string.Empty }.Uri;
-        return new JudgedLocation(SnapshotText.Bound(CacheRoute.AppLocation(url.AbsoluteUri, appOrigin)), Url: true);
+        var text = CacheRoute.AppLocation(url.AbsoluteUri, appOrigin);
+        return new JudgedLocation(SnapshotText.Bound(redact is null ? text : redact(text)), Url: true);
     }
 
     /// <summary>
