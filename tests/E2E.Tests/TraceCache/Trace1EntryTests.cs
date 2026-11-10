@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using E2E.Engine;
+using E2E.Internal;
 using E2E.Tests.StepCache;
+using Recorder = E2E.Cache.TraceRecorder;
 using static E2E.Tests.StepCache.StepCachePipelineTests;
 
 namespace E2E.Tests.TraceCache;
@@ -11,8 +14,9 @@ namespace E2E.Tests.TraceCache;
 /// <summary>
 /// The stored entry, <c>FileStepCache</c> and its schema 1. The port has no <c>createdAt</c>, summaries, executor, or
 /// <c>typeSecret</c> action, so "missing createdAt", "unparseable createdAt", "unknown action name", "tap without a target",
-/// "type without a value", "select with an empty value", "empty summary", "oversized summary", "empty descriptor",
-/// "missing executor name", and "empty anchor descriptor" are not ported. The caps and the anchor states are checked where the
+/// "type without a value", "select with an empty value", "empty summary", "oversized summary", and "missing executor name" are not
+/// ported. "empty descriptor", "empty anchor descriptor", and the oversized descriptor field are ported in
+/// <see cref="Rejects_a_target_that_names_nothing_or_carries_an_oversized_field"/>. The caps and the anchor states are checked where the
 /// replay reads the entry, so their its run at the session seam like the resize ones.
 /// </summary>
 public sealed class Trace1EntryTests
@@ -277,6 +281,165 @@ public sealed class Trace1EntryTests
 
         Assert.True(step.Error is null, label);
         Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+    }
+
+    /// <summary>
+    /// Port of "rejects %s" for the target cases: a node action, a point's place, or an anchor whose descriptor names nothing or holds a field
+    /// over its budget. Read through <see cref="TraceRead.ReadTraceEntry(CacheEntry?)"/> directly, as upstream's <c>readTraceEntry</c> reads them.
+    /// Upstream's "tap without a target", "empty descriptor", and "empty anchor descriptor" are ported as they are; the others are .NET-only
+    /// cases of the same rule (the descriptor's text budget, and a position that names no node).
+    /// </summary>
+    public static TheoryData<string> UnnamedOrOversizedTargets =>
+    [
+        "tap without a target",
+        "empty descriptor",
+        "oversized descriptor field",
+        "empty anchor descriptor",
+        "oversized anchor field",
+        "position alone does not name a target",
+        "tap under a point whose node names nothing",
+        "scroll with a target that names nothing",
+        "scroll until with a target that names nothing",
+        "scroll until whose target text is over budget",
+    ];
+
+    [Theory]
+    [MemberData(nameof(UnnamedOrOversizedTargets))]
+    public void Rejects_a_target_that_names_nothing_or_carries_an_oversized_field(string label)
+    {
+        var oversized = new string('x', Trace.MaxTraceDescriptorChars + 1);
+        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Save" };
+        var entry = Entry(tap);
+        switch (label)
+        {
+            case "tap without a target":
+                entry = Entry(new RecordedAction { Kind = "tap" });
+                break;
+            case "empty descriptor":
+                entry = Entry(new RecordedAction { Kind = "tap", Role = "", Name = "" });
+                break;
+            case "oversized descriptor field":
+                entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = oversized });
+                break;
+            case "empty anchor descriptor":
+                entry.Appeared = [new RecordedTarget()];
+                break;
+            case "oversized anchor field":
+                entry.Gone = [new RecordedTarget { Text = oversized }];
+                break;
+            case "position alone does not name a target":
+                entry = Entry(new RecordedAction { Kind = "tap", Position = new TracePosition { Index = 0, Of = 2 } });
+                break;
+            case "tap under a point whose node names nothing":
+                entry = Entry(new RecordedAction
+                {
+                    Kind = "tapAt",
+                    Point = new E2E.Engine.Point(10, 10),
+                    Viewport = new E2E.Engine.TraceViewport(390, 844),
+                    Under = new RecordedPointPlace { Target = new RecordedTarget(), Fx = 0.5, Fy = 0.5 },
+                });
+                break;
+            case "scroll with a target that names nothing":
+                entry = Entry(new RecordedAction { Kind = "scroll", Direction = "down", Role = "" });
+                break;
+            case "scroll until with a target that names nothing":
+                entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "" });
+                break;
+            case "scroll until whose target text is over budget":
+                entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", TargetText = oversized });
+                break;
+        }
+
+        Assert.Null(TraceRead.ReadTraceEntry(entry));
+    }
+
+    /// <summary>
+    /// The other side of the rule: a target at the descriptor budget reads, a scroll with no target reads as no target, a scroll whose only
+    /// target field is its position reads (the port's recorder writes that for an unnamed list container), and a point's node that names itself
+    /// reads. .NET-only: upstream has no such cases, but they pin the boundary the rejections above sit next to.
+    /// </summary>
+    [Fact]
+    public void Reads_a_target_at_the_descriptor_budget_and_a_scroll_with_no_target()
+    {
+        var atBudget = new string('x', Trace.MaxTraceDescriptorChars);
+        var atLimit = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = atBudget });
+        var scroll = Entry(new RecordedAction { Kind = "scroll", Direction = "down" });
+        var positioned = Entry(new RecordedAction { Kind = "scroll", Direction = "down", Position = new TracePosition { Index = 0, Of = 2 } });
+        var pagedUntil = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "row", TargetText = "Row 40 detail" });
+        var point = Entry(new RecordedAction
+        {
+            Kind = "tapAt",
+            Point = new E2E.Engine.Point(10, 10),
+            Viewport = new E2E.Engine.TraceViewport(390, 844),
+            Under = new RecordedPointPlace { Target = new RecordedTarget { Role = "button", Name = "Save" }, Fx = 0.5, Fy = 0.5 },
+        });
+
+        Assert.NotNull(TraceRead.ReadTraceEntry(atLimit));
+        Assert.NotNull(TraceRead.ReadTraceEntry(scroll));
+        Assert.NotNull(TraceRead.ReadTraceEntry(positioned));
+        Assert.NotNull(TraceRead.ReadTraceEntry(point));
+        Assert.NotNull(TraceRead.ReadTraceEntry(pagedUntil));
+    }
+
+    /// <summary>
+    /// .NET-only: a node whose text is longer than the descriptor budget is recorded bounded, so the reader accepts what the recorder wrote.
+    /// Upstream's <c>describeTarget</c> bounds each field the same way (<c>field</c>).
+    /// </summary>
+    [Fact]
+    public void Records_a_long_node_text_bounded_to_the_descriptor_budget_so_the_reader_accepts_it()
+    {
+        var node = new SemanticNode { Ref = "n1", Role = "button", Name = "Save", Text = new string('x', 350) };
+        var target = Recorder.DescribeTarget(node, Redactor.None);
+        var entry = Entry(new RecordedAction { Kind = "tap", Role = target.Role, Name = target.Name, Text = target.Text });
+
+        Assert.True(target.Text?.Length <= Trace.MaxTraceDescriptorChars);
+        Assert.NotNull(TraceRead.ReadTraceEntry(entry));
+    }
+
+    /// <summary>
+    /// .NET-only: a node with no accessible name takes its label from its text, which can be longer than the descriptor budget; the recorded name
+    /// is bounded too, and the input purpose the recorder writes is kept (a password field is named by it). Anchors are bounded the same way,
+    /// so a projected anchor of a long status line reads back.
+    /// </summary>
+    [Fact]
+    public void Bounds_a_nameless_nodes_label_and_an_anchor_text_and_keeps_the_input_purpose()
+    {
+        var nameless = new SemanticNode { Ref = "n2", Role = "textbox", Text = new string('y', 350), InputPurpose = "password" };
+        var target = Recorder.DescribeTarget(nameless, Redactor.None);
+        var entry = Entry(new RecordedAction { Kind = "fill", Role = target.Role, Name = target.Name, Value = "x" });
+
+        Assert.True(target.Name?.Length <= Trace.MaxTraceDescriptorChars);
+        Assert.Equal("password", target.InputPurpose);
+        Assert.NotNull(TraceRead.ReadTraceEntry(entry));
+
+        var nodes = new Dictionary<string, SemanticNode> { ["n3"] = new SemanticNode { Ref = "n3", Role = "status", Text = new string('z', 350) } };
+        var anchors = Anchors.Project(nodes, text => text, text => text);
+        var status = new CacheEntry { Route = "/storage", Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }], Appeared = [.. anchors.Select(anchor => anchor.Target)] };
+        Assert.NotNull(TraceRead.ReadTraceEntry(status));
+    }
+
+    /// <summary>.NET-only: a target text the stored action does not own (a tap's) is a miss, since only a <c>scrollUntil</c> reads it.</summary>
+    [Fact]
+    public void Rejects_a_target_text_on_an_action_that_reads_none()
+    {
+        var entry = Entry(new RecordedAction { Kind = "tap", Role = "button", Name = "Save", TargetText = "stray" });
+
+        Assert.Null(TraceRead.ReadTraceEntry(entry));
+    }
+
+    /// <summary>
+    /// .NET-only: a scrollUntil's paged text is its <see cref="RecordedAction.Text"/>, not its target's text, so the target's text is kept
+    /// in <see cref="RecordedAction.TargetText"/> and survives the file store round trip, where the paged text does too.
+    /// </summary>
+    [Fact]
+    public void Keeps_a_scroll_until_target_text_apart_from_the_paged_text()
+    {
+        var entry = Entry(new RecordedAction { Kind = "scrollUntil", Direction = "down", Text = "Row 40", Role = "row", TargetText = "Row 40 detail" });
+
+        var read = RoundTrip(entry);
+
+        var action = Assert.Single(read.Actions);
+        Assert.Equal(("Row 40", "Row 40 detail"), (action.Text, action.TargetText));
     }
 
     private sealed class FixedCache(CacheEntry entry) : IStepCache

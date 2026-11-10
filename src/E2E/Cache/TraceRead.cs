@@ -77,6 +77,7 @@ internal static class TraceRead
         && action.HasValidInputs()
         && action.HasValidSummary()
         && action.HasValidModifiers()
+        && action.HasValidTarget()
         && action.HasValidPosition()
         && action.HasValidSpans()
         && action.HasValidPaths()

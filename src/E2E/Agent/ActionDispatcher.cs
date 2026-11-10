@@ -407,6 +407,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     Role = recorded?.Role,
                     Name = recorded?.Name,
                     TestId = recorded?.TestId,
+                    TargetText = recorded?.Text,
                     Direction = DirectionName(direction),
                     Text = text,
                     Spans = spans,
