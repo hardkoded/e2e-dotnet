@@ -135,7 +135,18 @@ await App.OpenAsync();
 await Expect(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
 ```
 
-`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in your teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough.
+`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in a teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough. In NUnit, a `[TearDown]` runs before the base class's, so the session is still open. Restore a changed `animations` setting the same way, with `state: "on"`, on Android. This example is NUnit. Read `Device` in the teardown only when the test opened the app, since the session exists only after that:
+
+```csharp
+[TearDown]
+public async Task RestoreTextSize()
+{
+    var raw = Device.UnstableRaw;
+    await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+        ("setting", JsonValue.Create("text-size")),
+        ("state", JsonValue.Create("large"))), TestContext.CurrentContext.CancellationToken);
+}
+```
 
 **Uninstall an app.** `apps.uninstall` takes the app id:
 
