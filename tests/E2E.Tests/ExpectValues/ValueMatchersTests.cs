@@ -13,8 +13,8 @@ namespace E2E.Tests.ExpectValues;
 /// same answer on every test of a global or sticky regexp</c> (a .NET <see cref="Regex"/> keeps no <c>lastIndex</c>), and <c>compares a
 /// non-index key on an array, so "01" is a property and not a hole</c> (a .NET array has no named keys). Upstream's four
 /// <c>toMatchSchema</c> its are not ported: .NET has no Standard Schema. <c>undefined</c> is <see cref="Expect.Undefined"/>, so the its that tell it from <c>null</c> are full
-/// ports (hardkoded/e2e-dotnet#1368). Ported in part (<c>Partial_</c>): the two its that read JavaScript-only values (#1369): sparse arrays,
-/// wrapper methods, and <c>new String</c>.
+/// ports (hardkoded/e2e-dotnet#1368). Ported in part (<c>Partial_</c>): the two its that read JavaScript-only values (#1369): sparse arrays
+/// and wrapper methods have no .NET meaning and are not read. The <c>new String</c> line ports as a string held in an <c>object</c>, which is the same string.
 /// </summary>
 public sealed class ValueMatchersTests
 {
@@ -314,6 +314,7 @@ public sealed class ValueMatchersTests
         Expect.That(tag).Not.ToHaveProperty("label.3");
         Expect.That(tag).Not.ToHaveProperty("label.length", 4);
         Expect.That("abc").ToHaveProperty("length", 3);
+        Expect.That((object)"abc").ToHaveProperty("length", 3);
         Expect.That(tag).ToHaveProperty("none", null);
         Expect.That(tag).Not.ToHaveProperty("none.length");
         Expect.That(tag).Not.ToHaveProperty("missing.length");

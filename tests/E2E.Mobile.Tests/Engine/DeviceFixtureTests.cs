@@ -515,20 +515,32 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
-    public async Task Partial_Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one()
+    public async Task Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one()
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         var device = session.Device;
         var before = h.Fake.Calls.Count;
-        var name = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
-        Assert.Equal("INVALID_ARGUMENT", name.Code);
-        Assert.StartsWith("device.setPermission has unknown key \"42\"; expected one of camera, ", name.Message);
-        var state = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
-        Assert.Equal("INVALID_ARGUMENT", state.Code);
-        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", state.Message);
+        // The non-string name: a cast number on the enum overload, as the typed API has no other way to pass one.
+        var number = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
+        Assert.Equal("INVALID_ARGUMENT", number.Code);
+        Assert.Matches(@"^device\.setPermission permission must be one of camera, .*, got type number\z", number.Message);
+        var cast = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
+        Assert.Equal("INVALID_ARGUMENT", cast.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", cast.Message);
+        var typo = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camra", "grant"));
+        Assert.Equal("INVALID_ARGUMENT", typo.Code);
+        Assert.Equal("device.setPermission has unknown key \"camra\"; did you mean \"camera\"?", typo.Message);
+        var allow = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camera", "allow"));
+        Assert.Equal("INVALID_ARGUMENT", allow.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got \"allow\"", allow.Message);
+        var undefinedState = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camera", null));
+        Assert.Equal("INVALID_ARGUMENT", undefinedState.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got undefined", undefinedState.Message);
+        var undefinedName = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(null, "grant"));
+        Assert.Equal("device.setPermission permission must be one of camera, microphone, photos, contacts, notifications, calendar, location, reminders, motion, siri, media-library, got type undefined", undefinedName.Message);
         Assert.Equal(before, h.Fake.Calls.Count);
-        await device.SetPermissionAsync(DevicePermission.Camera, PermissionState.Deny);
+        await device.SetPermissionAsync("camera", "deny");
         Assert.Equal(["settings.update"], h.Fake.Methods().Skip(before));
     }
 

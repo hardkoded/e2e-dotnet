@@ -292,22 +292,19 @@ internal sealed class StepTraceSession
 
         Pending.ReadEntry = true;
 
-        // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
-        // each unique() value; this call's values fill it (upstream's expandTrace). One this call cannot fill is an entry recorded
-        // for another shape, which the key should have kept apart.
-        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.HasValidCaps() || !entry.HasValidProvenance() || !entry.Actions.All(action => action.HasValidInputs() && action.HasValidSummary() && action.HasValidModifiers() && action.HasValidPosition() && action.HasValidSpans() && action.HasValidPaths() && action.HasValidPoints() && action.HasValidKeyboard() && action.HasValidDestination() && action.HasValidSize())
-            || CacheKeys.ExpandTrace(entry, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
+        // Any store can return a hit, so its shape is checked here, at the one read site, by TraceRead.ReadTraceEntry (upstream's readTraceEntry).
+        // The stored recording has a placeholder for each unique() value; this call's values fill it (upstream's expandTrace). One this call
+        // cannot fill is an entry recorded for another shape, which the key should have kept apart.
+        if (TraceRead.ReadTraceEntry(entry) is not { } valid
+            || CacheKeys.ExpandTrace(valid, CacheKeys.TemplatesOf(_options.Params)) is not { } expanded)
         {
             return new EntryRead(null, "invalid-entry");
         }
 
         // The replay runs the expanded entry, and a passing replay keeps the entry as stored, with its placeholders, for the next run.
-        _stored = entry;
+        _stored = valid;
         return new EntryRead(expanded, null);
     }
-
-    // A cache file may hold a null where a list holds an action or an anchor; such an entry is a miss, not a crash.
-    private static bool HasNull<T>(List<T> items) where T : class => items.Any(item => item is null);
 
     // Under strict mode, ends a step whose recording exists but no longer replays, rather than handing it to the executor: a
     // committed recording that went stale is a change to re-record in review, not a model call to absorb on every run.

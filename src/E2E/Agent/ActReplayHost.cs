@@ -116,8 +116,16 @@ public sealed partial class Agent
             var secret = dispatcher.DeclaredSecret(secretName);
             // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
             // It runs before the provider is asked, for the node as it is now; a provider's value joins redaction before it is typed.
-            var resolved = await SecretFill.AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, Resolve(target), cancellationToken).ConfigureAwait(false);
-            await PerformAsync(target, new LocatorAction.Fill(resolved.Value, true), "fill", cancellationToken, armed).ConfigureAwait(false);
+            // Authorization runs again for each attempt, on the node as a relocation found it, as the dispatcher's typeSecret does.
+            await dispatcher.TargetedAsync(
+                Resolve(target),
+                cancellationToken,
+                async (found, _) =>
+                {
+                    var resolved = await SecretFill.AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, found, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "fill", Value = armed });
         }
 
         public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
