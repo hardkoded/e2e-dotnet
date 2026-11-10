@@ -16,14 +16,13 @@ namespace E2E.NUnit.Tests.McpTestRun;
 /// as <c>file:line</c>. Three more run the same seam and leave out the text and the server too (#1410): "reports a beforeAll failure as the outcome, once"
 /// checks the outcome (no session, <c>HOOK_FAILED</c>, phase <c>beforeAll</c>, nothing to end), and not <c>0 steps ran</c> or <c>No screen to show</c>;
 /// "fails a test on a promise it left rejected, and keeps serving" checks the failure, the close's report, and the operator's warning of the
-/// seam's <see cref="StrayRejections"/>, and not the opening text; "keeps a body its timeout cut short from driving the session" checks the
-/// <c>TEST_TIMEOUT</c> text and the screen, where NUnit awaits the body, so the outcome lands after it, and not at the timeout; the port records the step the
-/// body ran after the timeout (failed, it opened nothing), so the text would say two steps ran where upstream says one. It does not observe the screen after the timeout (<c>heading "Home"</c>, not the other page): the session's timeout token
-/// stays cancelled, so the session cannot observe, where upstream's host re-enters a budget of its own. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
+/// seam's <see cref="StrayRejections"/>, and not the opening text; "keeps a body its timeout cut short from driving the session" runs a fixture with a
+/// 5 s timeout (upstream's is 1 s, and the port's clock starts before the engine launches, so the first page must open inside it). It checks the
+/// <c>TEST_TIMEOUT</c> failure, the step count, and the screen the session observes after its body timed out, but not the opening text; NUnit awaits the body, so the outcome
+/// lands after it, and not at the timeout. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
 /// (an assembly loads once per server; hardkoded/e2e-dotnet#1411),
 /// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
-/// both <c>describe('sessions side by side')</c> <c>it</c>s ("runs none of a test whose open was cancelled while it waited for its turn",
-/// "collect and run their tests one at a time, and both pass"; no turn per process; #1409), and the two <c>test.fail</c> <c>it</c>s ("tells a test that
+/// the two <c>test.fail</c> <c>it</c>s ("tells a test that
 /// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
 /// see COMPATIBILITY.md). The unit <c>it</c> in <c>mcp-test-lines.test.ts</c> ("drafts the lines after
 /// a test the session ran as the ones that continue it") is <c>McpTestLines/SessionTestLinesTests</c> in E2E.Cli.Tests.
@@ -190,25 +189,6 @@ public sealed class OpenSessionTestOverE2eMcpTests
         }
     }
 
-    [Test]
-    public async Task Partial_Keeps_a_body_its_timeout_cut_short_from_driving_the_session()
-    {
-        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, typeof(TimeoutSessionFixture).FullName + "." + nameof(TimeoutSessionFixture.Outlives_its_timeout), CancellationToken.None);
-
-        Assert.That(outcome, Is.Not.Null);
-        await using var closing = outcome!;
-        var session = outcome!.Session!;
-        Assert.That(outcome.Failure, Is.TypeOf<TestException>());
-        Assert.That(((TestException)outcome.Failure!).Code, Is.EqualTo("TEST_TIMEOUT"));
-        Assert.That(outcome.Failure!.Message, Is.EqualTo("test timed out after 6000 ms in phase body"));
-        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.Body));
-
-        // The body ran out of budget and opened nothing: its first open passed, and what it ran after the timeout did not.
-        var opens = session.StepRecords.Where(step => step.Api == "app.open").ToList();
-        Assert.That(opens[0].Status, Is.EqualTo(StepStatus.Passed));
-        Assert.That(opens.Skip(1).Select(step => step.Status), Has.None.EqualTo(StepStatus.Passed));
-    }
-
     /// <summary>Runs the named test as a session and disposes its session; what is left is the outcome's name and failure.</summary>
     private static async Task<(string TestName, Exception? Failure)> RunAsync(string name)
     {
@@ -271,6 +251,28 @@ public sealed class OpenSessionTestOverE2eMcpTests
     private static string SourcePath([System.Runtime.CompilerServices.CallerFilePath] string path = "") => path;
 
     [Test]
+    public async Task Partial_Keeps_a_body_its_timeout_cut_short_from_driving_the_session()
+    {
+        var name = typeof(TimedOutSessionFixture).FullName + "." + nameof(TimedOutSessionFixture.Outlives_its_timeout);
+        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, name, CancellationToken.None);
+
+        Assert.That(outcome, Is.Not.Null);
+        await using var closing = outcome!;
+        var session = outcome!.Session!;
+        Assert.That(outcome.Failure, Is.TypeOf<TestException>());
+        Assert.That(((TestException)outcome.Failure!).Code, Is.EqualTo("TEST_TIMEOUT"));
+        Assert.That(outcome.Failure!.Message, Is.EqualTo("test timed out after 5000 ms in phase body"));
+        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.Body));
+
+        // Upstream's "1 step ran": the step its timeout cut short (app.open('/about')) is not recorded.
+        Assert.That(session.StepRecords, Has.Count.EqualTo(1));
+
+        // Past the time the body's last line would have run: the session still observes the screen the body left, not the page that line opens.
+        await Expect.That(session.Screen.GetByRole("heading", "Playground")).ToBeVisibleAsync();
+        await Expect.That(session.Screen.GetByRole("heading", "About")).Not.ToBeVisibleAsync();
+    }
+
+    [Test]
     public async Task Finds_no_session_for_a_name_that_selects_no_test()
     {
         var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(SessionFixture).Assembly, "No.Such.Test", CancellationToken.None);
@@ -309,6 +311,30 @@ public sealed class SessionFixture : E2ETest
     }
 }
 
+/// <summary>The test <see cref="OpenSessionTestOverE2eMcpTests"/> runs for a body its timeout cut short.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class TimedOutSessionFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    // The port's clock starts before the engine launches, so the timeout is longer than upstream's 1 s: the first page still opens inside it.
+    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(5);
+
+    [Test]
+    public async Task Outlives_its_timeout()
+    {
+        await App.OpenAsync("/");
+        await Task.Delay(TimeSpan.FromSeconds(6));
+        await App.OpenAsync("/about");
+    }
+}
+
 /// <summary>The test <see cref="OpenSessionTestOverE2eMcpTests"/> runs for the screenshot baseline.</summary>
 [Explicit("Run by OpenSessionTestOverE2eMcpTests")]
 public sealed class ScreenshotSessionFixture : E2ETest
@@ -332,7 +358,7 @@ public sealed class ScreenshotSessionFixture : E2ETest
     }
 }
 
-/// <summary>The tests of <c>sloppy.e2e.ts</c> that <see cref="OpenSessionTestOverE2eMcpTests"/> runs, but the one that outlives its timeout (<see cref="TimeoutSessionFixture"/>).</summary>
+/// <summary>The tests of <c>sloppy.e2e.ts</c> that <see cref="OpenSessionTestOverE2eMcpTests"/> runs, but the one that outlives its timeout (<see cref="TimedOutSessionFixture"/>).</summary>
 [Explicit("Run by OpenSessionTestOverE2eMcpTests")]
 public sealed class SloppySessionFixture : E2ETest
 {
@@ -379,29 +405,6 @@ public sealed class SloppySessionFixture : E2ETest
             await Task.Delay(1_000);
             throw new InvalidOperationException("later failure");
         });
-    }
-}
-
-/// <summary>The test <c>outlives its timeout</c> of <c>sloppy.e2e.ts</c> (<c>{ timeout: 1_000 }</c>), which <see cref="OpenSessionTestOverE2eMcpTests"/> runs.</summary>
-[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
-public sealed class TimeoutSessionFixture : E2ETest
-{
-    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
-
-    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
-
-    protected override E2EConfig Config => FixtureConfig;
-
-    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
-
-    protected override TimeSpan TestTimeout => TimeSpan.FromSeconds(6);
-
-    [Test]
-    public async Task Outlives_its_timeout()
-    {
-        await App.OpenAsync("/browser");
-        await Task.Delay(7_000);
-        await App.OpenAsync("/swatches");
     }
 }
 

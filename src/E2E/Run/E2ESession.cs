@@ -19,6 +19,7 @@ public sealed class E2ESession : IAsyncDisposable
 {
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
+    private readonly AttemptBudget _budget;
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
     private IDisposable? _credentials;
@@ -45,13 +46,14 @@ public sealed class E2ESession : IAsyncDisposable
     private Func<Task<IReadOnlyList<Exception>>>? _hostedClose;
     private SessionEvents? _events;
 
-    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
+    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, AttemptBudget budget, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
         _ending = new Lazy<Task<IReadOnlyList<Exception>>>(EndOnceAsync);
         _debugOutput = debugOutput;
         _errorRedaction = errorRedaction;
         _scope = scope;
         _timeout = timeout;
+        _budget = budget;
         _engine = engine;
         App = app;
         Browser = browser;
@@ -188,6 +190,9 @@ public sealed class E2ESession : IAsyncDisposable
             timeout.CancelAfter(options.TestTimeout);
             budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
         }
+
+        // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
+        var budget = new AttemptBudget(timeout);
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
@@ -360,7 +365,7 @@ public sealed class E2ESession : IAsyncDisposable
                 ActionTimeout = options.ActionTimeout,
                 ReplayTimeout = options.ReplayTimeout,
                 StepTimeout = options.StepTimeout,
-                Token = () => timeout.Token,
+                Token = () => budget.Token,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             foreach (var (name, value) in ledger)
@@ -374,8 +379,8 @@ public sealed class E2ESession : IAsyncDisposable
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
-            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, SinkOf = () => scope.Artifacts?.Sink };
-            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
+            var app = new App(engine, baseUrl, () => budget.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, SinkOf = () => scope.Artifacts?.Sink };
+            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => budget.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
             browser.Failed = scope.Implicate;
@@ -389,7 +394,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Perform = engine.PerformAsync,
                 PerformAt = engine.PerformAtAsync,
                 TypeText = engine.TypeTextAsync,
-                Cancellation = () => timeout.Token,
+                Cancellation = () => budget.Token,
                 ActionTimeout = options.ActionTimeout,
                 AssertionTimeout = options.AssertionTimeout,
             });
@@ -439,7 +444,7 @@ public sealed class E2ESession : IAsyncDisposable
             var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
             try
             {
-                var session = new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events, _testTimeout = options.TestTimeout };
+                var session = new E2ESession(scope, timeout, budget, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events, _testTimeout = options.TestTimeout };
                 events?.Started();
                 return session;
             }
@@ -566,6 +571,19 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Enters the teardown's budget, as upstream's <c>enter('afterEach')</c> does before each teardown: the session's operations run under a
+    /// signal that follows <paramref name="interrupt"/> (the run's cancel), not the test timeout, so a body its timeout cut short can still drive
+    /// the session. The teardown's deadline is the cleanup timeout, which caps the screen and browser steps that wait on the phase.
+    /// </summary>
+    internal void EnterTeardownBudget(CancellationToken interrupt)
+    {
+        _budget.Enter(interrupt);
+        var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
+        Screen.BudgetDeadline = deadline;
+        Browser.BudgetDeadline = deadline;
+    }
+
+    /// <summary>
     /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>
     /// and gives its slot back, and <see cref="DisposeAsync"/> throws what <see cref="CloseAsync"/> returns.
     /// </summary>
@@ -611,7 +629,7 @@ public sealed class E2ESession : IAsyncDisposable
             // The work the test left running stops with the session, as upstream's close cancels the operations it still holds.
             try
             {
-                await _timeout.CancelAsync().ConfigureAwait(false);
+                await _budget.CancelCurrentAsync().ConfigureAwait(false);
             }
             catch (ObjectDisposedException)
             {
@@ -769,7 +787,7 @@ public sealed class E2ESession : IAsyncDisposable
             _errorRedaction.Dispose();
             _credentials?.Dispose();
             _scope.Ended.Dispose();
-            _timeout.Dispose();
+            _budget.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
             await WriteTracePageAsync().ConfigureAwait(false);

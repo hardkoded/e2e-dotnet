@@ -20,8 +20,8 @@ public sealed record OperationContext : IEquatable<OperationContext>
 
 
 What an engine call carries about the call itself. Upstream's `OperationContext`. `origin`, `runId` and `attemptId` are
-members here: upstream's `signal` is the [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) every engine call takes, and `timeoutMs` is the per-call
-timeout (such as `ObserveAsync`).
+members here: upstream's `signal` is the [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) every engine call takes, and `timeoutMs` is [Timeout](#E2E_Engine_OperationContext_Timeout) (or the per-call
+timeout of a read, such as `ObserveAsync`).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -43,8 +43,8 @@ public OperationContext(OperationOrigin Origin)
 
 
 What an engine call carries about the call itself. Upstream's `OperationContext`. `origin`, `runId` and `attemptId` are
-members here: upstream's `signal` is the [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) every engine call takes, and `timeoutMs` is the per-call
-timeout (such as `ObserveAsync`).
+members here: upstream's `signal` is the [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) every engine call takes, and `timeoutMs` is [Timeout](#E2E_Engine_OperationContext_Timeout) (or the per-call
+timeout of a read, such as `ObserveAsync`).
 
 **Parameters**
 
@@ -130,3 +130,19 @@ public static OperationContext Test { get; }
 A test's own step: an engine may act without settling.
 
 **Value:** [OperationContext](./)
+
+<a id="E2E_Engine_OperationContext_Timeout_"></a>
+<a id="E2E_Engine_OperationContext_Timeout"></a>
+
+### Timeout
+
+
+```csharp
+public TimeSpan? Timeout { get; init; }
+```
+
+
+The time the engine has for the call, at least 1 ms. Upstream's `timeoutMs`. A web engine uses it as the timeout of the action it
+performs; null (a context built by hand) leaves the engine its own action timeout.
+
+**Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)

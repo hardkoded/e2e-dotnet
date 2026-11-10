@@ -135,7 +135,18 @@ await App.OpenAsync();
 await Expect(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
 ```
 
-`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in your teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough.
+`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in a teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough. In NUnit, a `[TearDown]` runs before the base class's, so the session is still open. Restore a changed `animations` setting the same way, with `state: "on"`, on Android. This example is NUnit. Read `Device` in the teardown only when the test opened the app, since the session exists only after that:
+
+```csharp
+[TearDown]
+public async Task RestoreTextSize()
+{
+    var raw = Device.UnstableRaw;
+    await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+        ("setting", JsonValue.Create("text-size")),
+        ("state", JsonValue.Create("large"))), TestContext.CurrentContext.CancellationToken);
+}
+```
 
 **Uninstall an app.** `apps.uninstall` takes the app id:
 
@@ -240,7 +251,11 @@ public async Task The_sheet_slides_up()
 }
 ```
 
-Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`. A pending agent-device screen-recording stop is shared with later callers and the attempt's cleanup: cancelling one caller's wait does not repeat the stop or discard its completion, a failed device stop is sent again by cleanup, and a cancelled caller still reports cancellation.
+Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`; on a hosted daemon such as Expo Simulators, that pass can outlast `CleanupTimeout`, so set it `false` there. A pending agent-device screen-recording stop is shared with later callers and the attempt's cleanup: cancelling one caller's wait does not repeat the stop or discard its completion, a failed device stop is sent again by cleanup, and a cancelled caller still reports cancellation.
+
+## Dismiss the keyboard
+
+`Device.DismissKeyboardAsync()` presses the keyboard's own dismiss key where it has one (Android, iPad). An iPhone keyboard has none, so it drags a short way, horizontal first and vertical second, from the clear point nearest the centre of the screen. A control the captured accessibility tree leaves out, such as pressable text, can still be hit. A screen with no clear point above the keyboard, or a keyboard that outlives both drags, fails with `UNSUPPORTED_CAPABILITY`; the message names the alternatives: the app's own Done or close control, or pressing Enter on the field. Full details are in the [mobile skill reference](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/mobile.md).
 
 ## Hosted devices
 

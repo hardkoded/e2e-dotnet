@@ -349,7 +349,11 @@ lines you changed:
   without a context stay, and an engine that overrides only those acts the same
   for both. The context also carries `RunId` and `AttemptId` (the ids
   `EngineStartOptions.RunId` and `AttemptId` named at start); `OperationContext.Test`
-  and `Agent` themselves hold none.
+  and `Agent` themselves hold none. For a test's step on `PerformAsync` and
+  `PerformAtAsync`, `OperationContext.Timeout` is the time left of the action's
+  deadline (a call's `Timeout` option, else the action timeout), at least 1 ms;
+  `WebEngine` uses it as the action's timeout. It is null for the agent and for
+  a context built by hand: the engine then keeps its own action timeout.
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with

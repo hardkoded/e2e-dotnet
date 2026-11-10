@@ -42,8 +42,12 @@ The agent does the flow; `Expect` pins what must be true after each goal,
 and that check lets the replay cache rerun the step later. `Screen` actions
 are for exact interactions and values. Every test starts from a fresh
 browser context with no page open, so it calls `App.OpenAsync` first.
-There is no `describe`, `test.setup`, `serial` group, or tag of e2e's own:
-grouping, setup, and categories are the framework's.
+There is no `describe`, `test.setup`, or tag of e2e's own: grouping, setup, and
+categories are the framework's. For a serial group whose members share one
+session (the page state of one member is still there in the next), mark an
+NUnit fixture `[Serial]` and order its tests with `[DependsOnTest]`. The session
+starts with the first member and ends with the group, and a member that fails
+skips the rest. xUnit has no such attribute.
 
 ## Fixtures
 

@@ -71,6 +71,12 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     public async Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null)
     {
         ArgumentNullException.ThrowIfNull(tests);
+        // Tests take turns per process (upstream's takeTurn): a call waits for the tests queued before it, and a cancel while it waits runs none of it.
+        return await SessionHandover.TakeTurnAsync(() => RunTurnAsync(tests, name, host, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<SessionTestOutcome?> RunTurnAsync(Assembly tests, string name, E2EConfig? host, CancellationToken cancellationToken)
+    {
         using var request = SessionHandover.Begin(name, host);
 
         // A promise nobody observed fails the test that is taking its turn (upstream's strayInTurn).
@@ -81,6 +87,7 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
             using (StrayRejections.Turn(cause => strays.Enqueue(cause)))
             {
                 // NUnitLite's console is stdout, which carries the MCP protocol, so the assembly runs under the framework's own runner: no report.
+                // The turn holds until the run has ended, so a test still running is never overlapped by the next one.
                 result = await Task.Run(
                     () =>
                     {
@@ -91,18 +98,18 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
                         // A task the body left faulted reports when it is collected; the turn is still the test's.
                         StrayRejections.Collect();
                         return ran;
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return Outcome(request, name, result, [.. strays]);
         }
         catch (OperationCanceledException)
         {
-            // A cancel after the fixture handed its session over leaves nobody to dispose it.
-            if (request.Outcome is { } handed)
+            // A cancel after the fixture handed its session over leaves nobody to take it: the session is disposed here.
+            if (request.Outcome is { } left)
             {
-                await handed.DisposeAsync().ConfigureAwait(false);
+                await left.DisposeAsync().ConfigureAwait(false);
             }
 
             throw;

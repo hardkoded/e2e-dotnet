@@ -214,20 +214,27 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         return await AppNotOpen.GuardAsync(() => options.Locate!(expression, timeout, cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
-    /// <summary>Carries out one action on a node (upstream's <c>session.perform</c>, marked with the test origin: the engine may act without settling).</summary>
-    internal async Task SessionPerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
+    /// <summary>
+    /// The context of an engine call bounded by <paramref name="deadline"/>, marked with the test origin: the engine may act without settling.
+    /// Upstream's <c>operationWithin</c>: the time left, never under 1 ms.
+    /// </summary>
+    internal OperationContext OperationWithin(Deadline deadline) =>
+        OperationContext.Test with { Timeout = Time.Between(deadline.Remaining(Clock.GetUtcNow()), TimeSpan.FromMilliseconds(1), Time.Unbounded) };
+
+    /// <summary>Carries out one action on a node within <paramref name="deadline"/> (upstream's <c>session.perform(ref, action, this.operationWithin(deadline))</c>).</summary>
+    internal async Task SessionPerformAsync(SemanticNode node, LocatorAction action, Deadline deadline, CancellationToken cancellationToken)
     {
         // The session adapter's own guard (upstream's `session.ts`): an action built per attempt, such as a drag, is checked when it is sent.
         CheckAction(action);
-        await AppNotOpen.GuardAsync(() => options.Perform(node, action, OperationContext.Test, cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        await AppNotOpen.GuardAsync(() => options.Perform(node, action, OperationWithin(deadline), cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>Carries out one pointer action at a viewport point, with no node behind it. Upstream's <c>session.performAt</c>.</summary>
-    internal async Task SessionPerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken)
+    internal async Task SessionPerformAtAsync(Point point, PointerAction action, Deadline deadline, CancellationToken cancellationToken)
     {
         CheckPointerAction(action);
         var perform = options.PerformAt ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "the pointer actions are not supported by this engine.");
-        await AppNotOpen.GuardAsync(() => perform(point, action, OperationContext.Test, cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
+        await AppNotOpen.GuardAsync(() => perform(point, action, OperationWithin(deadline), cancellationToken == default ? options.Cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -471,7 +478,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
                 try
                 {
-                    await SessionPerformAsync(node, action, token).ConfigureAwait(false);
+                    await SessionPerformAsync(node, action, window, token).ConfigureAwait(false);
                 }
                 catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !window.Expired(Clock.GetUtcNow()))
                 {
@@ -587,7 +594,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
                 try
                 {
-                    await SessionPerformAsync(node, action, token).ConfigureAwait(false);
+                    await SessionPerformAsync(node, action, deadline, token).ConfigureAwait(false);
                 }
                 catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !deadline.Expired(Clock.GetUtcNow()))
                 {
@@ -706,7 +713,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
         try
         {
-            await SessionPerformAtAsync(point, action, token).ConfigureAwait(false);
+            await SessionPerformAtAsync(point, action, deadline, token).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

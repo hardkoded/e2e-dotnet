@@ -280,6 +280,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `[Ignore]`, `Assert.Ignore` | the same | same |
 | `[Explicit]`, `[Category("smoke")]` | the same NUnit attributes; for xUnit, `[Fact(Explicit = true)]` and `[Trait("TestCategory", "smoke")]` | same |
 | `[Parallelizable(ParallelScope.Self)]` | a test class with `ParallelScope.Children` or `All` fails at setup unless it also has `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`; xUnit runs classes in parallel | by design |
+| `test.describe.configure({ mode: 'serial' })` (members share a page) | `[Serial]` on an NUnit test class: its members share one session, in the order of `[DependsOnTest]`, and a failure skips the rest. xUnit has no counterpart | by design |
 | `[Retry(n)]` | the same on NUnit: the first attempt can replay the cache, and a retry runs every agent step live. xUnit has no retry attribute | same |
 | `TestContext.AddTestAttachment` | `App.ScreenshotAsync(label)` attaches a screenshot; every `Screen`, `Browser`, and `Agent` call is already a named step in the report, with its arguments redacted | missing |
 | `ContextOptions()` override | per target in the config, or `CreateEngine()` on the test class; `Browser.SetViewportAsync` at runtime | renamed |
