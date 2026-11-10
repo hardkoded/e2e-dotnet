@@ -1270,7 +1270,7 @@ public sealed partial class WebEngine : IEngine
                     walk.Release();
                     await pixelCapture.ConfigureAwait(false);
                     var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
-                    var pixels = await WebObserve.CapturePixelsAsync(page, budget, viewport).ConfigureAwait(false);
+                    var pixels = await WebObserve.CapturePixelsAsync(page, budget, viewport, _seams.CapturePage).ConfigureAwait(false);
                     if (!pixels.MaskingProven)
                     {
                         throw;
@@ -1287,6 +1287,12 @@ public sealed partial class WebEngine : IEngine
                         Viewport = new TraceViewport(viewport.Width, viewport.Height),
                         Pixels = pixels.Pixels,
                     };
+                }
+
+                // A page replaced while the capture ran owns none of the refs it read (upstream's `requirePage() !== page` in `captureInTurn`).
+                if (!ReferenceEquals(_page, page))
+                {
+                    throw new EngineException(EngineErrorCodes.NodeStale, "observation page was replaced", retryable: true);
                 }
 
                 _refs.Publish(capture, new CapturedObservation(observation, walk.Generation));
@@ -1313,7 +1319,7 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
-                return await WebObserve.CapturePixelsAsync(page, budget, viewport).ConfigureAwait(false);
+                return await WebObserve.CapturePixelsAsync(page, budget, viewport, _seams.CapturePage).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -59,12 +59,32 @@ public abstract class E2ETest : E2EFixture
         }
 
         RejectParallelChildren(current.Test.MethodName);
+        if (IsSerial)
+        {
+            RejectInstancePerTest();
+            if (_serialFailure is not null)
+            {
+                Assert.Ignore("a previous test of the serial group failed");
+            }
+
+            if (HasSession)
+            {
+                return;
+            }
+        }
+
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
     }
 
     [TearDown]
     public async Task FinishE2ESessionAsync()
     {
+        if (IsSerial)
+        {
+            await FinishSerialMemberAsync().ConfigureAwait(false);
+            return;
+        }
+
         var session = TakeSession();
         if (session is null)
         {
@@ -136,9 +156,83 @@ public abstract class E2ETest : E2EFixture
         }
     }
 
+    /// <summary>
+    /// Ends the serial group: completes the session the members shared with the first failure of the group, if any, and disposes it.
+    /// </summary>
+    [OneTimeTearDown]
+    public async Task FinishE2ESerialGroupAsync()
+    {
+        var session = TakeSession();
+        if (session is null)
+        {
+            return;
+        }
+
+        try
+        {
+            session.Complete(_serialFailure, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken);
+        }
+        finally
+        {
+            _serialFailure = null;
+            await session.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
     internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
 
     internal Task SettleLate() => SettleAttemptAsync();
+
+    private Exception? _serialFailure;
+
+    private bool IsSerial => GetType().IsDefined(typeof(SerialAttribute), true);
+
+    // A member of a serial group settles its own attempt and leaves the session open for the next member; the first failure of the group is the verdict.
+    private async Task FinishSerialMemberAsync()
+    {
+        if (!HasSession)
+        {
+            return;
+        }
+
+        FailSkippedAfterSoftFailure();
+        var current = global::NUnit.Framework.TestContext.CurrentContext;
+        Exception? late = null;
+        try
+        {
+            await SettleAttemptAsync(current.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run was cancelled: the test's own result stands.
+        }
+#pragma warning disable CA1031 // Reported below, after the member is recorded.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            late = ex;
+        }
+
+        // A member that failed or errored ends the group: the later members skip, and the session commits as failed. A skip does not.
+        var memberError = ErrorForCache(current.Result) ?? late;
+        if (memberError is not null and not SkipException)
+        {
+            _serialFailure ??= memberError;
+        }
+
+        if (late is not null && current.Result.Outcome.Status != global::NUnit.Framework.Interfaces.TestStatus.Failed)
+        {
+            ExceptionDispatchInfo.Throw(late);
+        }
+    }
+
+    private void RejectInstancePerTest()
+    {
+        if (GetType().GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase))
+        {
+            throw new InvalidOperationException($"{GetType().Name} is [Serial], so its tests share one fixture instance and one session: remove [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
+        }
+    }
 
     // NUnit shares one fixture instance among its tests, and the session lives on that instance.
     // Tests that run in parallel on one instance would overwrite each other's session.

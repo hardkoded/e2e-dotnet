@@ -19,6 +19,7 @@ using System.Text;
 //   idle                           stays up and answers nothing
 //   exit <code>                    exits with the code
 //   chatter <code>                 prints a line to stdout and one to stderr, then exits with the code
+//   leak <token>                   prints the token to stderr three ways (whole, split across two writes, no newline), then "printed" to stdout
 //   print <code|stay> <line>...    prints each line to stdout, then exits with the code or stays up
 //   print-template <template>      prints the template with ${NAME} replaced by that environment variable, then stays up
 //   write-env <file>               writes the environment, one NAME=VALUE per line, to the file, then exits
@@ -58,6 +59,15 @@ switch (args[0])
         return 0;
     case "exit":
         return int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
+    case "leak":
+        // The tool of the mcp-user-output port: the token on stderr whole, split across two writes, and with no newline, then "printed" on stdout.
+        Console.Error.WriteLine("tool stderr: " + args[1]);
+        Console.Error.Write("tool stderr split: " + args[1][..9]);
+        Console.Error.Flush();
+        Console.Error.WriteLine(args[1][9..]);
+        Console.Error.Write("tool stderr no newline: " + args[1]);
+        Console.Out.WriteLine("printed");
+        return 0;
     case "chatter":
         Console.Out.WriteLine("to stdout");
         Console.Error.WriteLine("to stderr");

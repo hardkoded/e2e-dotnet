@@ -70,25 +70,25 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     public async Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken, E2EConfig? host = null)
     {
         ArgumentNullException.ThrowIfNull(tests);
+        // Tests take turns per process (upstream's takeTurn): a call waits for the tests queued before it, and a cancel while it waits runs none of it.
+        return await SessionHandover.TakeTurnAsync(() => RunTurnAsync(tests, name, host, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<SessionTestOutcome?> RunTurnAsync(Assembly tests, string name, E2EConfig? host, CancellationToken cancellationToken)
+    {
         using var request = SessionHandover.Begin(name, host);
 
-        // NUnitLite's console is stdout, which carries the MCP protocol: its report goes nowhere.
+        // NUnitLite's console is stdout, which carries the MCP protocol: its report goes nowhere. The turn holds until NUnitLite has ended, so a
+        // test still running is never overlapped by the next one; a caller that cancelled meanwhile has already been answered.
         using var output = new StringWriter();
-        try
-        {
-            await Task.Run(
-                () => new AutoRun(tests).Execute(["--test=" + name, "--noresult", "--noheader", "--labels=Off", "--trace=Off"], new ExtendedTextWrapper(output), TextReader.Null),
-                cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // A cancel after the fixture handed its session over leaves nobody to dispose it.
-            if (request.Outcome is { } handed)
-            {
-                await handed.Session.DisposeAsync().ConfigureAwait(false);
-            }
+        await Task.Run(
+            () => new AutoRun(tests).Execute(["--test=" + name, "--noresult", "--noheader", "--labels=Off", "--trace=Off"], new ExtendedTextWrapper(output), TextReader.Null)).ConfigureAwait(false);
 
-            throw;
+        // A cancel after the fixture handed its session over leaves nobody to take it: the session is disposed here.
+        if (request.Outcome is { } handed && cancellationToken.IsCancellationRequested)
+        {
+            await handed.Session.DisposeAsync().ConfigureAwait(false);
+            throw new OperationCanceledException(cancellationToken);
         }
 
         return request.Outcome;

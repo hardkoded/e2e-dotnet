@@ -417,6 +417,9 @@ public abstract class E2EFixture
     /// </summary>
     protected Task SettleAttemptAsync(CancellationToken cancellationToken = default) => _session?.SettleAttemptAsync(cancellationToken) ?? Task.CompletedTask;
 
+    /// <summary>Whether a session is running, for an adapter whose tests share one.</summary>
+    internal bool HasSession => _session is not null;
+
     /// <summary>The engine of the running session, for an adapter that offers the session to <see cref="SessionHandover"/>.</summary>
     internal IEngine? EngineInUse => _engine;
 

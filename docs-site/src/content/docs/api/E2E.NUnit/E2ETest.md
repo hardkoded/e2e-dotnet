@@ -60,6 +60,22 @@ full name, so each test keeps its own replay.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_NUnit_E2ETest_FinishE2ESerialGroupAsync_"></a>
+<a id="E2E_NUnit_E2ETest_FinishE2ESerialGroupAsync"></a>
+
+### FinishE2ESerialGroupAsync()
+
+
+```csharp
+[OneTimeTearDown]
+public Task FinishE2ESerialGroupAsync()
+```
+
+
+Ends the serial group: completes the session the members shared with the first failure of the group, if any, and disposes it.
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_NUnit_E2ETest_FinishE2ESessionAsync_"></a>
 <a id="E2E_NUnit_E2ETest_FinishE2ESessionAsync"></a>
 

@@ -46,7 +46,7 @@ internal static class WebObserve
     /// the runner can prove the image is at least as redacted as the tree. <c>Scale = css</c> keeps the image in the CSS pixel space every
     /// observed node rect already uses, which is what lets the runner hit-test a point against the same tree.
     /// </summary>
-    public static async Task<PixelCapture> CapturePixelsAsync(IPage page, OperationBudget budget, ViewportSize viewport)
+    public static async Task<PixelCapture> CapturePixelsAsync(IPage page, OperationBudget budget, ViewportSize viewport, Func<IPage, PageScreenshotOptions, Task<byte[]>>? capture = null)
     {
         var masks = await budget.WithinAsync(SecureFieldMasksAsync(page)).ConfigureAwait(false);
 
@@ -68,7 +68,7 @@ internal static class WebObserve
             options.MaskColor = "#000000";
         }
 
-        var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(page.ScreenshotAsync(options))).ConfigureAwait(false);
+        var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(capture is null ? page.ScreenshotAsync(options) : capture(page, options))).ConfigureAwait(false);
 
         // The bytes are the authority on their own size. `Scale = css` is asked for precisely so one image pixel is one CSS pixel, but the
         // ratio is measured rather than assumed: if a capture ever comes back at device scale, reporting the viewport instead would displace
