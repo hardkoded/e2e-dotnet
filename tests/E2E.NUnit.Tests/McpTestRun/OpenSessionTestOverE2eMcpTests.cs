@@ -6,7 +6,7 @@ namespace E2E.NUnit.Tests.McpTestRun;
 
 /// <summary>
 /// <c>describe('open_session {test}')</c> &gt; <c>describe('over e2e mcp')</c> of <c>tests/integration/mcp-test-run.test.ts</c> (tester-army/e2e#1315).
-/// All seven ported <c>it</c>s are <c>Partial_</c>: they run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and not the MCP server
+/// All eight ported <c>it</c>s are <c>Partial_</c>: seven run <see cref="NUnitSessionTestRunner"/>, the seam <c>e2e mcp</c> uses, and the eighth loads the assembly through <c>SessionTests.Load</c>; none runs the MCP server
 /// (the server path was checked by hand; <c>McpSessionTest/SessionTestsTests</c> covers the loading and the refusals, and
 /// <c>McpTestOutcome/TestOutcomeTests</c> the opening text). The first leaves out <c>afterEach</c> at <c>close_session</c> (hooks run before the
 /// hand-over). The second checks the session holds the failing step's line and the evidence the text prints, not the text itself. The third
@@ -19,8 +19,9 @@ namespace E2E.NUnit.Tests.McpTestRun;
 /// seam's <see cref="StrayRejections"/>, and not the opening text; "keeps a body its timeout cut short from driving the session" runs a fixture with a
 /// 5 s timeout (upstream's is 1 s, and the port's clock starts before the engine launches, so the first page must open inside it). It checks the
 /// <c>TEST_TIMEOUT</c> failure, the step count, and the screen the session observes after its body timed out, but not the opening text; NUnit awaits the body, so the outcome
-/// lands after it, and not at the timeout. Not ported, with the issue that extracts what each needs: "runs the test files as they are now when the session opens again"
-/// (an assembly loads once per server; hardkoded/e2e-dotnet#1411),
+/// lands after it, and not at the timeout. "runs the test files as they are now when the session opens again" is `Partial_`: it loads the test assembly twice through
+/// <c>SessionTests.Load</c> and checks the second load is a new one, not the server's open twice (an assembly loads once per server; hardkoded/e2e-dotnet#1411).
+/// Not ported, with the issue that extracts what each needs:
 /// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
 /// the two <c>test.fail</c> <c>it</c>s ("tells a test that
 /// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
