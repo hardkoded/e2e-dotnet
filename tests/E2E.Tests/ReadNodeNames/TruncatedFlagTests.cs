@@ -77,8 +77,8 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
     /// <summary>A page whose frames nest <paramref name="depth"/> levels deep; level N's frame holds level N+1's.</summary>
     private static string NestedFrames(int depth)
     {
-        static string Level(int level, int depth) =>
-            $"<button>Level {level}</button>" + (level < depth ? $"<iframe srcdoc=\"{WebUtility.HtmlEncode(Level(level + 1, depth))}\"></iframe>" : "");
+        static string Level(int level, int deepest) =>
+            $"<button>Level {level}</button>" + (level < deepest ? $"<iframe srcdoc=\"{WebUtility.HtmlEncode(Level(level + 1, deepest))}\"></iframe>" : "");
 
         return $"<!DOCTYPE html><html><body><button>Top</button><iframe srcdoc=\"{WebUtility.HtmlEncode(Level(1, depth))}\"></iframe></body></html>";
     }

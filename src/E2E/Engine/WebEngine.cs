@@ -2944,9 +2944,9 @@ public sealed partial class WebEngine : IEngine
         /// <summary>
         /// Reads one frame's document, then each child frame's into the iframe
         /// node that owns it, sharing one node budget across all of them. A
-        /// frame that detaches or navigates mid-read is left empty. <paramref name="depth"/> is how many frames enclose
-        /// <paramref name="frame"/>: 0 for the page's main frame.
+        /// frame that detaches or navigates mid-read is left empty.
         /// </summary>
+        /// <param name="depth">How many frames enclose <paramref name="frame"/>: 0 for the page's main frame.</param>
         private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, int depth)
         {
             if (walk.Remaining <= 0)
