@@ -16,6 +16,9 @@ namespace E2E;
 /// </summary>
 internal sealed record PendingChange(string Shape, DateTimeOffset Deadline);
 
+/// <summary>Where a capture is as a judgment reads it (upstream's <c>judgedLocation</c>): its text, and whether it is an http(s) address.</summary>
+internal sealed record JudgedLocation(string Text, bool Url);
+
 /// <summary>The waits of one settle, decided by the caller; the loop itself keeps no defaults for them.</summary>
 internal sealed class SettleOptions<T>
 {
@@ -196,6 +199,50 @@ internal static partial class AgentObservation
     /// clock ticked. <see cref="Shape(Observation)"/> and <see cref="Reading.ReadPage"/> both compare screens through it.
     /// </summary>
     public static string MaskClocks(string text) => Clock.Replace(text, ClockMask);
+
+    /// <summary>
+    /// Where a capture is, as a judgment reads it (upstream's <c>judgeLocation</c>): an http(s) address with its userinfo dropped, a path
+    /// on <paramref name="appOrigin"/> and the whole address off it, since a path on another site would read as the app's own route.
+    /// A location that is not an http(s) URL, such as a device's screen title, stays as it is. Bounded like a link target.
+    /// <paramref name="location"/> is already redacted, so a secret marker in an address reads percent-encoded.
+    /// <paramref name="redact"/> runs again on the normalized address, since parsing decodes an escaped unreserved character
+    /// (<c>%68unter2</c> reads as <c>hunter2</c>) that the redaction before it could not match. Upstream does not do this (a port-only step).
+    /// </summary>
+    public static JudgedLocation JudgeLocation(string location, string? appOrigin, Func<string, string>? redact = null)
+    {
+        if (!Uri.TryCreate(location, UriKind.Absolute, out var parsed) || parsed.Scheme is not ("http" or "https"))
+        {
+            return new JudgedLocation(SnapshotText.Bound(location), Url: false);
+        }
+
+        var url = new UriBuilder(parsed) { UserName = string.Empty, Password = string.Empty }.Uri;
+        var text = CacheRoute.AppLocation(url.AbsoluteUri, appOrigin);
+        return new JudgedLocation(SnapshotText.Bound(redact is null ? text : redact(text)), Url: true);
+    }
+
+    /// <summary>
+    /// The part of a judged location a wait compares (upstream's <c>judgmentShape</c>): an address as it is, since a time in its path or
+    /// query names another page, and a device's title with its clock-like values masked, since a ticking clock in it is no change.
+    /// </summary>
+    public static string JudgedLocationShape(JudgedLocation location) =>
+        "\n<location " + (location.Url ? location.Text : MaskClocks(location.Text)) + ">";
+
+    /// <summary>
+    /// What two looks are compared by (upstream's <c>judgmentShape</c>): the screen's listing, normalized as <see cref="Shape(string)"/>
+    /// normalizes it, and its address. A tree the call withholds (<paramref name="treeWithheld"/>, <see cref="VisionMode.Only"/>) is not
+    /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included, unless the tree is withheld.
+    /// </summary>
+    public static string JudgmentShape(string tree, string listing, JudgedLocation? judged, bool treeWithheld) =>
+        treeWithheld ? Shape(WithoutNodeIds(listing)) : judged is null ? Shape(WithoutNodeIds(tree)) : Shape(WithoutNodeIds(listing)) + JudgedLocationShape(judged);
+
+    /// <summary>
+    /// The listing with each line's node id taken out (upstream's <c>observationShape</c> drops node ids, which an engine may mint per
+    /// observation). Only the judgment's comparison uses it: the settle shape keeps the ids, as the port's observation does.
+    /// </summary>
+    internal static string WithoutNodeIds(string text) => NodeIdPrefix().Replace(text, "$1");
+
+    [GeneratedRegex(@"^(\s*)#\S+", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex NodeIdPrefix();
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,
