@@ -637,6 +637,7 @@ Not ported:
 
 - The project's own tools (`defineTool`, `toModelOutput`), custom engines, mobile tools, and per-session telemetry.
 - Redaction of what user code prints: a config is JSON, so no user code runs in the server.
+- Opening a session without a config (tester-army/e2e#1665, `3c9de80`, issue #1509), not ported. Upstream's `open_session {engine, app}` lets a directory with no config file name an engine package (`@e2e-dev/web`) or a factory call (`{package, export, options}`), loads it from the project, beside e2e, or from `~/.e2e/engines`, and answers `ENGINE_NOT_INSTALLED` with an install command. The port's engines are built in code from a target's platform (`TargetEngines.Create`: `web`, `ios`, `android`, `windows`), and it has no engine packages to load. Loading a .NET assembly by name would run code the agent names with the server's full authority, which the port declines. So `open_session` still needs a config, and `CONFIG_NOT_FOUND` keeps the port's wording. Upstream's `mcp-default-engine.test.ts`, and the engine cases of `mcp-server.test.ts` and `mcp-session-host.test.ts`, are not ported for this. `mobile()`'s platform check and the default exports of `@e2e-dev/web` and `@e2e-dev/mobile` have no counterpart.
 - `e2e init` registers the server (see [Coding agents](#coding-agents)); by hand, use `claude mcp add e2e -- e2e mcp` or a `.mcp.json` entry.
 
 ## Agents
