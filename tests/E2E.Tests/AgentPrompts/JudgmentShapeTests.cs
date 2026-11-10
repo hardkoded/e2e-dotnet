@@ -32,6 +32,14 @@ public sealed class JudgmentShapeTests
     }
 
     [Fact]
+    public void Partial_ignores_a_node_id_that_ends_its_line()
+    {
+        // Upstream's observationShape strips the id token alone, with no space after it, so a bare id line compares as no change too.
+        string ShapeWith(string id) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n" + id + "\nheading \"A\"", id + "\nheading \"A\"", E2E.AgentObservation.JudgeLocation("https://app.test/a", App), treeWithheld: false);
+        Assert.Equal(ShapeWith("#e1"), ShapeWith("#e7"));
+    }
+
+    [Fact]
     public void Partial_ignores_a_clock_in_a_device_title_as_the_screen_shape_does()
     {
         Assert.Equal(ShapeAt("com.example / Recording 00:12"), ShapeAt("com.example / Recording 00:13"));

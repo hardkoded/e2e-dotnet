@@ -450,7 +450,7 @@ public sealed partial class Agent
         var body = string.Empty;
         JudgedLocation? judged = null;
         var cut = false;
-        _ = await Phases.InstrumentPhaseAsync(
+        _ = await Phases.InstrumentPhaseAsync<Observation>(
             new PhaseHost(_scope.Steps, _scope.Debug),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>

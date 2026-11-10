@@ -220,7 +220,7 @@ internal static partial class AgentObservation
     /// <summary>
     /// What two looks are compared by (upstream's <c>judgmentShape</c>): the screen's listing, normalized as <see cref="Shape(string)"/>
     /// normalizes it, and its address. A tree the call withholds (<paramref name="treeWithheld"/>, <see cref="VisionMode.Only"/>) is not
-    /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included.
+    /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included, unless the tree is withheld.
     /// </summary>
     public static string JudgmentShape(string tree, string listing, JudgedLocation? judged, bool treeWithheld) =>
         treeWithheld ? Shape(WithoutNodeIds(listing)) : judged is null ? Shape(WithoutNodeIds(tree)) : Shape(WithoutNodeIds(listing)) + JudgedLocationShape(judged);
@@ -231,7 +231,7 @@ internal static partial class AgentObservation
     /// </summary>
     internal static string WithoutNodeIds(string text) => NodeIdPrefix().Replace(text, "$1");
 
-    [GeneratedRegex(@"^(\s*)#\S+ ", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^(\s*)#\S+", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex NodeIdPrefix();
 
     /// <summary>
