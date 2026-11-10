@@ -54,8 +54,8 @@ public static class WindowKeys
     public static WinAppKeys ToWinApp(string key)
     {
         ArgumentNullException.ThrowIfNull(key);
-        var parsed = KeyGrammar.Parse(key)
-            ?? throw WinAppSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.Names)}) or one character");
+        var parsed = KeyGrammar.ParseKey(key)
+            ?? throw WinAppSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.KeyNames)}) or one character");
         if (parsed.Modifiers.Count == 0 && parsed.Character is { } typed)
         {
             return new WinAppKeys(typed, Verbatim: true);

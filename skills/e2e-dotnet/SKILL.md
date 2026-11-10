@@ -98,7 +98,7 @@ process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 `[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
 `readyUrl`; port `0` needs a `command`. `app.identity` and `app.environment`
 (`test`, `staging`, `production`) key the replay cache beside the target; a
-device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `WebEngine.ValidateApp` checks a web `app` explicitly (`app.url` required, device-app fields refused, permissions the browser grants); config loading does not run it. Topic
+device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `IEngine.ValidateApp` (upstream's `validateApp`) checks a target's `app` at config load: `WebEngine` requires `app.url`, refuses device-app fields, and takes the permissions the browser grants; `MobileEngine` and `WinAppEngine` check their own app. Engines outside the assembly implement it with `EngineAppDeclaration` and `EngineAppCheckInfo`. The engine helpers (`KeyGrammar.ParseKey`, `ExpressionResolution.ResolveExpression`, `Urls.SameSite`, `Time.PollConditionAsync`, and the rest) are public for the same reason. Topic
 `setup` has the full rules.
 
 `targets` may list several entries, each with a unique `name` (default: its platform). A fixture names its target by overriding `E2EFixture.TargetName`; `E2EHost.OpenAsync` takes `Target`, `e2e mcp` takes `--target`, and `e2e explore` takes `--target` or the first target. A host or an MCP session with several targets and no name fails with `TARGET_REQUIRED`.
@@ -446,6 +446,15 @@ lines you changed:
   `config.secrets` at load, naming the nearest secret for a typo and never
   accepting a credential's password, and the engine's name, version, platform,
   and capabilities enter the config digest.
+- An engine written as a set of functions (upstream's `defineEngine`) is
+  `EngineManifest.DefineEngine(EngineSpec)`: it checks the spec when it is built
+  (`SpiVersion` must be `1`, `Version` is required, a declared member needs the
+  members it depends on, and the fixture names are lower-camel) and returns an
+  `EngineHandle` with the computed `Capabilities`. `EngineSessions.CreateEngineSession`
+  (upstream's `createEngineSession`) wraps a handle as an `ITargetSession`: it
+  mints the refs' revisions, routes each verb to the member that implements it,
+  and refuses an action kind the engine did not declare. It sits beside `IEngine`;
+  the test runner and the agent still take an `IEngine`.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`

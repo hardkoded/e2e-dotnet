@@ -36,7 +36,7 @@ public string Directory { get; init; }
 ```
 
 
-Absolute cache directory. `cache.dir` resolves against the config directory; the default is `.e2e/cache`. A non-blank `E2E_CACHE_DIR` replaces both.
+Absolute cache directory. `cache.dir` resolves against the config directory; the default is `.e2e/cache`. `--cache-dir` (the environment variable `E2E_CACHE_DIR_OVERRIDE`), else a non-blank `E2E_CACHE_DIR`, replaces both.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

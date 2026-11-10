@@ -365,10 +365,11 @@ public sealed partial class WebEngine : IEngine
     /// grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chromium's names. Upstream's <c>validateApp</c> in
     /// <c>web/src/engine.ts</c>.
     /// </summary>
-    public void ValidateApp(AppConfig app, string targetName)
+    void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
     {
         ArgumentNullException.ThrowIfNull(app);
-        ArgumentNullException.ThrowIfNull(targetName);
+        ArgumentNullException.ThrowIfNull(info);
+        var targetName = info.TargetName;
         foreach (var (key, declared) in new[]
         {
             ("bundleId", app.BundleId is not null),

@@ -70,7 +70,7 @@ The body of one target. Upstream's `Engine`, without the members that belong to 
 
 `Name` is what the report records in `run.targets[].engine` and what the replay cache keys on. `Version` is recorded in reports and sessions: a saved session never restores across engine versions, and a cached trace replays across them and re-finds its nodes.
 
-Upstream's `spiVersion`, `workers`, `defineEngine`, and `isEngineHandle` have no port: nothing validates an engine when it is built, so a mistake shows when the member is first used. The `E2E.NUnit` and `E2E.XUnit.V3` test classes, `OpenHostOptions.EngineFactory`, and `ExploreOptions.Engine` take an `IEngine` directly.
+`EngineManifest.DefineEngine` is upstream's `defineEngine`. It checks the spec when it is built (`SpiVersion` must be `1`, `Version` is required, and each declared member needs the members it depends on) and returns an `EngineHandle` with the declared `Capabilities`. `EngineSessions.CreateEngineSession` is upstream's `createEngineSession`: it wraps a handle as an `ITargetSession`, mints revisions for observed refs, and routes each verb to the member that implements it. `Workers` is validated and copied onto the handle, but no worker pool enforces it. The `E2E.NUnit` and `E2E.XUnit.V3` test classes, `OpenHostOptions.EngineFactory`, and `ExploreOptions.Engine` take an `IEngine` directly; the agent and the test runner still run an `IEngine`, and the SPI layer sits beside it.
 
 #### IEngineSession
 
@@ -320,6 +320,20 @@ Runs after each attempt, within the cleanup timeout, and tears down what `StartA
 
 Upstream's `reuseSignal` and `EngineDisposeContext` (leaving run-owned resources for a replacement worker) are not in the port.
 
+### ValidateApp
+
+`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, and `Permissions`.
+
+```csharp
+void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+{
+    if (app.Url is null)
+    {
+        throw new ConfigurationException("INVALID_CONFIG", $"target \"{info.TargetName}\" needs app.url");
+    }
+}
+```
+
 ### Observation
 
 `ObserveAsync` returns one fresh `Observation` of the surface under test.
@@ -473,17 +487,19 @@ An `EngineException` a fixture method throws is mapped by the table above. A met
 
 ### Shared semantics
 
-Upstream exports helpers that keep behavior consistent across engines. The port keeps them `internal` to the `E2E` assembly, so a third-party engine reproduces them:
+Upstream exports helpers that keep behavior consistent across engines. The port makes them public, so a third-party engine imports them instead of carrying a copy:
 
 | Upstream export | In the port |
 | --- | --- |
-| `matchesText`, `toTextPattern`, `describePattern` | `TextMatch`'s matching, internal. |
-| `resolveExpression` | `LocatorResolver`, internal. The harness resolves queries with it over the tree `ObserveAsync` returns: `text` and `label` answer with the innermost match when a container echoes a descendant's text; a `union` expression matches either branch in document order without duplicate nodes. |
-| `urlMatches`, `siteOf`, `sameSite` | `Urls`, internal. |
-| `pollCondition`, `Deadline` | `Time.PollConditionAsync`, internal. |
-| `validateJsonValue`, `rejectUnknownKeys`, `rejectUnknownOptions`, `obj` | Not in the port: typed options need no key check. |
-| `raceAbort`, `withTimeout`, `withinCleanupBudget` | `Task.WaitAsync` with a `CancellationToken` covers them. |
-| `isSecret` | `Secret` is a type: use `is Secret`. |
+| `parseKey`, `KEY_NAMES`, `KEY_MODIFIERS` | `KeyGrammar.ParseKey`, `KeyGrammar.KeyNames`, `KeyGrammar.KeyModifiers`. `ParseKey` returns a `ParsedKey` (`Modifiers`, `Name`, `Character`), or null for a key outside the grammar. |
+| `resolveExpression` | `ExpressionResolution.ResolveExpression(expression, nodes, options)`, over the tree `ObserveAsync` returns. `ResolveExpressionOptions.Selector` answers a `selector` query; without it a selector is `UNSUPPORTED_CAPABILITY`. `text` and `label` answer with the innermost match when a container echoes a descendant's text; a `union` matches either branch in document order without duplicate nodes. |
+| `matchesText`, `toTextPattern`, `describePattern` | `TextRules.MatchesText(actual, TextMatch, exact)`. A `TextMatch` is the pattern, so `toTextPattern` and `describePattern` have no counterpart. |
+| `urlMatches`, `siteOf`, `sameSite` | `Urls.UrlMatches` (a string or a `Regex`), `Urls.SiteOf`, and `Urls.SameSite`. |
+| `pollCondition`, `Deadline`, `withTimeout`, `withinCleanupBudget` | `Time.PollConditionAsync(PollConditionOptions)`, `Deadline`, `Time.WithTimeout`, and `Time.WithinCleanupBudget`. |
+| `raceAbort` | `Timing.RaceAbortAsync`. |
+| `isSecret` | `Secret.IsSecret(object?)`. |
+| `validateJsonValue` | `JsonValueValidation.ValidateJsonValue(value, label, JsonValueRules?)`. It refuses a non-finite number, a cycle, a container that is not a plain dictionary or list, and a `Secret`, with `POLICY_DENIED` unless `JsonValueRules.OnSecret` throws. |
+| `rejectUnknownKeys`, `rejectUnknownOptions`, `obj` | Not in the port: typed options need no key check. |
 | `isProviderRecording`, `stopProviderRecording` | `ProviderRecordings.StopProviderRecordingAsync`, public. See [Provider recordings](#provider-recordings). |
 
 An engine with no `CanLocate` needs none of these: set `CanLocate` to `false` and the harness resolves queries over the tree `ObserveAsync` returns, with the same rules the first-party engines use.
@@ -582,7 +598,7 @@ An engine outside the `E2E` assembly can build and expose its own fixture type t
 
 `E2E.Engine` exports `IEngine`, `IEngineSession`, `IEngineFixtureHost`, `IPreparableEngine`, `IDoctorEngine`, `EngineCapabilities`, `EngineStartOptions`, `EngineFixtureContext`, `EngineScreenshot`, `EnginePrepareInfo`, `EnginePrepareResult`, `EngineFinishInfo`, `EngineInitInfo`, `EngineDoctorInfo`, `EngineDoctorCheck`, `EngineDoctorStatus`, `EngineAppInfo`, `OperationContext`, `OperationOrigin`, `Observation`, `ObserveOptions`, `SemanticNode`, `NodeStates`, `BoundingBox`, `TraceViewport`, `Point`, `LocatorAction`, `PointerAction`, `EngineActionKinds`, `ScrollDirection`, `Momentum`, `KeyModifier`, `KeyModifiers`, `ObservationLimits`, `AppLogEntry`, `ProviderRecording`, `ProviderRecordings`, `ProviderRecordingTarget`, `ProviderRecordContext`, `ProviderRecordingStopContext`, `ProviderRecordingResult`, `VideoSegment`, `VideoFile`, and `VideoLink`. `E2E` exports `AppLogSource`, `AppLogLevel`, `EngineException`, `EngineErrorCodes`, `EngineState`, `LocatorExpression`, `TextMatch`, `SelectOption`, `Secret`, `AppPermissionState`, `E2EException`, `TestException`, and `ConfigurationException`. `TraceViewport` is the port's name for upstream's `ViewportSize`, and `Point` for `ViewportPoint`.
 
-Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `KEY_MODIFIERS` (`KeyModifiers.Names`), `KEY_NAMES`, `parseKey`, `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `JsonValueRules`, `ResolveExpressionOptions`, `PollConditionOptions`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
+Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
 
 ### SemanticNode
 
@@ -633,15 +649,13 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 
 | Upstream | Why |
 | --- | --- |
-| `defineEngine`, `EngineHandle`, `isEngineHandle`, `spiVersion`, `engine.capabilities`, the validation table | No factory validates an engine. `Capabilities` is declared. |
 | `workers`, `EngineInitInfo.workerSlot` at a hook, `EngineDisposeContext.reuseSignal` | No worker pool or runner. |
-| `validateApp`, `EngineAppDeclaration`, `EngineAppCheckInfo` | Not on `IEngine`; each first-party engine validates its own app ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)). |
 | `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
 | `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |
 | `artifacts.startTrace`, `stopTrace` | Removed upstream. |
 | The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
-| `parseKey`, `KEY_NAMES`, `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `resolveExpression`, `pollCondition`, `rejectUnknownKeys` | `internal` ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)), or covered by C# types. |
+| `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `rejectUnknownKeys` | `EngineErrorCodes.IsRetryable`, and typed options need no key check. |
 | `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
 
 ## Related

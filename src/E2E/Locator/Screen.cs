@@ -1527,6 +1527,19 @@ internal static class LocatorResolver
         return Resolve(query, tree.All, tree, includeHidden);
     }
 
+    /// <summary>
+    /// Resolves one expression over a bare tree, with <paramref name="selector"/> answering a <c>selector</c> query (upstream's
+    /// <c>resolveExpression</c> with <c>options.selector</c>). Without it a selector is <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    internal static IReadOnlyList<SemanticNode> ResolveExpression(
+        LocatorExpression query,
+        IReadOnlyList<SemanticNode> nodes,
+        Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector)
+    {
+        var tree = new TreeIndex(nodes, selector);
+        return Resolve(query, tree.All, tree, includeHidden: false);
+    }
+
     public static IEnumerable<SemanticNode> Walk(IEnumerable<SemanticNode> roots)
     {
         foreach (var root in roots)
@@ -1593,6 +1606,9 @@ internal static class LocatorResolver
                     var position = query.Index == LocatorExpression.LastIndex ? source.Count - 1 : query.Index!.Value;
                     return position >= 0 && position < source.Count ? [source[position]] : [];
                 }
+
+            case "selector" when tree.Selector is { } selector:
+                return selector(query.Selector!, candidates).ToList();
 
             case "selector":
                 throw new EngineException(
@@ -1733,8 +1749,9 @@ internal static class LocatorResolver
     {
         private readonly Dictionary<SemanticNode, SemanticNode> _parents = new(ReferenceEqualityComparer.Instance);
 
-        public TreeIndex(IEnumerable<SemanticNode> roots)
+        public TreeIndex(IEnumerable<SemanticNode> roots, Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? selector = null)
         {
+            Selector = selector;
             foreach (var root in roots)
             {
                 Add(root, null);
@@ -1742,6 +1759,9 @@ internal static class LocatorResolver
         }
 
         public List<SemanticNode> All { get; } = [];
+
+        /// <summary>Answers a <c>selector</c> query among the candidates, or null when the caller brought no selector language.</summary>
+        public Func<string, IReadOnlyList<SemanticNode>, IReadOnlyList<SemanticNode>>? Selector { get; }
 
         /// <summary>
         /// The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order. A frame node's children are

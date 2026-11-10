@@ -113,7 +113,7 @@ public sealed class PollConditionTests
     /// that the poll fails and that its reads stop at the deadline (8 to 11), not the exact count.
     /// </summary>
     [Fact]
-    public async Task Negated_a_budget_shorter_than_the_grace_window_fails_after_the_positive_state_was_seen_and_reads_once_per_50_ms_sample_up_to_the_deadline()
+    public async Task Partial_Negated_a_budget_shorter_than_the_grace_window_still_fails_when_the_positive_state_was_seen()
     {
         var calls = 0;
         var screen = Scripted(call =>

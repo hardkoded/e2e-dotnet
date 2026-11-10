@@ -57,6 +57,21 @@ step records; the harness redacts and bounds each line, and a sink that throws n
 
 **Value:** [Action&lt;AppLogEntry&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
+<a id="E2E_Engine_EngineStartOptions_AppPath_"></a>
+<a id="E2E_Engine_EngineStartOptions_AppPath"></a>
+
+### AppPath
+
+
+```csharp
+public string? AppPath { get; init; }
+```
+
+
+The build to install, as the target declared it, relative to [ProjectRoot](#E2E_Engine_EngineStartOptions_ProjectRoot) (upstream's `EngineAppInfo.appPath`).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir_"></a>
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir"></a>
 
@@ -103,6 +118,21 @@ public string? BaseUrl { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_EngineStartOptions_BundleId_"></a>
+<a id="E2E_Engine_EngineStartOptions_BundleId"></a>
+
+### BundleId
+
+
+```csharp
+public string? BundleId { get; init; }
+```
+
+
+The installed app to launch, as the target declared it (upstream's `EngineAppInfo.bundleId`). Unset for a target without one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Engine_EngineStartOptions_Env_"></a>
 <a id="E2E_Engine_EngineStartOptions_Env"></a>
 
@@ -136,6 +166,21 @@ trace. Upstream's `EngineAttemptContext.environment`. An engine tells it at most
 fails the attempt for it.
 
 **Value:** [Action&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
+
+<a id="E2E_Engine_EngineStartOptions_LaunchArguments_"></a>
+<a id="E2E_Engine_EngineStartOptions_LaunchArguments"></a>
+
+### LaunchArguments
+
+
+```csharp
+public IReadOnlyList<string>? LaunchArguments { get; init; }
+```
+
+
+Arguments every fresh launch passes the app (upstream's `EngineAppInfo.launchArguments`).
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_Engine_EngineStartOptions_Navigation_"></a>
 <a id="E2E_Engine_EngineStartOptions_Navigation"></a>

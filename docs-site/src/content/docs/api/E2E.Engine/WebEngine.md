@@ -262,26 +262,3 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-<a id="E2E_Engine_WebEngine_ValidateApp_"></a>
-<a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
-
-### ValidateApp(AppConfig, string)
-
-
-```csharp
-public void ValidateApp(AppConfig app, string targetName)
-```
-
-
-A web target opens the app at `app.url`, so the URL is required, and the fields that describe an installed device app
-(`bundleId`, `appPath`, `launchArguments`) have nothing to act on. `app.permissions` must be ones the browser
-grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chromium's names. Upstream's `validateApp` in
-`web/src/engine.ts`.
-
-**Parameters**
-
-| Name | Type | Description |
-| --- | --- | --- |
-| `app` | [AppConfig](/api/E2E/AppConfig/) |  |
-| `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |

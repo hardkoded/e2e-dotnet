@@ -7,7 +7,7 @@ sidebar:
 
 This page ports upstream's `docs/writing-an-engine.mdx`. An engine connects `Screen`, `App`, and agent calls to a UI platform through the `E2E.Engine` contract. Write one to test a desktop app, a TV, or another platform. `WebEngine`, `MobileEngine`, and `WinAppEngine` implement the same public `IEngine` and `IEngineSession` and are complete examples.
 
-An engine runs in the test's own process. Upstream's out-of-process engine protocol and `defineEngine` have no port (see [Not in the port](#not-in-the-port)), so a .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt.
+An engine runs in the test's own process. Upstream's out-of-process engine protocol has no port (see [Not in the port](#not-in-the-port)). A .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt. The SPI layer (`EngineManifest.DefineEngine` and `EngineSessions.CreateEngineSession`, upstream's `defineEngine` and `createEngineSession`) is an alternative for an engine written as a set of functions; it checks the spec when it is built and runs the same routing rules as upstream. The test runner still takes an `IEngine`.
 
 Engines drive user interfaces only. For an inbox, a database, or a test API, write an ordinary test fixture of your own.
 
@@ -199,6 +199,10 @@ Upstream lets an engine contribute fixtures such as `browser` or `device` throug
 
 For platform operations the action set lacks, ship tools the way `MobileTools` and `WinAppTools` do. The tool pack API those use is not yet a public extension point; see the agent guide for custom executors.
 
+## Check the target's app
+
+`ValidateApp` runs once per target at config load, before any session starts. Refuse a field the platform needs and the target left out, or one it cannot drive, with `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName`. See [ValidateApp](/reference/engine/#validateapp).
+
 ## Verify it
 
 Run a test class against your engine. Check the lifecycle order, observations, actions, errors, and unsupported capabilities. Upstream's `engine-contract.test.ts` has the checks to copy; the port's session-level ports of it are tracked in [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185).
@@ -207,9 +211,8 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 
 | Upstream | In the port |
 | --- | --- |
-| `defineEngine`, `EngineHandle`, `engine.capabilities` | No factory validates a spec. `IEngine.Capabilities` is a flags enum you declare, and nothing checks that the members match it. |
+| `defineEngine`, `EngineHandle`, `engine.capabilities` | Ported as `EngineManifest.DefineEngine`, `EngineHandle`, and the computed `Capabilities` set. `IEngine.Capabilities` remains a flags enum you declare, and the test runner does not run a `DefineEngine` handle. |
 | The `e2e/engine` import path and the `e2e` peer dependency | `E2E.Engine` types in the `E2E` package. |
-| `validateApp(app, info)` | `IEngine` has no such member. `EngineStartOptions` carries `BaseUrl`, `Permissions`, and `TargetName`, not the target's `bundleId`, `appPath`, or `launchArguments`. `WebEngine`, `MobileEngine`, and `WinAppEngine` each validate their own app in a static `ValidateApp` their target engine calls. |
 | `prepare`/`init`/`startAttempt` as three hooks, `endAttempt`/`dispose` as two | `StartAsync` and `DisposeAsync` do the work of each pair. |
 | `workers`, `reuseSignal`, per-hook `signal` and `timeoutMs` | Not in the port: there is no worker pool. The harness bounds a start by the launch timeout and a dispose by the cleanup timeout. |
 | `context.resolveSecret` | `EngineStartOptions.ResolveSecret` is `internal`. It resolves only a secret the engine lists in `Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
@@ -217,7 +220,6 @@ Run a test class against your engine. Check the lifecycle order, observations, a
 | `observe(context, options)` `signal` on every call | Every call takes a `CancellationToken`. |
 | Engine servers (`serveEngine`, `connectEngine`, the engine protocol) | Not in the port: [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
 | Project tools with `platforms` | Not a public extension point. |
-| `parseKey`, `resolveExpression`, `pollCondition`, `sameSite`, and the other helpers | `internal` to the `E2E` assembly ([#1279](https://github.com/hardkoded/e2e-dotnet/issues/1279)). See [Shared semantics](/reference/engine/#shared-semantics). |
 
 ## Next
 
