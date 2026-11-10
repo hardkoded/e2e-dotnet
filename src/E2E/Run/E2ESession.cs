@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
@@ -173,23 +172,7 @@ public sealed class E2ESession : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Engine);
-        ArgumentNullException.ThrowIfNull(options.TestTitle);
-
-        // Upstream's registry validates a title as it registers (collect/registry.ts): 1 through 512 UTF-8 bytes after NFC, no NUL.
-        if (Ids.ValidateTitle(options.TestTitle) is { } titleError)
-        {
-            throw new ArgumentException(titleError, nameof(options));
-        }
-
-        // Then the title is redacted with the run's secrets and normalized to NFC, and validated again when redaction changed it, as upstream's
-        // registry does (collect/registry.ts, redactTitle = staticSecretLedger(allSecrets).redact).
-        var rawTitle = options.TestTitle.Normalize(NormalizationForm.FormC);
-        var testTitle = Redactor.For(options.Config?.AllSecrets ?? Array.Empty<(string Name, string Value)>()).Redact(options.TestTitle).Normalize(NormalizationForm.FormC);
-        if (testTitle != rawTitle && Ids.ValidateTitle(testTitle) is { } redactedError)
-        {
-            throw new ArgumentException(redactedError + " once secret values are redacted", nameof(options));
-        }
-
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
         var runLimits = ResolvedAgent.RunLimits(agents.Values);
         if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
@@ -215,7 +198,7 @@ public sealed class E2ESession : IAsyncDisposable
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         var attemptDir = Path.Combine([
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            .. ArtifactPaths.AttemptSegments(options.RerunDir, AttemptReport.ResultSegmentOf(options.TestFile, testTitle), options.Attempt - 1)]);
+            .. ArtifactPaths.AttemptSegments(options.RerunDir, AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle), options.Attempt - 1)]);
         IEngineSession engine;
 
         // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
@@ -354,7 +337,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Environment = environment,
                 Debug = debug,
                 AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
-                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = testTitle, TestId = testTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = options.Agent ?? "default", Attempt = options.Attempt - 1 } : null,
+                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = options.Agent ?? "default", Attempt = options.Attempt - 1 } : null,
                 AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
                 Agents = agents,
@@ -367,7 +350,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CacheStrict = options.CacheStrict,
                 StrictAdvice = cache?.Strict?.Advice ?? "",
                 CleanupTimeout = options.CleanupTimeout,
-                TestTitle = testTitle,
+                TestTitle = options.TestTitle,
                 TestFile = options.TestFile,
                 TestMethod = options.TestMethod,
                 ProjectRoot = projectRoot,
@@ -440,7 +423,7 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 ProjectRoot = projectRoot,
                 Suffix = "-" + (string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName) + "-" + ScreenshotContext.OperatingSystemName(),
-                Title = testTitle,
+                Title = options.TestTitle,
                 ResultsDirectory = attemptDir,
                 Update = options.UpdateSnapshots,
                 Ci = options.Ci ?? E2EConfig.IsCi(),

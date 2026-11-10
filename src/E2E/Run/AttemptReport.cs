@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using E2E.Engine;
