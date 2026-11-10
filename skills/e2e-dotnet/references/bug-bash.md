@@ -101,12 +101,13 @@ The target declares no `app.command`, because the app already runs. The
 characters) in the environment, so the file stays free of secrets. A shorter
 password can't be redacted without rewriting ordinary text, so an account the
 app seeds with one (`admin`/`admin`) needs a longer password before it can be
-a credential. The three
-agents are the postures from step 2 as personas: the same model and budgets,
-a different stance. An agent inherits nothing from `default` (topic `agent`),
-so each repeats the model, budgets, and `context`. Each charter picks one with
-`--agent` (step 3). The config has no `tests` or `reporters` key, so repro tests live in the test
-project (step 6). Pass `--config e2e.bugbash.config.json` to every
+a credential.
+
+The three agents are the postures from step 2 as personas: the same model and
+budgets, a different stance. An agent inherits nothing from `default` (topic
+`agent`), so each repeats the model, budgets, and `context`. Each charter picks
+one with `--agent` (step 3). The config has no `tests` or `reporters` key, so
+repro tests live in the test project (step 6). Pass `--config e2e.bugbash.config.json` to every
 command below, and `open_session {config: "e2e.bugbash.config.json"}` over
 MCP.
 
