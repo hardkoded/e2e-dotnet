@@ -29,6 +29,7 @@ internal sealed class StepRecorder
     private readonly string? _projectRoot;
     private readonly Func<string, string>? _redact;
     private readonly CancellationToken _cancellation;
+    private readonly Func<CancellationToken>? _signal;
     private readonly AiTraceScope? _aiTrace;
     private readonly Lock _gate = new();
     private readonly List<StepRecord> _steps = [];
@@ -75,6 +76,7 @@ internal sealed class StepRecorder
         _projectRoot = options.ProjectRoot;
         _redact = options.Redact;
         _cancellation = options.Cancellation;
+        _signal = options.Signal;
         _aiTrace = options.AiTrace;
     }
 
@@ -118,6 +120,13 @@ internal sealed class StepRecorder
     public Task<T> RunAsync<T>(StepKind kind, string api, string rawLabel, Func<Task<T>> body, StepRunOptions? options = null)
     {
         options ??= new StepRunOptions();
+
+        // A step the body starts after its own timeout cut the signal is refused, and not recorded: upstream's attempt has ended by then, so the
+        // timeline keeps the steps that ran.
+        if (_signal?.Invoke() is { IsCancellationRequested: true } cut)
+        {
+            return Task.FromCanceled<T>(cut);
+        }
 
         // The label is published, reported, and traced as is: a secret the test spelled into an instruction or a locator stops here, once.
         var label = RedactText(rawLabel);
