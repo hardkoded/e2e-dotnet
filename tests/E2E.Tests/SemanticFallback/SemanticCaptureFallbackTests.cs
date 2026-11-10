@@ -171,6 +171,15 @@ public sealed class SemanticCaptureFallbackTests
 
         public List<PageScreenshotOptions> Screenshots { get; } = [];
 
+        /// <summary>How many screenshots the engine has started, read under the lock the page writes them under.</summary>
+        public int ScreenshotCount()
+        {
+            lock (Screenshots)
+            {
+                return Screenshots.Count;
+            }
+        }
+
         public IEngineSession Session { get; private set; } = null!;
 
         public async Task OpenAsync()

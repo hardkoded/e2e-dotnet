@@ -108,28 +108,37 @@ public sealed class WholeObservationCaptureOwnershipTests
     public async Task Keeps_a_complete_tree_when_optional_mask_capture_exhausts_its_deadline()
     {
         await using var setup = await SemanticCaptureFallbackTests.SetupAsync();
-        var gate = new TaskCompletionSource<int>();
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         setup.Count[0] = () => gate.Task;
         var disposed = 0;
         setup.Reader = () => Task.FromResult(setup.Document(["n1"], () => Interlocked.Increment(ref disposed)));
 
-        var snapshot = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(1), CancellationToken.None);
+        try
+        {
+            var snapshot = await setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(1), CancellationToken.None);
 
-        Assert.False(snapshot.TreeUnavailable);
-        Assert.Null(snapshot.Pixels);
-        Assert.NotEmpty(snapshot.Roots);
-        Assert.Equal(0, Volatile.Read(ref disposed));
-        gate.SetResult(0);
+            Assert.False(snapshot.TreeUnavailable);
+            Assert.Null(snapshot.Pixels);
+            Assert.NotEmpty(snapshot.Roots);
+            Assert.Equal(0, Volatile.Read(ref disposed));
+        }
+        finally
+        {
+            // Released on every path, so a failed assertion cannot leave the held probe for the session disposal to wait on.
+            gate.TrySetResult(0);
+        }
+
+        // The observation has already returned, so a late screenshot would have to start from the released probe alone; a short wait bounds it.
         await Task.Delay(100);
-        Assert.Empty(setup.Screenshots);
+        Assert.Equal(0, setup.ScreenshotCount());
     }
 
     [Fact]
     public async Task Does_not_start_a_screenshot_when_cancelled_mask_probes_eventually_finish()
     {
         await using var setup = await SemanticCaptureFallbackTests.SetupAsync();
-        var gate = new TaskCompletionSource<int>();
-        var probing = new TaskCompletionSource();
+        var gate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         setup.Count[0] = () =>
         {
             probing.TrySetResult();
@@ -139,15 +148,25 @@ public sealed class WholeObservationCaptureOwnershipTests
         setup.Reader = () => Task.FromResult(setup.Document(["n1"], () => Interlocked.Increment(ref disposed)));
         using var controller = new CancellationTokenSource();
 
-        var failure = Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, Operation, controller.Token));
-        await probing.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        controller.Cancel();
+        try
+        {
+            // The budget outlasts the probe wait, so only the explicit cancel can end the call.
+            var failure = Assert.ThrowsAsync<EngineException>(() => setup.Session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(10), controller.Token));
+            await probing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            controller.Cancel();
 
-        Assert.Equal(EngineErrorCodes.Cancelled, (await failure).Code);
-        gate.SetResult(0);
+            Assert.Equal(EngineErrorCodes.Cancelled, (await failure).Code);
+        }
+        finally
+        {
+            // Released on every path, so a failed assertion cannot leave the held probe for the session disposal to wait on.
+            gate.TrySetResult(0);
+            controller.Cancel();
+        }
+
         await Fixture.UntilAsync(() => Volatile.Read(ref disposed) == 1);
         await Task.Delay(100);
-        Assert.Empty(setup.Screenshots);
+        Assert.Equal(0, setup.ScreenshotCount());
     }
 
     [Fact]
