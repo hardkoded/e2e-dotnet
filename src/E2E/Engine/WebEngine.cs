@@ -1251,7 +1251,7 @@ public sealed partial class WebEngine : IEngine
                 Observation observation;
                 try
                 {
-                    var roots = await CollectAsync(page.MainFrame, walk, semantic).ConfigureAwait(false);
+                    var roots = await CollectAsync(page.MainFrame, walk, semantic, depth: 0).ConfigureAwait(false);
                     var pixels = await pixelCapture.ConfigureAwait(false);
                     var url = page.Url;
                     observation = new Observation
@@ -2938,12 +2938,16 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>Nested iframe capture depth (upstream's <c>MAX_FRAME_DEPTH</c>); a child document deeper than this stays a boundary node and marks the walk truncated.</summary>
+        private const int MaxFrameDepth = 4;
+
         /// <summary>
         /// Reads one frame's document, then each child frame's into the iframe
         /// node that owns it, sharing one node budget across all of them. A
-        /// frame that detaches or navigates mid-read is left empty.
+        /// frame that detaches or navigates mid-read is left empty. <paramref name="depth"/> is how many frames enclose
+        /// <paramref name="frame"/>: 0 for the page's main frame.
         /// </summary>
-        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget)
+        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, int depth)
         {
             if (walk.Remaining <= 0)
             {
@@ -3018,8 +3022,15 @@ public sealed partial class WebEngine : IEngine
                         continue;
                     }
 
+                    // A document past the depth limit is content the model should see but the walk does not read, so the snapshot says it is cut.
+                    if (depth >= MaxFrameDepth)
+                    {
+                        walk.Truncated = true;
+                        continue;
+                    }
+
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
-                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget).ConfigureAwait(false), node.Rect, inset);
+                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, depth + 1).ConfigureAwait(false), node.Rect, inset);
                     if (node.Hidden)
                     {
                         // The frame element's own hidden state, read in the document around it, counts for every node in its document.
