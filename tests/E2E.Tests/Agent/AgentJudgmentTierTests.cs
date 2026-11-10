@@ -478,6 +478,42 @@ public sealed class AgentJudgmentTierTests
         Assert.Equal(1, judge.CallCount);
     }
 
+    [Fact]
+    public async Task Partial_tells_a_judgment_what_the_location_is_evidence_for()
+    {
+        // Upstream checks the extraction's sentence too; this port's extract prompt is checked by the extract tests.
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the observation supports the assertion"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the About heading is visible");
+            },
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.Contains("The screen's location is the address of the screen: it is evidence only for a statement about the address or route, never for or against what the screen shows.", judge.Requests[0].System, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Partial_sends_no_location_when_the_tree_is_withheld()
+    {
+        // Vision Only withholds the tree, so the screen's header, with its location, is not in the request.
+        var engine = new ScreenshotEngine(World(), _ => ScreenshotEngine.Png());
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the chart is visible"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the chart is visible", new AssertOptions { Vision = VisionMode.Only });
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.DoesNotContain("Screen (", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
+    }
+
     private static DocumentWorld World() => CounterPage.World().Map("/about", page => page.Heading("About"));
 
     private static async Task<CoreTests.Attempt> RunAsync(
