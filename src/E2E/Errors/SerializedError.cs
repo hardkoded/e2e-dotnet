@@ -185,18 +185,25 @@ internal static class ErrorSerializer
             return TranslateEngineError(cause);
         }
 
+        // An e2e error the harness named keeps its category, even during a caller's cancel, as upstream's isE2EError does.
+        var engineError = cause is EngineException { Mapped: false } engine && IsEngineErrorCode(engine.Code);
+        if (cause is E2EException && !engineError)
+        {
+            return cause;
+        }
+
         if (cancellationToken.IsCancellationRequested)
         {
             return new EngineException(EngineErrorCodes.Cancelled, "preparing the engine was cancelled", cause);
         }
 
-        if (cause is EngineException { Mapped: false } engine && IsEngineErrorCode(engine.Code))
+        if (cause is EngineException { Mapped: false } closed && engineError)
         {
-            return new EngineException(EngineErrorCodes.EngineFailure, engine.Message + suffix, engine);
+            return new EngineException(EngineErrorCodes.EngineFailure, closed.Message + suffix, closed);
         }
 
         // An abort that is not the caller's cancel, such as an installer's own timeout, is an engine failure, as upstream makes it.
-        return cause is E2EException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
+        return new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
     }
 
     /// <summary>

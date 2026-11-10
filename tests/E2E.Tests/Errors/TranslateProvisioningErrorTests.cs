@@ -55,6 +55,23 @@ public sealed class TranslateProvisioningErrorTests
     }
 
     [Fact]
+    public void A_harness_named_error_keeps_its_category_during_a_caller_cancel()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var translated = ErrorSerializer.TranslateProvisioningError(new ConfigurationException("INVALID_CONFIG", "no such browser"), "", cancellation.Token);
+        Assert.Equal("configuration", ErrorSerializer.Classify(translated).Category);
+    }
+
+    [Fact]
+    public void A_runner_named_engine_error_passes_through_unchanged()
+    {
+        var unreachable = new EngineException("APP_UNREACHABLE", "nothing answered") { Mapped = true };
+        var translated = ErrorSerializer.TranslateProvisioningError(unreachable, " while preparing", CancellationToken.None);
+        Assert.Same(unreachable, translated);
+    }
+
+    [Fact]
     public void An_abort_that_is_not_the_callers_cancel_is_an_engine_failure()
     {
         var translated = ErrorSerializer.TranslateProvisioningError(new OperationCanceledException("installer timed out"), " while preparing", CancellationToken.None);
