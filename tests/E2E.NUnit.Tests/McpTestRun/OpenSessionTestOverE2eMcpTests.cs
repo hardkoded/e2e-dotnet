@@ -152,6 +152,7 @@ public sealed class OpenSessionTestOverE2eMcpTests
             var left = await runner.RunAsync(assembly, typeof(SloppySessionFixture).FullName + "." + nameof(SloppySessionFixture.Leaves_a_promise_behind), CancellationToken.None);
             Assert.That(left, Is.Not.Null);
             Assert.That(left!.Failure, Is.Null);
+            SloppySessionFixture.LeftRelease.SetResult();
             await Task.Delay(300);
             await using (left.Session)
             {
@@ -167,6 +168,8 @@ public sealed class OpenSessionTestOverE2eMcpTests
             {
                 Assert.That(early.Run!.End(), Is.Empty);
             }
+
+            SloppySessionFixture.EarlyRelease.SetResult();
 
             // .NET reports the faulted task when it is collected: look until it lands, as the host does for a few seconds after a close.
             for (var look = 0; look < 40 && warnings.IsEmpty; look++)
@@ -386,13 +389,22 @@ public sealed class SloppySessionFixture : E2ETest
         await Expect.That(Screen.GetByLabel("Loads")).ToBeVisibleAsync();
     }
 
+    /// <summary>
+    /// Released by the test once the run of "leaves a promise behind" has returned, so its rejection lands after the turn and not during it:
+    /// a timer of a fixed length races the run's own work on a slow runner.
+    /// </summary>
+    public static readonly TaskCompletionSource LeftRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Released by the test once the session of "leaves a promise for after the close" has closed.</summary>
+    public static readonly TaskCompletionSource EarlyRelease = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     [Test]
     public async Task Leaves_a_promise_behind()
     {
         await App.OpenAsync("/browser");
         _ = Task.Run(async () =>
         {
-            await Task.Delay(50);
+            await LeftRelease.Task;
             throw new InvalidOperationException("late failure");
         });
     }
@@ -403,7 +415,7 @@ public sealed class SloppySessionFixture : E2ETest
         await App.OpenAsync("/browser");
         _ = Task.Run(async () =>
         {
-            await Task.Delay(1_000);
+            await EarlyRelease.Task;
             throw new InvalidOperationException("later failure");
         });
     }
