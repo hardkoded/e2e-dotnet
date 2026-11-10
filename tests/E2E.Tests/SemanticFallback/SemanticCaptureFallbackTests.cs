@@ -144,7 +144,7 @@ public sealed class SemanticCaptureFallbackTests
     }
 
     /// <summary>Opens an actual attempt whose independent mask probes can fail without a semantic reader.</summary>
-    private static async Task<Setup> SetupAsync()
+    internal static async Task<Setup> SetupAsync()
     {
         var setup = new Setup();
         try
@@ -159,7 +159,7 @@ public sealed class SemanticCaptureFallbackTests
         }
     }
 
-    private sealed class Setup : IAsyncDisposable
+    internal sealed class Setup : IAsyncDisposable
     {
         /// <summary>The page's reader (upstream's <c>captureDocument</c> mock): rejected with the timeout until a test says otherwise.</summary>
         public Func<Task<IJSHandle>> Reader { get; set; } = () => Task.FromException<IJSHandle>(Timeout);
@@ -170,6 +170,15 @@ public sealed class SemanticCaptureFallbackTests
         public Func<PageScreenshotOptions, Task<byte[]>> Screenshot { get; set; } = _ => Task.FromResult(new byte[] { 1, 2, 3 });
 
         public List<PageScreenshotOptions> Screenshots { get; } = [];
+
+        /// <summary>How many screenshots the engine has started, read under the lock the page writes them under.</summary>
+        public int ScreenshotCount()
+        {
+            lock (Screenshots)
+            {
+                return Screenshots.Count;
+            }
+        }
 
         public IEngineSession Session { get; private set; } = null!;
 
