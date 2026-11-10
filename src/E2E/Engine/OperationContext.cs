@@ -20,8 +20,8 @@ public enum OperationOrigin
 
 /// <summary>
 /// What an engine call carries about the call itself. Upstream's <c>OperationContext</c>. <c>origin</c>, <c>runId</c> and <c>attemptId</c> are
-/// members here: upstream's <c>signal</c> is the <see cref="CancellationToken"/> every engine call takes, and <c>timeoutMs</c> is the per-call
-/// timeout (such as <see cref="IEngineSession.ObserveAsync(TimeSpan, CancellationToken)"/>).
+/// members here: upstream's <c>signal</c> is the <see cref="CancellationToken"/> every engine call takes, and <c>timeoutMs</c> is <see cref="Timeout"/> (or the per-call
+/// timeout of a read, such as <see cref="IEngineSession.ObserveAsync(TimeSpan, CancellationToken)"/>).
 /// </summary>
 /// <param name="Origin">Who asked. Upstream's <c>origin</c>.</param>
 public sealed record OperationContext(OperationOrigin Origin)
@@ -35,6 +35,12 @@ public sealed record OperationContext(OperationOrigin Origin)
 
     /// <summary>The attempt id: the one <see cref="EngineStartOptions.AttemptId"/> named at start. Upstream's <c>attemptId</c>. Filled in like <see cref="RunId"/>.</summary>
     public string AttemptId { get; init; } = "";
+
+    /// <summary>
+    /// The time the engine has for the call, at least 1 ms. Upstream's <c>timeoutMs</c>. A web engine uses it as the timeout of the action it
+    /// performs; null (a context built by hand) leaves the engine its own action timeout.
+    /// </summary>
+    public TimeSpan? Timeout { get; init; }
 
     /// <summary>A test's own step: an engine may act without settling.</summary>
     public static OperationContext Test { get; } = new(OperationOrigin.Test);
