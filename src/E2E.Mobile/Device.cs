@@ -199,6 +199,22 @@ public sealed class Device
     public Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default) =>
         RunAsync("device.setPermission", Enum.IsDefined(permission) ? permission.WireName() : permission.ToString(), () => _session.SetPermissionAsync(permission, state, cancellationToken));
 
+    /// <summary>
+    /// The name form of <see cref="SetPermissionAsync(DevicePermission, PermissionState, CancellationToken)"/>, for a name read from
+    /// outside the code. A name or state agent-device does not set is refused before any device command, a misspelled name with the
+    /// name it means (<c>"camra"</c> names <c>"camera"</c>), and a <c>null</c> name or state as <c>undefined</c>.
+    /// </summary>
+    /// <remarks>
+    /// The step records the name only when it is one agent-device sets; any other text is recorded as <c>unknown</c>. The refusal
+    /// messages echo the name as given, as upstream's do.
+    /// </remarks>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a name or state that is not one of the wire names.</exception>
+    public Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            "device.setPermission",
+            permission is null ? "undefined" : DeviceSession.PermissionWireNames.Contains(permission) ? permission : "unknown",
+            () => _session.SetPermissionAsync(permission, state, cancellationToken));
+
     /// <summary>Sets the simulated location, switching location services on first on Android.</summary>
     public Task SetLocationAsync(Coordinates coordinates, CancellationToken cancellationToken = default) =>
         RunAsync("device.setLocation", "", () => SetLocationCoreAsync(coordinates, cancellationToken));

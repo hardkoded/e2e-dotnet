@@ -1273,7 +1273,7 @@ public sealed partial class WebEngine : IEngine
                 Observation observation;
                 try
                 {
-                    var roots = await CollectAsync(page.MainFrame, walk, semantic).ConfigureAwait(false);
+                    var roots = await CollectAsync(page.MainFrame, walk, semantic, depth: 0).ConfigureAwait(false);
                     var pixels = await pixelCapture.ConfigureAwait(false);
                     var url = page.Url;
                     observation = new Observation
@@ -1768,11 +1768,44 @@ public sealed partial class WebEngine : IEngine
             ArgumentNullException.ThrowIfNull(action);
             ArgumentNullException.ThrowIfNull(context);
             RequireObservation();
-            // A drag watches the cancellation itself and releases the mouse before it ends: the budget must not abandon it at a cancel,
-            // or the call would end while the button is still down.
-            var budgetToken = action is PointerAction.SwipeTo or PointerAction.DragTo ? CancellationToken.None : cancellationToken;
-            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", budgetToken, context.Timeout);
+            var label = EngineActionKinds.Of(action) + " at point";
+            if (action is PointerAction.SwipeTo or PointerAction.DragTo)
+            {
+                return DragAtPointAsync(point, action, label, cancellationToken, context.Timeout);
+            }
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), label, cancellationToken, context.Timeout);
         }));
+
+        /// <summary>
+        /// A pointer drag under the operation's budget (upstream's <c>dispatchPointerAction</c> takes the operation's signal). The drag ends with
+        /// its budget or with a cancel, so it never keeps moving after the call fails. The call does not wait for the drag's mouse release, as
+        /// upstream's <c>performAt</c> does not: the drag's <c>finally</c> releases the button after the call has failed. The token linking is
+        /// .NET-only: the .NET engine links the drag's token itself, where upstream passes the operation's signal.
+        /// </summary>
+        private async Task DragAtPointAsync(Point point, PointerAction action, string label, CancellationToken cancellationToken, TimeSpan? timeout)
+        {
+            var budget = Budget(label, cancellationToken, timeout);
+            using var ended = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var drag = DispatchPointerActionAsync(point, action, ended.Token);
+            Exception failure;
+            try
+            {
+                await budget.WithinAsync(drag).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            // The budget or the caller abandoned the drag: cancel it. Its release runs after this call has failed, as upstream's does.
+            ended.Cancel();
+            if (WebErrors.IsPlaywright(failure) || failure is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                throw WebErrors.ClassifyInput(failure, label);
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
 
         private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
         {
@@ -2960,12 +2993,17 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>Nested iframe capture depth (upstream's <c>MAX_FRAME_DEPTH</c>); a child document deeper than this stays a boundary node and marks the walk truncated.</summary>
+        private const int MaxFrameDepth = 4;
+
         /// <summary>
         /// Reads one frame's document, then each child frame's into the iframe
         /// node that owns it, sharing one node budget across all of them. A
         /// frame that detaches or navigates mid-read is left empty.
+        ///
+        /// <paramref name="depth"/> is how many frames enclose <paramref name="frame"/>: 0 for the page's main frame.
         /// </summary>
-        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget)
+        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, int depth)
         {
             if (walk.Remaining <= 0)
             {
@@ -3048,8 +3086,15 @@ public sealed partial class WebEngine : IEngine
                         continue;
                     }
 
+                    // A document past the depth limit is content the model should see but the walk does not read, so the snapshot says it is cut.
+                    if (depth >= MaxFrameDepth)
+                    {
+                        walk.Truncated = true;
+                        continue;
+                    }
+
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
-                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget).ConfigureAwait(false), node.Rect, inset);
+                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, depth + 1).ConfigureAwait(false), node.Rect, inset);
                     if (node.Hidden)
                     {
                         // The frame element's own hidden state, read in the document around it, counts for every node in its document.

@@ -411,11 +411,15 @@ public sealed class RecordedPointPlace
 /// <summary>Upstream's <c>TracePointEnd</c>: a recorded point and, when a listed node with a durable descriptor contained it, its place inside that node's box.</summary>
 public sealed class RecordedPointEnd
 {
-    public Point Point { get; set; }
+    /// <summary>
+    /// The point the end was placed at. Null when a stored end lost it: upstream's <c>readPointEnd</c> then reads the end as undefined, so
+    /// <see cref="TraceRead.ReadTraceEntry(CacheEntry?)"/> makes the entry a miss, where a 0,0 default would replay a point nobody recorded.
+    /// </summary>
+    public Point? Point { get; set; }
 
     public RecordedPointPlace? Under { get; set; }
 
-    internal bool IsValid() => RecordedPointPlace.IsFinite(Point) && (Under?.IsValid() ?? true);
+    internal bool IsValid() => Point is { } point && RecordedPointPlace.IsFinite(point) && (Under?.IsValid() ?? true);
 
     internal RecordedPointEnd Copy() => (RecordedPointEnd)MemberwiseClone();
 }

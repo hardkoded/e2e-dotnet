@@ -66,6 +66,8 @@ For a visual check, set `Vision = VisionMode.On` so the model also sees a screen
 await Agent.AssertAsync("the chart trends upward", new AssertOptions { Vision = VisionMode.On });
 ```
 
+The agent's observation shows a frame from another site, such as a hosted card field, as an `iframe` node with no content. To judge that content, use `Vision = VisionMode.On` (or `Only`), and reach it with script steps through `Browser.FrameLocator`. See [Working with the browser](/features/browser/#reach-into-an-iframe).
+
 `Agent.AssertAsync` checks the current screen and fails if the statement is
 false or the evidence is insufficient. Use `Agent.WaitForAsync` when the UI
 still needs time to reach the expected state. See
