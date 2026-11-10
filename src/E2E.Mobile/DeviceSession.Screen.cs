@@ -352,7 +352,7 @@ public sealed partial class DeviceSession
     /// send the action where the control was.
     /// </summary>
     internal async Task<NodeBinding> SettledAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken) =>
-        await WaitForTransitionAsync(entry, cancellationToken).ConfigureAwait(false)
+        await WaitForTransitionAsync(entry, input, cancellationToken).ConfigureAwait(false)
             ? await RelocatedAsync(entry, input, cancellationToken).ConfigureAwait(false)
             : entry;
 
@@ -360,7 +360,7 @@ public sealed partial class DeviceSession
     /// Waits out the remainder of the transition budget when the control came with the last action. True when it waited,
     /// so the binding may be stale; false when the control was already in place.
     /// </summary>
-    internal async Task<bool> WaitForTransitionAsync(NodeBinding entry, CancellationToken cancellationToken)
+    internal async Task<bool> WaitForTransitionAsync(NodeBinding entry, InputBudget? input, CancellationToken cancellationToken)
     {
         var since = _engine.Clock.GetUtcNow() - _lastActionAt;
         var remaining = TimeSpan.FromMilliseconds(Options.TransitionMilliseconds) - since;
@@ -374,23 +374,54 @@ public sealed partial class DeviceSession
             return false;
         }
 
-        try
-        {
-            await _engine.Delay(remaining, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw DeviceSupport.Cancelled("transition wait cancelled");
-        }
+        await WaitOutTransitionAsync(input, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
 
-        // The wait resolves on cancellation. The action behind it must not go out once the caller has already been told
-        // the operation was cancelled.
+    /// <summary>
+    /// Waits out the remainder of the transition budget without outlasting the input's own budget. When the input's budget
+    /// cannot cover the rest of the transition, it throws <c>OPERATION_TIMEOUT</c> rather than sending an input the
+    /// transition has not finished for. Upstream's <c>waitOutTransition</c>.
+    /// </summary>
+    internal async Task WaitOutTransitionAsync(InputBudget? input, CancellationToken cancellationToken)
+    {
+        // The wait resolves on cancellation, and the clock can move before a cancelled wait is noticed. Nothing waits and
+        // nothing goes out once the caller has already been told the operation was cancelled.
         if (cancellationToken.IsCancellationRequested)
         {
             throw DeviceSupport.Cancelled("transition wait cancelled");
         }
 
-        return true;
+        var since = _engine.Clock.GetUtcNow() - _lastActionAt;
+        var remaining = TimeSpan.FromMilliseconds(Options.TransitionMilliseconds) - since;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var available = input?.Remaining ?? remaining;
+        if (available > TimeSpan.Zero)
+        {
+            try
+            {
+                await _engine.Delay(available < remaining ? available : remaining, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw DeviceSupport.Cancelled("transition wait cancelled");
+            }
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw DeviceSupport.Cancelled("transition wait cancelled");
+        }
+
+        // A wait the budget capped leaves the transition unfinished, so the input it was for is not sent.
+        if (available < remaining)
+        {
+            throw new EngineException(EngineErrorCodes.OperationTimeout, "transition could not finish within the action budget", retryable: false);
+        }
     }
 
     /// <summary>
