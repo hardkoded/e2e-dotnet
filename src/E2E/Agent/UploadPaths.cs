@@ -22,7 +22,8 @@ internal sealed record AuthorizedUpload(IReadOnlyList<string> Given, IReadOnlyLi
 /// before the engine sees it. Paths are project-relative, like <c>Locator.SetInputFilesAsync</c>, and a file a test author would not
 /// hand the app is refused: one outside the project root (through a symlink too), one that is hidden or sits under a hidden directory
 /// (<c>.env</c>, <c>.git</c>, <c>.e2e</c>), one that does not exist or is not a regular file. A page can talk a model into naming any
-/// path; it cannot talk the harness into reading it.
+/// path; it cannot talk the harness into reading it. A <c>sample:&lt;name&gt;</c> path names one of e2e's own sample files instead
+/// (<see cref="SampleFiles"/>).
 /// </summary>
 internal static class UploadPaths
 {
@@ -57,6 +58,11 @@ internal static class UploadPaths
 
     private static string Authorize(IUploadPolicyHost host, string entry, string projectRoot)
     {
+        if (entry.StartsWith(SampleFiles.SamplePrefix, StringComparison.Ordinal))
+        {
+            return Sample(entry[SampleFiles.SamplePrefix.Length..]);
+        }
+
         string absolute;
         string? relative;
         try
@@ -92,6 +98,12 @@ internal static class UploadPaths
 
         return absolute;
     }
+
+    // Where a named sample is; a name that is no sample is the model's to correct.
+    private static string Sample(string name) =>
+        SampleFiles.SamplePath(name) ?? throw new TestException(
+            "INVALID_ARGUMENT",
+            $"no sample file named {Quote(name)}; the samples are {string.Join(", ", SampleFiles.SampleNames.Select(known => SampleFiles.SamplePrefix + known))}");
 
     // The policy refusal: recorded on the step first, then thrown as the model-readable denial.
     private static AgentException Deny(IUploadPolicyHost host, string reason)

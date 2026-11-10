@@ -60,6 +60,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `ActResult.ModelCalls` (0 for a full replay) and `ActResult.Actions` (replayed and live actions, counting failed attempts)
 - `AgentException.Blocked` and `AgentException.Explanation` (the same text as `Message`)
 - OpenAI-compatible tool calling
+- Sample files the agent can upload (tester-army/e2e#1600, `agent/sample-files.ts`): a path `sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`, `sample:notes.txt`, `sample:table.csv`, or `sample:empty.txt` in `upload` resolves to e2e's own bytes, written once per process to a temporary directory and removed at exit (`SampleFiles`, internal). `UploadPaths.AuthorizeUploadPaths` resolves them as upstream's `authorizeUploadPaths` does, and the tool description lists them. Not ported: the MCP `upload` test line. The port's MCP session offers no `upload` tool (`SessionCatalog`), so the refusal of a `sample:` path as having no test line has no caller yet.
 
 ## Replay cache
 
