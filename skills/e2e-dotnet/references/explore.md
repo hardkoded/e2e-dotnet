@@ -201,7 +201,8 @@ The agent's `system` and `context` carry over to the explorer, and so do the
 project tools of `AgentOptions.Tools`. A custom `Executor` is replaced by the
 built-in agent for the run, with a notice (`Notice`), and needs a model on
 the entry or the executor, or the run throws `MODEL_UNAVAILABLE` before it
-starts. A project tool may not be named `report_finding`.
+starts. A project tool may not be named `report_finding`, nor any other name
+the harness adds (see the agent reference).
 
 `Credentials` gives the accounts the explorer can sign in with, by name (read
 one with `Credentials.User`). The planner knows the account names and

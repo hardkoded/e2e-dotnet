@@ -688,8 +688,11 @@ same dictionary. A config file cannot declare one, since a tool is code.
   notice at the end says how many lines and bytes were left out, so the model
   can ask for a narrower result. Return less, or let the tool take a filter.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,
-  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so is
-  `report_finding`, the tool `Explore.ExploreAsync` adds (topic `explore`).
+  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so are
+  the names of the tools the harness adds: `complete_step` in every agent
+  step, `locate`, `run_code`, `test_lines`, `start_recording`, and
+  `stop_recording` in an e2e MCP session, and `report_finding`, which
+  `Explore.ExploreAsync` adds (topic `explore`).
 - A tool that needs the screen takes the second `AgentTool` constructor,
   whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
   tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.

@@ -7,7 +7,8 @@ using System.Text.Json.Nodes;
 namespace E2E.Tests.AgentConfig;
 
 // Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported as
-// Partial_ (the port's verdict tool is done, not complete_step, and run_code has no port). Neither has a model instance as the entry.
+// Partial_ (the port's verdict tool is done, not complete_step; the reserved names are a hand-kept list). Neither has a model
+// instance as the entry.
 public sealed class TheBuiltInAgentOptionsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -65,16 +66,18 @@ public sealed class TheBuiltInAgentOptionsTests
 
     /// <summary>
     /// Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore". Every
-    /// name the port's harness adds in an e2e mcp session and under explore is refused, each with its surface. Not ported: the
-    /// agent step's <c>complete_step</c> is the port's <c>done</c> (the verdict tool, refused below with the agent's own names),
-    /// and <c>run_code</c> has no port.
+    /// name the harness adds is refused with its surface, as upstream's list has them. Not ported: the port's verdict tool is
+    /// <c>done</c>, which is refused below with the agent's own names, and the names are checked against the port's own harness
+    /// tools, which the test lists by hand.
     /// </summary>
     [Fact]
     public void Partial_Rejects_the_names_of_the_tools_the_harness_adds_in_an_agent_step_an_e2e_mcp_session_and_explore()
     {
         var where = new Dictionary<string, string>
         {
+            ["complete_step"] = "every agent step",
             ["locate"] = "an e2e mcp session",
+            ["run_code"] = "an e2e mcp session",
             ["test_lines"] = "an e2e mcp session",
             ["start_recording"] = "an e2e mcp session",
             ["stop_recording"] = "an e2e mcp session",

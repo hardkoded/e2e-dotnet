@@ -628,8 +628,10 @@ public static class AgentTools
     /// </summary>
     internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["complete_step"] = "every agent step",
         [ExploreExecutor.FindingToolName] = "e2e explore",
         ["locate"] = "an e2e mcp session",
+        ["run_code"] = "an e2e mcp session",
         ["test_lines"] = "an e2e mcp session",
         ["start_recording"] = "an e2e mcp session",
         ["stop_recording"] = "an e2e mcp session",
