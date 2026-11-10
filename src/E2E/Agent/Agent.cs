@@ -434,6 +434,9 @@ public sealed partial class Agent
         return Enum.IsDefined(vision) ? vision : throw new TestException("INVALID_ARGUMENT", "vision must be Off, On, or Only");
     }
 
+    // The look a judgment asks for when vision allows pixels: the pixel fallback (upstream's `pixelFallback: true`).
+    private static readonly ObserveOptions JudgmentFallbackLook = new() { PixelFallback = true };
+
     /// <summary>
     /// Captures one fresh look. A capture the engine cannot make and masking the engine cannot prove
     /// each degrade the call to the tree alone, except under <see cref="VisionMode.Only"/>, which fails.
@@ -446,7 +449,19 @@ public sealed partial class Agent
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>
             {
-                var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
+                // Upstream's judgment look asks the pixel fallback unless vision is off (`pixelFallback: vision !== false`), so a screen whose tree
+                // cannot be read still answers with its pixels, and its listing says the tree is unavailable instead of listing nothing.
+                var seen = await Phases.RetryingObserveAsync(
+                    () => vision == VisionMode.Off
+                        ? _scope.ObserveAsync(OperationContext.Agent, token)
+                        : _scope.ObserveAsync(JudgmentFallbackLook, OperationContext.Agent, token),
+                    guard,
+                    token).ConfigureAwait(false);
+                if (seen.TreeUnavailable)
+                {
+                    return (Seen: seen, Tree: "Screen (" + _scope.Redactor.Redact(seen.Route) + "):\n" + ObservationFeed.UnavailableTreeMarker, Cut: false);
+                }
+
                 var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
                 return (Seen: seen, Tree: "Screen (" + _scope.Redactor.Redact(seen.Route) + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Cut: overBudget);
             },

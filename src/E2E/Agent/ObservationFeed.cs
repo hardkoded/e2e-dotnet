@@ -228,7 +228,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             _pending = null;
             observation = await AgentObservation.SettleAsync(
                 SeeAsync,
-                AgentObservation.Shape,
+                AgentObservation.SettleShape,
                 new SettleOptions<Observation>
                 {
                     ChangedFrom = changedFrom,
