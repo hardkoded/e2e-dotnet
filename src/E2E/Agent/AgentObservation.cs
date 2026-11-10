@@ -207,10 +207,7 @@ internal static partial class AgentObservation
         }
 
         var url = new UriBuilder(parsed) { UserName = string.Empty, Password = string.Empty }.Uri;
-        var text = appOrigin is not null && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
-            ? url.PathAndQuery + url.Fragment
-            : url.AbsoluteUri;
-        return new JudgedLocation(SnapshotText.Bound(text), Url: true);
+        return new JudgedLocation(SnapshotText.Bound(CacheRoute.AppLocation(url.AbsoluteUri, appOrigin)), Url: true);
     }
 
     /// <summary>
@@ -219,6 +216,14 @@ internal static partial class AgentObservation
     /// </summary>
     public static string JudgedLocationShape(JudgedLocation location) =>
         "\n<location " + (location.Url ? location.Text : MaskClocks(location.Text)) + ">";
+
+    /// <summary>
+    /// What two looks are compared by (upstream's <c>judgmentShape</c>): the screen's listing, normalized as <see cref="Shape(string)"/>
+    /// normalizes it, and its address. A tree the call withholds (<paramref name="treeWithheld"/>, <see cref="VisionMode.Only"/>) is not
+    /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included.
+    /// </summary>
+    public static string JudgmentShape(string tree, string listing, JudgedLocation? judged, bool treeWithheld) =>
+        treeWithheld ? Shape(listing) : judged is null ? Shape(tree) : Shape(listing) + JudgedLocationShape(judged);
 
     /// <summary>
     /// One observed string with every secret taken out, as upstream's <c>redactText</c> (agent/observation.ts) does,

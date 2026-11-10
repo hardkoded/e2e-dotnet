@@ -9,14 +9,21 @@ namespace E2E.Tests.Agent;
 /// <summary>
 /// An engine whose screen keeps its tree and moves only its address, as a page does when it rewrites its URL after it renders.
 /// The screen reads <paramref name="before"/> until <see cref="Moved"/> is set, then <paramref name="after"/> when one is given.
+/// A null <paramref name="before"/> is an engine that reports no location at all.
 /// </summary>
-internal sealed class LocationEngine(IEngine inner, string before, string? after = null) : IEngine
+internal sealed class LocationEngine(IEngine inner, string? before, string? after = null) : IEngine
 {
-    /// <summary>Whether the address has moved on to <c>after</c>.</summary>
-    public bool Moved { get; set; }
+    private volatile bool _moved;
 
-    /// <summary>The address the screen is at now.</summary>
-    public string Location => Moved && after is not null ? after : before;
+    /// <summary>Whether the address has moved on to <c>after</c>. Set by the judge's callback, read by the engine's observations.</summary>
+    public bool Moved
+    {
+        get => _moved;
+        set => _moved = value;
+    }
+
+    /// <summary>The address the screen is at now, or null when the engine reports none.</summary>
+    public string? Location => Moved && after is not null ? after : before;
 
     public string Platform => inner.Platform;
 
@@ -31,7 +38,7 @@ internal sealed class LocationEngine(IEngine inner, string before, string? after
 
     private sealed class Session(LocationEngine engine, IEngineSession inner) : IEngineSession
     {
-        public string Route => E2E.Internal.Routes.LocationOf(engine.Location);
+        public string Route => engine.Location is null ? inner.Route : E2E.Internal.Routes.LocationOf(engine.Location);
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
 
@@ -49,6 +56,7 @@ internal sealed class LocationEngine(IEngine inner, string before, string? after
                 Viewport = seen.Viewport,
                 Pixels = seen.Pixels,
                 TreeUnavailable = seen.TreeUnavailable,
+                SecureNodeCount = seen.SecureNodeCount,
             };
         }
 

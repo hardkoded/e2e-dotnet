@@ -16,6 +16,14 @@ public sealed class JudgmentShapeTests
     private static string ShapeAt(string location) => E2E.AgentObservation.JudgedLocationShape(E2E.AgentObservation.JudgeLocation(location, App));
 
     [Fact]
+    public void Partial_sees_no_location_change_when_the_tree_is_withheld()
+    {
+        // Upstream's judgmentShape: a tree the call withholds is not shown the address, so its change is no change.
+        string ShapeWithheld(string location) => E2E.AgentObservation.JudgmentShape("Screen (\"x\"):\n#e1 heading \"A\"", "#e1 heading \"A\"", E2E.AgentObservation.JudgeLocation(location, App), treeWithheld: true);
+        Assert.Equal(ShapeWithheld("https://app.test/a"), ShapeWithheld("https://app.test/b"));
+    }
+
+    [Fact]
     public void Partial_ignores_a_clock_in_a_device_title_as_the_screen_shape_does()
     {
         Assert.Equal(ShapeAt("com.example / Recording 00:12"), ShapeAt("com.example / Recording 00:13"));

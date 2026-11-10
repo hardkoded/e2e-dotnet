@@ -171,7 +171,7 @@ internal static class SnapshotText
     /// A string quoted and escaped as upstream's <c>JSON.stringify</c> writes it: lowercase <c>\u</c> escapes, a lone
     /// surrogate escaped rather than rejected, and no escaping of non-ASCII or HTML characters.
     /// </summary>
-    private static string Quote(string text)
+    internal static string Quote(string text)
     {
         var builder = new StringBuilder(text.Length + 2).Append('"');
         for (var index = 0; index < text.Length; index++)

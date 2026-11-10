@@ -382,7 +382,7 @@ public sealed partial class Agent
     /// <param name="Tree">The screen as the model reads it, rendered even when <see cref="VisionMode.Only"/> keeps it out of the request.</param>
     /// <param name="Image">The masked screenshot sized for the model, or null when the call sent none.</param>
     /// <param name="Text">What the request carries of the screen: the tree and the note on the image, or the note alone.</param>
-    /// <param name="Shape">What two looks are compared by: the tree, and a digest of the image when there is one.</param>
+    /// <param name="Shape">What two looks are compared by: the screen's listing and address (<see cref="AgentObservation.JudgmentShape"/>), and a digest of the image when there is one.</param>
     private sealed record Look(string Tree, ModelImage? Image, string Text, string Shape)
     {
         public IReadOnlyList<ModelImage>? Images => Image is null ? null : [Image];
@@ -455,7 +455,7 @@ public sealed partial class Agent
                 // Where the screen is, as the judgment reads it: the whole address off the app's origin, its path on it. An engine that reports no location reads its route.
                 var judgedLocation = seen.Location is null ? null : AgentObservation.JudgeLocation(_scope.Redactor.Redact(seen.Location), _scope.AppOrigin);
                 var where = judgedLocation?.Text ?? _scope.Redactor.Redact(seen.Route);
-                return (Seen: seen, Tree: "Screen (" + where + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Body: listing, Judged: judgedLocation, Cut: overBudget);
+                return (Seen: seen, Tree: "Screen (" + SnapshotText.Quote(where) + "):\n" + (listing.Length == 0 ? "(empty)" : listing), Body: listing, Judged: judgedLocation, Cut: overBudget);
             },
             look => new PhaseDetail(LocatorResolver.Walk(look.Seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(look.Tree))).ConfigureAwait(false);
 
@@ -466,7 +466,7 @@ public sealed partial class Agent
             ObservationRevision = observation.Revision.Length > 0 ? observation.Revision : null,
             ObservationBytes = vision == VisionMode.Only ? null : System.Text.Encoding.UTF8.GetByteCount(tree),
         });
-        var shape = JudgmentShape(tree, body, judged, vision);
+        var shape = AgentObservation.JudgmentShape(tree, body, judged, vision == VisionMode.Only);
         if (vision == VisionMode.Off)
         {
             return new Look(tree, null, tree, shape);
@@ -485,14 +485,6 @@ public sealed partial class Agent
         var note = DescribePixels(image, pixels.MaskedRegionCount ?? 0, vision == VisionMode.Only);
         return new Look(tree, image, vision == VisionMode.Only ? note : tree + "\n\n" + note, shape + "\n<pixels " + AgentObservation.PixelDigest(pixels.Png) + ">");
     }
-
-    /// <summary>
-    /// What two looks are compared by (upstream's <c>judgmentShape</c>): the screen's listing and its address. A tree the call withholds
-    /// (<see cref="VisionMode.Only"/>) is not shown the address, so the address is left out of it. An engine that reports no location
-    /// compares the whole screen, its route included.
-    /// </summary>
-    private static string JudgmentShape(string tree, string listing, JudgedLocation? judged, VisionMode vision) =>
-        vision == VisionMode.Only ? listing : judged is null ? tree : listing + AgentObservation.JudgedLocationShape(judged);
 
     // Describes the attached screenshot and its relation to the tree.
     private static string DescribePixels(ModelImage image, int maskedRegionCount, bool soleEvidence)

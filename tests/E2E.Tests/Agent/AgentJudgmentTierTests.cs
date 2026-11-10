@@ -331,14 +331,14 @@ public sealed class AgentJudgmentTierTests
         session.Complete(null);
 
         var observation = judge.Requests[0].Messages[0].Content!;
-        Assert.Contains("Screen (/reset?token=<secret:reset.token>):\n#", observation, StringComparison.Ordinal);
+        Assert.Contains("Screen (\"/reset?token=<secret:reset.token>\"):\n#", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_judgment_reads_the_current_path()
     {
-        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (/about):", StringComparison.Ordinal)
+        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"/about\"):", StringComparison.Ordinal)
             ? ModelResponses.Done("passed", "the location is /about")
             : ModelResponses.Done("failed", "the judge was not shown the location"));
         var result = await RunAsync(
@@ -357,7 +357,7 @@ public sealed class AgentJudgmentTierTests
     {
         // A path on another site would read as the app's own route, so the judge is shown the whole address.
         var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/login");
-        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (https://idp.test/login):", StringComparison.Ordinal)
+        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"https://idp.test/login\"):", StringComparison.Ordinal)
             ? ModelResponses.Done("passed", "the judge read the whole address")
             : ModelResponses.Done("failed", "the origin was lost"));
         var result = await RunAsync(
@@ -393,7 +393,7 @@ public sealed class AgentJudgmentTierTests
         session.Complete(null);
 
         var observation = judge.Requests[0].Messages[0].Content!;
-        Assert.Contains("Screen (https://idp.test/cb?code=", observation, StringComparison.Ordinal);
+        Assert.Contains("Screen (\"https://idp.test/cb?code=", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
     }
 
@@ -419,7 +419,7 @@ public sealed class AgentJudgmentTierTests
         session.Complete(null);
 
         var observation = judge.Requests[0].Messages[0].Content!;
-        Assert.Contains("Screen (https://idp.test/cb?user=", observation, StringComparison.Ordinal);
+        Assert.Contains("Screen (\"https://idp.test/cb?user=", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("p%40ss", observation, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("p@ss", observation, StringComparison.Ordinal);
     }
@@ -430,7 +430,7 @@ public sealed class AgentJudgmentTierTests
         var engine = new LocationEngine(new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))), "https://app.test/moves", "https://app.test/moved");
         var judge = new ScriptedModel(request =>
         {
-            if (request.Messages[0].Content!.Contains("Screen (/moved):", StringComparison.Ordinal))
+            if (request.Messages[0].Content!.Contains("Screen (\"/moved\"):", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "the URL moved to /moved");
             }
@@ -476,6 +476,25 @@ public sealed class AgentJudgmentTierTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_TIMEOUT", error.Code);
         Assert.Equal(1, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Partial_leaves_the_location_out_when_the_engine_reports_none()
+    {
+        // An engine with no location: the judge reads the screen's route in the header, and no <location> is compared.
+        var engine = new LocationEngine(new DocumentEngine(World()), null);
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the About page is open"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the About page is open");
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.Contains("Screen (\"/about\"):", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
     }
 
     [Fact]
