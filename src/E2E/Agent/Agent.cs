@@ -447,7 +447,7 @@ public sealed partial class Agent
         var (observation, tree, body, judged, cut) = await Phases.InstrumentPhaseAsync<(Observation Seen, string Tree, string Body, JudgedLocation? Judged, bool Cut)>(
             new PhaseHost(_scope.Steps, _scope.Debug),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
-            async () =>
+            async Task<(Observation Seen, string Tree, string Body, JudgedLocation? Judged, bool Cut)> () =>
             {
                 var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(OperationContext.Agent, token), guard, token).ConfigureAwait(false);
                 var listing = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
