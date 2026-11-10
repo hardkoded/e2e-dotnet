@@ -64,6 +64,7 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
 
             var error = Assert.IsType<AgentException>(stale.Error);
             Assert.Equal("REPLAY_STALE", error.Code);
+            Assert.Equal(2, Runner.ExitCodeOf(error));
             Assert.Contains(reason, error.Message, StringComparison.Ordinal);
             Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
             Assert.Equal(0, stale.ModelCalls);
