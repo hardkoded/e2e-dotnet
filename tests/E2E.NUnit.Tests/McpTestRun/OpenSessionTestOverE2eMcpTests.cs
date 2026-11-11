@@ -78,34 +78,60 @@ public sealed class OpenSessionTestOverE2eMcpTests
     [Test]
     public async Task Partial_Tells_a_test_that_failed_as_test_fail_expected_and_one_that_passed_unexpectedly()
     {
-        var runner = new NUnitSessionTestRunner();
-        var assembly = typeof(ExpectedFailureFixture).Assembly;
+        var dir = Directory.CreateTempSubdirectory("e2e-expected-failure-").FullName;
+        try
+        {
+            // A host closes for good at close_session, so each test opens on a host of its own.
+            var first = SessionsSideBySideTests.Host(dir);
+            try
+            {
+                var expected = await first.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = typeof(ExpectedFailureFixture).FullName + ".Counter_gap" });
+                Assert.That(expected, Does.StartWith("Test \"" + typeof(ExpectedFailureFixture).FullName + ".Counter_gap\" failed as expected after "));
+                Assert.That(expected, Does.Contain("\nExpected to fail: the counter starts at one\nASSERTION_FAILED: "));
+                Assert.That(expected, Does.Contain("\nSteps:"));
+            }
+            finally
+            {
+                await first.CloseAllAsync("done");
+                first.Dispose();
+            }
 
-        var expected = await runner.RunAsync(assembly, typeof(ExpectedFailureFixture).FullName + "." + nameof(ExpectedFailureFixture.Counter_gap), CancellationToken.None);
-        Assert.That(expected, Is.Not.Null);
-        await using var closingExpected = expected!;
-        Assert.That(expected!.ExpectedFailure, Is.EqualTo("the counter starts at one"));
-        Assert.That(expected.Failure, Is.Not.Null);
-        Assert.That(expected.Failure!.Message, Does.Not.Contain("UNEXPECTED_PASS"));
-
-        var fixedGap = await runner.RunAsync(assembly, typeof(ExpectedFailureFixture).FullName + "." + nameof(ExpectedFailureFixture.Fixed_gap), CancellationToken.None);
-        Assert.That(fixedGap, Is.Not.Null);
-        await using var closingFixed = fixedGap!;
-        Assert.That(fixedGap!.ExpectedFailure, Is.EqualTo("the home page is broken"));
-        Assert.That(fixedGap.Failure?.Message, Is.EqualTo("test is marked test.fail (\"the home page is broken\") but passed"));
+            var second = SessionsSideBySideTests.Host(dir);
+            try
+            {
+                var fixedGap = await second.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = typeof(ExpectedFailureFixture).FullName + ".Fixed_gap" });
+                Assert.That(fixedGap, Does.StartWith("Test \"" + typeof(ExpectedFailureFixture).FullName + ".Fixed_gap\" failed after "));
+                Assert.That(fixedGap, Does.Contain("\nExpected to fail: the home page is broken\nUNEXPECTED_PASS: test is marked test.fail (\"the home page is broken\") but passed"));
+            }
+            finally
+            {
+                await second.CloseAllAsync("done");
+                second.Dispose();
+            }
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Test]
     public async Task Partial_Does_not_cover_a_beforeAll_failure_with_test_fail()
     {
-        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(MarkedHooksFixture).Assembly, typeof(MarkedHooksFixture).FullName + "." + nameof(MarkedHooksFixture.Needs_the_database), CancellationToken.None);
-
-        Assert.That(outcome, Is.Not.Null);
-        await using var closing = outcome!;
-        Assert.That(outcome!.Session, Is.Null);
-        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.BeforeAll));
-        Assert.That(outcome.Failure!.Message, Does.StartWith("beforeAll failed: "));
-        Assert.That(outcome.ExpectedFailure, Is.EqualTo("the database gap"));
+        var dir = Directory.CreateTempSubdirectory("e2e-expected-failure-").FullName;
+        var sessions = SessionsSideBySideTests.Host(dir);
+        try
+        {
+            var opened = await sessions.OpenAsync(new E2E.Cli.Mcp.OpenSessionOptions { Test = typeof(MarkedHooksFixture).FullName + ".Needs_the_database" });
+            Assert.That(opened, Does.StartWith("Test \"" + typeof(MarkedHooksFixture).FullName + ".Needs_the_database\" failed after "));
+            Assert.That(opened, Does.Contain(" 0 steps ran.\nExpected to fail: the database gap\nHOOK_FAILED in beforeAll: "));
+        }
+        finally
+        {
+            await sessions.CloseAllAsync("done");
+            sessions.Dispose();
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Test]

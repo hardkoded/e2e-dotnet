@@ -126,15 +126,18 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
         if (request.Outcome is { } handed)
         {
             // A test marked as expected to fail that passes is a failure of its own (upstream's UNEXPECTED_PASS).
-            // A teardown that failed after the body is a failure of its own, not a pass.
+            // A teardown that failed after a passing body is a failure of its own: the mark covers the body only, so it is not expected.
             if (expected is not null && handed.Failure is null)
             {
-                handed = handed with
+                if (result.ResultState.Status == TestStatus.Passed)
                 {
-                    Failure = result.ResultState.Status == TestStatus.Passed
-                        ? new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed")
-                        : new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message),
-                };
+                    handed = handed with { Failure = new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed") };
+                }
+                else
+                {
+                    handed = handed with { Failure = new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message) };
+                    expected = null;
+                }
             }
 
             handed = handed with { ExpectedFailure = expected };
