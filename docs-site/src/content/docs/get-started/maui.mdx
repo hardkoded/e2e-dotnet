@@ -21,15 +21,15 @@ A .NET MAUI app runs on iOS and Android, so `MobileEngine` drives it like any ot
 
 ```bash
 dotnet workload install maui
-dotnet build MyApp -f net10.0-ios -r iossimulator-arm64      # iOS simulator
-dotnet build MyApp -f net10.0-android -t:SignAndroidPackage  # Android
+dotnet build MyApp -f net11.0-ios -r iossimulator-arm64      # iOS simulator
+dotnet build MyApp -f net11.0-android -t:SignAndroidPackage  # Android
 ```
 
-The iOS build writes `MyApp.app` under `bin/Debug/net10.0-ios/iossimulator-arm64/`. Build and install again after every app change: the tests do not build the app.
+The iOS build writes `MyApp.app` under `bin/Debug/net11.0-ios/iossimulator-arm64/`. Build and install again after every app change: the tests do not build the app.
 
 ## 3. Create the test project
 
-Keep it a plain `net10.0` project, so it builds on a machine without the MAUI workload.
+Keep it a plain `net10.0` or `net11.0` project, so it builds on a machine without the MAUI workload.
 
 ```bash
 dotnet new nunit -n MyApp.E2ETests
@@ -45,7 +45,7 @@ dotnet add package E2E.Mobile.NUnit
       "platform": "ios",
       "app": {
         "bundleId": "com.example.myapp",
-        "appPath": "../MyApp/bin/Debug/net10.0-ios/iossimulator-arm64/MyApp.app"
+        "appPath": "../MyApp/bin/Debug/net11.0-ios/iossimulator-arm64/MyApp.app"
       }
     }
   ],
@@ -100,7 +100,7 @@ builder.AddMauiDevFlowAgent();
 Launch the app, then run the tests against it:
 
 ```bash
-dotnet build MyApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+dotnet build MyApp -f net11.0-ios -r iossimulator-arm64 -t:Run
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test
 ```
 

@@ -16,7 +16,7 @@
 
 ## Requirements
 
-- The .NET 10 SDK. The packages target `net10.0`.
+- The .NET 10 or 11 SDK. The packages target `net10.0` and `net11.0`.
 - NUnit or xUnit v3. xUnit v2 is not supported.
 - Chromium, or the browser `WebEngineOptions.BrowserName` names (Firefox or
   WebKit). The first `WebEngine` launch in a test run installs the build it

@@ -3,6 +3,9 @@
        web assets manifest that serves the app's _framework/blazor.web.js. -->
   <PropertyGroup>
     <RootNamespace>WebBenchmark.E2ETests</RootNamespace>
+    <!-- .NET SDK 11 gives every Debug Web SDK project a Blazor hot reload JS asset. This project and WebBenchmark both define it, and the build fails on the conflict. The tests need no hot reload. -->
+    <EnableHotReloadInRuntimeConfigDevFile>false</EnableHotReloadInRuntimeConfigDevFile>
+    <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
