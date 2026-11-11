@@ -470,7 +470,7 @@ public sealed class DeterministicActionsTests
     [Theory]
     [InlineData(20)]
     [InlineData(20.5)]
-    public async Task Does_not_send_a_capped_screen_swipe_the_transition_outlasts(double timeoutMs)
+    public async Task Partial_Does_not_send_a_capped_screen_swipe_the_transition_outlasts(double timeoutMs)
     {
         var h = WithTransition(160);
         var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(timeoutMs));
