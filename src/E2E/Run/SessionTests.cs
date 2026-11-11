@@ -46,9 +46,10 @@ internal enum RunPhase
 /// <c>StandaloneTestOutcome</c>). <see cref="Phase"/> is where the failure landed. A test whose <c>beforeAll</c> failed never started a session:
 /// <see cref="Session"/> and <see cref="Engine"/> are null, and the host opens a fresh one. <see cref="Secondary"/> are the failures that landed
 /// after the first, such as another promise the test left rejected. <see cref="Run"/> is the run the host ends at <c>close_session</c>, null when
-/// the test had no session.
+/// the test had no session. <see cref="ExpectedFailure"/> is the reason the test is marked as expected to fail (upstream's <c>fail</c> option or
+/// <c>test.fail</c>), null when it is not; the marker is an NUnit property, so the verdict of the run itself is not inverted (see COMPATIBILITY.md).
 /// </summary>
-internal sealed record SessionTestOutcome(string TestName, E2ESession? Session, IEngine? Engine, Exception? Failure, RunPhase Phase = RunPhase.Body, IReadOnlyList<Exception>? Secondary = null, LiveRun? Run = null) : IAsyncDisposable
+internal sealed record SessionTestOutcome(string TestName, E2ESession? Session, IEngine? Engine, Exception? Failure, RunPhase Phase = RunPhase.Body, IReadOnlyList<Exception>? Secondary = null, LiveRun? Run = null, string? ExpectedFailure = null) : IAsyncDisposable
 {
     /// <summary>Closes what the test left: ends its run, then disposes its session. A host that reports the close's failures does both itself.</summary>
     public async ValueTask DisposeAsync()

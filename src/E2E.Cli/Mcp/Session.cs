@@ -438,7 +438,7 @@ internal sealed class SessionHost : IDisposable
             var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false));
             if (ran is not null)
             {
-                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, session.StepRecords, session.Evidence, session.Redactor.Redact, config.ProjectRoot, ran.Phase, ran.Secondary) + "\n" + text;
+                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, session.StepRecords, session.Evidence, session.Redactor.Redact, config.ProjectRoot, ran.Phase, ran.Secondary, ran.ExpectedFailure) + "\n" + text;
             }
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.

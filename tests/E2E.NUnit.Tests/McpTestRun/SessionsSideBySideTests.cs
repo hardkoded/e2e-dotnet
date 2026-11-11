@@ -115,7 +115,7 @@ public sealed class SessionsSideBySideTests
     }
 
     /// <summary>A host on this assembly and the testbed, as upstream's <c>inProcessHost</c> is on its project.</summary>
-    private static SessionHost Host(string dir)
+    internal static SessionHost Host(string dir)
     {
         var config = """{ "testAssembly": """ + System.Text.Json.JsonSerializer.Serialize(typeof(SessionsSideBySideTests).Assembly.Location)
             + """, "targets": [{ "name": "web", "platform": "web", "app": { "url": """ + System.Text.Json.JsonSerializer.Serialize(E2E.Playground.Testbed.Url) + """ } }] }""";
