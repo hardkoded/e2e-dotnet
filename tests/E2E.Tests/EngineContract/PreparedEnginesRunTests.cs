@@ -156,6 +156,8 @@ public sealed class PreparedEnginesRunTests
                 Tests = new InMemoryTests("tests/prepared.e2e", [new InMemoryTest("first", _ => Task.CompletedTask), new InMemoryTest("second", _ => Task.CompletedTask)]),
                 Engine = engine,
                 Env = env,
+                // A CI run retries a failed test by default; the counts here are for one attempt each.
+                RawConfig = """{ "retries": 0 }""",
             });
         }
         finally
