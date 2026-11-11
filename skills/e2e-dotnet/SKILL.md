@@ -115,7 +115,7 @@ working directory it resolved against.
 `open_session` names the app URL, the port a free-port `url` was assigned, and the
 app command (its executable, readiness URL, and `env` and `inheritEnv` names; no
 `args`, no `env` values). The config reads the MCP server's environment, not
-your shell's. `open_session {test}` opens with how the test ended: `HOOK_FAILED in beforeAll` (no steps, no screen) when a `[OneTimeSetUp]` failed, `TEST_TIMEOUT` when it ran out of time, the error of a task it left faulted and unobserved (`UNHANDLED_REJECTION` at `close_session` when that task faults after the body), and `Also failed:` lines for later failures (the `mcp` topic has the detail).
+your shell's. `open_session {test}` opens with how the test ended: `HOOK_FAILED in beforeAll` (no steps, no screen) when a `[OneTimeSetUp]` failed, `TEST_TIMEOUT` when it ran out of time, the error of a task it left faulted and unobserved (`UNHANDLED_REJECTION` at `close_session` when that task faults after the body), and `Also failed:` lines for later failures (the `mcp` topic has the detail). A test marked as expected to fail with NUnit's property `E2E.Fail` (`[Property("E2E.Fail", "reason")]`, or set in the body) reads `failed as expected` with `Expected to fail: <reason>` when its body fails, and `UNEXPECTED_PASS` when it passes; the mark does not change the verdict of `dotnet test`.
 
 ```csharp
 using E2E;
