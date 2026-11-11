@@ -4156,6 +4156,8 @@ public sealed partial class WebEngine : IEngine
 
             if (label is null)
             {
+                // The operation abandons this call when cancelled; a read still in flight then must not lead to a click (upstream's signal.throwIfAborted()).
+                budget.ThrowIfExpired();
                 await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = modifiers }).ConfigureAwait(false);
                 return;
             }
