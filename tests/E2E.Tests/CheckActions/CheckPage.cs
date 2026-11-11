@@ -20,7 +20,7 @@ internal static class CheckPage
     }
 
     /// <summary>Opens <paramref name="body"/> in a test session, whose screen locators act on it.</summary>
-    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test)
+    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test, TimeSpan? actionTimeout = null)
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -29,7 +29,7 @@ internal static class CheckPage
             Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
             BaseUrl = site.Url,
             TestTitle = "check actions > through the locator target",
-            ActionTimeout = TimeSpan.FromSeconds(2),
+            ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2),
             AssertionTimeout = TimeSpan.FromSeconds(5),
         });
         await session.App.OpenAsync("/");
