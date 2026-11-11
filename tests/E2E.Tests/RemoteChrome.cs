@@ -156,9 +156,12 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
         {
             // The process never started.
         }
-
-        _process.Dispose();
-        await DeleteProfileAsync(_userDataDir);
+        finally
+        {
+            // A kill that throws (a helper refuses to die) must not skip the handle or the profile.
+            _process.Dispose();
+            await DeleteProfileAsync(_userDataDir);
+        }
     }
 
     /// <summary>
@@ -204,7 +207,7 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
             {
                 try
                 {
-                    if (Directory.GetLastWriteTimeUtc(directory) < cutoff)
+                    if (!TouchedSince(directory, cutoff))
                     {
                         Directory.Delete(directory, recursive: true);
                     }
@@ -219,6 +222,26 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
         {
             // The temp root is unreadable; there is nothing to sweep.
         }
+    }
+
+    // A directory's own write time changes only when an entry directly under it comes or goes, and Chrome writes
+    // deeper, so a live profile is judged by the newest write anywhere inside it.
+    private static bool TouchedSince(string directory, DateTime cutoff)
+    {
+        if (Directory.GetLastWriteTimeUtc(directory) >= cutoff)
+        {
+            return true;
+        }
+
+        foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }))
+        {
+            if (entry.LastWriteTimeUtc >= cutoff)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     [GeneratedRegex(@"DevTools listening on (ws://\S+)")]
