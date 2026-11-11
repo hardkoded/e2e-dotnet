@@ -29,6 +29,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private Action<RecordedAction>? _committed;
     private Func<string, Task>? _toolRan;
     private Func<Task>? _beforeTool;
+    private Action<string>? _allowed;
     private int _prepaid;
     private bool _ended;
 
@@ -60,10 +61,11 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     /// and every engine operation of the step end with it. <paramref name="cancellation"/> is the caller's and the attempt's,
     /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap, and <paramref name="toolRan"/>
     /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook. <paramref name="beforeTool"/> runs the test's
-    /// <c>OnBeforeAction</c> hook once a mutating tool has its slot (upstream's <c>runTool</c> calls the dispatcher's <c>before</c>).
+    /// <c>OnBeforeAction</c> hook once a mutating tool has its slot (upstream's <c>runTool</c> calls the dispatcher's <c>before</c>). <paramref name="allowed"/> refuses a mutating tool before it takes a slot, as an assertion does (upstream's <c>assertAllowed</c>).
     /// </summary>
-    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null, Func<Task>? beforeTool = null)
+    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null, Func<Task>? beforeTool = null, Action<string>? allowed = null)
     {
+        _allowed = allowed;
         _scope = scope;
         _timeout = timeout;
         // A step with no timeout has no deadline.
@@ -280,6 +282,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         // Mutations run one at a time with the grammar actions, in call order.
         return await Queue.RunAsync(async () =>
         {
+            _allowed?.Invoke("tool");
             Reserve();
             if (_beforeTool is { } before)
             {

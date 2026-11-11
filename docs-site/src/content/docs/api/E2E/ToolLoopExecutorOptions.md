@@ -59,6 +59,22 @@ Builds the step's opening prompt: the first user message. Set this or [BuildMess
 
 **Value:** [Func&lt;StepExecutorContext, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_ToolLoopExecutorOptions_InconclusiveOnOverflow_"></a>
+<a id="E2E_ToolLoopExecutorOptions_InconclusiveOnOverflow"></a>
+
+### InconclusiveOnOverflow
+
+
+```csharp
+public bool InconclusiveOnOverflow { get; init; }
+```
+
+
+Fails a context overflow as `ASSERTION_INCONCLUSIVE` instead of shrinking the history and retrying: for an assertion loop
+whose earlier screens are evidence it must not drop.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_ToolLoopExecutorOptions_Model_"></a>
 <a id="E2E_ToolLoopExecutorOptions_Model"></a>
 

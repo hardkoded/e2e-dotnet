@@ -1,6 +1,6 @@
 ---
 title: "AgentTools"
-description: "The built-in agent's tool vocabulary (upstream's agent/primitives.ts). CreateGrammarTools and CreateVerdictTool() are public, for a tool loop or an executor..."
+description: "The built-in agent's tool vocabulary (upstream's agent/primitives.ts). CreateGrammarTools and CreateVerdictTool are public, for a tool loop or an executor th..."
 editUrl: false
 prev: false
 next: false
@@ -20,7 +20,7 @@ public static class AgentTools
 
 
 The built-in agent's tool vocabulary (upstream's `agent/primitives.ts`). `CreateGrammarTools` and
-[CreateVerdictTool()](#E2E_AgentTools_CreateVerdictTool) are public, for a tool loop or an executor that keeps the built-in actions and verdicts.
+`CreateVerdictTool` are public, for a tool loop or an executor that keeps the built-in actions and verdicts.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -73,17 +73,23 @@ agent's is. The screen presenter and the failure causes stay internal, as upstre
 **Returns:** [IReadOnlyList&lt;ToolLoopTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_AgentTools_CreateVerdictTool_"></a>
-<a id="E2E_AgentTools_CreateVerdictTool"></a>
+<a id="E2E_AgentTools_CreateVerdictTool_System_Nullable_E2E_ExecutorStepKind__"></a>
 
-### CreateVerdictTool()
+### CreateVerdictTool(ExecutorStepKind?)
 
 
 ```csharp
-public static VerdictTool CreateVerdictTool()
+public static VerdictTool CreateVerdictTool(ExecutorStepKind? kind = null)
 ```
 
 
 Upstream's `createVerdictTool`: the `done` tool with the closed blocked-code policy, and the verdict it collected. Make a
 fresh one for each step: the first accepted verdict is final.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `kind` | `ExecutorStepKind?` | The step's kind. On [Act](/api/E2E/ExecutorStepKind/#E2E_ExecutorStepKind_Act), `ASSERTION_INCONCLUSIVE` is dropped from a failed verdict the same way, since only an assertion can be inconclusive. Omit it to keep every code a failed verdict sends. |
 
 **Returns:** [VerdictTool](/api/E2E/VerdictTool/)

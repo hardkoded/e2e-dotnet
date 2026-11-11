@@ -37,6 +37,12 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     private readonly BeforeActionHook? _onBeforeAction;
     private readonly string _instruction;
 
+    // Actions available during assertions, shared by every dispatcher (upstream's ASSERTION_ACTIONS).
+    private static readonly HashSet<string> AssertionActions = [.. ActionNames.ReadOnlyGrammar.Values.SelectMany(names => names)];
+
+    // Whether this step may only inspect the app (upstream's options.readOnly).
+    private readonly bool _readOnly;
+
     // The action the newest commit ran. A typed value recorded as a derived gap is still described as the fill it was
     // (upstream describes the committed action, not what the trace holds).
     private RecordedAction? _committed;
@@ -46,8 +52,9 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     // and before each action.
     // instruction and parameters: the step's literal input (upstream's options.instruction and options.params), which a typed value is
     // checked against before it is recorded.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null, BeforeActionHook? onBeforeAction = null)
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null, BeforeActionHook? onBeforeAction = null, bool readOnly = false)
     {
+        _readOnly = readOnly;
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
@@ -516,6 +523,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     // Upstream's runActionNow: RunAsync's body, for a caller already inside the queue (a point verb resolves its point there first).
     private async Task RunNowAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken)
     {
+        AssertAllowed(name);
         _accounting.Reserve();
         await BeforeAsync().ConfigureAwait(false);
         // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
@@ -538,6 +546,15 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         catch (Exception) when (CheckStep())
         {
             throw;
+        }
+    }
+
+    /// <summary>Upstream's <c>assertAllowed</c>: assertions may move the viewport but cannot interact with application state.</summary>
+    internal void AssertAllowed(string name)
+    {
+        if (_readOnly && !AssertionActions.Contains(name))
+        {
+            throw _accounting.Fatalize(new AgentException("POLICY_DENIED", "agent.assert cannot perform " + name, blocked: true));
         }
     }
 

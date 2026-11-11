@@ -23,6 +23,8 @@ internal sealed class TestExecutor(string name, Func<StepExecutorContext, Cancel
 
     public IAgentModel? Judge { get; init; }
 
+    public bool Vision { get; init; }
+
     public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken) => run(context, cancellationToken);
 }
 

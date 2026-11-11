@@ -48,6 +48,7 @@ public static class AgentTools
         "ACTION_FAILED",
         "AUTOMATION_UNSUPPORTED",
         "ASSERTION_FAILED",
+        "ASSERTION_INCONCLUSIVE",
         "AUTHENTICATION_FAILED",
         "AUTH_CREDENTIAL_UNAVAILABLE",
         "AUTH_CREDENTIAL_INVALID",
@@ -386,8 +387,12 @@ public static class AgentTools
     /// Upstream's <c>createVerdictTool</c>: the <c>done</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
     /// fresh one for each step: the first accepted verdict is final.
     /// </summary>
-    public static VerdictTool CreateVerdictTool() =>
-        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+    /// <param name="kind">
+    /// The step's kind. On <see cref="ExecutorStepKind.Act"/>, <c>ASSERTION_INCONCLUSIVE</c> is dropped from a failed verdict the same
+    /// way, since only an assertion can be inconclusive. Omit it to keep every code a failed verdict sends.
+    /// </param>
+    public static VerdictTool CreateVerdictTool(ExecutorStepKind? kind = null) =>
+        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done), kind);
 
     /// <summary>
     /// Upstream's <c>createGrammarTools</c>: the built-in agent's action tools for the verbs the step's engine supports, each answering what
@@ -405,13 +410,16 @@ public static class AgentTools
         ArgumentNullException.ThrowIfNull(context);
         var host = context.Host
             ?? throw new InvalidOperationException("The grammar tools drive the context of a step the runtime opened; they cannot run on a context built by hand.");
+        var asserting = (options?.Kind ?? context.Step.Kind) == ExecutorStepKind.Assert;
+        // An assertion offers the project tools that read the app, and none that change it (upstream's projectTools).
         var project = tools is null
             ? new Dictionary<string, AgentTool>()
-            : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform) && (!asserting || !pair.Value.Mutates)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
         var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
         return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
+            .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
@@ -437,6 +445,10 @@ public static class AgentTools
                 }))
             .ToList();
     }
+
+    // An assertion only looks: the read-only tools, the project tools that read, and no screenshot when it asked for the tree alone.
+    private static bool AssertionOffers(string name, IReadOnlyDictionary<string, AgentTool> project, VisionMode? vision) =>
+        project.ContainsKey(name) || (ActionNames.ReadOnlyGrammar.ContainsKey(name) && (name != "screenshot" || vision != VisionMode.Off));
 
     /// <summary>
     /// Upstream's <c>schemaTool</c>: the schema of a grammar tool and of the verdict tool is closed, so a field it does not declare fails validation and the call never runs.
@@ -759,6 +771,13 @@ public sealed class GrammarToolsOptions
     /// or your own wrapper. Upstream's is generic over the body's result; the port's bodies answer the text the model reads.
     /// </summary>
     public Func<Func<Task<string>>, Task<string>>? Guard { get; init; }
+
+    /// <summary>
+    /// The kind of step to offer tools for, when it is not the context's own: an assertion offers only the tools that read the app (upstream's
+    /// <c>grammarTools</c> filters on <c>context.step.kind</c>; a session that lists its tools once for steps of both kinds builds the contexts with
+    /// <c>Object.create</c>, which the port has no counterpart of). .NET-only.
+    /// </summary>
+    internal ExecutorStepKind? Kind { get; init; }
 }
 
 /// <summary>
@@ -771,7 +790,13 @@ public sealed class VerdictTool
     private readonly Lock _gate = new();
     private StepVerdict? _verdict;
 
-    internal VerdictTool(ModelTool tool) => Tool = tool;
+    private readonly ExecutorStepKind? _kind;
+
+    internal VerdictTool(ModelTool tool, ExecutorStepKind? kind = null)
+    {
+        Tool = tool;
+        _kind = kind;
+    }
 
     /// <summary>The name the model calls to end a step.</summary>
     public const string Name = "done";
@@ -845,10 +870,11 @@ public sealed class VerdictTool
 
         var code = Args.String(call.Arguments, "code");
         // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set; any other code is ignored without being echoed.
+        var assertionOnly = _kind == ExecutorStepKind.Act && string.Equals(code, "ASSERTION_INCONCLUSIVE", StringComparison.Ordinal) && !string.Equals(status, "passed", StringComparison.Ordinal);
         var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(code)
             ? (AgentTools.ModelErrorCodes.Contains(code) ? code : "")
-            : null;
-        if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
+            : assertionOnly ? code : null;
+        if (string.Equals(status, "passed", StringComparison.Ordinal) || assertionOnly || !AgentTools.ModelErrorCodes.Contains(code))
         {
             code = null;
         }
@@ -860,7 +886,7 @@ public sealed class VerdictTool
                 "If the application itself misbehaved, use status failed instead.");
         }
 
-        return ToolOutcome.Finish(status, summary, code, dropped);
+        return ToolOutcome.Finish(status, summary, code, dropped, assertionOnly);
     }
 }
 

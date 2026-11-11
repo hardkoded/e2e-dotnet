@@ -20,7 +20,7 @@ public sealed class VerdictTool
 
 
 Upstream's `VerdictTool`: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it
-collected. Made by [CreateVerdictTool()](/api/E2E/AgentTools/#E2E_AgentTools_CreateVerdictTool); the tool loop adds one to every vocabulary, so an executor of its own that
+collected. Made by `CreateVerdictTool`; the tool loop adds one to every vocabulary, so an executor of its own that
 drives a model outside the loop is the only caller of [Execute(ModelToolCall)](#E2E_VerdictTool_Execute_E2E_ModelToolCall_).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)

@@ -38,7 +38,7 @@ public string? System { get; init; }
 ```
 
 
-Appended to the built-in execution rules. Only the act loop reads it.
+Appended to the built-in execution rules. Read by the act loop and by an exploring assertion's loop.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

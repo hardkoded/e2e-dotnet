@@ -9,7 +9,8 @@ namespace E2E.Tests.ToolLoopOverflow;
 
 /// <summary>
 /// The port has no project tools, so upstream's read-only <c>peek</c> has no port: a tap on a button the page does not
-/// have gives the first turn a short result to spend.
+/// have gives the first turn of an act a short result to spend, and the assertion loop has a <c>peek</c> tool of its own. Upstream's closing
+/// <c>it</c> outside its <c>describe</c> is in <see cref="ToolLoopOverflowTests"/>.
 /// </summary>
 public sealed class ToolLoopContextOverflowTests
 {
@@ -40,8 +41,25 @@ public sealed class ToolLoopContextOverflowTests
 
     private static DocumentWorld EmptyScreen() => new DocumentWorld().Map("/empty", _ => { });
 
-    [Fact]
-    public async Task Shrinks_the_history_and_retries_once_when_the_provider_refuses_the_request_as_too_large()
+    /// <summary>An assertion loop of its own, which keeps the chassis's overflow recovery: the grammar's read-only tools and the screen as its prompt.</summary>
+    private static IStepExecutor AssertionLoop(bool inconclusiveOnOverflow = false) =>
+        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
+        {
+            Name = inconclusiveOnOverflow ? "evidence-keeping-loop" : "custom-loop",
+            InconclusiveOnOverflow = inconclusiveOnOverflow,
+            Tools = (context, _) => [.. AgentTools.CreateGrammarTools(context), Peek],
+            BuildPrompt = async context => (await context.ObserveAsync()).Text,
+        });
+
+    // Upstream's read-only `peek`: a short result for a turn to spend.
+    private static readonly ToolLoopTool Peek = new(
+        new ModelTool { Name = "peek", Description = "Look at something small", Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement },
+        (_, _) => Task.FromResult(new ToolLoopResult("looked")));
+
+    [Theory]
+    [InlineData("act")]
+    [InlineData("assert")]
+    public async Task Shrinks_overflow_history_for_a_loop_unless_InconclusiveOnOverflow_is_set(string kind)
     {
         var requests = new List<List<string?>>();
         var model = new ScriptedModel(request =>
@@ -49,31 +67,38 @@ public sealed class ToolLoopContextOverflowTests
             requests.Add(request.Messages.Select(message => message.Content).ToList());
             return requests.Count switch
             {
-                1 => ModelResponses.Tap("button", "Peek"),
+                1 => kind == "act" ? ModelResponses.Tap("button", "Peek") : ModelResponses.Call("peek", new { }),
                 2 => throw Refusal(),
                 _ => ModelResponses.Done("passed", "read the rows"),
             };
         });
-        ActResult? result = null;
         var attempt = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/big");
-                result = await ctx.Agent.ActAsync("read the big output");
+                if (kind == "act")
+                {
+                    await ctx.Agent.ActAsync("read the big output");
+                }
+                else
+                {
+                    await ctx.Agent.AssertAsync("read the big output");
+                }
             },
             BigScreen(),
-            model);
+            model,
+            executor: kind == "assert" ? AssertionLoop() : null);
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
-        // The failed tap answers with the unchanged screen, a short result, so the second request carries the whole opening screen; the
-        // retried request carries its head and a notice, and the tool result it follows is unchanged.
+        // The tool answers with the unchanged screen, a short result, so the second request carried the whole opening screen; the retried
+        // request carries its head and a notice, and the tool result it follows is unchanged.
         Assert.True(requests[1][0]!.Length > 16_384);
         Assert.True(requests[2][0]!.Length < 16_384 + 200);
         Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][0], StringComparison.Ordinal);
         Assert.Equal(requests[1][^1], requests[2][^1]);
         // The refused request never answered, so it is not a model call the step paid for.
-        Assert.Equal(2, result!.ModelCalls);
+        Assert.Equal(2, attempt.ModelCalls);
     }
 
     /// <summary>

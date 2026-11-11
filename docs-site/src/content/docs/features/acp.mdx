@@ -102,7 +102,7 @@ One agent session serves one test attempt. The first agent step that the cache c
 
 Each message carries the step, its non-secret params, the steps done so far, and the current screen. Action results say what changed on screen, and a `screenshot` reaches the agent as an image.
 
-An assertion cannot change the screen. `observe`, `screenshot`, scrolling, and hovering still work. The agent ends every step with `done`: `passed`, `failed`, or `blocked` with an error code, as the built-in agent does.
+An assertion cannot change the screen. `observe`, `screenshot`, and scrolling still work; hovering is refused. The agent ends every step with `done`: `passed`, `failed`, or `blocked` with an error code, as the built-in agent does.
 
 ## Limits
 

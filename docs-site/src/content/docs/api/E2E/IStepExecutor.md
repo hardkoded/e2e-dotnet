@@ -108,6 +108,22 @@ The version this executor reports. Upstream's `version`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_IStepExecutor_Vision_"></a>
+<a id="E2E_IStepExecutor_Vision"></a>
+
+### Vision
+
+
+```csharp
+bool Vision { get; }
+```
+
+
+Whether the executor honors [Vision](/api/E2E/AssertOptions/#E2E_AssertOptions_Vision): the mode reaches it as [Vision](/api/E2E/ExecutorStep/#E2E_ExecutorStep_Vision). Without
+this, the option fails the call with `UNSUPPORTED_CAPABILITY`, since only the executor decides what its model sees. Upstream's `vision`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 ## Methods
 
 <a id="E2E_IStepExecutor_RunStepAsync_"></a>

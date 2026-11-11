@@ -30,13 +30,13 @@ in a user turn right after the turn's tool results, since a tool message carries
 ## Constructors
 
 <a id="E2E_ToolLoopResult__ctor_"></a>
-<a id="E2E_ToolLoopResult__ctor_System_String_System_Boolean_E2E_ExecutorPixels_"></a>
+<a id="E2E_ToolLoopResult__ctor_System_String_System_Boolean_E2E_ExecutorPixels_System_Boolean_"></a>
 
-### ToolLoopResult(string, bool, ExecutorPixels?)
+### ToolLoopResult(string, bool, ExecutorPixels?, bool)
 
 
 ```csharp
-public ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null)
+public ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null, bool ErrorText = false)
 ```
 
 
@@ -51,6 +51,7 @@ in a user turn right after the turn's tool results, since a tool message carries
 | `Content` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Failed` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `Pixels` | [ExecutorPixels](/api/E2E/ExecutorPixels/) |  |
+| `ErrorText` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 ## Properties
 
@@ -66,6 +67,19 @@ public string Content { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_ToolLoopResult_ErrorText_"></a>
+<a id="E2E_ToolLoopResult_ErrorText"></a>
+
+### ErrorText
+
+
+```csharp
+public bool ErrorText { get; init; }
+```
+
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_ToolLoopResult_Failed_"></a>
 <a id="E2E_ToolLoopResult_Failed"></a>

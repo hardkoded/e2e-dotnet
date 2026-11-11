@@ -192,10 +192,24 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     private async Task<Observation> SeeAsync(CancellationToken token)
     {
         // Retried at the engine while it reports a race, the step's clock checked each time it fails (upstream's retryingObserve).
-        var observation = await Phases.RetryingObserveAsync(
-            () => Scope is { } scope ? scope.ObserveAsync(PixelFallbackLook, OperationContext.Agent, token) : session.ObserveAsync(OperationContext.Agent, token),
-            cause => Accounting?.Checkpoint(cause),
-            token).ConfigureAwait(false);
+        Observation observation;
+        try
+        {
+            observation = await Phases.RetryingObserveAsync(
+                () => Scope is { } scope ? scope.ObserveAsync(PixelsAllowed ? PixelFallbackLook : SemanticOnlyLook, OperationContext.Agent, token) : session.ObserveAsync(OperationContext.Agent, token),
+                cause => Accounting?.Checkpoint(cause),
+                token).ConfigureAwait(false);
+        }
+        catch (TestException ex) when (!PixelsAllowed && ex.Code == "UNSUPPORTED_CAPABILITY" && ex.Message.StartsWith("unavailable semantics require permitted fallback pixels", StringComparison.Ordinal))
+        {
+            // A step that asked for the tree alone has no use for pixels the engine answers a screen without a tree with.
+            throw SemanticOnlyDenied(ex);
+        }
+
+        if (!PixelsAllowed && observation.TreeUnavailable)
+        {
+            throw SemanticOnlyDenied();
+        }
         if (observation.Truncated)
         {
             _observationTruncated = true;
@@ -213,6 +227,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     // The agent lets the engine answer a screen it cannot read with pixels alone (upstream's `pixelFallback: true`).
     private static readonly ObserveOptions PixelFallbackLook = new() { PixelFallback = true };
+
+    // A screen with no tree cannot be answered with pixels to a step limited to semantic evidence. Upstream's tests name POLICY_DENIED for it.
+    private static TestException SemanticOnlyDenied(Exception? cause = null) =>
+        cause is null
+            ? new("POLICY_DENIED", "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it")
+            : new("POLICY_DENIED", "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it", cause);
+
+    // A step limited to semantic evidence asks the engine for the tree alone (upstream's `pixelFallback: this.options.pixelsAllowed`).
+    private static readonly ObserveOptions SemanticOnlyLook = new() { PixelFallback = false };
+
+    // False when the step asked for semantic evidence only (upstream's options.pixelsAllowed). A feed with no limits allows pixels.
+    private bool PixelsAllowed => Options?.PixelsAllowed ?? true;
 
     private async Task<Observation> LookAsync(SettleMode mode, bool pixels, Func<Observation, bool>? settledWhen, CancellationToken token)
     {
@@ -327,10 +353,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, null, token).ConfigureAwait(false);
+        var wantsPixels = options?.Pixels == true && PixelsAllowed;
+        var observation = await ObserveAsync(SettleMode.HeldStill, null, wantsPixels, null, token).ConfigureAwait(false);
 
         var view = View(PreparedOf(observation), scope, options);
-        if (options?.Pixels != true && !observation.TreeUnavailable)
+        if (!wantsPixels && !observation.TreeUnavailable)
         {
             return view;
         }
@@ -401,7 +428,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
         var value = AgentObservation.PrepareObservation(
             observation,
-            new PrepareObservationOptions { Redactor = redactor, MaxBytes = ByteBudget(pixels), PixelsAllowed = true, AppOrigin = Scope?.AppOrigin });
+            new PrepareObservationOptions { Redactor = redactor, MaxBytes = ByteBudget(pixels), PixelsAllowed = PixelsAllowed, AppOrigin = Scope?.AppOrigin });
         if (value.Truncated)
         {
             _observationTruncated = true;
@@ -556,4 +583,5 @@ internal sealed record Lookup(string Id, SemanticNode? Node, PreparedObservation
 /// <param name="InstructionBytes">Bytes of the step's instruction, which opens the history every turn resends.</param>
 /// <param name="ContextBytes">Bytes of the project context every turn resends (upstream reads them from the step's metrics).</param>
 /// <param name="LedgerBytes">Bytes of the prior-step ledger every turn resends (upstream reads them from the step's metrics).</param>
-internal sealed record ObservationFeedOptions(int MaxObservationBytes, int MaxInputTokens, int InstructionBytes, int ContextBytes, int LedgerBytes);
+/// <param name="PixelsAllowed">False when the step asked for semantic evidence only (upstream's <c>pixelsAllowed</c>).</param>
+internal sealed record ObservationFeedOptions(int MaxObservationBytes, int MaxInputTokens, int InstructionBytes, int ContextBytes, int LedgerBytes, bool PixelsAllowed = true);
