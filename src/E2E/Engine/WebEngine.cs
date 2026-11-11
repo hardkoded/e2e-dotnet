@@ -1324,7 +1324,7 @@ public sealed partial class WebEngine : IEngine
                 Observation observation;
                 try
                 {
-                    var roots = await CollectAsync(page.MainFrame, walk, semantic, depth: 0).ConfigureAwait(false);
+                    var roots = await CollectAsync(page.MainFrame, walk, semantic, framePath: []).ConfigureAwait(false);
                     var pixels = await pixelCapture.ConfigureAwait(false);
                     var url = page.Url;
                     observation = new Observation
@@ -3092,9 +3092,10 @@ public sealed partial class WebEngine : IEngine
         /// node that owns it, sharing one node budget across all of them. A
         /// frame that detaches or navigates mid-read is left empty.
         ///
-        /// <paramref name="depth"/> is how many frames enclose <paramref name="frame"/>: 0 for the page's main frame.
+        /// <paramref name="framePath"/> is the selector of each iframe that encloses <paramref name="frame"/>, outermost first (upstream's
+        /// <c>framePath</c>): empty for the page's main frame. Every node the frame's document reads carries it as its <c>FramePath</c>.
         /// </summary>
-        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, int depth)
+        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, List<string> framePath)
         {
             if (walk.Remaining <= 0)
             {
@@ -3156,6 +3157,8 @@ public sealed partial class WebEngine : IEngine
             }
 
             var roots = dto.Roots ?? [];
+            // Every node this document read is in its frame: before any child frame attaches, so only this document's nodes are stamped.
+            SetFramePath(roots, framePath);
             var owners = new Dictionary<string, WebNode>(StringComparer.Ordinal);
             Index(roots, owners);
             foreach (var child in frame.ChildFrames.ToArray())
@@ -3168,8 +3171,8 @@ public sealed partial class WebEngine : IEngine
                     continue;
                 }
 
-                var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
-                if (owner is not null && owners.TryGetValue(owner, out var node))
+                var (owner, inset, selector) = await budget.WithinAsync(OwnerOfAsync(child, _testIdAttribute)).ConfigureAwait(false);
+                if (owner is not null && selector is not null && owners.TryGetValue(owner, out var node))
                 {
                     // A frame whose navigation has not committed shows nothing yet.
                     if (!await budget.WithinAsync(FrameDocument.HasReadableDocumentAsync(child)).ConfigureAwait(false))
@@ -3178,14 +3181,14 @@ public sealed partial class WebEngine : IEngine
                     }
 
                     // A document past the depth limit is content the model should see but the walk does not read, so the snapshot says it is cut.
-                    if (depth >= MaxFrameDepth)
+                    if (framePath.Count >= MaxFrameDepth)
                     {
                         walk.Truncated = true;
                         continue;
                     }
 
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
-                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, depth + 1).ConfigureAwait(false), node.Rect, inset);
+                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, [.. framePath, selector]).ConfigureAwait(false), node.Rect, inset);
                     if (node.Hidden)
                     {
                         // The frame element's own hidden state, read in the document around it, counts for every node in its document.
@@ -3306,18 +3309,31 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private static async Task<(string? Ref, WebRect? Inset)> OwnerOfAsync(IFrame frame)
+        private static async Task<(string? Ref, WebRect? Inset, string? Selector)> OwnerOfAsync(IFrame frame, string testIdAttribute)
         {
             try
             {
                 var element = await frame.FrameElementAsync().ConfigureAwait(false);
                 await using var dispose = element.ConfigureAwait(false);
                 var owner = await element.EvaluateAsync<string?>(PageScript.RefOf).ConfigureAwait(false);
-                return (owner, await element.EvaluateAsync<WebRect?>(PageScript.FrameInset).ConfigureAwait(false));
+                var inset = await element.EvaluateAsync<WebRect?>(PageScript.FrameInset).ConfigureAwait(false);
+                var selector = await element.EvaluateAsync<string?>(PageScript.FrameSelector, testIdAttribute).ConfigureAwait(false);
+                return (owner, inset, selector);
             }
             catch (PlaywrightException)
             {
-                return (null, null);
+                return (null, null, null);
+            }
+        }
+
+        /// <summary>Stamps every node of a document, and of the inline text under it, with the frame chain it is read in (upstream's <c>framePath</c>); none for the main document.</summary>
+        private static void SetFramePath(List<WebNode>? nodes, List<string> framePath)
+        {
+            foreach (var node in nodes ?? [])
+            {
+                node.FramePath = framePath.Count > 0 ? framePath : null;
+                SetFramePath(node.Inline, framePath);
+                SetFramePath(node.Children, framePath);
             }
         }
 
@@ -4201,6 +4217,7 @@ public sealed partial class WebEngine : IEngine
                 InputPurpose = dto.InputPurpose,
                 Level = dto.Level,
                 Frame = dto.Frame,
+                FramePath = dto.FramePath,
                 States = new NodeStates
                 {
                     Checked = dto.Checked,
@@ -4563,6 +4580,9 @@ public sealed partial class WebEngine : IEngine
         public List<WebNode>? Inline { get; set; }
 
         public List<WebNode>? Children { get; set; }
+
+        /// <summary>The iframe selectors enclosing this node's document, outermost first; null for the main document.</summary>
+        public List<string>? FramePath { get; set; }
     }
 
     private sealed class WheelAimDto

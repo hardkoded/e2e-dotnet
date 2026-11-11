@@ -409,6 +409,42 @@ internal static class PageScript
         }
         """;
 
+    // The selector that re-enters one iframe (upstream's frameSelectorOf over read-semantics.ts pathTo): an anchored path where something
+    // names the element, else positional from body. Takes the test id attribute, which names an element like name does.
+    public const string FrameSelector = """
+        (el, testIdAttribute) => {
+          const namedSelectorOf = (e) => {
+            for (const attribute of [testIdAttribute, "name"]) {
+              const value = e.getAttribute(attribute);
+              if (value === null || value === "") continue;
+              const selector = `[${attribute}="${value.replace(/["\\]/g, "\\$&")}"]`;
+              let unique;
+              try {
+                unique = e.ownerDocument.querySelectorAll(selector).length === 1;
+              } catch {
+                continue;
+              }
+              if (unique) return selector;
+            }
+            return null;
+          };
+          const named = namedSelectorOf(el);
+          if (named !== null) return named;
+          const parts = [];
+          let current = el;
+          while (current !== null && current.tagName.toLowerCase() !== "html") {
+            const parent = current.parentElement;
+            if (parent === null) break;
+            const index = Array.prototype.indexOf.call(parent.children, current) + 1;
+            parts.unshift(`${current.tagName.toLowerCase()}:nth-child(${index})`);
+            const anchor = namedSelectorOf(parent);
+            if (anchor !== null) return `${anchor} > ${parts.join(" > ")}`;
+            current = parent;
+          }
+          return parts.join(" > ");
+        }
+        """;
+
     // Context init script that keeps closed shadow roots reachable for
     // Collect. attachShadow is the one way a script makes such a root;
     // declarative closed roots are parsed, not attached, and stay out of reach.
