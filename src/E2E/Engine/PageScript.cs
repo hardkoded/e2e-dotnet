@@ -24,6 +24,7 @@ internal static class PageScript
         ({ seed, max, testIdAttribute, publish }) => {
         {{ReadSemantics.Prelude}}
         {{ReadSemantics.NodeMode}}
+        {{ReadSemantics.HiddenMode}}
           const refKey = Symbol.for("e2e.observation.ref");
           const elements = new Map();
           let next = seed;
@@ -145,6 +146,13 @@ internal static class PageScript
           const ownsText = (el) => el instanceof HTMLElement &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
+          // Upstream drops a checkbox or radio with no box from the tree unless a label of its own draws it (isDrawnByLabel); the port
+          // lists every other box-less element, marked EmptyBox, so the rule is for these two controls only.
+          const isBoxlessUndrawn = (el) => {
+            if (!(el instanceof HTMLInputElement) || (el.type !== "checkbox" && el.type !== "radio")) return false;
+            const box = rectOf(el);
+            return (box === null || box.width <= 0 || box.height <= 0) && !isDrawnByLabel(el, getComputedStyle(el));
+          };
           // An iframe is a boundary node whatever its role: upstream emits it before any role check,
           // so <iframe role="none"> stays listed, with the role none.
           const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
@@ -189,7 +197,7 @@ internal static class PageScript
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
             let n = 0;
             const role = roleOf(el);
-            if (listed(el, role) && !textOnly(el, role)) {
+            if (listed(el, role) && !textOnly(el, role) && !isBoxlessUndrawn(el)) {
               const counted = !visible || inView(el);
               if (counted) n++;
               if (el.tagName === "SELECT") {
@@ -222,6 +230,7 @@ internal static class PageScript
             const isFrame = el.tagName === "IFRAME";
             // A frame the page hides is no boundary of the tree.
             if (isFrame && (isHidden || isAriaHidden)) return;
+            if (isBoxlessUndrawn(el)) return;
             if (listed(el, role)) {
               const textNode = textOnly(el, role);
               if (textNode ? textCount >= max : count >= max) {

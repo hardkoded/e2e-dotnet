@@ -142,10 +142,8 @@ public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixtu
         }
     }
 
-    // Partial: upstream also expects the observation to leave out a checkbox whose only label is hidden (`hidden-label`). A box with no
-    // size is not hidden here (COMPATIBILITY.md), so the port lists every box-less control; this test checks the part it shares.
     [Fact]
-    public async Task Partial_Lists_a_checkbox_or_radio_its_own_label_draws_over_no_box_as_shown_with_its_checked_state()
+    public async Task Lists_a_checkbox_or_radio_its_own_label_draws_over_no_box_as_shown_with_its_checked_state()
     {
         await chromium.Page.SetContentAsync("""
             <style>.shrunk { opacity: 0; width: 0; height: 0; margin: 0; position: absolute }</style>
@@ -161,6 +159,38 @@ public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixtu
         foreach (var id in new[] { "agree", "large" })
         {
             Assert.False(Node(nodes, id).Hidden, id);
+        }
+
+        Assert.DoesNotContain(nodes, node => node.TestId == "hidden-label");
+    }
+
+    // Partial: upstream's `text` input (a box-less text field) is also left out of the observation. A box with no size is not hidden here
+    // (COMPATIBILITY.md), so the port lists every box-less element but a checkbox or radio; this test checks the checkboxes.
+    [Fact]
+    public async Task Partial_Leaves_out_a_box_less_control_no_label_of_its_own_draws_in_a_way_a_tap_can_click()
+    {
+        await chromium.Page.SetContentAsync("""
+            <style>.shrunk { opacity: 0; width: 0; height: 0; margin: 0; padding: 0; border: 0; position: absolute }</style>
+            <label><input class="shrunk" type="checkbox" data-testid="invisible" style="visibility:hidden">Invisible</label>
+            <skip-slot><input class="shrunk" type="checkbox" id="skipped" data-testid="skipped"></skip-slot>
+            <label for="skipped">Skipped</label>
+            <label style="display:contents"><input class="shrunk" type="checkbox" data-testid="contents"><span>Contents</span></label>
+            <label><input class="shrunk" type="checkbox" data-testid="link">Accept <a href="#terms">the terms</a></label>
+            <label role="button"><input class="shrunk" type="checkbox" data-testid="button-label">Button</label>
+            <label role="link"><input class="shrunk" type="checkbox" data-testid="link-label">Link</label>
+            <label contenteditable><input class="shrunk" type="checkbox" data-testid="editable-label">Editable</label>
+            <script>
+              customElements.define('skip-slot', class extends HTMLElement {
+                connectedCallback() {
+                  this.attachShadow({ mode: 'open' }).innerHTML = '<div style="content-visibility:hidden;width:50px;height:50px"><slot></slot></div>';
+                }
+              });
+            </script>
+            """);
+        var nodes = await chromium.CaptureAsync();
+        foreach (var id in new[] { "invisible", "skipped", "contents", "link", "button-label", "link-label", "editable-label" })
+        {
+            Assert.DoesNotContain(nodes, node => node.TestId == id);
         }
     }
 
