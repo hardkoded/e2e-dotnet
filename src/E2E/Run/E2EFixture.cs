@@ -48,6 +48,12 @@ public abstract class E2EFixture
     /// <summary>Browser engine. Override to supply a <see cref="DocumentEngine"/> or a custom engine.</summary>
     protected virtual IEngine CreateEngine() => DeclaredTarget.Engine ?? new WebEngine();
 
+    /// <summary>The engines this fixture prepares. Defaults to the process's, so a declared engine is prepared once for every test it runs. .NET-only.</summary>
+    internal virtual PreparedEngines Prepared => HostRun.Prepared;
+
+    /// <summary>The environment the workers of this run start with, under what prepare leaves them. Defaults to the process's.</summary>
+    protected virtual IReadOnlyDictionary<string, string?> RunEnvironment => PreparedEngines.ProcessEnvironment();
+
     /// <summary>The model for <c>agents.default</c>, or null when the config sets no model.</summary>
     protected virtual IAgentModel? CreateModel() => HostedConfig.Agent.CreateModel() ?? Config.Agent.CreateModel();
 
@@ -273,7 +279,17 @@ public abstract class E2EFixture
         var defaultModel = CreateModel();
         var defaultJudge = CreateJudge();
         var agents = CreateAgents();
-        _session = await E2ESession.StartAsync(
+        // Upstream's prepare runs once per run and target, before any worker starts: what it leaves is the worker's environment, under the run's own.
+        HostRun.RedactEngineLinesWith(Config);
+        var prepared = await Prepared.PrepareAsync(
+            engine,
+            TargetName,
+            1,
+            new PrepareScope { RunId = AttemptReport.RunId, ProjectRoot = ProjectRoot, Env = RunEnvironment, Notice = PrepareNotice },
+            cancellationToken,
+            shared: true).ConfigureAwait(false);
+        var workerEnv = prepared is null ? null : PreparedEngines.MergeWorkerEnv(RunEnvironment, prepared.Env);
+        _session = await E2ESession.LaunchAsync(
             new E2ESessionOptions
             {
                 Engine = engine,
@@ -330,8 +346,11 @@ public abstract class E2EFixture
                 OnSoftFailure = onSoftFailure,
                 TestFailed = testFailed,
             },
+            workerEnv,
             cancellationToken).ConfigureAwait(false);
     }
+
+    private void PrepareNotice(string targetName, string line) => Console.Error.WriteLine($"e2e: {targetName}: {E2E.Internal.Redactor.For(Config.AllSecrets).Redact(line)}");
 
     /// <summary>
     /// Runs the setup test <paramref name="fixture"/> holds for a test that restores its session (see <see cref="SetupDependencies"/>): the

@@ -115,7 +115,7 @@ public ValueTask DisposeAsync()
 ```
 
 
-Ends the run's events and runs the reporters that [Config](#E2E_XUnit_V3_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then
+Finishes the engines the run prepared, ends the run's events and runs the reporters that [Config](#E2E_XUnit_V3_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then
 stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`).
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)

@@ -79,7 +79,7 @@ public sealed record MobileStartInfo
 /// fresh launch of the pinned app. The device is a simulator, an emulator, or a connected phone, named by the options,
 /// discovered, or leased from an <see cref="IDeviceProvider"/>.
 /// </summary>
-public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
+public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine, IDoctorEngine
 {
     /// <summary>The version of the engine, as upstream's <c>@e2e-dev/mobile</c> numbers the surface this one follows.</summary>
     public const string EngineVersion = "0.11.0";
@@ -343,6 +343,18 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
             },
             cancellationToken).ConfigureAwait(false);
         return new EnginePrepareResult { Workers = prepared.Workers, Env = prepared.Env };
+    }
+
+    /// <summary>
+    /// The core hook of upstream's <c>dispose</c>: <see cref="DisposeAsync(TimeSpan, CancellationToken?, CancellationToken)"/> with the reuse permission
+    /// of <see cref="EngineDisposeContext.ReuseSignal"/>. A live signal keeps each worker's run-owned lease for a replacement, which the run's finish
+    /// releases; a null or canceled signal closes the worker's session, as the run's own finish does.
+    /// </summary>
+    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        CancellationToken? reuse = context.ReuseSignal is { IsCancellationRequested: false } live ? live : null;
+        return DisposeAsync(context.CleanupTimeout, reuse, cancellationToken);
     }
 
     /// <summary>The core hook of upstream's <c>finish</c>: <see cref="FinishAsync(MobileFinishInfo, CancellationToken)"/>.</summary>

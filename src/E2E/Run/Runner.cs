@@ -121,48 +121,65 @@ internal static class Runner
         Report? first = null;
         var exitCodes = new List<int>();
         var errors = new List<Exception>();
-        foreach (var test in options.Tests.Tests)
+        var prepared = new PreparedEngines();
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            // A test that fails is run again while the config allows retries; the last attempt's error is the test's, and every attempt's cleanup failure is the run's.
-            Report? report = null;
-            var attempts = new List<E2E.Reports.ReportAttempt>();
-            Exception? error = null;
-            for (var attempt = 1; attempt <= config.Retries + 1; attempt++)
+            foreach (var test in options.Tests.Tests)
             {
-                var fixture = new InMemoryFixture(config, options, options.Tests.File);
-                IReadOnlyList<Exception> cleanup;
-                (report, error, cleanup) = await fixture.RunAsync(test, attempt, cancellationToken).ConfigureAwait(false);
-
-                // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
-                attempts.AddRange(report?.Run.Results.SelectMany(result => result.Attempts) ?? []);
-
-                // A body that returned while the session failed (a soft failure, a teardown) still failed the attempt.
-                if (error is null && report?.Run.Results.SelectMany(result => result.Attempts).LastOrDefault() is { Status: not (E2E.Reports.AttemptStatus.Passed or E2E.Reports.AttemptStatus.Skipped), Error: { } sessionError })
+                cancellationToken.ThrowIfCancellationRequested();
+                // A test that fails is run again while the config allows retries; the last attempt's error is the test's, and every attempt's cleanup failure is the run's.
+                Report? report = null;
+                var attempts = new List<E2E.Reports.ReportAttempt>();
+                Exception? error = null;
+                for (var attempt = 1; attempt <= config.Retries + 1; attempt++)
                 {
-                    error = new TestException(sessionError.Code, sessionError.Message);
+                    var fixture = new InMemoryFixture(config, options, options.Tests.File, prepared);
+                    IReadOnlyList<Exception> cleanup;
+                    (report, error, cleanup) = await fixture.RunAsync(test, attempt, cancellationToken).ConfigureAwait(false);
+
+                    // A session's report holds its own attempt only; the test's result holds them all, as upstream's does.
+                    attempts.AddRange(report?.Run.Results.SelectMany(result => result.Attempts) ?? []);
+
+                    // A body that returned while the session failed (a soft failure, a teardown) still failed the attempt.
+                    if (error is null && report?.Run.Results.SelectMany(result => result.Attempts).LastOrDefault() is { Status: not (E2E.Reports.AttemptStatus.Passed or E2E.Reports.AttemptStatus.Skipped), Error: { } sessionError })
+                    {
+                        error = new TestException(sessionError.Code, sessionError.Message);
+                    }
+
+                    exitCodes.AddRange(cleanup.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)));
+                    if (error is null)
+                    {
+                        break;
+                    }
                 }
 
-                exitCodes.AddRange(cleanup.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)));
-                if (error is null)
+                if (report is { Run.Results: [var only] })
                 {
-                    break;
+                    report = report with { Run = report.Run with { Results = [only with { Attempts = attempts, Status = Enum.Parse<E2E.Reports.ResultStatus>(Retry.RetryVerdict([.. attempts.Select(each => new RetryAttempt(Enum.Parse<E2E.Internal.AttemptStatus>(each.Status.ToString())))]).ToString()) }] } };
                 }
+
+                first ??= report;
+                results.AddRange(report?.Run.Results ?? []);
+                if (error is not null)
+                {
+                    errors.Add(error);
+                }
+
+                exitCodes.Add(error is null ? 0 : error is E2EException known ? ExitCodeOf(known) : ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(error).Category));
             }
 
-            if (report is { Run.Results: [var only] })
+        }
+        finally
+        {
+            // The engines the run prepared are finished on every exit path, as upstream's run does: a failure is a cleanup failure of the run.
+            await prepared.FinishAsync(new FinishScope
             {
-                report = report with { Run = report.Run with { Results = [only with { Attempts = attempts, Status = Enum.Parse<E2E.Reports.ResultStatus>(Retry.RetryVerdict([.. attempts.Select(each => new RetryAttempt(Enum.Parse<E2E.Internal.AttemptStatus>(each.Status.ToString())))]).ToString()) }] } };
-            }
-
-            first ??= report;
-            results.AddRange(report?.Run.Results ?? []);
-            if (error is not null)
-            {
-                errors.Add(error);
-            }
-
-            exitCodes.Add(error is null ? 0 : error is E2EException known ? ExitCodeOf(known) : ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(error).Category));
+                RunId = AttemptReport.RunId,
+                Env = options.Env ?? PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = E2EDefaults.CleanupTimeout,
+                Notice = (target, line) => Console.Error.WriteLine($"e2e: {target}: {Redactor.For(config.AllSecrets).Redact(line)}"),
+                OnFailure = failure => exitCodes.Add(ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)),
+            }).ConfigureAwait(false);
         }
 
         var cleanupFailed = exitCodes.Any(code => code != 0) && errors.Count == 0;
@@ -176,9 +193,13 @@ internal static class Runner
     /// The fixture one in-memory test runs in (.NET-only: upstream's worker builds the test's fixtures from the resolved config; in the port a
     /// session is started by <see cref="E2EFixture"/>, whose settings this takes from the run's options).
     /// </summary>
-    private sealed class InMemoryFixture(E2EConfig config, RunOptions options, string file) : E2EFixture
+    private sealed class InMemoryFixture(E2EConfig config, RunOptions options, string file, PreparedEngines prepared) : E2EFixture
     {
         protected override E2EConfig Config => config;
+
+        internal override PreparedEngines Prepared => prepared;
+
+        protected override IReadOnlyDictionary<string, string?> RunEnvironment => options.Env ?? PreparedEngines.ProcessEnvironment();
 
         internal override string? TestFile => file;
 

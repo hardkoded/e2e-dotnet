@@ -156,19 +156,26 @@ public sealed class DeviceProviderTests
     }
 
     [Fact]
-    public async Task Asks_the_provider_for_the_resolved_build_and_leaves_the_install_to_the_suite_when_the_lease_did_not_without_the_install()
+    public async Task Asks_the_provider_for_the_resolved_build_and_leaves_the_install_to_the_suite_when_the_lease_did_not()
     {
         var cloud = new ToyCloud();
         var h = Over(cloud, app => app with { AppPath = "build/App.app" });
         var result = await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
-        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build/App.app"), cloud.Acquired[0].AppPath);
+        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build", "App.app"), cloud.Acquired[0].AppPath);
 
         // The lease installed nothing: the build is not on the device, so warm-up boots and starts the runner only, and the worker installs nothing.
         Assert.Equal(["devices.boot", "command.prepare"], h.Fake.Methods());
         var worker = Over(cloud, app => app with { AppPath = "build/App.app" });
         var session = await worker.Boot("ios", 0, Harness.WorkerEnv(result));
         Assert.Equal(["devices.boot"], worker.Fake.Methods());
-        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build/App.app"), session.BuildPath);
+
+        // The suite's device.installApp() installs the build on the leased device.
+        await session.InstallAppAsync(cancellationToken: CancellationToken.None);
+        var install = worker.Fake.LastArgs("apps.install");
+        Assert.NotNull(install);
+        Assert.Equal("sim-0", install["device"]?.GetValue<string>());
+        Assert.Equal("Settings", install["app"]?.GetValue<string>());
+        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build", "App.app"), install["appPath"]?.GetValue<string>());
     }
 
     [Fact]
@@ -529,6 +536,58 @@ public sealed class DeviceProviderTests
 
         Assert.Empty(await host.CloseAsync());
         Assert.Equal(DeviceMethods.SessionsClose, runner.Fake.Methods()[^1]);
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+    }
+
+    /// <summary>
+    /// .NET-only: upstream's run prepares a target once and finishes it after its last worker. Through the port's run path, prepare leases the
+    /// device, the attempt runs on it, and the run's finish closes its session and then releases the lease.
+    /// </summary>
+    [Fact]
+    public async Task Runs_the_lease_through_the_runner_and_releases_it_when_the_run_ends()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+
+        var outcome = await MobileRun.RunAsync(runner.Engine, [new InMemoryTest("keeps the lease", _ => Task.CompletedTask)]);
+
+        Assert.Equal(RunStatus.Passed, outcome.Status);
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+        Assert.Equal(DeviceMethods.SessionsClose, runner.Fake.Methods()[^1]);
+    }
+
+    /// <summary>
+    /// .NET-only: the public dispose hook of upstream's engine. A live reuse signal keeps a worker's leased session for a replacement, and a null
+    /// signal closes it; the lease is left to the run's finish either way.
+    /// </summary>
+    [Fact]
+    public async Task Disposes_a_worker_with_the_reuse_permission_its_signal_grants()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        var target = runner.Engine.Options.TargetName;
+        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
+        {
+            Engine = runner.Engine,
+            TargetName = target,
+            ProjectRoot = Directory.GetCurrentDirectory(),
+        });
+        var attempt = await host.OpenAttemptAsync(new E2ESessionOptions { Engine = runner.Engine, TargetName = target, TestTitle = "attempt" });
+        Assert.Empty(await attempt.CloseAsync());
+        var disposable = (IDisposableEngine)runner.Engine;
+        using var reuse = new CancellationTokenSource();
+
+        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5), ReuseSignal = reuse.Token }, CancellationToken.None);
+
+        Assert.DoesNotContain(DeviceMethods.SessionsClose, runner.Fake.Methods());
+        Assert.Empty(cloud.Released);
+
+        // The kept worker left the engine with its session, so a dispose without the permission has no worker of its own left to close.
+        var calls = runner.Fake.Methods().Count;
+        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5) }, CancellationToken.None);
+
+        Assert.Equal(calls, runner.Fake.Methods().Count);
+        Assert.Empty(await host.CloseAsync());
         Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
     }
 }

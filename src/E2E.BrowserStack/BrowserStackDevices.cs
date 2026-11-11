@@ -105,7 +105,7 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
             cancellationToken).ConfigureAwait(false);
     }
 
-    public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => _leases.ReleaseAsync(lease, cancellationToken);
+    public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => _leases.ReleaseAsync(lease, context, cancellationToken);
 
     /// <summary>Runs in the worker, from the lease alone. BrowserStack records the whole session, so its video starts when the session did.</summary>
     public async Task<ProviderRecording?> RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
