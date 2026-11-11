@@ -24,7 +24,7 @@ public sealed class LifecycleTests
         await session.RestartAsync(CancellationToken.None);
         Assert.Equal(["e2e-ios-simulator-0"], h.Sessions);
         Assert.Equal(["devices.boot", "apps.open"], h.Fake.Methods());
-        JsonAssert.Args("""{"platform":"ios"}""", h.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", h.Fake.LastArgs("devices.boot"));
         JsonAssert.Args("""{"app":"Settings","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
 
         await session.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
@@ -230,7 +230,7 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public async Task With_fewer_slots_than_booted_devices_drives_only_that_many_with_none_booted_one_slot_boots_what_agent_device_picks()
+    public async Task With_fewer_slots_than_booted_devices_drives_only_that_many_with_none_booted_one_slot_boots_a_shut_down_device_agent_device_picks()
     {
         var h = Harness.Create();
         h.Fake.Respond(DeviceMethods.DevicesList, _ => Inventory(("ios", "A", "A", true), ("ios", "B", "B", true)));
@@ -256,9 +256,9 @@ public sealed class LifecycleTests
         cold.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray());
         var coldResult = await cold.Engine.PrepareAsync(cold.PrepareInfo(1, targetName: "ios"), CancellationToken.None);
         Assert.Equal(1, coldResult.Workers);
-        JsonAssert.Args("""{"platform":"ios"}""", cold.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", cold.Fake.LastArgs("devices.boot"));
 
-        // One slot bound to no device in particular: the daemon picks.
+        // One slot bound to no device in particular: agent-device picks.
         Assert.Equal("""[{}]""", coldResult.Env[Harness.PoolVariableIn(coldResult.Env, "IOS")]);
     }
 

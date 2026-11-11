@@ -337,7 +337,7 @@ public sealed partial class DevicePool
             {
                 await TimedAsync(took, "boot", () => DeviceErrors.RunCommandAsync(
                     "boot",
-                    token => client.CallAsync(DeviceMethods.DevicesBoot, where.ToArgs(), token),
+                    token => client.CallAsync(DeviceMethods.DevicesBoot, BootRequest(where), token),
                     cancellationToken,
                     at)).ConfigureAwait(false);
                 var runnerUp = _options.Platform != MobilePlatform.Ios || await TimedAsync(took, "iOS runner", () => PrepareRunnerAsync(client, where, info, at, cancellationToken)).ConfigureAwait(false);
@@ -430,6 +430,16 @@ public sealed partial class DevicePool
     }
 
     /// <summary>
+    /// The request <c>boot</c> takes for a selection. One that names no device asks agent-device to pick among several
+    /// shut-down matches (mobile over TV, newest OS, then name order) instead of failing with <c>AMBIGUOUS_MATCH</c>;
+    /// several booted matches still fail.
+    /// </summary>
+    public static JsonObject BootRequest(DeviceSelection selection) =>
+        (selection.Device ?? selection.Udid ?? selection.Serial) is null
+            ? selection.ToArgs(("pick", JsonValue.Create("newest")))
+            : selection.ToArgs();
+
+    /// <summary>
     /// The selection agent-device commands take for a binding: an id the pool discovered goes under the platform's
     /// id field (<c>udid</c> for a simulator, <c>serial</c> for an Android device), a configured string too when it
     /// reads as a UDID or an emulator serial, and any other string is a device name.
@@ -477,7 +487,7 @@ internal sealed record BootedDevice(string Id, string Name, string? ClaimedBy = 
 
 /// <summary>
 /// Every booted device of the platform no other agent-device session holds, as many as the run has slots. With none
-/// booted, one slot the daemon fills. A device held by one of this target's own slot sessions stays in the pool.
+/// booted, one slot that boots a shut-down simulator or emulator agent-device picks. A device held by one of this target's own slot sessions stays in the pool.
 /// </summary>
 internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory createClient, Func<string, int, string> session) : IDeviceSource
 {
@@ -502,7 +512,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
 
         if (chosen.Count == 0)
         {
-            info.Log($"no booted {platform.WireName()} device; agent-device boots one");
+            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (newest OS, then name)");
             return [new SlotBinding()];
         }
 
