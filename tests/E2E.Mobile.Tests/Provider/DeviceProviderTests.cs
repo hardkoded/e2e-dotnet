@@ -409,7 +409,7 @@ public sealed class DeviceProviderTests
         var h = Over(cloud);
         await h.Boot("ios", 0);
         Assert.Equal([null], h.Connections);
-        JsonAssert.Args("""{"platform":"ios"}""", h.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", h.Fake.LastArgs("devices.boot"));
         await h.Engine.DisposeAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         Assert.Equal([DeviceMethods.DevicesBoot, DeviceMethods.SessionsClose], h.Fake.Methods());
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);

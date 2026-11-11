@@ -337,7 +337,7 @@ public sealed partial class DevicePool
             {
                 await TimedAsync(took, "boot", () => DeviceErrors.RunCommandAsync(
                     "boot",
-                    token => client.CallAsync(DeviceMethods.DevicesBoot, where.ToArgs(), token),
+                    token => client.CallAsync(DeviceMethods.DevicesBoot, BootRequest(where), token),
                     cancellationToken,
                     at)).ConfigureAwait(false);
                 var runnerUp = _options.Platform != MobilePlatform.Ios || await TimedAsync(took, "iOS runner", () => PrepareRunnerAsync(client, where, info, at, cancellationToken)).ConfigureAwait(false);
@@ -446,6 +446,16 @@ public sealed partial class DevicePool
         return platform == MobilePlatform.Android ? new DeviceSelection(platform, Serial: id) : new DeviceSelection(platform, Udid: id);
     }
 
+    /// <summary>
+    /// The request <c>boot</c> takes for a selection. One that names no device asks agent-device to pick among several
+    /// shut-down matches (mobile over TV, newest OS, then name order) instead of failing with <c>AMBIGUOUS_MATCH</c>;
+    /// several booted matches still fail. Upstream's <c>bootRequest</c>.
+    /// </summary>
+    public static JsonObject BootRequest(DeviceSelection selection) =>
+        (selection.Device ?? selection.Udid ?? selection.Serial) is null
+            ? selection.ToArgs(("pick", JsonValue.Create("newest")))
+            : selection.ToArgs();
+
     /// <summary>An Apple simulator UDID.</summary>
     [GeneratedRegex(@"^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\z", RegexOptions.IgnoreCase)]
     private static partial Regex Udid();
@@ -502,7 +512,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
 
         if (chosen.Count == 0)
         {
-            info.Log($"no booted {platform.WireName()} device; agent-device boots one");
+            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (newest OS, then name)");
             return [new SlotBinding()];
         }
 
