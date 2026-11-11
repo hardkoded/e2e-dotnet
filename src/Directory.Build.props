@@ -1,6 +1,6 @@
 <Project>
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
-  <!-- The libraries ship for the current LTS and the current STS. Tests, samples and apps stay on net10.0. -->
+  <!-- The libraries ship for the current LTS and the current STS. Tests, samples and apps stay on net10.0, except the MAUI sample and the web benchmark, which target net11.0. -->
   <PropertyGroup>
     <TargetFramework />
     <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
