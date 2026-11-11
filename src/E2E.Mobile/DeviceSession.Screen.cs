@@ -349,7 +349,8 @@ public sealed partial class DeviceSession
     /// again in a fresh snapshot. The budget is the only signal that the
     /// transition is over, since the tree cannot tell a sliding control from a landed one. The fresh snapshot is where
     /// the control landed: Android reports a window's frames while it slides in, so a ref resolved mid-flight would
-    /// send the action where the control was.
+    /// send the action where the control was. When the input's budget cannot cover the rest of the transition, it throws
+    /// <c>OPERATION_TIMEOUT</c> and sends nothing.
     /// </summary>
     internal async Task<NodeBinding> SettledAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken) =>
         await WaitForTransitionAsync(entry, input, cancellationToken).ConfigureAwait(false)
@@ -358,7 +359,8 @@ public sealed partial class DeviceSession
 
     /// <summary>
     /// Waits out the remainder of the transition budget when the control came with the last action. True when it waited,
-    /// so the binding may be stale; false when the control was already in place.
+    /// so the binding may be stale; false when the control was already in place. It throws <c>OPERATION_TIMEOUT</c> when the
+    /// input's budget cannot cover the rest of the transition, and sends nothing in that case.
     /// </summary>
     internal async Task<bool> WaitForTransitionAsync(NodeBinding entry, InputBudget? input, CancellationToken cancellationToken)
     {
