@@ -433,7 +433,7 @@ public static class AgentTools
 
                     // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
                     // changed on a body that ran keeps the body's result and its screenshot.
-                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
+                    return outcome is null ? new ToolLoopResult(content, Failed: true, ErrorText: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels, outcome.ErrorText);
                 }))
             .ToList();
     }
@@ -831,14 +831,14 @@ public sealed class VerdictTool
         var status = Args.String(call.Arguments, "status");
         if (status is not ("passed" or "failed" or "blocked"))
         {
-            return ToolOutcome.Fail("done status must be passed, failed, or blocked.");
+            return ToolOutcome.Reject("done status must be passed, failed, or blocked.");
         }
 
         // Upstream's schema (summary: z.string().min(1).max(2000)) turns an empty or oversized summary back to the model.
         var summary = Args.String(call.Arguments, "summary");
         if (string.IsNullOrWhiteSpace(summary) || summary.Length > AgentTools.MaxVerdictSummaryChars)
         {
-            return ToolOutcome.Fail(
+            return ToolOutcome.Reject(
                 "done summary must be a non-empty string of at most " + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 " characters: what you did and what the screen shows now.");
         }
@@ -855,7 +855,7 @@ public sealed class VerdictTool
 
         if (string.Equals(status, "blocked", StringComparison.Ordinal) && !AgentTools.BlockableCodes.Contains(code))
         {
-            return ToolOutcome.Fail(
+            return ToolOutcome.Reject(
                 "a blocked verdict requires a code naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
                 "If the application itself misbehaved, use status failed instead.");
         }

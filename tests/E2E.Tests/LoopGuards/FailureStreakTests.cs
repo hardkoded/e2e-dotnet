@@ -134,7 +134,7 @@ public sealed class FailureStreakTests
         Assert.Equal((false, "the last 3 actions failed in a row"), E2E.LoopGuards.CheckFailureStreak(E2E.LoopGuards.ExtractToolResults(refused(3), Conclude)));
         Assert.True(E2E.LoopGuards.CheckFailureStreak(E2E.LoopGuards.ExtractToolResults(refused(5), Conclude)).Stop);
 
-        var sentBack = Result(Conclude, "Rejected: a blocked verdict requires a code naming what blocked you (one of ENVIRONMENT_UNAVAILABLE, CREDENTIALS_REJECTED).");
+        var sentBack = Result(Conclude, "failed: a blocked verdict requires a code naming what blocked you (one of ENVIRONMENT_UNAVAILABLE, CREDENTIALS_REJECTED). If the application itself misbehaved, use status failed instead.");
         Assert.Equal((false, "the last 3 actions failed in a row"), E2E.LoopGuards.CheckFailureStreak(E2E.LoopGuards.ExtractToolResults([.. refused(2), sentBack, .. refused(1)], Conclude)));
         Assert.Equal((false, null), E2E.LoopGuards.CheckFailureStreak(E2E.LoopGuards.ExtractToolResults([.. refused(4), Result("tap", Tapped)], Conclude)));
     }

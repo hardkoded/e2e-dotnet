@@ -1904,6 +1904,9 @@ internal sealed class ToolOutcome
 
     public static ToolOutcome Fail(string content) => new() { Content = "failed: " + content, Succeeded = false, ErrorText = true };
 
+    /// <summary>A verdict the policy turns back to the model: a failed call whose text is the conclusion tool's own, so the streak skips it (upstream returns it as text).</summary>
+    public static ToolOutcome Reject(string content) => new() { Content = "failed: " + content, Succeeded = false };
+
     /// <summary>A refusal that keeps its error code, which the model never reads and a host driving the tools does.</summary>
     public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code, ErrorText = true };
 
