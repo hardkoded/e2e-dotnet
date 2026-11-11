@@ -35,9 +35,7 @@ jobs:
         run: dotnet build E2E.slnx --no-restore -c Release
 
       - name: Test
-        run: |
-          (sleep 1080; echo "::warning::WATCHDOG process tree"; ps -eo pid,ppid,etime,stat,args --forest | cut -c1-220) &
-          dotnet test E2E.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test E2E.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
 
       - name: Pack
         run: |
