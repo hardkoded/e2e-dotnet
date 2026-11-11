@@ -530,6 +530,7 @@ public sealed class RecordedTarget
     internal bool HasValidDescriptor() =>
         TextFields.Any(field => !string.IsNullOrEmpty(field))
         && TextFields.All(field => field is not { Length: > Trace.MaxTraceDescriptorChars })
+        && Selector is not { Length: > Trace.MaxTraceDescriptorChars }
         && (Position?.IsValid() ?? true)
         && HasValidStates();
 

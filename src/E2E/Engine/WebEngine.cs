@@ -3171,8 +3171,8 @@ public sealed partial class WebEngine : IEngine
                     continue;
                 }
 
-                var (owner, inset, selector) = await budget.WithinAsync(OwnerOfAsync(child, _testIdAttribute)).ConfigureAwait(false);
-                if (owner is not null && selector is not null && owners.TryGetValue(owner, out var node))
+                var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
+                if (owner is not null && owners.TryGetValue(owner, out var node))
                 {
                     // A frame whose navigation has not committed shows nothing yet.
                     if (!await budget.WithinAsync(FrameDocument.HasReadableDocumentAsync(child)).ConfigureAwait(false))
@@ -3188,6 +3188,13 @@ public sealed partial class WebEngine : IEngine
                     }
 
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
+                    // The selector is read only for a frame that is read, and a frame whose selector cannot be read is left out as one whose element is gone.
+                    var selector = await budget.WithinAsync(SelectorOfAsync(child, _testIdAttribute)).ConfigureAwait(false);
+                    if (selector is null)
+                    {
+                        continue;
+                    }
+
                     node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, [.. framePath, selector]).ConfigureAwait(false), node.Rect, inset);
                     if (node.Hidden)
                     {
@@ -3309,20 +3316,33 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private static async Task<(string? Ref, WebRect? Inset, string? Selector)> OwnerOfAsync(IFrame frame, string testIdAttribute)
+        private static async Task<(string? Ref, WebRect? Inset)> OwnerOfAsync(IFrame frame)
         {
             try
             {
                 var element = await frame.FrameElementAsync().ConfigureAwait(false);
                 await using var dispose = element.ConfigureAwait(false);
                 var owner = await element.EvaluateAsync<string?>(PageScript.RefOf).ConfigureAwait(false);
-                var inset = await element.EvaluateAsync<WebRect?>(PageScript.FrameInset).ConfigureAwait(false);
-                var selector = await element.EvaluateAsync<string?>(PageScript.FrameSelector, testIdAttribute).ConfigureAwait(false);
-                return (owner, inset, selector);
+                return (owner, await element.EvaluateAsync<WebRect?>(PageScript.FrameInset).ConfigureAwait(false));
             }
             catch (PlaywrightException)
             {
-                return (null, null, null);
+                return (null, null);
+            }
+        }
+
+        /// <summary>The selector that re-enters a frame (upstream's <c>frameSelector</c>), or null when the frame element is gone.</summary>
+        private static async Task<string?> SelectorOfAsync(IFrame frame, string testIdAttribute)
+        {
+            try
+            {
+                var element = await frame.FrameElementAsync().ConfigureAwait(false);
+                await using var dispose = element.ConfigureAwait(false);
+                return await element.EvaluateAsync<string?>(PageScript.FrameSelector, testIdAttribute).ConfigureAwait(false);
+            }
+            catch (PlaywrightException)
+            {
+                return null;
             }
         }
 
