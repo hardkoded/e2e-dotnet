@@ -380,6 +380,8 @@ public sealed class ObservationTests
         // observation when a loaded runner stretches it.
         h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
+        // The launch's transition is over before the input: a budget shorter than the transition is refused, so the input is only sent once it is not in flight.
+        h.Clock.Advance(TimeSpan.FromMilliseconds(600));
         var root = await Screens.RootOf(session);
         var about = Named(root, "About");
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -414,6 +416,9 @@ public sealed class ObservationTests
         h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
         var about = await Screens.Observed(session, "About");
+
+        // The launch's transition is over before the first tap: a budget shorter than the transition is refused, so the tap goes out once it is not in flight.
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
 
         // About moves with the tap, so the next tap relocates it first; a slow relocation spends the whole budget.
         await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);

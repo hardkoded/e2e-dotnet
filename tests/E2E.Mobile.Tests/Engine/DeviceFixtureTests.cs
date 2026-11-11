@@ -46,6 +46,24 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
+    public async Task Gives_a_screen_swipe_the_remaining_transition_budget_after_an_alert_is_dismissed()
+    {
+        var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
+        var session = await OpenAttempt(h);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+        await RootOf(session);
+        await session.Device.AlertAsync(AlertAction.Accept);
+        var dismissedAt = h.Clock.GetUtcNow();
+        var screen = await RootOf(session);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(30));
+
+        await session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(120), h.Clock.GetUtcNow() - dismissedAt);
+        JsonAssert.Args("""{"direction":"down"}""", h.Fake.LastArgs("interactions.scroll"));
+    }
+
+    [Fact]
     public async Task Counts_a_back_home_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });

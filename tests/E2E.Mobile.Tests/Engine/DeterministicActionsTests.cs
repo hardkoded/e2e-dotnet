@@ -373,4 +373,162 @@ public sealed class DeterministicActionsTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Save")));
         await TapsAtOnce(h, session, await Observed(session, "Save"), """{"ref":"@e11"}""");
     }
+
+    private static LocatorAction Swipe(ScrollDirection direction = ScrollDirection.Down) => new LocatorAction.Swipe(direction);
+
+    /// <summary>The screen root as a swipe names it, without a look: a swipe of the screen needs only its ref.</summary>
+    private static SemanticNode ScreenRoot() => new() { Ref = SnapshotProjection.RootId };
+
+    private static int Scrolls(Harness h) => h.Fake.Calls.Count(call => call.Method == "interactions.scroll");
+
+    [Fact]
+    public async Task Keeps_agent_origin_screen_swipes_immediate_with_driver_settling()
+    {
+        var h = WithTransition(120);
+        var session = await OpenAttempt(h);
+        var screen = await RootOf(session);
+        var startedAt = h.Clock.GetUtcNow();
+
+        await session.PerformAsync(screen, Swipe(), OperationContext.Agent, CancellationToken.None);
+
+        Assert.Equal(startedAt, h.Clock.GetUtcNow());
+        JsonAssert.Args("""{"direction":"down","settle":true,"settleQuietMs":150}""", h.Fake.LastArgs("interactions.scroll"));
+    }
+
+    [Fact]
+    public async Task Counts_captures_between_consecutive_screen_swipes_toward_the_transition_budget()
+    {
+        var h = WithTransition(120);
+        var session = await OpenAttempt(h);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+        var screen = await RootOf(session);
+        await session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None);
+        var firstSwipeAt = h.Clock.GetUtcNow();
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            h.Clock.Advance(TimeSpan.FromMilliseconds(50));
+            return FakeDeviceClient.SettingsSnapshot();
+        });
+        var nextScreen = await RootOf(session);
+
+        await session.PerformAsync(nextScreen, Swipe(), OperationContext.Test, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(120), h.Clock.GetUtcNow() - firstSwipeAt);
+        Assert.Equal(2, Scrolls(h));
+    }
+
+    [Fact]
+    public async Task Does_not_dispatch_a_screen_swipe_whose_transition_wait_was_cancelled()
+    {
+        var h = WithTransition(300);
+        h.Waits.Wait = (_, token) => Task.Delay(Timeout.Infinite, token);
+        var session = await OpenAttempt(h);
+        var screen = await RootOf(session);
+        using var controller = new CancellationTokenSource();
+        controller.CancelAfter(TimeSpan.FromMilliseconds(20));
+
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+
+        Assert.Equal("CANCELLED", cancelled.Code);
+        Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Rejects_an_already_cancelled_screen_swipe_without_starting_its_transition_wait()
+    {
+        var h = WithTransition(300);
+        var session = await OpenAttempt(h);
+        var screen = await RootOf(session);
+        using var controller = new CancellationTokenSource();
+        controller.Cancel();
+        var startedAt = h.Clock.GetUtcNow();
+
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+
+        Assert.Equal("CANCELLED", cancelled.Code);
+        Assert.Equal(startedAt, h.Clock.GetUtcNow());
+        Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Ends_a_screen_swipe_transition_at_its_action_budget_without_sending_a_gesture()
+    {
+        var h = WithTransition(160);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(20));
+        var screen = ScreenRoot();
+        var startedAt = h.Clock.GetUtcNow();
+
+        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None));
+
+        Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
+        Assert.Equal(TimeSpan.FromMilliseconds(20), h.Clock.GetUtcNow() - startedAt);
+        Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
+    }
+
+    // Partial: upstream's `it` also has the timer wake a sub-millisecond early against a lagging Date.now. The fake clock
+    // cannot lag its own delays, so this checks only that a capped swipe the transition outlasts is not sent.
+    [Theory]
+    [InlineData(20)]
+    [InlineData(20.5)]
+    public async Task Partial_Does_not_send_a_capped_screen_swipe_the_transition_outlasts(double timeoutMs)
+    {
+        var h = WithTransition(160);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(timeoutMs));
+
+        // The screen root needs no look: a look is a read the same sub-frame budget bounds, and its first call can outlast it.
+        var screen = ScreenRoot();
+        var startedAt = h.Clock.GetUtcNow();
+
+        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None));
+
+        Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
+        Assert.False(timeout.Retryable);
+        Assert.True(h.Clock.GetUtcNow() - startedAt <= TimeSpan.FromMilliseconds(timeoutMs));
+        Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Sends_a_screen_swipe_when_its_action_budget_can_accommodate_the_full_transition()
+    {
+        var h = WithTransition(160);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
+        var screen = await RootOf(session);
+        var startedAt = h.Clock.GetUtcNow();
+
+        await session.PerformAsync(screen, Swipe(), OperationContext.Test, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(160), h.Clock.GetUtcNow() - startedAt);
+        Assert.Equal(1, Scrolls(h));
+    }
+
+    [Fact]
+    public async Task Reports_cancellation_when_the_caller_aborts_a_capped_transition_wait()
+    {
+        var h = WithTransition(160);
+        h.Waits.Wait = (_, token) => Task.Delay(Timeout.Infinite, token);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(20));
+        var screen = ScreenRoot();
+        using var controller = new CancellationTokenSource();
+        controller.CancelAfter(TimeSpan.FromMilliseconds(10));
+
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(screen, Swipe(), OperationContext.Test, controller.Token));
+
+        Assert.Equal("CANCELLED", cancelled.Code);
+        Assert.DoesNotContain("interactions.scroll", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Ends_an_arriving_control_transition_at_its_action_budget_without_tapping()
+    {
+        var h = WithTransition(160);
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(20));
+        var about = await Observed(session, "About");
+        var startedAt = h.Clock.GetUtcNow();
+
+        var timeout = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None));
+
+        Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
+        Assert.Equal(TimeSpan.FromMilliseconds(20), h.Clock.GetUtcNow() - startedAt);
+        Assert.DoesNotContain("interactions.press", h.Fake.Methods());
+    }
 }
