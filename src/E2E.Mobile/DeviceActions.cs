@@ -102,6 +102,11 @@ public sealed class DeviceActions : IDeviceActions
                     }
 
                     target = await session.RelocatedAsync(entry, input, token, forInput: true).ConfigureAwait(false);
+                    if (context.Origin == OperationOrigin.Test)
+                    {
+                        target = await session.SteadiedAsync(target, input, token, forInput: true).ConfigureAwait(false);
+                    }
+
                     if (!target.TakesText)
                     {
                         throw RefuseFill(action, target);
@@ -110,9 +115,17 @@ public sealed class DeviceActions : IDeviceActions
                 else
                 {
                     target = context.Origin == OperationOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
+                    if (context.Origin == OperationOrigin.Test)
+                    {
+                        target = await session.SteadiedAsync(target, input, token).ConfigureAwait(false);
+                    }
                 }
 
-                await RunAsync(session, client, target, action, settle, input, token).ConfigureAwait(false);
+                await RunAsync(session, client, target, action, settle, DeviceSession.GestureStabilization(context), input, token).ConfigureAwait(false);
+                if (action is LocatorAction.Swipe)
+                {
+                    session.NoteGesture(context);
+                }
             },
             cancellationToken).ConfigureAwait(false);
         session.MarkAction(before);
@@ -121,7 +134,7 @@ public sealed class DeviceActions : IDeviceActions
     private static EngineException RefuseFill(LocatorAction action, NodeBinding binding) =>
         DeviceSupport.Unsupported($"agent-device can only {KindOf(action)} editable fields; node {binding.Id} is {binding.Node.Role ?? "unknown"}");
 
-    private static async Task RunAsync(DeviceSession session, IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
+    private static async Task RunAsync(DeviceSession session, IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, JsonObject stabilization, InputBudget input, CancellationToken cancellationToken)
     {
         switch (action)
         {
@@ -165,7 +178,7 @@ public sealed class DeviceActions : IDeviceActions
                 await PressKeyAsync(client, target, press.Key, settle, input, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Swipe swipe:
-                await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, input, cancellationToken).ConfigureAwait(false);
+                await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, stabilization, input, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.LongPress hold:
                 await LongPressNodeAsync(client, target, hold.Duration, settle, input, cancellationToken).ConfigureAwait(false);
@@ -230,7 +243,7 @@ public sealed class DeviceActions : IDeviceActions
         };
     }
 
-    private static async Task SwipeNodeAsync(IDeviceClient client, NodeBinding target, ScrollDirection direction, Momentum? momentum, InputBudget? input, CancellationToken cancellationToken)
+    private static async Task SwipeNodeAsync(IDeviceClient client, NodeBinding target, ScrollDirection direction, Momentum? momentum, JsonObject stabilization, InputBudget? input, CancellationToken cancellationToken)
     {
         if (target.Node.Rect is not { } rect)
         {
@@ -238,7 +251,7 @@ public sealed class DeviceActions : IDeviceActions
         }
 
         var (from, to) = DeviceSupport.SwipeWithin(new Rect(rect.X, rect.Y, rect.Width, rect.Height), direction, momentum);
-        await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))), cancellationToken), cancellationToken).ConfigureAwait(false);
+        await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, Args(stabilization, ("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))), cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, OperationContext context, InputBudget? input, CancellationToken cancellationToken)
@@ -254,9 +267,10 @@ public sealed class DeviceActions : IDeviceActions
             "swipe",
             (client, token) => DeviceSession.SendInputAsync(
                 input,
-                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(context), ("direction", JsonValue.Create(DirectionName(direction)))), token),
+                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(context), DeviceSession.GestureStabilization(context), ("direction", JsonValue.Create(DirectionName(direction)))), token),
                 token),
             cancellationToken).ConfigureAwait(false);
+        session.NoteGesture(context);
         session.MarkAction(before);
     }
 
@@ -360,7 +374,12 @@ public sealed class DeviceActions : IDeviceActions
     internal static Task SwipeAsync(DeviceSession session, SemanticNode node, ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) =>
         node.Ref == SnapshotProjection.RootId
             ? ScrollScreenAsync(session, direction, OperationContext.Test, session.InputBudget("swipe"), cancellationToken)
-            : RunNodeAsync(session, node, "swipe", (client, target, _, input, token) => SwipeNodeAsync(client, target, direction, momentum, input, token), cancellationToken);
+            : RunNodeAsync(session, node, "swipe", async (client, target, _, input, token) =>
+                {
+                    await SwipeNodeAsync(client, target, direction, momentum, DeviceSession.GestureStabilization(OperationContext.Test), input, token).ConfigureAwait(false);
+                    session.NoteGesture(OperationContext.Test);
+                },
+                cancellationToken);
 
     /// <summary>One action the fixture methods above run: a test's own step, as upstream marks every action a test performs.</summary>
     private static async Task RunNodeAsync(
@@ -380,6 +399,7 @@ public sealed class DeviceActions : IDeviceActions
             {
                 var settle = session.ActionSettle(OperationContext.Test);
                 var target = await session.SettledAsync(entry, input, token).ConfigureAwait(false);
+                target = await session.SteadiedAsync(target, input, token).ConfigureAwait(false);
                 await run(client, target, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
@@ -392,7 +412,7 @@ public sealed class DeviceActions : IDeviceActions
     /// press, while two presses in a row land about 285 ms apart. The kinds outside <see cref="PointerActionKinds"/> are
     /// refused here.
     /// </summary>
-    internal static Task<JsonNode?> PointerInteractionAsync(IDeviceClient client, Point point, PointerAction action, JsonObject settle, CancellationToken cancellationToken)
+    internal static Task<JsonNode?> PointerInteractionAsync(IDeviceClient client, Point point, PointerAction action, JsonObject settle, JsonObject stabilization, CancellationToken cancellationToken)
     {
         (string, JsonNode?)[] at = [("x", JsonValue.Create(point.X)), ("y", JsonValue.Create(point.Y))];
         switch (action)
@@ -417,7 +437,7 @@ public sealed class DeviceActions : IDeviceActions
                         ("durationMs", JsonValue.Create(duration.TotalMilliseconds))),
                     cancellationToken);
             case PointerAction.SwipeTo swipe:
-                return client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", DeviceSession.PointNode(point)), ("to", DeviceSession.PointNode(swipe.Target))), cancellationToken);
+                return client.CallAsync(DeviceMethods.InteractionsSwipe, Args(stabilization, ("from", DeviceSession.PointNode(point)), ("to", DeviceSession.PointNode(swipe.Target))), cancellationToken);
             default:
                 return Task.FromException<JsonNode?>(DeviceSupport.Unsupported($"agent-device cannot perform \"{PointerKindOf(action)}\" at a bare point"));
         }
@@ -466,6 +486,18 @@ public sealed class DeviceActions : IDeviceActions
         PointerAction.Swipe => "swipe",
         _ => action.GetType().Name,
     };
+
+    /// <summary>The options of one command: the settle wait, the post-gesture stabilization, then the fields the action names.</summary>
+    private static JsonObject Args(JsonObject settle, JsonObject stabilization, params (string Key, JsonNode? Value)[] fields)
+    {
+        var args = Args(settle, fields);
+        foreach (var (key, value) in stabilization)
+        {
+            args[key] = value?.DeepClone();
+        }
+
+        return args;
+    }
 
     /// <summary>The options of one command: the settle wait, then the fields the action names.</summary>
     private static JsonObject Args(JsonObject settle, params (string Key, JsonNode? Value)[] fields)

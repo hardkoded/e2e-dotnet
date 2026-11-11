@@ -31,8 +31,13 @@ public sealed partial class DeviceSession
         var before = _latestScreen;
         await CommandAsync(
             $"{PointerLabel(action)} at point",
-            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(context), token), token, hold),
+            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(context), GestureStabilization(context), token), token, hold),
             cancellationToken).ConfigureAwait(false);
+        if (action is PointerAction.SwipeTo)
+        {
+            NoteGesture(context);
+        }
+
         MarkAction(before);
     }
 

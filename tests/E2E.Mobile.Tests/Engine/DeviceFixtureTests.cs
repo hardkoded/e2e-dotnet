@@ -60,7 +60,7 @@ public sealed class DeviceFixtureTests
         await session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None);
 
         Assert.Equal(TimeSpan.FromMilliseconds(120), h.Clock.GetUtcNow() - dismissedAt);
-        JsonAssert.Args("""{"direction":"down"}""", h.Fake.LastArgs("interactions.scroll"));
+        JsonAssert.Args("""{"direction":"down","postGestureStabilization":false}""", h.Fake.LastArgs("interactions.scroll"));
     }
 
     [Fact]
