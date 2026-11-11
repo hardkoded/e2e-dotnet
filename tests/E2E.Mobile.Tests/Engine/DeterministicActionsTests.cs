@@ -302,7 +302,7 @@ public sealed class DeterministicActionsTests
         await session.PerformAtAsync(point, new PointerAction.LongPress(), OperationContext.Test, CancellationToken.None);
         JsonAssert.Args("""{"x":10,"y":20,"durationMs":1000}""", h.Fake.LastArgs("interactions.longPress"));
         await session.PerformAtAsync(point, new PointerAction.SwipeTo(new Point(10, 300)), OperationContext.Test, CancellationToken.None);
-        JsonAssert.Args("""{"from":{"x":10,"y":20},"to":{"x":10,"y":300}}""", h.Fake.LastArgs("interactions.swipe"));
+        JsonAssert.Args("""{"from":{"x":10,"y":20},"to":{"x":10,"y":300},"postGestureStabilization":false}""", h.Fake.LastArgs("interactions.swipe"));
         await session.PerformAtAsync(point, new PointerAction.SwipeTo(new Point(10, 300), TimeSpan.FromMilliseconds(400)), OperationContext.Test, CancellationToken.None);
         JsonAssert.Args("""{"x":10,"y":20,"dx":0,"dy":280,"durationMs":400}""", h.Fake.LastArgs("interactions.pan"));
         Assert.Equal(["tap", "doubleTap", "longPress", "swipeTo"], DeviceActions.PointerActionKinds);
@@ -530,5 +530,149 @@ public sealed class DeterministicActionsTests
         Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
         Assert.Equal(TimeSpan.FromMilliseconds(20), h.Clock.GetUtcNow() - startedAt);
         Assert.DoesNotContain("interactions.press", h.Fake.Methods());
+    }
+
+    private static Harness Resting() =>
+        Harness.Create(options => options with { Settle = false, TransitionMilliseconds = 0 });
+
+    private static JsonObject Snapshot(string reference, Func<RawNode, RawNode> change) =>
+        FakeDeviceClient.SnapshotOf([.. RawNodes.SettingsNodes.Select(node => node.Ref == reference ? change(node) : node)]);
+
+    private static Rect MovedTo(RawNode node, double y) => new(node.Rect!.Value.X, y, node.Rect.Value.Width, node.Rect.Value.Height);
+
+    [Fact]
+    public async Task Skips_the_post_gesture_stabilization_wait_for_a_test_swipe_and_scroll_and_keeps_it_for_the_agent()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var scroller = Named(root, "Scroller");
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        JsonAssert.Args("""{"direction":"down","postGestureStabilization":false}""", h.Fake.LastArgs("interactions.scroll"));
+        await session.PerformAsync(scroller, Swipe(), OperationContext.Test, CancellationToken.None);
+        var swipe = h.Fake.LastArgs("interactions.swipe");
+        Assert.False(swipe!["postGestureStabilization"]!.GetValue<bool>());
+        Assert.NotNull(swipe["from"]);
+        Assert.NotNull(swipe["to"]);
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Agent, CancellationToken.None);
+        JsonAssert.Args("""{"direction":"down"}""", h.Fake.LastArgs("interactions.scroll"));
+        await session.PerformAsync(scroller, Swipe(), OperationContext.Agent, CancellationToken.None);
+        var agentSwipe = h.Fake.LastArgs("interactions.swipe");
+        Assert.Null(agentSwipe!["postGestureStabilization"]);
+        Assert.NotNull(agentSwipe["from"]);
+    }
+
+    [Fact]
+    public async Task Re_reads_a_control_until_it_rests_before_a_test_acts_on_it_after_a_gesture_that_skipped_the_stabilization_wait()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var about = Named(root, "About");
+        var reads = 0;
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            reads++;
+            return Snapshot("@e4", node => node with { Rect = MovedTo(node, reads == 1 ? 150 : 180) });
+        });
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        await Tap(session, about);
+
+        // Two reads while the control still moved, one more to see it rest.
+        Assert.Equal(3, reads);
+        Assert.Equal(["capture.snapshot", "interactions.press"], h.Fake.Methods().TakeLast(2));
+
+        reads = 10;
+        await Tap(session, about);
+        Assert.Equal(10, reads);
+    }
+
+    [Fact]
+    public async Task Keeps_the_input_checks_on_every_re_read_so_a_field_that_turned_disabled_after_a_gesture_is_never_filled()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var search = Named(root, "Search");
+        var reads = 0;
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            reads++;
+            return Snapshot("@e7", node => node with { Enabled = reads == 1 ? node.Enabled : false, Rect = MovedTo(node, 220 + (reads * 10)) });
+        });
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(search, new LocatorAction.Fill("blue"), OperationContext.Test, CancellationToken.None));
+
+        Assert.Equal("NODE_STALE", stale.Code);
+        Assert.True(stale.Retryable);
+        Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Stops_re_reading_a_moving_control_once_the_action_budget_cannot_fit_another_poll_and_sends_nothing()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(150));
+        // The poll's pause spends the action's budget, as a real wait does.
+        h.Waits.Wait = (span, _) =>
+        {
+            h.Clock.Spend(span);
+            return Task.CompletedTask;
+        };
+        var root = await RootOf(session);
+        var about = Named(root, "About");
+        var reads = 0;
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            reads++;
+            return Snapshot("@e4", node => node with { Rect = MovedTo(node, 120 + (reads * 10)) });
+        });
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        var timeout = await Assert.ThrowsAsync<EngineException>(() => Tap(session, about));
+
+        Assert.Equal("OPERATION_TIMEOUT", timeout.Code);
+        Assert.DoesNotContain("interactions.press", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Re_reads_a_control_before_a_node_swipe_too_so_the_swipe_starts_from_where_the_control_rests()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var scroller = Named(root, "Scroller");
+        var reads = 0;
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            reads++;
+            return Snapshot("@e10", node => node with { Rect = MovedTo(node, 350) });
+        });
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Test, CancellationToken.None);
+        await session.PerformAsync(scroller, Swipe(), OperationContext.Test, CancellationToken.None);
+
+        // The control moved from y 320 to 350 after the gesture, then rested.
+        Assert.Equal(2, reads);
+        Assert.True(h.Fake.LastArgs("interactions.swipe")!["from"]!["y"]!.GetValue<double>() > 320);
+    }
+
+    [Fact]
+    public async Task Does_not_re_read_a_control_after_a_gesture_when_the_agent_made_it()
+    {
+        var h = Resting();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var about = Named(root, "About");
+        var before = Snapshots(h);
+
+        await session.PerformAsync(root, Swipe(), OperationContext.Agent, CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Agent, CancellationToken.None);
+
+        Assert.Equal(before, Snapshots(h));
     }
 }

@@ -61,6 +61,19 @@ public sealed partial class DeviceSession
     /// <summary>When this session last acted on the device (an input or an app launch). The screen may be in transition for a while after.</summary>
     private DateTimeOffset _lastActionAt = DateTimeOffset.MinValue;
 
+    /// <summary>When a test's swipe or scroll last went out without agent-device's stabilization wait; <see cref="DateTimeOffset.MinValue"/> when nothing is pending.</summary>
+    private DateTimeOffset _skippedStabilizationAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// How long after a test's swipe or scroll skipped agent-device's stabilization wait the next action on a control
+    /// first confirms the control stopped moving. A list still coasting swallows a tap to stop itself, so the press
+    /// would report success and change nothing. Upstream's <c>GESTURE_STEADY_MS</c>.
+    /// </summary>
+    private static readonly TimeSpan GestureSteady = TimeSpan.FromSeconds(2);
+
+    /// <summary>Pause between the reads that confirm a control stopped moving after a gesture. Upstream's <c>GESTURE_STEADY_POLL_MS</c>.</summary>
+    private static readonly TimeSpan GestureSteadyPoll = TimeSpan.FromMilliseconds(100);
+
     /// <summary>The screen as the last look projected it. An action records it as the screen before the action.</summary>
     internal ProjectedSnapshot? LatestScreen => _latestScreen;
 
@@ -356,6 +369,81 @@ public sealed partial class DeviceSession
         await WaitForTransitionAsync(entry, input, cancellationToken).ConfigureAwait(false)
             ? await RelocatedAsync(entry, input, cancellationToken).ConfigureAwait(false)
             : entry;
+
+    /// <summary>
+    /// The stabilization wait a gesture carries: none for a test's own step (<c>postGestureStabilization: false</c>),
+    /// agent-device's default for the agent. A test's <c>expect</c> polls the screen itself, and agent-device otherwise
+    /// waits up to 3.5 s for a swipe that left the tree unchanged. Upstream's <c>gestureStabilization</c>.
+    /// </summary>
+    internal static JsonObject GestureStabilization(OperationContext context) =>
+        context.Origin == OperationOrigin.Test ? DeviceArgs.Of(("postGestureStabilization", JsonValue.Create(false))) : new JsonObject();
+
+    /// <summary>Records that a test's gesture skipped the stabilization wait, so the next action on a control checks it stopped moving. Upstream's <c>noteGesture</c>.</summary>
+    internal void NoteGesture(OperationContext context)
+    {
+        if (context.Origin == OperationOrigin.Test)
+        {
+            _skippedStabilizationAt = _engine.Clock.GetUtcNow();
+        }
+    }
+
+    /// <summary>
+    /// After a gesture that skipped the stabilization wait, re-reads the control until two reads agree on where it is,
+    /// so an action does not land on a list still coasting. Costs one extra snapshot when the screen already rests, and
+    /// nothing once two seconds have passed. An input action keeps the checks <see cref="RelocatedAsync"/> makes on
+    /// every read, and the poll never outlasts the action's budget. Upstream's <c>steadied</c>.
+    /// </summary>
+    internal async Task<NodeBinding> SteadiedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken, bool forInput = false)
+    {
+        if (_skippedStabilizationAt == DateTimeOffset.MinValue)
+        {
+            return entry;
+        }
+
+        var deadline = _skippedStabilizationAt + GestureSteady;
+        if (_engine.Clock.GetUtcNow() >= deadline)
+        {
+            return entry;
+        }
+
+        var current = entry;
+        while (true)
+        {
+            var next = await RelocatedAsync(current, input, cancellationToken, forInput).ConfigureAwait(false);
+            var steady = SameBounds(current.Node.Rect, next.Node.Rect);
+            current = next;
+            if (steady || _engine.Clock.GetUtcNow() >= deadline)
+            {
+                break;
+            }
+
+            if (input.Remaining <= GestureSteadyPoll)
+            {
+                throw new EngineException(EngineErrorCodes.OperationTimeout, "the control kept moving until the action budget ran out", retryable: false);
+            }
+
+            try
+            {
+                await _engine.Delay(GestureSteadyPoll, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw DeviceSupport.Cancelled("gesture wait cancelled");
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw DeviceSupport.Cancelled("gesture wait cancelled");
+            }
+        }
+
+        _skippedStabilizationAt = DateTimeOffset.MinValue;
+        return current;
+    }
+
+    /// <summary>True when two bounds are the same; a control without bounds has nothing to compare, so it counts as unmoved. Upstream's <c>sameBounds</c>.</summary>
+    private static bool SameBounds(BoundingBox? a, BoundingBox? b) =>
+        a is null || b is null || (a.X == b.X && a.Y == b.Y && a.Width == b.Width && a.Height == b.Height);
 
     /// <summary>
     /// Waits out the remainder of the transition budget when the control came with the last action. True when it waited,
