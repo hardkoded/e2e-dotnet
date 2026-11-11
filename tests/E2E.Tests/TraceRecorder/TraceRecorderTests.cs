@@ -76,7 +76,7 @@ public sealed class TraceRecorderTests
     /// the summaries here are the port's own wording. The structural selector is recorded on the target (upstream's <c>target.selector</c>).
     /// </summary>
     [Fact]
-    public void Records_the_durable_descriptors_of_each_action()
+    public void Partial_records_the_durable_descriptors_of_each_action()
     {
         var recorder = MakeRecorder();
         recorder.Record(new RecordedAction { Kind = "navigate", Url = "/billing" });
