@@ -16,6 +16,14 @@ namespace E2E.Tests;
 /// </summary>
 internal sealed partial class RemoteChrome : IAsyncDisposable
 {
+    private const string ProfilePrefix = "e2e-cdp-host-";
+    private const int DeleteAttempts = 5;
+
+    // A test host lives for minutes, so a profile untouched for a day belongs to a run that never cleaned up.
+    private static readonly TimeSpan StaleAfter = TimeSpan.FromDays(1);
+
+    private static int _swept;
+
     private readonly Process _process;
     private readonly string _userDataDir;
 
@@ -41,7 +49,12 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
             executable = playwright.Chromium.ExecutablePath;
         }
 
-        var userDataDir = Directory.CreateTempSubdirectory("e2e-cdp-host-").FullName;
+        if (Interlocked.Exchange(ref _swept, 1) == 0)
+        {
+            SweepStaleProfiles(Path.GetTempPath(), StaleAfter);
+        }
+
+        var userDataDir = Directory.CreateTempSubdirectory(ProfilePrefix).FullName;
         var info = new ProcessStartInfo(executable)
         {
             UseShellExecute = false,
@@ -145,13 +158,66 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
         }
 
         _process.Dispose();
+        await DeleteProfileAsync(_userDataDir);
+    }
+
+    /// <summary>
+    /// Removes a profile directory, retrying briefly: a Chrome helper the kill did not reach can still hold a file
+    /// for a moment after the main process exits. Gives up quietly; the next launch's sweep reclaims the directory.
+    /// </summary>
+    internal static async Task DeleteProfileAsync(string directory)
+    {
+        for (var attempt = 1; attempt <= DeleteAttempts; attempt++)
+        {
+            try
+            {
+                Directory.Delete(directory, recursive: true);
+                return;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == DeleteAttempts)
+                {
+                    return;
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(200 * attempt));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes profile directories that an earlier run left behind: a test host that was killed never reaches
+    /// <see cref="DisposeAsync"/>. Only directories untouched for <paramref name="olderThan"/> go, so a host that
+    /// another test process is using right now stays. Best effort; it never throws.
+    /// </summary>
+    internal static void SweepStaleProfiles(string root, TimeSpan olderThan)
+    {
         try
         {
-            Directory.Delete(_userDataDir, recursive: true);
+            var cutoff = DateTime.UtcNow - olderThan;
+            foreach (var directory in Directory.EnumerateDirectories(root, ProfilePrefix + "*"))
+            {
+                try
+                {
+                    if (Directory.GetLastWriteTimeUtc(directory) < cutoff)
+                    {
+                        Directory.Delete(directory, recursive: true);
+                    }
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    // Another process removed it, or a leftover Chrome still holds it; the next sweep tries again.
+                }
+            }
         }
-        catch (IOException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            // A helper process still holds a file; the temp directory is reclaimed later.
+            // The temp root is unreadable; there is nothing to sweep.
         }
     }
 
