@@ -507,6 +507,21 @@ the port's counterpart of `--agent`. Unset, it is `default`. Override to set it 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_E2EFixture_RunEnvironment_"></a>
+<a id="E2E_E2EFixture_RunEnvironment"></a>
+
+### RunEnvironment
+
+
+```csharp
+protected virtual IReadOnlyDictionary<string, string?> RunEnvironment { get; }
+```
+
+
+The environment the workers of this run start with, under what prepare leaves them. Defaults to the process's.
+
+**Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_E2EFixture_Screen_"></a>
 <a id="E2E_E2EFixture_Screen"></a>
 

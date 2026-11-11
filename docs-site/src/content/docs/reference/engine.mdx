@@ -235,7 +235,7 @@ The hooks the harness calls around an attempt. Upstream's per-worker `init`, per
 
 #### Prepare and finish
 
-`IPreparableEngine` adds `PrepareAsync` and `FinishAsync`. The port has no test runner that calls them: a host that starts the engine on its own, as `e2e explore` and `e2e mcp` do, calls them around the one attempt, prepare when the session opens and finish when it closes. The mobile adapters' `MobileAppTest` runs them once per test process. `WebEngine` does not implement it, because it leases for the attempt it starts.
+`IPreparableEngine` adds `PrepareAsync` and `FinishAsync`. `Runner.RunAsync` and the xUnit and NUnit run fixtures prepare each engine once and finish it when the run ends. A host that starts the engine on its own, as `e2e explore` and `e2e mcp` do, calls them around the one attempt, prepare when the session opens and finish when it closes. `WebEngine` does not implement it, because it leases for the attempt it starts.
 
 ```csharp
 public async Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
@@ -318,7 +318,7 @@ public async Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancell
 
 Runs after each attempt, within the cleanup timeout, and tears down what `StartAsync` set up. It takes no token and no budget: the harness waits for it up to the cleanup timeout and then abandons it with an `ENVIRONMENT_UNAVAILABLE` cleanup error, so a hook that cannot finish in time should bound itself. A failure marks cleanup failed; the test keeps its status.
 
-Upstream's `reuseSignal` and `EngineDisposeContext` (leaving run-owned resources for a replacement worker) are not in the port.
+Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of `reuseSignal`: a live (not canceled) `CancellationToken` permits the engine to leave its run-owned resources for a replacement worker, until the token is canceled or the dispose settles. `IDisposableEngine` is the optional `dispose` hook; the mobile engine implements it. The scheduler that grants a signal to a worker is not in the port, so the run grants none.
 
 ### ValidateApp
 
@@ -649,7 +649,8 @@ A query with `Visible` set must match only nodes whose `States.Hidden` is false.
 
 | Upstream | Why |
 | --- | --- |
-| `workers`, `EngineInitInfo.workerSlot` at a hook, `EngineDisposeContext.reuseSignal` | No worker pool or runner. |
+| `workers`, `EngineInitInfo.workerSlot` at a hook | No worker pool or runner. |
+| `EngineDisposeContext.reuseSignal` | `EngineDisposeContext.ReuseSignal`, honored by `IDisposableEngine` on the mobile engine. No scheduler in the port grants it. |
 | `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
 | `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
 | `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |

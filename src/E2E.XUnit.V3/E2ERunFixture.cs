@@ -91,13 +91,14 @@ public class E2ERunFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Ends the run's events and runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then
+    /// Finishes the engines the run prepared, ends the run's events and runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then
     /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>).
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         try
         {
+            await HostRun.FinishPreparedAsync().ConfigureAwait(false);
             if (_run is { } run)
             {
                 await run.FinishAsync().ConfigureAwait(false);

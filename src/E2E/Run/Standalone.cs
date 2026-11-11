@@ -246,18 +246,7 @@ internal sealed class StandaloneHost
         if (prepared is not null)
         {
             // What prepare left is the worker's environment; the run's own variables are never overwritten.
-            var merged = new Dictionary<string, string?>(StringComparer.Ordinal);
-            foreach (var (name, value) in prepared.Env)
-            {
-                merged[name] = value;
-            }
-
-            foreach (var (name, value) in _env)
-            {
-                merged[name] = value;
-            }
-
-            _workerEnv = merged;
+            _workerEnv = PreparedEngines.MergeWorkerEnv(_env, prepared.Env);
         }
 
         if (_signal.IsCancellationRequested)

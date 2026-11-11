@@ -361,6 +361,14 @@ lines you changed:
   carry the browser budget, so `context.Timeout` is the time the call has. The
   agent's perform calls carry the step's remaining budget as well, and so does a
   replayed recorded action.
+- An engine with run-owned resources, such as a hosted device, implements
+  `IPreparableEngine`: `PrepareAsync` runs once per engine before its first
+  worker, and `FinishAsync` when the run ends. The run fixtures and
+  `Runner.RunAsync` call both; a standalone host calls them around its
+  attempt. An engine that keeps a worker's resources for a replacement
+  implements `IDisposableEngine`: its `DisposeAsync(EngineDisposeContext)`
+  leaves them while `ReuseSignal` (a live `CancellationToken`) is not
+  canceled. No scheduler in the port grants that signal.
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with

@@ -127,7 +127,7 @@ public sealed class BrowserStackTests
         await Provider(Options with { SessionName = "checkout" }).AcquireAsync(Request(slot: 2, slots: 3), CancellationToken.None);
         await Provider(Options with { SessionName = "checkout" }).AcquireAsync(Request(slot: 0, slots: 1), CancellationToken.None);
 
-        Assert.Equal(["e2e-run-7-pixel-1", "e2e-run-7-pixel-3", "checkout-3", "checkout"], _leases.Acquired.Select(call => call.Lease.Selectors.ProviderSessionName!).ToArray());
+        Assert.Equal(["e2e-run-7-pixel-1", "e2e-run-7-pixel-3", "checkout-3", "checkout"], _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderSessionName!).ToArray());
     }
 
     [Fact]
@@ -339,7 +339,7 @@ public sealed class BrowserStackTests
         await provider.AcquireAsync(Request(runId: "run-2", env: new Dictionary<string, string?>(Env) { ["BROWSERSTACK_USERNAME"] = "bob" }), CancellationToken.None);
 
         Assert.Equal(4, _api.Uploads.Count());
-        Assert.Equal(["bs://RUN1", "bs://RUN2", "bs://RUN2", "bs://EU", "bs://BOB"], _leases.Acquired.Select(call => call.Lease.Selectors.ProviderApp!).ToArray());
+        Assert.Equal(["bs://RUN1", "bs://RUN2", "bs://RUN2", "bs://EU", "bs://BOB"], _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderApp!).ToArray());
     }
 
     [Fact]

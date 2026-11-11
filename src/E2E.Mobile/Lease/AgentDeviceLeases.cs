@@ -90,6 +90,12 @@ public sealed record AgentDeviceLeaseOptions
 
     /// <summary>The service's name in errors: <c>BrowserStack</c>.</summary>
     public required string Label { get; init; }
+
+    /// <summary>
+    /// The state directory the run's leases share, as upstream's <c>cloudDevices({ stateDir })</c> names it: each lease's daemon keeps its
+    /// state in <c>&lt;StateDir&gt;/&lt;runId&gt;</c>. Unset, the lease gets its own temporary directory.
+    /// </summary>
+    public string? StateDir { get; init; }
 }
 
 /// <summary>What one <see cref="IAgentDeviceLeases.AcquireAsync"/> allocates.</summary>
@@ -98,8 +104,11 @@ public sealed record AgentDeviceLeaseRequest
     /// <summary>Set on the daemon's environment over the run's: the service's credentials.</summary>
     public required IReadOnlyDictionary<string, string> Env { get; init; }
 
-    /// <summary>Allocated with the lease and put on its <see cref="DeviceLease.Client"/>, so the worker's session matches it.</summary>
-    public required LeaseSelectors Selectors { get; init; }
+    /// <summary>
+    /// Allocated with the lease and put on its <see cref="DeviceLease.Client"/>, so the worker's session matches it. Null when the service
+    /// picks the device itself (upstream's <c>cloudDevices</c>): the lease then allocates only the scope and the platform.
+    /// </summary>
+    public LeaseSelectors? Selectors { get; init; }
 
     /// <summary>What the progress line names once the lease is granted, after <c>lease &lt;id&gt;: </c>.</summary>
     public required string Summary { get; init; }
@@ -116,8 +125,11 @@ public interface IAgentDeviceLeases
 {
     Task<DeviceLease> AcquireAsync(DeviceRequest request, AgentDeviceLeaseRequest lease, CancellationToken cancellationToken);
 
-    /// <summary>Stops the lease's daemon, and throws unless agent-device confirms it ended the lease's session.</summary>
-    Task ReleaseAsync(DeviceLease lease, CancellationToken cancellationToken);
+    /// <summary>
+    /// Stops the lease's daemon, and throws unless agent-device confirms it ended the lease's session. <paramref name="context"/> is the
+    /// release context the provider was handed (upstream's <c>release(lease, releaseContext)</c>): the lease needs only its own scope.
+    /// </summary>
+    Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -175,12 +187,16 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
         cancellationToken.ThrowIfCancellationRequested();
         var directory = Directory.CreateTempSubdirectory($"e2e-{_options.Provider}-").FullName;
         var home = Path.Combine(directory, "home");
-        var resource = new Held(directory, Path.Combine(directory, "state"), DaemonEnvironment(request.Env, lease.Env, home));
+        var stateDirectory = _options.StateDir is { } shared ? Path.Combine(shared, request.RunId) : Path.Combine(directory, "state");
+        var resource = new Held(directory, stateDirectory, DaemonEnvironment(request.Env, lease.Env, home));
         var leaseBackend = request.Platform == MobilePlatform.Ios ? "ios-instance" : "android-instance";
         var allocated = new JsonObject { ["platform"] = request.Platform.WireName(), ["target"] = "mobile" };
-        foreach (var (key, value) in lease.Selectors.ToJson())
+        if (lease.Selectors is { } selectors)
         {
-            allocated[key] = value?.DeepClone();
+            foreach (var (key, value) in selectors.ToJson())
+            {
+                allocated[key] = value?.DeepClone();
+            }
         }
 
         string? id = null;
@@ -197,7 +213,6 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
                 ["runId"] = request.RunId,
                 ["leaseBackend"] = leaseBackend,
                 ["leaseProvider"] = _options.Provider,
-                ["ttlMs"] = LeaseHeartbeat.LeaseTtlMilliseconds,
 
                 // Retain the provider lease when closeApp or cleanup closes the engine session.
                 // The provider releases the lease at run end.
@@ -236,16 +251,20 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
             resource.StopHeartbeat = await _host.StartHeartbeatAsync(heartbeatScope, request.Log, cancellationToken).ConfigureAwait(false);
             request.Log($"lease {id}: {lease.Summary}");
 
-            // The worker's client is created with these fields: the scope picks the lease, and the selectors match the session it holds.
+            // The worker's client is created with these fields: the scope picks the lease. The selectors join it only when the lease named
+            // them, so the worker's session matches the device it holds.
             var client = new JsonObject { ["stateDir"] = resource.StateDirectory };
             foreach (var (key, value) in scope)
             {
                 client[key] = value?.DeepClone();
             }
 
-            foreach (var (key, value) in allocated)
+            if (lease.Selectors is not null)
             {
-                client[key] = value?.DeepClone();
+                foreach (var (key, value) in allocated)
+                {
+                    client[key] = value?.DeepClone();
+                }
             }
 
             return new DeviceLease { Id = id, Client = client };
@@ -267,7 +286,7 @@ public sealed class AgentDeviceLeases : IAgentDeviceLeases
         }
     }
 
-    public async Task ReleaseAsync(DeviceLease lease, CancellationToken cancellationToken)
+    public async Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(lease);
         if (_held.TryGetValue(lease.Id, out var resource))

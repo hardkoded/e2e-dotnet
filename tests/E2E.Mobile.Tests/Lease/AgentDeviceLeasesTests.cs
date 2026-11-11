@@ -19,6 +19,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
 
     private static readonly Dictionary<string, string?> RunEnvironment = new() { ["PATH"] = "/bin" };
 
+    private static readonly DeviceReleaseContext ReleaseContext = new() { RunId = "run-1", TargetName = "ios", Env = RunEnvironment, Log = _ => { } };
+
     private readonly FakeLeaseHost _host = new();
 
     public void Dispose() => _host.Dispose();
@@ -52,7 +54,7 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None);
 
         JsonAssert.Args(
-            """{"tenant":"cloud","runId":"run-1","leaseBackend":"android-instance","leaseProvider":"cloud","platform":"android","target":"mobile","device":"Google Pixel 9","providerOsVersion":"16.0","providerApp":"cloud://APP0","ttlMs":60000,"retainOnClose":true}""",
+            """{"tenant":"cloud","runId":"run-1","leaseBackend":"android-instance","leaseProvider":"cloud","platform":"android","target":"mobile","device":"Google Pixel 9","providerOsVersion":"16.0","providerApp":"cloud://APP0","retainOnClose":true}""",
             _host.Starts[0].Request.Allocate);
         Assert.Equal("Cloud", _host.Starts[0].Label);
         Assert.True(Directory.Exists(_host.DirectoryOf()));
@@ -245,8 +247,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         using var token = new CancellationTokenSource();
 
-        await Task.WhenAll(provider.ReleaseAsync(lease, token.Token), provider.ReleaseAsync(lease, token.Token));
-        await provider.ReleaseAsync(lease, token.Token);
+        await Task.WhenAll(provider.ReleaseAsync(lease, ReleaseContext, token.Token), provider.ReleaseAsync(lease, ReleaseContext, token.Token));
+        await provider.ReleaseAsync(lease, ReleaseContext, token.Token);
 
         Assert.Equal(1, _host.HeartbeatsStopped);
         var stop = Assert.Single(_host.Stops);
@@ -261,8 +263,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         _host.NextStops.Enqueue((_, _) => throw new InvalidOperationException("daemon busy"));
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, CancellationToken.None));
-        await provider.ReleaseAsync(lease, CancellationToken.None);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
+        await provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None);
 
         Assert.Equal("daemon busy", error.Message);
         Assert.Equal(2, _host.Stops.Count);
@@ -283,13 +285,13 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         var directory = _host.DirectoryOf();
 
-        var first = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, CancellationToken.None));
+        var first = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
         Assert.Contains("agent-device could not confirm its Cloud sessions ended", first.Message, StringComparison.Ordinal);
 
         // The forced stop killed the daemon, so every later stop finds none: the release never resolves without evidence.
-        var second = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, CancellationToken.None));
+        var second = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
         Assert.Equal("agent-device found no daemon running for lease lease-1, so nothing confirms its Cloud session ended", second.Message);
-        var third = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, CancellationToken.None));
+        var third = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
         Assert.Contains("agent-device found no daemon running for lease lease-1", third.Message, StringComparison.Ordinal);
         Assert.Equal(3, _host.Stops.Count);
         Assert.True(Directory.Exists(directory));
@@ -302,8 +304,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         _host.NextDeleteFailures.Enqueue(new IOException("EBUSY: resource busy or locked"));
 
-        var error = await Assert.ThrowsAsync<IOException>(() => provider.ReleaseAsync(lease, CancellationToken.None));
-        await provider.ReleaseAsync(lease, CancellationToken.None);
+        var error = await Assert.ThrowsAsync<IOException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
+        await provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None);
 
         Assert.Contains("EBUSY", error.Message, StringComparison.Ordinal);
         Assert.Single(_host.Stops);
@@ -314,7 +316,7 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     [Fact]
     public async Task Ignores_a_lease_it_does_not_hold()
     {
-        await Leases().ReleaseAsync(new DeviceLease { Id = "other", Client = new JsonObject { ["stateDir"] = "/tmp/x" } }, CancellationToken.None);
+        await Leases().ReleaseAsync(new DeviceLease { Id = "other", Client = new JsonObject { ["stateDir"] = "/tmp/x" } }, ReleaseContext, CancellationToken.None);
 
         Assert.Empty(_host.Stops);
     }

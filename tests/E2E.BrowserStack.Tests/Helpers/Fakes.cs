@@ -22,16 +22,16 @@ internal sealed class FakeLeases : IAgentDeviceLeases
     public Task<DeviceLease> AcquireAsync(DeviceRequest request, AgentDeviceLeaseRequest lease, CancellationToken cancellationToken)
     {
         Acquired.Add((request, lease));
-        return Task.FromResult(new DeviceLease { Id = $"lease-{++_leases}", Client = lease.Selectors.ToJson() });
+        return Task.FromResult(new DeviceLease { Id = $"lease-{++_leases}", Client = lease.Selectors!.ToJson() });
     }
 
-    public Task ReleaseAsync(DeviceLease lease, CancellationToken cancellationToken)
+    public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken)
     {
         Released.Add(lease);
         return Task.CompletedTask;
     }
 
-    public LeaseSelectors Selectors(int call = 0) => Acquired[call].Lease.Selectors;
+    public LeaseSelectors Selectors(int call = 0) => Acquired[call].Lease.Selectors!;
 }
 
 /// <summary>A stand-in for BrowserStack's App Automate API behind an <see cref="HttpClient"/>: build and session lists, and app uploads.</summary>

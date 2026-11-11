@@ -18,6 +18,18 @@ internal sealed class HostRun : IDisposable
 {
     private static string? _rerunDir;
 
+    private static Func<string, string> _redactEngineLine = static line => line;
+
+    /// <summary>Redacts the progress lines the process's engines write with the secrets of the config its fixtures run with (CLAUDE.md: provider text is redacted).</summary>
+    internal static void RedactEngineLinesWith(E2EConfig config) => Volatile.Write(ref _redactEngineLine, Redactor.For(config.AllSecrets).Redact);
+
+    private static readonly Lazy<PreparedEngines> PreparedOnce = new(() =>
+    {
+        // A process whose run fixture never ran still gives its prepared engines back when it exits.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => FinishPreparedAsync().GetAwaiter().GetResult();
+        return new PreparedEngines();
+    });
+
     private readonly IReadOnlyList<Reporter> _reporters;
     private readonly List<IDisposable> _subscriptions = [];
 
@@ -54,6 +66,25 @@ internal sealed class HostRun : IDisposable
         ArgumentNullException.ThrowIfNull(reporters);
         return new HostRun(reporters);
     }
+
+    /// <summary>
+    /// The engines the fixtures of this process prepared: a declared engine is prepared once for every test of the process, and
+    /// <see cref="FinishPreparedAsync"/> finishes them when the run ends. .NET-only: upstream's runner owns the prepare of every target.
+    /// </summary>
+    internal static PreparedEngines Prepared => PreparedOnce.Value;
+
+    /// <summary>
+    /// The run ended: finishes every engine the process prepared, within one cleanup budget, and reports each failure on stderr. Upstream's <c>finish</c>
+    /// runs once per run and target, after the last worker is gone. A run fixture calls this in its teardown. Never throws.
+    /// </summary>
+    public static Task FinishPreparedAsync() => Prepared.FinishAsync(new FinishScope
+    {
+        RunId = AttemptReport.RunId,
+        Env = PreparedEngines.ProcessEnvironment(),
+        CleanupTimeout = E2EDefaults.CleanupTimeout,
+        Notice = (target, line) => Console.Error.WriteLine($"e2e: {target}: {Volatile.Read(ref _redactEngineLine)(line)}"),
+        OnFailure = failure => Console.Error.WriteLine($"e2e: cleanup failed: {failure.Message}"),
+    });
 
     /// <summary>
     /// The directory the attempts of this process go in, inside each test's, when the run is a <c>--last-failed</c> rerun (.NET-only: upstream's runner hands
