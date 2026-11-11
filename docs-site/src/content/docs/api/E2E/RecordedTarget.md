@@ -96,6 +96,21 @@ public string? Role { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedTarget_Selector_"></a>
+<a id="E2E_RecordedTarget_Selector"></a>
+
+### Selector
+
+
+```csharp
+public string? Selector { get; set; }
+```
+
+
+The target descriptor's structural selector, provenance only (see [Selector](/api/E2E/RecordedAction/#E2E_RecordedAction_Selector)). Anchors never set it.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_RecordedTarget_States_"></a>
 <a id="E2E_RecordedTarget_States"></a>
 
