@@ -316,7 +316,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private async Task BootAsync(CancellationToken cancellationToken)
     {
-        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
+        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, DevicePool.BootRequest(Selection), cancellationToken).ConfigureAwait(false);
         _worker.Bound = new BoundDevice(_name, Text(booted?["id"]) ?? "", Text(booted?["device"]) ?? "");
 
         // Nothing is installed here: a device provider that installed the build from appPath says so on the binding,
