@@ -115,6 +115,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         Within = target.Within,
         Text = target.Text,
         Placeholder = target.Placeholder,
+        Selector = target.Selector,
         InputPurpose = target.InputPurpose,
         Position = target.Position,
     };
@@ -199,6 +200,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         Within = action.Within,
         Text = action.Text,
         Placeholder = action.Placeholder,
+        Selector = action.Selector,
         InputPurpose = action.InputPurpose,
         Position = action.Position,
     };
@@ -353,6 +355,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
             Text = text == label ? null : NonEmpty(Trace.BoundDescriptor(text)),
             TestId = NonEmpty(Trace.BoundDescriptor(Redact(node.TestId, redactor))),
             Placeholder = NonEmpty(Trace.BoundDescriptor(RedactField(node.Placeholder, ObservationLimits.Text, redactor))),
+            Selector = NonEmpty(Trace.BoundDescriptor(Redact(node.Selector, redactor))),
             InputPurpose = node.InputPurpose is null or "none" or "" ? null : node.InputPurpose,
             Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
             Position = position,

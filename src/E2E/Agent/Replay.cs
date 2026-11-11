@@ -580,6 +580,7 @@ internal static class Replay
         // A scrollUntil's Text is the text it paged toward; its target's own text is TargetText (upstream's target.text).
         Text = action.Kind == "scrollUntil" ? action.TargetText : action.Text,
         Placeholder = action.Placeholder,
+        Selector = action.Selector,
         InputPurpose = action.InputPurpose,
         Position = action.Position,
     };

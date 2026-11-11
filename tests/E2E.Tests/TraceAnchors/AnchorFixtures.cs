@@ -24,7 +24,8 @@ internal static class AnchorFixtures
         string? value = null,
         NodeStates? states = null,
         string? testId = null,
-        IReadOnlyList<SemanticNode>? children = null)
+        IReadOnlyList<SemanticNode>? children = null,
+        string? selector = null)
     {
         return new SemanticNode
         {
@@ -34,6 +35,7 @@ internal static class AnchorFixtures
             Text = text,
             Value = value,
             TestId = testId,
+            Selector = selector,
             States = states ?? new NodeStates(),
             Children = children ?? [],
         };

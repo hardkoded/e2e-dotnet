@@ -71,13 +71,16 @@ public sealed class TraceRecorderTests
         return read;
     }
 
-    /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no CSS selector.</summary>
+    /// <summary>
+    /// Partial port of "records durable descriptors and readable summaries": the port's actions are flat, not a <c>target</c> object, and
+    /// the summaries here are the port's own wording. The structural selector is recorded on the target (upstream's <c>target.selector</c>).
+    /// </summary>
     [Fact]
-    public void Records_the_durable_descriptors_of_each_action()
+    public void Partial_records_the_durable_descriptors_of_each_action()
     {
         var recorder = MakeRecorder();
         recorder.Record(new RecordedAction { Kind = "navigate", Url = "/billing" });
-        recorder.Record("tap", UpgradeButton);
+        recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Upgrade", Text = "Upgrade", TestId = "upgrade-cta", Selector = "[data-testid=\"upgrade-cta\"]" });
         recorder.Record("fill", UpgradeButton, value: "yearly");
 
         var entry = Finalize(recorder, "/settings");
@@ -91,6 +94,8 @@ public sealed class TraceRecorderTests
         Assert.Equal(
             ["navigate to \"/billing\"", "tap button \"Upgrade\"", "type \"yearly\" into button \"Upgrade\""],
             entry.Actions.Select(action => action.Summary));
+        Assert.Equal("[data-testid=\"upgrade-cta\"]", entry.Actions[1].Selector);
+        Assert.Null(entry.Actions[2].Selector);
     }
 
     /// <summary>Upstream's "always finalizes into a trace the reader accepts": the round trip reads through <see cref="TraceRead.ReadTraceEntry(CacheEntry?)"/>.</summary>
