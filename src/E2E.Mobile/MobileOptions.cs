@@ -104,7 +104,7 @@ public sealed record MobileOptions
 
     /// <summary>
     /// Device to use: a simulator or emulator by name, simulator UDID, or emulator serial (<c>emulator-5554</c>),
-    /// or a connected phone by name. Omit all three device options to use every booted device of the platform that no other agent-device session holds; with every booted one held, prepare fails.
+    /// or a connected phone by name. Omit all three device options to use every booted device of the platform that no other agent-device session holds; with none booted, agent-device boots a shut-down one (a phone or tablet over a TV, then the newest OS, then name order), and with every booted one held, prepare fails.
     /// </summary>
     public string? Device { get; init; }
 
