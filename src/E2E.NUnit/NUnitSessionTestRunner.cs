@@ -126,9 +126,15 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
         if (request.Outcome is { } handed)
         {
             // A test marked as expected to fail that passes is a failure of its own (upstream's UNEXPECTED_PASS).
+            // A teardown that failed after the body is a failure of its own, not a pass.
             if (expected is not null && handed.Failure is null)
             {
-                handed = handed with { Failure = new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed") };
+                handed = handed with
+                {
+                    Failure = result.ResultState.Status == TestStatus.Passed
+                        ? new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed")
+                        : new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message),
+                };
             }
 
             handed = handed with { ExpectedFailure = expected };
@@ -153,7 +159,7 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     /// and <c>test.fail</c>). NUnit has no expected-failure outcome, so this reads the mark only; the run's own verdict is not inverted.
     /// </summary>
     private static string? ExpectedFailure(ITestResult root, string name) =>
-        FindResult(root, name)?.Test.Properties.Get(ExpectedFailureProperty) as string;
+        FindResult(root, name)?.Test.Properties.Get(ExpectedFailureProperty)?.ToString();
 
     /// <summary>The NUnit property a test sets to be marked as expected to fail (see <see cref="ExpectedFailure"/>).</summary>
     public const string ExpectedFailureProperty = "E2E.Fail";

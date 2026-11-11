@@ -40,7 +40,7 @@ internal static class TestOutcome
         var expected = expectedFailure is not null && phase == RunPhase.Body && error is { Code: not "UNEXPECTED_PASS" };
         var status = failure is null ? "ended without failing" : failure is E2EException { Code: "TEST_TIMEOUT" } ? "timed out" : expected ? "failed as expected" : "failed";
         List<string> lines = ["Test \"" + name + "\" " + status + " after " + Format.FormatTime(elapsed) + "; " + MarkdownText.Plural(steps.Count, "step") + " ran."];
-        if (expectedFailure is not null)
+        if (expectedFailure is not null && error?.Code != "TEST_TIMEOUT")
         {
             lines.Add("Expected to fail: " + expectedFailure);
         }
