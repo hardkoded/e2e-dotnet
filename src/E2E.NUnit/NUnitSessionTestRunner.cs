@@ -122,8 +122,16 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
     /// </summary>
     private static SessionTestOutcome? Outcome(SessionHandover.Request request, string name, ITestResult result, List<Exception> stray)
     {
+        var expected = ExpectedFailure(result, name);
         if (request.Outcome is { } handed)
         {
+            // A test marked as expected to fail that passes is a failure of its own (upstream's UNEXPECTED_PASS).
+            if (expected is not null && handed.Failure is null)
+            {
+                handed = handed with { Failure = new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"" + expected + "\") but passed") };
+            }
+
+            handed = handed with { ExpectedFailure = expected };
             if (stray.Count == 0)
             {
                 return handed;
@@ -135,18 +143,29 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
         }
 
         return HookFailure(result, name) is { } message
-            ? new SessionTestOutcome(name, null, null, new TestException("HOOK_FAILED", "beforeAll failed: " + message), RunPhase.BeforeAll, [.. stray])
+            ? new SessionTestOutcome(name, null, null, new TestException("HOOK_FAILED", "beforeAll failed: " + message), RunPhase.BeforeAll, [.. stray], ExpectedFailure: expected)
             : null;
     }
+
+    /// <summary>
+    /// The reason the test <paramref name="name"/> is marked as expected to fail, or null. The mark is the NUnit property <see cref="ExpectedFailureProperty"/>:
+    /// <c>[Property("E2E.Fail", "reason")]</c> on the test, or <c>TestContext.CurrentContext.Test.Properties.Set</c> in its body (upstream's <c>fail</c> option
+    /// and <c>test.fail</c>). NUnit has no expected-failure outcome, so this reads the mark only; the run's own verdict is not inverted.
+    /// </summary>
+    private static string? ExpectedFailure(ITestResult root, string name) =>
+        FindResult(root, name)?.Test.Properties.Get(ExpectedFailureProperty) as string;
+
+    /// <summary>The NUnit property a test sets to be marked as expected to fail (see <see cref="ExpectedFailure"/>).</summary>
+    public const string ExpectedFailureProperty = "E2E.Fail";
+
+    private static ITestResult? FindResult(ITestResult each, string name) => !each.Test.IsSuite && string.Equals(each.Test.FullName, name, StringComparison.Ordinal)
+        ? each
+        : each.Children.Select(child => FindResult(child, name)).FirstOrDefault(found => found is not null);
 
     /// <summary>The message of the <c>OneTimeSetUp</c> that failed the test <paramref name="name"/>, or null when its result says no such thing.</summary>
     private static string? HookFailure(ITestResult root, string name)
     {
-        ITestResult? Find(ITestResult each) => !each.Test.IsSuite && string.Equals(each.Test.FullName, name, StringComparison.Ordinal)
-            ? each
-            : each.Children.Select(Find).FirstOrDefault(found => found is not null);
-
-        var message = Find(root)?.Message;
+        var message = FindResult(root, name)?.Message;
         const string Prefix = "OneTimeSetUp: ";
         if (message is null || !message.StartsWith(Prefix, StringComparison.Ordinal))
         {

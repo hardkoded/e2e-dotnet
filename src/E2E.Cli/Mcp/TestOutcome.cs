@@ -26,16 +26,25 @@ internal static class TestOutcome
 
     /// <summary>
     /// The opening lines of a session that ran the test named <paramref name="name"/>, before its summary and catalog. <paramref name="steps"/> and <paramref name="evidence"/> are the session's; <paramref name="elapsed"/> is
-    /// how long the run took, set-up and tear-down included. Upstream's <c>describeTestOutcome</c>.
+    /// how long the run took, set-up and tear-down included. <paramref name="expectedFailure"/> is the reason the test is marked as expected to fail, or
+    /// null. Upstream's <c>describeTestOutcome</c>.
     /// </summary>
-    public static string Describe(string name, Exception? failure, TimeSpan elapsed, IReadOnlyList<StepRecord> steps, FailureEvidence? evidence, Func<string, string> redact, string projectRoot, RunPhase phase = RunPhase.Body, IReadOnlyList<Exception>? secondary = null)
+    public static string Describe(string name, Exception? failure, TimeSpan elapsed, IReadOnlyList<StepRecord> steps, FailureEvidence? evidence, Func<string, string> redact, string projectRoot, RunPhase phase = RunPhase.Body, IReadOnlyList<Exception>? secondary = null, string? expectedFailure = null)
     {
         ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(redact);
         ArgumentNullException.ThrowIfNull(projectRoot);
         var error = failure is null ? null : ErrorSerializer.Serialize(failure, projectRoot, redact);
-        var status = failure is null ? "ended without failing" : failure is E2EException { Code: "TEST_TIMEOUT" } ? "timed out" : "failed";
+
+        // A body that fails as its test is marked expected fails "as expected"; a hook's failure is not the marked failure, so it reads "failed".
+        var expected = expectedFailure is not null && phase == RunPhase.Body && error is { Code: not "UNEXPECTED_PASS" };
+        var status = failure is null ? "ended without failing" : failure is E2EException { Code: "TEST_TIMEOUT" } ? "timed out" : expected ? "failed as expected" : "failed";
         List<string> lines = ["Test \"" + name + "\" " + status + " after " + Format.FormatTime(elapsed) + "; " + MarkdownText.Plural(steps.Count, "step") + " ran."];
+        if (expectedFailure is not null)
+        {
+            lines.Add("Expected to fail: " + expectedFailure);
+        }
+
         if (error is not null)
         {
             lines.Add(error.Code + PhaseText(phase) + ": " + error.Message);

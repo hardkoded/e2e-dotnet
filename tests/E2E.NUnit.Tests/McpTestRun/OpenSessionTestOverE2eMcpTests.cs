@@ -24,8 +24,9 @@ namespace E2E.NUnit.Tests.McpTestRun;
 /// Not ported, with the issue that extracts what each needs:
 /// "records a session's agent steps for the next session and for e2e run" (describe 'the replay cache'; ported in part as `TheReplayCacheTests`, which lacks the `e2e run` half until the run seam of #1336),
 /// the two <c>test.fail</c> <c>it</c>s ("tells a test that
-/// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail"; the port has no <c>test.fail</c>,
-/// see COMPATIBILITY.md). The unit <c>it</c> in <c>mcp-test-lines.test.ts</c> ("drafts the lines after
+/// failed as test.fail expected, and one that passed unexpectedly", "does not cover a beforeAll failure with test.fail") are ported in part, as
+/// <c>Partial_</c> tests: the mark is NUnit's <c>[Property("E2E.Fail", reason)]</c> (or set in the body), and the run's own verdict is not inverted (see COMPATIBILITY.md).
+/// They check the outcome and not the opening text. The unit <c>it</c> in <c>mcp-test-lines.test.ts</c> ("drafts the lines after
 /// a test the session ran as the ones that continue it") is <c>McpTestLines/SessionTestLinesTests</c> in E2E.Cli.Tests.
 /// </summary>
 public sealed class OpenSessionTestOverE2eMcpTests
@@ -72,6 +73,39 @@ public sealed class OpenSessionTestOverE2eMcpTests
         Assert.That(saved, Has.Count.EqualTo(1));
         Assert.That(saved[0].Unsupported, Is.EqualTo("test \"" + typeof(SessionFixture).FullName + ".Starts_from_a_saved_session\" starts from session \"member\", which a setup test saves first; a session does not run setup tests yet, so run it with dotnet test"));
         Assert.That(runner.Select(assembly, typeof(SessionFixture).FullName + "." + nameof(SessionFixture.Opens_the_browser_page))[0].Unsupported, Is.Null);
+    }
+
+    [Test]
+    public async Task Partial_Tells_a_test_that_failed_as_test_fail_expected_and_one_that_passed_unexpectedly()
+    {
+        var runner = new NUnitSessionTestRunner();
+        var assembly = typeof(ExpectedFailureFixture).Assembly;
+
+        var expected = await runner.RunAsync(assembly, typeof(ExpectedFailureFixture).FullName + "." + nameof(ExpectedFailureFixture.Counter_gap), CancellationToken.None);
+        Assert.That(expected, Is.Not.Null);
+        await using var closingExpected = expected!;
+        Assert.That(expected!.ExpectedFailure, Is.EqualTo("the counter starts at one"));
+        Assert.That(expected.Failure, Is.Not.Null);
+        Assert.That(expected.Failure!.Message, Does.Not.Contain("UNEXPECTED_PASS"));
+
+        var fixedGap = await runner.RunAsync(assembly, typeof(ExpectedFailureFixture).FullName + "." + nameof(ExpectedFailureFixture.Fixed_gap), CancellationToken.None);
+        Assert.That(fixedGap, Is.Not.Null);
+        await using var closingFixed = fixedGap!;
+        Assert.That(fixedGap!.ExpectedFailure, Is.EqualTo("the home page is broken"));
+        Assert.That(fixedGap.Failure?.Message, Is.EqualTo("test is marked test.fail (\"the home page is broken\") but passed"));
+    }
+
+    [Test]
+    public async Task Partial_Does_not_cover_a_beforeAll_failure_with_test_fail()
+    {
+        var outcome = await new NUnitSessionTestRunner().RunAsync(typeof(MarkedHooksFixture).Assembly, typeof(MarkedHooksFixture).FullName + "." + nameof(MarkedHooksFixture.Needs_the_database), CancellationToken.None);
+
+        Assert.That(outcome, Is.Not.Null);
+        await using var closing = outcome!;
+        Assert.That(outcome!.Session, Is.Null);
+        Assert.That(outcome.Phase, Is.EqualTo(RunPhase.BeforeAll));
+        Assert.That(outcome.Failure!.Message, Does.StartWith("beforeAll failed: "));
+        Assert.That(outcome.ExpectedFailure, Is.EqualTo("the database gap"));
     }
 
     [Test]
@@ -438,4 +472,53 @@ public sealed class HooksSessionFixture : E2ETest
 
     [Test]
     public async Task Needs_the_database() => await App.OpenAsync("/browser");
+}
+
+/// <summary>The tests <see cref="OpenSessionTestOverE2eMcpTests"/> runs for <c>test.fail</c>: one fails as its mark expects, one passes though marked.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class ExpectedFailureFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    [Test]
+    [Property("E2E.Fail", "the counter starts at one")]
+    public async Task Counter_gap()
+    {
+        await App.OpenAsync("/browser");
+        await Expect.That(Screen.GetByLabel("Loads")).ToHaveTextAsync("the counter starts at one", timeout: TimeSpan.FromMilliseconds(200));
+    }
+
+    [Test]
+    public async Task Fixed_gap()
+    {
+        // The mark is set in the body, as test.fail is called there; the page opens, so the test passes though it is marked.
+        global::NUnit.Framework.Internal.TestExecutionContext.CurrentContext.CurrentTest.Properties.Set("E2E.Fail", "the home page is broken");
+        await App.OpenAsync("/");
+    }
+}
+
+/// <summary>The test <see cref="OpenSessionTestOverE2eMcpTests"/> runs for a <c>beforeAll</c> that fails under a mark.</summary>
+[Explicit("Run by OpenSessionTestOverE2eMcpTests")]
+public sealed class MarkedHooksFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse("""{ "cache": { "mode": "off" } }""", SourceDirectory(), _ => null);
+
+    private static string SourceDirectory([System.Runtime.CompilerServices.CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    protected override string? BaseUrl => E2E.Playground.Testbed.Url;
+
+    [OneTimeSetUp]
+    public void Breaks_before_all() => throw new InvalidOperationException("database is down");
+
+    [Test]
+    [Property("E2E.Fail", "the database gap")]
+    public async Task Needs_the_database() => await App.OpenAsync("/");
 }

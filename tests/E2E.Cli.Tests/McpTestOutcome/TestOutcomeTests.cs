@@ -55,6 +55,43 @@ public sealed class TestOutcomeTests
     }
 
     [Fact]
+    public void Tells_a_failure_marked_as_expected_as_expected_with_its_reason()
+    {
+        var steps = new[] { Step(0, "app.open", "/", StepStatus.Passed), Step(1, "expect.toHaveText", "Loads", StepStatus.Failed, "ASSERTION_FAILED") };
+
+        var lines = TestOutcome.Describe("A.B.C", new E2EException("ASSERTION_FAILED", "no"), TimeSpan.FromMilliseconds(40), steps, null, text => text, Root, expectedFailure: "the counter starts at one").Split('\n');
+
+        Assert.Equal("Test \"A.B.C\" failed as expected after 40ms; 2 steps ran.", lines[0]);
+        Assert.Equal("Expected to fail: the counter starts at one", lines[1]);
+        Assert.Equal("ASSERTION_FAILED: no", lines[2]);
+    }
+
+    [Fact]
+    public void Tells_a_hook_failure_under_a_mark_as_failed_not_as_expected()
+    {
+        var failure = new TestException("HOOK_FAILED", "beforeAll failed: database is down");
+
+        var lines = TestOutcome.Describe("A.B.C", failure, TimeSpan.FromMilliseconds(40), [], null, text => text, Root, RunPhase.BeforeAll, null, "the database gap").Split('\n');
+
+        Assert.Equal("Test \"A.B.C\" failed after 40ms; 0 steps ran.", lines[0]);
+        Assert.Equal("Expected to fail: the database gap", lines[1]);
+        Assert.Equal("HOOK_FAILED in beforeAll: beforeAll failed: database is down", lines[2]);
+    }
+
+    [Fact]
+    public void Tells_a_test_that_passed_though_marked_as_expected_to_fail()
+    {
+        var failure = new TestException("UNEXPECTED_PASS", "test is marked test.fail (\"the home page is broken\") but passed");
+        var steps = new[] { Step(0, "app.open", "/", StepStatus.Passed) };
+
+        var lines = TestOutcome.Describe("A.B.C", failure, TimeSpan.FromMilliseconds(40), steps, null, text => text, Root, expectedFailure: "the home page is broken").Split('\n');
+
+        Assert.Equal("Test \"A.B.C\" failed after 40ms; 1 step ran.", lines[0]);
+        Assert.Equal("Expected to fail: the home page is broken", lines[1]);
+        Assert.Equal("UNEXPECTED_PASS: test is marked test.fail (\"the home page is broken\") but passed", lines[2]);
+    }
+
+    [Fact]
     public void Tells_a_test_that_did_not_fail_without_a_story()
     {
         var text = TestOutcome.Describe("A.B.C", null, TimeSpan.FromMilliseconds(40), [Step(0, "app.open", "/", StepStatus.Passed)], null, text => text, Root);
