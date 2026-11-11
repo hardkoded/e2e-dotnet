@@ -145,11 +145,54 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
         }
     }
 
-    internal void Unregister(DeviceSession session)
+    /// <summary>Takes a session off <see cref="ActiveSessions"/>. True when it was one of them, so only the call that removed it frees the slot it held.</summary>
+    internal bool Unregister(DeviceSession session)
     {
         lock (_sessions)
         {
-            _sessions.Remove(session);
+            return _sessions.Remove(session);
+        }
+    }
+
+    // .NET-only: upstream's surface holds one `client`, `bound`, and `recording` for its worker. The port's attempt is a DeviceSession, so the
+    // engine keeps the device of each worker slot here, across the attempts that run on it, until the worker is disposed.
+    private readonly Lock _workersGate = new();
+    private readonly Dictionary<(string Target, int Slot), DeviceWorker> _workers = [];
+
+    /// <summary>The worker of a slot the engine keeps, or a new one for the binding when it has none (upstream's surface, one per worker).</summary>
+    internal DeviceWorker WorkerOf(string targetName, int slot, SlotBinding? binding)
+    {
+        lock (_workersGate)
+        {
+            if (!_workers.TryGetValue((targetName, slot), out var worker))
+            {
+                _workers[(targetName, slot)] = worker = new DeviceWorker { Binding = binding };
+            }
+
+            return worker;
+        }
+    }
+
+    /// <summary>Forgets a worker the engine disposed, if it still holds that one for the slot.</summary>
+    internal void DropWorker((string Target, int Slot) slot, DeviceWorker worker)
+    {
+        lock (_workersGate)
+        {
+            if (_workers.TryGetValue(slot, out var held) && ReferenceEquals(held, worker))
+            {
+                _workers.Remove(slot);
+            }
+        }
+    }
+
+    /// <summary>Takes every worker the engine keeps, so each is disposed once.</summary>
+    private List<(string Target, int Slot, DeviceWorker Worker)> TakeWorkers()
+    {
+        lock (_workersGate)
+        {
+            var taken = _workers.Select(pair => (pair.Key.Target, pair.Key.Slot, pair.Value)).ToList();
+            _workers.Clear();
+            return taken;
         }
     }
 
@@ -268,9 +311,20 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
     public Task<MobilePrepareResult> PrepareAsync(MobilePrepareInfo info, CancellationToken cancellationToken) =>
         Pool.PrepareAsync(info, cancellationToken);
 
-    /// <summary>Closes the sessions prepare opened and releases the leases, once per run and target.</summary>
-    public Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken) =>
-        Pool.FinishAsync(info, cancellationToken);
+    /// <summary>
+    /// Closes the sessions the run kept open across its attempts, then the sessions prepare opened, and releases the leases, once per run and
+    /// target. The kept workers close first, each within the finish's cleanup budget; a close that outlives it is abandoned, as a hung hook is, and the release follows.
+    /// </summary>
+    public async Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+
+        // Together, as upstream's pool finish runs its session closes beside the source release under the one budget: a hung close does
+        // not delay the release.
+        await Task.WhenAll(
+            DisposeAsync(info.CleanupTimeout, null, cancellationToken),
+            Pool.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+    }
 
     /// <summary>The core hook of upstream's <c>prepare</c>: <see cref="PrepareAsync(MobilePrepareInfo, CancellationToken)"/> for this engine's app.</summary>
     async Task<EnginePrepareResult> IPreparableEngine.PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
@@ -332,21 +386,38 @@ public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
     }
 
     /// <summary>
-    /// Ends the attempts running on this engine, within the cleanup budget: each one's dangling recording is stopped and its slot freed. Upstream's
-    /// worker-level <c>endAttempt</c>. Cold, with no attempt running, it is a no-op. The port's attempt is a <see cref="DeviceSession"/>, so the engine
-    /// closes the sessions it started.
+    /// Ends the attempts running on this engine, within the cleanup budget: each one's dangling recording is stopped and its slot freed. The
+    /// workers stay booted for the next attempt on their slot. Upstream's worker-level <c>endAttempt</c>. Cold, with no attempt running, it is a
+    /// no-op.
     /// </summary>
     public async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         // Together, so one budget bounds the lot and one failing close does not leave the others running.
-        await Task.WhenAll(ActiveSessions.Select(session => session.CloseAsync(timeout, cancellationToken))).ConfigureAwait(false);
+        await Task.WhenAll(ActiveSessions.Select(session => session.EndAttemptAsync(timeout, cancellationToken))).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Closes the sessions this engine started, within the cleanup budget. Upstream's worker-level <c>dispose</c>. Cold, with no attempt
-    /// running, it is a no-op.
+    /// Closes the sessions this engine started, within the cleanup budget. Upstream's worker-level <c>dispose</c> without reuse. Cold, with no
+    /// attempt running, it is a no-op.
     /// </summary>
-    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) => EndAttemptAsync(timeout, cancellationToken);
+    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) => DisposeAsync(timeout, null, cancellationToken);
+
+    /// <summary>
+    /// Disposes every worker this engine keeps and ends the attempts still running. Upstream's worker-level <c>dispose</c>: with a <paramref name="reuse"/>
+    /// signal that is not revoked, a leased device keeps its session for a replacement worker, and the lease is left to the run's finish.
+    /// </summary>
+    internal async Task DisposeAsync(TimeSpan timeout, CancellationToken? reuse, CancellationToken cancellationToken)
+    {
+        foreach (var session in ActiveSessions)
+        {
+            if (Unregister(session))
+            {
+                ReleaseSlot(session.Slot.Target, session.Slot.Slot);
+            }
+        }
+
+        await Task.WhenAll(TakeWorkers().Select(entry => DeviceSession.DisposeWorkerAsync(this, (entry.Target, entry.Slot), entry.Worker, timeout, reuse, cancellationToken))).ConfigureAwait(false);
+    }
 
     private static DeviceClientFactory ClientsOf(MobileOptions options)
     {

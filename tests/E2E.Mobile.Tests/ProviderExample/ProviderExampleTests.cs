@@ -2,8 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Docs.Examples.Mobile;
 using E2E.Mobile.Lease;
+using E2E.Mobile.Tests.Lease;
 
 namespace E2E.Mobile.Tests.ProviderExample;
 
@@ -78,5 +80,62 @@ public sealed class ProviderExampleTests
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => cloud.AcquireAsync(Request(new Dictionary<string, string?>()), CancellationToken.None));
         Assert.Equal("CLOUD_TOKEN is not set", error.Message);
         Assert.Empty(leases.Acquired);
+    }
+
+    // Partial: upstream's worker client holds the lease scope only. The port's client also holds the selectors and the platform, which its worker
+    // resolves the device from (see AgentDeviceLeasesTests). The checks of the allocation, the scope, and the release are upstream's.
+    [Fact]
+    public async Task Partial_Hands_a_retained_cloud_grant_to_the_worker_and_releases_the_allocated_scope()
+    {
+        using var host = new FakeLeaseHost();
+        var cloud = DeviceCloudProvider.CloudDevices(Options, leaseOptions => new AgentDeviceLeases(leaseOptions, host));
+        var request = Request(new Dictionary<string, string?> { ["CLOUD_TOKEN"] = "token" });
+
+        var lease = await cloud.AcquireAsync(request, CancellationToken.None);
+
+        JsonAssert.Args(
+            """{"tenant":"cloud","runId":"run-1","leaseBackend":"ios-instance","leaseProvider":"cloud","ttlMs":60000,"retainOnClose":true,"platform":"ios","target":"mobile","device":"iPhone 16","providerOsVersion":"18","providerApp":"cloud://APP"}""",
+            host.Starts[0].Request.Allocate);
+        var stateDirectory = host.Starts[0].Request.StateDirectory;
+        Assert.Equal("lease-1", lease.Id);
+        JsonAssert.Args(
+            $$"""{"stateDir":{{JsonValue.Create(stateDirectory)!.ToJsonString()}},"tenant":"cloud","runId":"run-1","leaseId":"lease-1","leaseBackend":"ios-instance","leaseProvider":"cloud","platform":"ios","target":"mobile","device":"iPhone 16","providerOsVersion":"18","providerApp":"cloud://APP"}""",
+            lease.Client);
+        Assert.Empty(host.Stops);
+
+        await cloud.ReleaseAsync(lease, new DeviceReleaseContext { RunId = "run-1", TargetName = "ios", Env = request.Env, Log = request.Log }, CancellationToken.None);
+        var stop = Assert.Single(host.Stops);
+        Assert.Equal((stateDirectory, "lease-1"), (stop.StateDirectory, stop.LeaseId));
+    }
+
+    [Fact]
+    public async Task Releases_a_declined_retention_grant_before_rejecting_acquisition_without_keeping_it_for_release()
+    {
+        using var host = new FakeLeaseHost();
+        host.NextStarts.Enqueue(_ => Task.FromResult(new DriverGrant("lease-1", "cloud", "run-1", false)));
+        var cloud = DeviceCloudProvider.CloudDevices(Options, leaseOptions => new AgentDeviceLeases(leaseOptions, host));
+        var request = Request(new Dictionary<string, string?> { ["CLOUD_TOKEN"] = "token" });
+
+        // The stop is awaited before the rejection, so by the time it arrives the release has finished.
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => cloud.AcquireAsync(request, CancellationToken.None));
+        Assert.Contains("retainOnClose", error.Message, StringComparison.Ordinal);
+        Assert.Single(host.Stops);
+
+        await cloud.ReleaseAsync(new DeviceLease { Id = "lease-1" }, new DeviceReleaseContext { RunId = "run-1", TargetName = "ios", Env = request.Env, Log = request.Log }, CancellationToken.None);
+        Assert.Single(host.Stops);
+    }
+
+    /// <summary>.NET-only: the declined grant of <see cref="Releases_a_declined_retention_grant_before_rejecting_acquisition_without_keeping_it_for_release"/> with the port's message, which names the cloud. The same stop is checked in <c>AgentDeviceLeasesTests</c>.</summary>
+    [Fact]
+    public async Task Stops_the_daemon_when_a_declined_retention_grant_names_the_cloud_in_its_message()
+    {
+        using var host = new FakeLeaseHost();
+        host.NextStarts.Enqueue(_ => Task.FromResult(new DriverGrant("lease-1", "cloud", "run-1", false)));
+        var cloud = DeviceCloudProvider.CloudDevices(Options, leaseOptions => new AgentDeviceLeases(leaseOptions, host));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => cloud.AcquireAsync(Request(new Dictionary<string, string?> { ["CLOUD_TOKEN"] = "token" }), CancellationToken.None));
+
+        Assert.Equal("agent-device did not acknowledge retainOnClose. Closing the engine session could end the cloud lease before run-end release", error.Message);
+        Assert.Single(host.Stops);
     }
 }
