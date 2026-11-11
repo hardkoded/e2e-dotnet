@@ -98,12 +98,16 @@ Save it as `e2e.bugbash.config.json`:
 The target declares no `app.command`, because the app already runs. The
 `credentials` hold no password: set `E2E_USER_BB_CART_PASSWORD` and
 `E2E_USER_BB_ACCOUNT_PASSWORD` (the seed script's password, 6 or more
-characters) in the environment, so the file stays free of secrets. The three
-agents are the postures from step 2 as personas: the same model and budgets,
-a different stance. An agent inherits nothing from `default` (topic `agent`),
-so each repeats the model, budgets, and `context`. Each charter picks one with
-`--agent` (step 3). The config has no `tests` or `reporters` key, so repro tests live in the test
-project (step 6). Pass `--config e2e.bugbash.config.json` to every
+characters) in the environment, so the file stays free of secrets. A shorter
+password can't be redacted without rewriting ordinary text, so an account the
+app seeds with one (`admin`/`admin`) needs a longer password before it can be
+a credential.
+
+The three agents are the postures from step 2 as personas: the same model and
+budgets, a different stance. An agent inherits nothing from `default` (topic
+`agent`), so each repeats the model, budgets, and `context`. Each charter picks
+one with `--agent` (step 3). The config has no `tests` or `reporters` key, so
+repro tests live in the test project (step 6). Pass `--config e2e.bugbash.config.json` to every
 command below, and `open_session {config: "e2e.bugbash.config.json"}` over
 MCP.
 
@@ -154,8 +158,13 @@ CHARTERS
 while IFS='|' read -r slug target agent charter; do
   [ -n "$slug" ] && printf '%s\0%s\0%s\0%s\0' "$slug" "$target" "$agent" "$charter"
 done < .e2e/bugbash/charters.txt | xargs -0 -n 4 -P 4 sh -c \
-  'e2e explore "$4" --config e2e.bugbash.config.json --target "$2" --agent "$3" --output ".e2e/bugbash/$1/results" --max-steps 6 --video=on < /dev/null > ".e2e/bugbash/$1.log" 2>&1' _
+  'e2e explore "$4" --config e2e.bugbash.config.json --target "$2" --agent "$3" --output ".e2e/bugbash/$1/results" --max-steps 15 --timeout 900000 --video=on < /dev/null > ".e2e/bugbash/$1.log" 2>&1' _
 ```
+
+`--timeout` ends a charter with its assessment whatever its step count, and
+a step takes about a minute, so the flags above give each charter about
+fifteen minutes. Under a time limit, size the first round to end by about a
+third of it.
 
 The log's summary prints the findings and the steps. Exit code `1` means
 issues were reported (or nothing was explored): read the log either way.
@@ -202,28 +211,60 @@ and the failure it saw. Without subagents, verify one area after another.
    bucket first: a "dead" link's destination must actually open (a valid
    href with a prevented default is still dead), a copy claim must show in
    the rendered screenshot.
-2. Write a repro test that follows the reproduction and asserts the
-   expected behavior, so it fails today and passes once the bug is fixed.
-   Put it in the test project, in a `BugBash` folder with one class per
-   area (`BugBash/CartTests.cs`), so the repro tests are easy to find and to
-   leave out. Build on the project's fixtures (its test base class, its
-   sign-in helper). Prefer `Screen` actions and `Expect.That` with exact
-   values; `Agent.ActAsync` for a step that varies, `Agent.AssertAsync` for
-   an outcome only judgment can check (topic `writing-tests`). Tag it
-   `bugbash`: NUnit `[Category("bugbash")]`, xUnit v3
+2. Write a repro test from the finding: its reproduction as `Agent.ActAsync`
+   steps and its expected behavior as the closing `Agent.AssertAsync`, so it
+   fails today and passes once the bug is fixed. It needs no locators. Sign
+   in as the charter did, with its credential as step parameters or a setup
+   test's session. Assert only the defect: a count or a record another repro
+   changes makes it fail for the wrong reason. Put it in the test project,
+   in a `BugBash` folder with one class per area
+   (`BugBash/CartTests.cs`), so the repro tests are easy to find and to
+   leave out. Tag it `bugbash`: NUnit `[Category("bugbash")]`, xUnit v3
    `[Trait("TestCategory", "bugbash")]`. Give it its own data
    (`Values.Unique(...)`).
-3. Get exact locators from the live app: with the `e2e mcp` server
-   registered, `open_session` with the bug-bash config, pass its session id
-   to every call, walk the reproduction, and `locate` each locator before
-   writing it (topic `mcp`). Close your session when done.
-4. Run the class alone: `dotnet test --filter "FullyQualifiedName~BugBash.CartTests"`.
-   Confirmed only when it fails with `ASSERTION_FAILED` on the assertion
-   that encodes the bug. Any other failure (`LOCATOR_NOT_FOUND`, a timeout,
-   a setup error) means the test is wrong: fix it and rerun. A passing test
-   means the bug did not reproduce: reject the finding, say so, and delete
-   the test (or offer it as a regression test). Only failing repro tests
-   stay in `BugBash/`.
+
+   ```csharp
+   // BugBash/CartTests.cs
+   public sealed class CartTests : E2ETest
+   {
+       [Test]
+       [Category("bugbash")]
+       public async Task A_cart_line_counts_its_quantity()
+       {
+           var shopper = Credentials.User("bb-cart");
+           await App.OpenAsync("/");
+           await Agent.ActAsync("sign in with the given credentials", new ActOptions
+           {
+               Params = new Dictionary<string, object?>
+               {
+                   ["username"] = shopper.Username,
+                   ["password"] = shopper.Password,
+               },
+           });
+           await Agent.AssertAsync("the app shows you are signed in");
+           await Agent.ActAsync("add \"Dune\" to the cart");
+           await Agent.ActAsync("set the quantity of \"Dune\" in the cart to 2");
+           await Agent.AssertAsync("the cart line for \"Dune\" totals twice its unit price");
+       }
+   }
+   ```
+3. Run the class alone: `dotnet test --filter "FullyQualifiedName~BugBash.CartTests"`.
+   Confirmed when it fails on the reported defect: `ASSERTION_FAILED` from
+   the closing `Agent.AssertAsync`, or a failed `Agent.ActAsync` whose
+   message names the defect. A failed `ActAsync` carries the code the model
+   chose, so only its message and screenshot tell the defect apart from a
+   failure short of it. A blocked act, a timeout, a setup error, or a
+   failure that names something else means the repro is wrong: sharpen the
+   step and rerun. A passing test means the bug did not reproduce: reject
+   the finding, say so, and delete the test (or offer it as a regression
+   test). Only failing repro tests stay in `BugBash/`.
+4. When the user wants a scripted regression test, harden a confirmed repro
+   with `Screen` actions and exact `Expect.That` values (topic
+   `writing-tests`): with the `e2e mcp` server registered, `open_session`
+   with the bug-bash config, pass its session id to every call, walk the
+   reproduction, and `locate` each locator before writing it (topic `mcp`).
+   Close your session when done. A scripted step that opens a native dialog
+   needs `Browser.OnDialogAsync` first.
 
 ## 7. Report
 
@@ -235,8 +276,10 @@ the rejected findings grouped by reason (environment, design, fixture, did
 not reproduce), and the warnings. End with the charters run, their cost, and
 the areas no charter reached.
 
-The repro tests fail until the bugs are fixed: the gating run leaves them out
-(`dotnet test --filter "TestCategory!=bugbash"`) or they stay uncommitted.
+Run every repro once, `dotnet test --filter "TestCategory=bugbash"`, so each
+bug you report still fails. The repro tests fail until the bugs are fixed:
+the gating run leaves them out (`dotnet test --filter "TestCategory!=bugbash"`)
+or they stay uncommitted.
 Offer to fix each bug: the repro test turning green is the proof, and it
 stays as the regression test with its `bugbash` tag removed.
 
@@ -244,6 +287,10 @@ stays as the regression test with its `bugbash` tag removed.
 
 - Never report an unverified finding as a bug. "The explorer reported" is
   not "confirmed".
+- Under a time limit, spend it: once a round is verified, run charters for
+  the areas and postures no charter reached, until about a tenth of the
+  time is left. Report each bug as soon as its repro confirms it, so a bash
+  cut off at the limit keeps it.
 - One charter, one area. A charter that spans the whole app ends at its
   step budget having skimmed everything.
 - Seeded data and test accounts the app ships for development are not

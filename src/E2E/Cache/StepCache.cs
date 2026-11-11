@@ -210,6 +210,12 @@ public sealed class RecordedAction
     /// </summary>
     public string? Placeholder { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>selector</c> of the target descriptor: the structural selector the engine reported for the node, with secrets redacted.
+    /// Provenance only: relocation never reads it, and an anchor leaves it out (upstream's <c>anchors.ts</c> strips it).
+    /// </summary>
+    public string? Selector { get; set; }
+
     /// <summary>Upstream's <c>inputPurpose</c> of the target descriptor, such as <c>password</c>. Null for <c>none</c> and for a target that is no field.</summary>
     public string? InputPurpose { get; set; }
 
@@ -501,6 +507,9 @@ public sealed class RecordedTarget
     /// <summary>An anchor's placeholder.</summary>
     public string? Placeholder { get; set; }
 
+    /// <summary>The target descriptor's structural selector, provenance only (see <see cref="RecordedAction.Selector"/>). Anchors never set it.</summary>
+    public string? Selector { get; set; }
+
     /// <summary>An anchor's input purpose, such as <c>password</c>. Null for <c>none</c>.</summary>
     public string? InputPurpose { get; set; }
 
@@ -521,6 +530,7 @@ public sealed class RecordedTarget
     internal bool HasValidDescriptor() =>
         TextFields.Any(field => !string.IsNullOrEmpty(field))
         && TextFields.All(field => field is not { Length: > Trace.MaxTraceDescriptorChars })
+        && Selector is not { Length: > Trace.MaxTraceDescriptorChars }
         && (Position?.IsValid() ?? true)
         && HasValidStates();
 

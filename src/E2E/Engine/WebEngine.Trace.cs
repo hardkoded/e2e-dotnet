@@ -51,7 +51,7 @@ public sealed partial class WebEngine
         {
             var page = OpenPage() ?? throw new EngineException(EngineErrorCodes.InvalidState, "no app page is open");
             var walk = new FrameWalk { Publish = false, Site = Site };
-            var roots = await CollectAsync(page.MainFrame, walk, budget, depth: 0).ConfigureAwait(false);
+            var roots = await CollectAsync(page.MainFrame, walk, budget, framePath: []).ConfigureAwait(false);
             var url = page.Url;
             return new Observation { Route = Routes.LocationOf(url), Location = url, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         }

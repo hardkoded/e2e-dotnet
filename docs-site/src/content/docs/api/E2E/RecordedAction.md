@@ -249,6 +249,22 @@ public string? Role { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedAction_Selector_"></a>
+<a id="E2E_RecordedAction_Selector"></a>
+
+### Selector
+
+
+```csharp
+public string? Selector { get; set; }
+```
+
+
+Upstream's `selector` of the target descriptor: the structural selector the engine reported for the node, with secrets redacted.
+Provenance only: relocation never reads it, and an anchor leaves it out (upstream's `anchors.ts` strips it).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_RecordedAction_Size_"></a>
 <a id="E2E_RecordedAction_Size"></a>
 

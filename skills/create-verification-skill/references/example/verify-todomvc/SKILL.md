@@ -65,8 +65,8 @@ in [features/](features/), one H2 per feature, already in the
 reads. The app is hosted, so several explorers need no isolation change, and
 the list is per browser context, so they do not collide. `.e2e/bugbash/` is in
 `.gitignore`. A finding is a bug once a repro test in a `BugBash` folder of
-the test project fails with `ASSERTION_FAILED` on the assertion that encodes
-it (topic `bug-bash`). Give each repro its own data with `Values.Unique(...)`.
+the test project fails on the reported defect, as topic `bug-bash` step 6
+reads it. Give each repro its own data with `Values.Unique(...)`.
 
 ## Cleanup
 
