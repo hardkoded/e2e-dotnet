@@ -39,8 +39,8 @@ Bug bash the checkout and account settings on this branch.
 3. Writes `e2e.bugbash.config.json`, a copy of your config with one agent for each posture (`--agent`), then runs one `e2e explore` for each charter, 4 at the same time, each with its own output directory (`--output`).
 4. Merges the findings of all charters.
 5. Rejects findings that have a known cause. The cause can be a limit of the explorer (for example, a link that opens a new tab), the local environment, the intended design, or the seed data.
-6. Writes a repro test that asserts the expected behavior for each remaining finding. It can start one subagent per area, each with its own [`e2e mcp` session](/coding-agents/) to check locators.
-7. Runs each repro test. The finding is a bug only when the test fails with `ASSERTION_FAILED`.
+6. Writes a repro test for each remaining finding: the finding's steps as `Agent.ActAsync` calls and its expected behavior as the closing `Agent.AssertAsync`. It can start one subagent per area.
+7. Runs the repro tests. The finding is a bug only when its test fails on the reported defect: `ASSERTION_FAILED` from the closing `Agent.AssertAsync`, or an `Agent.ActAsync` that fails on the defect itself.
 8. Reports, in this order: confirmed bugs, production risks that it cannot verify locally, rejected findings by reason, and warnings.
 
 Each confirmed bug has its repro test and steps. It also has the explorer's screenshot and video when the engine records them.
