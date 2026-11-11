@@ -1883,6 +1883,9 @@ internal sealed class ToolOutcome
 
     public bool Succeeded { get; init; }
 
+    /// <summary>Upstream's <c>error-text</c> output: the call failed before a result was read (a refusal, a throw), so the failure streak counts it whatever its text says.</summary>
+    public bool ErrorText { get; init; }
+
     public bool Done { get; init; }
 
     public string? Status { get; init; }
@@ -1899,10 +1902,13 @@ internal sealed class ToolOutcome
 
     public static ToolOutcome Ok(string content) => new() { Content = content, Succeeded = true };
 
-    public static ToolOutcome Fail(string content) => new() { Content = "failed: " + content, Succeeded = false };
+    public static ToolOutcome Fail(string content) => new() { Content = "failed: " + content, Succeeded = false, ErrorText = true };
+
+    /// <summary>A verdict the policy turns back to the model: a failed call whose text is the conclusion tool's own, so the streak skips it (upstream returns it as text).</summary>
+    public static ToolOutcome Reject(string content) => new() { Content = "failed: " + content, Succeeded = false };
 
     /// <summary>A refusal that keeps its error code, which the model never reads and a host driving the tools does.</summary>
-    public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code };
+    public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code, ErrorText = true };
 
     /// <summary>A verdict the policy accepted. <paramref name="droppedCode"/> is the code a passed verdict carried (empty when it is not a code the model may send, so the answer does not echo it); the answer says it was ignored.</summary>
     public static ToolOutcome Finish(string status, string? summary, string? code, string? droppedCode = null) => new()

@@ -66,6 +66,12 @@ public sealed class ModelMessage
 
     public string? Content { get; init; }
 
+    /// <summary>
+    /// Upstream's <c>error-text</c> tool output: the call failed before its text was read (the SDK refused it, or the tool threw), so the
+    /// failure streak counts it whatever the text says. Read by the loop's guards only; no provider receives it.
+    /// </summary>
+    internal bool ErrorText { get; init; }
+
     public IReadOnlyList<ModelToolCall>? ToolCalls { get; init; }
 
     public string? ToolCallId { get; init; }

@@ -9,4 +9,16 @@ internal static class ActionNames
 {
     /// <summary>The prefix of the engine event a project's own tool records; its name is the project's.</summary>
     public const string ProjectToolEventPrefix = "tool:";
+
+    /// <summary>
+    /// Every name the grammar may hand out (upstream's <c>GRAMMAR_TOOL_NAMES</c>). A project tool cannot take one. The port's grammar also
+    /// offers <c>fill</c>, <c>fill_secret</c>, <c>uncheck</c>, and <c>clear</c> under its own names (upstream's are <c>type</c> and
+    /// <c>type_secret</c>, and upstream has no uncheck or clear), so a failure of those leads with the port's name and is read here too.
+    /// </summary>
+    public static readonly HashSet<string> GrammarToolNames = new(
+    [
+        "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "type_secret", "press", "select", "check", "scroll",
+        "scroll_to", "drag", "upload", "navigate", "back", "resize_viewport", "screenshot", "tap_at", "hover_at", "drag_at", "type_at",
+        "press_at", "select_at", "dismiss_keyboard", "fill", "fill_secret", "uncheck", "clear",
+    ], StringComparer.Ordinal);
 }

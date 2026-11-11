@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace E2E;
 
-/// <summary>One tool result as the failure streak reads it (upstream's <c>GuardToolResult</c>). The loop knows whether a call failed, so the result carries no text to parse.</summary>
-internal readonly record struct GuardToolResult(bool Failed);
+/// <summary>One tool result as the guard reads it (upstream's <c>GuardToolResult</c>): the text the model saw, and whether it reports a failure.</summary>
+internal readonly record struct GuardToolResult(string Text, bool Failed);
 
 /// <summary>
 /// Guard thresholds (upstream's <c>LoopGuardThresholds</c>). Identical-call (period 1) counts are consecutive repetitions of one call;
@@ -26,7 +27,7 @@ internal sealed record LoopGuardThresholds(int RepeatWarn, int RepeatStop, int C
 /// repeated, or a run of failed calls. Identity is the tool name plus its exact arguments, so two taps on different targets are
 /// never a repeat. A warning lets the model react; a stop forces the verdict.
 /// </summary>
-internal static class LoopGuards
+internal static partial class LoopGuards
 {
     private const int MaxCyclePeriod = 4;
 
@@ -67,6 +68,63 @@ internal static class LoopGuards
 
         return warning;
     }
+
+    /// <summary>
+    /// Extracts every tool result in a transcript, in order (upstream's <c>extractToolResults</c>). A text result is read for the failure shape.
+    /// A call the SDK refused before dispatch (a tool the step does not offer, an input outside the closed schema) or a tool that threw is a
+    /// failure by construction: nothing ran, and the turn is spent. The conclusion tool's own text (an accepted verdict, a blocked one sent
+    /// back for its code) is not an action and is skipped, but a refused conclusion counts: the repeat guard never sees conclusion calls, so
+    /// this streak is the only bound short of the turn budget on a model that resends one the schema turns away.
+    /// </summary>
+    public static IReadOnlyList<GuardToolResult> ExtractToolResults(IEnumerable<ModelMessage> messages, string concludeToolName)
+    {
+        var results = new List<GuardToolResult>();
+        foreach (var message in messages)
+        {
+            if (!string.Equals(message.Role, "tool", StringComparison.Ordinal) || message.Name is null || message.Content is null)
+            {
+                continue;
+            }
+
+            if (message.ErrorText)
+            {
+                results.Add(new GuardToolResult(message.Content, Failed: true));
+                continue;
+            }
+
+            if (string.Equals(message.Name, concludeToolName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            results.Add(new GuardToolResult(message.Content, IsFailedResult(message.Name, message.Content)));
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Whether a tool result reports its action failing (upstream's <c>isFailedResult</c>), by the first line's shape: <c>Action failed: …</c>
+    /// and <c>Tool "x" failed: …</c> for any tool; for a grammar tool also its own failure lead, the tool's name and what it was aimed at
+    /// before <c>failed:</c> (<c>tap #n6 failed: …</c>, <c>tap_at (30, 30) failed: …</c>). A grammar success leads with a capital, so text the
+    /// model typed into one never reads as a failure, and a project tool's own text (<c>build failed: 2 red</c>) is its result, not a failed call.
+    /// </summary>
+    public static bool IsFailedResult(string toolName, string text)
+    {
+        var first = text.Split('\n', 2)[0];
+        if (ActionFailedLead().IsMatch(first))
+        {
+            return true;
+        }
+
+        return ActionNames.GrammarToolNames.Contains(toolName) && GrammarFailedLead().IsMatch(first);
+    }
+
+    [GeneratedRegex("^(?:Action |Tool \"[^\"]*\" )failed: ", RegexOptions.CultureInvariant)]
+    private static partial Regex ActionFailedLead();
+
+    [GeneratedRegex("^[a-z_]+(?: .*)? failed: ", RegexOptions.CultureInvariant)]
+    private static partial Regex GrammarFailedLead();
 
     /// <summary>
     /// Checks the trailing run of failed results (upstream's <c>checkFailureStreak</c>). Different targets or inputs do not save a
