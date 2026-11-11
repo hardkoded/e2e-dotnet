@@ -98,7 +98,7 @@ public sealed class DeviceActions : IDeviceActions
                     // The field is read again before it is typed into, and what it reads as may have changed.
                     if (context.Origin == OperationOrigin.Test)
                     {
-                        await session.WaitForTransitionAsync(entry, token).ConfigureAwait(false);
+                        await session.WaitForTransitionAsync(entry, input, token).ConfigureAwait(false);
                     }
 
                     target = await session.RelocatedAsync(entry, input, token, forInput: true).ConfigureAwait(false);
@@ -243,6 +243,12 @@ public sealed class DeviceActions : IDeviceActions
 
     private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, OperationContext context, InputBudget? input, CancellationToken cancellationToken)
     {
+        // A test's swipe of the screen waits out the transition the last action started, as a test's tap waits for its control.
+        if (context.Origin == OperationOrigin.Test)
+        {
+            await session.WaitOutTransitionAsync(input, cancellationToken).ConfigureAwait(false);
+        }
+
         var before = session.LatestScreen;
         await session.CommandAsync(
             "swipe",
