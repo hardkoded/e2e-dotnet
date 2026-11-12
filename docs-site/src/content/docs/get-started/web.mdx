@@ -20,7 +20,7 @@ dotnet add package E2E
 dotnet add package E2E.NUnit
 ```
 
-These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), follow that page instead: each creates the project the framework needs and names the package to add (`E2E.XUnit.V3` or `E2E.TUnit`). The [NUnit](/testing-frameworks/nunit/) page has the NUnit project properties.
+These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), follow that page instead: each creates the project the framework needs and names the package to add (`E2E.XUnit.V3` or `E2E.TUnit`). The [NUnit](/testing-frameworks/nunit/) page lists what the NUnit project needs besides the E2E packages: `dotnet add package NUnit` (NUnit 5; the template pins an older one and restore fails with `NU1605` without it) and the project properties.
 
 Add `E2E` to the implicit usings, so tests need no `using E2E;`:
 
