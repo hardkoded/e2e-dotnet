@@ -21,6 +21,8 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
 {
     private static readonly ConditionalWeakTable<TUnitContext, TestOutcome> Outcomes = new();
 
+    internal static void Forget(TUnitContext context) => Outcomes.Remove(context);
+
     internal static TestOutcome? OutcomeOf(TUnitContext context) => Outcomes.TryGetValue(context, out var outcome) ? outcome : null;
 
     public async ValueTask ExecuteTest(TUnitContext context, Func<ValueTask> action)

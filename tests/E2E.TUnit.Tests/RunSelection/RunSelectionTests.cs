@@ -295,9 +295,15 @@ public sealed class RunSelectionTests
         }
 
         using var process = Process.Start(start)!;
-        process.StandardOutput.ReadToEnd();
-        process.StandardError.ReadToEnd();
-        process.WaitForExit();
+        // Both streams are read together, and the wait is bound: a git that waits on a prompt must not hang the run.
+        var output = Task.WhenAll(process.StandardOutput.ReadToEndAsync(), process.StandardError.ReadToEndAsync());
+        if (!process.WaitForExit(TimeSpan.FromSeconds(60)))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new System.TimeoutException($"git {string.Join(' ', args)} did not finish in 60 seconds");
+        }
+
+        output.GetAwaiter().GetResult();
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException($"git {string.Join(' ', args)} exited with {process.ExitCode}");

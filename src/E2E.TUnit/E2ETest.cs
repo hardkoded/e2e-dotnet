@@ -43,6 +43,8 @@ public abstract class E2ETest : E2EFixture
     {
         ArgumentNullException.ThrowIfNull(context);
         var details = context.Metadata.TestDetails;
+        // TUnit reuses one context for every [Retry] attempt, so what an earlier attempt's body did must not read as this attempt's.
+        LooksBeforeTeardownExecutor.Forget(context);
         RunSelection.SkipIfLeftOut(GetType(), details.MethodName);
         RunSelection.SkipIfSetupRan(GetType(), details.MethodName);
         await StartSessionAsync(
@@ -143,11 +145,17 @@ public abstract class E2ETest : E2EFixture
 
     private static Exception? ErrorForCache(TestOutcome? outcome, TestException? soft)
     {
-        var failure = outcome?.Failure;
+        // No outcome means the body never ran (a derived before-test hook threw): TUnit fails the test, so the cache must not see a pass.
+        if (outcome is null)
+        {
+            return soft ?? new TestException("TEST_FAILED", "The test body did not run.");
+        }
+
+        var failure = outcome.Failure;
         if (failure is null)
         {
             // A soft failure outranks a skip: the test fails when the hook throws, so the cache sees a failure.
-            return soft is null && outcome?.Skipped is { } reason ? new SkipException(reason) : soft;
+            return soft is null && outcome.Skipped is { } reason ? new SkipException(reason) : soft;
         }
 
         return failure is OperationCanceledException
