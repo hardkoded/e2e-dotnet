@@ -113,7 +113,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `stopApp`, then `launchApp` | `App.RestartAsync()` |
 | `clearKeychain` | `Device.ClearKeychainAsync()`, the whole simulator's keychain; iOS only |
 | `openLink` | `Device.OpenLinkAsync(url, app)`; on iOS the link opens into `app`, default the pinned app |
-| `addMedia` | Not yet. On an iOS simulator, run `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID), then `App.OpenAsync()`. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards |
+| `addMedia` | Not yet. Add the photo from the host before `App.OpenAsync()`: `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID) on an iOS simulator; Android is unchecked. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
 | `back` | `App.BackAsync()`, or `Device.BackAsync()` |
 
 ### Taps and input

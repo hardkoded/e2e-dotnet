@@ -127,7 +127,7 @@ For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealMod
 | `login` step | an `[E2ESetup]` test that signs in and calls `SaveSessionAsync()`, and `[E2ESession]` on each test, see [Authentication](/features/signing-in/) |
 | `login` with `temporaryEmail` | Not yet |
 | `files` step, `@receipt.jpg` in a step, on web | the file's repository path in the goal: `Agent.ActAsync("attach tests/fixtures/receipt.jpg")`, or `locator.SetInputFilesAsync()` |
-| `files` step on mobile (photo library) | Not yet |
+| `files` step on mobile (photo library) | Not yet as a native step. On an iOS simulator, add the photo with `xcrun simctl addmedia` before `App.OpenAsync()`, then pick it in the system picker; Android is unchecked. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
 | `screenshot` step | `App.ScreenshotAsync("label")` |
 | `javascript` step | `Browser.EvaluateAsync<T>()`. It fails only when the code throws, so check a `{ success: false }` return with an assertion |
 | `microphone` step | Not yet |
