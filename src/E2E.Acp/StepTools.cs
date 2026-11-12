@@ -18,17 +18,16 @@ internal static class StepTools
 {
     private const string StepEnded = "The step has ended. Wait for the next instruction.";
 
-    /// <summary>Tools that change nothing in the app, so an assertion may use them.</summary>
-    private static readonly HashSet<string> ReadOnly = new(["observe", "screenshot", "scroll", "scroll_to", "hover", "hover_at"], StringComparer.Ordinal);
-
     /// <summary>The session's tools, listed from its first step. Upstream's <c>stepTools</c>.</summary>
     public static IReadOnlyList<ServedTool> Create(StepSlot slot, StepExecutorContext first)
     {
         var tools = new List<ServedTool>();
-        foreach (var listed in AgentTools.CreateGrammarTools(first))
+        // The tools an assertion offers change nothing in the app (upstream's `name in readOnlyTools`); the listing is of an act's, the widest.
+        var readOnlyTools = AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Assert }).Select(tool => tool.Definition.Name).ToHashSet(StringComparer.Ordinal);
+        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act }))
         {
             var name = listed.Definition.Name;
-            var readOnly = ReadOnly.Contains(name);
+            var readOnly = readOnlyTools.Contains(name);
             tools.Add(new ServedTool(
                 name,
                 listed.Definition.Description,
@@ -162,13 +161,14 @@ internal sealed class ActiveStep
     public ActiveStep(StepExecutorContext context)
     {
         Context = context;
+        Conclusion = AgentTools.CreateVerdictTool(context.Step.Kind);
         Tools = new Lazy<IReadOnlyDictionary<string, ToolLoopTool>>(() => StepTools.BuildTools(this), LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     public StepExecutorContext Context { get; }
 
     /// <summary>The step's <c>done</c>, which holds its verdict once the agent concludes. Upstream's <c>conclusion</c>.</summary>
-    public VerdictTool Conclusion { get; } = AgentTools.CreateVerdictTool();
+    public VerdictTool Conclusion { get; }
 
     /// <summary>Runs one action at a time.</summary>
     public SemaphoreSlim Gate { get; } = new(1, 1);

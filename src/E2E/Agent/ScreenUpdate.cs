@@ -89,6 +89,34 @@ internal sealed partial class ScreenPresenter
     /// <summary>The screen as the agent last received it, indexed for comparison.</summary>
     private sealed record ShownScreen(string Revision, List<string> Order, Dictionary<string, string> ById, bool Truncated, bool Keyboard);
 
+    /// <summary>
+    /// What an exploring assertion's looks show (<see cref="AssertOptions.Vision"/>): <see cref="VisionMode.On"/> asks every look for pixels beside the tree,
+    /// <see cref="VisionMode.Only"/> shows the pixels without the tree. <see cref="VisionMode.Off"/> for every other step.
+    /// </summary>
+    public VisionMode Vision { get; set; }
+
+    /// <summary>True when every look asks for pixels, whether or not a screenshot went to the model yet.</summary>
+    public bool WantsPixels => Vision != VisionMode.Off;
+
+    /// <summary>
+    /// A look as a step with <paramref name="vision"/> reads it (upstream's <c>withVision</c>): under <see cref="VisionMode.Only"/> the pixels without the tree,
+    /// which fails <c>POLICY_DENIED</c> when no pixels are available. Any other mode keeps the look as it is.
+    /// </summary>
+    internal static ExecutorObservation ForVision(ExecutorObservation observation, VisionMode vision)
+    {
+        if (vision != VisionMode.Only)
+        {
+            return observation;
+        }
+
+        if (observation.Pixels is null)
+        {
+            throw new AgentException("POLICY_DENIED", "agent.assert vision: 'only' requires available pixel evidence", blocked: true);
+        }
+
+        return observation with { Text = "Judge from the screenshots only.", Tree = null, TreeUnavailable = true };
+    }
+
     /// <summary>True once a screenshot went to the model in this step.</summary>
     public bool ShowingPixels => _screenshot is not null;
 
@@ -151,6 +179,7 @@ internal sealed partial class ScreenPresenter
     public ScreenOutput Open(ExecutorObservation observation)
     {
         ArgumentNullException.ThrowIfNull(observation);
+        observation = ForVision(observation, Vision);
         (_screenshot, _screenshotDigest, _pixelsDenied) = (null, null, false);
         Attach(observation);
         return WithScreenshot(observation, Initial(observation));
@@ -167,6 +196,7 @@ internal sealed partial class ScreenPresenter
     public ScreenOutput Present(ExecutorObservation observation, ScreenUpdateOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(observation);
+        observation = ForVision(observation, Vision);
         options ??= new ScreenUpdateOptions();
         var compared = Attach(observation);
         var pixels = compared == PixelEvidence.None && _pixelsDenied ? PixelEvidence.Unavailable : compared;

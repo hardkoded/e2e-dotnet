@@ -155,6 +155,27 @@ Engines that declare [History](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_En
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_CaptureStateAsync_"></a>
+<a id="E2E_Engine_IEngineSession_CaptureStateAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### CaptureStateAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task<EngineState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[CaptureStateAsync(CancellationToken)](#E2E_Engine_IEngineSession_CaptureStateAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `state.capture`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;EngineState&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_CaptureStateAsync_System_Threading_CancellationToken_"></a>
 
 ### CaptureStateAsync(CancellationToken)
@@ -178,6 +199,27 @@ Captures the app's state (cookies and storage) as a payload another session can 
 **Returns:** [Task&lt;EngineState&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_ClearStateAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ClearStateAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ClearStateAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task ClearStateAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[ClearStateAsync(CancellationToken)](#E2E_Engine_IEngineSession_ClearStateAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `session.reset`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_ClearStateAsync_System_Threading_CancellationToken_"></a>
 
 ### ClearStateAsync(CancellationToken)
@@ -199,6 +241,27 @@ Discards cookies, storage, and history, and opens a blank document.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_DismissKeyboardAsync_"></a>
+<a id="E2E_Engine_IEngineSession_DismissKeyboardAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### DismissKeyboardAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task DismissKeyboardAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[DismissKeyboardAsync(CancellationToken)](#E2E_Engine_IEngineSession_DismissKeyboardAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `keyboard.dismiss`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_DismissKeyboardAsync_System_Threading_CancellationToken_"></a>
 
 ### DismissKeyboardAsync(CancellationToken)
@@ -222,6 +285,29 @@ Upstream's `keyboard.dismiss`.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_LocateAsync_"></a>
+<a id="E2E_Engine_IEngineSession_LocateAsync_E2E_LocatorExpression_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### LocateAsync(LocatorExpression, TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`LocateAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `locate(expression, operation)`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `expression` | [LocatorExpression](/api/E2E/LocatorExpression/) |  |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;SemanticNode&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_LocateAsync_E2E_LocatorExpression_System_TimeSpan_System_Threading_CancellationToken_"></a>
 
 ### LocateAsync(LocatorExpression, TimeSpan, CancellationToken)
@@ -251,6 +337,29 @@ An engine ends the resolve at this budget, with `OPERATION_TIMEOUT`, and does no
 **Returns:** [Task&lt;IReadOnlyList&lt;SemanticNode&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_ObserveAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ObserveAsync_E2E_Engine_ObserveOptions_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ObserveAsync(ObserveOptions?, TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`ObserveAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `observe(operation, { pixels, comparable })`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ObserveOptions](/api/E2E.Engine/ObserveOptions/) |  |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ObserveAsync_E2E_Engine_ObserveOptions_System_TimeSpan_System_Threading_CancellationToken_"></a>
 
 ### ObserveAsync(ObserveOptions?, TimeSpan, CancellationToken)
@@ -276,6 +385,27 @@ default does (.NET-only: it keeps the engines that capture no pixels compiling).
 
 **Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_IEngineSession_ObserveAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ObserveAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task<Observation> ObserveAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[ObserveAsync(CancellationToken)](#E2E_Engine_IEngineSession_ObserveAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `observe(operation)`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ObserveAsync_System_Threading_CancellationToken_"></a>
 
 ### ObserveAsync(CancellationToken)
@@ -290,6 +420,28 @@ Task<Observation> ObserveAsync(CancellationToken cancellationToken)
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IEngineSession_ObserveAsync_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ObserveAsync(TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task<Observation> ObserveAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`ObserveAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `observe(operation)` with its `operation.timeoutMs`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
@@ -319,6 +471,28 @@ as [ObserveAsync(CancellationToken)](#E2E_Engine_IEngineSession_ObserveAsync_Sys
 **Returns:** [Task&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_OpenAsync_"></a>
+<a id="E2E_Engine_IEngineSession_OpenAsync_System_String_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### OpenAsync(string, OperationContext, CancellationToken)
+
+
+```csharp
+Task OpenAsync(string url, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`OpenAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `session.open`. The default drops the context, as `PerformAsync` does (.NET-only: it keeps the engines that ignore it compiling).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `url` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_OpenAsync_System_String_System_Threading_CancellationToken_"></a>
 
 ### OpenAsync(string, CancellationToken)
@@ -434,6 +608,28 @@ Upstream's `performAt`.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_PressAsync_"></a>
+<a id="E2E_Engine_IEngineSession_PressAsync_System_String_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### PressAsync(string, OperationContext, CancellationToken)
+
+
+```csharp
+Task PressAsync(string key, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`PressAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `keyboard.press(key, operation)`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_PressAsync_System_String_System_Threading_CancellationToken_"></a>
 
 ### PressAsync(string, CancellationToken)
@@ -480,6 +676,27 @@ Sets the viewport to &lt;code class="paramref"&gt;size&lt;/code&gt; in CSS pixel
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_RestartAsync_"></a>
+<a id="E2E_Engine_IEngineSession_RestartAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### RestartAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task RestartAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[RestartAsync(CancellationToken)](#E2E_Engine_IEngineSession_RestartAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `session.restart`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_RestartAsync_System_Threading_CancellationToken_"></a>
 
 ### RestartAsync(CancellationToken)
@@ -501,6 +718,28 @@ Closes the current document and opens a blank one, keeping cookies and storage.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_RestoreStateAsync_"></a>
+<a id="E2E_Engine_IEngineSession_RestoreStateAsync_E2E_EngineState_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### RestoreStateAsync(EngineState, OperationContext, CancellationToken)
+
+
+```csharp
+Task RestoreStateAsync(EngineState state, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`RestoreStateAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `state.restore`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `state` | [EngineState](/api/E2E/EngineState/) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_RestoreStateAsync_E2E_EngineState_System_Threading_CancellationToken_"></a>
 
 ### RestoreStateAsync(EngineState, CancellationToken)
@@ -523,6 +762,28 @@ Replaces the app's current state with one [CaptureStateAsync(CancellationToken)]
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_ScreenshotArtifactAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ScreenshotArtifactAsync_System_String_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ScreenshotArtifactAsync(string?, OperationContext, CancellationToken)
+
+
+```csharp
+Task<string> ScreenshotArtifactAsync(string? label, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`ScreenshotArtifactAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.screenshot`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `label` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ScreenshotArtifactAsync_System_String_System_Threading_CancellationToken_"></a>
 
 ### ScreenshotArtifactAsync(string?, CancellationToken)
@@ -546,6 +807,29 @@ fails with `UNSUPPORTED_CAPABILITY`, as upstream's guard does.
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_IEngineSession_ScreenshotArtifactAsync_System_String_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ScreenshotArtifactAsync(string?, TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`ScreenshotArtifactAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.screenshot`. The default passes the timeout on as the context's timeout (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `label` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ScreenshotArtifactAsync_System_String_System_TimeSpan_System_Threading_CancellationToken_"></a>
 
 ### ScreenshotArtifactAsync(string?, TimeSpan, CancellationToken)
@@ -557,7 +841,7 @@ Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, Cancellati
 
 
 `ScreenshotArtifactAsync` within &lt;code class="paramref"&gt;timeout&lt;/code&gt;, the operation budget its snapshot
-and capture share (upstream's `artifacts.screenshot(label, operation)`). The default drops the budget (.NET-only, as
+and capture share (upstream's `artifacts.screenshot`). The default passes it on as the call's timeout (.NET-only, as
 `ObserveAsync`).
 
 **Parameters**
@@ -571,6 +855,27 @@ and capture share (upstream's `artifacts.screenshot(label, operation)`). The def
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_ScreenshotAsync_"></a>
+<a id="E2E_Engine_IEngineSession_ScreenshotAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ScreenshotAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task<EngineScreenshot> ScreenshotAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[ScreenshotAsync(CancellationToken)](#E2E_Engine_IEngineSession_ScreenshotAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.screenshot`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ScreenshotAsync_System_Threading_CancellationToken_"></a>
 
 ### ScreenshotAsync(CancellationToken)
@@ -593,6 +898,28 @@ and every secure field covered before the image leaves the engine. Engines that 
 
 **Returns:** [Task&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_IEngineSession_ScreenshotAsync_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### ScreenshotAsync(TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`ScreenshotAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.screenshot` with its `operation.timeoutMs`. The default passes the timeout on as the context's timeout (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_ScreenshotAsync_System_TimeSpan_System_Threading_CancellationToken_"></a>
 
 ### ScreenshotAsync(TimeSpan, CancellationToken)
@@ -605,7 +932,7 @@ Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cance
 
 [ScreenshotAsync(CancellationToken)](#E2E_Engine_IEngineSession_ScreenshotAsync_System_Threading_CancellationToken_) within &lt;code class="paramref"&gt;timeout&lt;/code&gt;, the operation budget left for the capture
 (upstream's `operation.timeoutMs`). An engine that bounds its reads overrides it and ends the capture at the budget with
-`OPERATION_TIMEOUT`; the default drops the budget (.NET-only, as `ObserveAsync`).
+`OPERATION_TIMEOUT`; the default passes it on as the call's timeout (.NET-only, as `ObserveAsync`).
 
 **Parameters**
 
@@ -617,6 +944,28 @@ Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cance
 **Returns:** [Task&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IEngineSession_SettleAttemptAsync_"></a>
+<a id="E2E_Engine_IEngineSession_SettleAttemptAsync_System_TimeSpan_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### SettleAttemptAsync(TimeSpan, OperationContext, CancellationToken)
+
+
+```csharp
+Task SettleAttemptAsync(TimeSpan timeout, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`SettleAttemptAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `settle(operation)`, whose `operation.timeoutMs` is the cleanup budget. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_SettleAttemptAsync_System_TimeSpan_System_Threading_CancellationToken_"></a>
 
 ### SettleAttemptAsync(TimeSpan, CancellationToken)
@@ -642,6 +991,27 @@ MUST report each failure once. Upstream's `settleAttempt`, whose `EngineCleanupC
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_StartVideoAsync_"></a>
+<a id="E2E_Engine_IEngineSession_StartVideoAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### StartVideoAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[StartVideoAsync(CancellationToken)](#E2E_Engine_IEngineSession_StartVideoAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.startVideo`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_StartVideoAsync_System_Threading_CancellationToken_"></a>
 
 ### StartVideoAsync(CancellationToken)
@@ -666,6 +1036,27 @@ before the next start. Upstream's `startVideo`.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_StopVideoAsync_"></a>
+<a id="E2E_Engine_IEngineSession_StopVideoAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### StopVideoAsync(OperationContext, CancellationToken)
+
+
+```csharp
+Task<IReadOnlyList<VideoSegment>> StopVideoAsync(OperationContext context, CancellationToken cancellationToken)
+```
+
+
+[StopVideoAsync(CancellationToken)](#E2E_Engine_IEngineSession_StopVideoAsync_System_Threading_CancellationToken_) with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `artifacts.stopVideo`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;VideoSegment&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IEngineSession_StopVideoAsync_System_Threading_CancellationToken_"></a>
 
 ### StopVideoAsync(CancellationToken)
@@ -759,6 +1150,29 @@ Scrolls the viewport about three quarters of a screen. Engines that declare
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Engine_IEngineSession_TypeTextAsync_"></a>
+<a id="E2E_Engine_IEngineSession_TypeTextAsync_System_String_System_Boolean_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### TypeTextAsync(string, bool, OperationContext, CancellationToken)
+
+
+```csharp
+Task TypeTextAsync(string text, bool replace, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+`TypeTextAsync` with &lt;code class="paramref"&gt;context&lt;/code&gt;: upstream's `keyboard.type`. The default drops the context (.NET-only).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `replace` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_TypeTextAsync_System_String_System_Boolean_System_Threading_CancellationToken_"></a>
 
 ### TypeTextAsync(string, bool, CancellationToken)

@@ -57,7 +57,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |
 | `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as drag-and-drop (blocked: automation) | test | 1 |
 | `MODEL_UNAVAILABLE` | No model configured, or GitHub Copilot does not serve the configured model to this account (`model_not_supported`) | configuration | 2 |
-| `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, or a read from a secure field | configuration | 2 |
+| `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, a read from a secure field, or an action that changes the screen during an assertion | configuration | 2 |
 | `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. With a `log`, the startup error quotes the log's output since the command started, `command.env` values redacted, or says there was none. A long log keeps its first and last 20 lines, with `[startup output omitted]` between them. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |
 | `APP_ALREADY_RUNNING` | The ready URL answered before the target's app command was spawned | infrastructure | 3 |
 | `BROWSER_INSTALL_FAILED` | Browser provisioning failed: the first-launch Playwright install exited non-zero. The message names the exit code | infrastructure | 3 |
@@ -73,7 +73,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `CONTEXT_OVERFLOW` | A request exceeded the model's context window. Reported as blocked: automation | test | 1 |
 | `MODEL_REFUSED` | The model refused the request (finish reason `content-filter`) and returned no usable answer. Reported as blocked: automation | test | 1 |
 | `ASSERTION_FAILED` | `AssertAsync` judged false, or a locator, `Browser`, or value expectation failed | test | 1 |
-| `ASSERTION_INCONCLUSIVE` | `AssertAsync` could not judge: the screen did not show enough to decide either way. `ExtractAsync` raises it when the model answers that the screen does not show the requested data. A failure, never a pass | test | 1 |
+| `ASSERTION_INCONCLUSIVE` | `AssertAsync` could not judge: the screen did not show enough to decide either way. An exploring assertion (`Explore = true`) reports it too when its time or action and model-call budget ran out, or its evidence outgrew the model's context window, in place of `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED`, `STEP_NO_CONCLUSION`, and `CONTEXT_OVERFLOW`. `ExtractAsync` raises it when the model answers that the screen does not show the requested data. A failure, never a pass | test | 1 |
 | `AUTHENTICATION_FAILED` | The executor concluded that signing in failed inside the app: a product verdict. `AUTH_CREDENTIAL_INVALID` is the blocked counterpart, for a configured credential the app rejects | test | 1 |
 | `STEP_NO_CONCLUSION` | The executor used every turn without calling `done` (upstream's `complete_step`). The step fails with the agent's last summary | test | 1 |
 | `REPLAY_STALE` | Under `cache.strict`, the step's recording exists but no longer replays, so the step fails with no model call instead of handing off to the agent. See [Caching](/features/caching/) | configuration | 2 |

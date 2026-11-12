@@ -180,9 +180,10 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Refuses_actions_that_change_the_screen_on_an_assertion_and_lets_it_read()
+    public async Task Partial_Refuses_actions_that_change_the_screen_on_an_assertion_including_hover_and_lets_it_read()
     {
-        // Partial: upstream lets the assertion hover; the document engine has no pointer, so the read-only tool here is scroll.
+        // Partial: upstream also has the assertion call hover and sees it refused; the document engine has no pointer, so there is no hover to
+        // refuse, and the read-only tool here is scroll.
         var page = new TodoPage();
         var agent = Scripted(_directory, Turns([Tap("Add"), Call("scroll", new { direction = "down" }), Call("done", new { status = "failed", summary = "no todo" })]));
         await using var session = await StartAsync(agent.Executor, page.World());
@@ -195,6 +196,54 @@ public sealed class AcpTests : IDisposable
         Assert.Equal(0, page.Adds);
         Assert.Contains("this step is an assertion", agent.ResultOf("tap"), StringComparison.Ordinal);
         Assert.DoesNotContain("this step is an assertion", agent.ResultOf("scroll"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Partial_Refuses_screen_changes_on_an_assertion_that_follows_an_act_in_the_same_session_and_hints_read_only_tools()
+    {
+        // Partial: upstream's assertion also calls hover; the document engine has no pointer.
+        var page = new TodoPage();
+        var agent = Scripted(_directory, Turns([Pass], [Tap("Add"), Pass]));
+        await using var session = await StartAsync(agent.Executor, page.World());
+
+        await session.Agent.ActAsync("add a todo");
+        await session.Agent.AssertAsync("the list shows a todo");
+
+        Assert.Equal(0, page.Adds);
+        Assert.Contains("this step is an assertion", agent.ResultOf("tap"), StringComparison.Ordinal);
+        var served = Assert.Single(agent.Sessions())["session"]!;
+        Assert.Equal(["done", "observe", "screenshot", "scroll", "scroll_to"], served["readOnly"]!.AsArray().Select(name => name!.GetValue<string>()).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Advertises_action_tools_when_the_attempt_begins_with_an_assertion()
+    {
+        var page = new TodoPage();
+        var agent = Scripted(_directory, Turns([Pass], [Tap("Add"), Pass]));
+        await using var session = await StartAsync(agent.Executor, page.World());
+
+        await session.Agent.AssertAsync("the page is up");
+        await session.Agent.ActAsync("add a todo");
+
+        Assert.Equal(1, page.Adds);
+        var served = Assert.Single(agent.Sessions())["session"]!;
+        Assert.Contains("tap", served["tools"]!.AsArray().Select(name => name!.GetValue<string>()));
+    }
+
+    [Fact]
+    public async Task Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion_in_one_attempt()
+    {
+        var inconclusive = Call("done", new { status = "failed", summary = "not enough evidence", code = "ASSERTION_INCONCLUSIVE" });
+        var agent = Scripted(_directory, Turns([inconclusive], [inconclusive]));
+        await using var session = await StartAsync(agent.Executor, new TodoPage().World());
+
+        var act = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
+        var assertion = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the list shows a todo"));
+
+        Assert.Equal("ACTION_FAILED", act.Code);
+        Assert.Equal("ASSERTION_INCONCLUSIVE", assertion.Code);
+        Assert.Contains("the code ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
+        Assert.Single(agent.Sessions());
     }
 
     [Fact]

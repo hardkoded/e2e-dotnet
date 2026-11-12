@@ -101,3 +101,19 @@ public IReadOnlyList<ExecutorSecret> Secrets { get; init; }
 The secrets declared in the params, which `TypeSecretAsync` may fill.
 
 **Value:** [IReadOnlyList&lt;ExecutorSecret&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+<a id="E2E_ExecutorStep_Vision_"></a>
+<a id="E2E_ExecutorStep_Vision"></a>
+
+### Vision
+
+
+```csharp
+public VisionMode? Vision { get; init; }
+```
+
+
+Assert only: the [Vision](/api/E2E/AssertOptions/#E2E_AssertOptions_Vision) the call asked for, set only for an executor whose [Vision](/api/E2E/IStepExecutor/#E2E_IStepExecutor_Vision) is true.
+[On](/api/E2E/VisionMode/#E2E_VisionMode_On) shows pixels beside the tree, [Only](/api/E2E/VisionMode/#E2E_VisionMode_Only) pixels alone; null when the call passed none.
+
+**Value:** `VisionMode?`

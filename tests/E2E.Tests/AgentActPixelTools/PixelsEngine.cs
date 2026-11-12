@@ -19,8 +19,17 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
     /// <summary>Whether a look that asks for the pixel fallback finds the semantic tree unreadable.</summary>
     public bool TreeUnavailable { get; set; }
 
+    /// <summary>Whether the unreadable look answers with no tree even when it did not ask for the pixel fallback, as upstream's fake engines do.</summary>
+    public bool IgnoresPixelFallback { get; set; }
+
     /// <summary>Whether the unreadable look answers without pixels, as an engine that cannot prove the screen masked does.</summary>
     public bool WithholdPixels { get; set; }
+
+    /// <summary>The number of screenshots the engine takes before it captures no more, as an engine that loses its pixels does. Unlimited by default.</summary>
+    public int ShotsBeforeLoss { get; set; } = int.MaxValue;
+
+    /// <summary>The options of every look the engine answered, in order: what the runtime asked each one for.</summary>
+    public List<ObserveOptions?> Looks { get; } = [];
 
     /// <summary>The number of screenshots the engine took.</summary>
     public int Shots => Volatile.Read(ref _shots);
@@ -36,6 +45,11 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
 
     private EngineScreenshot Capture()
     {
+        if (Shots >= ShotsBeforeLoss)
+        {
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this engine captures no more pixels", retryable: false);
+        }
+
         var shade = (byte)(40 * Interlocked.Increment(ref _shots) % 250);
         var data = new byte[1280 * 720 * 4];
         for (var at = 0; at < data.Length; at += 4)
@@ -59,7 +73,12 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
 
         public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
         {
-            if (engine.TreeUnavailable && options?.PixelFallback == true)
+            lock (engine.Looks)
+            {
+                engine.Looks.Add(options);
+            }
+
+            if (engine.TreeUnavailable && (options?.PixelFallback == true || engine.IgnoresPixelFallback))
             {
                 return new Observation { Route = session.Route, Roots = [], TreeUnavailable = true, Pixels = engine.WithholdPixels ? null : engine.Capture() };
             }

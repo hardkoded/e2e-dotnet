@@ -86,6 +86,12 @@ public sealed class ToolLoopExecutorOptions
     /// carries forward to later turns.
     /// </summary>
     public Func<IReadOnlyList<ModelMessage>, PreparedTurn, PreparedMessages>? PrepareMessages { get; init; }
+
+    /// <summary>
+    /// Fails a context overflow as <c>ASSERTION_INCONCLUSIVE</c> instead of shrinking the history and retrying: for an assertion loop
+    /// whose earlier screens are evidence it must not drop.
+    /// </summary>
+    public bool InconclusiveOnOverflow { get; init; }
 }
 
 /// <summary>
@@ -218,8 +224,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         }
     }
 
-    // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
-    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
+    // Only the definition and the stateless Decide policy of these are used: a shared instance must never run Execute, which keeps a verdict.
+    // One per step kind, since an act drops an inconclusive code that an assertion keeps.
+    private static readonly VerdictTool ActVerdict = AgentTools.CreateVerdictTool(ExecutorStepKind.Act);
+
+    private static readonly VerdictTool AssertVerdict = AgentTools.CreateVerdictTool(ExecutorStepKind.Assert);
 
     public string Name => options.Name;
 
@@ -241,7 +250,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         AgentException? hardStop = null;
         var concluded = false;
         var tools = options.Tools(context, new ToolLoopHelpers(() => concluded || hardStop is not null, error => hardStop ??= error));
-        var definitions = tools.Select(tool => tool.Definition).Append(Verdict.Tool).ToList();
+        var verdictTool = context.Step.Kind == ExecutorStepKind.Assert ? AssertVerdict : ActVerdict;
+        var definitions = tools.Select(tool => tool.Definition).Append(verdictTool.Tool).ToList();
         var system = SystemFor(context);
         var messages = options.BuildMessages is { } build
             ? [.. await build(context).ConfigureAwait(false)]
@@ -381,6 +391,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 // One recovery: the history shrinks and the request goes out again, through the same turn preparation as any
                 // other, which notices the shrink. The refused request was no turn, so it spends no call of the budget, and a
                 // second refusal is the step's verdict.
+                if (options.InconclusiveOnOverflow)
+                {
+                    throw new AgentException("ASSERTION_INCONCLUSIVE", "step evidence exceeds the model context window; earlier viewports cannot be discarded", overflow);
+                }
+
                 if (shrunkOnce)
                 {
                     throw ToolLoop.Overflowed(overflow, " again after the history was shrunk once");
@@ -440,7 +455,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 var outcome = ToolOutcome.Fail(toolCall.Name + " did not run: only done is available now. Call done with your verdict.");
                 if (!forced || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
                 {
-                    await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, token).ConfigureAwait(false)).ConfigureAwait(false);
+                    await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, verdictTool, token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
 
                 turns.AddResult(turn, toolCall.Name, outcome.Content);
@@ -616,11 +631,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         }
     }
 
-    private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)
+    private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, VerdictTool verdict, CancellationToken token)
     {
         if (string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal))
         {
-            return Verdict.Decide(call);
+            return verdict.Decide(call);
         }
 
         var tool = tools.FirstOrDefault(item => string.Equals(item.Definition.Name, call.Name, StringComparison.Ordinal));

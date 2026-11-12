@@ -83,12 +83,18 @@ public sealed partial class Agent
     public Task AssertAsync(string statement, AssertOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
+        if (options?.Explore != true && (options?.MaxSteps is not null || options?.MaxModelCalls is not null))
+        {
+            throw new TestException("INVALID_ARGUMENT", "assert budgets require Explore = true");
+        }
+
         var agent = _scope.Select(options?.Agent);
-        // The brain that plans the flows judges the assertions too, so a custom executor takes the assert.
-        if (agent.Executor is not null)
+        // The brain that plans the flows judges the assertions too, so a custom executor takes the assert. So does an exploring one:
+        // the judgment tier below looks once.
+        if (agent.Executor is not null || options?.Explore == true)
         {
             ActParams.Validate(options?.Params, "agent.assert");
-            return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => AssertWithExecutorAsync(statement, options, agent, cancellationToken)));
+            return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => RunAssertStepAsync(statement, options, agent, cancellationToken)));
         }
 
         var parameters = JudgmentParams(options?.Params, "agent.assert");
@@ -1188,9 +1194,23 @@ public enum ActionSource
     Replay,
 }
 
-/// <summary><c>agent.assert</c>: one judgment and one repair round, within <see cref="Timeout"/>.</summary>
+/// <summary><c>agent.assert</c>: one judgment and one repair round within <see cref="Timeout"/>, or opt-in bounded viewport exploration (<see cref="Explore"/>).</summary>
 public sealed class AssertOptions
 {
+    /// <summary>
+    /// Look around by scrolling before judging; defaults to false. An exploring assertion offers <c>observe</c>, <c>scroll</c>,
+    /// <c>scroll_to</c>, and project tools declared read-only, and <c>screenshot</c> when <see cref="Vision"/> is not <see cref="VisionMode.Off"/>.
+    /// It uses the agent's <c>Model</c>, even when a <c>Judge</c> is configured. Insufficient evidence within the time or action and model
+    /// budget fails <c>ASSERTION_INCONCLUSIVE</c>.
+    /// </summary>
+    public bool Explore { get; init; }
+
+    /// <summary>Scroll budget; requires <see cref="Explore"/> (<c>INVALID_ARGUMENT</c> otherwise). Defaults to min(10, the configured <c>MaxSteps</c>), and can only lower the configured limit.</summary>
+    public int? MaxSteps { get; init; }
+
+    /// <summary>Model-call budget; requires <see cref="Explore"/> (<c>INVALID_ARGUMENT</c> otherwise). Defaults to min(6, the configured <c>MaxModelCalls</c>), and can only lower the configured limit.</summary>
+    public int? MaxModelCalls { get; init; }
+
     /// <summary>
     /// Values the assertion refers to as <c>{name}</c>, with the same rules as <see cref="ActOptions.Params"/>. The judge reads a
     /// <see cref="Values.Unique"/> value as its string and a <see cref="Secret"/> by name only, never its value.
@@ -1911,11 +1931,13 @@ internal sealed class ToolOutcome
     public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code, ErrorText = true };
 
     /// <summary>A verdict the policy accepted. <paramref name="droppedCode"/> is the code a passed verdict carried (empty when it is not a code the model may send, so the answer does not echo it); the answer says it was ignored.</summary>
-    public static ToolOutcome Finish(string status, string? summary, string? code, string? droppedCode = null) => new()
+    public static ToolOutcome Finish(string status, string? summary, string? code, string? droppedCode = null, bool assertionOnly = false) => new()
     {
         Content = droppedCode is null
             ? "Step concluded."
-            : "Step concluded as passed; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent does not apply to a passed verdict and was ignored.",
+            : assertionOnly
+                ? "Step concluded as " + status + "; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent applies only to assertions and was ignored."
+                : "Step concluded as passed; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent does not apply to a passed verdict and was ignored.",
         Succeeded = true,
         Done = true,
         Status = status,

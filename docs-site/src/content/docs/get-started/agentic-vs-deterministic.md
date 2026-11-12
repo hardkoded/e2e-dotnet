@@ -69,7 +69,9 @@ await Agent.AssertAsync("the chart trends upward", new AssertOptions { Vision = 
 The agent's observation shows a frame from another site, such as a hosted card field, as an `iframe` node with no content. To judge that content, use `Vision = VisionMode.On` (or `Only`), and reach it with script steps through `Browser.FrameLocator`. See [Working with the browser](/features/browser/#reach-into-an-iframe).
 
 `Agent.AssertAsync` checks the current screen and fails if the statement is
-false or the evidence is insufficient. Use `Agent.WaitForAsync` when the UI
+false or the evidence is insufficient. When the evidence may be below the fold,
+pass `Explore = true` and the assertion can scroll the screen, with read-only
+tools and bounded budgets, before it judges. Use `Agent.WaitForAsync` when the UI
 still needs time to reach the expected state. See
 [Core concepts](/get-started/core-concepts/) for how a judgment reads the screen.
 

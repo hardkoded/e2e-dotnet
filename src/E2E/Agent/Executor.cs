@@ -40,6 +40,12 @@ public interface IStepExecutor
     IAgentModel? Judge => null;
 
     /// <summary>
+    /// Whether the executor honors <see cref="AssertOptions.Vision"/>: the mode reaches it as <see cref="ExecutorStep.Vision"/>. Without
+    /// this, the option fails the call with <c>UNSUPPORTED_CAPABILITY</c>, since only the executor decides what its model sees. Upstream's <c>vision</c>.
+    /// </summary>
+    bool Vision => false;
+
+    /// <summary>
     /// Runs one step. <paramref name="cancellationToken"/> ends when the test is cancelled, when the step deadline
     /// passes, or on any other hard stop. Stop promptly: the runtime settles the step at the hard stop either way, so
     /// a late verdict is never trusted over it.
@@ -159,6 +165,12 @@ public sealed class ExecutorStep
 
     /// <summary>The secrets declared in the params, which <see cref="IExecutorActions.TypeSecretAsync"/> may fill.</summary>
     public IReadOnlyList<ExecutorSecret> Secrets { get; init; } = [];
+
+    /// <summary>
+    /// Assert only: the <see cref="AssertOptions.Vision"/> the call asked for, set only for an executor whose <see cref="IStepExecutor.Vision"/> is true.
+    /// <see cref="VisionMode.On"/> shows pixels beside the tree, <see cref="VisionMode.Only"/> pixels alone; null when the call passed none.
+    /// </summary>
+    public VisionMode? Vision { get; init; }
 }
 
 /// <summary>Upstream's <c>ExecutorStep.kind</c>.</summary>

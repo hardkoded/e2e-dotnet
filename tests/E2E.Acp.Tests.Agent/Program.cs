@@ -236,7 +236,9 @@ async Task<JsonNode?> NewSession(JsonNode parameters)
         ["clientInfo"] = new JsonObject { ["name"] = "scripted-agent", ["version"] = "1" },
     });
     await Mcp("notifications/initialized", null, notification: true);
-    var tools = (await Mcp("tools/list", null))!["tools"]!.AsArray().Select(tool => (JsonNode)tool!["name"]!.GetValue<string>()).ToArray();
+    var listed = (await Mcp("tools/list", null))!["tools"]!.AsArray();
+    var tools = listed.Select(tool => (JsonNode)tool!["name"]!.GetValue<string>()).ToArray();
+    var readOnly = listed.Where(tool => tool!["annotations"]?["readOnlyHint"]?.GetValue<bool>() == true).Select(tool => (JsonNode)tool!["name"]!.GetValue<string>()).ToArray();
     Log(new JsonObject
     {
         ["session"] = new JsonObject
@@ -245,6 +247,7 @@ async Task<JsonNode?> NewSession(JsonNode parameters)
             ["server"] = server["name"]!.DeepClone(),
             ["meta"] = parameters["_meta"]?.DeepClone(),
             ["tools"] = new JsonArray(tools),
+            ["readOnly"] = new JsonArray(readOnly),
         },
     });
     return new JsonObject

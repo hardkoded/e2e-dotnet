@@ -301,7 +301,7 @@ Assert.That(data.Titles, Does.Contain("Buy milk"));
 public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 ```
 
-- `AssertAsync` does not poll. False is `ASSERTION_FAILED` with the model's
+- `AssertAsync` does not poll by default (see [viewport exploration](#viewport-exploration)). False is `ASSERTION_FAILED` with the model's
   explanation. Too little on screen to decide is `ASSERTION_INCONCLUSIVE`,
   also a failure, so reach the right screen first and ask about what is
   visible.
@@ -365,6 +365,38 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   `AssertOptions.Screenshot = false` to keep none. After a secret fill it is
   still kept: it masks secure fields only, so a secret the app shows anywhere
   else is in the image.
+
+### Viewport exploration
+
+With `Explore = true`, `AssertAsync` can scroll the current screen and combine
+evidence from several viewports. This helps when a list fits on a tablet but
+needs scrolling on a phone.
+
+```csharp
+await Agent.AssertAsync("Settings lists HOS Settings, Account, Language and Theme", new AssertOptions
+{
+    Explore = true,
+    MaxSteps = 10,
+    MaxModelCalls = 6,
+});
+```
+
+Exploration offers `observe`, `scroll`, `scroll_to`, and project tools declared
+`mutates: false`. The built-in executor also offers `screenshot` when `Vision`
+is `On` or `Only`; the default is tree-only. Other actions are rejected with
+`POLICY_DENIED`. The viewport stays where exploration ends.
+
+Defaults are 10 scroll actions and 6 model calls, each capped at the selected
+agent's configured limit. Overrides may exceed the 10/6 defaults, up to the
+configured limits. The deadline defaults to `judgmentTimeout`. `MaxSteps` or
+`MaxModelCalls` without `Explore = true` throws `INVALID_ARGUMENT`. The
+built-in executor uses `agents.<name>.model`, even when `judge` is configured.
+
+A contradiction is `ASSERTION_FAILED`; insufficient evidence within the time
+or action/model budget is `ASSERTION_INCONCLUSIVE`.
+
+Use `WaitForAsync` for a condition that changes over time, and `Explore` for
+content elsewhere on the current screen.
 
 ## Write instructions the model can execute
 
@@ -503,7 +535,8 @@ notice that asks for a tool call or `done`.
 | Call | Model calls | Default timeout |
 | --- | ---: | --- |
 | `ActAsync` | up to `maxModelCalls` (25) | 30 s |
-| `AssertAsync` | 2 | 30 s |
+| `AssertAsync` without exploration | 2 | 30 s |
+| `AssertAsync` with `Explore` | min(6, configured limit), plus up to min(10, configured limit) actions | 30 s |
 | `ExtractAsync` | 2 | 30 s |
 | `WaitForAsync` | up to `maxModelCalls` (25) | 30 s |
 
@@ -517,7 +550,9 @@ A model request the provider refuses as too large ends a judgment with
 superseded screen, cuts any text past 16,384 characters to its head with a
 notice, and sends the request again. The refused request spends no model
 call. A second refusal, or a first one with nothing to shrink, is
-`CONTEXT_OVERFLOW`.
+`CONTEXT_OVERFLOW`. `ToolLoopExecutorOptions.InconclusiveOnOverflow = true`
+fails the step with `ASSERTION_INCONCLUSIVE` instead, for an assertion loop
+whose earlier screens are evidence.
 
 ## The replay cache
 
@@ -836,7 +871,7 @@ System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when
 ```
 
 An executor that drives a model outside the loop gets the built-in verdict from
-`AgentTools.CreateVerdictTool()`: give the model its `Tool` and
+`AgentTools.CreateVerdictTool(context.Step.Kind)`: give the model its `Tool` and
 `AgentTools.VerdictRules`, run each `done` call with `Execute(call)`, and return
 `Verdict` once `Concluded`. The tool is `done`, and it takes `code`.
 
@@ -899,9 +934,17 @@ the executor, and when a replay stops part way the executor gets
 `ReplayedPrefix`. `Off` never replays or records. An assert is never cached.
 
 On an agent with an executor, `AssertAsync` goes to it as a step with `Kind`
-`Assert`. `Vision` is refused with `UNSUPPORTED_CAPABILITY`, since the executor
-decides what its model sees. `Screenshot` still keeps evidence after the
-verdict.
+`Assert`; so does an assertion with `Explore = true`, with any executor. An
+executor that sets `IStepExecutor.Vision` to true receives the mode as
+`ExecutorStep.Vision`; for any other, `Vision` is refused with
+`UNSUPPORTED_CAPABILITY`, since the executor decides what its model sees.
+`Screenshot` still keeps evidence after the verdict. An assertion step may only
+read: the runtime refuses any action but `observe`, `screenshot`, `scroll`, and
+`scroll_to`, and any project tool declared `mutates: true`, with
+`POLICY_DENIED`. A step that ends without enough evidence reports
+`ASSERTION_INCONCLUSIVE` where an act reports `STEP_BUDGET_EXHAUSTED`,
+`STEP_TIMEOUT`, or `STEP_NO_CONCLUSION`. `CreateVerdictTool` drops
+`ASSERTION_INCONCLUSIVE` from the failed verdict of an `Act` step.
 
 A custom executor shows an image in a tool result with `ToolLoopResult.Pixels`;
 the loop sends it on a user turn after the turn's tool results. Set

@@ -28,6 +28,16 @@ public sealed class SdkTypesTests
         Assert.False(string.IsNullOrWhiteSpace(DefaultAgent.BaseRules));
     }
 
+    // "await agent.assert('all settings are reachable', { explore: true, maxSteps: 10, maxModelCalls: 6, vision: 'only' })".
+    [Fact]
+    public void Accepts_exploration_options_on_an_assertion()
+    {
+        var options = new AssertOptions { Explore = true, MaxSteps = 10, MaxModelCalls = 6, Vision = VisionMode.Only };
+
+        Assert.True(options.Explore);
+        Assert.Equal((10, 6, VisionMode.Only), (options.MaxSteps, options.MaxModelCalls, options.Vision));
+    }
+
     // "@ts-expect-error the screen presenter stays internal" and "failure causes stay internal".
     [Fact]
     public void The_screen_presenter_and_the_failure_causes_stay_internal()

@@ -32,6 +32,12 @@ internal sealed class StepSpec
     /// <summary>Act only: the test's hook before each action.</summary>
     public BeforeActionHook? OnBeforeAction { get; init; }
 
+    /// <summary>
+    /// Assert only: the <see cref="AssertOptions.Vision"/> the call asked for. Null for a custom executor that declares no <see cref="IStepExecutor.Vision"/>,
+    /// or whose call passed none; the built-in executor always has it. Upstream's <c>vision</c>.
+    /// </summary>
+    public VisionMode? Vision { get; init; }
+
     /// <summary>Assert only: whether the runtime keeps a redacted screenshot after the verdict. <c>false</c> opts out.</summary>
     public bool? Screenshot { get; init; }
 }
@@ -70,6 +76,7 @@ internal sealed partial class ActContext : StepExecutorContext
             Instruction = scope.Redactor.Redact(spec.Instruction),
             Params = ProjectParams(spec.Params, scope.Redactor, spec.Kind == ExecutorStepKind.Act ? "agent.act" : "agent.assert"),
             Secrets = declared.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose)).ToList(),
+            Vision = spec.Vision,
         };
         Attempt = new ExecutorAttempt
         {

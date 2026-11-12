@@ -15,6 +15,11 @@ public sealed partial class Agent
     /// <summary>How long an executor that was told to stop gets to unwind before the runtime settles the step without it.</summary>
     private static readonly TimeSpan ExecutorUnwindGrace = TimeSpan.FromSeconds(1);
 
+    /// <summary>Default exploration ceilings, capped by the configured agent limits (upstream's <c>EXPLORATION_MAX_ACTIONS</c> and <c>EXPLORATION_MAX_MODEL_CALLS</c>).</summary>
+    private const int ExplorationMaxActions = 10;
+
+    private const int ExplorationMaxModelCalls = 6;
+
     private Task<ActResult> RunActStepAsync(string instruction, ActOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
@@ -79,30 +84,43 @@ public sealed partial class Agent
             });
 
     /// <summary>
-    /// Upstream's <c>runAssertStep</c>: routes one <c>assert</c> through the agent's custom executor. The brain that plans the
-    /// flows judges the assertions too, so swapping brains swaps all the thinking. <c>Screenshot</c> is evidence the runtime
-    /// takes after the verdict, so it is honored here as on the built-in path. <c>Vision</c> is what the executor's model
-    /// sees, which only the executor decides, so the call is refused.
+    /// Upstream's <c>runAssertStep</c>: runs one <c>assert</c> through the executor socket. Used when a custom executor is configured or
+    /// exploration is requested. The brain that plans the flows judges the assertions too, so swapping brains swaps all the thinking.
+    /// <c>Screenshot</c> is evidence the runtime takes after the verdict, so it is honored here as on the built-in path. <c>Vision</c> is
+    /// what the executor's model sees, so it reaches only an executor that declares <see cref="IStepExecutor.Vision"/>.
     /// </summary>
-    private async Task AssertWithExecutorAsync(string statement, AssertOptions? options, ResolvedAgent agent, CancellationToken cancellationToken)
+    private async Task RunAssertStepAsync(string statement, AssertOptions? options, ResolvedAgent agent, CancellationToken cancellationToken)
     {
-        if ((options?.Vision ?? VisionMode.Off) != VisionMode.Off)
+        var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
+        var custom = agent.Executor is not null;
+        if (vision != VisionMode.Off && custom && !agent.Executor!.Vision)
         {
             throw new ConfigurationException("UNSUPPORTED_CAPABILITY", "agent.assert vision (AssertOptions.Vision) is not supported with a custom executor: the executor decides what its model sees");
         }
 
+        var (timeout, maxSteps, maxModelCalls) = AssertionLimits(options, agent);
         await DispatchStepAsync(
             new StepSpec
             {
                 Kind = ExecutorStepKind.Assert,
                 Instruction = statement,
                 Params = options?.Params,
-                Timeout = options?.Timeout,
+                Timeout = timeout,
+                MaxSteps = maxSteps,
+                MaxModelCalls = maxModelCalls,
                 Screenshot = options?.Screenshot,
+                // Custom executors own their default evidence policy; the built-in loop enforces tree-only mode.
+                Vision = vision == VisionMode.Off && custom ? null : vision,
             },
             agent,
             cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Upstream's <c>assertionLimits</c>: resolves exploration defaults without changing ordinary assertion limits.</summary>
+    private static (TimeSpan? Timeout, int? MaxSteps, int? MaxModelCalls) AssertionLimits(AssertOptions? options, ResolvedAgent agent) =>
+        options?.Explore != true
+            ? (options?.Timeout, null, null)
+            : (options.Timeout ?? agent.JudgmentTimeout, options.MaxSteps ?? Math.Min(ExplorationMaxActions, agent.MaxSteps), options.MaxModelCalls ?? Math.Min(ExplorationMaxModelCalls, agent.MaxModelCalls));
 
     /// <summary>
     /// Upstream's <c>dispatchAgentStep</c>: opens the step, tries a cached replay, hands the executor the step when the cache
@@ -151,7 +169,9 @@ public sealed partial class Agent
                 agent.MaxInputTokens,
                 ModelAdapter.TokenUpperBound(instruction),
                 agent.Context is null ? 0 : ModelAdapter.TokenUpperBound(agent.Context),
-                ledger.Bytes),
+                ledger.Bytes,
+                // An assertion that asked for the tree alone never shows pixels (upstream's `spec.vision !== false`).
+                PixelsAllowed: spec.Vision != VisionMode.Off),
         };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
@@ -161,8 +181,8 @@ public sealed partial class Agent
         {
             _scope.Remember(spec.Params);
         }
-        var dispatcher = new ActionDispatcher(_scope, feed, budget, () => declared, spec.OnAction, instruction, spec.Params is null ? null : ActParams.Projected(spec.Params), spec.OnBeforeAction);
-        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync, () => dispatcher.BeforeAsync());
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, () => declared, spec.OnAction, instruction, spec.Params is null ? null : ActParams.Projected(spec.Params), spec.OnBeforeAction, readOnly: spec.Kind == ExecutorStepKind.Assert);
+        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync, () => dispatcher.BeforeAsync(), dispatcher.AssertAllowed);
         ActContext? context = null;
         StepTraceSession? session = null;
         try
@@ -221,7 +241,7 @@ public sealed partial class Agent
             }
             catch (Exception ex) when (ex is not OperationCanceledException || budget.HardStop is not null)
             {
-                throw SettleThrown(ToAgentException(ex, budget), budget, executor);
+                throw SettleThrown(ToAgentException(ex, budget), budget, executor, spec.Kind);
             }
 
             verdict = ValidateVerdict(verdict, executor.Name);
@@ -252,7 +272,7 @@ public sealed partial class Agent
         catch (Exception ex) when (budget.HardStop is { } hardStop && (ex is OperationCanceledException || (ex is EngineException { Code: EngineErrorCodes.Cancelled })))
         {
             // The clock or a cancel ended the step while it looked at the screen or replayed a recording.
-            throw hardStop;
+            throw AsAssertionError(hardStop, spec.Kind);
         }
         finally
         {
@@ -371,7 +391,7 @@ public sealed partial class Agent
 
     // The recorded hard stop wins over any derived failure, and a runtime code the runtime cannot corroborate is an invalid
     // verdict, not a runtime failure.
-    private static Exception SettleThrown(Exception error, StepAccounting budget, IStepExecutor executor)
+    private static Exception SettleThrown(Exception error, StepAccounting budget, IStepExecutor executor, ExecutorStepKind kind)
     {
         if (error is not AgentException agent || !StepExecutors.RuntimeCodes.Contains(agent.Code))
         {
@@ -381,15 +401,28 @@ public sealed partial class Agent
         // A loop that spent its model calls on actions the budget turned away names the action budget, which is the cause.
         if (budget.HardStop is null && budget.Exhausted && string.Equals(agent.Code, "STEP_BUDGET_EXHAUSTED", StringComparison.Ordinal))
         {
-            return budget.Stop(null);
+            return AsAssertionError(budget.Stop(null), kind);
         }
 
         if (budget.HardStop is { } hardStop)
         {
-            return hardStop;
+            return AsAssertionError(hardStop, kind);
         }
 
-        return budget.Vouches(agent.Code) ? error : Invented(agent.Code, executor, agent);
+        return budget.Vouches(agent.Code) ? AsAssertionError(agent, kind) : Invented(agent.Code, executor, agent);
+    }
+
+    /// <summary>Upstream's <c>assertionCode</c>: exhausted exploration cannot establish a product verdict.</summary>
+    private static string AssertionCode(ExecutorStepKind kind, string code) =>
+        kind == ExecutorStepKind.Assert && code is "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "STEP_NO_CONCLUSION"
+            ? "ASSERTION_INCONCLUSIVE"
+            : code;
+
+    /// <summary>Upstream's <c>asAssertionError</c>: the error with its assertion code, wrapping it only when the code changes.</summary>
+    private static AgentException AsAssertionError(AgentException error, ExecutorStepKind kind)
+    {
+        var code = AssertionCode(kind, error.Code);
+        return string.Equals(code, error.Code, StringComparison.Ordinal) ? error : new AgentException(code, error.Message, error.Blocked, error);
     }
 
     private static AgentException Invented(string code, IStepExecutor executor, Exception? cause = null) =>
@@ -459,7 +492,7 @@ public sealed partial class Agent
             if (verdict.Status == StepVerdictStatus.Passed || code is null)
             {
                 var reason = stop.Message.TrimEnd('.');
-                throw new AgentException(stop.Code, summary.Length == 0 ? reason + "." : reason + ": " + summary, blocked: true);
+                throw new AgentException(AssertionCode(spec.Kind, stop.Code), summary.Length == 0 ? reason + "." : reason + ": " + summary, blocked: true);
             }
         }
 
@@ -476,10 +509,10 @@ public sealed partial class Agent
         var blocked = verdict.Status == StepVerdictStatus.Blocked;
         if (blocked)
         {
-            throw new AgentException(code!, api + " blocked: " + summary, blocked: true) { Screenshot = screenshot, VerdictSummary = summary };
+            throw new AgentException(AssertionCode(spec.Kind, code!), api + " blocked: " + summary, blocked: true) { Screenshot = screenshot, VerdictSummary = summary };
         }
 
-        var failure = code is not null && StepExecutors.AgentCodes.Contains(code) ? code : spec.Kind == ExecutorStepKind.Assert ? "ASSERTION_FAILED" : "ACTION_FAILED";
+        var failure = AssertionCode(spec.Kind, code is not null && StepExecutors.AgentCodes.Contains(code) ? code : spec.Kind == ExecutorStepKind.Assert ? "ASSERTION_FAILED" : "ACTION_FAILED");
         throw new AgentException(failure, api + " failed: " + summary) { Screenshot = screenshot, VerdictSummary = summary };
     }
 
