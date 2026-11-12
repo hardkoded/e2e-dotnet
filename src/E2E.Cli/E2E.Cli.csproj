@@ -13,6 +13,9 @@
     <PlaywrightPlatform Condition="'$(PlaywrightPlatform)' == ''">$(NETCoreSdkRuntimeIdentifier)</PlaywrightPlatform>
     <!-- The Playwright driver carries PowerShell scripts that are not NuGet scripts. -->
     <NoWarn>$(NoWarn);NU5111</NoWarn>
+    <!-- A tool: running the project with dotnet run must work without a framework flag, so it stays on one framework. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks />
     <ToolCommandName>e2e</ToolCommandName>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->

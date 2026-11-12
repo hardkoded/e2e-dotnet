@@ -9,8 +9,8 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- LibraryImport P/Invoke in UiAutomationDriver. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- The winapp UI Automation library ships Windows assets only. Every project that restores it, directly or through a reference, repeats these two lines. -->
-    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <!-- The winapp UI Automation library ships Windows assets only. Every project that restores it, directly or through a reference, repeats these two lines (the net10.0 and net11.0 fallbacks). -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0;net11.0-windows7.0</AssetTargetFallback>
     <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
