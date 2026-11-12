@@ -100,7 +100,7 @@ public sealed class CoordinateInputTests
     }
 
     [Fact]
-    public async Task Rejects_a_point_off_the_plane_and_an_unknown_option_before_any_engine_call()
+    public async Task Partial_rejects_a_point_off_the_plane_before_any_engine_call()
     {
         var (screen, _, performedAt, _, _) = PointerScreen();
 
