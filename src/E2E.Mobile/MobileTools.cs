@@ -32,18 +32,7 @@ public static class MobileTools
 
         var platforms = engines.Select(engine => engine.Platform).Distinct().ToList();
 
-        DeviceSession Active()
-        {
-            var running = engines.SelectMany(engine => engine.ActiveSessions).ToList();
-            return running.Count == 1
-                ? running[0]
-                : throw new EngineException(
-                    EngineErrorCodes.InvalidState,
-                    running.Count == 0
-                        ? "no agent-device attempt is running; device tools act inside a test attempt only"
-                        : "several agent-device attempts are running in one worker; tools cannot pick a device",
-                    retryable: false);
-        }
+        DeviceSession Active() => RunningSession(engines);
 
         var tools = new (string Name, AgentTool Tool)[]
         {
@@ -115,6 +104,37 @@ public static class MobileTools
                 EngineErrorCodes.InvalidState,
                 "this target pins no app under test (no app.bundleId or app.appPath), so open_app needs the app's bundle id, package, or display name",
                 retryable: false);
+
+    /// <summary>
+    /// The running attempt's raw driver session, for a custom tool that needs capabilities e2e does not wrap yet: the object a test reads from
+    /// <see cref="Device.UnstableRaw"/>, with a client bound to the engine's daemon, lease, and session (upstream's <c>unstable_deviceSession</c>).
+    /// Pass every device engine the config declares. Outside an attempt it throws <c>INVALID_STATE</c>. Client calls are not steps, and like
+    /// <c>UnstableRaw</c> this can change in any release.
+    /// </summary>
+    public static RawDeviceSession UnstableDeviceSession(params MobileEngine[] engines)
+    {
+        ArgumentNullException.ThrowIfNull(engines);
+        if (engines.Length == 0)
+        {
+            throw new ArgumentException("unstable_deviceSession needs at least one engine", nameof(engines));
+        }
+
+        return Device.RawSession(RunningSession(engines));
+    }
+
+    /// <summary>The one session whose attempt is running. A worker runs one attempt at a time, so a tool call made inside a step belongs to that attempt.</summary>
+    private static DeviceSession RunningSession(MobileEngine[] engines)
+    {
+        var running = engines.SelectMany(engine => engine.ActiveSessions).ToList();
+        return running.Count == 1
+            ? running[0]
+            : throw new EngineException(
+                EngineErrorCodes.InvalidState,
+                running.Count == 0
+                    ? "no mobile attempt is running; device tools act inside a test attempt only"
+                    : "several mobile attempts are running in one worker; tools cannot pick a device",
+                retryable: false);
+    }
 
     private static JsonObject Schema(JsonObject properties, params string[] required) => new()
     {
