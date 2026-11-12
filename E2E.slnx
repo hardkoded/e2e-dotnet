@@ -29,6 +29,7 @@
     <Project Path="src/E2E.TestMu.Mobile/E2E.TestMu.Mobile.csproj" />
     <Project Path="src/E2E.TestMu/E2E.TestMu.csproj" />
     <Project Path="src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj" />
+    <Project Path="src/E2E.WinApp.TUnit/E2E.WinApp.TUnit.csproj" />
     <Project Path="src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj" />
     <Project Path="src/E2E.WinApp/E2E.WinApp.csproj" />
     <Project Path="src/E2E.XUnit.V3/E2E.XUnit.V3.csproj" />
