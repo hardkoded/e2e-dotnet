@@ -852,9 +852,42 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.DoesNotContain("NUnit", example, StringComparison.Ordinal);
     }
 
+    [Fact]
+    // .NET-only: --framework tunit is an executable with the TUnit package and its attribute.
+    public async Task Scaffolds_a_TUnit_project_with_the_framework_flag()
+    {
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Gateway = "none" })).ExitCode);
+        var project = XDocument.Parse(Read(ProjectFile()));
+        Assert.Equal("Exe", project.Descendants("OutputType").Single().Value);
+        Assert.Equal(
+            ["TUnit", "E2E", "E2E.TUnit"],
+            project.Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!));
+        Assert.Equal("1.83.8", (string)project.Descendants("PackageReference").First().Attribute("Version")!);
+        var example = Read("ExampleTests.cs");
+        Assert.Contains("using E2E.TUnit;", example, StringComparison.Ordinal);
+        Assert.Contains("using TUnit.Core;", example, StringComparison.Ordinal);
+        Assert.Contains("[Test]", example, StringComparison.Ordinal);
+        Assert.DoesNotContain("NUnit", example, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("web", "E2E.TUnit")]
+    [InlineData("mobile", "E2E.Mobile.TUnit")]
+    // .NET-only: each engine of the TUnit preset takes the adapter package of its own.
+    public async Task Scaffolds_the_adapter_of_the_engine_for_TUnit(string engine, string adapter)
+    {
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Engines = [engine], Gateway = "none" })).ExitCode);
+        var references = XDocument.Parse(Read(ProjectFile())).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
+        Assert.Contains(adapter, references);
+        Assert.Contains("TUnit", references);
+        Assert.DoesNotContain("E2E.NUnit", references);
+        Assert.Contains($"using {adapter};", Read("ExampleTests.cs"), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("xunit.v3.mtp-off", "E2E.XUnit.V3")]
     [InlineData("NUnit", "E2E.NUnit")]
+    [InlineData("TUnit", "E2E.TUnit")]
     // .NET-only: an existing project keeps its framework, so init adds that framework's adapter and not the other one's.
     public async Task Keeps_the_framework_an_existing_project_uses(string marker, string adapter)
     {
@@ -862,9 +895,9 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Equal(0, (await RunInitAsync()).ExitCode);
         var references = XDocument.Parse(Read("existing-app.csproj")).Descendants("PackageReference").Select(reference => (string)reference.Attribute("Include")!).ToList();
         Assert.Contains(adapter, references);
-        Assert.DoesNotContain(references, reference => reference == (adapter == "E2E.NUnit" ? "E2E.XUnit.V3" : "E2E.NUnit"));
+        Assert.DoesNotContain(references, reference => reference is "E2E.NUnit" or "E2E.XUnit.V3" or "E2E.TUnit" && reference != adapter);
         Assert.Equal(marker == "NUnit", references.Contains("NUnit3TestAdapter"));
-        Assert.Equal(marker != "NUnit", references.Contains("xunit.runner.visualstudio"));
+        Assert.Equal(marker.StartsWith("xunit", StringComparison.Ordinal), references.Contains("xunit.runner.visualstudio"));
     }
 
     [Fact]

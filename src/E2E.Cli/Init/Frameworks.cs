@@ -9,14 +9,14 @@ namespace E2E.Cli;
 /// </summary>
 /// <param name="Id">The <c>--framework</c> value.</param>
 /// <param name="Label">The framework's name.</param>
-/// <param name="AdapterSuffix">What follows <c>E2E.</c> in the package of an engine for this framework: <c>NUnit</c> or <c>XUnit.V3</c>.</param>
+/// <param name="AdapterSuffix">What follows <c>E2E.</c> in the package of an engine for this framework: <c>NUnit</c>, <c>XUnit.V3</c>, or <c>TUnit</c>.</param>
 /// <param name="Dependencies">The framework's own packages and their versions, as the samples pin them.</param>
 /// <param name="Marker">A package name that shows a project already uses the framework.</param>
 /// <param name="Namespace">The namespace of the engine's base class.</param>
 /// <param name="FrameworkUsing">The namespace of the framework's test attributes.</param>
 /// <param name="TestAttribute">The attribute of a test method.</param>
 /// <param name="TrueAssertion">A format string for an assertion that its argument is true.</param>
-/// <param name="Executable">Whether an xUnit v3 test project is an executable.</param>
+/// <param name="Executable">Whether the test project is an executable (xUnit v3 and TUnit are).</param>
 internal sealed record FrameworkPreset(
     string Id,
     string Label,
@@ -67,6 +67,19 @@ internal static class Frameworks
             "Xunit",
             "Fact",
             "Assert.True({0})",
+            true),
+        new FrameworkPreset(
+            "tunit",
+            "TUnit",
+            "TUnit",
+            [
+                new("TUnit", "1.83.8"),
+            ],
+            "TUnit",
+            "E2E.TUnit",
+            "TUnit.Core",
+            "Test",
+            "await Assert.That({0}).IsTrue()",
             true),
     ];
 

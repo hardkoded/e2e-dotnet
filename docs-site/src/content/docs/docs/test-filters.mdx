@@ -106,7 +106,7 @@ This is a convention. It is wrong when a class lives in a file with another name
 
 ## Mobile and Windows apps
 
-`MobileAppTest` and `WinAppTest` (NUnit and xUnit v3) derive from `E2ETest`, so the run fixture finds their tests and leaves out the same way. A left-out test never installs or opens the app. In xUnit v3 it is also skipped before the run leases a hosted device. In NUnit, `MobileAppTest` leases the device once per run, even when every test of its fixture is left out.
+`MobileAppTest` and `WinAppTest` (NUnit, xUnit v3, and TUnit) derive from `E2ETest`, so the run fixture finds their tests and leaves out the same way. A left-out test never installs or opens the app. In xUnit v3 and TUnit it is also skipped before the run leases a hosted device. In NUnit, `MobileAppTest` leases the device once per run, even when every test of its fixture is left out.
 
 ## Not included yet
 

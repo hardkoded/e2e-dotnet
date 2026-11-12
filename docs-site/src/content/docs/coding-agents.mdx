@@ -19,7 +19,7 @@ e2e init --yes
 | `[directory]` | Where to scaffold; created when missing. Default: the working directory. |
 | `-y`, `--yes` | Ask nothing. Each answer not given as a flag takes its default: the web engine, the Vercel AI Gateway, the skill and the MCP config in all three locations. |
 | `--example <name>` | Start from a sample downloaded from GitHub into a new or empty directory: `E2E.Sample` (NUnit, the Dariten demo), `E2E.XUnit.V3.Sample` (xUnit v3), or `TodoMvc` (NUnit, agent tests of TodoMVC). The name is the folder under `samples/`, in any case. The sample comes from the `v<version>` tag of this tool, or from `main` when the tag does not exist (a preview or a source build), and its `ProjectReference`s become `PackageReference`s at this tool's version. It brings its own config and project, so it cannot be combined with `--engine`, `--gateway`, `--endpoint`, or `--framework`. Cancelling removes the copy. |
-| `--framework <id>` | The test framework of a new project: `nunit` (the default) or `xunit` (xUnit v3). An existing project keeps the framework it uses; a different flag exits 2. |
+| `--framework <id>` | The test framework of a new project: `nunit` (the default), `xunit` (xUnit v3), or `tunit` (TUnit). An existing project keeps the framework it uses; a different flag exits 2. |
 | `--install`, `--no-install` | Run `dotnet restore` after scaffolding, or not. Without either flag it asks; under `--yes` it does not. |
 | `--engine <ids>` | The engine for a new config: `web`, `mobile`, or `none`. One target only. |
 | `--gateway <id>` | The model gateway for agent steps in a new config: `vercel`, `openrouter`, `openai-compatible`, `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`. The config names the matching `provider`. |

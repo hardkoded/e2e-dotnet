@@ -52,7 +52,7 @@ an `ExampleTests.cs`; or only the missing package references in an existing
 `.csproj`), installs this skill, registers the `e2e mcp` server (in `.mcp.json`,
 `.cursor/mcp.json`, and Codex's `.codex/config.toml`, which Codex loads in a
 trusted project and a new session), and updates
-`.gitignore`, skipping files that exist. `--framework nunit|xunit` picks the
+`.gitignore`, skipping files that exist. `--framework nunit|xunit|tunit` picks the
 framework, `--install` runs `dotnet restore`, and `--example <name>` copies a
 sample. In a
 terminal it asks the questions no flag answered (engines, model gateway and
