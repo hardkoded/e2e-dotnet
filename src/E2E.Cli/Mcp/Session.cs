@@ -86,6 +86,9 @@ internal sealed class SessionHostOptions
 /// </summary>
 internal sealed class SessionHost : IDisposable
 {
+    /// <summary>Where an agent reads how to write a test, said in the server's instructions and every session's opening.</summary>
+    public const string ReadWritingGuide = "Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.";
+
     /// <summary>How many sessions <c>e2e mcp --max-sessions</c> allows at once, each a browser or a device.</summary>
     public static readonly (int Min, int Max, int Default) SessionBounds = (1, 16, 4);
 
@@ -683,6 +686,7 @@ internal sealed class SessionHost : IDisposable
         lines.Add("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):");
         lines.AddRange(CatalogLines(live));
         lines.Add("Node ids (#id in observe) are valid only for the newest observation; every action reports what changed on screen and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done.");
+        lines.Add(ReadWritingGuide);
         return string.Join('\n', lines) + "\n\n" + screen;
     }
 
