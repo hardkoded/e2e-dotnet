@@ -346,6 +346,57 @@ internal static class PageScript
         }
         """;
 
+    // Runs in the page (upstream's pickStandIn, actions.ts). A component library (Element Plus) hides a native checkbox or radio under its
+    // label's styled spans with z-index: -1, or gives it no box at all, so Playwright refuses the input itself though a user's click there
+    // reaches it through the label. Returns that label, or null to click the control itself. The choice reads the control and its labels
+    // only, past anything else on top (a loading mask, a modal): Playwright's checks on the label wait that out, or fail on it. Throws the
+    // argument, UNRENDERED, while none of them is rendered (a dialog not open yet), since nothing tells the two apart then.
+    public const string PickStandIn = """
+        (node, unrendered) => {
+          if (!(node instanceof HTMLInputElement) || (node.type !== "checkbox" && node.type !== "radio") || node.matches(":disabled")) {
+            return null;
+          }
+          const labels = [...(node.labels ?? [])];
+          const root = node.getRootNode();
+          if (labels.length === 0 || (!(root instanceof Document) && !(root instanceof ShadowRoot))) return null;
+          const INTERACTIVE = 'a,button,input,select,textarea,summary,[contenteditable],[role="button"],[role="link"]';
+          const hasBox = ({ width, height }) => width > 0 && height > 0;
+          const centre = ({ left, top, width, height }) => [left + width / 2, top + height / 2];
+          const topmost = (x, y) => root.elementsFromPoint(x, y).find((hit) => hit === node || labels.some((label) => label.contains(hit)));
+          const pressesInteractive = (label, hit) => label.contains(hit?.closest(INTERACTIVE) ?? null);
+          node.scrollIntoView({ block: "nearest", inline: "nearest" });
+          const box = node.getBoundingClientRect();
+          if (!hasBox(box)) {
+            const shown = labels.filter((label) => hasBox(label.getBoundingClientRect()) && label.checkVisibility({ visibilityProperty: true }));
+            if (shown.length === 0) throw new Error(unrendered);
+            return (
+              shown.find((label) => {
+                label.scrollIntoView({ block: "nearest", inline: "nearest" });
+                return !pressesInteractive(label, topmost(...centre(label.getBoundingClientRect())));
+              }) ?? null
+            );
+          }
+          const [x, y] = centre(box);
+          const hit = topmost(x, y);
+          if (hit === undefined) throw new Error(unrendered);
+          const label = labels.find((own) => own.contains(hit));
+          if (label === undefined || pressesInteractive(label, hit)) return null;
+          const outer = label.getBoundingClientRect();
+          return x >= outer.left && x <= outer.right && y >= outer.top && y <= outer.bottom ? label : null;
+        }
+        """;
+
+    // Runs in the page (upstream's controlPoint): where a click on the label lands, the centre of its control relative to the label, or
+    // null for a control with no box, which takes the label's centre.
+    public const string ControlPoint = """
+        (label) => {
+          const box = label.control?.getBoundingClientRect();
+          if (box === undefined || box.width === 0 || box.height === 0) return null;
+          const outer = label.getBoundingClientRect();
+          return { x: box.left + box.width / 2 - outer.left, y: box.top + box.height / 2 - outer.top };
+        }
+        """;
+
     // Whether an element is a file input, or labels one, so setInputFiles can take it directly (upstream's isFileInput).
     public const string IsFileInput = """
         (node) => {

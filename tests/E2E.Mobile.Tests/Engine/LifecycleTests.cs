@@ -258,7 +258,7 @@ public sealed class LifecycleTests
         Assert.Equal(1, coldResult.Workers);
         JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", cold.Fake.LastArgs("devices.boot"));
 
-        // One slot bound to no device in particular: the daemon picks.
+        // One slot bound to no device in particular: agent-device picks.
         Assert.Equal("""[{}]""", coldResult.Env[Harness.PoolVariableIn(coldResult.Env, "IOS")]);
     }
 

@@ -3258,7 +3258,7 @@ public sealed partial class WebEngine : IEngine
             switch (action)
             {
                 case LocatorAction.Tap tap:
-                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(tap.Modifiers) }).ConfigureAwait(false);
+                    await ClickControlAsync(element, "tap", budget, Held(tap.Modifiers)).ConfigureAwait(false);
                     break;
                 case LocatorAction.DoubleTap doubleTap:
                     await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(doubleTap.Modifiers) }).ConfigureAwait(false);
@@ -4115,6 +4115,71 @@ public sealed partial class WebEngine : IEngine
         private static EngineException NoFileChooser(Exception? cause) =>
             new(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, cause);
 
+        /// <summary>What the page throws while a checkbox or radio and every one of its labels are unrendered, so a click could reach none of them yet (upstream's <c>UNRENDERED</c>).</summary>
+        private const string Unrendered = "the control and its labels are not visible";
+
+        /// <summary>
+        /// Clicks a control with Playwright's actionability checks, through its own label when <c>PageScript.PickStandIn</c> names one
+        /// (upstream's <c>clickControl</c>, <c>actions.ts</c>). The checks then run on the label, so anything else on top, such as a modal,
+        /// still fails <c>NOT_ACTIONABLE</c>. The choice is read again until the control or a label renders, within the deadline.
+        /// </summary>
+        private static async Task ClickControlAsync(IElementHandle element, string verb, OperationBudget budget, IEnumerable<KeyboardModifier>? modifiers)
+        {
+            IElementHandle? label = null;
+            while (true)
+            {
+                // A cancelled operation reads and clicks nothing.
+                budget.ThrowIfExpired();
+                try
+                {
+                    var picked = await element.EvaluateHandleAsync(PageScript.PickStandIn, Unrendered).ConfigureAwait(false);
+                    label = picked as IElementHandle;
+                    if (label is null)
+                    {
+                        WebSupport.DisposeQuietly(picked);
+                    }
+
+                    break;
+                }
+                catch (PlaywrightException ex) when (WebErrors.Message(ex).Contains(Unrendered, StringComparison.Ordinal))
+                {
+                    var left = budget.PollWindowLeft;
+                    if (left <= TimeSpan.Zero)
+                    {
+                        throw new EngineException(EngineErrorCodes.NotActionable, verb + " did not become actionable in time: " + Unrendered, retryable: false);
+                    }
+
+                    var wait = TimeSpan.FromMilliseconds(Math.Ceiling(left.TotalMilliseconds));
+                    await budget.DelayAsync(wait < CheckPollInterval ? wait : CheckPollInterval).ConfigureAwait(false);
+                }
+            }
+
+            if (label is null)
+            {
+                // The operation abandons this call when cancelled; a read still in flight then must not lead to a click (upstream's signal.throwIfAborted()).
+                budget.ThrowIfExpired();
+                await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = modifiers }).ConfigureAwait(false);
+                return;
+            }
+
+            try
+            {
+                var point = await label.EvaluateAsync<System.Text.Json.JsonElement?>(PageScript.ControlPoint).ConfigureAwait(false);
+                budget.ThrowIfExpired();
+                var options = new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = modifiers };
+                if (point is { ValueKind: System.Text.Json.JsonValueKind.Object } position)
+                {
+                    options.Position = new Position { X = (float)position.GetProperty("x").GetDouble(), Y = (float)position.GetProperty("y").GetDouble() };
+                }
+
+                await label.ClickAsync(options).ConfigureAwait(false);
+            }
+            finally
+            {
+                WebSupport.DisposeQuietly(label);
+            }
+        }
+
         /// <summary>How often a check or uncheck reads the control's state after the click.</summary>
         private static readonly TimeSpan CheckPollInterval = TimeSpan.FromMilliseconds(100);
 
@@ -4146,7 +4211,7 @@ public sealed partial class WebEngine : IEngine
                 throw new EngineException(EngineErrorCodes.NotActionable, "uncheck cannot clear a radio button; select another radio in its group", retryable: false);
             }
 
-            await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            await ClickControlAsync(element, verb, budget, null).ConfigureAwait(false);
             var hint = radio == "aria" ? "; a radio usually clears only when another radio in its group is selected" : "";
             EngineException Unchanged(string detail = "") =>
                 new(EngineErrorCodes.NotActionable, verb + " clicked the control but its checked state did not change" + detail + hint, retryable: false);

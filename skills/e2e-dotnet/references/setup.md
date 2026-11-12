@@ -16,7 +16,7 @@
 
 ## Requirements
 
-- The .NET 10 SDK. The packages target `net10.0`.
+- The .NET 10 or 11 SDK. The packages target `net10.0` and `net11.0`.
 - NUnit or xUnit v3. xUnit v2 is not supported.
 - Chromium, or the browser `WebEngineOptions.BrowserName` names (Firefox or
   WebKit). The first `WebEngine` launch in a test run installs the build it
@@ -481,7 +481,7 @@ A browser provider or `Connect` takes the `chromium` names: the engine drives it
 
 ## Mobile targets
 
-iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots one; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). `Device.UnstableRaw` gives the test's agent-device session for what `Device` lacks: the session name, device id and name, a `Selection` to pass into a client call, and the client (unstable; its calls are not steps). For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
+iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots a shut-down one: a phone or tablet over a TV, then the newest OS, then name order; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). `Device.UnstableRaw` gives the test's agent-device session for what `Device` lacks: the session name, device id and name, a `Selection` to pass into a client call, and the client (unstable; its calls are not steps). For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
 
 ## Windows targets
 

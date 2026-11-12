@@ -38,12 +38,12 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `skills/migrate-to-e2e` | A skill for consumers that moves an existing suite to e2e one slice at a time. Not bundled. It reads the `e2e-dotnet` skill's topics: update it when a topic it names is renamed |
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
 | `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
-| `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64` |
+| `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64` |
 | `samples/MobileApp.E2ETests` | Tests that drive `samples/MobileApp` on a simulator or emulator with `MobileEngine`. All are `RealModel` and `Device`, and need a device and Node 22.12 or newer. Leave them out of a local real-model run with `--filter "TestCategory=RealModel&TestCategory!=Device"`. The project builds in `E2E.slnx` |
 
 ## Development
 
-Requires the .NET 10 SDK (`global.json`).
+Requires the .NET 11 SDK (`global.json`). It builds the libraries for both `net10.0` and `net11.0`.
 
 ```bash
 dotnet restore
@@ -78,7 +78,7 @@ cd docs-site
 npm run api
 ```
 
-That needs the .NET 10 SDK. It runs DocFX metadata, then writes Markdown into `docs-site/src/content/docs/api/`.
+That needs the .NET 11 SDK. It runs DocFX metadata, then writes Markdown into `docs-site/src/content/docs/api/`.
 
 `.github/workflows/docs.yml` builds and checks the site on pull requests and on pushes to `main`. It does not deploy. GitHub Pages is retired. Vercel hosts https://www.hardkoded.com/e2e-dotnet/ and publishes it on push to `main`.
 

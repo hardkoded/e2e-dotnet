@@ -65,7 +65,9 @@ public sealed class PerformTests
             ("interactions.swipe", """{"from":{"x":195,"y":620},"to":{"x":195,"y":420}}"""),
 
             // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, a test's step carries no settle wait.
-            ("interactions.scroll", """{"direction":"up"}"""),
+            ("interactions.scroll", """{"direction":"up","postGestureStabilization":false}"""),
+            // The swipe left the stabilization wait to the next action, so the drag first reads its control again.
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
     }
 

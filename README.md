@@ -15,10 +15,10 @@ dotnet add package E2E
 dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 ```
 
-The library targets `net10.0` and includes `WebEngine`, which drives Chromium, Firefox, or WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/); `WebEngineOptions.BrowserName` picks one, and Chromium is the default. `Connect` and a `Browser` provider attach over CDP, so they need Chromium. The first `WebEngine` launch in a process installs the browser it launches, so the first run needs network access. A headless Chromium run installs only the headless shell, the build it launches; Firefox and WebKit have one build. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
+The library targets `net10.0` and `net11.0` and includes `WebEngine`, which drives Chromium, Firefox, or WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/); `WebEngineOptions.BrowserName` picks one, and Chromium is the default. `Connect` and a `Browser` provider attach over CDP, so they need Chromium. The first `WebEngine` launch in a process installs the browser it launches, so the first run needs network access. A headless Chromium run installs only the headless shell, the build it launches; Firefox and WebKit have one build. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
 
 ```bash
-pwsh bin/Debug/net10.0/playwright.ps1 install chromium
+pwsh bin/Debug/net10.0/playwright.ps1 (or `net11.0`) install chromium
 ```
 
 Or, with the `e2e` tool (see [Subscriptions](#subscriptions)), `e2e install [chromium|firefox|webkit ...] [--with-deps]`. It downloads the browsers for the Playwright version `E2E` runs, installs Chromium when none is named, and `--with-deps` adds the system libraries on Linux. An unknown option or browser exits 2.

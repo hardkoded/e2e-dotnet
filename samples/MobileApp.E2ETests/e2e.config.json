@@ -5,7 +5,7 @@
       "platform": "ios",
       "app": {
         "bundleId": "dev.hardkoded.e2e.mobileapp",
-        "appPath": "../MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileApp.app"
+        "appPath": "../MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileApp.app"
       }
     }
   ],

@@ -142,6 +142,28 @@ public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixtu
         }
     }
 
+    // Partial: upstream also expects the observation to leave out a checkbox whose only label is hidden (`hidden-label`). A box with no
+    // size is not hidden here (COMPATIBILITY.md), so the port lists every box-less control; this test checks the part it shares.
+    [Fact]
+    public async Task Partial_Lists_a_checkbox_or_radio_its_own_label_draws_over_no_box_as_shown_with_its_checked_state()
+    {
+        await chromium.Page.SetContentAsync("""
+            <style>.shrunk { opacity: 0; width: 0; height: 0; margin: 0; position: absolute }</style>
+            <label><input class="shrunk" type="checkbox" data-testid="agree" checked>Agree</label>
+            <label><input class="shrunk" type="radio" data-testid="large">Large</label>
+            <input class="shrunk" type="checkbox" id="unlabelled" data-testid="hidden-label"><label for="unlabelled" style="display:none">Gone</label>
+            """);
+        var nodes = await chromium.CaptureAsync();
+        var agree = Node(nodes, "agree");
+        Assert.Equal(("checkbox", "Agree", true), (agree.Role, agree.Name, agree.Checked));
+        var large = Node(nodes, "large");
+        Assert.Equal(("radio", "Large", false), (large.Role, large.Name, large.Checked));
+        foreach (var id in new[] { "agree", "large" })
+        {
+            Assert.False(Node(nodes, id).Hidden, id);
+        }
+    }
+
     private static ReadNode Node(IReadOnlyList<ReadNode> nodes, string testId)
     {
         return nodes.Single(node => node.TestId == testId);
