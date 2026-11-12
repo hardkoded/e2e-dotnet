@@ -201,7 +201,9 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 - The first attempt can replay. `[Retry]` attempts run live and still record.
 - The session stops on the test's cancellation token, so a call does not need it.
 - `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
-- Not supported yet: `E2ERunFixture` (reporters, app-command shutdown, `--changed-since`, `--last-failed`), `[E2ESetup]` and `[E2ESession]` saved sessions, and the mobile and Windows base classes.
+- `E2ERunFixture` works as in the other adapters (reporters, app-command shutdown, `--changed-since`, `--last-failed`), but TUnit has no assembly fixture to register: derive a public class with a public parameterless constructor in the test project (`public sealed class AppCommands : E2ERunFixture;`) and a test-session hook finds it by reflection. A project with no such class runs none of it.
+- Saved sessions: write `[Test]` and `[E2ESetup("title", Saves = ["admin"])]` on the sign-in test (TUnit does not let a library define a test attribute, so `[E2ESetup]` goes beside `[Test]`), and `[E2ESession("admin")]` on the tests that restore it. The setup test gets the highest execution priority. TUnit runs tests in parallel, so a setup test and the test that restores its session can start together: put `[NotInParallel]` on the class if the setup must not run twice.
+- Mobile and Windows base classes are not in this package.
 
 ## Config
 

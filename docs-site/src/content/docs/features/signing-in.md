@@ -60,7 +60,7 @@ public sealed class Dashboard : E2ETest
 - A restore leaves no page open: call `App.OpenAsync` first. A session holds what the browser keeps (cookies, local storage, IndexedDB), not server state.
 - An engine without a state capability (`stateCapability` false in `report.json`) fails `SaveSessionAsync` and a restore with `UNSUPPORTED_CAPABILITY`. `WebEngine` has it.
 - A session lasts one run. It is encrypted with a key held in memory and kept under `.e2e/sessions/<run id>`. Derive an `E2ERunFixture` to delete it when the run ends. The secrets the saving test used are redacted in the tests that restore it.
-- Only the NUnit adapter has the attributes so far.
+- NUnit, xUnit v3, and TUnit have the attributes. With TUnit, write `[Test, E2ESetup("title", Saves = ["admin"])]` (the attribute goes beside `[Test]`). The setup test gets the highest execution priority instead of an `[Order]`. TUnit runs tests in parallel, so put `[NotInParallel]` on a class whose setup test must not run twice; the setup also runs without the class's own `[Before(Test)]` and `[After(Test)]` hooks when a dependent runs it. Derive the `E2ERunFixture` in the test project (a public class with a public parameterless constructor) to delete the session when the run ends.
 
 ## Hosting sessions in your own runner
 

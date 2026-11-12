@@ -66,7 +66,7 @@ can be changed by an attribute or shortened for long arguments.
 
 
 ```csharp
-[After(HookType.Test, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ETest.cs", 55)]
+[After(HookType.Test, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ETest.cs", 57)]
 public Task FinishE2ESessionAsync(TestContext context, CancellationToken cancellationToken)
 ```
 

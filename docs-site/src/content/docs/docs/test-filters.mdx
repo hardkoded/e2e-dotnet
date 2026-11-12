@@ -1,9 +1,9 @@
 ---
 title: Test filters
-description: Run only the tests a change can affect, with --changed-since style filters in an NUnit or xUnit v3 run.
+description: Run only the tests a change can affect, with --changed-since style filters in an NUnit, xUnit v3, or TUnit run.
 ---
 
-A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit and xUnit v3.
+A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit, xUnit v3, and TUnit.
 
 ## Turn it on
 
@@ -27,6 +27,15 @@ public sealed class Filtered : E2ERunFixture
 }
 
 [assembly: AssemblyFixture(typeof(Filtered))]
+```
+
+With TUnit there is nothing to register: a public class derived from `E2ERunFixture`, with a public parameterless constructor, in the test project is found by a test-session hook. A left-out test is skipped with `Skip.Test(reason)` before its session starts.
+
+```csharp
+public sealed class Filtered : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
 ```
 
 The filters run once, before the first test, and only when a base ref is set:

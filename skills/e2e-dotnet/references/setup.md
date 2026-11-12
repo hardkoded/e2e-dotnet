@@ -234,7 +234,10 @@ and in CI.
   process-exit cleanup): in NUnit, a
   `[SetUpFixture]` outside any namespace, `public sealed class AppCommands :
   E2ERunFixture;` (`E2E.NUnit`); in xUnit v3,
-  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
+  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`; in TUnit, a public class in the test
+  project, `public sealed class AppCommands : E2ERunFixture;` (`E2E.TUnit`), which a
+  test-session hook finds by reflection (no registration; a public parameterless
+  constructor is needed). Two
   processes, such as `dotnet test` and `e2e mcp`, still start one app each:
   give a shared app a fixed port and `reuseExisting`.
 - Reporters. `reporters` in `e2e.config.json` lists `E2E.Reports.Reporter`

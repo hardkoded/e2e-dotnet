@@ -11,7 +11,7 @@ description: The GitHubReporter posts one comment per run from GitHub Actions an
 dotnet add package E2E.GitHub
 ```
 
-List the reporter in the `reporters` of `e2e.config.json`. The run fixture calls it when the last test is done (`E2ERunFixture` of `E2E.NUnit` or `E2E.XUnit.V3`), so add the fixture too: without it no reporter runs.
+List the reporter in the `reporters` of `e2e.config.json`. The run fixture calls it when the last test is done (`E2ERunFixture` of `E2E.NUnit`, `E2E.XUnit.V3`, or `E2E.TUnit`), so add the fixture too: without it no reporter runs.
 
 ```json
 { "reporters": ["E2E.GitHub.GitHubReporter, E2E.GitHub"] }
