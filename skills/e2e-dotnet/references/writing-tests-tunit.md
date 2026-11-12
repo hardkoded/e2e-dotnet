@@ -13,16 +13,21 @@ expectations, agent steps, and the `Browser` member.
 - The run fixture
 - A complete example
 - Run
-- Not in this package
+- Mobile and Windows
 
 ## Project
 
 ```bash
 dotnet new console -n MyApp.E2E
+rm MyApp.E2E/Program.cs      # Windows: del MyApp.E2E\Program.cs
 dotnet add MyApp.E2E package TUnit
 dotnet add MyApp.E2E package E2E
 dotnet add MyApp.E2E package E2E.TUnit
 ```
+
+Delete the generated `Program.cs`: TUnit supplies the entry point, and a second
+one fails the build. `e2e init --framework tunit` writes no
+`Program.cs`.
 
 TUnit runs on Microsoft.Testing.Platform, so the project is an executable
 (`<OutputType>Exe</OutputType>`), and `dotnet run` or `dotnet test` starts it.
@@ -56,7 +61,11 @@ public sealed class BillingTests : E2ETest
   ones, and a cancelled test leaves the cache alone.
 - Your own `[Before(Test)]` hook runs after the session starts, and your own
   `[After(Test)]` hook runs before the session is committed. A check in an
-  `[After(Test)]` hook after a failure verifies nothing.
+  `[After(Test)]` hook after a failure verifies nothing. When the body passes
+  and your `[After(Test)]` hook throws, TUnit fails the test, and the session
+  is committed with that failure (the unverified acts are evicted), as in the
+  other adapters. The commit waits for TUnit's end-of-test event, because the
+  hook's failure is in the test result only then.
 - The first attempt can replay. The attempts of `[Retry]` run live and still
   record.
 - The default cache title is the class and method name with every argument
@@ -207,11 +216,25 @@ public sealed class DaritenTests : E2ETest
 
 ```bash
 dotnet test
-dotnet test -- --treenode-filter "/*/*/*/*[Category!=RealModel]"   # skip the real-model tests
-dotnet test -- --treenode-filter "/*/*/*/*[Category=RealModel]"    # only the real-model tests
+dotnet test --treenode-filter "/*/*/*/*[Category!=RealModel]"   # skip the real-model tests
+dotnet test --treenode-filter "/*/*/*/*[Category=RealModel]"    # only the real-model tests
 ```
 
-## Not in this package
+On .NET SDK 10 and later, `dotnet test` refuses a Microsoft.Testing.Platform
+project unless a `global.json` next to the solution opts in:
 
-The TUnit package has no mobile or Windows base classes (`MobileAppTest`,
-`WinAppTest`). Use NUnit or xUnit v3 for those.
+```json
+{ "test": { "runner": "Microsoft.Testing.Platform" } }
+```
+
+Without it, the error reads "Testing with VSTest target is no longer
+supported". `dotnet run --project MyApp.E2E -- --treenode-filter "..."` needs
+no `global.json`.
+
+## Mobile and Windows
+
+`E2E.Mobile.TUnit` holds `MobileAppTest`, and `E2E.WinApp.TUnit` holds
+`WinAppTest`. Both derive from `E2E.TUnit.E2ETest`, and topics `mobile` and
+`windows` cover their members. TUnit runs base-class hooks first, so each one
+installs or opens the app in its own `[Before(Test)]` hook after the session
+starts, and `MobileAppTest` leases a hosted device when the engine is created.

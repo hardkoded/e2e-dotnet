@@ -22,6 +22,10 @@ namespace E2E.TUnit;
 /// when its turn comes, and still runs one that no selected test needs, which upstream's runner does not. The setup test gets the highest
 /// execution priority, so TUnit schedules it before the other tests.
 /// </para>
+/// <para>
+/// TUnit runs tests in parallel, so the setup test and a test that restores its session can start at the same moment, and the setup
+/// then runs twice (once for the dependent, once as its own test). Put <c>[NotInParallel]</c> on the class when it must not.
+/// </para>
 /// </summary>
 public sealed class E2ESetupAttribute : Attribute, ISessionSetup, ITestDiscoveryEventReceiver
 {

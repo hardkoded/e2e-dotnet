@@ -47,6 +47,20 @@ public sealed class GreetingTests : MobileAppTest
 }
 ```
 
+With TUnit, import `E2E.Mobile.TUnit` and write the same test with TUnit's `[Test]`:
+
+```csharp
+using E2E;
+using E2E.Mobile.TUnit;
+
+public sealed class GreetingTests : MobileAppTest
+{
+    [Test]
+    public async Task Shows_the_greeting_form() =>
+        await Expect.That(Screen.GetByText("Say hello")).ToBeVisibleAsync();
+}
+```
+
 - A device target takes `app.bundleId` and `app.appPath`, not `app.url`. A web target takes only `app.url`. The `appPath` is relative to the folder of `e2e.config.json`. `app.launchArguments` (an array of strings) and `app.permissions` (permission name to `grant`, `deny`, or `reset`, for example `{ "camera": "grant" }`) ride every fresh launch of the app: the arguments reach the app process (iOS) or `am start` (Android), and the permissions are set before the launch, so no system prompt appears. A permission name the device does not know is `INVALID_CONFIG`, naming the nearest one. `app.identity` and `app.environment` key the replay cache (topic `setup`).
 - `Device.SetPermissionAsync` changes one permission for the pinned app, before its launch. It takes the enums (`DevicePermission`, `PermissionState`), or the wire names as strings (`SetPermissionAsync("camera", "grant")`), for a name read from outside the code. A name or state the device does not set is `INVALID_ARGUMENT` before any device command: a misspelled name names the one it means (`"camra"` gives `did you mean "camera"?`), and a `null` name or state is `undefined`.
 - `MobileAppTest` installs the build once per run (`Device.InstallAppAsync()`), launches the app fresh before each test, gives the agent `MobileTools`, and sets the step timeout to 90 seconds. A device target has no URL, so `App.OpenAsync()` takes no path: it launches the pinned app fresh, and `MobileAppTest` already does that before each test.

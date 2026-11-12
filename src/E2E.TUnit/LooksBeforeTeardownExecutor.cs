@@ -9,8 +9,8 @@ using TUnitContext = global::TUnit.Core.TestContext;
 
 namespace E2E.TUnit;
 
-/// <summary>What the test body did: it threw, it skipped itself, or it ran to the end.</summary>
-internal sealed record TestOutcome(Exception? Failure, string? Skipped);
+/// <summary>What the test body did: it threw, it skipped itself, or it ran to the end (with the soft failures it kept, closed).</summary>
+internal sealed record TestOutcome(Exception? Failure, string? Skipped, TestException? Soft = null);
 
 /// <summary>
 /// Wraps the test method, so the app is looked at the moment the body fails, as upstream does. A derived
@@ -48,8 +48,16 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
             Outcomes.AddOrUpdate(context, outcome);
             if (outcome.Failure is not null)
             {
-                // A handler failure after the body's own is only collected, so it does not reach the next test.
-                await SettleLateAsync(context).ConfigureAwait(false);
+                // A handler failure after the body's own is only collected, so it does not reach the next test. A cancelled settle is secondary too: the body's failure stays primary.
+                try
+                {
+                    await SettleLateAsync(context).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Dropped behind the body's failure.
+                }
+
                 await LookAsync(context, outcome.Failure).ConfigureAwait(false);
             }
 
@@ -57,14 +65,33 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
         }
 
         // A route or dialog handler that failed after the last step fails the attempt here, as a step would.
-        if (await SettleLateAsync(context).ConfigureAwait(false) is { } late)
+        Exception? late;
+        try
+        {
+            late = await SettleLateAsync(context).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException cancelled)
+        {
+            // The body passed, so a cancelled run is the result: the cache must not record a pass.
+            Outcomes.AddOrUpdate(context, new TestOutcome(cancelled, null));
+            throw;
+        }
+
+        if (late is not null)
         {
             Outcomes.AddOrUpdate(context, new TestOutcome(late, null));
             await LookAsync(context, late).ConfigureAwait(false);
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(late);
         }
 
-        Outcomes.AddOrUpdate(context, new TestOutcome(null, null));
+        // Soft failures fail the test when the after-test hook runs. The app is looked at now, before a derived teardown can move it.
+        // The close drains the failures, so the outcome keeps them for the hook.
+        var kept = context.Metadata.TestDetails.ClassInstance is E2ETest owner ? owner.CloseSoftFailures() : null;
+        Outcomes.AddOrUpdate(context, new TestOutcome(null, null, kept));
+        if (kept is not null)
+        {
+            await LookAsync(context, kept).ConfigureAwait(false);
+        }
     }
 
     private static async Task<Exception?> SettleLateAsync(TUnitContext context)
@@ -79,14 +106,9 @@ public sealed class LooksBeforeTeardownExecutor : ITestExecutor
             await fixture.SettleLateAsync(context.Execution.CancellationToken).ConfigureAwait(false);
             return null;
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return null;
-        }
-#pragma warning disable CA1031 // The failure is the handler's: it becomes the test's result, or is dropped behind an earlier one.
-        catch (Exception ex)
-#pragma warning restore CA1031
-        {
+            // The failure is the handler's: it becomes the test's result, or is dropped behind an earlier one.
             return ex;
         }
     }

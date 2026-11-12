@@ -17,6 +17,12 @@ internal sealed class StateSpyEngine(IEngine inner, bool state = true, bool fail
 
     public List<EngineState> Restored { get; } = [];
 
+    /// <summary>The looks at the app (an observation), which a failure's evidence takes.</summary>
+    public int Observed;
+
+    /// <summary>Makes every settle of the attempt end cancelled, as a run cancelled while a handler settles does.</summary>
+    public bool CancelSettle { get; set; }
+
     public int Started;
 
     public int Ended;
@@ -62,6 +68,16 @@ internal sealed class StateSpyEngine(IEngine inner, bool state = true, bool fail
                 {
                     return Task.FromException(new EngineException("ENGINE_FAILURE", "cannot seed storage"));
                 }
+            }
+
+            if (targetMethod.Name == nameof(IEngineSession.ObserveAsync))
+            {
+                Interlocked.Increment(ref _engine.Observed);
+            }
+
+            if (_engine.CancelSettle && targetMethod.Name == nameof(IEngineSession.SettleAttemptAsync))
+            {
+                return Task.FromException(new OperationCanceledException());
             }
 
             if (targetMethod.Name == nameof(IEngineSession.DisposeAsync))

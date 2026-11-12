@@ -5,7 +5,6 @@
 using E2E.Engine;
 using E2E.TUnit;
 using TUnit.Core;
-using TUnitContext = global::TUnit.Core.TestContext;
 
 namespace E2E.Mobile.TUnit;
 
@@ -48,7 +47,7 @@ public abstract class MobileAppTest : E2ETest
     protected override IEngine CreateEngine()
     {
         // TUnit runs the base class hooks before the derived ones, and the base hook creates the engine. So the lease happens here.
-        var cancellationToken = TUnitContext.Current?.Execution.CancellationToken ?? CancellationToken.None;
+        var cancellationToken = SessionStartToken;
         Task.Run(() => MobileAppHost.LeaseAsync(CreateMobileOptions, ProjectRoot, Console.WriteLine, cancellationToken), cancellationToken).GetAwaiter().GetResult();
         return _engine = MobileAppHost.Engine ?? new MobileEngine(CreateMobileOptions(provider: null));
     }
