@@ -20,7 +20,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 
 ## The fixture
 
-Install `E2E.Mobile.NUnit` (or `E2E.Mobile.XUnit.V3`) and derive from its `MobileAppTest`. The app comes from `e2e.config.json`. The `agents`, `cache`, and timeout settings come from the same file.
+Install `E2E.Mobile.NUnit` (or `E2E.Mobile.XUnit.V3` or `E2E.Mobile.TUnit`) and derive from its `MobileAppTest`. The app comes from `e2e.config.json`. The `agents`, `cache`, and timeout settings come from the same file.
 
 ```json
 {
