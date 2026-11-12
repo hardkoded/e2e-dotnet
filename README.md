@@ -513,7 +513,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | TUnit | `E2E.TUnit` (`E2ETest`) |
 | none (.NET only) | `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, and `E2E.Mobile.TUnit` (`MobileAppTest`), a ready base class for a device test |
 | none (.NET only) | `E2E.WinApp` (`WinAppEngine`), Windows desktop apps through Windows UI Automation |
-| none (.NET only) | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` (`WinAppTest`), a ready base class for a Windows app test |
+| none (.NET only) | `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, and `E2E.WinApp.TUnit` (`WinAppTest`), a ready base class for a Windows app test |
 | `apps/mobile-benchmark` | `apps/WinAppBenchmark`, the benchmark scenarios as a WinUI 3 app (Microsoft.UI.Reactor), and `apps/WinAppBenchmark.E2ETests`, its ported suites, for the Windows engine |
 | `@e2e-dev/eas` | `E2E.Expo` (`ExpoSimulators`) |
 | `@e2e-dev/github` (ported in part) | `E2E.GitHub` (`GitHubReporter`), the run as a pull request comment |

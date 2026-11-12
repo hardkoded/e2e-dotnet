@@ -489,7 +489,7 @@ iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Instal
 
 ## Windows targets
 
-Windows desktop apps are driven by `WinAppEngine` in the `E2E.WinApp` project, through Windows UI Automation. Install `E2E.WinApp.NUnit` or `E2E.WinApp.XUnit.V3`, declare the app as `"targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }]` (`appPath` is the executable to launch, `bundleId` its process name), and derive from its `WinAppTest`. It runs on Windows only and needs an unlocked desktop for keys and clicks. The UI Automation library ships Windows assets only, so a test project on plain `net10.0` adds `<AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>` and `NU1701` to `NoWarn`. For the `Window` fixture, the agent tools, and known limits, read [windows.md](windows.md).
+Windows desktop apps are driven by `WinAppEngine` in the `E2E.WinApp` project, through Windows UI Automation. Install `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, or `E2E.WinApp.TUnit`, declare the app as `"targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }]` (`appPath` is the executable to launch, `bundleId` its process name), and derive from its `WinAppTest`. It runs on Windows only and needs an unlocked desktop for keys and clicks. The UI Automation library ships Windows assets only, so a test project on plain `net10.0` adds `<AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>` and `NU1701` to `NoWarn`. For the `Window` fixture, the agent tools, and known limits, read [windows.md](windows.md).
 
 ## Done when
 

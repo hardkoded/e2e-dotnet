@@ -21,6 +21,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.XUnit.V3` | xUnit v3 fixture `E2ETest` |
 | `src/E2E.TUnit` | TUnit fixture `E2ETest`. No upstream counterpart |
 | `src/E2E.Mobile.TUnit` | `MobileAppTest` for TUnit, packed as `E2E.Mobile.TUnit`. No upstream counterpart |
+| `src/E2E.WinApp.TUnit` | TUnit `WinAppTest`, the twin of `E2E.WinApp.XUnit.V3`. No upstream counterpart |
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
 | `tests/E2E.Expo.Tests` | Unit tests of `src/E2E.Expo`, with a fake Expo service. No device, no API key. The tests that evaluate a dynamic app config run a stand-in `expo` with `node`, so they need Node on the path |

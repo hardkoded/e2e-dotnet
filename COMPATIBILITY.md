@@ -28,7 +28,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | — | `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, and `E2E.Mobile.TUnit`, `MobileAppTest`: a ready base class for a device test. Not in upstream: see [MobileAppTest](#mobileapptest-not-in-upstream) |
 | — | `E2E.Mobile.DevFlow`, `DevFlowAgents`: .NET MAUI apps through the MAUI DevFlow agent. Not in upstream: see [MAUI DevFlow](#maui-devflow-not-in-upstream) |
 | — | `E2E.WinApp`, `WinAppEngine`: Windows desktop apps through Windows UI Automation. Not in upstream: see [WinApp engine](#winapp-engine-not-in-upstream) |
-| — | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3`, `WinAppTest`: a ready base class for a Windows app test. Not in upstream: see [WinAppTest](#winapptest-not-in-upstream) |
+| — | `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, and `E2E.WinApp.TUnit`, `WinAppTest`: a ready base class for a Windows app test. Not in upstream: see [WinAppTest](#winapptest-not-in-upstream) |
 | `@e2e-dev/testmu` (`testmuBrowsers()`, `browsers.ts`) | `E2E.TestMu`, `TestMuBrowsers`: TestMu AI hosted browsers on the `IBrowserProvider` seam. Ported in part: see [TestMu](#testmu) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
@@ -582,7 +582,7 @@ The tests-agent recordings are not copied. Upstream's `apps/web-benchmark/.e2e/c
 
 ## WinAppTest (not in upstream)
 
-`E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` add `WinAppTest`, a base class over `E2ETest` for a `windows` target, the way `MobileAppTest` serves a device target. It reads `AppId` (`app.bundleId`) and `AppPath` (`E2E_WINAPP_APP_PATH`, else `app.appPath`) from the target, builds a `WinAppEngine` from `CreateWinAppOptions()`, hands the agent `WinAppTools`, sets the step timeout to 90 seconds, and relaunches the app before each test (`WinAppHost.OpenAsync`, shared by both adapters from `src/Shared`). `Window` is the session's fixture. The base class adds no `[Category]`.
+`E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, and `E2E.WinApp.TUnit` add `WinAppTest`, a base class over `E2ETest` for a `windows` target, the way `MobileAppTest` serves a device target. It reads `AppId` (`app.bundleId`) and `AppPath` (`E2E_WINAPP_APP_PATH`, else `app.appPath`) from the target, builds a `WinAppEngine` from `CreateWinAppOptions()`, hands the agent `WinAppTools`, sets the step timeout to 90 seconds, and relaunches the app before each test (`WinAppHost.OpenAsync`, shared by the adapters from `src/Shared`). `Window` is the session's fixture. The base class adds no `[Category]`.
 
 
 ## TestMu
