@@ -224,7 +224,8 @@ screen refuses another before it resolves the node.
 `TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
 node's box (from its top left corner, inside its border), once the node is in view with a box;
 modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
-taps a viewport point with no locator, and `Screen.SwipeAsync(new SwipePathOptions
+taps a viewport point with no locator, `Screen.DoubleTapAtAsync(new Point(x, y))`
+double-taps one (the web engine sends a primary-button double click), and `Screen.SwipeAsync(new SwipePathOptions
 { From = ..., To = ..., Duration = ... })` drags between two viewport points
 (`Duration` is a whole number of milliseconds from 16 through 10000). A point must
 be finite and not negative. Only an engine that declares pointer actions takes a

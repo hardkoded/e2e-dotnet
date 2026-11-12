@@ -228,6 +228,17 @@ public class Screen
     }
 
     /// <summary>
+    /// Double-taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the
+    /// <c>doubleTap</c> pointer action; the web engine sends a primary-button double click. Upstream's <c>screen.doubleTapAt</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative.</exception>
+    public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var at = RequirePoint(point, "doubleTapAt");
+        return RunStepAsync(StepKind.Screen, "screen.doubleTapAt", DescribePoint(at), () => Engine.PerformAtAsync(at, new PointerAction.DoubleTap(), options?.Timeout, Token(cancellationToken)));
+    }
+
+    /// <summary>
     /// Scrolls the viewport in a direction, <see cref="SwipeOptions.Momentum"/> deciding how far. Upstream's <c>screen.swipe({ direction })</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when <see cref="ActionOptions.Timeout"/> is set: a viewport swipe has none, as upstream's options have no <c>timeout</c> key.</exception>

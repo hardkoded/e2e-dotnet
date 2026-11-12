@@ -185,7 +185,8 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `Page.Keyboard.PressAsync`, `Keyboard.TypeAsync` | `Browser.Keyboard.PressAsync`, `Browser.Keyboard.TypeAsync`; plain text only, never a `Secret` | web only |
 | `Keyboard.DownAsync`, `Keyboard.UpAsync` | `Browser.Keyboard.DownAsync`, `UpAsync`; keys and modifiers stay held until released | web only |
 | `Keyboard.InsertTextAsync` | not yet | missing |
-| `Page.Mouse.ClickAsync(x, y)` | no `TapAt` yet; `Browser.Mouse.MoveAsync`, `DownAsync`, `UpAsync` | missing |
+| `Page.Mouse.ClickAsync(x, y)` | `Screen.TapAtAsync(new Point(x, y))`, viewport coordinates | renamed |
+| `Page.Mouse.DblClickAsync(x, y)` | `Screen.DoubleTapAtAsync(new Point(x, y))`, viewport coordinates | renamed |
 | `Mouse.MoveAsync`, `DownAsync`, `UpAsync`, `WheelAsync` | `Browser.Mouse.*` | web only |
 | `Page.DragAndDropAsync(source, target, new() { SourcePosition, TargetPosition })` | `source.DragToAsync(target)`, which takes no positions | renamed |
 
