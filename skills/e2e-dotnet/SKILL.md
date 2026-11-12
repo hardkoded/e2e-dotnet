@@ -380,7 +380,11 @@ lines you changed:
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
-  visibly. On a locator (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
+  visibly. On a device, a node whose centre the soft keyboard covers is hidden, so the
+  scroll goes on past it and `ToBeVisibleAsync` fails on it (topic `mobile`). A tap
+  agent-device refuses because the keyboard or an overlay covers the target fails
+  `ACTION_FAILED` with a message that names the cover. On a locator
+  (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
   so a feed or table that is its own scroll container pages. `Timeout` is its own
   default of 30 s, not `actionTimeout`, and bounds the whole scroll, each swipe
   included. `Momentum` is the stride of each step: a longer one must not carry the

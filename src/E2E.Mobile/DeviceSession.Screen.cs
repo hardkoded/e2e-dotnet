@@ -38,8 +38,6 @@ public sealed partial class DeviceSession
     /// <summary>What a test does instead when the engine cannot send the keyboard away.</summary>
     private const string KeyboardAlternatives = "Tap the app's own Done or close control, or press Enter on the field when submitting is what you want.";
 
-    /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
-    private static readonly HashSet<string> KeyboardTypes = ["keyboard", "key"];
 
     /// <summary>How many located bindings a session keeps; the oldest goes first. Upstream's <c>MAX_LOCATED_REFS</c>.</summary>
     private const int MaxLocatedRefs = 2048;
@@ -565,14 +563,14 @@ public sealed partial class DeviceSession
     /// counts as no keyboard: a drag on a guess costs more than a keyboard a later tap refuses against by name.
     /// </summary>
     private static bool KeyboardShowing(RawSnapshot raw) =>
-        MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => KeyboardTypes.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")));
+        MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => SnapshotProjection.KeyboardKinds.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")));
 
     /// <summary>The top edge of the soft keyboard: the band the capture's producer measured, else the highest keyboard or key element, else the bottom of the screen.</summary>
     private static double KeyboardTop(RawSnapshot raw, ViewportSize viewport) =>
         raw.KeyboardKind is "visible" or "derived" && raw.KeyboardFrame is { } frame
             ? frame.Y
             : raw.Nodes
-                .Where(node => node.Rect is not null && KeyboardTypes.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")))
+                .Where(node => node.Rect is not null && SnapshotProjection.KeyboardKinds.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")))
                 .Select(node => node.Rect!.Value.Y)
                 .Append(viewport.Height)
                 .Min();

@@ -116,6 +116,30 @@ public sealed class ErrorTranslationTests
         Assert.Same(cause, translated.InnerException);
     }
 
+    // Each refusal as agent-device 0.21.36 sends it when something else is drawn where the touch would land.
+    [Theory]
+    [InlineData(
+        "target_covered",
+        "@e12 is covered by another visible element and cannot be tapped safely",
+        "Covered by Toolbar \"Back Next\". Dismiss or close that element, scroll the target clear of it, or inspect with snapshot/screenshot before retrying.")]
+    [InlineData(
+        "tap_keyboard_occludes_target",
+        "@e12 is behind the visible keyboard and cannot be tapped safely",
+        "The visible keyboard covers this target, so the tap would land on a key instead of on it. End editing first: tap the app's own Done/Cancel/close control.")]
+    public void Fails_a_tap_agent_device_refused_as_covered_with_NOT_ACTIONABLE_and_its_hint(string reason, string text, string hint)
+    {
+        var refused = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "no")));
+        var failure = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
+        Assert.Equal("NOT_ACTIONABLE", failure.Code);
+        Assert.False(failure.Retryable);
+        Assert.Same(refused, failure.InnerException);
+        Assert.Equal($"perform tap failed: {text} Hint: {hint}", failure.Message);
+
+        // A refusal that may have sent input is not the test's to fix.
+        var unknown = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "unknown")));
+        Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.StaleOr(unknown, "perform tap")).Code);
+    }
+
     [Fact]
     public void Maps_the_rest_to_ENGINE_FAILURE_with_the_text_a_ref_named_in_a_message_without_a_stale_reason_included()
     {

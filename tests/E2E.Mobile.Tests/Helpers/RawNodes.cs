@@ -33,7 +33,8 @@ internal static class RawNodes
         string? placeholder = null,
         bool? visibleToUser = null,
         bool? hittable = null,
-        string? bundleId = null) => new()
+        string? bundleId = null,
+        bool? keyboardOwned = null) => new()
         {
             Ref = @ref,
             Index = index,
@@ -58,6 +59,7 @@ internal static class RawNodes
             VisibleToUser = visibleToUser,
             Hittable = hittable,
             BundleId = bundleId,
+            KeyboardOwned = keyboardOwned,
         };
 
     public static Rect R(double x, double y, double width, double height) => new(x, y, width, height);

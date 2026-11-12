@@ -52,6 +52,60 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
 
     private static List<JsonObject?> Swipes(Harness h) => [.. h.Fake.Calls.Where(call => call.Method == "interactions.swipe").Select(call => call.Args)];
 
+    private static readonly LocatorExpression BrandRole = LocatorExpression.ForRole("textbox", TextMatch.FromString("Brand"), new RoleOptions());
+
+    private static LocatorExpression ByText(string value) => LocatorExpression.For("text", TextMatch.FromString(value), new TextMatchOptions { Exact = true }, nameof(value));
+
+    private static JsonObject Viewport844() => new() { ["width"] = 390, ["height"] = 844 };
+
+    [Fact]
+    public async Task Reports_a_field_under_the_measured_keyboard_as_hidden_and_the_same_field_as_visible_once_the_keyboard_is_gone()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        RawNode[] below = [.. FormNodes, N("@e5", index: 4, parentIndex: 1, depth: 2, type: "text-field", label: "Brand", rect: new Rect(20, 650, 350, 44))];
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => KeyboardUp(below));
+
+        // A role query never matches a hidden node; a text query still finds it, hidden.
+        Assert.Empty(await session.LocateAsync(BrandRole, TimeSpan.FromSeconds(5), CancellationToken.None));
+        Assert.True((await session.LocateAsync(ByText("Brand"), TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(below, ("keyboard", KeyboardFact("absent"))));
+        Assert.False((await session.LocateAsync(BrandRole, TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+    }
+
+    [Fact]
+    public async Task Reads_the_keyboard_band_off_the_keyboard_element_when_the_capture_measured_no_frame_and_not_once_the_producer_saw_it_gone()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var keyboard = N("@e9", index: 8, parentIndex: 0, depth: 1, type: "Keyboard", rect: new Rect(0, 600, 390, 216));
+        RawNode[] below = [.. FormNodes, N("@e5", index: 4, parentIndex: 1, depth: 2, type: "text-field", label: "Brand", rect: new Rect(20, 820, 350, 20)), keyboard];
+
+        // Brand's centre is under the dock below the keys, which the band reaches down to the bottom of the screen.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(below, ("viewport", Viewport844())));
+        Assert.True((await session.LocateAsync(ByText("Brand"), TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(below, ("viewport", Viewport844()), ("keyboard", KeyboardFact("absent"))));
+        Assert.False((await session.LocateAsync(ByText("Brand"), TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+    }
+
+    [Fact]
+    public async Task Counts_the_suggestion_strip_XCTest_lists_beside_the_keyboard_as_the_keyboard_and_keeps_its_own_buttons()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        RawNode[] nodes =
+        [
+            .. FormNodes,
+            N("@e5", index: 4, parentIndex: 1, depth: 2, type: "text-field", label: "Phone", rect: new Rect(20, 560, 350, 30)),
+            N("@e6", index: 5, parentIndex: 0, depth: 1, type: "other", identifier: "SystemInputAssistantView", rect: new Rect(0, 546, 390, 44)),
+            N("@e7", index: 6, parentIndex: 5, depth: 2, type: "button", label: "Suggestion", rect: new Rect(0, 546, 130, 44)),
+            N("@e8", index: 7, parentIndex: 0, depth: 1, type: "Keyboard", rect: new Rect(0, 590, 390, 216)),
+        ];
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(nodes, ("viewport", Viewport844())));
+        Assert.True((await session.LocateAsync(ByText("Phone"), TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+        Assert.False((await session.LocateAsync(ByText("Suggestion"), TimeSpan.FromSeconds(5), CancellationToken.None))[0].States.Hidden);
+    }
+
     [Fact]
     public async Task Drags_from_the_point_nearest_the_centre_that_no_control_covers_and_stops_once_the_keyboard_is_gone()
     {
