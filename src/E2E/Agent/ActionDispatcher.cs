@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Text.Json.Nodes;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 using static E2E.Agent;
+using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E;
 
@@ -14,9 +16,9 @@ namespace E2E;
 /// Upstream's action dispatcher (<c>agent/action-dispatcher.ts</c>): the <see cref="IExecutorActions"/> of one act step. Each
 /// verb performs the action on the engine, records it in the step's accounting, and arms the change wait its settle policy
 /// asks for. Upstream's <c>commitTargeted</c> is <see cref="CommitAsync(RecordedAction)"/>, and its private <c>targeted</c> is
-/// <see cref="TargetedAsync"/>.
+/// <see cref="TargetedAsync(SemanticNode, CancellationToken, Func{SemanticNode, int, Task})"/>.
 /// </summary>
-internal sealed class ActionDispatcher : IExecutorActions
+internal sealed partial class ActionDispatcher : IExecutorActions
 {
     // A scroll to a text gives up after this many pages, or once the screen stops moving.
     private const int MaxScrollUntilScreens = 800;
@@ -30,19 +32,37 @@ internal sealed class ActionDispatcher : IExecutorActions
     private readonly AttemptScope _scope;
     private readonly ObservationFeed _feed;
     private readonly StepAccounting _accounting;
-    private readonly IReadOnlyDictionary<string, object?>? _parameters;
     private readonly Func<IReadOnlyList<Secret>> _secrets;
     private readonly ActionHook? _onAction;
+    private readonly BeforeActionHook? _onBeforeAction;
+    private readonly string _instruction;
 
-    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction: the test's hook for each completed action.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null)
+    // Actions available during assertions, shared by every dispatcher (upstream's ASSERTION_ACTIONS).
+    private static readonly HashSet<string> AssertionActions = [.. ActionNames.ReadOnlyGrammar.Values.SelectMany(names => names)];
+
+    // Whether this step may only inspect the app (upstream's options.readOnly).
+    private readonly bool _readOnly;
+
+    // The action the newest commit ran. A typed value recorded as a derived gap is still described as the fill it was
+    // (upstream describes the committed action, not what the trace holds).
+    private RecordedAction? _committed;
+    private readonly JsonObject? _params;
+
+    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction and onBeforeAction: the test's hooks for each completed action
+    // and before each action.
+    // instruction and parameters: the step's literal input (upstream's options.instruction and options.params), which a typed value is
+    // checked against before it is recorded.
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null, string instruction = "", JsonObject? parameters = null, BeforeActionHook? onBeforeAction = null, bool readOnly = false)
     {
+        _readOnly = readOnly;
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
-        _parameters = parameters;
         _secrets = secrets;
         _onAction = onAction;
+        _onBeforeAction = onBeforeAction;
+        _instruction = instruction;
+        _params = parameters;
     }
 
     public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
@@ -50,6 +70,57 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
         ClickAsync("doubleTap", target, options, cancellationToken);
+
+    public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickAsync("secondaryTap", target, options, cancellationToken);
+
+    public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        NodeVerbAsync("longPress", target, new LocatorAction.LongPress(), cancellationToken);
+
+    public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        NodeVerbAsync("hover", target, new LocatorAction.Hover(), cancellationToken);
+
+    // Upstream's nodeVerb for a verb that carries nothing but its target.
+    private Task NodeVerbAsync(string kind, ExecutorTarget target, LocatorAction action, CancellationToken cancellationToken) =>
+        RunAsync(
+            kind,
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, action, token).ConfigureAwait(false);
+                await CommitAsync(kind, node).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// Upstream's <c>drag</c>: drags one node onto another. The destination is resolved beside the source on every attempt of the
+    /// relocation loop, so both come from the same look at the screen. Its placement is recorded like the source's, so a replay can
+    /// tell one "Done" column from another.
+    /// </summary>
+    public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return RunAsync("dragTo", token => DragOntoAsync(source, destination, token), cancellationToken);
+    }
+
+    // Upstream's dragOnto: the body of a node drag past the source's resolution, shared by the drag verb and the drag of two points that land on listed controls.
+    private async Task DragOntoAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken token)
+    {
+        var node = Resolve(source);
+        SemanticNode? dropped = null;
+        node = await TargetedAsync(
+            node,
+            token,
+            async (found, attempt) =>
+            {
+                // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
+                dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
+                await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        var recorded = Target(node, "drag", PlacementOf(node));
+        recorded.Destination = DescribePlaced(dropped!);
+        await CommitAsync(recorded).ConfigureAwait(false);
+    }
 
     // Upstream's nodeVerb for the tap family: the modifiers are checked before a slot is taken, and recorded with the action.
     private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken)
@@ -61,7 +132,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, ClickAction(kind, modifiers), token).ConfigureAwait(false);
-                var recorded = Target(node, kind);
+                var recorded = Target(node, kind, PlacementOf(node));
                 recorded.Modifiers = modifiers?.Select(modifier => modifier.ToString()).ToList();
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
@@ -109,9 +180,13 @@ internal sealed class ActionDispatcher : IExecutorActions
         return modifiers;
     }
 
-    /// <summary>The engine action of a <c>tap</c> or <c>doubleTap</c> holding <paramref name="modifiers"/>.</summary>
-    internal static LocatorAction ClickAction(string kind, IReadOnlyList<KeyModifier>? modifiers) =>
-        string.Equals(kind, "doubleTap", StringComparison.Ordinal) ? new LocatorAction.DoubleTap(modifiers) : new LocatorAction.Tap(modifiers);
+    /// <summary>The engine action of a <c>tap</c>, <c>doubleTap</c>, or <c>secondaryTap</c> holding <paramref name="modifiers"/>.</summary>
+    internal static LocatorAction ClickAction(string kind, IReadOnlyList<KeyModifier>? modifiers) => kind switch
+    {
+        "doubleTap" => new LocatorAction.DoubleTap(modifiers),
+        "secondaryTap" => new LocatorAction.SecondaryTap(modifiers),
+        _ => new LocatorAction.Tap(modifiers),
+    };
 
     public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {
@@ -122,26 +197,36 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitAsync("fill", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitTypedAsync(Target(node, "fill", PlacementOf(node)), value).ConfigureAwait(false);
             },
             cancellationToken);
     }
+
+    // The secrets the step's params declare are the only ones typeSecret may fill (upstream's options.secrets.get(name) in typeSecret);
+    // live and replay share this lookup, so both give the same code and message.
+    internal Secret DeclaredSecret(string secretName) =>
+        _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
+            ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
 
     public async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default)
     {
         // Checked before a slot is taken: the name must come from the step's own params, so an executor can never fill a
         // secret the test did not hand it.
-        var secret = _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
-            ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
+        var secret = DeclaredSecret(secretName);
         await RunAsync(
             "typeSecret",
             async token =>
             {
                 var node = Resolve(target);
-                AuthorizeSecretFill(secret, node);
-                // Before the engine call: a fill that types the value and then fails has still put it on screen.
-                _scope.Exposure.RaiseFilled();
-                await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
+                // The provider, if any, is asked once the policy has passed for the node as it is now (upstream's authorizeSecretFill resolves last).
+                node = await TargetedAsync(
+                    node,
+                    token,
+                    async (found, _) =>
+                    {
+                        var resolved = await SecretFill.AuthorizeSecretFillAsync(PolicyHost, _scope, secret, found, token).ConfigureAwait(false);
+                        await _scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
             },
@@ -166,23 +251,77 @@ internal sealed class ActionDispatcher : IExecutorActions
             throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
 
+        // Checked before the action is committed, as the locator tier does, so a bad argument is INVALID_ARGUMENT to the executor and never a failed action.
+        Keys.RequireKey(key);
+
+        // A key with no node is upstream's pressKey.
+        if (target is null)
+        {
+            return PressKeyAsync(key, cancellationToken);
+        }
+
         return RunAsync(
             "press",
             async token =>
             {
-                if (target is null)
-                {
-                    await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
-                    await CommitAsync(new RecordedAction { Kind = "press", Key = key }).ConfigureAwait(false);
-                    return;
-                }
-
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
                 await CommitAsync("press", node, key: key).ConfigureAwait(false);
             },
             cancellationToken);
     }
+
+    // Upstream's typeText: keyboard input to whatever holds focus. No node is resolved, so no descriptor is recorded: the trace keeps the
+    // value and replays it as given after the actions that gave the field focus. An engine that finds nothing editable focused refuses
+    // (NOT_ACTIONABLE), which reaches the executor as an ordinary failed action to read and work around.
+    public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        if (value is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "typeText value must be a string");
+        }
+
+        var replace = options?.Replace == true;
+        return RunAsync(
+            "typeText",
+            async token =>
+            {
+                await _scope.Session.TypeTextAsync(value, replace, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitTypedAsync(new RecordedAction { Kind = "typeText", Replace = replace }, value).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's pressKey: one key to whatever holds focus.
+    public Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new TestException("INVALID_ARGUMENT", "pressKey requires a key");
+        }
+
+        Keys.RequireKey(key);
+
+        return RunAsync(
+            "pressKey",
+            async token =>
+            {
+                await _scope.Session.PressAsync(key, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "pressKey", Key = key }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's dismissKeyboard: hides an on-screen keyboard. No node is resolved, so none is recorded.
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
+        RunAsync(
+            "dismissKeyboard",
+            async token =>
+            {
+                await _scope.Session.DismissKeyboardAsync(_accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "dismissKeyboard" }).ConfigureAwait(false);
+            },
+            cancellationToken);
 
     public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {
@@ -193,7 +332,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-                await CommitAsync("select", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitAsync("select", node, value: value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -209,13 +348,48 @@ internal sealed class ActionDispatcher : IExecutorActions
             },
             cancellationToken);
 
+    /// <summary>
+    /// Upstream's <c>upload</c>: attaches files to a file input. The paths are authorized against the project root before the node is
+    /// resolved and before an action slot is taken, each decision recorded on the step; the trace keeps them as given and replay
+    /// authorizes them again.
+    /// </summary>
+    public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+    {
+        var authorized = AuthorizeUpload(paths);
+        return RunAsync(
+            "setInputFiles",
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
+                var recorded = Target(node, "upload", PlacementOf(node));
+                recorded.Paths = [.. authorized.Given];
+                await CommitAsync(recorded).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    /// <summary>Authorizes the paths of one upload against the project root, recording the decision on the step (upstream's <c>authorizeUploadPaths</c> call).</summary>
+    internal AuthorizedUpload AuthorizeUpload(IReadOnlyList<string>? paths) => AuthorizeUpload(_scope, paths);
+
+    internal static AuthorizedUpload AuthorizeUpload(AttemptScope scope, IReadOnlyList<string>? paths) =>
+        UploadPaths.AuthorizeUploadPaths(new StepPolicyHost(scope.Steps), paths, scope.ProjectRoot ?? Directory.GetCurrentDirectory());
+
+    /// <summary>The seam a policy records its decisions through, onto this step's events (upstream's <c>policyHost</c>).</summary>
+    internal StepPolicyHost PolicyHost => new(_scope.Steps);
+
+    internal sealed class StepPolicyHost(StepRecorder steps) : IUploadPolicyHost, ISecretFillHost
+    {
+        public void RecordPolicy(string name, PolicyDecision decision, string? code = null) => Phases.RecordPolicyEvent(steps, name, decision, code);
+    }
+
     public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
         RunAsync(
             "scrollIntoView",
             async token =>
             {
                 var node = Resolve(target);
-                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync("scrollTo", node).ConfigureAwait(false);
             },
             cancellationToken);
@@ -232,16 +406,19 @@ internal sealed class ActionDispatcher : IExecutorActions
             "scrollUntil",
             async token =>
             {
-                var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
-                await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
+                var (paged, spans, screens) = await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                var recorded = paged is null ? null : Target(paged, "scrollUntil");
                 await CommitAsync(new RecordedAction
                 {
                     Kind = "scrollUntil",
                     Role = recorded?.Role,
                     Name = recorded?.Name,
                     TestId = recorded?.TestId,
+                    TargetText = recorded?.Text,
                     Direction = DirectionName(direction),
-                    Text = CacheKeys.Template(text, _parameters),
+                    Text = text,
+                    Spans = spans,
+                    Screens = screens,
                 }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -260,32 +437,28 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var actions = _accounting.Recorder.Actions;
-                var node = list is null ? null : Resolve(list);
-                var recorded = node is null ? null : Target(node, "scroll");
+                SemanticNode? node = null;
                 for (var repeat = 0; repeat < times; repeat++)
                 {
                     if (repeat > 0)
                     {
                         // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
                         _feed.ArmAfter(actions[^1]);
-                        var look = await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
-                        if (recorded is not null)
-                        {
-                            node = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
-                                ?? throw new TestException("NOT_FOUND", "The scrolled list is no longer on the screen.");
-                        }
+                        await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
                     }
 
-                    if (node is null)
+                    // A list that filled the screen and left the tree scrolls as the viewport does (scroll-target.ts).
+                    var resolved = list is null ? null : ScrollTarget.ResolveScrollTarget(_feed, list);
+                    if (resolved is null)
                     {
-                        await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                        await _scope.Session.SwipeAsync(direction, null, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                        RecordScroll(direction, null, null);
+                        continue;
                     }
 
-                    RecordScroll(direction, node);
+                    node = resolved.Node;
+                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                    RecordScroll(direction, node, resolved.Observation.Viewport);
                 }
 
                 if (list is not null && node is not null)
@@ -309,8 +482,8 @@ internal sealed class ActionDispatcher : IExecutorActions
             "navigate",
             async token =>
             {
-                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) }).ConfigureAwait(false);
+                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheRoute.AppNavigation(url, _scope.AppOrigin) }).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -320,41 +493,70 @@ internal sealed class ActionDispatcher : IExecutorActions
             "back",
             async token =>
             {
-                await _scope.Session.BackAsync(token).ConfigureAwait(false);
+                await _scope.Session.BackAsync(_accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "back" }).ConfigureAwait(false);
             },
             cancellationToken);
+
+    // Upstream's resize: sets the viewport to whole CSS pixels within the limits, for a layout at another width.
+    public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
+    {
+        var viewport = Geometry.RequireViewportSize(size);
+        return RunAsync(
+            "resize",
+            async token =>
+            {
+                await _scope.Session.ResizeAsync(viewport, _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                _scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
+                await CommitAsync(new RecordedAction { Kind = "resize", Size = viewport }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
 
     /// <summary>
     /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.
     /// </summary>
     private Task RunAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
-        _accounting.Queue.RunAsync(async () =>
+        _accounting.Queue.RunAsync(() => RunNowAsync(name, body, cancellationToken));
+
+    // Upstream's runActionNow: RunAsync's body, for a caller already inside the queue (a point verb resolves its point there first).
+    private async Task RunNowAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken)
+    {
+        AssertAllowed(name);
+        _accounting.Reserve();
+        await BeforeAsync().ConfigureAwait(false);
+        // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
+        var actions = _accounting.Recorder.Actions;
+        try
         {
-            _accounting.Reserve();
-            // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
-            var actions = _accounting.Recorder.Actions;
-            try
-            {
-                // One engine event named for the action, saying what it did once the action was recorded.
-                await Phases.InstrumentPhaseAsync(
-                    new PhaseHost(_scope.Steps, _scope.Debug),
-                    new PhaseSpec(StepEventKind.Engine, Phases.Action, name),
-                    async () =>
-                    {
-                        var before = actions.Count;
-                        await body(linked.Token).ConfigureAwait(false);
-                        return before;
-                    },
-                    before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
-            }
-            catch (Exception) when (CheckStep())
-            {
-                throw;
-            }
-        });
+            // One engine event named for the action, saying what it did once the action was recorded.
+            await Phases.InstrumentPhaseAsync(
+                new PhaseHost(_scope.Steps, _scope.Debug),
+                new PhaseSpec(StepEventKind.Engine, Phases.Action, name),
+                async () =>
+                {
+                    var before = actions.Count;
+                    await body(linked.Token).ConfigureAwait(false);
+                    return before;
+                },
+                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(SummaryOf(_committed ?? actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
+        }
+        catch (Exception) when (CheckStep())
+        {
+            throw;
+        }
+    }
+
+    /// <summary>Upstream's <c>assertAllowed</c>: assertions may move the viewport but cannot interact with application state.</summary>
+    internal void AssertAllowed(string name)
+    {
+        if (_readOnly && !AssertionActions.Contains(name))
+        {
+            throw _accounting.Fatalize(new AgentException("POLICY_DENIED", "agent.assert cannot perform " + name, blocked: true));
+        }
+    }
 
     // Throws the step's hard stop when the clock or the cancel ended it. Otherwise the action's own failure goes through.
     private bool CheckStep()
@@ -376,39 +578,9 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         ArgumentNullException.ThrowIfNull(target);
         return target.Node
-            ?? (target.Node = _feed.LastSeen(target.Id))
+            ?? (target.Node = _feed.LastSeen(target.Id.TrimStart('#'))?.Node)
             ?? throw new TestException("LOCATOR_NOT_FOUND", "node " + target.Id + " is not on the current screen; it was removed or never existed");
     }
-
-    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons: a secret the attempt
-    // knows, an enabled editable field, and a password field for a password. There is no origin check.
-    private void AuthorizeSecretFill(Secret secret, SemanticNode node)
-    {
-        if (!_scope.Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal)))
-        {
-            throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "secret \"" + secret.Name + "\" is not configured", blocked: true);
-        }
-
-        if (node.States.Disabled)
-        {
-            throw Denied("the target field is disabled");
-        }
-
-        if (!Roles.IsEditable(node))
-        {
-            throw Denied("the target is not an editable input (role " + (node.Role ?? "none") + ")");
-        }
-
-        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
-        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
-        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
-        if (secret.Purpose == "password" && inputPurpose != "password")
-        {
-            throw Denied("field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose);
-        }
-    }
-
-    private static AgentException Denied(string reason) => new("POLICY_DENIED", reason, blocked: true);
 
     /// <summary>
     /// Pages a list, or the viewport, until a node reading <paramref name="text"/> is on the
@@ -416,26 +588,32 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// list that does not move hands the paging to the viewport. The list is re-found before
     /// every page.
     /// </summary>
-    internal async Task PageUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
+    internal async Task<(SemanticNode? Node, double? Spans, int Screens)> PageUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
     {
-        string? previous = null;
+        PageReading? previous = null;
+        (SemanticNode? Node, double? Spans) paged = (null, null);
         var still = 0;
         for (var screens = 0; ; screens++)
         {
-            // A settled look after each page: a browser scrolls on a later frame than the wheel event, and a windowed
-            // list renders its rows on a later scroll event, so a raw read right after the swipe sees the page as it was.
-            var observation = await _feed.ObserveAsync(screens == 0 ? SettleMode.Raw : SettleMode.HeldStill, "page", token).ConfigureAwait(false);
+            // A page at least a third (two lines at least) of whose lines are new, and no sparser, has landed and is read once.
+            // Anything else is read until it holds. A screen that still matches the one before the swipe is not done holding
+            // after two polls: a list that appends when it reaches the end does so after that, and those polls would call the
+            // list ended. It is re-read for the held-still beat.
+            var observation = screens == 0
+                ? await _feed.ObserveAsync(SettleMode.Raw, "page", null, token).ConfigureAwait(false)
+                : await ReadScrolledPageAsync(previous, token).ConfigureAwait(false);
             if (screens == 0)
             {
                 _feed.MarkActing();
             }
 
-            var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null, _scope.Redactor));
+            // Only the list being paged is read while it is on screen; once it is gone the whole screen is.
+            var within = list is null ? null : LocatorResolver.Walk(observation.Roots).FirstOrDefault(node => node.Ref == list.Id.TrimStart('#'));
             var found = Reading.NodeReading(observation, text, _scope.Redactor, within);
             if (found is not null)
             {
-                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-                return;
+                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                return (paged.Node, paged.Spans, screens);
             }
 
             if (screens >= MaxScrollUntilScreens)
@@ -443,8 +621,8 @@ internal sealed class ActionDispatcher : IExecutorActions
                 throw new TestException("LOCATOR_NOT_FOUND", "Nothing reading \"" + text + "\" came into view within " + MaxScrollUntilScreens.ToString(CultureInfo.InvariantCulture) + " screens.");
             }
 
-            var shape = Reading.ReadingShape(observation);
-            still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
+            var reading = observation.TreeUnavailable ? null : Reading.ReadPage(observation);
+            still = reading is not null && previous is not null && !Reading.PageMoved(previous, reading) ? still + 1 : 0;
             if (still >= ScrollUntilStillPages)
             {
                 throw new TestException(
@@ -454,52 +632,153 @@ internal sealed class ActionDispatcher : IExecutorActions
 
             if (still >= ScrollUntilWrongListPages && within is not null)
             {
-                within = null;
+                list = null;
                 still = 0;
             }
 
-            previous = shape;
-            if (within is null)
-            {
-                // A list that is gone, or that does not move, gives the paging to the viewport for good.
-                list = null;
-                await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
-            }
-            else
-            {
-                await _scope.Session.PerformAsync(within, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
-            }
+            previous = reading;
+            var turned = await PageAsync(direction, list, token).ConfigureAwait(false);
+            paged = turned.Paged;
+            list = turned.Within;
         }
     }
+
+    // The screen after one page of a scroll to text (upstream's readScrolledPage). A landed page, or one that changed and then
+    // held, is returned as the held-still look reads it. A page that has not moved at all is re-read until it does, or the beat
+    // runs out.
+    private async Task<Observation> ReadScrolledPageAsync(PageReading? previous, CancellationToken token)
+    {
+        bool Landed(Observation seen) => previous is not null && !seen.TreeUnavailable && Reading.PageLanded(previous, Reading.ReadPage(seen));
+
+        // The screen still reads as the one from before the swipe, so a late append may still be coming.
+        bool StillThere(Observation seen) => previous is not null && !seen.TreeUnavailable && !Reading.PageMoved(previous, Reading.ReadPage(seen));
+
+        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, "page", Landed, token).ConfigureAwait(false);
+
+        // The beat starts when that look returns. The look can itself spend a second on a shape that never settles, and that
+        // second is not the wait for a list that appends after the screen has held.
+        var beatEnds = DateTimeOffset.UtcNow + SettlePolicy.HeldStill;
+        while (StillThere(observation) && _accounting.RemainingMs() > AgentObservation.SettlePoll.TotalMilliseconds)
+        {
+            var pause = Min(AgentObservation.SettlePoll, beatEnds - DateTimeOffset.UtcNow);
+            if (pause <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            await Task.Delay(pause, token).ConfigureAwait(false);
+            observation = await _feed.ObserveAsync(SettleMode.Raw, "page", null, token).ConfigureAwait(false);
+        }
+
+        return observation;
+    }
+
+    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
+
+    // One page of a scroll to a text: on the re-found list, else on the viewport, which also takes over for good once the
+    // list cannot be re-found. What was paged goes into the record, and the list to page next (upstream's page).
+    private async Task<((SemanticNode? Node, double? Spans) Paged, ExecutorTarget? Within)> PageAsync(ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
+    {
+        var resolved = list is null ? null : ScrollTargetOrLost(list);
+        if (resolved is null)
+        {
+            await _scope.Session.SwipeAsync(direction, null, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+            return ((null, null), null);
+        }
+
+        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+        return ((resolved.Node, SpansOf(resolved.Node, resolved.Observation.Viewport)), list);
+    }
+
+    // The list a scroll to a text pages, or null once neither the newest screen nor its old place has it.
+    private Resolved? ScrollTargetOrLost(ExecutorTarget list)
+    {
+        try
+        {
+            return ScrollTarget.ResolveScrollTarget(_feed, list);
+        }
+        catch (TestException exception) when (exception.Code == "LOCATOR_NOT_FOUND")
+        {
+            return null;
+        }
+    }
+
+    // The share of the viewport a list covered, or null when the engine measured no box or no viewport.
+    private static double? SpansOf(SemanticNode? list, TraceViewport? viewport) =>
+        list?.Rect is { } box && viewport is not null ? Geometry.ViewportShare(box, viewport) : null;
 
     private static SemanticNode? Single(List<SemanticNode> matches)
     {
         return matches.Count == 1 ? matches[0] : null;
     }
 
-    private void RecordScroll(ScrollDirection direction, SemanticNode? list)
+    private void RecordScroll(ScrollDirection direction, SemanticNode? list, TraceViewport? viewport)
     {
         var scroll = list is null ? new RecordedAction { Kind = "scroll" } : Target(list, "scroll");
         scroll.Direction = DirectionName(direction);
+        // How much of the screen the list covered decides, on replay, whether a list that cannot be re-found scrolls as the viewport.
+        scroll.Spans = SpansOf(list, viewport);
         _accounting.Recorder.RecordScroll(scroll);
     }
 
     // The node as the target an action names it by, not yet recorded.
-    private RecordedAction Target(SemanticNode node, string kind)
+    private RecordedAction Target(SemanticNode node, string kind, Placement placement = default) =>
+        TraceRecorder.ActionOf(kind, DescribePlaced(node, placement));
+
+    // Upstream's describePlaced: the node's descriptor with the placement it was acted on in.
+    private RecordedTarget DescribePlaced(SemanticNode node) => DescribePlaced(node, PlacementOf(node));
+
+    private RecordedTarget DescribePlaced(SemanticNode node, Placement placement) =>
+        TraceRecorder.DescribeTarget(node, _scope.Redactor, placement.Within, placement.Position);
+
+    // Upstream's placementOf: where a node sat when it was acted on, for the trace. The container it sits in is what tells this row's "Delete"
+    // from the next row's when the flow replays; when the description still matches several controls, its position among them lets a replay
+    // that finds the same number pick the same one. The screen is the newest one that listed the node, and the node is the one that screen
+    // lists under its ref: a look taken since the node was resolved holds new node objects.
+    private Placement PlacementOf(SemanticNode node)
     {
-        var target = TraceRecorder.DescribeTarget(node, _scope.Redactor);
-        return new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId };
+        if (_feed.LastSeen(node.Ref) is not { } seen)
+        {
+            return default;
+        }
+
+        var within = AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Tree), _scope.Redactor);
+        return new Placement(within, Relocate.DescribePosition(seen.Node, within, seen.Observation, _scope.Redactor));
     }
 
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
-    private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null) =>
-        ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key));
+    private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null)
+    {
+        var placement = PlacementOf(node);
+        return ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key, placement.Within, placement.Position));
+    }
 
     private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
+
+    private Task CommitAsync(string kind, PlacedPoint point, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(kind, point, viewport));
+
+    private Task CommitAsync(PlacedPoint from, PlacedPoint to, TraceViewport viewport) => ArmAndNotifyAsync(_accounting.Recorder.Record(from, to, viewport));
+
+    // Upstream's recordTrace for a typed value: one the step read off the screen (its tree, or a screenshot it was shown) or reckoned
+    // from the date is this run's data, not the flow's. It is recorded as a gap so replay hands over before it rather than typing a
+    // value the app may not issue again. A replay commits through the replay host, so a value a replay types is the recording's own
+    // data and stays: an app that kept the last run's value shows it on the first screen, and no model chose it.
+    private Task CommitTypedAsync(RecordedAction action, string value)
+    {
+        action.Value = value;
+        if (Derived.DerivedReason(value, _instruction, _params, new StepEvidence(_feed.ShownText(), _feed.PixelsShown)) is { } derived)
+        {
+            _accounting.Recorder.RecordDerivedGap(derived);
+            return ArmAndNotifyAsync(action);
+        }
+
+        return CommitAsync(action);
+    }
 
     // A recorded action arms the next look, then goes to the test's hook.
     private Task ArmAndNotifyAsync(RecordedAction recorded)
     {
+        _committed = recorded;
         _feed.ArmAfter(recorded);
         return NotifyAsync(recorded, ActionSource.Model);
     }
@@ -511,29 +790,66 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// retry, or the replay as a divergence.
     /// </summary>
     internal Task NotifyAsync(RecordedAction action, ActionSource source) =>
-        NotifyAsync(action.Kind, SettlePolicy.For(action).Look, () => DefaultAgent.Describe(action), source);
+        NotifyAsync(SettlePolicy.For(action).Look, (index, redact) => AgentActions.EventOf(action, index, redact(SummaryOf(action)), source));
+
+    // The recorded summary: upstream's describeAction is the one owner of the prose, so the event, the phase detail, the trace
+    // and the hand-off notice never drift. An action not recorded yet (a derived gap) is described the same way.
+    private string SummaryOf(RecordedAction action) => action.Summary ?? AgentActions.DescribeAction(action, _scope.Redactor);
 
     /// <summary>A mutating project tool that ran: the hook reads it as <c>tool:name</c>.</summary>
     internal Task NotifyToolAsync(string name) =>
-        NotifyAsync(ActionNames.ProjectToolEventPrefix + name, SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, () => "ran " + name, ActionSource.Model);
+        NotifyAsync(SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, (index, redact) => new ActionEvent(index, ActionNames.ProjectToolEventPrefix + name, redact("ran " + name), ActionSource.Model));
 
-    private async Task NotifyAsync(string action, SettleMode look, Func<string> summary, ActionSource source)
+    private async Task NotifyAsync(SettleMode look, Func<int, Func<string, string>, ActionEvent> build)
     {
         if (_onAction is not { } hook || _accounting.Closed)
         {
             return;
         }
 
+        await InvokeHookAsync(
+            "onAction",
+            async () =>
+            {
+                await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
+                await hook(build(_accounting.Used, _scope.Redactor.Redact)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Upstream's <c>before</c>: hands the action about to run to the test's <c>OnBeforeAction</c> hook. The action's slot is already
+    /// taken, so its <see cref="BeforeActionEvent.Index"/> is the one its <c>OnAction</c> event carries. It does not wait for the
+    /// screen to settle. <paramref name="source"/> is <see cref="ActionSource.Replay"/> for an action the cache replays (upstream reads
+    /// <c>accounting.replayingTrace</c>).
+    /// </summary>
+    internal async Task BeforeAsync(ActionSource source = ActionSource.Model)
+    {
+        if (_onBeforeAction is not { } hook || _accounting.Closed)
+        {
+            return;
+        }
+
+        await InvokeHookAsync(
+            "onBeforeAction",
+            async () =>
+            {
+                await hook(new BeforeActionEvent(_accounting.Used, source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+                _accounting.Checkpoint();
+            }).ConfigureAwait(false);
+    }
+
+    // Upstream's invokeHook: an observer's failure stops the step, never becoming an executor retry or a replay hand-off.
+    private async Task InvokeHookAsync(string name, Func<Task> body)
+    {
         try
         {
-            await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
-            await hook(new ActionEvent(_accounting.Used, action, _scope.Redactor.Redact(summary()), source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+            await body().ConfigureAwait(false);
         }
         catch (Exception cause) when (!ReferenceEquals(cause, _accounting.HardStop) && !_accounting.Token.IsCancellationRequested)
         {
             // A nested step's own budget or deadline is not this step's: the runtime vouches only for the stops it recorded itself.
             var code = cause is E2EException { Code: var named } && StepExecutors.AgentCodes.Contains(named) && !StepExecutors.RuntimeCodes.Contains(named) ? named : "ACTION_FAILED";
-            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " onAction failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
+            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " " + name + " failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
         }
     }
 
@@ -542,15 +858,23 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// by its description in a fresh look (<see cref="ObservationFeed.Relocate"/>) and the action retried,
     /// <see cref="MaxStaleRelocations"/> times: a list that remounts its rows between the look and the action keeps the
     /// control on screen under a dead ref. A description that matches nothing, or several nodes, fails the action.
+    /// Returns the node the action reached, which is what the trace records.
     /// </summary>
-    private async Task TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token)
+    private Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token) =>
+        TargetedAsync(
+            node,
+            token,
+            (found, _) => _scope.Session.PerformAsync(found, action, _accounting.ActionOperation(OperationContext.Agent, _scope.ActionTimeout), token));
+
+    // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
+    internal async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform)
     {
         for (var relocations = 0; ; relocations++)
         {
             try
             {
-                await _scope.Session.PerformAsync(node, action, token).ConfigureAwait(false);
-                return;
+                await perform(node, relocations).ConfigureAwait(false);
+                return node;
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
             {

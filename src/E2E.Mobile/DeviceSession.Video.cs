@@ -10,26 +10,27 @@ namespace E2E.Mobile;
 
 public sealed partial class DeviceSession
 {
-    private Recording? _recording;
-
     /// <summary>What the worker records its device through when its provider records: the provider, and the lease the slot rides.</summary>
     private readonly LeaseRecorder? _leaseRecorder;
 
-    /// <summary>One recording of the device: agent-device's screen recording, or the device provider's own.</summary>
-    private abstract class Recording;
+    /// <summary>One recording of the device: agent-device's screen recording, or the device provider's own. Held by the worker, across attempts.</summary>
+    internal abstract class Recording;
 
     /// <summary>agent-device's screen recording: where its file lands, and when the device confirmed it was on.</summary>
-    private sealed class ScreenRecording(string relative, string absolute, string startedAt) : Recording
+    internal sealed class ScreenRecording(string relative, string absolute, string startedAt) : Recording
     {
         public string Relative { get; } = relative;
 
         public string Absolute { get; } = absolute;
 
         public string StartedAt { get; set; } = startedAt;
+
+        /// <summary>The stop in flight, shared: it outlives a caller's cancelled wait, and its result with it (upstream's <c>stopping</c>).</summary>
+        public Task<JsonNode?>? Stopping { get; set; }
     }
 
     /// <summary>The device provider's recording of the leased device, as its <c>RecordAsync</c> is starting it or started it.</summary>
-    private sealed class LeaseRecording(LeaseRecorder recorder, string artifactsDir, Task<ProviderRecording?> started) : Recording
+    internal sealed class LeaseRecording(LeaseRecorder recorder, string artifactsDir, Task<ProviderRecording?> started) : Recording
     {
         public LeaseRecorder Recorder { get; } = recorder;
 
@@ -42,7 +43,7 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>What a worker records its device through when its provider records: the provider, and the lease the slot rides.</summary>
-    private sealed record LeaseRecorder(IDeviceProvider Provider, DeviceLease Lease, string RunId, string TargetName, string AttemptId, IReadOnlyDictionary<string, string?> Env);
+    internal sealed record LeaseRecorder(IDeviceProvider Provider, DeviceLease Lease, string RunId, string TargetName, string AttemptId, IReadOnlyDictionary<string, string?> Env);
 
     /// <summary>A provider's recording that tells the session once its stop is confirmed, before what the provider wrote is checked.</summary>
     private sealed class ConfirmedRecording(ProviderRecording inner, Action stopped) : ProviderRecording
@@ -66,7 +67,7 @@ public sealed partial class DeviceSession
     public async Task StartVideoAsync(CancellationToken cancellationToken)
     {
         var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("startVideo outside an attempt: start the session with an artifact directory");
-        if (_recording is not null)
+        if (_worker.Recording is not null)
         {
             throw DeviceSupport.InvalidState("a video is already recording");
         }
@@ -82,7 +83,7 @@ public sealed partial class DeviceSession
 
         // Marked before the device is asked: a start that outlives its budget still records, and closing the session must be able to stop it.
         var recording = new ScreenRecording(relative, absolute, Now());
-        _recording = recording;
+        _worker.Recording = recording;
 
         // The whole screen: an app scope refuses to start while no app is open, before app.open() and after closeApp().
         await CommandAsync(
@@ -103,12 +104,12 @@ public sealed partial class DeviceSession
     /// <summary>Stops the recording and returns its one segment, or none when the device wrote nothing.</summary>
     public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken)
     {
-        if (_recording is LeaseRecording lease)
+        if (_worker.Recording is LeaseRecording lease)
         {
-            return await StopLeaseRecordingAsync(lease, cancellationToken).ConfigureAwait(false) is { } segment ? [segment] : [];
+            return await StopLeaseRecordingAsync(_worker, lease, cancellationToken).ConfigureAwait(false) is { } segment ? [segment] : [];
         }
 
-        if (_recording is not ScreenRecording video)
+        if (_worker.Recording is not ScreenRecording video)
         {
             return [];
         }
@@ -130,16 +131,33 @@ public sealed partial class DeviceSession
     /// and stopping it ends that session, whatever the test opened in it since, so the session is then as
     /// <see cref="CloseAppAsync"/> leaves it.
     /// </summary>
-    private async Task<JsonNode?> StopScreenRecordingAsync(ScreenRecording video, CancellationToken cancellationToken)
-    {
-        var result = await CommandAsync("stop video recording", DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), cancellationToken).ConfigureAwait(false);
-        ClearRecording(video);
-        if (result is JsonObject { } data && data["recordOnlySession"] is JsonValue only && only.TryGetValue<bool>(out var recordOnly) && recordOnly)
-        {
-            ScreenReplaced();
-        }
+    private Task<JsonNode?> StopScreenRecordingAsync(ScreenRecording video, CancellationToken cancellationToken) =>
+        DeviceErrors.RunCommandAsync("stop video recording", _ => video.Stopping ??= Track(StopSharedAsync(video)), cancellationToken, _where);
 
-        return result;
+    /// <summary>
+    /// The one stop request of a screen recording. It runs on its own, not under a caller's token, so a caller that leaves does not
+    /// cancel it. A stop that fails is dropped, so the next caller or the attempt's cleanup sends it again.
+    /// </summary>
+    private async Task<JsonNode?> StopSharedAsync(ScreenRecording video)
+    {
+        // Held back until the caller stored this task, so a stop that fails at once cannot leave a stale one.
+        await Task.Yield();
+        try
+        {
+            var result = await CommandAsync("stop video recording", DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), CancellationToken.None).ConfigureAwait(false);
+            ClearRecording(_worker, video);
+            if (result is JsonObject { } data && data["recordOnlySession"] is JsonValue only && only.TryGetValue<bool>(out var recordOnly) && recordOnly)
+            {
+                ScreenReplaced();
+            }
+
+            return result;
+        }
+        catch (Exception)
+        {
+            video.Stopping = null;
+            throw;
+        }
     }
 
     /// <summary>
@@ -155,7 +173,7 @@ public sealed partial class DeviceSession
 
         // Read, so a start that fails after its caller gave up is not left unobserved.
         _ = started.ContinueWith(static settled => settled.Exception, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-        _recording = video;
+        _worker.Recording = video;
         try
         {
             if (await started.WaitAsync(cancellationToken).ConfigureAwait(false) is not null)
@@ -171,17 +189,21 @@ public sealed partial class DeviceSession
         catch (Exception)
         {
             // A start that failed leaves nothing recording.
-            ClearRecording(video);
+            ClearRecording(_worker, video);
             throw;
         }
 
         // The provider records nothing here.
-        ClearRecording(video);
+        ClearRecording(_worker, video);
         return false;
     }
 
-    /// <summary>Ends the provider's recording as the attempt's one segment, a file in its <c>video</c> directory or a link. Null when the provider recorded nothing.</summary>
-    private async Task<VideoSegment?> StopLeaseRecordingAsync(LeaseRecording video, CancellationToken cancellationToken)
+    /// <summary>
+    /// Ends the provider's recording as the attempt's one segment, a file in its <c>video</c> directory or a link. Null when the provider
+    /// recorded nothing. Shared by every caller: a stop in flight is waited for, not sent twice, and a stop that fails is dropped, so the next
+    /// caller sends it again (upstream's <c>stopLeaseRecording</c>, with its <c>stopping</c>).
+    /// </summary>
+    internal static async Task<VideoSegment?> StopLeaseRecordingAsync(DeviceWorker worker, LeaseRecording video, CancellationToken cancellationToken)
     {
         var stopping = video.Stopping;
         if (stopping is null)
@@ -223,26 +245,27 @@ public sealed partial class DeviceSession
             }
 
             return await ProviderRecordings.StopProviderRecordingAsync(
-                new ConfirmedRecording(recording, () => ClearRecording(video)),
+                new ConfirmedRecording(recording, () => ClearRecording(worker, video)),
                 new ProviderRecordingTarget { ArtifactsDir = video.ArtifactsDir, Provider = $"device provider \"{video.Recorder.Provider.Name}\"", LeaseId = video.Recorder.Lease.Id },
                 cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private void ClearRecording(Recording video)
+    /// <summary>Clears the worker's marked recording once it is confirmed stopped, or reset. Only the recording still marked is cleared.</summary>
+    internal static void ClearRecording(DeviceWorker worker, Recording video)
     {
-        if (_recording == video)
+        if (worker.Recording == video)
         {
-            _recording = null;
+            worker.Recording = null;
         }
     }
 
-    /// <summary>Stops a provider's recording the session never collected, best effort. Whatever stops it, the close goes on.</summary>
-    private async Task StopLeaseQuietlyAsync(LeaseRecording video, CancellationToken cancellationToken)
+    /// <summary>Stops a provider's recording the worker never collected, best effort. Whatever stops it, the close goes on.</summary>
+    internal static async Task StopLeaseQuietlyAsync(DeviceWorker worker, LeaseRecording video, CancellationToken cancellationToken)
     {
         try
         {
-            await StopLeaseRecordingAsync(video, cancellationToken).ConfigureAwait(false);
+            await StopLeaseRecordingAsync(worker, video, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -250,12 +273,28 @@ public sealed partial class DeviceSession
         }
     }
 
-    /// <summary>Stops a recording the session never collected, on the client that is closing. Whatever stops it, the close goes on.</summary>
-    private async Task StopQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
+    /// <summary>
+    /// Stops a recording the worker never collected, on the client that is closing. A stop already in flight is waited for, not sent
+    /// twice, and sent again only if it failed. Whatever stops it, the close goes on.
+    /// </summary>
+    internal static async Task StopQuietlyAsync(IDeviceClient client, JsonObject stopArgs, ScreenRecording video, CancellationToken cancellationToken)
     {
         try
         {
-            await client.CallAsync(DeviceMethods.RecordingRecord, Selection.ToArgs(("action", JsonValue.Create("stop"))), cancellationToken).ConfigureAwait(false);
+            if (video.Stopping is { } pending)
+            {
+                try
+                {
+                    await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // The shared stop failed: it is sent again below.
+                }
+            }
+
+            await client.CallAsync(DeviceMethods.RecordingRecord, stopArgs, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception)
         {

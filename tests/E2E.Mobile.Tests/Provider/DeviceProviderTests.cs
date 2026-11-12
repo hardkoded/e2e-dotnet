@@ -114,7 +114,12 @@ public sealed class DeviceProviderTests
 
         // The leases come back in whatever order the service answers.
         Assert.Equal(["toy-cloud: leased lease-0 (sim-0)", "toy-cloud: leased lease-1 (sim-1)"], lines.Skip(3).Take(2).Order());
-        Assert.Equal(["booting sim-0 (1 of 2)", "booting sim-1 (2 of 2)"], lines.Skip(5));
+        var warm = lines.Skip(5).ToList();
+        Assert.Equal(4, warm.Count);
+        Assert.Equal("booting sim-0 (1 of 2)", warm[0]);
+        Assert.Matches(@"^sim-0: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", warm[1]);
+        Assert.Equal("booting sim-1 (2 of 2)", warm[2]);
+        Assert.Matches(@"^sim-1: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", warm[3]);
 
         // Warmed like a local device, through the leased daemon: a fresh hosted simulator is the coldest device there is.
         Assert.Equal([new DeviceDaemon("https://0.example", "token-0"), new DeviceDaemon("https://1.example", "token-1")], h.Connections.Select(connection => connection?.Daemon));
@@ -151,19 +156,26 @@ public sealed class DeviceProviderTests
     }
 
     [Fact]
-    public async Task Asks_the_provider_for_the_resolved_build_and_leaves_the_install_to_the_suite_when_the_lease_did_not_without_the_install()
+    public async Task Asks_the_provider_for_the_resolved_build_and_leaves_the_install_to_the_suite_when_the_lease_did_not()
     {
         var cloud = new ToyCloud();
         var h = Over(cloud, app => app with { AppPath = "build/App.app" });
         var result = await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
-        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build/App.app"), cloud.Acquired[0].AppPath);
+        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build", "App.app"), cloud.Acquired[0].AppPath);
 
         // The lease installed nothing: the build is not on the device, so warm-up boots and starts the runner only, and the worker installs nothing.
         Assert.Equal(["devices.boot", "command.prepare"], h.Fake.Methods());
         var worker = Over(cloud, app => app with { AppPath = "build/App.app" });
         var session = await worker.Boot("ios", 0, Harness.WorkerEnv(result));
         Assert.Equal(["devices.boot"], worker.Fake.Methods());
-        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build/App.app"), session.BuildPath);
+
+        // The suite's device.installApp() installs the build on the leased device.
+        await session.InstallAppAsync(cancellationToken: CancellationToken.None);
+        var install = worker.Fake.LastArgs("apps.install");
+        Assert.NotNull(install);
+        Assert.Equal("sim-0", install["device"]?.GetValue<string>());
+        Assert.Equal("Settings", install["app"]?.GetValue<string>());
+        Assert.Equal(Path.Combine(Harness.ProjectRoot, "build", "App.app"), install["appPath"]?.GetValue<string>());
     }
 
     [Fact]
@@ -397,8 +409,185 @@ public sealed class DeviceProviderTests
         var h = Over(cloud);
         await h.Boot("ios", 0);
         Assert.Equal([null], h.Connections);
-        JsonAssert.Args("""{"platform":"ios"}""", h.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", h.Fake.LastArgs("devices.boot"));
+        await h.Engine.DisposeAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Equal([DeviceMethods.DevicesBoot, DeviceMethods.SessionsClose], h.Fake.Methods());
         await h.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
         Assert.Empty(cloud.Released);
+    }
+
+    [Fact]
+    public async Task Releases_the_provider_lease_while_a_retained_session_close_is_pending()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        await runner.Engine.PrepareAsync(runner.PrepareInfo(1), CancellationToken.None);
+        var closing = new TaskCompletionSource();
+        var closed = new TaskCompletionSource<JsonNode?>();
+        runner.Fake.RespondAsync(DeviceMethods.SessionsClose, (_, _) =>
+        {
+            closing.TrySetResult();
+            return closed.Task;
+        });
+        var finishing = runner.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
+        try
+        {
+            await closing.Task;
+            Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+        }
+        finally
+        {
+            closed.SetResult(new JsonObject());
+            await finishing;
+        }
+
+        Assert.Equal(DeviceMethods.SessionsClose, runner.Fake.Methods()[^1]);
+    }
+
+    [Fact]
+    public async Task Keeps_a_leased_session_for_a_replacement_worker_until_the_run_finishes()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        var prepared = await runner.Engine.PrepareAsync(runner.PrepareInfo(1), CancellationToken.None);
+        var env = Harness.WorkerEnv(prepared);
+        using var reuse = new CancellationTokenSource();
+        var retired = Over(cloud);
+        await retired.Boot("ios", 0, env);
+        await retired.Engine.DisposeAsync(TimeSpan.FromSeconds(5), reuse.Token, CancellationToken.None);
+        Assert.Equal([DeviceMethods.DevicesBoot], retired.Fake.Methods());
+
+        var replacement = Over(cloud);
+        await replacement.Boot("ios", 0, env);
+        Assert.Equal(["e2e-ios-0"], retired.Sessions);
+        Assert.Equal(["e2e-ios-0"], replacement.Sessions);
+        var connection = Assert.IsType<SlotBinding>(Assert.Single(replacement.Connections));
+        Assert.Equal(("lease-0", "sim-0", new DeviceDaemon("https://0.example", "token-0")), (connection.LeaseId, connection.Device, connection.Daemon));
+        Assert.Equal([DeviceMethods.DevicesBoot], replacement.Fake.Methods());
+        await replacement.Engine.DisposeAsync(TimeSpan.FromSeconds(5), reuse.Token, CancellationToken.None);
+        Assert.Equal([DeviceMethods.DevicesBoot], replacement.Fake.Methods());
+
+        await runner.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
+        Assert.Equal(
+            [DeviceMethods.DevicesBoot, DeviceMethods.CommandPrepare, DeviceMethods.AppsOpen, DeviceMethods.SessionsClose],
+            runner.Fake.Methods());
+        Assert.Equal([0], cloud.Acquired.Select(request => request.Slot));
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("revoked")]
+    public async Task Closes_a_leased_session_when_reuse_permission_is_missing_or_revoked(string permission)
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        var prepared = await runner.Engine.PrepareAsync(runner.PrepareInfo(1), CancellationToken.None);
+        var worker = Over(cloud);
+        await worker.Boot("ios", 0, Harness.WorkerEnv(prepared));
+        using var reuse = new CancellationTokenSource();
+        if (permission == "revoked")
+        {
+            reuse.Cancel();
+        }
+
+        CancellationToken? reuseSignal = permission == "revoked" ? reuse.Token : null;
+        await worker.Engine.DisposeAsync(TimeSpan.FromSeconds(5), reuseSignal, CancellationToken.None);
+        Assert.Equal([DeviceMethods.DevicesBoot, DeviceMethods.SessionsClose], worker.Fake.Methods());
+        Assert.Empty(cloud.Released);
+
+        await runner.Engine.FinishAsync(Harness.FinishInfo(), CancellationToken.None);
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+    }
+
+    /// <summary>
+    /// .NET-only: the run's worker lifecycle, the path <c>e2e explore</c>, <c>e2e mcp</c>, and the open session take. The host prepares the
+    /// engine once, runs its attempts one at a time, and finishes the engine when it closes. The leased device must stay booted across the
+    /// attempts, its session close at the finish, and the lease release after it.
+    /// </summary>
+    [Fact]
+    public async Task Reuses_the_leased_worker_across_attempts_through_the_standalone_host()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        var target = runner.Engine.Options.TargetName;
+        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
+        {
+            Engine = runner.Engine,
+            TargetName = target,
+            ProjectRoot = Directory.GetCurrentDirectory(),
+        });
+
+        // Prepare warms the device (one boot) and the first attempt boots it under the session; the second attempt boots nothing.
+        var boots = 0;
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            var opened = await host.OpenAttemptAsync(new E2ESessionOptions { Engine = runner.Engine, TargetName = target, TestTitle = $"attempt {attempt}" });
+            Assert.Empty(await opened.CloseAsync());
+            if (attempt == 1)
+            {
+                boots = runner.Fake.Methods().Count(method => method == DeviceMethods.DevicesBoot);
+            }
+        }
+
+        Assert.Equal(boots, runner.Fake.Methods().Count(method => method == DeviceMethods.DevicesBoot));
+        Assert.DoesNotContain(DeviceMethods.SessionsClose, runner.Fake.Methods());
+        Assert.Empty(cloud.Released);
+
+        Assert.Empty(await host.CloseAsync());
+        Assert.Equal(DeviceMethods.SessionsClose, runner.Fake.Methods()[^1]);
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+    }
+
+    /// <summary>
+    /// .NET-only: upstream's run prepares a target once and finishes it after its last worker. Through the port's run path, prepare leases the
+    /// device, the attempt runs on it, and the run's finish closes its session and then releases the lease.
+    /// </summary>
+    [Fact]
+    public async Task Runs_the_lease_through_the_runner_and_releases_it_when_the_run_ends()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+
+        var outcome = await MobileRun.RunAsync(runner.Engine, [new InMemoryTest("keeps the lease", _ => Task.CompletedTask)]);
+
+        Assert.Equal(RunStatus.Passed, outcome.Status);
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
+        Assert.Equal(DeviceMethods.SessionsClose, runner.Fake.Methods()[^1]);
+    }
+
+    /// <summary>
+    /// .NET-only: the public dispose hook of upstream's engine. A live reuse signal keeps a worker's leased session for a replacement, and a null
+    /// signal closes it; the lease is left to the run's finish either way.
+    /// </summary>
+    [Fact]
+    public async Task Disposes_a_worker_with_the_reuse_permission_its_signal_grants()
+    {
+        var cloud = new ToyCloud();
+        var runner = Over(cloud);
+        var target = runner.Engine.Options.TargetName;
+        var host = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
+        {
+            Engine = runner.Engine,
+            TargetName = target,
+            ProjectRoot = Directory.GetCurrentDirectory(),
+        });
+        var attempt = await host.OpenAttemptAsync(new E2ESessionOptions { Engine = runner.Engine, TargetName = target, TestTitle = "attempt" });
+        Assert.Empty(await attempt.CloseAsync());
+        var disposable = (IDisposableEngine)runner.Engine;
+        using var reuse = new CancellationTokenSource();
+
+        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5), ReuseSignal = reuse.Token }, CancellationToken.None);
+
+        Assert.DoesNotContain(DeviceMethods.SessionsClose, runner.Fake.Methods());
+        Assert.Empty(cloud.Released);
+
+        // The kept worker left the engine with its session, so a dispose without the permission has no worker of its own left to close.
+        var calls = runner.Fake.Methods().Count;
+        await disposable.DisposeAsync(new EngineDisposeContext { CleanupTimeout = TimeSpan.FromSeconds(5) }, CancellationToken.None);
+
+        Assert.Equal(calls, runner.Fake.Methods().Count);
+        Assert.Empty(await host.CloseAsync());
+        Assert.Equal(["lease-0"], cloud.Released.Select(lease => lease.Id));
     }
 }

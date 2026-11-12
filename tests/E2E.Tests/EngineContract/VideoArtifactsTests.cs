@@ -44,6 +44,23 @@ public sealed class VideoArtifactsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_required_video_that_fails_to_stop_fails_cleanup_and_exits_3_even_though_the_test_passed_1231_PARTIAL_a_session_stands_for_the_run()
+    {
+        var fake = new FakeVideoEngine(stopFailure: "video finalization exploded");
+        var session = await StartAsync(fake, "taps a node", Run(RecordingMode.On), attempt: 1);
+        session.Complete();
+        await Assert.ThrowsAnyAsync<Exception>(() => session.DisposeAsync().AsTask());
+
+        var report = session.Report()!;
+        var result = Assert.Single(report.Run.Results);
+        Assert.Equal(Reports.ResultStatus.Passed, result.Status);
+        var attempt = Assert.Single(result.Attempts);
+        Assert.Equal(Reports.AttemptCleanup.Failed, attempt.Cleanup);
+        Assert.Contains("video finalization exploded", Assert.Single(attempt.SecondaryErrors, error => error.Phase == Reports.ErrorPhase.Cleanup).Message, StringComparison.Ordinal);
+        Assert.Equal(3, report.Run.ExitCode);
+    }
+
+    [Fact]
     public async Task Keeps_only_failed_attempts_with_retain_on_failure_PARTIAL_no_run_to_pass_and_fail_in_one_report()
     {
         var fake = new FakeVideoEngine();
@@ -57,7 +74,7 @@ public sealed class VideoArtifactsTests : IDisposable
     }
 
     [Fact]
-    public async Task Fails_the_cleanup_on_an_engine_link_that_is_not_http_s_and_still_keeps_its_other_recordings_PARTIAL_no_report_to_read_the_cleanup_from()
+    public async Task Fails_the_cleanup_on_an_engine_link_that_is_not_http_s_and_still_keeps_its_other_recordings_PARTIAL_a_session_stands_for_the_run_and_the_videos_are_read_from_the_session()
     {
         var fake = new FakeVideoEngine(links: ["file:///tmp/r.mp4", "https://recordings.example/r.mp4"]);
         var session = await StartAsync(fake, "taps a node", new ResolvedRecording(RecordingMode.On, RecordingSource.Target), attempt: 1);
@@ -68,6 +85,12 @@ public sealed class VideoArtifactsTests : IDisposable
         Assert.Equal(
             ["https://recordings.example/r.mp4", "video/fake.webm"],
             session.Videos.Select(segment => segment is VideoFile file ? file.Path : ((VideoLink)segment).Url));
+
+        var attempt = Assert.Single(Assert.Single(session.Report()!.Run.Results).Attempts);
+        Assert.Equal(Reports.AttemptCleanup.Failed, attempt.Cleanup);
+        var secondary = Assert.Single(attempt.SecondaryErrors);
+        Assert.Equal("ENGINE_FAILURE", secondary.Code);
+        Assert.Contains("\"file:///tmp/r.mp4\"", secondary.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -131,7 +154,7 @@ public sealed class VideoArtifactsTests : IDisposable
     }
 
     /// <summary>An engine whose session records <c>video/fake.webm</c> into the attempt's directory, and can hand back links.</summary>
-    private sealed class FakeVideoEngine(bool video = true, IReadOnlyList<string>? links = null) : IEngine
+    private sealed class FakeVideoEngine(bool video = true, IReadOnlyList<string>? links = null, string? stopFailure = null) : IEngine
     {
         public int Started { get; private set; }
 
@@ -151,6 +174,7 @@ public sealed class VideoArtifactsTests : IDisposable
             proxy.ArtifactsDir = options.ArtifactsDir!;
             proxy.Operations = Operations;
             proxy.Links = links ?? [];
+            proxy.StopFailure = stopFailure;
             return Task.FromResult(session);
         }
     }
@@ -163,6 +187,8 @@ public sealed class VideoArtifactsTests : IDisposable
 
         internal IReadOnlyList<string> Links { get; set; } = [];
 
+        internal string? StopFailure { get; set; }
+
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             switch (targetMethod?.Name)
@@ -172,6 +198,11 @@ public sealed class VideoArtifactsTests : IDisposable
                     return Task.CompletedTask;
                 case nameof(IEngineSession.StopVideoAsync):
                     Operations.Add("stopVideo");
+                    if (StopFailure is not null)
+                    {
+                        return Task.FromException<IReadOnlyList<VideoSegment>>(new InvalidOperationException(StopFailure));
+                    }
+
                     Directory.CreateDirectory(Path.Combine(ArtifactsDir, "video"));
                     File.WriteAllText(Path.Combine(ArtifactsDir, "video", "fake.webm"), "fake-vid");
                     IReadOnlyList<VideoSegment> segments =

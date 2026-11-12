@@ -16,13 +16,13 @@ namespace E2E;
 internal sealed class ExecuteVideo
 {
     private readonly VideoRecording _recording;
-    private readonly IEngineSession _session;
+    private readonly SessionRecordings _recordings;
     private readonly string _artifactsDir;
 
-    private ExecuteVideo(VideoRecording recording, IEngineSession session, string artifactsDir)
+    private ExecuteVideo(VideoRecording recording, SessionRecordings recordings, string artifactsDir)
     {
         _recording = recording;
-        _session = session;
+        _recordings = recordings;
         _artifactsDir = artifactsDir;
     }
 
@@ -61,7 +61,7 @@ internal sealed class ExecuteVideo
     /// Starts the video within the launch timeout. A required video's failure fails the start; a default one's is dropped.
     /// A cancel of <paramref name="cancellationToken"/> is never dropped.
     /// </summary>
-    public static async Task<ExecuteVideo?> StartAsync(VideoRecording? recording, IEngineSession session, string artifactsDir, TimeSpan launchTimeout, CancellationToken cancellationToken)
+    public static async Task<ExecuteVideo?> StartAsync(VideoRecording? recording, SessionRecordings recordings, string artifactsDir, TimeSpan launchTimeout, CancellationToken cancellationToken)
     {
         if (recording is null)
         {
@@ -76,7 +76,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            await session.StartVideoAsync(launch.Token).ConfigureAwait(false);
+            await recordings.StartAttemptVideoAsync(launchTimeout, launch.Token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt goes on without one.
         catch (Exception) when (recording.Policy == VideoPolicy.BestEffort && !cancellationToken.IsCancellationRequested)
@@ -84,12 +84,12 @@ internal sealed class ExecuteVideo
         {
             return null;
         }
-        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout }) && launch.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             throw new EngineException("ENVIRONMENT_UNAVAILABLE", "The video did not start within the launch timeout (" + launchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
         }
 
-        return new ExecuteVideo(recording, session, artifactsDir);
+        return new ExecuteVideo(recording, recordings, artifactsDir);
     }
 
     /// <summary>How a final attempt ended, from the error the framework reports for it.</summary>
@@ -111,7 +111,7 @@ internal sealed class ExecuteVideo
     /// cleanup failure, and so does a link that is not an http(s) URL, once every other recording is kept; a default video
     /// that cannot be finalized is dropped.
     /// </summary>
-    public async Task StopAsync(AttemptStatus status, TimeSpan cleanupTimeout)
+    public async Task StopAsync(AttemptStatus status, TimeSpan cleanupTimeout, IArtifactSink? sink = null)
     {
         using var cleanup = new CancellationTokenSource();
         if (cleanupTimeout > TimeSpan.Zero && cleanupTimeout != Timeout.InfiniteTimeSpan)
@@ -121,7 +121,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            var segments = await _session.StopVideoAsync(cleanup.Token).ConfigureAwait(false);
+            var segments = await _recordings.StopAttemptVideoAsync(cleanupTimeout, cleanup.Token).ConfigureAwait(false);
 
             // Recorded so a failure could be looked at; a pass has nothing to show.
             if (!RecordingModes.Keeps(_recording.Keep, status))
@@ -139,7 +139,7 @@ internal sealed class ExecuteVideo
                 return;
             }
 
-            Register(segments);
+            Register(segments, sink);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt reports none.
         catch (Exception) when (_recording.Policy == VideoPolicy.BestEffort)
@@ -153,10 +153,28 @@ internal sealed class ExecuteVideo
     /// provider's is, an http(s) URL; one that is not fails the cleanup once every other recording is kept, so it costs no
     /// other video. Upstream <c>registerVideos</c>.
     /// </summary>
-    private void Register(IReadOnlyList<VideoSegment> segments)
+    // An engine's path is its own word: only a file inside the attempt's directory is ours to register.
+    private bool InsideAttemptDir(string path) =>
+        Path.GetFullPath(Path.Combine(_artifactsDir, path)).StartsWith(Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+
+    private void Register(IReadOnlyList<VideoSegment> segments, IArtifactSink? sink)
     {
         var rejected = segments.OfType<VideoLink>().Where(link => ProviderRecordings.HostedVideoUrl(link.Url) is null).ToList();
         Kept = [.. segments.Where(segment => segment is not VideoLink link || !rejected.Contains(link))];
+        foreach (var segment in Kept)
+        {
+            var startedAt = DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : (DateTimeOffset?)null;
+            switch (segment)
+            {
+                case VideoFile file when sink is not null && InsideAttemptDir(file.Path):
+                    sink.Register(E2E.Reports.ArtifactKind.Video, file.Path.Replace(Path.DirectorySeparatorChar, '/'), new ArtifactRegistration { StartedAt = startedAt });
+                    break;
+                case VideoLink link:
+                    sink?.Link(link.Url, new ArtifactLink(link.MediaType, startedAt ?? DateTimeOffset.UtcNow));
+                    break;
+            }
+        }
+
         if (rejected.Count > 0)
         {
             throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + string.Join(", ", rejected.Select(link => $"\"{link.Url}\"")), retryable: false);

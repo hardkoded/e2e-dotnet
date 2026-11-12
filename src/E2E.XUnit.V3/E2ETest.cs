@@ -20,6 +20,7 @@ namespace E2E.XUnit.V3;
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
 [LooksBeforeTeardown]
+[TestMethodOrderer(typeof(SetupTestMethodOrderer))]
 public abstract class E2ETest : E2EFixture, IAsyncLifetime
 {
     // The attribute that looks before the teardown gets the test, not the instance.
@@ -68,6 +69,8 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     {
         var current = Xunit.TestContext.Current;
         var test = current.Test ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
+        RunSelection.SkipIfLeftOut(GetType(), test.TestCase.TestMethodName);
+        RunSelection.SkipIfSetupRan(GetType(), test.TestCase.TestMethodName);
         await StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, (test.TestCase as IXunitTestCase)?.TestMethod?.Method).ConfigureAwait(false);
         Running[test.UniqueID] = this;
     }
@@ -76,18 +79,55 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     // The entry goes with the look, or with the dispose when the test method never ran.
     internal static void LookAtFailure(IXunitTest test)
     {
-        if (!Running.TryRemove(test.UniqueID, out var fixture) || Xunit.TestContext.Current.TestState is not { Result: TestResult.Failed } state)
+        if (!Running.TryRemove(test.UniqueID, out var fixture))
         {
             return;
         }
 
+        // A route or dialog handler that failed after the last step fails the attempt here, as a step would. A body that failed first keeps
+        // its own failure as the verdict, and the handler's is only collected so it does not reach the next test.
+        var late = fixture.SettleLate();
+        if (Xunit.TestContext.Current.TestState is { Result: TestResult.Failed } state)
+        {
+            Look(fixture, ErrorForCache(state, null)!);
+            return;
+        }
+
+        if (late is not null)
+        {
+            Look(fixture, late);
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(late);
+        }
+    }
+
+    private static void Look(E2ETest fixture, Exception failure)
+    {
         try
         {
-            fixture.CaptureFailureEvidenceAsync(ErrorForCache(state, null)!).GetAwaiter().GetResult();
+            fixture.CaptureFailureEvidenceAsync(failure).GetAwaiter().GetResult();
         }
         catch (OperationCanceledException)
         {
             // The look is a courtesy: the test's own failure is the one to report.
+        }
+    }
+
+    private Exception? SettleLate()
+    {
+        try
+        {
+            SettleAttemptAsync(Xunit.TestContext.Current.CancellationToken).GetAwaiter().GetResult();
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+#pragma warning disable CA1031 // The failure is the handler's: it becomes the test's result, or is dropped behind an earlier one.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            return ex;
         }
     }
 
@@ -108,9 +148,46 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
 
         var current = Xunit.TestContext.Current;
         var soft = session.CloseSoftFailures();
+
+        // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
+        Exception? late = null;
         try
         {
-            session.Complete(ErrorForCache(current.TestState, soft), current.CancellationToken);
+            await session.SettleAttemptAsync(current.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run was cancelled: the test's own result stands.
+        }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            late = ex;
+        }
+
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        if (current.TestState?.Result is TestResult.Passed && soft is null && late is null)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                late = ex;
+            }
+        }
+
+        try
+        {
+            session.Complete(ErrorForCache(current.TestState, soft) ?? late, current.CancellationToken);
         }
         finally
         {
@@ -120,6 +197,12 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         if (soft is not null)
         {
             throw soft;
+        }
+
+        // A test that failed already keeps its first failure as the verdict.
+        if (late is not null && current.TestState?.Result != TestResult.Failed)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(late);
         }
     }
 
@@ -142,6 +225,8 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         return Xunit.TestContext.Current.TestState?.Result == TestResult.Failed;
     }
 
+    private static readonly HashSet<string> CancellationTypes = new(StringComparer.Ordinal) { typeof(OperationCanceledException).FullName!, typeof(TaskCanceledException).FullName! };
+
     // xUnit keeps only the failure's type and message. The session itself knows when an agent call hit
     // a model outage or a stale replay, so the cache still keeps its entries then.
     private static Exception? ErrorForCache(TestResultState? state, TestException? soft)
@@ -157,6 +242,12 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         if (state?.Result == TestResult.Skipped || string.Equals(type, typeof(SkipException).FullName, StringComparison.Ordinal))
         {
             return new SkipException(string.IsNullOrWhiteSpace(message) ? "skipped" : message);
+        }
+
+        // A cancelled test stays a cancellation: the session reads the runner's token to tell the user's cancel from any other.
+        if (type is not null && CancellationTypes.Contains(type))
+        {
+            return new OperationCanceledException(string.IsNullOrWhiteSpace(message) ? "The test was cancelled." : message);
         }
 
         return new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(message) ? "The test failed." : message);

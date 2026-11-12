@@ -23,7 +23,7 @@ A redacted semantic snapshot of the current screen.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L112)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -43,7 +43,38 @@ null only when it did not measure it.
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L125)
+<a id="E2E_Engine_Observation_Location_"></a>
+<a id="E2E_Engine_Observation_Location"></a>
+
+### Location
+
+
+```csharp
+public string? Location { get; init; }
+```
+
+
+Where the surface was when captured (upstream's `location`): the page's address on the web. Null on a platform with no
+location. [Route](#E2E_Engine_Observation_Route) is the same address without its origin (.NET-only; upstream derives that path from this).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_Engine_Observation_Pixels_"></a>
+<a id="E2E_Engine_Observation_Pixels"></a>
+
+### Pixels
+
+
+```csharp
+public EngineScreenshot? Pixels { get; init; }
+```
+
+
+The screen's pixels, with every secure field covered, when [Pixels](/api/E2E.Engine/ObserveOptions/#E2E_Engine_ObserveOptions_Pixels) asked for them and the engine could
+take them (upstream's `EngineSnapshot.pixels` and `maskedRegionCount`, as [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)). Null when it did
+not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
+
+**Value:** [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)
 
 <a id="E2E_Engine_Observation_Revision_"></a>
 <a id="E2E_Engine_Observation_Revision"></a>
@@ -62,8 +93,6 @@ screen it last read.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L138)
-
 <a id="E2E_Engine_Observation_Roots_"></a>
 <a id="E2E_Engine_Observation_Roots"></a>
 
@@ -76,8 +105,6 @@ public required IReadOnlyList<SemanticNode> Roots { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;SemanticNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L116)
 
 <a id="E2E_Engine_Observation_Route_"></a>
 <a id="E2E_Engine_Observation_Route"></a>
@@ -92,7 +119,39 @@ public required string Route { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L114)
+<a id="E2E_Engine_Observation_SecureNodeCount_"></a>
+<a id="E2E_Engine_Observation_SecureNodeCount"></a>
+
+### SecureNodeCount
+
+
+```csharp
+public int? SecureNodeCount { get; init; }
+```
+
+
+How many secure nodes the engine saw (upstream's `redaction.secureNodeCount`), which [MaskedRegionCount](/api/E2E.Engine/EngineScreenshot/#E2E_Engine_EngineScreenshot_MaskedRegionCount) of
+[Pixels](#E2E_Engine_Observation_Pixels) must cover for the image to be proven redacted. A pixel-only observation ([TreeUnavailable](#E2E_Engine_Observation_TreeUnavailable)) has no
+tree to count, so the engine reports it. Null when the engine does not: the secure nodes of [Roots](#E2E_Engine_Observation_Roots) are counted instead.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
+<a id="E2E_Engine_Observation_TreeUnavailable_"></a>
+<a id="E2E_Engine_Observation_TreeUnavailable"></a>
+
+### TreeUnavailable
+
+
+```csharp
+public bool TreeUnavailable { get; init; }
+```
+
+
+The engine read no semantic tree, and [Pixels](#E2E_Engine_Observation_Pixels) are the only evidence of the screen (upstream's `kind: 'pixels'`
+observation, which an engine answers when [PixelFallback](/api/E2E.Engine/ObserveOptions/#E2E_Engine_ObserveOptions_PixelFallback) allows it). [Roots](#E2E_Engine_Observation_Roots) is empty then,
+the node refs of earlier observations name nothing, and a step that saw such a screen records no replay.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_Observation_Truncated_"></a>
 <a id="E2E_Engine_Observation_Truncated"></a>
@@ -109,4 +168,18 @@ True when the engine left nodes out to stay within its node budget. Scrolling br
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L119)
+<a id="E2E_Engine_Observation_Viewport_"></a>
+<a id="E2E_Engine_Observation_Viewport"></a>
+
+### Viewport
+
+
+```csharp
+public TraceViewport? Viewport { get; init; }
+```
+
+
+Upstream's `ObservedScreen.viewport`: the viewport the capture was taken in. Null when the engine did not measure it: the
+web engine does, and a scroll on a list then records the share of it the list covered.
+
+**Value:** [TraceViewport](/api/E2E.Engine/TraceViewport/)

@@ -9,7 +9,6 @@ namespace E2E.Tests.Image;
 
 /// <summary>
 /// The in-memory image operations <c>ToHaveScreenshotAsync</c> is built on: clipping, cropping, painting, the PNG round trip, and the comparison's tolerance.
-/// The five decode tests are partial: upstream compares the decode with what pngjs reads from the same file, and the port has no such oracle, so they compare it with the RGBA written by hand.
 /// </summary>
 public sealed class ImageTests
 {
@@ -30,38 +29,7 @@ public sealed class ImageTests
         return new RgbaImage(width, height, data);
     }
 
-    /// <summary>A PNG of the given color type and bit depth, from raw samples: one row after another, a row's samples packed as the depth says.</summary>
-    private static byte[] Png(int width, int height, byte colorType, byte bitDepth, byte[] rows, byte[]? palette = null)
-    {
-        using var output = new MemoryStream();
-        output.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-        var header = new byte[13];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header, width);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
-        header[8] = bitDepth;
-        header[9] = colorType;
-        Chunk(output, "IHDR", header);
-        if (palette is not null)
-        {
-            Chunk(output, "PLTE", palette);
-        }
-
-        var stride = rows.Length / height;
-        using var compressed = new MemoryStream();
-        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
-        {
-            for (var row = 0; row < height; row++)
-            {
-                zlib.WriteByte(0);
-                zlib.Write(rows, row * stride, stride);
-            }
-        }
-
-        Chunk(output, "IDAT", compressed.ToArray());
-        Chunk(output, "IEND", []);
-        return output.ToArray();
-    }
-
+    /// <summary>One PNG chunk: its length, type, data, and the CRC of type and data.</summary>
     private static void Chunk(Stream output, string type, byte[] data)
     {
         var length = new byte[4];
@@ -84,6 +52,76 @@ public sealed class ImageTests
         output.Write(checksum);
     }
 
+    /// <summary>Samples as 16-bit big-endian bytes, the order a PNG stores them in.</summary>
+    private static byte[] Sixteen(params int[] samples) => samples.SelectMany(sample => new[] { (byte)(sample >> 8), (byte)(sample & 255) }).ToArray();
+
+    private static byte[] Bytes(params int[] values) => values.Select(value => (byte)value).ToArray();
+
+    /// <summary>
+    /// A PNG written straight from the format: <paramref name="rows"/> hold each scanline's sample bytes, packed as the color type and
+    /// <paramref name="depth"/> say, with no filter. It does not go through the library under test, so it can say what an encoder never would.
+    /// </summary>
+    private static byte[] Png(int width, int height, int depth, int colorType, byte[][] rows, byte[][]? palette = null, byte[]? transparency = null)
+    {
+        using var output = new MemoryStream();
+        output.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header, width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = (byte)depth;
+        header[9] = (byte)colorType;
+        Chunk(output, "IHDR", header);
+        if (palette is not null)
+        {
+            Chunk(output, "PLTE", palette.SelectMany(entry => entry).ToArray());
+        }
+
+        if (transparency is not null)
+        {
+            Chunk(output, "tRNS", transparency);
+        }
+
+        using var compressed = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            foreach (var row in rows)
+            {
+                zlib.WriteByte(0);
+                zlib.Write(row, 0, row.Length);
+            }
+        }
+
+        Chunk(output, "IDAT", compressed.ToArray());
+        Chunk(output, "IEND", []);
+        return output.ToArray();
+    }
+
+    /// <summary>Red, green, and blue: the palette the indexed cases share.</summary>
+    private static readonly byte[][] Palette = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+
+    public static TheoryData<string, byte[], byte[]> DecodeCases() => new()
+    {
+        { "gray", Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 30, 60)]), Bytes(0, 0, 0, 255, 90, 90, 90, 255, 180, 180, 180, 255, 255, 255, 255, 255, 30, 30, 30, 255, 60, 60, 60, 255) },
+        { "gray with alpha", Png(3, 2, 8, 4, [Bytes(0, 255, 90, 128, 180, 0), Bytes(255, 255, 30, 10, 60, 200)]), Bytes(0, 0, 0, 255, 90, 90, 90, 128, 180, 180, 180, 0, 255, 255, 255, 255, 30, 30, 30, 10, 60, 60, 60, 200) },
+        { "RGB", Png(3, 2, 8, 2, [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 40, 50, 60, 70, 80, 90)]), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 10, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255) },
+        { "RGBA", Png(3, 2, 8, 6, [Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0), Bytes(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)]), Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12) },
+        { "16-bit gray", Png(3, 2, 16, 0, [Sixteen(0, 32768, 65535), Sixteen(1, 257, 60000)]), Bytes(0, 0, 0, 255, 128, 128, 128, 255, 255, 255, 255, 255, 0, 0, 0, 255, 1, 1, 1, 255, 233, 233, 233, 255) },
+        { "16-bit RGBA", Png(3, 2, 16, 6, [Sixteen(65535, 0, 0, 65535, 0, 32768, 0, 65535, 0, 0, 65535, 0), Sixteen(4096, 8192, 12288, 65535, 1, 2, 3, 4, 60000, 50000, 40000, 30000)]), Bytes(255, 0, 0, 255, 0, 128, 0, 255, 0, 0, 255, 0, 16, 32, 48, 255, 0, 0, 0, 0, 233, 195, 156, 117) },
+        { "a palette", Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255) },
+        { "a palette with alpha", Png(3, 2, 8, 3, [Bytes(0, 1, 2), Bytes(1, 0, 2)], Palette, Bytes(255, 128, 0)), Bytes(255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0, 0, 255, 0, 128, 255, 0, 0, 255, 0, 0, 255, 0) },
+        { "a 2-bit palette", Png(3, 2, 2, 3, [Bytes(0b00_01_10_00), Bytes(0b01_00_10_00)], Palette), Bytes(255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255) },
+        { "1-bit gray", Png(3, 2, 1, 0, [Bytes(0b010_00000), Bytes(0b101_00000)]), Bytes(0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255) },
+        { "2-bit gray", Png(3, 2, 2, 0, [Bytes(0b00_01_10_00), Bytes(0b11_10_01_00)]), Bytes(0, 0, 0, 255, 85, 85, 85, 255, 170, 170, 170, 255, 255, 255, 255, 255, 170, 170, 170, 255, 85, 85, 85, 255) },
+        { "4-bit gray", Png(3, 2, 4, 0, [Bytes(0x0f, 0x80), Bytes(0x37, 0x00)]), Bytes(0, 0, 0, 255, 255, 255, 255, 255, 136, 136, 136, 255, 51, 51, 51, 255, 119, 119, 119, 255, 0, 0, 0, 255) },
+        { "gray with a transparent color", Png(3, 2, 8, 0, [Bytes(0, 90, 180), Bytes(255, 90, 60)], null, Bytes(0, 90)), Bytes(0, 0, 0, 255, 90, 90, 90, 0, 180, 180, 180, 255, 255, 255, 255, 255, 90, 90, 90, 0, 60, 60, 60, 255) },
+        { "RGB with a transparent color", Png(3, 2, 8, 2, [Bytes(255, 0, 0, 0, 255, 0, 0, 0, 255), Bytes(10, 20, 30, 0, 255, 0, 70, 80, 90)], null, Bytes(0, 0, 0, 255, 0, 0)), Bytes(255, 0, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255, 10, 20, 30, 255, 0, 255, 0, 0, 70, 80, 90, 255) },
+        // Samples chosen where scaling 16 bits to 8 rounds both ways: 128 and 255 down, 129 and 32768 up.
+        { "16-bit RGB", Png(3, 2, 16, 2, [Sixteen(0, 65535, 32768, 257, 128, 129, 1000, 40000, 65000), Sixteen(65535, 0, 0, 12345, 54321, 22222, 255, 256, 65534)]), Bytes(0, 255, 128, 255, 1, 0, 1, 255, 4, 156, 253, 255, 255, 0, 0, 255, 48, 211, 86, 255, 1, 1, 255, 255) },
+        { "16-bit gray with alpha", Png(3, 2, 16, 4, [Sixteen(0, 65535, 32768, 32768, 65535, 0), Sixteen(1000, 129, 257, 128, 40000, 65000)]), Bytes(0, 0, 0, 255, 128, 128, 128, 128, 255, 255, 255, 0, 4, 4, 4, 1, 1, 1, 1, 0, 156, 156, 156, 253) },
+        // Every sample here scales to 0 at 8 bits, so only the 16-bit comparison tells (1, 2, 3) from the colors beside it.
+        { "16-bit RGB with a transparent color", Png(3, 2, 16, 2, [Sixteen(1, 2, 3, 4, 5, 6, 7, 8, 9), Sixteen(1, 2, 3, 1, 2, 4, 9, 9, 9)], null, Sixteen(1, 2, 3)), Bytes(0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 255) },
+    };
+
     [Fact]
     public void Round_trips_through_PNG()
     {
@@ -94,51 +132,137 @@ public sealed class ImageTests
         Assert.Equal(image.Data, decoded.Data);
     }
 
-    [Fact]
-    public void Decodes_gray_to_the_RGBA_expected_by_hand()
+    [Theory]
+    [MemberData(nameof(DecodeCases))]
+    public void Decodes_to_8_bit_RGBA(string label, byte[] bytes, byte[] rgba)
     {
-        byte[] samples = [0, 90, 180, 255, 30, 60];
-        var decoded = ImageOps.DecodePng(Png(3, 2, 0, 8, samples));
-        Assert.Equal(samples.SelectMany(gray => new byte[] { gray, gray, gray, 255 }), decoded.Data);
+        var decoded = ImageOps.DecodePng(bytes);
+        Assert.Equal([3, 2], [decoded.Width, decoded.Height]);
+        Assert.True(rgba.AsSpan().SequenceEqual(decoded.Data), $"{label}: expected {Convert.ToHexString(rgba)}, got {Convert.ToHexString(decoded.Data)}");
     }
 
-    [Fact]
-    public void Decodes_gray_with_alpha_to_the_RGBA_expected_by_hand()
+    /// <summary>A filtered scanline: the filter byte, then each byte minus the filter's prediction (the encoder side of the reader's unfilter).</summary>
+    private static byte[] Filtered(int filter, byte[] line, byte[] previous, int bytesPerPixel)
     {
-        byte[] samples = [0, 255, 90, 128, 180, 0, 255, 255, 30, 10, 60, 200];
-        var decoded = ImageOps.DecodePng(Png(3, 2, 4, 8, samples));
-        Assert.Equal(Enumerable.Range(0, 6).SelectMany(i => new[] { samples[i * 2], samples[i * 2], samples[i * 2], samples[(i * 2) + 1] }), decoded.Data);
-    }
-
-    [Fact]
-    public void Decodes_RGB_to_the_RGBA_expected_by_hand()
-    {
-        byte[] samples = [255, 0, 0, 0, 255, 0, 0, 0, 255, 10, 20, 30, 40, 50, 60, 70, 80, 90];
-        var decoded = ImageOps.DecodePng(Png(3, 2, 2, 8, samples));
-        Assert.Equal(Enumerable.Range(0, 6).SelectMany(i => new[] { samples[i * 3], samples[(i * 3) + 1], samples[(i * 3) + 2], (byte)255 }), decoded.Data);
-    }
-
-    [Fact]
-    public void Decodes_16_bit_RGBA_to_the_RGBA_expected_by_hand_within_one_level()
-    {
-        ushort[] samples = [65535, 0, 0, 65535, 0, 32768, 0, 65535, 0, 0, 65535, 0, 4096, 8192, 12288, 65535, 1, 2, 3, 4, 60000, 50000, 40000, 30000];
-        var rows = samples.SelectMany(sample => new[] { (byte)(sample >> 8), (byte)(sample & 0xFF) }).ToArray();
-        var decoded = ImageOps.DecodePng(Png(3, 2, 6, 16, rows));
-        // Skia scales 16-bit samples to 8 bits itself, which can land one level from the rounded value.
-        Assert.Equal(samples.Length, decoded.Data.Length);
-        for (var i = 0; i < samples.Length; i++)
+        var result = new byte[line.Length + 1];
+        result[0] = (byte)filter;
+        for (var at = 0; at < line.Length; at++)
         {
-            Assert.InRange(Math.Abs(decoded.Data[i] - Math.Floor((samples[i] * 255 / 65535.0) + 0.5)), 0, 1);
+            int left = at >= bytesPerPixel ? line[at - bytesPerPixel] : 0;
+            int up = previous[at];
+            int upLeft = at >= bytesPerPixel ? previous[at - bytesPerPixel] : 0;
+            var estimate = left + up - upLeft;
+            var paeth = Math.Abs(estimate - left) <= Math.Abs(estimate - up) && Math.Abs(estimate - left) <= Math.Abs(estimate - upLeft) ? left : Math.Abs(estimate - up) <= Math.Abs(estimate - upLeft) ? up : upLeft;
+            var predictor = filter switch { 1 => left, 2 => up, 3 => (left + up) / 2, 4 => paeth, _ => 0 };
+            result[at + 1] = (byte)(line[at] - predictor);
+        }
+
+        return result;
+    }
+
+    // .NET-only: upstream's addon reads 16-bit PNGs itself, the port reads them in ImageOps.ReadSixteenBitPng (filters and Adam7 included).
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Decodes_16_bit_RGB_with_every_scanline_filter_and_Adam7_interlacing(bool interlaced)
+    {
+        const int width = 9;
+        const int height = 9;
+        var values = Enumerable.Range(0, width * height * 3).Select(at => (int)((uint)(at * 2654435761L) >> 16)).ToArray();
+        var passes = interlaced
+            ? new[] { (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2) }
+            : [(0, 0, 1, 1)];
+        using var raw = new MemoryStream();
+        var rowNumber = 0;
+        foreach (var (x0, y0, dx, dy) in passes)
+        {
+            var previous = new byte[(((width - x0) + dx - 1) / dx) * 6];
+            for (var y = y0; y < height; y += dy)
+            {
+                var line = Enumerable.Range(0, ((width - x0) + dx - 1) / dx).SelectMany(column => Sixteen(Enumerable.Range(0, 3).Select(channel => values[((y * width) + x0 + (column * dx)) * 3 + channel]).ToArray())).ToArray();
+                raw.Write(Filtered(rowNumber++ % 5, line, previous, 6));
+                previous = line;
+            }
+        }
+
+        using var output = new MemoryStream();
+        output.Write([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        var header = new byte[13];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header, width);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4), height);
+        header[8] = 16;
+        header[9] = 2;
+        header[12] = (byte)(interlaced ? 1 : 0);
+        Chunk(output, "IHDR", header);
+        using var compressed = new MemoryStream();
+        using (var zlib = new System.IO.Compression.ZLibStream(compressed, System.IO.Compression.CompressionLevel.Fastest, leaveOpen: true))
+        {
+            zlib.Write(raw.ToArray());
+        }
+
+        Chunk(output, "IDAT", compressed.ToArray());
+        Chunk(output, "IEND", []);
+        var expected = Enumerable.Range(0, width * height).SelectMany(pixel => new[] { Narrow(values[pixel * 3]), Narrow(values[(pixel * 3) + 1]), Narrow(values[(pixel * 3) + 2]), (byte)255 }).ToArray();
+        Assert.Equal(expected, ImageOps.DecodePng(output.ToArray()).Data);
+    }
+
+    private static byte Narrow(int sample) => (byte)Math.Floor((sample * 255 / 65535d) + 0.5);
+
+    [Fact]
+    public void Keeps_every_sample_of_an_odd_sized_8_bit_RGB_image_when_it_adds_the_alpha_channel()
+    {
+        const int width = 37;
+        const int height = 11;
+        var samples = Enumerable.Range(0, width * height * 3).Select(at => (byte)((uint)(at * 2654435761L) >> 24)).ToArray();
+        var rows = Enumerable.Range(0, height).Select(y => samples.AsSpan(y * width * 3, width * 3).ToArray()).ToArray();
+        var expected = Enumerable.Range(0, width * height).SelectMany(pixel => new[] { samples[pixel * 3], samples[(pixel * 3) + 1], samples[(pixel * 3) + 2], (byte)255 }).ToArray();
+        var decoded = ImageOps.DecodePng(Png(width, height, 8, 2, rows));
+        Assert.Equal([width, height], [decoded.Width, decoded.Height]);
+        Assert.Equal(expected, decoded.Data);
+    }
+
+    [Fact]
+    public void Encodes_8_bit_RGBA_PNG_and_returns_decoded_pixels_a_painted_copy_does_not_share()
+    {
+        var encoded = ImageOps.EncodePng(Gray(4, 4, 0));
+        Assert.Equal([8, 6], [encoded[24], encoded[25]]);
+        var decoded = ImageOps.DecodePng(encoded);
+        var painted = ImageOps.FillBoxes(decoded, [new BoundingBox(0, 0, 2, 2)], (255, 0, 0));
+        Assert.Equal([255, 0, 0, 255], painted.Data.AsSpan(0, 4).ToArray());
+        Assert.Equal([0, 0, 0, 255], decoded.Data.AsSpan(0, 4).ToArray());
+    }
+
+    [Fact]
+    public void Throws_on_bytes_that_are_not_a_PNG_a_PNG_cut_short_or_one_with_a_corrupt_chunk()
+    {
+        var valid = Png(2, 2, 8, 2, [Bytes(9, 9, 9, 9, 9, 9), Bytes(9, 9, 9, 9, 9, 9)]);
+        var corrupt = (byte[])valid.Clone();
+        corrupt[20] = 255;
+        using var bitmap = new SkiaSharp.SKBitmap(2, 2);
+        using var image = SkiaSharp.SKImage.FromBitmap(bitmap);
+        using var jpegData = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 90);
+        var jpeg = jpegData.ToArray();
+        foreach (var bytes in new[] { Array.Empty<byte>(), new byte[] { 1, 2, 3 }, valid[..^10], valid[..40], corrupt, jpeg })
+        {
+            Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(bytes));
+        }
+
+        Assert.Contains("not a PNG", Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(jpeg)).Message);
+
+        // Cut inside the end chunk, or with an end chunk that is not whole: the pixels are all there, so only the chunk walk refuses them.
+        var badCrc = (byte[])valid.Clone();
+        badCrc[^1] ^= 0xff;
+        foreach (var cut in new[] { valid[..^4], valid[..^1], badCrc })
+        {
+            Assert.Contains("cut short", Assert.ThrowsAny<Exception>(() => ImageOps.DecodePng(cut)).Message);
         }
     }
 
     [Fact]
-    public void Decodes_a_palette_to_the_RGBA_expected_by_hand()
+    public void Refuses_pixels_that_do_not_fill_the_image_where_the_addon_would_abort_the_process()
     {
-        byte[] palette = [255, 0, 0, 0, 255, 0, 0, 0, 255];
-        int[] indexes = [0, 1, 2, 1, 0, 2];
-        var decoded = ImageOps.DecodePng(Png(3, 2, 3, 8, indexes.Select(index => (byte)index).ToArray(), palette));
-        Assert.Equal(indexes.SelectMany(index => new byte[] { palette[index * 3], palette[(index * 3) + 1], palette[(index * 3) + 2], 255 }), decoded.Data);
+        Assert.Contains("not 17", Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[17]))).Message);
+        Assert.Contains("not 15", Assert.Throws<ArgumentException>(() => ImageOps.EncodePng(new RgbaImage(2, 2, new byte[15]))).Message);
     }
 
     [Fact]

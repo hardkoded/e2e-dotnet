@@ -42,26 +42,50 @@ The agent does the flow; `Expect` pins what must be true after each goal,
 and that check lets the replay cache rerun the step later. `Screen` actions
 are for exact interactions and values. Every test starts from a fresh
 browser context with no page open, so it calls `App.OpenAsync` first.
-There is no `describe`, `test.setup`, `serial` group, or tag of e2e's own:
-grouping, setup, and categories are the framework's.
+There is no `describe`, `test.setup`, or tag of e2e's own: grouping, setup, and
+categories are the framework's. For a serial group whose members share one
+session (the page state of one member is still there in the next), mark an
+NUnit fixture `[Serial]` and order its tests with `[DependsOnTest]`. The session
+starts with the first member and ends with the group, and a member that fails
+skips the rest. xUnit has no such attribute.
 
 ## Fixtures
 
 Members of `E2ETest` in both frameworks:
 
 - `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`,
-  and `BaseUrl`. A path resolves against the target URL. `OpenAsync` and the
+  `ScreenshotAsync(label)`, and `BaseUrl` (the target URL with the run's port and no trailing slash, so `$"{App.BaseUrl}/api/users"` joins with one slash; null when the target declares no `app.url`). A path resolves against the target URL. `OpenAsync` and the
   agent's navigate step admit only `http:`, `https:`, and the exact
   `about:blank`; any other scheme is `POLICY_DENIED`. `RestartAsync` keeps
   cookies and storage, `ClearStateAsync` drops them, and both reopen the
   target URL inside their own step, so the report shows `app.restart` or
   `app.clearState` alone, with no `app.open` after it. `ClearStateAsync` is
   `UNSUPPORTED_CAPABILITY` with `Connect.ReconnectEndpoint` or an
-  attempt-scoped `Browser` provider.
+  attempt-scoped `Browser` provider. `ScreenshotAsync(label)` saves a redacted
+  screenshot artifact under `screenshots/` and returns its absolute path; the
+  report records the path relative to the artifact root. It masks secure
+  fields only, after a `Secret` fill too, so a secret the app shows anywhere
+  else is in the image. A screenshot taken while the page navigates captures
+  the document showing. It is `UNSUPPORTED_CAPABILITY` only on an engine that
+  keeps no screenshot artifact. The web, mobile, and Windows engines keep
+  screenshot artifacts.
+- `App.StartRecordingAsync(new RecordingOptions { Name = "dialog" })`, then
+  `StopRecordingAsync()`: records one span of the screen, such as a single
+  transition, and returns its videos in play order (`RecordedVideoFile.Path`,
+  absolute, under the attempt's `recordings/` as `001-<name>.<ext>`, or
+  `RecordedVideoLink.Url` when a hosted browser or device keeps the recording).
+  There is one video, except on the web when the page was replaced while it
+  recorded (`RestartAsync`, `ClearStateAsync`): then one per page. The step
+  links each video in the trace. One recording at a time (a second start is
+  `INVALID_ARGUMENT`, as is a stop with none running), and none while the
+  test's `video` records, since the engine has one recorder: that start is
+  `UNSUPPORTED_CAPABILITY`, so leave `video` off for the test. A recording
+  still running when the test ends is stopped and kept. Like the test's
+  video, it masks nothing.
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
-- `Expect`: `Expect.That(locator)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Poll(read)`.
+- `Expect`: `Expect.That(locator)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Soft(screen)`, `Expect.Poll(read)`.
 - `Browser`: URL, title, cookies, viewport, raw keyboard and mouse, and
   responses (below).
 - `Secrets.Get(name)`: a `Secret` from the config. `Credentials.User(name)`:
@@ -73,11 +97,18 @@ Members of `E2ETest` in both frameworks:
   `GetByTestId`, and `GetByDisplayValue`. Prefer a role with the accessible
   name the app renders.
 - Text matches are **exact by default**. Pass `exact: false` for a
-  case-insensitive substring, or a .NET `Regex`.
+  case-insensitive substring, or a .NET `Regex`. On the web a `Regex` runs in
+  the page as the JavaScript regular expression of the same pattern (its
+  `IgnoreCase`, `Multiline`, and `Singleline` options travel as flags), over
+  the raw text rather than whitespace-normalized text, so write a pattern both
+  syntaxes read the same way: no `\z` or `\A`.
 - `GetByText` and `GetByLabel` return the innermost match, so a container
   echoing its child does not count twice: `GetByText("$42.00")` finds the
-  `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. Text inside a
-  control's `<label>` answers with the control.
+  `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. On a web page,
+  `GetByText` matches the DOM text only: the `<label>` answers, not the control
+  it names, and a placeholder, a title, or an `aria-label` is no text.
+  `GetByLabel` finds a control by its `aria-label`, its `aria-labelledby`
+  target, or its `<label>`.
 - Roles follow HTML-AAM, and `img` aliases `image`. An inline `<svg>` is an
   `image`. An `<img alt="">` is decoration and matches nothing, unless it has
   a `title`, a `tabindex`, or a global ARIA attribute: then it is an `image`.
@@ -95,16 +126,21 @@ Members of `E2ETest` in both frameworks:
   a link or button around it. A node with no name reports `Name` null.
 - `RoleOptions` adds `Checked`, `Disabled`, `Selected`, `Expanded`,
   `Pressed`, and `Level`.
-- Narrow with `Filter(text)` or `Filter(locator)`, and pick with `First()`,
-  `Last()`, or `Nth(i)` when the order is the point. A locator also offers
+- Narrow with `Filter(text)` (a case-insensitive substring, unlike a query),
+  `Filter(locator)`, or `Filter(hasText:, hasNotText:, has:, hasNot:)`, which
+  takes any of the four by name and needs at least one. `hasNotText` excludes
+  matching subtree text, and `hasNot` drops a match whose subtree resolves the
+  inner locator. Pick with `First()`, `Last()`, or `Nth(i)` when the order is
+  the point. An empty `Filter()` is `INVALID_LOCATOR`. A locator also offers
   every query, scoped to its matches' descendants.
 - `a.Or(b)` matches either, still strict: add `First()` when both may
   match. Both locators must come from the same screen and attempt.
 - A locator resolves when it is used. A match on two nodes fails with
-  `STRICT_MODE`; no match fails with `NOT_FOUND`.
+  `LOCATOR_AMBIGUOUS`; no match fails with `LOCATOR_NOT_FOUND`.
 - `Browser.Locator(css)` and `Browser.FrameLocator(css)` (see the browser
   fixture) reach a control a role, label, or text query cannot name, and an
-  iframe. Use a selector only when those can't find the element.
+  iframe. Use a selector only when those can't find the element. A plain
+  query never enters an iframe: query its content through `FrameLocator`.
 - `Visible = true` (on `TextMatchOptions` or `RoleOptions`) drops nodes the
   page hides (a closed drawer) before the exactly-one rule. Visibility is
   what renders, as `ToBeVisibleAsync` reads it: `display: none`, a
@@ -113,16 +149,17 @@ Members of `E2ETest` in both frameworks:
   sets `visibility: visible` under a hidden parent is visible, and a
   `display: contents` element is visible when something under it is. An
   `aria-hidden` node that paints is visible, as upstream, but role queries skip
-  it. Unlike upstream, a box with no size reads as visible.
+  it. Everything inside a hidden `<iframe>` is hidden too, cross-origin frames
+  included. Unlike upstream, a box with no size reads as visible.
 - On the web a `contenteditable` editing host, the root a TipTap, ProseMirror,
-  Lexical, or Slate editor renders into, is a `textbox` for the agent and the
-  locators. Its value is its text as rendered, spaces and newlines kept, so
+  Lexical, or Slate editor renders into, is a `textbox` for the agent. Its value is its text as rendered, spaces and newlines kept, so
   `ToHaveValueAsync` and `InputValueAsync` read it and `FillAsync` fills it;
   an empty editor reads `""`. It is named by its `aria-label`,
   `aria-placeholder`, or the `data-placeholder` its editor paints, and the
   blocks inside it are content, not textboxes. A native control or a drawn
   surface made editable keeps its own role. `GetByRole("textbox", name)` finds
-  a bare host; upstream's finds it only with `role="textbox"`. Anchor a test
+  a host only with `role="textbox"` on it, as upstream's does; reach a bare
+  host with `GetByLabel` or `GetByTestId`. Anchor a test
   on a label or a test id, since a name taken from a block's
   `data-placeholder` goes once the editor has content.
 - `GetByDisplayValue` never matches a checkbox or radio. An accessible name
@@ -132,19 +169,89 @@ Members of `E2ETest` in both frameworks:
 
 ### Actions
 
-`ClickAsync` (and `TapAsync`), `DoubleTapAsync` (and `DblClickAsync`), `FillAsync` (a string or a
+`ClickAsync` (and `TapAsync`), `DoubleTapAsync` (and `DblClickAsync`),
+`SecondaryTapAsync` (a right click), `LongPressAsync`, `HoverAsync`,
+`DragToAsync(target)`, `SwipeAsync`, `FillAsync` (a string or a
 `Secret`), `PressSequentiallyAsync`, `PressAsync`, `CheckAsync`,
-`UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label),
-`FocusAsync`, and `ScrollIntoViewAsync`. Each waits up to the action timeout
-for exactly one enabled, visible match. There is no hover, drag, file
-upload, long press, or right click.
+`UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label, or a `SelectOption` with one of
+`Label`, `Value`, or `Index`),
+`FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
+the action timeout for exactly one enabled, visible match. `UncheckAsync` on a
+checked native radio fails with `ACTION_FAILED`; a `role="radio"` is clicked,
+and fails only if it stays checked.
+
+`PressAsync(key)` takes zero or more modifiers (`Shift`, `Control`, `Alt`, `Meta`,
+`ControlOrMeta`) and one key joined by `+`, where the key is a single character
+or a name (`Enter`, `Escape`, `Tab`, `Backspace`, `Delete`, `Insert`, `Space`,
+the arrows, `Home`, `End`, `PageUp`, `PageDown`, `F1` through `F12`): `"Enter"`,
+`"Control+a"`, `"Shift+Tab"`, `"Shift++"` (`+` with Shift). Any other key,
+such as `"Ctrl+a"`, `"ab"`, or `""`, fails with `INVALID_ARGUMENT` before the
+locator is resolved, on every engine; the agent's `press` is checked the same way
+before any action is performed.
+
+`FillAsync` sets the value with no key events. When the app reacts to
+keystrokes (autocomplete, a masked input), use `PressSequentiallyAsync(text)`:
+it focuses the one matching field and types through the engine's keyboard,
+appending to the current content. With no `Delay` the whole text is one
+keyboard call; with `new PressSequentiallyOptions { Delay = ... }` each code
+point is its own call, with the delay waited between them. The focus, the
+pauses, and the keystrokes share the one action `Timeout`: a pause is cut at it,
+no character is sent past it, and the call fails with `ACTION_FAILED` saying
+how many characters it typed. An engine that declares no `Keyboard`, or does
+not list `focus` in `ActionKinds`, fails with `UNSUPPORTED_CAPABILITY` before
+any node resolves. A `Secret` has no overload: pass it to `FillAsync`.
+
+`ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
+`DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
+own step: `locator.click` and `locator.dblclick`, as in a report or trace.
+
+`TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` take a `ClickOptions`
+whose `Modifiers` (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) are held
+for the click. Only the web engine takes them; any other engine fails with
+`UNSUPPORTED_CAPABILITY` before it resolves the node. A list that repeats a key
+is `INVALID_ARGUMENT`. `LongPressAsync(new LongPressOptions { Duration = ... })`
+holds from 100 ms through 10 s (a whole number of milliseconds, else an
+`ArgumentOutOfRangeException`); without one the engine holds its own default
+(500 ms on the web, one second on a device or a Windows app). `DragToAsync`
+resolves the drop locator in the same retry as the source, and both must come
+from the same screen. `SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`
+scrolls that node. Where each runs: the web engine has all of them; a device
+engine has long press, hover, drag, and swipe (no secondary tap); the Windows
+engine has them all; the document engine has swipe only and fails the rest with
+`UNSUPPORTED_CAPABILITY`. An engine declares the action kinds it takes, and the
+screen refuses another before it resolves the node.
+
+`TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
+node's box (from its top left corner, inside its border), once the node is in view with a box;
+modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
+taps a viewport point with no locator, `Screen.DoubleTapAtAsync(new Point(x, y))`
+double-taps one (the web engine sends a primary-button double click), and `Screen.SwipeAsync(new SwipePathOptions
+{ From = ..., To = ..., Duration = ... })` drags between two viewport points
+(`Duration` is a whole number of milliseconds from 16 through 10000). A point must
+be finite and not negative. Only an engine that declares pointer actions takes a
+point: the web engine does, and so does a device; the others fail with
+`UNSUPPORTED_CAPABILITY`. The agent has no `long_press`, `right_click`, `hover`, or
+`drag` tool yet.
+
+`SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
+file input, or of a control that opens a file chooser, such as a button over a
+hidden input. A locator refuses a hidden node, so target the button or label
+over a hidden input, not the input. Paths resolve from the project root; an
+empty list clears the input and fires `input` and `change`, and a blank
+entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,
+or a node inside a `<label>` for one, takes the files directly with no click.
+Anything else is clicked with the file chooser already awaited, and the chooser
+takes the files. A control that opens no chooser fails with `ACTION_FAILED`
+(`opened no file chooser`), as every engine failure of a locator action does;
+its `InnerException` is the engine's `NOT_ACTIONABLE`. Only the web engine has it: the others refuse it with
+`UNSUPPORTED_CAPABILITY`. The agent has no `upload` tool yet.
 
 ### Reads
 
 `TextContentAsync`, `InputValueAsync`, `GetAttributeAsync`,
 `IsEnabledAsync`, `IsDisabledAsync`, `IsCheckedAsync`, and `BoundingBoxAsync`
 wait for one match until the action timeout, then read once with no retry for
-a value. A node that never arrives fails with `NOT_FOUND` after the action
+a value. A node that never arrives fails with `LOCATOR_NOT_FOUND` after the action
 timeout. `IsVisibleAsync`, `IsHiddenAsync`, `CountAsync`, `AllAsync`, and
 `AllTextContentsAsync` answer from the current screen at once. Use a matcher
 when a value has to settle.
@@ -153,12 +260,14 @@ when a value has to settle.
 (`display: none` on it or an ancestor, or any `display: contents`
 element). `InputValueAsync` on a checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked
-state; `IsCheckedAsync` reads the state.
+state; `IsCheckedAsync` reads the state. `IsCheckedAsync` on a node that cannot
+be checked (a button), and `InputValueAsync` on one that holds no value (a
+heading), throw `ACTION_FAILED`, so query checkable controls by role.
 
 `TextContentAsync` is `null` for a node with no text and never falls back to
 the node's name: an image reads `null`, not its alt text. `InputValueAsync`
-returns a `string`, `""` for a node with no value (a heading, a cleared
-field), never `null`. A caller that tested it for null tests for `""` now.
+returns a `string`, `""` for a field with no value (a cleared field), never
+`null`. A node that holds no value at all, such as a heading, throws instead.
 
 Text reads (`ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and
 `AllTextContentsAsync`) read the node's rendered text, whitespace
@@ -217,15 +326,33 @@ matcher.
   against it. A node that is not there yet keeps it polling and a node that
   never arrives fails it as an assertion (`observed: no node`); `class=""` is
   an empty list and no `class` attribute is not (`observed: no class
-  attribute`); several matches fail at once with `STRICT_MODE`.
-- `Expect.Soft(locator)` records a failure and lets the test go on; the
+  attribute`); several matches fail at once with `LOCATOR_AMBIGUOUS`.
+- `Expect.Soft(locator)` and `Expect.Soft(screen)` record a failure and let the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
   in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that
   throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
   string), is one failing sample, not the end of the poll. At the deadline
   the last one is reported.
-- For plain values, use the framework's asserts (`Assert.That`).
+- A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect`
+  matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`,
+  `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, or
+  `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it.
+  `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends,
+  and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout`
+  is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, as is a zero or negative
+  `Interval`). `Agent` calls take a positive `Timeout` only: zero or less is
+  `INVALID_ARGUMENT`.
+- For plain values, `Expect.That(value, "what it checks")` runs the value matchers at once, with no
+  retry: `ToBe`, `ToEqual`, `ToMatchObject`, `ToBeTruthy`, `ToBeFalsy`, `ToBeNull`, `ToBeUndefined`,
+  `ToBeDefined`, `ToHaveLength`, `ToHaveProperty`, `ToContain`, `ToMatch`, `ToBeGreaterThan`,
+  `ToBeGreaterThanOrEqual`, `ToBeLessThan`, `ToBeLessThanOrEqual`, `ToBeCloseTo`, and `ToMatchSchema`, each with `.Not`.
+  The message opens every failure. `Expect.Any(typeof(int))`, `Anything()`, `ObjectContaining`,
+  `ArrayContaining`, `StringContaining`, and `StringMatching` stand in for a value inside
+  `ToEqual`, `ToMatchObject`, `ToContain`, and `ToHaveProperty`. `Expect.Soft(Screen, value)` keeps a
+  failure. `Expect.Undefined` stands for `undefined` (`null` is only `null`, and `ToBeDefined` accepts `null`). The framework's
+  asserts (`Assert.That`) still work.
+- There is no Standard Schema in .NET, so `ToMatchSchema` takes a `StandardSchemaV1<TOutput>` delegate: `value => ...` returns `StandardSchemaV1Result<TOutput>.Success(output)` or `.Failure(issues)`, each `StandardSchemaV1Issue` with its path. Adapt your schema library in a lambda. `Expect.That<object?>(body).ToMatchSchema(usersSchema)` returns the typed output and fails listing every issue by its path. It is synchronous, so an async schema cannot be passed. `Expect.Soft(screen, value).ToMatchSchema(schema)` keeps a failure and returns `default` (`0` for an int) after it, where upstream returns `undefined`.
 
 ## Sign-in
 
@@ -264,6 +391,10 @@ with `<secret:name>` in these places:
 - A name or text the engine cuts at its limit (256 and 512 characters) can end
   with the start of a secret. When the cut part is the first 8 or more
   characters of a secret (half of one shorter than 16), it shows the marker.
+- Screenshots, the model's and the artifacts', mask secure fields only, after
+  a secret fill too. A generic secret in a plain input, or a value the app
+  shows anywhere else (a show-password toggle, a toast), is in the image and
+  reaches the model provider: use test credentials.
 - `new WebBasicAuth(username, secret)` in `WebEngineOptions.BasicAuth`: the
   attempt redacts the password and the `Authorization` credential the
   browser sends with it. This is text only. Screenshots stay on, and the agent
@@ -276,8 +407,10 @@ every rerun while you fix it. A wrong locator at the end of a long flow
 reruns the whole flow, then waits out the action timeout. Begin each test as
 close to its screen as the app allows:
 
-- Sign in outside the flow, not through the sign-in form of every test. The
-  port has no saved `session`, so do it in the framework's per-test setup
+- Sign in outside the flow, not through the sign-in form of every test. Save
+  the sign-in once as a session (`[E2ESetup]` and `[E2ESession]`, topics
+  `writing-tests-nunit` and `writing-tests-xunit`). Otherwise, or to seed data, do it in the
+  framework's per-test setup
   (NUnit `[SetUp]`, which runs after the base class's own, so `Browser` is ready; xUnit v3 `InitializeAsync`, which calls
   `await base.InitializeAsync()` first, since the base starts the session):
   request the app's sign-in
@@ -364,23 +497,35 @@ misses.
 
 - `GotoAsync(url, new GotoOptions { WaitUntil, Timeout })`, `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
   `WaitForURLAsync`, `EvaluateAsync<T>`, `SetViewportAsync`, and the raw
-  keyboard and mouse.
+  keyboard and mouse. `EvaluateAsync<T>` returns plain JSON only: a class
+  instance (a `DOMRect`, an element) is `INVALID_ARGUMENT`, so return
+  `rect.toJSON()` or the fields you need. It fails with `EVALUATE_FAILED` when
+  the code threw or when the page replaced a built-in such as `Map`.
 - `Locator("css or xpath")`: a locator from a raw CSS or XPath selector, for a
   control no role, label, or test-id query names. Not portable: a last resort.
-  It reads the same tree as `Screen`, so an element the tree leaves out (no
-  role, test id, or text of its own) matches nothing. A selector that
+  It matches any element in the document (`body`, `html`, a wrapper `div`), as
+  Playwright does; an element the tree does not list is read when the locator
+  resolves. A selector that
   captures with `*` before its last part (`*css=ul >> li`) fails with
   `INVALID_LOCATOR`; `Filter(has)` narrows instead.
 - `FrameLocator("#payment")`: a `Screen` scoped to one iframe
   (`Browser.FrameLocator("#payment").GetByLabel("Card number")`); it keeps
   `Locator(css)` and `FrameLocator(css)` for nesting. Every `Screen` query
-  answers from inside the frame. The frame is the one element the selector
-  names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
+  answers from inside the frame, and only a frame locator reaches it: a plain
+  query does not read the content of an iframe. The agent's tree shows a frame
+  from another site (a hosted card field) as its `iframe` node with none of
+  its content, so an agent step reaches it only through pixels: script steps
+  there with `Browser.FrameLocator`, and judge its content with `Vision`. An
+  `Agent.ActAsync` whose only change is in that frame records no replay. The
+  frame is the one element the selector names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
   `ToBeHiddenAsync`, `ToHaveCountAsync`, `WaitForAsync` for `Detached` or
   `Hidden`) answers no match while it is missing, and an action polls for it
-  until its timeout, then fails with `NOT_FOUND`. Two frames match: `STRICT_MODE`.
+  until its timeout, then fails with `LOCATOR_NOT_FOUND`. Two frames match: `LOCATOR_AMBIGUOUS`.
   `Expect.That(frame).ToHaveScreenshotAsync` and `TreeAsync` refuse a frame
   with `INVALID_ARGUMENT`: call them on `Screen`, or on a locator inside it.
+- Shadow DOM: `Screen` queries reach open shadow roots and closed roots attached with `attachShadow`, not declarative closed roots (`<template shadowrootmode="closed">`). The engine
+  tracks the closed roots through a record its init script defines on the page, so a page that
+  replaces the global `WeakMap` keeps them reachable, and a secure field inside one is still masked in screenshots.
 - `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
   `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
   input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;
@@ -388,21 +533,31 @@ misses.
   presses and releases within the call. Prefer `PressAsync` and `FillAsync` on a
   locator.
 - `WaitForResponseAsync(pattern, timeout?)` resolves once the headers
-  arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `TextAsync()`,
-  `JsonAsync<T>()`). `TextAsync` and `JsonAsync` wait for the body (up to
+  arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `BodyAsync()`,
+  `TextAsync()`, `JsonAsync<T>()`). The body readers wait for the body (up to
   the action timeout) and fail with `ACTION_FAILED` when it could not be
   read. Start it before the step that sends the request, and await it after.
   This includes the first `GotoAsync` or `App.OpenAsync`.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
   requests, newest route first. `route.Request` has `Url`, `Method`,
-  `Headers`, `PostData`. The handler calls exactly one of
-  `FulfillAsync(new RouteFulfillResponse { Status, Headers, ContentType, Json | Body | Path })`,
-  `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, PostData })`
-  (straight to the network), `FallbackAsync()` (the route registered before
+  `Headers`, `PostData`. `route.FetchAsync()` reads upstream without deciding
+  the route and returns `Url`, `Status`, `Headers`, `BodyAsync()`, `TextAsync()`,
+  `JsonAsync<T>()`; redirects are not followed. Hand binary bodies on with
+  `BodyAsync()`, never `TextAsync()`. The handler calls exactly one of
+  `FulfillAsync(new RouteFulfillResponse { Status, Headers, ContentType, Json | Body | BodyBytes | Path })`
+  (`Body` is text, `BodyBytes` bytes; several cookies as one `\n`-joined
+  `set-cookie`),
+  `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, DropHeaders, PostData })`
+  (straight to the network; `DropHeaders` names request headers to send
+  without, the configured `Headers` still added on an allowed origin), `FallbackAsync()` (the route registered before
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
-  to the project root.
-- `UnrouteAllAsync()` removes every route; configured site headers stay.
+  to the project root. An error the handler throws fails the next step; when
+  no step follows, it fails the test at its end, after the teardown has run.
+  A step the handler made fail, such as the `GotoAsync` whose request it left
+  aborted, fails with the handler's error. A `GotoAsync` whose request a
+  handler aborted on purpose fails with `ACTION_FAILED`.
+- `UnrouteAllAsync()` removes every route; configured headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the
@@ -410,6 +565,10 @@ misses.
 - `CookiesAsync()`, `SetCookiesAsync([...])`: a target is an http(s) URL,
   relative to the base URL, or a domain. `SetCookiesAsync` refuses a cookie
   URL that is not http(s), `about:blank` included, with `POLICY_DENIED`.
+- `ClearCookiesAsync(new CookieFilter { Name, Domain, Path })`: remove the cookies
+  matching every filter given. A string matches a field exactly, a `Regex` matches
+  its text (Playwright runs it as JavaScript, so write `$` not `\z`). No options removes every
+  cookie, `HttpOnly` ones included; local and session storage stay.
 - `EmulateMediaAsync(new WebMedia { ColorScheme, ReducedMotion })`: what the
   page's `@media` rules and `matchMedia` read, for the rest of the test,
   through `App.RestartAsync` and `App.ClearStateAsync`. Call it before
@@ -423,6 +582,8 @@ misses.
   answers native `alert`, `confirm`, `prompt`, and `beforeunload` dialogs (see below).
 - `WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the
   file it downloads (see below).
+- `WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and
+  returns `count` of those files in start order (see below).
 
 ### Handle a dialog
 
@@ -441,7 +602,7 @@ A function handler gets the `Dialog` (`Type`, `Message`) and must call
 `AcceptAsync(text?)` or `DismissAsync()` before it returns. One that does
 not, or that throws, fails the next step (`INVALID_STATE`, or
 `ENGINE_FAILURE` for a throw that is not an e2e error), and its dialog is
-dismissed:
+dismissed. When no step follows, the test fails with it at its end:
 
 ```csharp
 await Browser.OnDialogAsync(async dialog =>
@@ -471,7 +632,19 @@ server gave it. A trigger that throws fails the call with its own error. One
 that returns and starts no download within the timeout fails with `ACTION_FAILED`, naming how long it
 waited and how long the trigger took. Without `Downloads` on the provider,
 a download on a browser on another machine fails with `ENGINE_FAILURE`,
-naming the provider.
+naming the provider. The timeout also bounds the file finishing and its save,
+and a download still running at the timeout is canceled.
+
+`WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and
+returns `count` files in start order, each its own `download` artifact, under
+the same timeout. A `count` below one fails with `INVALID_ARGUMENT` before the
+trigger runs. When fewer start in time, the `ACTION_FAILED` error names both
+counts; extra downloads are ignored.
+
+```csharp
+var files = await Browser.WaitForDownloadsAsync(
+    () => Screen.GetByRole("button", "Export all").TapAsync(), count: 2);
+```
 
 ### Run a script before the page
 

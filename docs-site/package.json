@@ -9,6 +9,7 @@
   "scripts": {
     "sync": "node scripts/sync-guides.mjs",
     "api": "node scripts/generate-api.mjs",
+    "test": "node --test scripts/text.test.mjs",
     "predev": "node scripts/sync-guides.mjs",
     "prebuild": "node scripts/sync-guides.mjs",
     "dev": "astro dev",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@astrojs/markdown-satteri": "^0.4.5",
     "@astrojs/starlight": "^0.42.7",
+    "@fontsource-variable/figtree": "^5.3.0",
     "@fontsource/dm-mono": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "astro": "^7.2.10",

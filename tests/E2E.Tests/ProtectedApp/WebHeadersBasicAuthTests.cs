@@ -9,27 +9,62 @@ using static E2E.Tests.ProtectedApp.ProtectedAppFixture;
 namespace E2E.Tests.ProtectedApp;
 
 /// <summary>
-/// Reaching an app behind a gate: configured request headers reach the app's site on every context the
-/// attempt opens, and never another site; basic-auth credentials answer a challenge wherever one is
-/// issued, as Playwright's own do. A second fixture instance reached as <c>localhost</c> rather than
-/// <c>127.0.0.1</c> stands in for a third-party site.
+/// Reaching an app behind a gate: configured request headers ride requests that start at the app's origin,
+/// on every context the attempt opens, and basic-auth credentials answer only its challenge. A request that
+/// starts at another origin gets neither unless <c>CredentialOrigins</c> lists it; a redirect keeps the headers
+/// its request started with. A second fixture instance stands in for another origin, on the same host under
+/// another port, and as <c>localhost</c> rather than <c>127.0.0.1</c> for a third-party site.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class WebHeadersBasicAuthTests
 {
     [Fact]
-    public async Task Sends_the_headers_to_the_apps_site_only_on_every_context_of_the_attempt()
+    public async Task Sends_the_headers_to_the_apps_origin_only_on_every_context_of_the_attempt()
     {
         using var app = await StartAsync();
-        using var other = await StartAsync("localhost");
+        using var otherPort = await StartAsync();
+        using var otherSite = await StartAsync("localhost");
         await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["X-Fixture-Header"] = "let-me-in" } });
 
         Assert.Equal("let-me-in", await HeadingAtAsync(session, app.Url + "headers"));
-        // A third-party site gets the request without them.
-        Assert.Equal("none", await HeadingAtAsync(session, other.Url + "headers"));
+        // Another port on the same host, and a third-party site, get the request without them.
+        Assert.Equal("none", await HeadingAtAsync(session, otherPort.Url + "headers"));
+        Assert.Equal("none", await HeadingAtAsync(session, otherSite.Url + "headers"));
         // A state reset replaces the context; the headers come along.
         await session.ClearStateAsync(CancellationToken.None);
         Assert.Equal("let-me-in", await HeadingAtAsync(session, app.Url + "headers"));
+    }
+
+    [Fact]
+    public async Task Sends_the_headers_to_an_origin_credentialOrigins_lists_and_no_other()
+    {
+        using var app = await StartAsync();
+        using var otherPort = await StartAsync();
+        using var otherSite = await StartAsync("localhost");
+        await using var session = await StartSessionAsync(app, new WebEngineOptions
+        {
+            Headless = true,
+            Headers = new Dictionary<string, string> { ["x-fixture-header"] = "listed" },
+            CredentialOrigins = [otherPort.Url],
+        });
+
+        Assert.Equal("listed", await HeadingAtAsync(session, otherPort.Url + "headers"));
+        Assert.Equal("none", await HeadingAtAsync(session, otherSite.Url + "headers"));
+    }
+
+    [Fact]
+    public async Task Follows_the_origin_a_request_starts_on_through_its_redirects()
+    {
+        using var app = await StartAsync();
+        using var otherSite = await StartAsync("localhost");
+        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["x-fixture-header"] = "rides-redirects" } });
+
+        // Playwright reapplies a routed request's headers to its redirects without routing them:
+        // they reach whatever origin a redirect names, and a redirect into the app's origin gets none.
+        app.Redirects["/to-other-headers"] = otherSite.Url + "headers";
+        Assert.Equal("rides-redirects", await HeadingAtAsync(session, app.Url + "to-other-headers"));
+        otherSite.Redirects["/to-app-headers"] = app.Url + "headers";
+        Assert.Equal("none", await HeadingAtAsync(session, otherSite.Url + "to-app-headers"));
     }
 
     [Fact]
@@ -77,10 +112,11 @@ public sealed class WebHeadersBasicAuthTests
     }
 
     [Fact]
-    public async Task Answers_a_basic_auth_challenge_wherever_one_is_issued()
+    public async Task Answers_a_basic_auth_challenge_from_the_apps_origin_only()
     {
         using var app = await StartAsync();
-        using var other = await StartAsync("localhost");
+        using var otherPort = await StartAsync();
+        using var otherSite = await StartAsync("localhost");
         await using (var unauthenticated = await StartSessionAsync(app, new WebEngineOptions { Headless = true }))
         {
             Assert.Equal("Unauthorized", await HeadingAtAsync(unauthenticated, app.Url + "protected"));
@@ -88,7 +124,29 @@ public sealed class WebHeadersBasicAuthTests
 
         await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth(Username, Password) });
         Assert.Equal("Protected", await HeadingAtAsync(session, app.Url + "protected"));
-        Assert.Equal("Protected", await HeadingAtAsync(session, other.Url + "protected"));
+        Assert.Equal("Unauthorized", await HeadingAtAsync(session, otherPort.Url + "protected"));
+        Assert.Equal("Unauthorized", await HeadingAtAsync(session, otherSite.Url + "protected"));
+        // The challenge comes from the origin a redirect lands on, so redirects do not carry the credential.
+        app.Redirects["/to-other-protected"] = otherPort.Url + "protected";
+        Assert.Equal("Unauthorized", await HeadingAtAsync(session, app.Url + "to-other-protected"));
+    }
+
+    [Fact]
+    public async Task Answers_a_challenge_from_an_origin_credentialOrigins_lists_and_no_other()
+    {
+        using var app = await StartAsync();
+        using var otherPort = await StartAsync();
+        using var otherSite = await StartAsync("localhost");
+        await using var session = await StartSessionAsync(app, new WebEngineOptions
+        {
+            Headless = true,
+            BasicAuth = new WebBasicAuth(Username, Password),
+            CredentialOrigins = [otherPort.Url],
+        });
+
+        Assert.Equal("Protected", await HeadingAtAsync(session, app.Url + "protected"));
+        Assert.Equal("Protected", await HeadingAtAsync(session, otherPort.Url + "protected"));
+        Assert.Equal("Unauthorized", await HeadingAtAsync(session, otherSite.Url + "protected"));
     }
 
     [Fact]
@@ -134,7 +192,7 @@ public sealed class WebHeadersBasicAuthTests
         Assert.Equal(Expected, (await session.EvaluateAsync(Read, null, false, CancellationToken.None))?.GetString());
     }
 
-    private static Task<IEngineSession> StartSessionAsync(TinySite app, WebEngineOptions options) =>
+    private static Task<IEngineSession> StartSessionAsync(ProtectedFixtureApp app, WebEngineOptions options) =>
         new WebEngine(options).StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None);
 
     /// <summary>Navigates and reads the page's one heading.</summary>

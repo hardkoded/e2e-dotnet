@@ -13,7 +13,7 @@ namespace E2E.Tests.ScriptedReads;
 /// Upstream runs each case as a test in the real runner and reads the report. The port has no runner and no
 /// report, so each case runs in the test body. Not ported: the report checks (valid report, the four
 /// <c>locator.waitFor</c> steps and the label of the first) and the error <c>category</c>. A <c>filter</c>
-/// with no predicate cannot be written with the typed overloads, so the port refuses a null one.
+/// with no predicate is <c>Filter()</c>; the typed overloads also refuse a null one.
 /// </summary>
 public sealed class ScriptedEngineLocatorReadsAndQueriesTests
 {
@@ -25,7 +25,10 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         Assert.Equal("Dashboard", await screen.GetByRole("heading", new RoleOptions { Level = 1 }).TextContentAsync());
         Assert.Null(await screen.GetByRole("image", "Map").TextContentAsync());
         Assert.Equal("hello-value", await screen.GetByLabel("Search").InputValueAsync());
-        Assert.Equal("", await screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync());
+        var noValue = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("heading", new RoleOptions { Level = 1 }).InputValueAsync());
+        Assert.Equal("ACTION_FAILED", noValue.Code);
+        var noState = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Submit").IsCheckedAsync());
+        Assert.Equal("ACTION_FAILED", noState.Code);
         Assert.Equal("card active", await screen.GetByTestId("card").GetAttributeAsync("class"));
         Assert.Null(await screen.GetByTestId("card").GetAttributeAsync("missing"));
         Assert.True(await screen.GetByRole("button", "Submit").IsVisibleAsync());
@@ -62,7 +65,6 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
         // A secure field still answers state reads.
         var password = screen.GetByLabel("Password");
         Assert.True(await password.IsEnabledAsync());
-        Assert.False(await password.IsCheckedAsync());
         Assert.True(await password.IsVisibleAsync());
         Assert.Equal(new BoundingBox(10, 140, 200, 30), await password.BoundingBoxAsync());
     }
@@ -93,6 +95,9 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
     {
         using var scene = ReferenceScene.Create();
         var todos = scene.Screen.GetByTestId("todo");
+        var empty = Assert.Throws<TestException>(() => todos.Filter());
+        Assert.Equal("INVALID_LOCATOR", empty.Code);
+        Assert.Contains("filter() requires hasText, hasNotText, has, and/or hasNot", empty.Message, StringComparison.Ordinal);
         Assert.Throws<ArgumentNullException>(() => todos.Filter((TextMatch)null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => todos.Nth(-1));
 

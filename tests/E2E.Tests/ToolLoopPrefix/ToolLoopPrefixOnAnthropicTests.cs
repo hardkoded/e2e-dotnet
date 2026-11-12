@@ -17,17 +17,53 @@ namespace E2E.Tests.ToolLoopPrefix;
 /// runs over a recording handler that answers with signed thinking blocks, and the assertions read the wire format.
 /// Not ported: "keeps the system prompt identical on every turn, the switch to auto included" (the port sends <c>auto</c> from
 /// the first turn, so it has no switch), and "notices a tool result a custom executor edits in place, below the part" (a
-/// <see cref="ModelMessage"/> is immutable, so an executor replaces a message and cannot edit it). Partial: "stops replaying the
-/// thinking from a message an elision rewrote" carries another name, since the port elides screens only to shrink an overflowed
-/// history, so the rewrite is that shrink; "notices a message a custom executor edits in place" replaces the message, for the
+/// <see cref="ModelMessage"/> is immutable, so an executor replaces a message and cannot edit it). Partial: "notices a message a custom executor edits in place" replaces the message, for the
 /// same reason; "keeps every reasoning part when a custom executor clones the history each turn" has a text opening message
 /// with no bytes, and does not read the turn notes. The test of a message an executor replaces on the first turn, and keeps the
-/// thinking produced after it, is .NET-only: upstream covers that through its elision, which the port lacks.
+/// thinking produced after it, and the one of the overflow shrink, are .NET-only.
 /// </summary>
 public sealed class ToolLoopPrefixOnAnthropicTests
 {
     [Fact]
-    public async Task Stops_replaying_the_thinking_from_a_message_a_history_shrink_rewrote_PARTIAL()
+    public async Task Stops_replaying_the_thinking_from_a_message_an_elision_rewrote_and_keeps_the_thinking_produced_after_it()
+    {
+        // The opening screen, a whole new one on the first look, the same one on the second.
+        var rows = new List<DocumentElement>();
+        var big = new DocumentWorld().Map("/start", page =>
+        {
+            // A button, so the opening prompt looks once.
+            page.Button("Peek");
+            for (var i = 0; i < 600; i++)
+            {
+                rows.Add(page.Paragraph("v1 row " + i + " " + new string('x', 90)));
+            }
+        });
+        var handler = new RecordingHandler(Answer(1, "observe", new { })).Then(HttpStatusCode.OK, Answer(2, "observe", new { })).Then(HttpStatusCode.OK, Done(3));
+        handler.OnRequest = n =>
+        {
+            if (n == 1)
+            {
+                for (var i = 0; i < rows.Count; i++)
+                {
+                    rows[i].Text = "v2 row " + i + " " + new string('x', 90);
+                }
+            }
+        };
+        var (error, turns) = await ToolLoopPrefixHelpers.RunAsync(handler, world: big, instruction: "look around twice, then conclude");
+
+        Assert.Null(error);
+        Assert.Equal(3, handler.Requests.Count);
+        // The second request elided the opening screen at messages.0: the block produced under the whole screen is not sent again.
+        Assert.Contains("[earlier screen elided", handler.Requests[1].Body, StringComparison.Ordinal);
+        Assert.Empty(ReplayedThinking(handler.Requests[1]));
+        // The third request leaves messages.0 as the second sent it, so the block produced under the elided screen is valid and goes
+        // out; the first is still gone.
+        Assert.Equal(["messages.3.content.0=sig-2"], ReplayedThinking(handler.Requests[2]));
+        Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Stops_replaying_the_thinking_from_a_message_an_overflow_shrink_rewrote_NET_ONLY()
     {
         var big = new DocumentWorld().Map("/start", page =>
         {
@@ -51,8 +87,11 @@ public sealed class ToolLoopPrefixOnAnthropicTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, handler.Requests.Count);
+        // The failed tap answers with the unchanged screen, a short result: nothing is elided before the second request goes out, so the
+        // block produced under the whole screen is replayed.
+        Assert.DoesNotContain("[earlier screen elided", handler.Requests[1].Body, StringComparison.Ordinal);
         Assert.Equal(["messages.1.content.0=sig-1"], ReplayedThinking(handler.Requests[1]));
-        // The retried request carries the clipped opening screen, so the block produced under the whole screen is not sent again.
+        // The retried request carries the clipped newest screen, so the block produced under the whole screen is not sent again.
         Assert.Contains("more characters cut", handler.Requests[2].Body, StringComparison.Ordinal);
         Assert.Empty(ReplayedThinking(handler.Requests[2]));
     }

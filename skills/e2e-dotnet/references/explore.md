@@ -9,6 +9,7 @@
 - The verdict
 - Reading the result
 - Your config applies
+- Check other screen sizes
 - Writing a good goal
 - When it does not fit
 
@@ -26,8 +27,12 @@ and a booted device, and `E2E_MOBILE_DEVICE` names one (see
 [mobile.md](mobile.md)). With `E2E_MOBILE_PROVIDER=limrun` it leases a hosted
 Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
 when the exploration ends, also after a failure or Ctrl+C (exit 130), within the
-config's `cleanupTimeout`. A release that fails or outlives that budget ends the
-command with the error in place of the outcome (`CLEANUP_TIMEOUT`, exit 3). With
+config's `cleanupTimeout`. A release that fails or outlives that budget does not
+replace the outcome: it joins it (`CLEANUP_TIMEOUT` for one that outlived the
+budget, `ENGINE_FAILURE` for a plain exception), the status is `Failed`, the exit
+code is the verdict's combined with 3 (precedence 130, 4, 3, 2, 1, 0), and the
+findings stay. `ExploreOutcome.Error` is the failure only when the run had no
+error of its own. With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
@@ -53,7 +58,7 @@ e2e explore --target web --max-steps 4 --headed
 3. Runs the charter as an `ActAsync` step with the agent's project tools plus
    `report_finding`. The agent reports each defect the moment it has
    evidence: title, `issue` or `warning`, severity 1 to 5, expected, actual,
-   reproduction steps. The run adds the path and a redacted screenshot.
+   reproduction steps. The run adds the path, the observation revision, and a redacted screenshot.
 4. Repeats until the planner finishes, the step limit, the clock, or three
    failed or blocked steps in a row that reported nothing; then asks for a
    closing assessment.
@@ -94,17 +99,17 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--config <path>` | the nearest `e2e.config.json` | The config file. |
 | `--target <id>` | the config's target | The target to explore. |
 | `--agent <name>` | `default` | Build the explorer from another configured agent (`agents.<name>`). |
-| `--max-steps <n>` | 8 (1 to 12) | Exploration steps at most. |
-| `--timeout <ms>` | 600000 (180000 to 900000) | Wall clock; the last minute is for the assessment. |
+| `--max-steps <n>` | 8 (1 to 100) | Exploration steps at most. |
+| `--timeout <ms>` | 600000 (180000 to 7200000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
-| `--output <dir>` | `.e2e/results` | Where finding screenshots, trace pages, and videos are kept. |
+| `--output <dir>` | `output` in the config, else `.e2e` | The output directory: finding screenshots and trace pages are kept in `results/` under it. It follows the config's `output` rules (inside the project, not the root, apart from the cache). |
 | `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
 | `--ai-trace` | off | Record every model call to `ai-trace-<process id>.json` next to the results directory (`.e2e/`), for `npx unbox-ai`. `E2E_AI_TRACE=1` does the same. |
 | `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<result>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
 | `--video [mode]` | the config's `video`, else `off` | Which attempts record a video, when the engine can. A bare flag is `on`. `E2E_VIDEO` sets it too. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter`
-exit 2: the port has no saved sessions or reporters. The modes of `--trace`
+exit 2: the command has no way to run the setup test that saves a session, and no reporters. The modes of `--trace`
 and `--video` are `off`, `on`, `retain-on-failure`, `on-first-retry`, and
 `on-all-retries`; a value that is not one exits 2. `--trace` and `--video` take
 the next word as the mode, so write `--video=on "Explore checkout"` or put the
@@ -119,31 +124,35 @@ Every `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the
 environment is an account the explorer can sign in with, named `<name>` in
 lower case; a username with no password (or a short one) exits 2.
 
-The terminal shows each step by its title with its duration and findings, and
-each finding the moment it is reported as `⚑ high issue  Title (/path)`. At
-the end a `Findings` section lists every finding, issues first and the most
-severe first, each with where it was seen, expected against actual, the steps
-that reach it, and its screenshot path; then the `Assessment` and a summary
-with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
+The terminal opens with the `RUN` header, then shows each step by its title
+with its duration, actions, and findings, and each finding the moment it is
+reported as `⚑ high issue  Title (/path)`. At the end a `Findings` section lists
+every finding, issues first and the most severe first, each with where it was
+seen, expected against actual, the steps that reach it, and its screenshot
+path; then the `Assessment` and a summary with `Findings`, `Steps`, `AI`,
+`Start at`, and `Duration`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 (warnings do not count), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
-failure, and 130 when interrupted. `.e2e/report.json` (beside the results
-directory, so `--output out/results` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
-run ended, the steps, and the findings. A finding's `artifactId` is left out:
-the port names the screenshot by its path, in the terminal and in `ExploreOutcome`.
+failure, and 130 when interrupted. `.e2e/report.json` (in the output
+directory, so `--output out` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
+run ended, the steps, and the findings. A finding's `artifactId` is the id of
+the `screenshot` artifact of the attempt that holds its evidence.
 
 ## Budgets
 
 | Budget | Default | Range | Option |
 | --- | --- | --- | --- |
-| Exploration steps | 8 | 1 to 12 | `MaxSteps` |
-| Wall clock | 10 minutes | 3 to 15 minutes | `Timeout` |
+| Exploration steps | 8 | 1 to 100 | `MaxSteps` |
+| Wall clock | 10 minutes | 3 minutes to 2 hours | `Timeout` |
 | Actions and model calls per step | 40 each, unless the agent sets `maxSteps` or `maxModelCalls` (a 25 it sets is kept) | 1 to 100 | config |
 
 Start with the defaults. Increase the step or time budget when the result
 shows the run stopped before the part of the flow you need. The last minute
-is kept for the closing assessment. The replay cache is off for the
+is kept for the closing assessment. A run with time left after the main flows
+returns to them with edge-case inputs, combined filters, reloads, and, with
+more than one account configured and no session, another account. It finishes early only when
+nothing new is reachable. The replay cache is off for the
 exploration, and so are retries.
 
 ## The verdict
@@ -169,16 +178,19 @@ run, or null for a pass.
 ended (`Finished`, `StepLimit`, `Time`, `Stuck`, `Aborted`), the closing
 assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 `Blocked`, `Exhausted`), and the `Findings`. A step carries `ErrorCode` only
-when it did not pass. A finding carries `Step`, `Path`, and `ArtifactId`
-only when known. `ArtifactId` is the path, relative to the project root, of
-the evidence screenshot, which lands under
-`.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
-directory). The exploration is a test of the virtual file `explore`, so
+when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
+`ArtifactId` only when known. `ObservationRevision` is the revision (`b<n>`) of
+the capture the finding tool took when it reported the finding (its own capture,
+as upstream, so no agent step records the same value). `ArtifactId` is the id of the report artifact that holds
+the evidence screenshot, a file that lands under
+`.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the output
+directory they are under). The exploration is a test of the virtual file `explore`, so
 `<result>` starts with `explore-` and the goal's words, as
-`explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. Once a secret is filled, the model gets no screenshot, so none is kept.
+`explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. A finding keeps its screenshot after a secret fill too; the screenshot masks secure fields only.
 
 `OnProgress` receives each moment as it happens: `Started`, `Planning`,
-`StepStarted`, `FindingReported`, `StepFinished`, and `Finished`.
+`StepStarted`, `FindingReported`, `StepFinished`, and `Finished`. A reporter
+sees the same moments as `ExploreEvent` in `Reporter.OnEvent`.
 
 Turn a finding into a test: its `Reproduction` steps are the `ActAsync`
 instructions or `Screen` actions, and `Expected` is the assertion.
@@ -189,7 +201,8 @@ The agent's `system` and `context` carry over to the explorer, and so do the
 project tools of `AgentOptions.Tools`. A custom `Executor` is replaced by the
 built-in agent for the run, with a notice (`Notice`), and needs a model on
 the entry or the executor, or the run throws `MODEL_UNAVAILABLE` before it
-starts. A project tool may not be named `report_finding`.
+starts. A project tool may not be named `report_finding`, nor any other name
+the harness adds (see the agent reference).
 
 `Credentials` gives the accounts the explorer can sign in with, by name (read
 one with `Credentials.User`). The planner knows the account names and
@@ -197,6 +210,17 @@ usernames, and the agent fills each password with `fill_secret` by the
 secret `<name>.password`; the password never reaches a model. Give only the
 accounts the exploration needs. Without credentials, the agent signs in with
 made-up ones.
+
+## Check other screen sizes
+
+When the target's engine can resize the viewport (the web engine can), a goal
+can ask for layouts at other widths:
+
+```bash
+e2e explore 'Check the pricing page at desktop, tablet, and phone widths for broken layouts'
+```
+
+The agent resizes with its `resize_viewport` tool.
 
 ## Writing a good goal
 
@@ -210,8 +234,10 @@ the record, or a model.
 ## When it does not fit
 
 Findings are the model's claims plus evidence, not verified reproductions:
-read `Actual` against the screenshot before filing a bug. The port has no
-saved sessions (`--session`), so an
-exploration starts signed out. Its record is the outcome, what the command
+read `Actual` against the screenshot before filing a bug. The command has no
+`--session`, so an exploration starts signed out. From code, set
+`ExploreOptions.Session` to the name of a session you restored into the engine
+you pass: the planner and the explorer are told the app starts signed in. Its record is the outcome, what the command
 prints, and `run.explore` in `report.json`. A whole-app
-bug hunt (topic `bug-bash`) still has no fan-out.
+bug hunt is many of these runs at once, then a repro test for each finding
+(topic `bug-bash`).

@@ -148,18 +148,19 @@ public sealed class ScreenScrollUntilVisibleTests
         Assert.Equal([new Swipe("viewport", ScrollDirection.Down, Momentum.Slow)], scroll.Swipes);
     }
 
-    /// <summary>Partial: the port has no <c>ACTION_FAILED</c> translation, so the failure is the engine's own <c>OPERATION_TIMEOUT</c>, uncontextualised.</summary>
     [Fact]
-    public async Task Partial_Keeps_an_engine_timeout_far_from_the_deadline_as_the_action_failure_it_is()
+    public async Task Keeps_an_engine_timeout_far_from_the_deadline_as_the_action_failure_it_is()
     {
         var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()]], HangFor = TimeSpan.FromMilliseconds(20), ActionTimeout = TimeSpan.FromSeconds(5) });
         var screen = scroll.Screen;
-        var failure = await Assert.ThrowsAsync<EngineException>(() =>
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
             screen.GetByRole("list", "Feed").ScrollUntilVisibleAsync(screen.GetByText("Accept"), Options(TimeSpan.FromSeconds(30))));
-        Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Equal("operation timed out: getByRole(\"list\", \"Feed\")", failure.Message);
+        Assert.Equal(EngineErrorCodes.OperationTimeout, Assert.IsType<EngineException>(failure.InnerException).Code);
         var step = Assert.Single(scroll.Steps.All());
         Assert.Equal(StepStatus.Failed, step.Status);
-        Assert.Equal(EngineErrorCodes.OperationTimeout, step.Error?.Code);
+        Assert.Equal("ACTION_FAILED", step.Error?.Code);
     }
 
     /// <summary>Partial: a typed <c>Locator</c> parameter cannot be anything but a locator, so this checks <c>null</c>, before any step or swipe.</summary>

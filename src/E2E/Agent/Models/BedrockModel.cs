@@ -43,7 +43,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var region = _options.ResolveRegion();
         var baseUrl = _options.BaseUrl ?? "https://bedrock-runtime." + region + ".amazonaws.com";
         var url = new Uri(baseUrl.TrimEnd('/') + "/model/" + Uri.EscapeDataString(_options.Model) + "/converse");
-        var payload = BuildBody(request).ToJsonString();
+        var built = BuildBody(request);
+        var payload = built.ToJsonString();
         using var message = new HttpRequestMessage(HttpMethod.Post, url)
         {
             Content = new StringContent(payload, Encoding.UTF8),
@@ -76,8 +77,14 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             }
         }
 
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);
-        return ModelHttp.Parse(body, Parse);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign, request.MaxRetries).ConfigureAwait(false);
+        var response = ModelHttp.Parse(body, Parse);
+        if (ModelHttp.DowngradesToolChoice(request, Thinks(built)))
+        {
+            response = ModelHttp.WithToolChoiceDowngrade(response, request.ToolChoice!);
+        }
+
+        return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
     // The first read is async so a slow instance-role lookup honors the caller's cancel; later reads hit the chain's cache.
@@ -107,6 +114,16 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             _http.Dispose();
         }
     }
+
+    private static bool Thinks(JsonObject payload) => ModelHttp.Thinks(payload["additionalModelRequestFields"]?["thinking"]);
+
+    // The AI SDK's mapping for Converse: required is any, a named tool is a tool choice with its name.
+    private static JsonObject ToolChoice(ModelToolChoice choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["any"] = new JsonObject() },
+        { Type: "tool" } => new JsonObject { ["tool"] = new JsonObject { ["name"] = choice.ToolName } },
+        _ => new JsonObject { ["auto"] = new JsonObject() },
+    };
 
     internal JsonObject BuildBody(ModelRequest request)
     {
@@ -185,6 +202,20 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             });
         }
 
+        // A structured answer is the input of one tool the model is made to call.
+        if (request.Schema is { } schema)
+        {
+            tools.Add(new JsonObject
+            {
+                ["toolSpec"] = new JsonObject
+                {
+                    ["name"] = ModelHttp.JsonToolName,
+                    ["description"] = ModelHttp.JsonToolDescription(request),
+                    ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(schema.GetRawText()) },
+                },
+            });
+        }
+
         var payload = new JsonObject
         {
             ["system"] = new JsonArray { new JsonObject { ["text"] = request.System } },
@@ -195,9 +226,26 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["toolConfig"] = new JsonObject { ["tools"] = tools };
+            if (request.ToolChoice is { } choice)
+            {
+                payload["toolConfig"]!["toolChoice"] = ToolChoice(choice);
+            }
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "messages", "system", "toolConfig");
+
+        // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
+        if (ModelHttp.DowngradesToolChoice(request, Thinks(payload)))
+        {
+            payload["toolConfig"]!["toolChoice"] = ToolChoice(ModelToolChoice.Auto);
+        }
+
+        // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
+        if (request.Schema is not null && payload["additionalModelRequestFields"]?["thinking"] is null)
+        {
+            payload["toolConfig"]!["toolChoice"] = new JsonObject { ["tool"] = new JsonObject { ["name"] = ModelHttp.JsonToolName } };
+        }
+
         return payload;
     }
 
@@ -237,11 +285,16 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var block in root.GetProperty("output").GetProperty("message").GetProperty("content").EnumerateArray())
         {
             if (block.TryGetProperty("reasoningContent", out var thinking) && thinking.ValueKind == JsonValueKind.Object)
             {
                 reasoning.Add(thinking.Clone());
+                if (thinking.TryGetProperty("reasoningText", out var shown) && ModelHttp.OptionalString(shown, "text") is { } thought)
+                {
+                    reasoningText.Add(thought);
+                }
             }
             else if (block.TryGetProperty("text", out var value))
             {
@@ -258,10 +311,10 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "inputTokens")
                     + ModelHttp.Int(usageElement, "cacheReadInputTokens")
@@ -279,6 +332,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(stop, "guardrail_intervened", "content_filtered"),
             RawFinishReason = stop,
         };

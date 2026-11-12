@@ -35,7 +35,7 @@ public sealed class GenericSecretsTests
             ScreenFixture.Timeout);
     }
 
-    /// <summary>Partial: the port has no step records to redact the value from, and its config secret has no <c>generic-secret</c> purpose.</summary>
+    /// <summary>Partial: the port has no step records to redact the value from.</summary>
     [Fact]
     public async Task Fills_a_config_secrets_value_into_a_plain_textbox_without_the_handle_showing_it()
     {
@@ -47,6 +47,7 @@ public sealed class GenericSecretsTests
         await ScreenAt("https://app.test/", performed).GetByRole("textbox", "API key").FillAsync(handle);
 
         Assert.Equal("stripe-key", handle.Name);
+        Assert.Equal("generic-secret", handle.Purpose);
         Assert.DoesNotContain(apiKey, handle.ToString(), StringComparison.Ordinal);
         Assert.Equal(new LocatorAction.Fill(apiKey, Sensitive: true), Assert.Single(performed));
     }
@@ -62,7 +63,7 @@ public sealed class GenericSecretsTests
         Assert.Equal(new LocatorAction.Fill("sk_live_1", Sensitive: true), Assert.Single(performed));
     }
 
-    /// <summary>Partial: the message names the secret and <c>e2e.config.json</c>, where upstream names the <c>E2E_SECRET_UNKNOWN</c> variable.</summary>
+    /// <summary>A secret the config does not declare fails with <c>SECRET_UNAVAILABLE</c>, naming the secret and its <c>E2E_SECRET_UNKNOWN</c> variable.</summary>
     [Fact]
     public void Fails_a_secret_the_config_does_not_declare_with_SECRET_UNAVAILABLE_naming_the_secret()
     {
@@ -71,6 +72,7 @@ public sealed class GenericSecretsTests
         var error = Assert.Throws<TestException>(() => config.Secrets.Get("unknown"));
 
         Assert.Equal("SECRET_UNAVAILABLE", error.Code);
-        Assert.Contains("'unknown'", error.Message, StringComparison.Ordinal);
+        Assert.Contains("\"unknown\" is not configured", error.Message, StringComparison.Ordinal);
+        Assert.Contains("E2E_SECRET_UNKNOWN", error.Message, StringComparison.Ordinal);
     }
 }

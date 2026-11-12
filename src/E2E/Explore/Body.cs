@@ -37,13 +37,15 @@ internal sealed record ExploreFixtures(IExploreAgent Agent, Func<CancellationTok
 /// </param>
 /// <param name="Agent">The agent the steps and the planner run as. Null is <c>default</c>.</param>
 /// <param name="Time">The clock. Defaults to the system's.</param>
+/// <param name="Session">The saved session the attempt restored, which the planner is told it starts signed in with.</param>
 internal sealed record ExploreBodyOptions(
     ExploreState State,
     TimeSpan StepTimeout,
     bool OpenApp,
     IReadOnlyDictionary<string, UserCredential>? Credentials = null,
     string? Agent = null,
-    TimeProvider? Time = null);
+    TimeProvider? Time = null,
+    string? Session = null);
 
 /// <summary>
 /// The exploration body: the test <see cref="Explore"/> runs. A loop of ordinary <c>ActAsync</c> steps, one per charter the planner
@@ -107,6 +109,7 @@ internal static class ExploreBody
                 [.. credentials.Select(pair => new PlanAccount(pair.Key, pair.Value.Username))],
                 credentials,
                 options.Agent,
+                options.Session,
                 options.StepTimeout,
                 () => deadline - time.GetUtcNow());
             var ending = await RunStepsAsync(loop, cancellationToken).ConfigureAwait(false);
@@ -125,6 +128,7 @@ internal static class ExploreBody
         IReadOnlyList<PlanAccount> Accounts,
         IReadOnlyDictionary<string, UserCredential> Credentials,
         string? AgentName,
+        string? Session,
         TimeSpan StepTimeout,
         Func<TimeSpan> Remaining);
 
@@ -159,7 +163,8 @@ internal static class ExploreBody
                         Max(MinPlanTimeout, Min(PlanTimeout, loop.Remaining())),
                         loop.Accounts,
                         stop?.Reason,
-                        loop.AgentName),
+                        loop.AgentName,
+                        loop.Session),
                     cancellationToken).ConfigureAwait(false);
                 plannerFailures = 0;
             }

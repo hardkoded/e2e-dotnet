@@ -25,7 +25,7 @@ Options shared by the text-matching queries.
 
 **Derived:** [RoleOptions](/api/E2E/RoleOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs#L112)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ Exact match, the default. `false` is a case-insensitive substring. A [Regex](htt
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs#L115)
-
 <a id="E2E_TextMatchOptions_Visible_"></a>
 <a id="E2E_TextMatchOptions_Visible"></a>
 
@@ -63,8 +61,7 @@ what renders: `display: none`, a `visibility` other than
 `visible`, and content under `content-visibility: hidden` or a
 closed `details`; a child that sets `visibility: visible` under a
 hidden parent is visible, and an `aria-hidden` node that paints is visible.
+Everything inside a hidden `iframe` is hidden, cross-origin frames included.
 Role queries never match hidden or `aria-hidden` nodes, whatever this says.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs#L126)

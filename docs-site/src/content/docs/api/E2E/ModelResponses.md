@@ -23,7 +23,7 @@ Builds the tool calls a [ScriptedModel](/api/E2E/ScriptedModel/) (or a test) ret
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 ## Methods
 
@@ -47,8 +47,6 @@ public static ModelResponse Call(string name, object arguments)
 
 **Returns:** [ModelResponse](/api/E2E/ModelResponse/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L144)
-
 <a id="E2E_ModelResponses_Done_"></a>
 <a id="E2E_ModelResponses_Done_System_String_System_String_System_String_"></a>
 
@@ -69,8 +67,6 @@ public static ModelResponse Done(string status, string summary, string? code = n
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [ModelResponse](/api/E2E/ModelResponse/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L127)
 
 <a id="E2E_ModelResponses_Fill_"></a>
 <a id="E2E_ModelResponses_Fill_System_String_System_String_System_String_"></a>
@@ -93,7 +89,28 @@ public static ModelResponse Fill(string role, string name, string value)
 
 **Returns:** [ModelResponse](/api/E2E/ModelResponse/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L139)
+<a id="E2E_ModelResponses_Judgment_"></a>
+<a id="E2E_ModelResponses_Judgment_System_String_System_String_"></a>
+
+### Judgment(string, string)
+
+
+```csharp
+public static ModelResponse Judgment(string verdict, string explanation)
+```
+
+
+A judge's answer: one `agent-judgment-2` object as the content of the turn. &lt;code class="paramref"&gt;verdict&lt;/code&gt; is
+`holds`, `fails`, or `inconclusive`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `verdict` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `explanation` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [ModelResponse](/api/E2E/ModelResponse/)
 
 <a id="E2E_ModelResponses_Tap_"></a>
 <a id="E2E_ModelResponses_Tap_System_String_System_String_"></a>
@@ -114,5 +131,3 @@ public static ModelResponse Tap(string role, string name)
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [ModelResponse](/api/E2E/ModelResponse/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L134)

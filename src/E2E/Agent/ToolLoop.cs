@@ -29,6 +29,11 @@ public static class ToolLoop
             throw new TestException("INVALID_ARGUMENT", "a tool loop executor needs a name");
         }
 
+        if ((options.BuildPrompt is null) == (options.BuildMessages is null))
+        {
+            throw new TestException("INVALID_ARGUMENT", "a tool loop executor needs one of BuildPrompt and BuildMessages");
+        }
+
         return new ToolLoopExecutor(options);
     }
 
@@ -63,8 +68,15 @@ public sealed class ToolLoopExecutorOptions
     /// <summary>Builds the step's tool vocabulary. The chassis adds <c>done</c>.</summary>
     public required Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>> Tools { get; init; }
 
-    /// <summary>Builds the step's opening prompt: the first user message.</summary>
-    public required Func<StepExecutorContext, Task<string>> BuildPrompt { get; init; }
+    /// <summary>Builds the step's opening prompt: the first user message. Set this or <see cref="BuildMessages"/>.</summary>
+    public Func<StepExecutorContext, Task<string>>? BuildPrompt { get; init; }
+
+    /// <summary>
+    /// Builds the step's opening messages, for an opening that carries images (a screenshot beside the screen). Upstream's
+    /// <c>buildPrompt</c> returns a string or an array of messages; C# has no union, so the array form has a property of its own.
+    /// Set this or <see cref="BuildPrompt"/>.
+    /// </summary>
+    public Func<StepExecutorContext, Task<IReadOnlyList<ModelMessage>>>? BuildMessages { get; init; }
 
     /// <summary>The provider options every model call carries. Defaults to the agents entry's.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
@@ -74,6 +86,12 @@ public sealed class ToolLoopExecutorOptions
     /// carries forward to later turns.
     /// </summary>
     public Func<IReadOnlyList<ModelMessage>, PreparedTurn, PreparedMessages>? PrepareMessages { get; init; }
+
+    /// <summary>
+    /// Fails a context overflow as <c>ASSERTION_INCONCLUSIVE</c> instead of shrinking the history and retrying: for an assertion loop
+    /// whose earlier screens are evidence it must not drop.
+    /// </summary>
+    public bool InconclusiveOnOverflow { get; init; }
 }
 
 /// <summary>
@@ -85,8 +103,12 @@ public sealed class ToolLoopExecutorOptions
 /// <param name="ExecuteAsync">Runs the call and answers what the model reads.</param>
 public sealed record ToolLoopTool(ModelTool Definition, Func<ModelToolCall, CancellationToken, Task<ToolLoopResult>> ExecuteAsync);
 
-/// <summary>What a tool call answered: the text the model reads, and whether the call failed, which the loop counts toward its failure streak.</summary>
-public readonly record struct ToolLoopResult(string Content, bool Failed = false);
+/// <summary>
+/// What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the
+/// screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model
+/// in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to.
+/// </summary>
+public readonly record struct ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null, bool ErrorText = false);
 
 /// <summary>Loop services for the tool bodies that run work of their own (upstream's <c>ToolLoopHelpers</c>).</summary>
 public sealed class ToolLoopHelpers
@@ -155,9 +177,58 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
-    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
+    // Upstream's WIND_DOWN_TURNS: turns remaining when the loop warns the model to wrap up.
+    private const int WindDownTurns = 5;
 
-    private const string StopActingNotice = "Stop acting. Call done with a verdict.";
+    // Upstream's CLOCK_WIND_DOWN_MS and CLOCK_WIND_DOWN_FRACTION: the remaining step time under which the loop takes the verdict it can
+    // get. A slow provider turn runs tens of seconds, and concluding with the model's own summary beats a verdict-less STEP_TIMEOUT.
+    // The effective window is a quarter of the step's budget, capped here, so a short step keeps most of its clock for work.
+    private const int ClockWindDownMs = 60_000;
+    private const int ClockWindDownFraction = 4;
+
+    // Upstream's FORCED_CONCLUSION_TURNS: turns from the budget ceiling at which only the conclusion tool is offered.
+    private const int ForcedConclusionTurns = 2;
+
+    // Upstream's TOOL_CALLS_ONLY_RULE, with the port's done: part of every step's instructions from the first turn.
+    internal const string ToolCallsOnlyRule =
+        "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through done.";
+
+    // Upstream's TEXT_REPLY_NOTICE, with the port's done: sent when a turn came back as text without a tool call.
+    private const string TextReplyNotice =
+        "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
+
+    // Upstream's FREE_TOOL_CHOICE_MODELS: models that refused a forced tool choice once. A model that answers HTTP 400 to that request
+    // shape gets auto for the rest of the process, so the refusal costs one round trip per model, not one per step. Upstream's WeakSet
+    // is keyed by the SDK model object, which a worker builds once and shares across tests. The port builds a provider model per
+    // session, so a model object is the key for a model the caller owns (a ScriptedModel, a custom IAgentModel), and the provider
+    // type with the model id is the key for the built-in provider models, whose objects do not outlive a session. .NET-only.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<IAgentModel, object> FreeToolChoiceModels = new();
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> FreeToolChoiceProviderModels = new(StringComparer.Ordinal);
+
+    private static string? ProviderModelKey(IAgentModel model) =>
+        model is IDisposable ? model.GetType().FullName + ":" + model.Name : null;
+
+    private static bool IsFreeToolChoiceModel(IAgentModel model) =>
+        ProviderModelKey(model) is { } key ? FreeToolChoiceProviderModels.ContainsKey(key) : FreeToolChoiceModels.TryGetValue(model, out _);
+
+    private static void RememberFreeToolChoiceModel(IAgentModel model)
+    {
+        if (ProviderModelKey(model) is { } key)
+        {
+            FreeToolChoiceProviderModels[key] = 0;
+        }
+        else
+        {
+            FreeToolChoiceModels.AddOrUpdate(model, new object());
+        }
+    }
+
+    // Only the definition and the stateless Decide policy of these are used: a shared instance must never run Execute, which keeps a verdict.
+    // One per step kind, since an act drops an inconclusive code that an assertion keeps.
+    private static readonly VerdictTool ActVerdict = AgentTools.CreateVerdictTool(ExecutorStepKind.Act);
+
+    private static readonly VerdictTool AssertVerdict = AgentTools.CreateVerdictTool(ExecutorStepKind.Assert);
 
     public string Name => options.Name;
 
@@ -179,22 +250,24 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         AgentException? hardStop = null;
         var concluded = false;
         var tools = options.Tools(context, new ToolLoopHelpers(() => concluded || hardStop is not null, error => hardStop ??= error));
-        var definitions = tools.Select(tool => tool.Definition).Append(Verdict.Tool).ToList();
+        var verdictTool = context.Step.Kind == ExecutorStepKind.Assert ? AssertVerdict : ActVerdict;
+        var definitions = tools.Select(tool => tool.Definition).Append(verdictTool.Tool).ToList();
         var system = SystemFor(context);
-        var messages = new List<ModelMessage>
-        {
-            new()
-            {
-                Role = "user",
-                Content = await options.BuildPrompt(context).ConfigureAwait(false),
-            },
-        };
+        var messages = options.BuildMessages is { } build
+            ? [.. await build(context).ConfigureAwait(false)]
+            : new List<ModelMessage> { new() { Role = "user", Content = await options.BuildPrompt!(context).ConfigureAwait(false) } };
 
         var turns = new TurnLog(context);
-        var failures = 0;
+        var results = new List<GuardToolResult>();
         var stopped = false;
         string? noticed = null;
         var shrunkOnce = false;
+        var noticedLowClock = false;
+
+        // Upstream's LoopRun.toolChoice: how the step asks for tool calls. 'required' unless the model refused a forced choice before;
+        // it flips to auto when the model rejects one (FreeToolChoiceRetry) or the provider downgrades one (NoticeToolChoiceDowngrade).
+        var toolChoice = IsFreeToolChoiceModel(model) ? ModelToolChoice.Auto : ModelToolChoice.Required;
+        var clockWindDownMs = Math.Min(ClockWindDownMs, budget.RemainingMs() / ClockWindDownFraction);
         string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
         for (var call = 0; call < maxCalls; call++)
@@ -225,10 +298,19 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
-            // The notice is added once: a retry after an overflow prepares the same turn again.
-            if (failures >= 5 && messages[^1] is not { Role: "user", Content: StopActingNotice })
+            var turnsLeft = maxCalls - call;
+
+            // Never on the very first turn: a deliberately short step timeout still deserves one working turn before the clock takes the verdict.
+            var lowClock = call > 0 && budget.RemainingMs() < clockWindDownMs;
+            if (lowClock && !noticedLowClock)
             {
-                messages.Add(new ModelMessage { Role = "user", Content = StopActingNotice });
+                noticedLowClock = true;
+                turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": the step is nearly out of time, asking for a verdict");
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
+                });
             }
 
             // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
@@ -239,27 +321,81 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             {
                 noticed = repeat;
                 stopped = stop;
+                turns.Note((stop ? "the step was stopped before turn " : "loop guard warned before turn ") + turns.Next.ToString(CultureInfo.InvariantCulture) + ": " + repeat);
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
                     Content = stop
-                        ? "Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
-                        : "You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
+                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                        : "[SYSTEM NOTICE] You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
                 });
             }
 
-            var offered = stopped ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
-            ModelResponse response;
+            // A streak of failures with varied inputs is the same circle by another route: the approach is not working, whatever id it tries next.
+            if (!stopped && preparedStop is null)
+            {
+                var (streakStop, streak) = LoopGuards.CheckFailureStreak(results);
+                if (streak is not null && !string.Equals(streak, noticed, StringComparison.Ordinal))
+                {
+                    noticed = streak;
+                    stopped = streakStop;
+                    turns.Note((streakStop ? "the step was stopped before turn " : "loop guard warned before turn ") + turns.Next.ToString(CultureInfo.InvariantCulture) + ": " + streak);
+                    messages.Add(new ModelMessage
+                    {
+                        Role = "user",
+                        Content = streakStop
+                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                            : "[SYSTEM NOTICE] " + streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
+                    });
+                }
+            }
+
+            if (turnsLeft == WindDownTurns && !stopped)
+            {
+                turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain, asking to wrap up");
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
+                });
+            }
+
+            // Near the budget, after a loop guard stop, or on a low clock only the conclusion tool is offered. Two forced turns, not one,
+            // so a rejected verdict (blocked without a code) can be repaired.
+            var forced = turnsLeft <= ForcedConclusionTurns || stopped || lowClock;
+            var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
+
+            // Upstream's prepareStep: every turn asks for a tool call, and a forced turn names the conclusion tool.
+            var turnToolChoice = forced && toolChoice.Type == "required" ? ModelToolChoice.Tool("done") : toolChoice;
+            AiTraceTurn traced;
             try
             {
                 lastShape = [.. messages.Select(MessageShape.ShapeOf)];
-                response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
+                for (; ; )
+                {
+                    try
+                    {
+                        traced = await CompleteAsync(model, system, messages, offered, turnToolChoice, context, redactor, token).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (Exception rejected) when (turnToolChoice.Forced && !token.IsCancellationRequested && ToolChoice.IsForcedToolChoiceRejected(rejected))
+                    {
+                        // The refused request was no turn, so it spends no call of the budget: the same request goes out again under auto.
+                        toolChoice = FreeToolChoiceRetry(model, turns, "the model rejected a forced tool choice before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": retrying with auto");
+                        turnToolChoice = toolChoice;
+                    }
+                }
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
                 // One recovery: the history shrinks and the request goes out again, through the same turn preparation as any
                 // other, which notices the shrink. The refused request was no turn, so it spends no call of the budget, and a
                 // second refusal is the step's verdict.
+                if (options.InconclusiveOnOverflow)
+                {
+                    throw new AgentException("ASSERTION_INCONCLUSIVE", "step evidence exceeds the model context window; earlier viewports cannot be discarded", overflow);
+                }
+
                 if (shrunkOnce)
                 {
                     throw ToolLoop.Overflowed(overflow, " again after the history was shrunk once");
@@ -281,7 +417,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 continue;
             }
 
+            // The generation stays open while this turn's tools run, as the AI SDK keeps it, so a generation a tool starts is its child.
+            using var generation = traced;
+            var response = traced.Response;
             var turn = turns.Begin(response);
+            toolChoice = NoticeToolChoiceDowngrade(model, toolChoice, response, turns);
             if (response.ToolCalls.Count == 0)
             {
                 // A refusal is a verdict on the prompt, not a turn to coax a tool call out of.
@@ -290,41 +430,57 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     throw ModelHttp.ModelRefusalError(model.Name, response.RawFinishReason, redactor);
                 }
 
+                // A finished reply without a tool call under a forced choice is a provider that downgraded the choice to auto and a model
+                // that answered in prose. The turn was answered and billed; the same request goes out again under auto, and the reply is
+                // not kept in the history.
+                if (turnToolChoice.Forced && ToolChoice.IsForcedToolCallSkipped(new ToolChoiceViolationException(response.FinishReason ?? "stop")))
+                {
+                    toolChoice = FreeToolChoiceRetry(model, turns, "turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " answered without the forced tool call: retrying with auto");
+                    continue;
+                }
+
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
-                messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
-                failures++;
+                messages.Add(new ModelMessage { Role = "user", Content = TextReplyNotice });
+                results.Add(new GuardToolResult(TextReplyNotice, Failed: true));
                 previous = [];
                 continue;
             }
 
             messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
             previous = response.ToolCalls.Select(toolCall => toolCall.Name).ToList();
+            var screenshots = new List<(string Tool, ExecutorPixels Pixels)>();
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = stopped && !string.Equals(toolCall.Name, "done", StringComparison.Ordinal)
-                    ? ToolOutcome.Fail("The loop guard stopped the step. Only done is available.")
-                    : await RunToolAsync(toolCall, tools, token).ConfigureAwait(false);
+                var outcome = ToolOutcome.Fail(toolCall.Name + " did not run: only done is available now. Call done with your verdict.");
+                if (!forced || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
+                {
+                    await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, verdictTool, token).ConfigureAwait(false)).ConfigureAwait(false);
+                }
+
                 turns.AddResult(turn, toolCall.Name, outcome.Content);
                 if (hardStop is not null)
                 {
                     throw hardStop;
                 }
 
-                messages.Add(new ModelMessage
+                var toolMessage = new ModelMessage
                 {
                     Role = "tool",
                     ToolCallId = toolCall.Id,
                     Name = toolCall.Name,
                     Content = redactor.Redact(outcome.Content),
-                });
-                if (!outcome.Succeeded)
+                    ErrorText = outcome.ErrorText,
+                };
+                messages.Add(toolMessage);
+                if (outcome.Pixels is { } shot)
                 {
-                    failures++;
+                    screenshots.Add((toolCall.Name, shot));
                 }
 
                 if (!outcome.Done)
                 {
+                    results.AddRange(LoopGuards.ExtractToolResults([toolMessage], VerdictTool.Name));
                     continue;
                 }
 
@@ -340,14 +496,52 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     outcome.Code);
             }
 
-            if (failures is >= 3 and < 5)
+            if (screenshots.Count > 0)
             {
-                messages.Add(new ModelMessage { Role = "user", Content = "The last actions failed. Change approach, then call done if you cannot." });
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "Screenshot" + (screenshots.Count == 1 ? "" : "s") + " attached to the result of " + string.Join(", ", screenshots.Select(shot => shot.Tool)) + ".",
+                    Images = [.. screenshots.Select(shot => new ModelImage(shot.Pixels.Data, shot.Pixels.MediaType, shot.Pixels.Width, shot.Pixels.Height))],
+                });
             }
         }
 
-        // Asking for one more call than the budget allows is a hard stop, as upstream: blocked, not a verdict.
-        throw hardStop ?? new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
+        if (hardStop is not null)
+        {
+            throw hardStop;
+        }
+
+        // Upstream's end of LoopRun.run: the turns ran out without a verdict, so the step fails, as any step that never concluded.
+        return new StepVerdict(
+            StepVerdictStatus.Failed,
+            "the agent used " + turns.Used.ToString(CultureInfo.InvariantCulture) + " of " + maxCalls.ToString(CultureInfo.InvariantCulture) + " turn(s) without calling done",
+            "STEP_NO_CONCLUSION");
+    }
+
+    // Upstream's LoopRun.freeToolChoiceRetry: a model that refuses a forced tool choice (an HTTP 400 naming tool_choice), or answers a
+    // forced turn in prose, is asked again with auto on the same turn budget. The instructions already hold the tool-calls-only rule, so
+    // nothing else in the request changes. The model is remembered, so later steps start in auto.
+    private static ModelToolChoice FreeToolChoiceRetry(IAgentModel model, TurnLog turns, string note)
+    {
+        turns.Note(note);
+        RememberFreeToolChoiceModel(model);
+        return ModelToolChoice.Auto;
+    }
+
+    // Upstream's LoopRun.noticeToolChoiceDowngrade: a provider that downgraded a forced choice to auto on its own (a toolChoice warning
+    // on a turn that otherwise succeeded) is treated like one that refused it: the rest of the step asks with auto under the
+    // tool-calls-only rule, and the model is remembered, so later steps start in auto.
+    private static ModelToolChoice NoticeToolChoiceDowngrade(IAgentModel model, ModelToolChoice toolChoice, ModelResponse response, TurnLog turns)
+    {
+        if (!toolChoice.Forced || !response.Warnings.Any(ToolChoice.IsForcedToolChoiceDowngraded))
+        {
+            return toolChoice;
+        }
+
+        turns.Note("the provider sent auto in place of a forced tool choice on turn " + turns.Used.ToString(CultureInfo.InvariantCulture) + ": continuing with auto");
+        RememberFreeToolChoiceModel(model);
+        return ModelToolChoice.Auto;
     }
 
     // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that
@@ -366,27 +560,39 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         return null;
     }
 
-    // The executor's guidance, then the agent's project context: trusted, told to every turn.
+    // The executor's guidance, then the agent's project context (trusted, told to every turn), then the verdict rules for the tool the loop adds.
     private string SystemFor(StepExecutorContext context)
     {
-        var system = options.System?.Invoke(context) ?? "";
-        return string.IsNullOrWhiteSpace(context.AgentContext) ? system : system + (system.Length == 0 ? "" : "\n\n") + "Project context:\n" + context.AgentContext;
+        var parts = new List<string>();
+        if (options.System?.Invoke(context) is { } system && !string.IsNullOrWhiteSpace(system))
+        {
+            parts.Add(system);
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.AgentContext))
+        {
+            parts.Add("Project context:\n" + context.AgentContext);
+        }
+
+        parts.Add(AgentTools.VerdictRules + "\n- " + ToolCallsOnlyRule);
+        return string.Join("\n\n", parts);
     }
 
     // One model turn. A request the model refused outright was no turn, and a timeout or a cancel ends the loop like any hard stop.
-    private async Task<ModelResponse> CompleteAsync(
+    private async Task<AiTraceTurn> CompleteAsync(
         IAgentModel model,
         string system,
         List<ModelMessage> messages,
         IReadOnlyList<ModelTool> tools,
+        ModelToolChoice toolChoice,
         StepExecutorContext context,
         Redactor redactor,
         CancellationToken token)
     {
         var started = DateTimeOffset.UtcNow;
-        var response = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
+        var traced = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
             Phases.Model,
-            () => AiTraceModel.CompleteAsync(
+            () => AiTraceModel.BeginAsync(
                 context.Host?.Scope.AiTrace,
                 model,
                 new ModelRequest
@@ -394,42 +600,57 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     System = redactor.Redact(system),
                     Messages = messages,
                     Tools = tools,
+                    ToolChoice = toolChoice,
                     ProviderOptions = options.ProviderOptions ?? context.ProviderOptions,
                     MarkLatest = true,
                     Redactor = redactor,
                 },
                 token)).ConfigureAwait(false);
-        context.Budgets.RecordModelCall(new ExecutorModelCall
+        try
         {
-            InputTokens = response.Usage?.InputTokens,
-            OutputTokens = response.Usage?.OutputTokens,
-            CacheReadTokens = response.Usage?.CacheReadTokens,
-            CacheWriteTokens = response.Usage?.CacheWriteTokens,
-            EstimatedCostUsd = response.Usage?.EstimatedCostUsd,
-            StartedAt = started,
-            DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
-            ModelId = model.Name,
-        });
-        return response;
+            var response = traced.Response;
+            context.Budgets.RecordModelCall(new ExecutorModelCall
+            {
+                InputTokens = response.Usage?.InputTokens,
+                OutputTokens = response.Usage?.OutputTokens,
+                CacheReadTokens = response.Usage?.CacheReadTokens,
+                CacheWriteTokens = response.Usage?.CacheWriteTokens,
+                EstimatedCostUsd = response.Usage?.EstimatedCostUsd,
+                StartedAt = started,
+                DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
+                ModelId = model.Name,
+                Reasoning = response.ReasoningText,
+            });
+            return traced;
+        }
+        catch
+        {
+            // The turn is still open here; a budget stop must not leave the step unfinished in the trace.
+            traced.Dispose();
+            throw;
+        }
     }
 
-    private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)
+    private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, VerdictTool verdict, CancellationToken token)
     {
-        if (string.Equals(call.Name, "done", StringComparison.Ordinal))
+        if (string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal))
         {
-            return Verdict.Execute(call);
+            return verdict.Decide(call);
         }
 
         var tool = tools.FirstOrDefault(item => string.Equals(item.Definition.Name, call.Name, StringComparison.Ordinal));
         if (tool is null)
         {
-            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+            // The AI SDK's refusal of a tool the step does not offer: it names the tool and lists the vocabulary the step does offer.
+            return ToolOutcome.Fail(
+                "Model tried to call unavailable tool '" + call.Name + "'. Available tools: " +
+                string.Join(", ", tools.Select(item => item.Definition.Name).Append(VerdictTool.Name)) + ".");
         }
 
         try
         {
             var result = await tool.ExecuteAsync(call, token).ConfigureAwait(false);
-            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed };
+            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed, Pixels = result.Pixels, ErrorText = result.ErrorText };
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -470,6 +691,9 @@ internal sealed class TurnLog(StepExecutorContext context)
 
     /// <summary>The number of the turn that runs next.</summary>
     public int Next => _turns.Count + 1;
+
+    /// <summary>The number of turns that ran (upstream's <c>turnsUsed</c>).</summary>
+    public int Used => _turns.Count;
 
     /// <summary>Records one turn: what the model said and called. The tool results are added as each lands.</summary>
     public LoopTurn Begin(ModelResponse response)

@@ -27,4 +27,4 @@ Receives every change of the exploration, in order.
 | --- | --- | --- |
 | `progress` | [ExploreProgress](/api/E2E/ExploreProgress/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L46)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

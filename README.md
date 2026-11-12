@@ -15,10 +15,10 @@ dotnet add package E2E
 dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 ```
 
-The library targets `net10.0` and includes `WebEngine`, which drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/). Firefox and WebKit are not exposed yet. The first `WebEngine` launch in a process installs Chromium, so the first run needs network access. A headless run installs only the headless shell, the build it launches. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
+The library targets `net10.0` and `net11.0` and includes `WebEngine`, which drives Chromium, Firefox, or WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/); `WebEngineOptions.BrowserName` picks one, and Chromium is the default. `Connect` and a `Browser` provider attach over CDP, so they need Chromium. The first `WebEngine` launch in a process installs the browser it launches, so the first run needs network access. A headless Chromium run installs only the headless shell, the build it launches; Firefox and WebKit have one build. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
 
 ```bash
-pwsh bin/Debug/net10.0/playwright.ps1 install chromium
+pwsh bin/Debug/net10.0/playwright.ps1 (or `net11.0`) install chromium
 ```
 
 Or, with the `e2e` tool (see [Subscriptions](#subscriptions)), `e2e install [chromium|firefox|webkit ...] [--with-deps]`. It downloads the browsers for the Playwright version `E2E` runs, installs Chromium when none is named, and `--with-deps` adds the system libraries on Linux. An unknown option or browser exits 2.
@@ -46,7 +46,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. See [Self-healing tests](#self-healing-tests). In `read-write` mode, when the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. A model outage leaves existing entries in place, unless a failure on the app implicated them too, and an `E2ETest` run whose cancellation token was cancelled writes and evicts nothing. A `Standalone` attempt that is disposed without completion still writes and evicts, even when its token was cancelled. `read-only` and `cache.strict` never write or evict. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
 
 ### Recovering a CDP transport
 
@@ -65,7 +65,7 @@ new WebEngine(new WebEngineOptions
 
 In this mode, `CdpEndpoint` provisions a fresh, dedicated browser at every attempt start, including retries. The engine rejects a browser reused by a previous attempt of the same `WebEngine`. The remote must have only its default context, and the host owns the browser: disposing the session closes the connection, not the browser. The attempt's first page is the browser's own first tab, navigated to `about:blank`.
 
-After a disconnect, the next operation calls `ReconnectEndpoint` once, bounded by the action timeout and its cancellation token. This resolver must return the existing browser's endpoint. The engine verifies the default context id and the original page's target id; a URL match is not enough to pick a replacement tab. Recovery also requires the page's frames to keep the closed shadow root hook, which a document that navigated while disconnected lost. A different browser, a missing page, or a resolver that runs out of time fails the attempt, and every later operation fails the same way. Recovery never repeats an operation that was already dispatched. Route handlers and init scripts, configured and added, are reattached, and each document still runs every init script once. After a reconnect, `PerformAsync`, the agent's key press, and the viewport swipe fail with `NODE_STALE` until the screen is observed again; the `Browser` keyboard and mouse keep working.
+After a disconnect, the next operation calls `ReconnectEndpoint` once, bounded by the action timeout and its cancellation token. This resolver must return the existing browser's endpoint. The engine verifies the default context id and the original page's target id; a URL match is not enough to pick a replacement tab. Recovery also requires the page's frames to keep the closed shadow root hook, which a document that navigated while disconnected lost. A different browser, a missing page, or a resolver that runs out of time fails the attempt, and every later operation fails the same way. Recovery never repeats an operation that was already dispatched. Route handlers and init scripts, configured and added, are reattached, and each document still runs every init script once. After a reconnect, `PerformAsync`, the agent's key press, and the viewport swipe fail with `NODE_STALE` until the screen is observed again; the `Browser` keyboard and mouse keep working. An observed node's element handle is made from the observation's in-page array the first time an action reaches for it, and a ref still names the element the walk read, not whatever sits at that position later; an element that is gone, a document replaced since the walk, a newer observation, an app restart, or a state reset makes the ref a retryable `NODE_STALE`.
 
 Persistent recovery does not support `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), or `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). `App.RestartAsync` remains available. `ColorScheme` and `ReducedMotion` work in this mode: the engine sets them on each page it opens. Omit `ReconnectEndpoint` to keep a new, isolated context per attempt.
 
@@ -280,11 +280,52 @@ A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login onl
 
 From a clone of this repo, run the tool with `dotnet run --project src/E2E.Cli -- login github-copilot`.
 
-An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`.
+An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, `maxObservationBytes` (the most bytes of the screen one model request carries, 1024 through 16777216, 262144 by default), `maxInputTokens` (the input one model request may carry, 1 through 1000000, 64000 by default; a dense screen is cut to fit under it), and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools written as code (`AgentTools` on the fixture) are not config keys; see topic `agent`. A config can declare a project tool as a command, with `tools` in the agents entry. A command tool is an entry of `tools` in the agents entry: `{ "description": ..., "mutates": false, "command": ["program", "arg"], "inputSchema": {...}, "platforms": ["web"] }`. The tool runs the command in the project root with the model's input as JSON on stdin, answers what the command wrote on stdout, and fails the call when it exits with a code other than 0 or runs past two minutes. What it writes on stderr is printed on the server's stderr, with the config's secrets redacted. `e2e mcp` serves it beside the session's own tools. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`. So is the artifact store (`ArtifactStore` on the fixture, `E2ESessionOptions.ArtifactStore`): an `IArtifactStore` receives every artifact an attempt registers, a download or a video, as it is produced, with its bytes, digest, redaction label, and the run, test, attempt, and step it belongs to, and the reference it returns is recorded as the artifact's `ref`. A store that throws leaves the record with its local path and no `ref`; the run does not fail. See topic `setup`.
 
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured. Parallel runs can share the directory: each write replaces its entry file atomically, and two writers on one key leave the last write. On Windows, a write the file system refuses while another write replaces the same entry, or while a reader holds it open, is retried for a moment before the step reports it as not written.
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
+
+A recording follows the app to another port or host that shares its `app.identity`. An agent `navigate` to a full URL on the app is recorded without the origin, as its path, query, and fragment, so the step replays on the origin the app runs on then. Re-record older entries to pick this up.
+
+### Self-healing tests
+
+A self-healing test keeps passing when the UI changes under a recorded `Agent.ActAsync` step. The replay runs the recording until it no longer matches the screen. Then it hands the rest of the step to the agent, which finishes the goal from the current screen. In `read-write` mode, the same run can save the new flow once a later check passes. Such a step reports `ActResult.Cache.Mode` `agent-concluded`.
+
+Take a step recorded with two actions, and a button that was renamed since:
+
+```csharp
+[Test]
+public async Task Applies_a_discount_code()
+{
+    await App.OpenAsync("/checkout");
+    await Agent.ActAsync("apply the discount code SUMMER");
+    await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("10% off");
+}
+```
+
+1. The replay types `SUMMER` into the `Discount code` field without a model call.
+2. The replay looks for the recorded button `Apply`. The button is now `Redeem`, so no control matches within 15 seconds (`ReplayTimeout`). The replay stops with `target-not-found`.
+3. The agent gets the step with a record of what the replay did. It reads the screen, sees `Redeem`, and taps it.
+4. The `Expect` passes. At the end of the attempt, the session saves the new recording, with `Redeem` in place of `Apply`.
+5. The next run replays the whole step without a model call.
+
+The replay never guesses. Once the replay has performed an action, a recorded control that no longer matches is a hand-off, never a tap on the closest control.
+
+The agent's first prompt lists the actions the replay already performed, says why it stopped (`Replay stopped (target-not-found) after 1 of 2 recorded actions.`), and tells it to continue from the current screen without redoing them. When every recorded action ran but the screen does not show the recorded end state (`end-mismatch`), the prompt adds a warning to check whether the step took effect. When an action failed and may have reached the app (`action-uncertain`), the prompt adds a warning to verify the current state before doing anything like it again. The replayed actions count toward the step's action budget and deadline. When the replay stops before it performs any action, whatever the reason (the target is not found or is ambiguous, the recording has a gap, the entry is invalid, the recording started on another screen (`wrong-context`), or the first action failed (`action-failed`) or may have reached the app (`action-uncertain`)), the step is a miss, not a hand-off: outside `cache.strict`, the agent runs it from the beginning with no notice, and under `cache.strict` the step fails with `REPLAY_STALE` (except for `gap`). A custom executor gets the hand-off in `StepExecutorContext.ReplayedPrefix` and must continue from the current screen too.
+
+A healed step records again like a new step: in `read-write` mode, and only when a check after it passes, such as a locator assertion or `Agent.AssertAsync`. Then the recording is saved with the new controls and end state, unless the store rejected the write (`not-written`). Otherwise the old entry goes away:
+
+- The step failed. The next run doesn't replay a flow that broke.
+- No check passed after the step.
+- The step changed nothing the replay could check, so there is no new flow to save.
+- The agent had to act to fix an `end-mismatch`. The next verified run records a clean flow, not the failed flow plus the fix.
+
+When no model answered or the run was cancelled, the entry stays as it is. The trace page's `cache:` line says what happened, and `ActResult.Cache` carries the same record (`ReplayedActions`, `TotalActions`, `Reason`, `Detail`).
+
+The agent heals toward the goal in the instruction, not toward the recorded clicks. If the discount button moved, the agent finds it. If discounts stop working, the step or the check after it fails. A goal can still pass in a way you didn't intend, for example with a different discount, so follow each `ActAsync` with a deterministic check of the result, such as the `ToHaveTextAsync("10% off")` above. That check runs on every run, replayed or healed.
+
+With `CI` set and `cache.mode` unset, the cache is `read-only`, so a healed step isn't saved. It hands off again on every CI run and pays for model calls each time. Record it again in a local `read-write` run, then commit `.e2e/cache/`. To fail instead of heal, run CI with `cache.strict`. A step whose recording no longer replays fails with `REPLAY_STALE` and makes no model call.
 
 ### Rerun a test while you fix it
 
@@ -298,6 +339,10 @@ While you fix a failing test, run only that test (`dotnet test --filter "FullyQu
 Each secret reads `E2E_SECRET_<NAME>` first, then the config value. `null` means the variable is required. A test gets one with `Secrets.Get("stripe-key")`. Secret values passed to an act never enter cache entries: a name or test id that shows one is stored as `<secret:name>`.
 
 A fixture overrides any value with the matching property, such as `BaseUrl`, `CacheMode`, or `ActionTimeout`, or replaces the whole config by overriding `Config`.
+
+### Evidence screenshots
+
+`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`<number>-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. The screenshots a model sees (`Vision = On`, `Only`, the agent's own looks, `e2e mcp`, and `e2e explore` findings) work the same way: a generic secret filled into a plain input, or a value the app shows outside a secure field, reaches your model provider, so use test credentials. It fails with `UNSUPPORTED_CAPABILITY` only on an engine that keeps no screenshot artifact. The web, mobile, and Windows engines keep screenshot artifacts. A secret spelled into the label is redacted before it names the file.
 
 ## Visual comparison
 
@@ -345,17 +390,55 @@ foreach (var finding in outcome.Explore.Findings)
 }
 ```
 
-`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 100 steps and 3 minutes to 2 hours. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+
+## Checking your setup
+
+`e2e doctor` checks that `e2e explore` and `e2e mcp` can start here, without starting anything. It prints one line per check, then whether they can start:
+
+```bash
+e2e doctor
+e2e doctor --json
+e2e doctor --check-model
+e2e doctor --target web --headed
+```
+
+| Check | Status |
+| --- | --- |
+| `runtime` | `pass`: the .NET version. |
+| `config` | `pass` with `path` and `targets` (`name`, `platform`, `engine`), or `fail` with the `INVALID_CONFIG`, `CONFIG_NOT_FOUND`, or `UNKNOWN_TARGET` code. A failed `config` is the last check. |
+| Engine checks, with `target` | What the target's engine reports, such as the web engine's `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. The device engine reports agent-device's own checks (`agent-device`, `toolchain`, `ios-runner-cache`, `device` for each configured device, `target-app` for an installed `BundleId`) and `app-path` (the build `AppPath` names exists); with a device provider (Limrun, BrowserStack, TestMu, Expo) it reports only `device`, as `skip`. `engine` is `skip` when the engine has no doctor checks (the Windows, MAUI DevFlow, and document engines), and `fail` when its doctor threw, timed out, or returned a malformed check. |
+| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](#subscriptions) (`chatgpt`, `copilot`, `grok`, `opencode-console`), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential. With `--check-model`, `pass` (`answered`) when every model answered, else `fail` with the error code, its message prefixed `model:` or `judge:` when the agent has both. `skip` when the agent has no model. |
+
+`--config <path>` and `--target <names>` (comma-separated or repeated) are as for `e2e explore`. `--headed` checks for what a headed run needs. `--check-model` calls each agent's model, and its judge when that is a different model, once with a short prompt and the agent's provider options, with one retry and 1 minute; agents that share a model, equal provider options, and `MaxInputTokens` share the call. A reply that is not the JSON asked for, or a refusal, still counts as an answer. `--json` prints the `doctor-1` report to stdout, and only the report; its JSON Schema ships in the package as `schema/doctor-v1.schema.json`. An engine's progress lines go to stderr as `[target] line`.
+
+It exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when a check failed, and 130 when interrupted: the check that was cut short is `fail` with `CANCELLED`, and the checks after it are left out.
+
+An engine reports its own checks through `IDoctorEngine.DoctorAsync` (read-only and quick: it starts, installs, and leases nothing, and does not call `PrepareAsync`). `e2e doctor` gives each call 30 seconds. A throw, a timeout, a finding with an id doctor uses itself (`node`, `config`, `runtime`, `engine`, `model`) or one that is not kebab case, or a status it does not know, becomes an `engine` check with status `fail`. See [COMPATIBILITY.md](COMPATIBILITY.md#doctor).
+
+## Hosting sessions in your own runner
+
+`E2EHost` opens isolated per-test sessions for a runner that is not NUnit or xUnit (upstream's `openHost`). It loads the config, starts the target's app command, prepares the engine once, and opens one session at a time.
+
+```csharp
+await using var host = await E2EHost.OpenAsync(new OpenHostOptions { Cwd = projectDir });
+await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "home screen" });
+await session.Fixtures.App.OpenAsync("/");
+```
+
+`OpenHostOptions.Config` takes an `E2EConfig` value instead of a file; `EngineFactory` builds the engine of a target, because a config file holds no engine. `session.CloseAsync()` returns the soft assertion, abandoned-step (`STEP_NOT_AWAITED`), and cleanup failures; `DisposeAsync` throws them as an `AggregateException`. `session.Steps()` and `OpenSessionOptions.OnStep` report the steps as `E2E.Reports` types.
 
 ## Coding agents (MCP)
 
-`e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). Register it once:
+`e2e init` asks which engine, model gateway (and the base URL of an `openai-compatible` one), skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them. The engine, gateway, and endpoint questions are asked only when `e2e.config.json` does not exist; the skill and MCP questions are asked only when no flag names the locations and no earlier run left any (which a rerun then refreshes). It asks before replacing a symlinked skill directory with a copy or a link (never under `--yes`, which leaves it alone), and cancelling a question or declining the plan writes nothing. Init scaffolds `e2e.config.json`, a test project (a `.csproj` named after the directory with the e2e packages at the tool's version, and an `ExampleTests.cs`; NUnit, or xUnit v3 with `--framework xunit`), installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and updates `.gitignore`. In a directory with a `.csproj` it adds only the missing package references. `--install` runs `dotnet restore`, and `--example <name>` copies a sample instead. An existing config is never overwritten; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
+
+`e2e mcp` serves the project to a coding agent such as Claude Code, Cursor, or Codex over MCP (stdio). `e2e init` registers it; to do it by hand:
 
 ```bash
 claude mcp add e2e -- e2e mcp
 ```
 
-The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action answers with the test line that repeats it, and `test_lines` returns them as a draft test body. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
+The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action takes a node id from `observe` and answers with what changed on screen (added, changed, and removed lines) and the test line that repeats it, or with `No test line:` and why (for example `scroll`, or `press` without a target), so the agent writes the test while it walks the flow, and `test_lines` returns every line so far as a draft test body, with a `//` comment for an action without a line. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
 
 ### A verification skill for your app
 
@@ -367,7 +450,7 @@ npx skills add hardkoded/e2e-dotnet --skill create-verification-skill
 
 ### Migrating an existing suite
 
-The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
+The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
 
 ```bash
 npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
@@ -386,16 +469,16 @@ Sign in once with the GitHub CLI already logged in, then run the sample:
 
 ```bash
 dotnet run --project src/E2E.Cli -- login github-copilot
-dotnet test --project samples/E2E.Sample
+dotnet test samples/E2E.Sample
 ```
 
 To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.config.json`, for example to `"provider": "openai", "model": "gpt-4.1-mini"` with `OPENAI_API_KEY` set.
 
-[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test --project samples/E2E.XUnit.V3.Sample`.
+[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`.
 
-Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test --project samples/E2E.Sample`.
+Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test samples/E2E.Sample`.
 
-[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps, using the NuGet packages. Its README compares the two.
+[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps. Its README compares the two.
 
 [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp) is a small .NET MAUI app, and [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) drives it on an iOS simulator or Android emulator with `MobileEngine`. Its README lists the prerequisites (Node 22.12 or newer for agent-device) and the run commands.
 
@@ -418,12 +501,15 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | none (.NET only) | `E2E.WinApp` (`WinAppEngine`), Windows desktop apps through Windows UI Automation |
 | none (.NET only) | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` (`WinAppTest`), a ready base class for a Windows app test |
 | `apps/mobile-benchmark` | `apps/WinAppBenchmark`, the benchmark scenarios as a WinUI 3 app (Microsoft.UI.Reactor), and `apps/WinAppBenchmark.E2ETests`, its ported suites, for the Windows engine |
-| `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
+| `@e2e-dev/eas` | `E2E.Expo` (`ExpoSimulators`) |
+| `@e2e-dev/github` (ported in part) | `E2E.GitHub` (`GitHubReporter`), the run as a pull request comment |
+| `@e2e-dev/acp` | `E2E.Acp` (`AcpExecutor`), a step executor that runs `act` and `assert` on Claude Code, Codex, or another coding agent over the Agent Client Protocol; the presets need Node |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
+| `@e2e-dev/browserstack` | `E2E.BrowserStack` (`BrowserStackDevices`), BrowserStack App Automate real devices; the shared lease helper (`@e2e-dev/mobile/lease`) is in `E2E.Mobile` |
 | none (.NET only) | `E2E.TestMu.Mobile` (TestMu AI real and virtual mobile devices through Appium; in progress) |
 | none (.NET only) | `E2E.Mobile.DevFlow` (`DevFlowAgents`), .NET MAUI apps through the MAUI DevFlow agent; preview |
 | `@e2e-dev/testmu` (`testmuBrowsers()`, ported in part) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e doctor`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
-`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS and Limrun providers are their own packages, `E2E.Eas` and `E2E.Limrun`. `E2E.TestMu` ports upstream's `testmuBrowsers()` in part. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).
+`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The Expo Simulators, Limrun, and BrowserStack providers are their own packages, `E2E.Expo`, `E2E.Limrun`, and `E2E.BrowserStack`. `E2E.TestMu` ports upstream's `testmuBrowsers()` in part. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is `E2E.GitHub`, ported in part. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).

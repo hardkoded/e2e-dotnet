@@ -14,15 +14,14 @@ public sealed partial class Agent
     /// <summary>
     /// The host an act replays a recording through (upstream builds it in <c>agent/step-cache.ts</c>, as <c>StepCacheHost</c>). Its actions perform one
     /// recorded action on the engine and arm the change wait its settle policy asks for, like the dispatcher's, but take no
-    /// action slot and record nothing: the replay takes the slot and records the action as the recording holds it, with the
-    /// slots of its params in it. Values arrive as recorded and are expanded with this call's params here.
+    /// action slot and record nothing: the replay takes the slot and records the action as the recording holds it. Values arrive
+    /// expanded with this call's params, when the entry is read (upstream's <c>expandTrace</c>).
     /// </summary>
     private sealed class ActReplayHost(
         AttemptScope scope,
         ObservationFeed feed,
         StepAccounting budget,
         ActionDispatcher dispatcher,
-        IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token) : IStepCacheHost, IExecutorActions
     {
         public IExecutorActions Actions => this;
@@ -33,23 +32,70 @@ public sealed partial class Agent
 
         public TimeSpan ReplayTimeout => scope.ReplayTimeout;
 
-        public Observation? FirstActedOn => feed.FirstActedOn;
+        public int RemainingMs() => budget.RemainingMs();
 
-        public Task<Observation> ObserveAsync(SettleMode mode) => feed.ObserveAsync(mode, token);
+        public TimeProvider Time => TimeProvider.System;
+
+        public PreparedObservation? FirstActedOn => feed.FirstActedOn;
+
+        public bool TraceEligible => feed.TraceEligible;
+
+        public async Task<PreparedObservation> ObserveAsync(SettleMode mode) => feed.PreparedOf(await feed.ObserveAsync(mode, token).ConfigureAwait(false));
 
         public bool TryReserve() => budget.TryReserve();
 
+        public Task BeforeAsync() => dispatcher.BeforeAsync(ActionSource.Replay);
+
         public void MarkActing() => feed.MarkActing();
+
+        // The points the replay last dispatched, which the next commit reports: where the recorded point landed on this screen, not the recorded one.
+        private Point? _tapped;
+        private (Point From, Point To)? _dragged;
+
+        // The action as the replay dispatched it: a point action reads the point it acted at. The step still records the action as read.
+        private RecordedAction Dispatched(RecordedAction action)
+        {
+            RecordedAction shown;
+            switch (action.Kind)
+            {
+                case "tapAt" or "hoverAt" when _tapped is { } point:
+                    shown = action.Copy();
+                    // The summary names the point, so the one recorded for the old point is dropped and described afresh.
+                    shown.Summary = null;
+                    shown.Point = point;
+                    return shown;
+                case "dragAt" when _dragged is { } drag && action.From is not null && action.To is not null:
+                    shown = action.Copy();
+                    shown.Summary = null;
+                    shown.From = action.From.Copy();
+                    shown.From.Point = drag.From;
+                    shown.To = action.To.Copy();
+                    shown.To.Point = drag.To;
+                    return shown;
+                default:
+                    return action;
+            }
+        }
 
         public Task CommitAsync(RecordedAction action)
         {
+            // The entry was expanded when it was read, so the step records the action as this run read it, and templates it when it finishes.
             budget.Recorder.Record(action);
-            return dispatcher.NotifyAsync(action, ActionSource.Replay);
+            return dispatcher.NotifyAsync(Dispatched(action), ActionSource.Replay);
         }
 
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("doubleTap", target, options, cancellationToken);
+
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("secondaryTap", target, options, cancellationToken);
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.LongPress(), "longPress", cancellationToken);
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Hover(), "hover", cancellationToken);
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) =>
+            PerformAsync(source, new LocatorAction.DragTo(Resolve(destination)), "drag", cancellationToken);
 
         private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken) =>
             PerformAsync(target, ActionDispatcher.ClickAction(kind, ActionDispatcher.RequireClickModifiers(options, kind, scope.EngineCapabilities)), kind, cancellationToken);
@@ -57,20 +103,29 @@ public sealed partial class Agent
         // A value is expanded with this call's params before it is read: one that expands to a secret's marker fills that secret.
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
         {
-            var expanded = CacheKeys.Detemplate(value, parameters);
-            return expanded.StartsWith("<secret:", StringComparison.Ordinal) && expanded.EndsWith('>')
-                ? TypeSecretAsync(target, expanded["<secret:".Length..^1], cancellationToken, armed: null)
-                : PerformAsync(target, new LocatorAction.Fill(expanded, false), "fill", cancellationToken);
+            return value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>')
+                ? TypeSecretAsync(target, value["<secret:".Length..^1], cancellationToken, armed: null)
+                : PerformAsync(target, new LocatorAction.Fill(value, false), "fill", cancellationToken);
         }
 
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) =>
             TypeSecretAsync(target, secretName, cancellationToken, armed: "<secret:" + secretName + ">");
 
-        private Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
+        private async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
         {
-            var secret = scope.Secrets.FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
-                ?? throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "Replay needs secret '" + secretName + "', and this step did not declare it.");
-            return PerformAsync(target, new LocatorAction.Fill(secret.Value, false), "fill", cancellationToken, armed);
+            var secret = dispatcher.DeclaredSecret(secretName);
+            // Recorded by stable name only; replay re-runs the full authorization (upstream's replay calls the dispatcher's typeSecret).
+            // It runs before the provider is asked, for the node as it is now; a provider's value joins redaction before it is typed.
+            // Authorization runs again for each attempt, on the node as a relocation found it, as the dispatcher's typeSecret does.
+            await dispatcher.TargetedAsync(
+                Resolve(target),
+                cancellationToken,
+                async (found, _) =>
+                {
+                    var resolved = await SecretFill.AuthorizeSecretFillAsync(dispatcher.PolicyHost, scope, secret, found, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.PerformAsync(found, new LocatorAction.Fill(resolved.Value, true), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+                }).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "fill", Value = armed });
         }
 
         public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
@@ -79,27 +134,58 @@ public sealed partial class Agent
         {
             if (target is null)
             {
-                await scope.Session.PressAsync(key, cancellationToken).ConfigureAwait(false);
-                feed.ArmAfter(new RecordedAction { Kind = "press" });
+                await PressKeyAsync(key, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
             await PerformAsync(target, new LocatorAction.Press(key), "press", cancellationToken).ConfigureAwait(false);
         }
 
+        // A recorded keyboard input goes to whatever holds focus as given: the focus it relies on is the effect of the recorded actions before it.
+        public async Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.TypeTextAsync(value, options?.Replace == true, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "typeText" });
+        }
+
+        public async Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
+        {
+            // Upstream's `keyboard.press` session guard (engine/session.ts).
+            Keys.RequireKey(key);
+            await scope.Session.PressAsync(key, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
+        }
+
+        public async Task DismissKeyboardAsync(CancellationToken cancellationToken = default)
+        {
+            await scope.Session.DismissKeyboardAsync(budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "dismissKeyboard" });
+        }
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
-            PerformAsync(target, new LocatorAction.Select(CacheKeys.Detemplate(value, parameters)), "select", cancellationToken);
+            PerformAsync(target, new LocatorAction.Select(value), "select", cancellationToken);
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
             check ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken) : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
+
+        // The recorded paths are expanded with this call's params, then authorized against the project root again, as the recording's were.
+        // The replay asks first (AuthorizeUpload), before it takes the slot, and the upload spends that decision.
+        private AuthorizedUpload? _authorizedUpload;
+
+        public void AuthorizeUpload(IReadOnlyList<string> paths) => _authorizedUpload = dispatcher.AuthorizeUpload(paths);
+
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+        {
+            var authorized = _authorizedUpload ?? dispatcher.AuthorizeUpload(paths);
+            _authorizedUpload = null;
+            return PerformAsync(target, new LocatorAction.SetInputFiles(authorized.Resolved), "upload", cancellationToken);
+        }
 
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.ScrollIntoView(), "scrollTo", cancellationToken);
 
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
         {
-            var node = list is null ? null : Resolve(list);
-            var recorded = list?.Recorded ?? (node is null ? null : new RecordedAction { Role = node.Role, Name = RedactLabel(node, scope.Redactor), TestId = Agent.Redact(node.TestId, scope.Redactor) });
-            await dispatcher.PageUntilAsync(CacheKeys.Detemplate(text, parameters), direction, recorded, cancellationToken).ConfigureAwait(false);
+            await dispatcher.PageUntilAsync(text, direction, list, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }
 
@@ -109,11 +195,11 @@ public sealed partial class Agent
             {
                 if (list is null)
                 {
-                    await scope.Session.SwipeAsync(direction, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.SwipeAsync(direction, null, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), cancellationToken).ConfigureAwait(false);
+                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
                 }
 
                 feed.ArmAfter(new RecordedAction { Kind = "scroll" });
@@ -122,23 +208,66 @@ public sealed partial class Agent
 
         public async Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {
-            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, CacheKeys.Detemplate(url, parameters)), cancellationToken).ConfigureAwait(false);
+            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, url), budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "navigate" });
         }
 
         public async Task BackAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.BackAsync(cancellationToken).ConfigureAwait(false);
+            await scope.Session.BackAsync(budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
-        // The node the replay found: a replay's targets are built from nodes, so an id alone names nothing here.
+        public async Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default)
+        {
+            var viewport = Geometry.RequireViewportSize(size);
+            await scope.Session.ResizeAsync(viewport, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            scope.Steps.AttachViewport(new StepViewport(viewport.Width, viewport.Height, 1));
+            feed.ArmAfter(new RecordedAction { Kind = "resize" });
+        }
+
+        // A recorded bare point goes to the engine as given and arms the next look; the replay commits the action as recorded. The result's
+        // prose is for a model, which a replay has none of.
+        public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            _tapped = point;
+            feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            _tapped = point;
+            feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            _dragged = (from, to);
+            feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
+            return new PointDragResult(from, to, null, null, "");
+        }
+
+        // A replay places its points from the recording and never hit-tests one.
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("A replay never hit-tests a point.");
+
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");
 
         private async Task PerformAsync(ExecutorTarget target, LocatorAction action, string kind, CancellationToken cancellationToken, string? value = null)
         {
-            await scope.Session.PerformAsync(Resolve(target), action, cancellationToken).ConfigureAwait(false);
+            // Upstream's session guard (`perform` in engine/session.ts) checks a press key before the engine is asked, on a replay too.
+            if (action is LocatorAction.Press press)
+            {
+                Keys.RequireKey(press.Key);
+            }
+
+            await scope.Session.PerformAsync(Resolve(target), action, budget.ActionOperation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = kind, Value = value });
         }
     }

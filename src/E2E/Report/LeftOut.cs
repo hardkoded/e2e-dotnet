@@ -8,12 +8,12 @@ namespace E2E;
 internal static class LeftOut
 {
     /// <summary>How many tests each test filter left out of <paramref name="results"/>, by its name; a test left out on several targets, agents, or repeats counts once.</summary>
-    public static Dictionary<string, int> LeftOutTests(IEnumerable<(string TestId, ReportSkip? Skip)> results)
+    public static Dictionary<string, int> LeftOutTests(IEnumerable<(string TestId, string? Filter)> results)
     {
         var tests = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var (testId, skip) in results)
+        foreach (var (testId, filter) in results)
         {
-            if (skip?.Filter is { } filter)
+            if (filter is not null)
             {
                 if (!tests.TryGetValue(filter, out var ids))
                 {

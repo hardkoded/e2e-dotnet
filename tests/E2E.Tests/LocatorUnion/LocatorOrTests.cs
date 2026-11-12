@@ -11,7 +11,6 @@ namespace E2E.Tests.LocatorUnion;
 /// <c>locator.Or(other)</c>: core builds one union expression and the engine resolves it. The screen here resolves with
 /// the reference semantics: matches of either branch in traversal order, each node once.
 /// Partial: "refuses ... a non-locator" (the parameter is typed, so only the other screen's locator is refusable).
-/// The port names the strictness failure <c>STRICT_MODE</c> where upstream says <c>LOCATOR_AMBIGUOUS</c>.
 /// </summary>
 public sealed class LocatorOrTests
 {
@@ -57,7 +56,7 @@ public sealed class LocatorOrTests
     {
         var (screen, _) = TabScreen();
         var either = screen.GetByRole("tab", "Discover").Or(screen.GetByRole("tab", "Odkrywaj"));
-        var error = await FailsWith("STRICT_MODE", () => either.TextContentAsync());
+        var error = await FailsWith("LOCATOR_AMBIGUOUS", () => either.TextContentAsync());
         Assert.Contains("getByRole(\"tab\", \"Discover\").or(getByRole(\"tab\", \"Odkrywaj\"))", error.Message);
     }
 

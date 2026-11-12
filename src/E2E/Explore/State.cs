@@ -17,7 +17,8 @@ internal sealed record FindingInput(
     string Actual,
     IReadOnlyList<string> Reproduction,
     string? Path = null,
-    string? ArtifactId = null);
+    string? ArtifactId = null,
+    string? ObservationRevision = null);
 
 /// <summary>
 /// The record of one exploration: the goal, its budgets, the steps the agent planned and ran, and the findings it reported.
@@ -133,7 +134,7 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
             }
 
             var now = _time.GetUtcNow();
-            _open = new OpenStep(_steps.Count + 1, Clip(title, MaxTitleChars), Clip(instruction, MaxInstructionChars), now);
+            _open = new OpenStep(_steps.Count + 1, Clip(_redactor.Redact(title), MaxTitleChars), Clip(_redactor.Redact(instruction), MaxInstructionChars), now);
             var step = new OpenedStep(_open.Index, _open.Title, _open.Instruction);
             Notify(new ExploreProgress.StepStarted(step));
             return step;
@@ -154,7 +155,7 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 status,
                 open.StartedAt,
                 TimeSpan.FromMilliseconds(Math.Max(0, (_time.GetUtcNow() - open.StartedAt).TotalMilliseconds)),
-                string.IsNullOrEmpty(summary) ? null : Clip(summary, MaxSummaryChars),
+                string.IsNullOrEmpty(summary) ? null : Clip(_redactor.Redact(summary), MaxSummaryChars),
                 errorCode);
             _steps.Add(step);
             Notify(new ExploreProgress.StepFinished(step));
@@ -184,8 +185,9 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 Clip(actual, MaxDetailChars),
                 [.. reproduction.Select(entry => Clip(entry, MaxReproductionChars))],
                 now,
-                input.Path is null ? null : Clip(input.Path, MaxPathChars),
-                input.ArtifactId);
+                input.Path is null ? null : Clip(_redactor.Redact(input.Path), MaxPathChars),
+                input.ArtifactId,
+                input.ObservationRevision);
             _findings.Add(finding);
             Notify(new ExploreProgress.FindingReported(finding));
             return finding;
@@ -198,7 +200,7 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
         lock (_gate)
         {
             _ended = ended;
-            _summary = string.IsNullOrWhiteSpace(summary) ? null : Clip(summary, MaxSummaryChars);
+            _summary = string.IsNullOrWhiteSpace(summary) ? null : Clip(_redactor.Redact(summary), MaxSummaryChars);
             Notify(new ExploreProgress.Finished(ended, _summary));
         }
     }

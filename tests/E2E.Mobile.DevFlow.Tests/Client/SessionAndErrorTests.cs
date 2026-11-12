@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
+using System.Text.Json.Nodes;
 
 namespace E2E.Mobile.DevFlow.Tests.Client;
 
@@ -17,6 +18,23 @@ public sealed class SessionAndErrorTests
 
         Assert.Equal(["GET /api/v1/agent/status"], agent.Calls.Select(call => call.Route));
         Json.AssertEqual("""{"action":"claim","leaseId":"lease-1","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""", Assert.Single(agent.LeaseCalls).Body);
+    }
+
+    // .NET-only: upstream has no DevFlow client.
+    [Fact]
+    public async Task A_cancel_during_the_boot_status_read_does_not_claim_the_lease()
+    {
+        var (client, agent) = DevFlow.Over();
+        Assert.IsAssignableFrom<ICancellableDeviceClient>(client);
+        var hanging = agent.ScriptHang("GET", "/api/v1/agent/status");
+        using var cancel = new CancellationTokenSource();
+
+        var boot = client.CallAsync(DeviceMethods.DevicesBoot, (JsonObject)JsonNode.Parse("""{"platform":"ios"}""")!, cancel.Token);
+        await hanging.WaitAsync(TimeSpan.FromSeconds(10));
+        await cancel.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => boot.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Empty(agent.LeaseCalls);
     }
 
     [Fact]

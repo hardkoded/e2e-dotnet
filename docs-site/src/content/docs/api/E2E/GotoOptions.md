@@ -1,6 +1,6 @@
 ---
 title: "GotoOptions"
-description: "Options of CancellationToken)."
+description: "Options of GotoAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed record GotoOptions : IEquatable<GotoOptions>
 ```
 
 
-Options of `CancellationToken)`.
+Options of `GotoAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;GotoOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs)
 
 ## Properties
 
@@ -40,11 +40,9 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-The navigation budget. Defaults to the action timeout.
+The navigation budget. Defaults to the action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is `INVALID_ARGUMENT`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L27)
 
 <a id="E2E_GotoOptions_WaitUntil_"></a>
 <a id="E2E_GotoOptions_WaitUntil"></a>
@@ -60,5 +58,3 @@ public GotoWaitUntil WaitUntil { get; init; }
 When the navigation counts as done. Defaults to [Load](/api/E2E/GotoWaitUntil/#E2E_GotoWaitUntil_Load).
 
 **Value:** [GotoWaitUntil](/api/E2E/GotoWaitUntil/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L24)

@@ -1,0 +1,144 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/ImageOnlyUi.tsx.
+   Deliberately hostile accessibility: every piece of text on this screen is a PNG rendered at runtime from a canvas (a data URL) with an empty
+   alt, and the buttons are icon-only inline SVGs with no labels, roles, or test ids. The DOM carries no readable text. *@
+@if (_images is { } images)
+{
+    <div style="@Container">
+        @if (_done)
+        {
+            <img src="@images.Success" alt="" style="@BigTextImage" />
+        }
+        else
+        {
+            <img src="@images.Instruction" alt="" style="@TextImage" />
+        }
+        @if (!_done)
+        {
+            <div style="@IconRow">
+                <div style="@IconTile" @onclick="() => HandleIcon(Icon.Bolt)">
+                    <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="#444" />
+                    </svg>
+                </div>
+                <div style="@IconTile" @onclick="() => HandleIcon(Icon.Star)">
+                    <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.2l-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z" fill="#444" />
+                    </svg>
+                </div>
+                <div style="@IconTile" @onclick="() => HandleIcon(Icon.Heart)">
+                    <svg width="48" height="48" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M12 21s-7.5-4.8-10-9.3C.4 8.6 2.3 5 5.7 5c2 0 3.4 1.1 4.3 2.5h4C14.9 6.1 16.3 5 18.3 5c3.4 0 5.3 3.6 3.7 6.7C19.5 16.2 12 21 12 21z" fill="#444" />
+                    </svg>
+                </div>
+            </div>
+        }
+        @if (!_done && _failed)
+        {
+            <img src="@images.Error" alt="" style="@TextImage" />
+        }
+        @if (!_done)
+        {
+            <div style="@DotRow">
+                @for (var index = 0; index < Sequence.Length; index++)
+                {
+                    var filled = index < _progress;
+                    <div @key="index" style="@(Dot + (filled ? " background-color: #111;" : " background-color: #ddd;"))"></div>
+                }
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div style="@Container"></div>
+}
+
+@code {
+    private enum Icon
+    {
+        Bolt,
+        Star,
+        Heart,
+    }
+
+    private sealed record ImageSet(string Instruction, string Error, string Success);
+
+    private static readonly Icon[] Sequence = [Icon.Star, Icon.Heart];
+
+    /// <summary>
+    /// Renders a line of text into an offscreen canvas and returns it as a PNG data URL, keeping the text out of the DOM. Upstream's
+    /// <c>textImage</c>.
+    /// </summary>
+    private const string TextImageScript = """
+        window.webBenchmarkImageOnly = {
+          textImage(text, color) {
+            const canvas = document.createElement("canvas");
+            canvas.width = 640;
+            canvas.height = 48;
+            const context = canvas.getContext("2d");
+            if (!context) {
+              return "";
+            }
+
+            context.font = "600 22px -apple-system, sans-serif";
+            context.fillStyle = color;
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText(text, 320, 24);
+            return canvas.toDataURL("image/png");
+          },
+        };
+        """;
+
+    private ImageSet? _images;
+    private int _progress;
+    private bool _failed;
+
+    private bool _done => _progress >= Sequence.Length;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("eval", TextImageScript);
+        _images = new ImageSet(
+            await JS.InvokeAsync<string>("webBenchmarkImageOnly.textImage", "Click the star, then the heart", "#111"),
+            await JS.InvokeAsync<string>("webBenchmarkImageOnly.textImage", "Wrong icon, start over", "#c00"),
+            await JS.InvokeAsync<string>("webBenchmarkImageOnly.textImage", "Icons verified", "#0a0"));
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Advances the sequence when the clicked icon matches the next expected one; any other icon shows the error image and resets progress.
+    /// </summary>
+    private void HandleIcon(Icon icon)
+    {
+        if (_done)
+        {
+            return;
+        }
+
+        if (icon != Sequence[_progress])
+        {
+            _failed = true;
+            _progress = 0;
+            return;
+        }
+
+        _failed = false;
+        _progress++;
+    }
+
+    private const string Container = "display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 24px 0; min-height: 220px;";
+    private const string TextImage = "width: 320px; height: 24px;";
+    private const string BigTextImage = "width: 380px; height: 28px;";
+    private const string IconRow = "display: flex; gap: 16px;";
+    private const string IconTile = "width: 88px; height: 88px; display: flex; align-items: center; justify-content: center; border: 1px solid #ccc; border-radius: 8px; cursor: default; user-select: none;";
+    private const string DotRow = "display: flex; gap: 8px;";
+    private const string Dot = "width: 10px; height: 10px; border-radius: 5px;";
+}

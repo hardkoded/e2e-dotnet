@@ -7,8 +7,7 @@ using static E2E.Tests.StepCache.StepCacheHarness;
 namespace E2E.Tests.StepCache;
 
 /// <summary>
-/// Upstream's <c>describe('cache.strict')</c> at the session seam. "still runs live a step with no recording and a recording too
-/// long to replay" is ported without the truncated half, under another name: the port has no truncated entries.
+/// Upstream's <c>describe('cache.strict')</c> at the session seam.
 /// </summary>
 public sealed class CacheStrictTests
 {
@@ -40,11 +39,15 @@ public sealed class CacheStrictTests
     }
 
     [Fact]
-    public async Task Runs_live_a_step_with_no_recording()
+    public async Task Still_runs_live_a_step_with_no_recording_and_a_recording_too_long_to_replay()
     {
         var session = MakeSession(Strict(FakeContext(() => new CacheLookup { Reason = "no-entry" })), MakeHost(["/"]));
-
         Assert.Null(await session.BeginAsync());
+
+        var truncated = MakeSession(
+            Strict(EntryContext(startPath: "/pricing", actions: [.. Enumerable.Range(0, 50).Select(_ => Tap("button", "Upgrade"))], truncated: true)),
+            MakeHost(["/pricing"]));
+        Assert.Null(await truncated.BeginAsync());
     }
 
     [Fact]

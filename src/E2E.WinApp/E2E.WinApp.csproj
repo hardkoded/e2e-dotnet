@@ -9,14 +9,13 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- LibraryImport P/Invoke in UiAutomationDriver. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- The winapp UI Automation library ships Windows assets only. Every project that restores it, directly or through a reference, repeats these two lines. -->
-    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <!-- The winapp UI Automation library ships Windows assets only. Every project that restores it, directly or through a reference, repeats these two lines (the net10.0 and net11.0 fallbacks). -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0;net11.0-windows7.0</AssetTargetFallback>
     <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
-    <!-- Shared with the mobile engine: the press key grammar and the cleanup budget, owned by E2E.Mobile. -->
-    <Compile Include="..\E2E.Mobile\DeviceKeys.cs" Link="DeviceKeys.cs" />
+    <!-- Shared with the mobile engine: the cleanup budget, owned by E2E.Mobile. -->
     <Compile Include="..\E2E.Mobile\CleanupBudget.cs" Link="CleanupBudget.cs" />
     <!-- The engine behind `winapp ui`, as a library. It ships Windows assets only, which AssetTargetFallback admits under net10.0. -->
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp.UIAutomation" Version="0.7.1" />

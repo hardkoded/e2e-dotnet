@@ -11,7 +11,7 @@ namespace E2E;
 /// <summary>
 /// The locator matchers of <see cref="LocatorExpect"/>, but an
 /// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, and the
-/// test body runs on. Any other error, such as <c>STRICT_MODE</c>, still throws.
+/// test body runs on. Any other error, such as <c>LOCATOR_AMBIGUOUS</c>, still throws.
 /// </summary>
 public sealed class SoftLocatorExpect
 {
@@ -68,6 +68,29 @@ public sealed class SoftLocatorExpect
     public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveCountAsync(count, timeout, cancellationToken));
 
     private Task KeepAsync(Task matcher) => _failures.KeepAsync(matcher);
+}
+
+/// <summary>
+/// The screen matchers of <see cref="ScreenExpect"/>, but an
+/// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, as <see cref="SoftLocatorExpect"/> does.
+/// </summary>
+public sealed class SoftScreenExpect
+{
+    private readonly ScreenExpect _expect;
+    private readonly SoftFailures _failures;
+
+    internal SoftScreenExpect(ScreenExpect expect, SoftFailures failures)
+    {
+        _expect = expect;
+        _failures = failures;
+    }
+
+    /// <summary>Inverts the matcher, as <see cref="ScreenExpect.Not"/>. A failure is still kept, not thrown.</summary>
+    public SoftScreenExpect Not => new(_expect.Not, _failures);
+
+    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
+
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
 }
 
 /// <summary>
@@ -189,5 +212,109 @@ internal sealed class SoftFailures
         }
 
         return ErrorRedaction.Failure("ASSERTION_FAILED", string.Join('\n', lines), failures[0], Redact);
+    }
+}
+
+/// <summary>
+/// The value matchers of <see cref="ValueExpectation{T}"/>, but an <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, and the
+/// test body runs on. Any other error, such as <c>INVALID_ARGUMENT</c>, still throws.
+/// </summary>
+public sealed class SoftValueExpectation<T>
+{
+    private readonly ValueExpectation<T> _expect;
+    private readonly SoftFailures _failures;
+
+    internal SoftValueExpectation(ValueExpectation<T> expect, SoftFailures failures)
+    {
+        _expect = expect;
+        _failures = failures;
+    }
+
+    /// <summary>Inverts the matcher, as <see cref="ValueExpectation{T}.Not"/>. A failure is still kept, not thrown.</summary>
+    public SoftValueExpectation<T> Not => new(_expect.Not, _failures);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBe(T expected) => Keep(() => _expect.ToBe(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToEqual(object? expected) => Keep(() => _expect.ToEqual(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToMatchObject(object expected) => Keep(() => _expect.ToMatchObject(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeTruthy() => Keep(_expect.ToBeTruthy);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeFalsy() => Keep(_expect.ToBeFalsy);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeNull() => Keep(_expect.ToBeNull);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeUndefined() => Keep(_expect.ToBeUndefined);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeDefined() => Keep(_expect.ToBeDefined);
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToHaveLength(int expected) => Keep(() => _expect.ToHaveLength(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToHaveProperty(string path) => Keep(() => _expect.ToHaveProperty(path));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToHaveProperty(string path, object? expected) => Keep(() => _expect.ToHaveProperty(path, expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToHaveProperty(IReadOnlyList<object> path) => Keep(() => _expect.ToHaveProperty(path));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToHaveProperty(IReadOnlyList<object> path, object? expected) => Keep(() => _expect.ToHaveProperty(path, expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToContain(object? expected) => Keep(() => _expect.ToContain(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToMatch(string expected) => Keep(() => _expect.ToMatch(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToMatch(Regex expected) => Keep(() => _expect.ToMatch(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeGreaterThan(double expected) => Keep(() => _expect.ToBeGreaterThan(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeGreaterThanOrEqual(double expected) => Keep(() => _expect.ToBeGreaterThanOrEqual(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeLessThan(double expected) => Keep(() => _expect.ToBeLessThan(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeLessThanOrEqual(double expected) => Keep(() => _expect.ToBeLessThanOrEqual(expected));
+
+    /// <summary>The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept.</summary>
+    public void ToBeCloseTo(double expected, int digits = 2) => Keep(() => _expect.ToBeCloseTo(expected, digits));
+
+    /// <summary>
+    /// The matcher of the same name on <see cref="ValueExpectation{T}"/>, with a failure kept. It returns the schema's output when the value
+    /// matches, and <c>null</c> (the default) after a kept failure, as it does when negated.
+    /// </summary>
+    public TOutput? ToMatchSchema<TOutput>(StandardSchemaV1<TOutput> schema)
+    {
+        TOutput? output = default;
+        Keep(() => output = _expect.ToMatchSchema(schema));
+        return output;
+    }
+
+    private void Keep(Action matcher)
+    {
+        try
+        {
+            matcher();
+        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex))
+        {
+        }
     }
 }

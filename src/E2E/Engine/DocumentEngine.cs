@@ -112,10 +112,17 @@ public sealed class DocumentEngine : IEngine
             }
 
             _refs = refs;
-            return Task.FromResult(new Observation { Route = Route, Roots = roots });
+            return Task.FromResult(new Observation { Route = Route, Location = Route, Roots = roots, Viewport = DocumentViewport });
         }
 
+        /// <summary>The viewport every document is laid out in, which an element's <see cref="DocumentElement.Rect"/> is measured against: the web engine's default.</summary>
+        private static readonly TraceViewport DocumentViewport = new(1280, 720);
+
         public bool CanLocate => true;
+
+        /// <summary>The kinds the document takes. It has no pointer, so a secondary tap, a long press, a hover, and a drag are refused before the node is resolved.</summary>
+        public IReadOnlyCollection<string> ActionKinds { get; } =
+            ["tap", "doubleTap", "fill", "clear", "press", "check", "uncheck", "focus", "scrollIntoView", "selectOption", "swipe"];
 
         /// <summary>Resolves a locator against the document as it is now, over the observation it takes. Upstream's <c>locate</c>. <paramref name="timeout"/> is not used: the document answers at once.</summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
@@ -166,21 +173,9 @@ public sealed class DocumentEngine : IEngine
                     _focused = element;
                     Activate(element, press.Key);
                     break;
-                case LocatorAction.PressSequentially typed:
-                    RequireText(element);
-                    _focused = element;
-                    // A surrogate pair is one keystroke, as upstream splits by code point.
-                    for (var index = 0; index < typed.Text.Length;)
-                    {
-                        var length = char.IsSurrogatePair(typed.Text, index) ? 2 : 1;
-                        element.Value = (element.Value ?? "") + typed.Text.Substring(index, length);
-                        element.OnFill?.Invoke(element.Value);
-                        index += length;
-                    }
-
-                    break;
                 case LocatorAction.Select select:
-                    element.Value = select.Value;
+                    element.Value = select.Text ?? select.Option?.Label ?? select.Option?.Value
+                        ?? throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} lists no options to select by index.");
                     break;
                 case LocatorAction.Check:
                     element.Checked = true;
@@ -218,6 +213,22 @@ public sealed class DocumentEngine : IEngine
             }
 
             Activate(_focused, key);
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Types into the focused element, which must take text; <paramref name="replace"/> clears its value first. Upstream's <c>keyboard.type</c>.</summary>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_focused is null)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.");
+            }
+
+            RequireText(_focused);
+            _focused.Value = (replace ? "" : _focused.Value ?? "") + text;
+            _focused.OnFill?.Invoke(_focused.Value);
             return Task.CompletedTask;
         }
 
@@ -310,6 +321,7 @@ public sealed class DocumentEngine : IEngine
                 States = new NodeStates
                 {
                     Checked = element.Checked,
+                    CheckedReported = element.Checked,
                     Disabled = element.Disabled,
                     Hidden = element.Hidden,
                     Selected = element.Selected,

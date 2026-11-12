@@ -20,7 +20,7 @@ public sealed class IsHiddenAndIsDisabledTests
     [Fact]
     public async Task IsHidden_fails_on_several_matches_like_isVisible()
     {
-        await FailsWith("STRICT_MODE", () => ScreenFixture.Create(List).GetByRole("listitem").IsHiddenAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => ScreenFixture.Create(List).GetByRole("listitem").IsHiddenAsync());
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class IsHiddenAndIsDisabledTests
     [Fact]
     public async Task IsDisabled_fails_on_zero_and_several_matches_like_isEnabled()
     {
-        await FailsWith("NOT_FOUND", () => ScreenFixture.Create().GetByRole("listitem").IsDisabledAsync());
-        await FailsWith("STRICT_MODE", () => ScreenFixture.Create(List).GetByRole("listitem").IsDisabledAsync());
+        await FailsWith("LOCATOR_NOT_FOUND", () => ScreenFixture.Create().GetByRole("listitem").IsDisabledAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => ScreenFixture.Create(List).GetByRole("listitem").IsDisabledAsync());
     }
 }

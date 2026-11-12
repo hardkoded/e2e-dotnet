@@ -12,8 +12,27 @@ namespace E2E.Internal;
 /// case-sensitive after whitespace is collapsed. Inexact matches are
 /// case-insensitive substrings, which is how <c>exact: false</c> behaves upstream.
 /// </summary>
-internal static partial class TextRules
+public static partial class TextRules
 {
+    /// <summary>
+    /// Matches normalized text against a pattern (upstream's <c>matchesText</c>): a string is compared exactly, or as a case-insensitive
+    /// substring when <paramref name="exact"/> is false; a regular expression tests the normalized text.
+    /// </summary>
+    public static bool MatchesText(string actual, TextMatch expected, bool exact = true)
+    {
+        ArgumentNullException.ThrowIfNull(actual);
+        ArgumentNullException.ThrowIfNull(expected);
+        var subject = Normalize(actual);
+        if (expected.Pattern is not null)
+        {
+            return expected.Pattern.IsMatch(subject);
+        }
+
+        var text = Normalize(expected.Text ?? "");
+        return exact ? string.Equals(subject, text, StringComparison.Ordinal) : subject.Contains(text, StringComparison.OrdinalIgnoreCase);
+    }
+
+
     /// <summary>
     /// App text as one line, as upstream's <c>collapseText</c> reads it: whitespace collapsed, and a control
     /// character becomes U+FFFD, so app text cannot put it in a prompt.

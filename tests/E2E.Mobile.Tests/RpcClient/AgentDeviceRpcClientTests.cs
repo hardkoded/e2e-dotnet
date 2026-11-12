@@ -28,6 +28,46 @@ public sealed class AgentDeviceRpcClientTests
         }
     }
 
+    // .NET-only: the translator is the port's stand-in for agent-device's client, and apps.list is the call device.unstable_raw's reference
+    // example makes. Without a translation the production client refuses it before any request goes out.
+    [Fact]
+    public async Task Sends_apps_list_as_the_apps_command_with_the_device_selection()
+    {
+        var daemon = new FakeDaemon();
+        using var http = new HttpClient(daemon);
+        var client = new AgentDeviceRpcClient("e2e-ios-0", new JsonObject(), _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)), http);
+
+        await client.CallAsync(DeviceMethods.AppsList, new JsonObject { ["platform"] = "ios", ["device"] = "iPhone 17 Pro" }, CancellationToken.None);
+
+        var request = Assert.Single(daemon.Requests);
+        Assert.Equal("agent_device.command", request["method"]!.GetValue<string>());
+        var command = request["params"]!.AsObject();
+        Assert.Equal("apps", command["command"]!.GetValue<string>());
+        Assert.Empty(command["positionals"]!.AsArray());
+        Assert.Equal("ios", command["flags"]!["platform"]!.GetValue<string>());
+        Assert.Equal("iPhone 17 Pro", command["flags"]!["device"]!.GetValue<string>());
+    }
+
+    // .NET-only: the translator stands in for agent-device's client. Upstream documents these four calls through device.unstable_raw.client
+    // (tester-army/e2e 63e207a and 1f57583); the daemon takes the setting and its state, the app, and the button as positionals.
+    [Theory]
+    [InlineData(DeviceMethods.SettingsUpdate, """{"setting":"text-size","state":"large"}""", "settings", """["text-size","large"]""")]
+    [InlineData(DeviceMethods.SettingsUpdate, """{"setting":"animations","state":"off"}""", "settings", """["animations","off"]""")]
+    [InlineData(DeviceMethods.AppsUninstall, """{"app":"com.example.app"}""", "uninstall", """["com.example.app"]""")]
+    [InlineData(DeviceMethods.CommandHardwareButton, """{"button":"volume-up"}""", "hardware-button", """["volume-up"]""")]
+    public async Task Sends_the_raw_client_calls_upstream_documents(string method, string options, string command, string positionals)
+    {
+        var daemon = new FakeDaemon();
+        using var http = new HttpClient(daemon);
+        var client = new AgentDeviceRpcClient("e2e-ios-0", new JsonObject(), _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)), http);
+
+        await client.CallAsync(method, JsonNode.Parse(options)!.AsObject(), CancellationToken.None);
+
+        var sent = Assert.Single(daemon.Requests)["params"]!.AsObject();
+        Assert.Equal(command, sent["command"]!.GetValue<string>());
+        JsonAssert.Args(positionals, sent["positionals"]);
+    }
+
     [Fact]
     public async Task Sends_the_whole_lease_scope_in_the_meta_of_a_command_bound_to_a_lease()
     {

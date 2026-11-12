@@ -23,7 +23,7 @@ One node of an observation tree. [Ref](#E2E_Engine_SemanticNode_Ref) is valid on
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -43,8 +43,6 @@ A secure field never reports its value.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L90)
-
 <a id="E2E_Engine_SemanticNode_Children_"></a>
 <a id="E2E_Engine_SemanticNode_Children"></a>
 
@@ -58,7 +56,20 @@ public IReadOnlyList<SemanticNode> Children { get; init; }
 
 **Value:** [IReadOnlyList&lt;SemanticNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L108)
+<a id="E2E_Engine_SemanticNode_FramePath_"></a>
+<a id="E2E_Engine_SemanticNode_FramePath"></a>
+
+### FramePath
+
+
+```csharp
+public IReadOnlyList<string>? FramePath { get; init; }
+```
+
+
+The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_Engine_SemanticNode_InputPurpose_"></a>
 <a id="E2E_Engine_SemanticNode_InputPurpose"></a>
@@ -75,8 +86,6 @@ What a field takes: `username`, `password`, `one-time-code`, `generic-secret`, o
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L80)
-
 <a id="E2E_Engine_SemanticNode_Level_"></a>
 <a id="E2E_Engine_SemanticNode_Level"></a>
 
@@ -89,8 +98,6 @@ public int? Level { get; init; }
 
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L82)
 
 <a id="E2E_Engine_SemanticNode_Name_"></a>
 <a id="E2E_Engine_SemanticNode_Name"></a>
@@ -107,7 +114,22 @@ The accessible name, by the accname rules Playwright follows, or null when the n
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L52)
+<a id="E2E_Engine_SemanticNode_Origin_"></a>
+<a id="E2E_Engine_SemanticNode_Origin"></a>
+
+### Origin
+
+
+```csharp
+public Point? Origin { get; init; }
+```
+
+
+The point an offset into the node is measured from, in [Rect](#E2E_Engine_SemanticNode_Rect)'s space, when it is not [Rect](#E2E_Engine_SemanticNode_Rect)'s top-left corner: a
+document element's padding box, inside its border, or the corner of a box a frame clipped [Rect](#E2E_Engine_SemanticNode_Rect) from.
+`tap({ position })` adds the offset to it.
+
+**Value:** `Point?`
 
 <a id="E2E_Engine_SemanticNode_OwnText_"></a>
 <a id="E2E_Engine_SemanticNode_OwnText"></a>
@@ -125,8 +147,6 @@ Null when the node has no split: [Text](#E2E_Engine_SemanticNode_Text) then read
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L61)
-
 <a id="E2E_Engine_SemanticNode_Placeholder_"></a>
 <a id="E2E_Engine_SemanticNode_Placeholder"></a>
 
@@ -139,8 +159,6 @@ public string? Placeholder { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L77)
 
 <a id="E2E_Engine_SemanticNode_Rect_"></a>
 <a id="E2E_Engine_SemanticNode_Rect"></a>
@@ -157,8 +175,6 @@ The node's box in viewport CSS pixels, when the platform measures one.
 
 **Value:** [BoundingBox](/api/E2E.Engine/BoundingBox/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L106)
-
 <a id="E2E_Engine_SemanticNode_Ref_"></a>
 <a id="E2E_Engine_SemanticNode_Ref"></a>
 
@@ -172,8 +188,6 @@ public required string Ref { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L47)
-
 <a id="E2E_Engine_SemanticNode_Role_"></a>
 <a id="E2E_Engine_SemanticNode_Role"></a>
 
@@ -186,8 +200,6 @@ public string? Role { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L49)
 
 <a id="E2E_Engine_SemanticNode_Selection_"></a>
 <a id="E2E_Engine_SemanticNode_Selection"></a>
@@ -204,7 +216,23 @@ The text selected inside the focused field or editing host. Null for a caret, an
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L73)
+<a id="E2E_Engine_SemanticNode_Selector_"></a>
+<a id="E2E_Engine_SemanticNode_Selector"></a>
+
+### Selector
+
+
+```csharp
+public string? Selector { get; init; }
+```
+
+
+Platform selector that addresses this node within its own document, when the platform has one. It is structural, not semantic: it
+survives the content changes that rename a node, and a runner may store it to re-find the node cheaply on a later run. It is never
+part of the node's identity, so whatever it resolves to is still checked before it is used. It should be anchored on an attribute
+naming the node or one of its ancestors, and absent rather than positional all the way to the document root.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_SemanticNode_States_"></a>
 <a id="E2E_Engine_SemanticNode_States"></a>
@@ -219,8 +247,6 @@ public NodeStates States { get; init; }
 
 **Value:** [NodeStates](/api/E2E.Engine/NodeStates/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L84)
-
 <a id="E2E_Engine_SemanticNode_TestId_"></a>
 <a id="E2E_Engine_SemanticNode_TestId"></a>
 
@@ -233,8 +259,6 @@ public string? TestId { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L75)
 
 <a id="E2E_Engine_SemanticNode_Text_"></a>
 <a id="E2E_Engine_SemanticNode_Text"></a>
@@ -251,8 +275,6 @@ The rendered text, which locator reads and text queries use.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L55)
-
 <a id="E2E_Engine_SemanticNode_Value_"></a>
 <a id="E2E_Engine_SemanticNode_Value"></a>
 
@@ -265,5 +287,3 @@ public string? Value { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L70)

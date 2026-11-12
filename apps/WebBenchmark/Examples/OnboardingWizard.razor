@@ -1,0 +1,451 @@
+@using System.Text.RegularExpressions
+@* Upstream's app/src/Examples/OnboardingWizard.tsx.
+   ADVERSARIAL: a five-step onboarding wizard that gates long-horizon reasoning and very long form filling with deliberately poor
+   accessibility. The full data brief - including a support PIN required on the last step - is only visible on step 1, so the agent must
+   retain it (or navigate Back to reread; entered values survive navigation). Inputs have no labels, placeholders, or aria wiring;
+   dropdowns, steppers, toggles, the date picker, and every button are bare divs with no roles. The date picker starts at June 2026 and
+   must be steered to March 1990 with decade, year, and month arrows. One toggle starts wrong and one is a trap that must stay off.
+   Success is visible only as on-screen text. *@
+@if (_done)
+{
+    <div style="@Container">
+        <p style="@SuccessTextStyle">Onboarding complete</p>
+        <p style="@SuccessSubline">Welcome aboard, Maria Novak</p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Complete every wizard step exactly as the brief on step 1 says. The brief is only visible on step 1; Back preserves what you typed.</p>
+        <div style="@Wizard">
+            <div style="@Progress">Step @_step of 5</div>
+            @if (_step == 1)
+            {
+                <div style="@Brief">
+                    <div style="@BriefTitle">Onboarding brief - memorize before continuing</div>
+                    @foreach (var line in BriefLines)
+                    {
+                        <div @key="line" style="@BriefLine">@line</div>
+                    }
+                </div>
+                <div style="@SectionTitle">Account</div>
+                <div style="@FieldLabelStyle">Full name</div>
+                <input style="@Input" @bind="_fullName" @bind:event="oninput" />
+                <div style="@FieldLabelStyle">Email</div>
+                <input style="@Input" @bind="_email" @bind:event="oninput" />
+                <div style="@FieldLabelStyle">Phone</div>
+                <input style="@Input" @bind="_phone" @bind:event="oninput" />
+            }
+            @if (_step == 2)
+            {
+                <div style="@SectionTitle">Address</div>
+                <div style="@FieldLabelStyle">Street</div>
+                <input style="@Input" @bind="_street" @bind:event="oninput" />
+                <div style="@FieldLabelStyle">City</div>
+                <input style="@Input" @bind="_city" @bind:event="oninput" />
+                <div style="@FieldLabelStyle">Postal code</div>
+                <input style="@Input" @bind="_postal" @bind:event="oninput" />
+                <div style="@FieldLabelStyle">Country</div>
+                <div style="@Dropdown" @onclick="() => _countryOpen = !_countryOpen">@(_country ?? "Choose")</div>
+                @if (_countryOpen)
+                {
+                    <div style="@DropdownList">
+                        @foreach (var name in Countries)
+                        {
+                            <div @key="name" style="@DropdownOption" @onclick="() => PickCountry(name)">@name</div>
+                        }
+                    </div>
+                }
+            }
+            @if (_step == 3)
+            {
+                <div style="@SectionTitle">Profile</div>
+                <div style="@FieldLabelStyle">Birth date</div>
+                <div style="@Calendar">
+                    <div style="@CalendarHeader">
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(0, -10)">«</div>
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(0, -1)">‹</div>
+                        <div style="@CalendarTitle">@MonthNames[_calendarMonth] @_calendarYear</div>
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(0, 1)">›</div>
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(0, 10)">»</div>
+                    </div>
+                    <div style="@CalendarMonthRow">
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(-1, 0)">‹ month</div>
+                        <div style="@CalendarArrow" @onclick="() => ShiftCalendar(1, 0)">month ›</div>
+                    </div>
+                    <div style="@CalendarGrid">
+                        @foreach (var cell in BuildCalendarCells(_calendarYear, _calendarMonth))
+                        {
+                            @if (cell is null)
+                            {
+                                <div></div>
+                            }
+                            else
+                            {
+                                var day = cell.Value;
+                                var selected = _birth is { } birth && birth.Year == _calendarYear && birth.Month == _calendarMonth && birth.Day == day;
+                                <div @key="day" style="@(selected ? CalendarDaySelected : CalendarDay)" @onclick="() => SelectBirth(day)">@day</div>
+                            }
+                        }
+                    </div>
+                    <div style="@CalendarValue">@(_birth is { } picked ? $"Selected: {MonthNames[picked.Month]} {picked.Day}, {picked.Year}" : "Nothing selected")</div>
+                </div>
+                <div style="@FieldLabelStyle">Occupation</div>
+                <div style="@Dropdown" @onclick="() => _occupationOpen = !_occupationOpen">@(_occupation ?? "Choose")</div>
+                @if (_occupationOpen)
+                {
+                    <div style="@DropdownList">
+                        @foreach (var name in Occupations)
+                        {
+                            <div @key="name" style="@DropdownOption" @onclick="() => PickOccupation(name)">@name</div>
+                        }
+                    </div>
+                }
+                <div style="@FieldLabelStyle">Years of experience</div>
+                <div style="@Stepper">
+                    <div style="@StepperButton" @onclick="() => _experience = Math.Max(0, _experience - 1)">-</div>
+                    <div style="@StepperValue">@_experience</div>
+                    <div style="@StepperButton" @onclick="() => _experience++">+</div>
+                </div>
+            }
+            @if (_step == 4)
+            {
+                <div style="@SectionTitle">Preferences</div>
+                @foreach (var (key, label) in PreferenceRows)
+                {
+                    var on = _preferences[key];
+                    <div @key="key" style="@ToggleRow">
+                        <div style="@ToggleLabel">@label</div>
+                        <div style="@(on ? ToggleOn : ToggleOff)" @onclick="() => Toggle(key)">@(on ? "On" : "Off")</div>
+                    </div>
+                }
+                <div style="@FieldLabelStyle">Plan</div>
+                <div style="@PlanRow">
+                    @foreach (var name in Plans)
+                    {
+                        <div @key="name" style="@(_plan == name ? PlanCardSelected : PlanCard)" @onclick="() => _plan = name">@name</div>
+                    }
+                </div>
+            }
+            @if (_step == 5)
+            {
+                <div style="@SectionTitle">Review</div>
+                <div style="@Summary">
+                    <div style="@SummaryLine">@($"{_fullName} · {_email} · {_phone}")</div>
+                    <div style="@SummaryLine">@($"{_street}, {_postal} {_city}, {_country ?? "?"}")</div>
+                    <div style="@SummaryLine">@(_birth is { } born ? $"Born {MonthNames[born.Month]} {born.Day}, {born.Year} · {_occupation ?? "?"} · {_experience} years" : "No birth date")</div>
+                    <div style="@SummaryLine">@($"Plan: {_plan ?? "?"}")</div>
+                </div>
+                <div style="@FieldLabelStyle">Support PIN from the brief</div>
+                <input style="@Input" @bind="_pin" @bind:event="oninput" />
+                <div style="@ToggleRow">
+                    <div style="@ToggleLabel">I confirm the details are correct</div>
+                    <div style="@(_consent ? ToggleOn : ToggleOff)" @onclick="() => _consent = !_consent">@(_consent ? "On" : "Off")</div>
+                </div>
+            }
+            @if (_error is not null)
+            {
+                <p style="@ErrorText">@_error</p>
+            }
+            <div style="@NavRow">
+                @if (_step > 1)
+                {
+                    <div style="@BackButton" @onclick="GoBack">Back</div>
+                }
+                <div style="@NextButton" @onclick="HandleNext">@(_step == 5 ? "Finish" : "Next")</div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private sealed record SelectedDate(int Year, int Month, int Day);
+
+    private static readonly string[] MonthNames =
+    [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ];
+
+    private const int CalendarStartYear = 2026;
+    private const int CalendarStartMonth = 5;
+    private const int TargetBirthYear = 1990;
+    private const int TargetBirthMonth = 2;
+    private const int TargetBirthDay = 14;
+
+    private static readonly string[] Countries = ["Austria", "Czechia", "Germany", "Poland", "Portugal", "Slovakia", "Spain", "Sweden"];
+    private static readonly string[] Occupations = ["Accountant", "Data analyst", "Product designer", "Software engineer", "Teacher", "Nurse"];
+    private static readonly string[] Plans = ["Solo", "Studio", "Enterprise"];
+    private static readonly string[] BriefLines =
+    [
+        "Full name: Maria Novak",
+        "Email: maria.novak@example.com",
+        "Phone: +48 601 222 333",
+        "Street: Krucza 12",
+        "City: Warsaw",
+        "Postal code: 00-585",
+        "Country: Poland",
+        "Birth date: March 14, 1990",
+        "Occupation: Product designer",
+        "Experience: 7 years",
+        "Notifications: turn on Product updates and Weekly digest, turn off SMS alerts, leave Beta features off",
+        "Plan: Studio",
+        "Support PIN: 8412",
+    ];
+
+    private static readonly (string Key, string Label)[] PreferenceRows =
+    [
+        ("updates", "Product updates"),
+        ("sms", "SMS alerts"),
+        ("digest", "Weekly digest"),
+        ("beta", "Beta features"),
+    ];
+
+    private static readonly Dictionary<string, bool> TargetPreferences = new()
+    {
+        ["updates"] = true,
+        ["sms"] = false,
+        ["digest"] = true,
+        ["beta"] = false,
+    };
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Wizard = "display: flex; flex-direction: column; gap: 10px; border: 1px solid #e5e5e5; border-radius: 10px; padding: 16px;";
+    private const string Progress = "font-size: 12px; color: #777; font-weight: 600;";
+    private const string Brief = "background-color: #fff8d6; border: 1px dashed #c9a400; border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px;";
+    private const string BriefTitle = "font-size: 13px; font-weight: 700; margin-bottom: 4px;";
+    private const string BriefLine = "font-size: 13px; color: #333;";
+    private const string SectionTitle = "font-size: 16px; font-weight: 600; margin-top: 4px;";
+    private const string FieldLabelStyle = "font-size: 12px; color: #555;";
+    private const string Input = "border: 1px solid #ccc; border-radius: 6px; padding: 9px 10px; font-size: 15px;";
+    private const string Dropdown = "border: 1px solid #ccc; border-radius: 6px; padding: 9px 10px; font-size: 15px; background-color: #fff; cursor: pointer;";
+    private const string DropdownList = "border: 1px solid #ccc; border-radius: 6px; background-color: #fff; display: flex; flex-direction: column;";
+    private const string DropdownOption = "padding: 8px 10px; font-size: 14px; cursor: pointer;";
+    private const string Calendar = "border: 1px solid #ddd; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px;";
+    private const string CalendarHeader = "display: flex; justify-content: space-between; align-items: center;";
+    private const string CalendarMonthRow = "display: flex; justify-content: space-between;";
+    private const string CalendarArrow = "padding: 4px 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; font-size: 13px;";
+    private const string CalendarTitle = "font-size: 14px; font-weight: 600;";
+    private const string CalendarGrid = "display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;";
+    private const string CalendarDay = "text-align: center; padding: 6px 0; font-size: 13px; cursor: pointer; border-radius: 4px;";
+    private const string CalendarDaySelected = "text-align: center; padding: 6px 0; font-size: 13px; cursor: pointer; border-radius: 4px; background-color: #111; color: #fff;";
+    private const string CalendarValue = "font-size: 12px; color: #555;";
+    private const string Stepper = "display: flex; align-items: center; gap: 10px;";
+    private const string StepperButton = "width: 28px; height: 28px; border: 1px solid #ccc; border-radius: 6px; text-align: center; line-height: 28px; cursor: pointer;";
+    private const string StepperValue = "min-width: 24px; text-align: center; font-size: 15px;";
+    private const string ToggleRow = "display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0;";
+    private const string ToggleLabel = "font-size: 14px;";
+    private const string ToggleOn = "padding: 4px 12px; border-radius: 12px; background-color: #111; color: #fff; font-size: 12px; cursor: pointer;";
+    private const string ToggleOff = "padding: 4px 12px; border-radius: 12px; background-color: #e5e5e5; color: #333; font-size: 12px; cursor: pointer;";
+    private const string PlanRow = "display: flex; gap: 8px;";
+    private const string PlanCard = "flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer;";
+    private const string PlanCardSelected = "flex: 1; border: 1px solid #111; background-color: #111; color: #fff; border-radius: 8px; padding: 10px; text-align: center; cursor: pointer;";
+    private const string Summary = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px;";
+    private const string SummaryLine = "font-size: 13px;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string NavRow = "display: flex; justify-content: space-between; align-items: center; margin-top: 8px;";
+    private const string BackButton = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 16px; cursor: pointer;";
+    private const string NextButton = "background-color: #111; color: #fff; border-radius: 8px; padding: 10px 18px; font-weight: 600; cursor: pointer;";
+    private const string SuccessTextStyle = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+    private const string SuccessSubline = "font-size: 14px; color: #555; text-align: center; margin: 0;";
+
+    private int _step = 1;
+    private string? _error;
+    private bool _done;
+    private string _fullName = string.Empty;
+    private string _email = string.Empty;
+    private string _phone = string.Empty;
+    private string _street = string.Empty;
+    private string _city = string.Empty;
+    private string _postal = string.Empty;
+    private string? _country;
+    private bool _countryOpen;
+    private int _calendarYear = CalendarStartYear;
+    private int _calendarMonth = CalendarStartMonth;
+    private SelectedDate? _birth;
+    private string? _occupation;
+    private bool _occupationOpen;
+    private int _experience;
+    private readonly Dictionary<string, bool> _preferences = new()
+    {
+        ["updates"] = false,
+        ["sms"] = true,
+        ["digest"] = false,
+        ["beta"] = false,
+    };
+    private string? _plan;
+    private string _pin = string.Empty;
+    private bool _consent;
+
+    /// <summary>Validates the current step against the brief and either surfaces the first mismatch or advances the wizard (finishing on the review step).</summary>
+    private void HandleNext()
+    {
+        var mismatch = ValidateStep();
+        if (mismatch is not null)
+        {
+            _error = mismatch;
+            return;
+        }
+
+        _error = null;
+        if (_step == 5)
+        {
+            _done = true;
+            return;
+        }
+
+        _step++;
+    }
+
+    private void GoBack()
+    {
+        _error = null;
+        _step--;
+    }
+
+    /// <summary>Returns the first field on the current step that does not match the brief, or null when the step is complete.</summary>
+    private string? ValidateStep()
+    {
+        if (_step == 1)
+        {
+            if (Collapse(_fullName) != "Maria Novak")
+            {
+                return "Full name does not match the brief";
+            }
+
+            if (_email.Trim().ToLowerInvariant() != "maria.novak@example.com")
+            {
+                return "Email does not match the brief";
+            }
+
+            if (StripSpaces(_phone) != "+48601222333")
+            {
+                return "Phone does not match the brief";
+            }
+
+            return null;
+        }
+
+        if (_step == 2)
+        {
+            if (Collapse(_street) != "Krucza 12")
+            {
+                return "Street does not match the brief";
+            }
+
+            if (Collapse(_city) != "Warsaw")
+            {
+                return "City does not match the brief";
+            }
+
+            if (StripSpaces(_postal) != "00-585")
+            {
+                return "Postal code does not match the brief";
+            }
+
+            if (_country != "Poland")
+            {
+                return "Country does not match the brief";
+            }
+
+            return null;
+        }
+
+        if (_step == 3)
+        {
+            if (_birth is not { } birth || birth.Year != TargetBirthYear || birth.Month != TargetBirthMonth || birth.Day != TargetBirthDay)
+            {
+                return "Birth date does not match the brief";
+            }
+
+            if (_occupation != "Product designer")
+            {
+                return "Occupation does not match the brief";
+            }
+
+            if (_experience != 7)
+            {
+                return "Experience does not match the brief";
+            }
+
+            return null;
+        }
+
+        if (_step == 4)
+        {
+            if (!PreferenceRows.All(row => _preferences[row.Key] == TargetPreferences[row.Key]))
+            {
+                return "Notification toggles do not match the brief";
+            }
+
+            if (_plan != "Studio")
+            {
+                return "Plan does not match the brief";
+            }
+
+            return null;
+        }
+
+        if (_pin.Trim() != "8412")
+        {
+            return "Support PIN is wrong";
+        }
+
+        if (!_consent)
+        {
+            return "Confirm the details first";
+        }
+
+        return null;
+    }
+
+    private void PickCountry(string name)
+    {
+        _country = name;
+        _countryOpen = false;
+    }
+
+    private void PickOccupation(string name)
+    {
+        _occupation = name;
+        _occupationOpen = false;
+    }
+
+    private void Toggle(string key) => _preferences[key] = !_preferences[key];
+
+    private void SelectBirth(int day) => _birth = new SelectedDate(_calendarYear, _calendarMonth, day);
+
+    /// <summary>Moves the calendar by the given number of months and years.</summary>
+    private void ShiftCalendar(int months, int years)
+    {
+        var total = _calendarYear * 12 + _calendarMonth + months + years * 12;
+        _calendarYear = (int)Math.Floor(total / 12.0);
+        _calendarMonth = ((total % 12) + 12) % 12;
+    }
+
+    /// <summary>Builds the day cells for a month: leading nulls for blank cells (weeks start on Monday) followed by the day numbers.</summary>
+    private static List<int?> BuildCalendarCells(int year, int month)
+    {
+        var firstWeekday = ((int)new DateTime(year, month + 1, 1).DayOfWeek + 6) % 7;
+        var dayCount = DateTime.DaysInMonth(year, month + 1);
+        var cells = new List<int?>();
+        for (var blank = 0; blank < firstWeekday; blank++)
+        {
+            cells.Add(null);
+        }
+
+        for (var day = 1; day <= dayCount; day++)
+        {
+            cells.Add(day);
+        }
+
+        return cells;
+    }
+
+    /// <summary>Collapses runs of whitespace and trims, so spacing typos do not fail the exact-match validation.</summary>
+    private static string Collapse(string value) => Regex.Replace(value, @"\s+", " ").Trim();
+
+    /// <summary>Removes all whitespace for fields where grouping spaces are cosmetic.</summary>
+    private static string StripSpaces(string value) => Regex.Replace(value, @"\s+", string.Empty);
+}

@@ -9,8 +9,9 @@ namespace E2E.Tests.Evaluation;
 
 /// <summary>
 /// The page-side evaluation boundary, run on a live page. Not ported: "runs a keepNames-compiled source that references
-/// __name" and "gives the wrapped binding the name esbuild kept" (they cover the TypeScript loader's output), and the
-/// <c>pageFunctionSource</c> describe (the port takes the source as a string).
+/// __name" and "gives the wrapped binding the name esbuild kept" (they cover the TypeScript loader's output). The
+/// <c>pageFunctionSource</c> describe is in <c>PageFunctionSourceTests</c> (partial: the port takes the source as a string). The port has no <c>__name</c> helper, so upstream's
+/// "runs keepNames output after the code deleted Object" has nothing to port.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class CompileEvaluationTests
@@ -52,6 +53,17 @@ public sealed class CompileEvaluationTests
             var error = await Assert.ThrowsAsync<TestException>(() => ((IBrowserSession)session).EvaluateAsync("() => { throw new Error(\"boom\"); }", null, hasArg: false, CancellationToken.None));
             Assert.Equal("EVALUATE_FAILED", error.Code);
             Assert.Equal("boom", error.Message);
+        });
+    }
+
+    [Fact]
+    public async Task Reports_a_result_that_is_not_JSON_by_why()
+    {
+        await RunAsync(string.Empty, async session =>
+        {
+            var error = await Assert.ThrowsAsync<TestException>(() => ((IBrowserSession)session).EvaluateAsync("() => [1, undefined]", null, hasArg: false, CancellationToken.None));
+            Assert.Equal("INVALID_ARGUMENT", error.Code);
+            Assert.Equal("evaluate result must be JSON-safe, found undefined", error.Message);
         });
     }
 }

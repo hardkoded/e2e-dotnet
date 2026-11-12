@@ -48,6 +48,8 @@ coverage.xml
 
 ## Docs site
 docs-site/node_modules/
+samples/AcpSample/node_modules/
+samples/AcpSample/package-lock.json
 docs-site/dist/
 docs-site/.astro/
 docs-site/.api-yaml/

@@ -34,7 +34,8 @@ internal static class ReportStatusBuilders
         ReportRunStatus status = ReportRunStatus.Failed,
         int exitCode = 1,
         IReadOnlyList<ReportError>? runErrors = null,
-        string? projectRoot = null) =>
+        string? projectRoot = null,
+        ReportLimits? limits = null) =>
         Valid(BuildReport.Build(new BuildReportOptions
         {
             RunId = Guid.CreateVersion7().ToString(),
@@ -44,6 +45,7 @@ internal static class ReportStatusBuilders
             Results = results ?? [],
             RunErrors = runErrors ?? [],
             ProjectRoot = projectRoot,
+            Limits = limits,
         }));
 
     private static Report1Document Valid(Report1Document document)

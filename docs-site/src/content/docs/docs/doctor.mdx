@@ -1,0 +1,50 @@
+---
+title: e2e doctor
+description: Check that e2e explore and e2e mcp can start here, without starting anything.
+---
+
+`e2e doctor` checks whether `e2e explore` and `e2e mcp` can start on this machine. It loads the config, runs each target's engine checks, and names the model each agent resolved to. It starts no app, engine session, or worker. This ports upstream's `e2e doctor` (`cli/doctor.ts`) to the .NET tool.
+
+```bash
+e2e doctor
+e2e doctor --json
+e2e doctor --check-model
+e2e doctor --target web --headed
+```
+
+| Option | Description |
+| --- | --- |
+| `--config <path>` | The config to load. As for `e2e explore`. |
+| `--target <names>` | Checks only these targets, comma-separated or repeated. As for `e2e explore`. |
+| `--headed` | Checks for what a headed run needs, such as the full Chromium build instead of the headless shell. |
+| `--check-model` | Calls each agent's model, and its judge when that is a different model, once with a short prompt and the agent's provider options, with one retry and a 1 minute limit. Agents that share a model, equal provider options, and `MaxInputTokens` share the call. A reply that is not the JSON asked for, or a refusal, still counts as an answer. |
+| `--json` | Prints the `doctor-1` report instead of one line per check. |
+
+## Checks
+
+| Check | Status |
+| --- | --- |
+| `runtime` | `pass`: the .NET version. Upstream's `node` check. |
+| `config` | `pass` with `path` and `targets` (`name`, `platform`, `engine`), or `fail` with the `INVALID_CONFIG`, `CONFIG_NOT_FOUND`, or `UNKNOWN_TARGET` code. A failed `config` is the last check. |
+| Engine checks, with `target` | What the target's engine reports. The web engine reports `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. The device engine reports agent-device's own checks (`agent-device`, `toolchain`, `ios-runner-cache`, `device` for each configured device, `target-app` for an installed `BundleId`) and `app-path` (the build `AppPath` names exists); with a device provider (Limrun, BrowserStack, TestMu, Expo) it reports only `device`, as `skip`. `engine` is `skip` when the engine has no doctor checks (the Windows, MAUI DevFlow, and document engines), and `fail` when its doctor threw, timed out, or returned a malformed check. |
+| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](/features/signing-in/), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential. With `--check-model`, `pass` (`answered`) when every model answered, else `fail` with the error code, its message prefixed `model:` or `judge:` when the agent has both. `skip` when the agent has no model. |
+
+An engine gets 30 seconds. An engine's progress lines go to stderr as `[target] line`.
+
+## Output
+
+By default, doctor prints one line per check: a mark, the check id, the target or agent in brackets, and the details. The last line says whether `e2e explore` and `e2e mcp` can start.
+
+With `--json`, it prints the `doctor-1` report to stdout, and only the report: `{ "schemaVersion": "doctor-1", "version", "ok", "checks": [...] }`. Each check carries `id`, `status` (`pass`, `warn`, `fail`, `skip`, or `unknown`), and, when they apply, `target`, `agent`, `code`, `message`, and the fields in the table above. The JSON Schema ships in the package as `schema/doctor-v1.schema.json`.
+
+## Exit codes
+
+| Exit code | When |
+| --- | --- |
+| 0 | No check failed. `warn`, `skip`, and `unknown` never fail. |
+| 2 | At least one check failed, or an option is wrong. |
+| 130 | Interrupted with Ctrl-C. The checks stop and the report is printed: the check that was cut short is `fail` with `CANCELLED`, and the checks after it are left out. |
+
+## Report on your own engine
+
+An engine reports its checks by implementing `IDoctorEngine.DoctorAsync`. Keep it read-only and quick: it starts, installs, and leases nothing, and does not call `PrepareAsync`. A throw, a timeout, a finding with an id doctor uses itself (`runtime`, `config`, `engine`, `model`) or one that is not kebab case, or an unknown status becomes an `engine` check with status `fail`.

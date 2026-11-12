@@ -13,14 +13,14 @@ namespace E2E.Internal;
 internal sealed record NormalizedBaseUrl(string Href, string Origin, string BasePath);
 
 /// <summary>URL normalization and origin policy helpers.</summary>
-internal static partial class Urls
+public static partial class Urls
 {
     /// <summary>
     /// Parses and normalizes the app base URL. Rejects userinfo, query, and fragment. <see cref="Uri"/> handles
     /// IDNA ASCII hosts, dot segments, and default-port removal. A URL without a scheme gets <c>https://</c>, or
     /// <c>http://</c> for a loopback host, so <c>tester.army</c> and <c>localhost:3000</c> both work as-is.
     /// </summary>
-    public static NormalizedBaseUrl NormalizeBaseUrl(string raw)
+    internal static NormalizedBaseUrl NormalizeBaseUrl(string raw)
     {
         var text = raw.Trim();
         var explicitScheme = HasExplicitScheme(text);
@@ -66,7 +66,7 @@ internal static partial class Urls
     /// Normalizes an app URL a session will use as given, one set in code. Port 0 asks the run to start the app on a free port with
     /// <c>app.command</c>, and a session holds the URL the app is already served on, so it is <c>INVALID_CONFIG</c>.
     /// </summary>
-    public static NormalizedBaseUrl NormalizeAppUrl(string raw, string where)
+    internal static NormalizedBaseUrl NormalizeAppUrl(string raw, string where)
     {
         var url = NormalizeBaseUrl(raw);
         if (RequestsFreePort(url))
@@ -77,14 +77,27 @@ internal static partial class Urls
         return url;
     }
 
+    /// <summary>The base URL as a test reads it (upstream's <c>baseUrlOf</c>): <paramref name="href"/> without its trailing slash, so <c>$"{BaseUrl}/path"</c> joins with one slash.</summary>
+    public static string BaseUrlOf(string href) => href.EndsWith('/') ? href[..^1] : href;
+
+    /// <summary>
+    /// <paramref name="url"/> without userinfo, query, or fragment, any of which may carry a credential: safe to print (upstream's
+    /// <c>printableUrl</c>).
+    /// </summary>
+    public static string PrintableUrl(string url)
+    {
+        var parsed = new Uri(url);
+        return $"{parsed.Scheme}://{parsed.Host}{(parsed.IsDefaultPort ? "" : ":" + parsed.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))}{parsed.AbsolutePath}";
+    }
+
     /// <summary>True when the URL was declared with port 0: the run picks a free port on its address and substitutes it.</summary>
-    public static bool RequestsFreePort(NormalizedBaseUrl url) => new Uri(url.Href).Port == 0;
+    internal static bool RequestsFreePort(NormalizedBaseUrl url) => new Uri(url.Href).Port == 0;
 
     /// <summary>The port the base URL is served on: the explicit one, else the scheme's default.</summary>
-    public static int PortOf(NormalizedBaseUrl url) => new Uri(url.Href).Port;
+    internal static int PortOf(NormalizedBaseUrl url) => new Uri(url.Href).Port;
 
     /// <summary>The base URL re-serialized on another port; everything else is kept.</summary>
-    public static NormalizedBaseUrl WithPort(NormalizedBaseUrl url, int port) =>
+    internal static NormalizedBaseUrl WithPort(NormalizedBaseUrl url, int port) =>
         Describe(new UriBuilder(url.Href) { Port = port }.Uri);
 
     /// <summary>True for loopback hosts where plain HTTP is allowed.</summary>
@@ -92,6 +105,83 @@ internal static partial class Urls
         hostname == "localhost" || hostname.EndsWith(".localhost", StringComparison.Ordinal)
         || hostname is "::1" or "[::1]"
         || IsLoopbackV4(hostname);
+
+    /// <summary>True when environment may default to <c>test</c> (loopback, <c>.localhost</c>, and <c>.test</c> hosts).</summary>
+    public static bool IsImplicitTestHost(string hostname) =>
+        IsLoopbackHost(hostname) || hostname.EndsWith(".test", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The registrable-domain approximation (upstream's <c>siteOf</c>): the last two labels of a host, or the last three when the last
+    /// is a two-letter country code and the one before it a short second-level label (<c>example.co.uk</c>, <c>shop.com.au</c>). An IP
+    /// literal or a single-label host such as <c>localhost</c> is a site of its own. Where the approximation errs it errs narrow, except
+    /// on shared hosting suffixes such as <c>vercel.app</c>, which it reads as one site.
+    /// </summary>
+    public static string SiteOf(string hostname)
+    {
+        var host = hostname.ToLowerInvariant();
+        if (host.StartsWith('[') || Ipv4Literal().IsMatch(host))
+        {
+            return host;
+        }
+
+        var labels = host.Split('.');
+        if (labels.Length <= 2)
+        {
+            return host;
+        }
+
+        var keep = labels[^1].Length == 2 && labels[^2].Length <= 3 ? 3 : 2;
+        return string.Join('.', labels[^keep..]);
+    }
+
+    /// <summary>
+    /// True when a URL's host is on <paramref name="site"/> as <see cref="SiteOf"/> reads it (upstream's <c>sameSite</c>): the rule for which
+    /// child frames an observation reads. An unparseable URL is off every site.
+    /// </summary>
+    public static bool SameSite(string url, string site)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        ArgumentNullException.ThrowIfNull(site);
+        return Uri.TryCreate(url, UriKind.Absolute, out var parsed) && SiteOf(parsed.Host) == site;
+    }
+
+    /// <summary>
+    /// True when <paramref name="current"/> matches <paramref name="expected"/> (upstream's <c>urlMatches</c>): a string resolves against
+    /// <paramref name="baseHref"/> and compares exactly after serialization, folding case when <paramref name="ignoreCase"/> is true.
+    /// </summary>
+    public static bool UrlMatches(string current, string expected, string baseHref, bool? ignoreCase = null)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(baseHref);
+        if (!Uri.TryCreate(baseHref, UriKind.Absolute, out var baseUri) || !Uri.TryCreate(baseUri, expected, out var expectedUrl))
+        {
+            return false;
+        }
+
+        var actual = SerializeForComparison(current);
+        return string.Equals(actual, expectedUrl.AbsoluteUri, ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// True when <paramref name="current"/> matches <paramref name="expected"/>: a regular expression tests the whole serialized URL, with
+    /// <paramref name="ignoreCase"/> as Playwright's (true adds the <c>i</c> flag, false removes it).
+    /// </summary>
+    public static bool UrlMatches(string current, System.Text.RegularExpressions.Regex expected, bool? ignoreCase = null)
+    {
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(expected);
+        var options = ignoreCase switch
+        {
+            true => expected.Options | System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            false => expected.Options & ~System.Text.RegularExpressions.RegexOptions.IgnoreCase,
+            null => expected.Options,
+        };
+        return new System.Text.RegularExpressions.Regex(expected.ToString(), options).IsMatch(SerializeForComparison(current));
+    }
+
+    private static string SerializeForComparison(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) ? parsed.AbsoluteUri : url;
 
     /// <summary>
     /// True for a literal loopback address, <c>127.x.x.x</c> or <c>[::1]</c>. A free port is free on one address family
@@ -140,4 +230,7 @@ internal static partial class Urls
 
     [GeneratedRegex(@"^127(\.\d{1,3}){3}$", RegexOptions.CultureInvariant)]
     private static partial Regex LoopbackV4();
+
+    [GeneratedRegex(@"^\d{1,3}(\.\d{1,3}){3}\z", RegexOptions.CultureInvariant)]
+    private static partial Regex Ipv4Literal();
 }

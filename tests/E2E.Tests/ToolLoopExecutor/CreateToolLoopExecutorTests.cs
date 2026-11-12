@@ -72,7 +72,7 @@ public sealed partial class CreateToolLoopExecutorTests
         Assert.Null(result.Error);
         Assert.Equal(["read_screen", "tap", "done"], model.Requests[0].Tools.Select(tool => tool.Name));
         Assert.Equal(Instruction, model.Requests[0].Messages[0].Content);
-        Assert.Equal("Read the screen before acting.", model.Requests[0].System);
+        Assert.Equal("Read the screen before acting.\n\n" + AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System);
         Assert.Equal(3, act!.ModelCalls);
         Assert.Equal(1, act.Actions);
         Assert.All(model.Requests, request => Assert.True(request.MarkLatest));
@@ -96,7 +96,7 @@ public sealed partial class CreateToolLoopExecutorTests
         await session.Agent.ActAsync(Instruction);
         session.Complete();
 
-        Assert.Equal("Read the screen before acting.\n\nProject context:\nPlans are tiers.", model.Requests[0].System);
+        Assert.Equal("Read the screen before acting.\n\nProject context:\nPlans are tiers.\n\n" + AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System);
     }
 
     [Fact]
@@ -298,7 +298,7 @@ public sealed partial class CreateToolLoopExecutorTests
 
     private static string IncrementRef(string screen) => IncrementPattern().Match(screen).Groups["ref"].Value;
 
-    [GeneratedRegex("button \"Increment\"[^\\n]*\\[ref=(?<ref>[^\\]]+)\\]")]
+    [GeneratedRegex("^\\s*#(?<ref>\\S+) button \"Increment\"", RegexOptions.Multiline)]
     private static partial Regex IncrementPattern();
 
     /// <summary>A context a test builds itself, which carries no screen to drive.</summary>

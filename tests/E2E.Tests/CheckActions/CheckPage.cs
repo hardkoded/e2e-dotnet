@@ -11,16 +11,16 @@ internal static class CheckPage
 {
     public const string CountClicks = """<script>window.clicks = 0; document.addEventListener("click", () => window.clicks++, true)</script>""";
 
-    public static async Task RunAsync(string body, Func<IEngineSession, Task> test)
+    public static async Task RunAsync(string body, Func<IEngineSession, Task> test, TimeSpan? actionTimeout = null)
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
-        await using var session = await StartAsync();
+        await using var session = await StartAsync(actionTimeout);
         await session.OpenAsync(site.Url, CancellationToken.None);
         await test(session);
     }
 
     /// <summary>Opens <paramref name="body"/> in a test session, whose screen locators act on it.</summary>
-    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test)
+    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test, TimeSpan? actionTimeout = null)
     {
         using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -29,7 +29,7 @@ internal static class CheckPage
             Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
             BaseUrl = site.Url,
             TestTitle = "check actions > through the locator target",
-            ActionTimeout = TimeSpan.FromSeconds(2),
+            ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2),
             AssertionTimeout = TimeSpan.FromSeconds(5),
         });
         await session.App.OpenAsync("/");
@@ -37,9 +37,9 @@ internal static class CheckPage
         session.Complete(null);
     }
 
-    public static Task<IEngineSession> StartAsync()
+    public static Task<IEngineSession> StartAsync(TimeSpan? actionTimeout = null)
     {
-        return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromSeconds(2) }, CancellationToken.None);
+        return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(2) }, CancellationToken.None);
     }
 
     public static async Task<SemanticNode> FindAsync(IEngineSession session, string role, string name)

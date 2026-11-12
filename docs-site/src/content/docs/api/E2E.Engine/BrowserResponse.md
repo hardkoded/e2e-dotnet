@@ -25,7 +25,7 @@ A response an engine observed, with its body still being read.
 
 **Implements:** [IEquatable&lt;BrowserResponse&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L164)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 ## Properties
 
@@ -44,7 +44,21 @@ The body as text. Faults with `ACTION_FAILED` when the browser could not read it
 
 **Value:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L174)
+<a id="E2E_Engine_BrowserResponse_BodyBytes_"></a>
+<a id="E2E_Engine_BrowserResponse_BodyBytes"></a>
+
+### BodyBytes
+
+
+```csharp
+public Task<byte[]>? BodyBytes { get; init; }
+```
+
+
+The body as bytes (upstream's `body()`), faulting like [Body](#E2E_Engine_BrowserResponse_Body). .NET-only: [Body](#E2E_Engine_BrowserResponse_Body) predates it, so an engine
+that sets only [Body](#E2E_Engine_BrowserResponse_Body) still serves [BodyAsync(CancellationToken)](/api/E2E/WebResponse/#E2E_WebResponse_BodyAsync_System_Threading_CancellationToken_) with the text encoded as UTF-8.
+
+**Value:** [Task&lt;byte\[\]&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_BrowserResponse_Headers_"></a>
 <a id="E2E_Engine_BrowserResponse_Headers"></a>
@@ -61,8 +75,6 @@ Response headers, with lower-cased names.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L171)
-
 <a id="E2E_Engine_BrowserResponse_Status_"></a>
 <a id="E2E_Engine_BrowserResponse_Status"></a>
 
@@ -76,8 +88,6 @@ public required int Status { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L168)
-
 <a id="E2E_Engine_BrowserResponse_Url_"></a>
 <a id="E2E_Engine_BrowserResponse_Url"></a>
 
@@ -90,5 +100,3 @@ public required string Url { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L166)

@@ -33,13 +33,31 @@ internal sealed class ScriptedScene : IDisposable
             () => CancellationToken.None,
             () => { },
             TimeSpan.FromMilliseconds(500),
-            TimeSpan.FromMilliseconds(500));
+            TimeSpan.FromMilliseconds(500),
+            typeText: (text, replace, _) =>
+            {
+                Type(text, replace);
+                return Task.CompletedTask;
+            });
+        Screen.Capabilities = EngineCapabilities.Keyboard;
     }
 
     public Screen Screen { get; }
 
     /// <summary>Every action the scene performed, as the node id and the action.</summary>
     public List<(string Id, LocatorAction Action)> Performs { get; } = [];
+
+    /// <summary>Every keystroke call the scene received, as the text and whether it replaced the field's value.</summary>
+    public List<(string Text, bool Replace)> Typed { get; } = [];
+
+    /// <summary>
+    /// Every action and keyboard call, in order, as <c>kind:id</c> for an action and <c>type:text</c> (<c>:replace</c> when it replaces) for a
+    /// keystroke call: upstream's <c>log</c> of its in-memory engine.
+    /// </summary>
+    public List<string> Log { get; } = [];
+
+    /// <summary>How many observations the scene answered: how often a locator resolved a node.</summary>
+    public int Observations { get; private set; }
 
     /// <summary>Runs <paramref name="mutate"/> once, <paramref name="milliseconds"/> from now; disposing the scene cancels it.</summary>
     public void After(int milliseconds, Action mutate) =>
@@ -68,6 +86,7 @@ internal sealed class ScriptedScene : IDisposable
         States = new NodeStates
         {
             Checked = node.Checked,
+            CheckedReported = node.Checked,
             Disabled = node.Disabled,
             Expanded = node.Expanded,
             Focused = node.Focused,
@@ -97,6 +116,7 @@ internal sealed class ScriptedScene : IDisposable
     {
         lock (_gate)
         {
+            Observations++;
             return ObserveLocked();
         }
     }
@@ -119,11 +139,25 @@ internal sealed class ScriptedScene : IDisposable
         }
     }
 
+    /// <summary>Types into the focused node, as the engine's keyboard does; nothing focused is <c>NOT_ACTIONABLE</c>.</summary>
+    public void Type(string text, bool replace)
+    {
+        lock (_gate)
+        {
+            var node = All(_nodes).FirstOrDefault(entry => entry.Focused)
+                ?? throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus");
+            Typed.Add((text, replace));
+            Log.Add("type:" + text + (replace ? ":replace" : ""));
+            node.Value = (replace ? "" : node.Value ?? "") + text;
+        }
+    }
+
     private void PerformLocked(string id, LocatorAction action)
     {
         var node = All(_nodes).FirstOrDefault(entry => entry.Id == id)
             ?? throw new EngineException(EngineErrorCodes.NodeStale, "node " + id + " is no longer in the tree");
         Performs.Add((id, action));
+        Log.Add(EngineActionKinds.Of(action) + ":" + id);
         Apply(node, action);
         node.On?.Invoke(action, node);
     }
@@ -147,10 +181,6 @@ internal sealed class ScriptedScene : IDisposable
             case LocatorAction.Focus:
                 Focus(node);
                 break;
-            case LocatorAction.PressSequentially typed:
-                Focus(node);
-                node.Value = (node.Value ?? "") + typed.Text;
-                break;
             case LocatorAction.Press { Key: "Backspace" }:
                 node.Value = (node.Value ?? "")[..Math.Max(0, (node.Value ?? "").Length - 1)];
                 break;
@@ -158,9 +188,10 @@ internal sealed class ScriptedScene : IDisposable
                 node.Value = (node.Value ?? "") + press.Key;
                 break;
             case LocatorAction.Select select:
-                var picked = node.Options.FirstOrDefault(option => option.Label == select.Value)
-                    ?? node.Options.FirstOrDefault(option => option.Value == select.Value)
-                    ?? throw new EngineException(EngineErrorCodes.NotActionable, "no option matches " + select.Value + " on " + node.Id);
+                var picked = (select.Option?.Index is { } at ? node.Options.ElementAtOrDefault(at) : null)
+                    ?? node.Options.FirstOrDefault(option => option.Label == (select.Text ?? select.Option?.Label))
+                    ?? node.Options.FirstOrDefault(option => option.Value == (select.Text ?? select.Option?.Value))
+                    ?? throw new EngineException(EngineErrorCodes.NotActionable, "no option matches " + (select.Text ?? select.Option?.Label ?? select.Option?.Value ?? select.Option?.Index?.ToString()) + " on " + node.Id);
                 node.Value = picked.Value;
                 break;
         }

@@ -29,7 +29,7 @@ says `1 item left`. After a second add it says `2 items left`.
 ## Charters
 
 ```
-add-input|todomvc|Starting at /todomvc, add titles that are very long, contain markup such as <b>x</b>, or repeat an existing title; report a row that renders wrong, merges, or breaks the counter
+add-input|todomvc|fuzzer|Starting at /todomvc, add titles that are very long, contain markup such as <b>x</b>, or repeat an existing title; report a row that renders wrong, merges, or breaks the counter
 ```
 
 ## Gotchas

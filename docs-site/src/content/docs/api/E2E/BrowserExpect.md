@@ -26,7 +26,7 @@ assertion at its timeout.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 ## Properties
 
@@ -45,8 +45,6 @@ Inverts the matcher. A negated matcher passes after its condition has been false
 
 **Value:** [BrowserExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L29)
-
 ## Methods
 
 <a id="E2E_BrowserExpect_ToHaveClassAsync_"></a>
@@ -63,8 +61,8 @@ public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeo
 Waits for the `class` attribute of &lt;code class="paramref"&gt;target&lt;/code&gt; to match &lt;code class="paramref"&gt;expected&lt;/code&gt;: a string is the whole class
 list, whitespace-normalized, and a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) is tested against it. An empty `class=""` is an empty class list; no
 `class` attribute is not. A node that is not there yet keeps the matcher polling, and a node that never arrives fails it as an
-assertion observing no node, where a read of the same locator would fail with `NOT_FOUND`. Several matches fail at once with
-`STRICT_MODE`. Upstream's `expect(browser).toHaveClass`.
+assertion observing no node, where a read of the same locator would fail with `LOCATOR_NOT_FOUND`. Several matches fail at once with
+`LOCATOR_AMBIGUOUS`. Upstream's `expect(browser).toHaveClass`.
 
 **Parameters**
 
@@ -76,8 +74,6 @@ assertion observing no node, where a read of the same locator would fail with `N
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L83)
 
 <a id="E2E_BrowserExpect_ToHaveTitleAsync_"></a>
 <a id="E2E_BrowserExpect_ToHaveTitleAsync_E2E_TextMatch_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -101,8 +97,6 @@ Waits for the title to equal &lt;code class="paramref"&gt;expected&lt;/code&gt; 
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L61)
 
 <a id="E2E_BrowserExpect_ToHaveURLAsync_"></a>
 <a id="E2E_BrowserExpect_ToHaveURLAsync_System_String_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -130,8 +124,6 @@ Both sides are compared normalized (default port, trailing slash, dot segments, 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L36)
-
 <a id="E2E_BrowserExpect_ToHaveURLAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### ToHaveURLAsync(Regex, bool?, TimeSpan?, CancellationToken)
@@ -155,5 +147,3 @@ Waits for the URL to match &lt;code class="paramref"&gt;expected&lt;/code&gt;, t
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L48)

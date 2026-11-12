@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using E2E.Cli.Report;
 using E2E.Internal;
 using E2E.Mobile;
+using E2E.Reports;
 
 namespace E2E.Cli;
 
@@ -38,13 +39,13 @@ internal static partial class ExploreCommand
           --headed          show the UI while the agent explores
 
         Output:
-          --output <dir>    results directory: finding screenshots, trace pages, videos (default: .e2e/results)
+          --output <dir>    output directory: results/ holds finding screenshots and trace pages (default: output in the config, else .e2e)
           --debug           print phase timings and the agent step table to stderr (also E2E_DEBUG=1)
           --ai-trace        record every model call to ai-trace-<process id>.json next to the results directory (unbox-ai) (also E2E_AI_TRACE=1)
           --trace [mode]    keep a trace page of the exploration (bare: on); one attempt, so retry modes keep none. Modes: {MODES} (also E2E_TRACE)
           --video [mode]    record a video of the exploration (bare: on), when the engine supports it; one attempt, so retry modes record none. Modes: {MODES} (also E2E_VIDEO)
 
-        Accounts: every E2E_USER_<NAME>_USERNAME and E2E_USER_<NAME>_PASSWORD pair in the environment is an account the agent can sign in with. It fills the password by secret; the password never reaches a model.
+        Accounts: every entry of the config's credentials, and every E2E_USER_<NAME>_USERNAME and E2E_USER_<NAME>_PASSWORD pair in the environment, is an account the agent can sign in with. The environment replaces a configured username or password. It fills the password by secret; the password never reaches a model.
 
         Not supported by the .NET port: --session, --reporter (it refuses these).
 
@@ -62,8 +63,6 @@ internal static partial class ExploreCommand
           3    engine, app process, or model provider failure
           130  interrupted by Ctrl-C
         """;
-
-    private const int DefaultColumns = 80;
 
     /// <summary>The flags that take a value.</summary>
     private static readonly HashSet<string> ValueFlags = new(["--config", "--target", "--agent", "--max-steps", "--timeout", "--output"], StringComparer.Ordinal);
@@ -85,7 +84,7 @@ internal static partial class ExploreCommand
         .Replace("{TIMEOUT}", Milliseconds(Explore.TimeoutBounds.Min).ToString(CultureInfo.InvariantCulture) + " through " + Milliseconds(Explore.TimeoutBounds.Max).ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     /// <summary>
-    /// Runs one exploration. <paramref name="explore"/> is <see cref="Explore.ExploreAsync"/>; a test passes its own.
+    /// Runs one exploration. <paramref name="explore"/> is <see cref="Explore.ExploreAsync"/>; a test passes its own. <paramref name="cwd"/> is the working directory (upstream's <c>process.cwd()</c>), the process's by default.
     /// <paramref name="interactive"/> turns colors on, unless <c>NO_COLOR</c> is set.
     /// </summary>
     public static async Task<int> RunAsync(
@@ -94,12 +93,14 @@ internal static partial class ExploreCommand
         TextWriter stderr,
         bool interactive,
         Func<ExploreOptions, CancellationToken, Task<ExploreOutcome>> explore,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? cwd = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
         ArgumentNullException.ThrowIfNull(explore);
+        cwd = cwd is null ? null : Path.GetFullPath(cwd);
 
         var parsed = Parse(args);
         if (parsed.Help)
@@ -114,10 +115,12 @@ internal static partial class ExploreCommand
             return 2;
         }
 
+        var config = TryLoadConfig(parsed, cwd, out var configFailed);
         List<(string Name, UserCredential Credential)> accounts;
         try
         {
-            accounts = ScanCredentials();
+            // A config that does not load is the run's error to report, so the environment's accounts wait for it.
+            accounts = configFailed ? [] : ScanCredentials(config?.Credentials.Keys);
         }
         catch (E2EException ex)
         {
@@ -126,60 +129,27 @@ internal static partial class ExploreCommand
             return 2;
         }
 
-        // The record is the model's and the app's text. Upstream redacts it at its report boundary, which here is this printer, so
-        // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
-        var config = TryLoadConfig(parsed);
+        // The record is the model's and the app's text, redacted where the run writes it to its events, as upstream's emitter does. The
+        // errors this command prints itself are redacted here, for the config's secrets and the accounts' passwords.
         var redactor = Redactor.For(
-            (config?.Secrets.Names.Select(config.Secrets.Get) ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
-        var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
-        var target = parsed.Target ?? config?.Target.Name;
-        var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");
-        var columns = interactive ? WindowWidth() : DefaultColumns;
-        var gate = new object();
-        ExploreView? view = null;
-        var startedAt = DateTimeOffset.Now;
+            (config?.AllSecrets ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
 
-        void Print(string line)
+        // The list reporter renders the run's events: the header, each finding and step as they happen, the record, and the summary.
+        var reporter = new ListReporter(
+            new StdoutOutput(stdout),
+            new ListReporterOptions { Live = false, Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) });
+        using var run = HostRun.Begin([]);
+        var started = false;
+        using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent =>
         {
-            stdout.WriteLine(line);
-        }
-
-        void OnProgress(ExploreProgress moment)
-        {
-            lock (gate)
-            {
-                var progress = Redact(moment, redactor);
-                if (progress is ExploreProgress.Started started)
-                {
-                    view = new ExploreView(pc, started, columns);
-                    Print("");
-                    Print(view.Header(badge));
-                    return;
-                }
-
-                if (view is null)
-                {
-                    return;
-                }
-
-                view.Progress(progress);
-                if (progress is ExploreProgress.StepFinished && view.LastStep is { } last)
-                {
-                    foreach (var line in view.StepLines(last))
-                    {
-                        Print(line);
-                    }
-                }
-                else if (progress is ExploreProgress.FindingReported reported)
-                {
-                    Print(view.FindingLine(reported.Finding));
-                }
-            }
-        }
+            started |= runEvent.Fact is RunStartedEvent;
+            reporter.Handle(runEvent.Fact);
+        }));
 
         var options = new ExploreOptions
         {
             Goal = parsed.Goal,
+            Cwd = cwd,
             ConfigPath = parsed.Config,
             Target = parsed.Target,
             Agent = parsed.Agent,
@@ -195,7 +165,6 @@ internal static partial class ExploreCommand
             Video = parsed.Video,
             Credentials = accounts.ToDictionary(account => account.Name, account => account.Credential, StringComparer.Ordinal),
             Notice = message => stderr.WriteLine(Notice(message)),
-            OnProgress = OnProgress,
         };
 
         ExploreOutcome outcome;
@@ -211,55 +180,47 @@ internal static partial class ExploreCommand
         catch (E2EException ex)
         {
             await stderr.WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message))).ConfigureAwait(false);
-            return Runner.ExitCodeOf(ex);
+            var exitCode = Runner.ExitCodeOf(ex);
+            if (started)
+            {
+                // The run the header opened ends with its error and summary, as a run that failed to start does.
+                if (config is not null)
+                {
+                    HostRun.Failed(config, ex);
+                }
+
+                RunEvents.Emit(new RunFinishedEvent { Status = ReportRunStatus.Error, ExitCode = exitCode });
+                reporter.Rows([]);
+            }
+
+            return exitCode;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return 130;
         }
 
-        lock (gate)
-        {
-            if (view is not null)
-            {
-                foreach (var line in view.Record().Concat(view.FindingsSection()).Concat(view.Assessment()))
-                {
-                    Print(line);
-                }
-            }
-
-            // The verdict is the findings; any other error is a failure of its own.
-            if (outcome.Error is { } error && view?.IsVerdict(error) != true)
-            {
-                Print("");
-                Print(" " + pc.Bold(pc.Red(error.Code)) + ": " + Format.Bounded(redactor.Redact(error.Message)));
-            }
-
-            Print("");
-            foreach (var row in (view ?? new ExploreView(pc, new ExploreProgress.Started(outcome.Explore.Goal, outcome.Explore.Budgets), columns)).SummaryRows())
-            {
-                Print(row);
-            }
-
-            Print(Format.PadTitle(pc, "Start at") + Format.FormatClock(startedAt));
-            Print(Format.PadTitle(pc, "Duration") + Format.FormatTime(DateTimeOffset.Now - startedAt));
-            Print("");
-        }
+        // The run's end reaches the reporter as `run-finished`, then the rows that close the output.
+        await run.FinishAsync().ConfigureAwait(false);
+        reporter.Rows([]);
 
         return outcome.ExitCode;
     }
 
     /// <summary>
-    /// The accounts the environment gives the agent: one for each <c>E2E_USER_&lt;NAME&gt;_USERNAME</c>, named in lower case, read
-    /// with <see cref="Credentials.User"/> so a missing or short password is its error and not a silent skip.
+    /// The accounts the environment gives the agent besides the config's: one for each <c>E2E_USER_&lt;NAME&gt;_USERNAME</c>, named in
+    /// lower case, read with <see cref="Credentials.User"/> so a missing or short password is its error and not a silent skip. A name
+    /// that maps to the variables of a configured credential is that credential, which the config already carries.
     /// </summary>
-    internal static List<(string Name, UserCredential Credential)> ScanCredentials()
+    internal static List<(string Name, UserCredential Credential)> ScanCredentials(IEnumerable<string>? configured = null)
     {
+        var covered = (configured ?? []).Select(name => ConfigSecrets.EnvName("E2E_USER", name)).ToHashSet(StringComparer.Ordinal);
         var names = Environment.GetEnvironmentVariables().Keys
             .Cast<string>()
             .Select(key => UsernameVariable().Match(key))
             .Where(match => match.Success)
             .Select(match => match.Groups[1].Value.ToLowerInvariant())
+            .Where(name => !covered.Contains(ConfigSecrets.EnvName("E2E_USER", name)))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal);
         return [.. names.Select(name => (name, Credentials.User(name)))];
@@ -272,57 +233,27 @@ internal static partial class ExploreCommand
 
     private static int Milliseconds(TimeSpan time) => (int)time.TotalMilliseconds;
 
-    private static int WindowWidth()
-    {
-        try
-        {
-            return Console.WindowWidth > 0 ? Console.WindowWidth : DefaultColumns;
-        }
-        catch (IOException)
-        {
-            return DefaultColumns;
-        }
-    }
-
     /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
-    private static E2EConfig? TryLoadConfig(ExploreArgs args)
+    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory, out bool failed)
     {
+        failed = false;
         try
         {
-            var cwd = Directory.GetCurrentDirectory();
+            var cwd = Path.GetFullPath(workingDirectory ?? Directory.GetCurrentDirectory());
             var path = args.Config is null ? E2EConfig.Find(cwd) : Path.GetFullPath(args.Config, cwd);
             return path is not null && File.Exists(path) ? E2EConfig.Load(path) : null;
         }
         catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
         {
+            failed = true;
             return null;
         }
     }
 
-    /// <summary>The moment with every text field of the record redacted.</summary>
-    private static ExploreProgress Redact(ExploreProgress progress, Redactor redactor)
+    /// <summary>Where the list reporter writes: the command's standard output, with no live window.</summary>
+    private sealed class StdoutOutput(TextWriter stdout) : IListReporterOutput
     {
-        string? R(string? text) => text is null ? null : redactor.Redact(text);
-        ReportExploreStep Step(ReportExploreStep step) => step with { Title = R(step.Title)!, Instruction = R(step.Instruction)!, Summary = R(step.Summary) };
-        return progress switch
-        {
-            ExploreProgress.Started started => started with { Goal = R(started.Goal)! },
-            ExploreProgress.StepStarted opened => opened with { Step = opened.Step with { Title = R(opened.Step.Title)!, Instruction = R(opened.Step.Instruction)! } },
-            ExploreProgress.StepFinished finished => finished with { Step = Step(finished.Step) },
-            ExploreProgress.FindingReported reported => reported with
-            {
-                Finding = reported.Finding with
-                {
-                    Title = R(reported.Finding.Title)!,
-                    Expected = R(reported.Finding.Expected)!,
-                    Actual = R(reported.Finding.Actual)!,
-                    Reproduction = [.. reported.Finding.Reproduction.Select(action => R(action)!)],
-                    Path = R(reported.Finding.Path),
-                },
-            },
-            ExploreProgress.Finished finished => finished with { Summary = R(finished.Summary) },
-            _ => progress,
-        };
+        public void Write(string line) => stdout.WriteLine(line);
     }
 
     private static ExploreArgs Parse(IEnumerable<string> args)

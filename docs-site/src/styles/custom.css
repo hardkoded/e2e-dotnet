@@ -1,7 +1,9 @@
 :root {
     --sl-font: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
     --sl-font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    /* Dark theme. #4fa8ff is the blue in the logo mark. */
+    /* Dark theme. #4fa8ff is the blue in the logo mark.
+       The marketing page (src/styles/landing.css) uses the same blue as --e2e-accent
+       and builds its own ink surfaces around it. */
     --sl-color-accent-low: #082844;
     --sl-color-accent: #4fa8ff;
     --sl-color-accent-high: #d7ecff;

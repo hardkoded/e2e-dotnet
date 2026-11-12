@@ -13,6 +13,9 @@
     <PlaywrightPlatform Condition="'$(PlaywrightPlatform)' == ''">$(NETCoreSdkRuntimeIdentifier)</PlaywrightPlatform>
     <!-- The Playwright driver carries PowerShell scripts that are not NuGet scripts. -->
     <NoWarn>$(NoWarn);NU5111</NoWarn>
+    <!-- A tool: running the project with dotnet run must work without a framework flag, so it stays on one framework. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks />
     <ToolCommandName>e2e</ToolCommandName>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
@@ -27,6 +30,8 @@
     <ProjectReference Include="..\E2E.WinApp\E2E.WinApp.csproj" />
     <Compile Include="..\Shared\HostedDeviceProviders.cs" Link="HostedDeviceProviders.cs" />
     <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <!-- BSD-2-Clause. A TOML 1.0 parser with source spans: updateCodexConfig edits the file in place and needs the ranges. -->
+    <PackageReference Include="Tomlyn" Version="2.10.2" />
     <!-- The tool never compares screenshots, so it ships none of the SkiaSharp native libraries E2E brings in. -->
     <PackageReference Include="SkiaSharp" Version="4.153.1" ExcludeAssets="native;runtime" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" ExcludeAssets="all" />
@@ -34,6 +39,8 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.153.1" ExcludeAssets="all" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <InternalsVisibleTo Include="E2E.Cli.Tests" />
+    <InternalsVisibleTo Include="E2E.Tests" />
+    <InternalsVisibleTo Include="E2E.NUnit.Tests" />
   </ItemGroup>
   <!-- The skill ships inside the tool: e2e mcp serves it as the guide resources. -->
   <ItemGroup>

@@ -139,8 +139,11 @@ public sealed class WebSemanticsTests
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
-            await session.Screen.GetByRole("button", "Pay").TapAsync();
-            await Expect.That(session.Screen.GetByRole("status")).ToContainTextAsync("Paid");
+            // A plain query does not enter an iframe, as upstream's (a frame locator does): the stitched tree is the agent's.
+            Assert.Equal(0, await session.Screen.GetByRole("button", "Pay").CountAsync());
+            var checkout = session.Browser.FrameLocator("iframe[title=Checkout]");
+            await checkout.GetByRole("button", "Pay").TapAsync();
+            await Expect.That(checkout.GetByRole("status")).ToContainTextAsync("Paid");
         });
     }
 
@@ -316,9 +319,9 @@ public sealed class WebSemanticsTests
         };
 
         var text = SnapshotText.Render(observation, Redactor.None);
-        Assert.Contains("button \"Menu\" [ref=e1] [expanded] [pressed] [focused]", text, StringComparison.Ordinal);
-        Assert.Contains("tab \"General\" [ref=e2] [selected]", text, StringComparison.Ordinal);
-        Assert.Contains("More of the page is off screen", text, StringComparison.Ordinal);
+        Assert.Contains("#e1 button \"Menu\" [expanded] [pressed] [focused]", text, StringComparison.Ordinal);
+        Assert.Contains("#e2 tab \"General\" [selected]", text, StringComparison.Ordinal);
+        Assert.Contains("the engine stopped listing nodes", text, StringComparison.Ordinal);
     }
 
     internal static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)

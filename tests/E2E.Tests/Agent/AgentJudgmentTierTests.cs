@@ -48,7 +48,7 @@ public sealed class AgentJudgmentTierTests
         // A reasoning model that ran out of output mid-answer: no verdict.
         var judge = new ScriptedModel(request => request.Messages.Count == 1
             ? new ModelResponse { Content = "thinking" }
-            : ModelResponses.Done("passed", "the Home heading is visible"));
+            : ModelResponses.Judgment("holds", "the Home heading is visible"));
         var result = await RunAsync(
             async ctx =>
             {
@@ -61,10 +61,15 @@ public sealed class AgentJudgmentTierTests
         Assert.Equal(2, judge.CallCount);
         Assert.Equal(2, result.ModelCalls);
         Assert.Contains("Statement: the About heading is visible after a malformed first answer", judge.Requests[1].Messages[0].Content, StringComparison.Ordinal);
-        Assert.Equal("Call done with status passed or failed.", judge.Requests[1].Messages[^1].Content);
+        var repair = judge.Requests[1].Messages[^1].Content;
+        Assert.Contains("<previous-attempt-rejected>", repair, StringComparison.Ordinal);
+        Assert.Contains("previous response: thinking", repair, StringComparison.Ordinal);
+        Assert.Contains("validation errors: response is not a JSON object", repair, StringComparison.Ordinal);
+        Assert.All(judge.Requests, request => Assert.Empty(request.Tools));
+        Assert.All(judge.Requests, request => Assert.Equal("agent-judgment-2", request.SchemaName));
     }
 
-    // Upstream answers in the retired agent-judgment-1 shape. The port has no judgment protocol versions, so its second answer has no verdict.
+    // Upstream answers in the retired agent-judgment-1 shape on the repair round; the port answers with text that has no verdict at all.
     [Fact]
     public async Task Fails_MODEL_OUTPUT_INVALID_when_the_repair_round_gives_no_verdict_either()
     {
@@ -79,7 +84,7 @@ public sealed class AgentJudgmentTierTests
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);
-        Assert.Equal("The judge did not call done.", error.Message);
+        Assert.StartsWith("The judge did not answer with an agent-judgment-2 object: ", error.Message, StringComparison.Ordinal);
         // One judgment plus one repair round is the whole budget: no third call, no guessed verdict.
         Assert.Equal(2, judge.CallCount);
         var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
@@ -279,7 +284,7 @@ public sealed class AgentJudgmentTierTests
     }
 
     [Fact]
-    public async Task Sends_the_semantic_tree_with_refs_and_a_secure_field_without_its_value()
+    public async Task Sends_the_semantic_tree_with_ids_and_a_secure_field_without_its_value()
     {
         var world = World().Map("/login", page =>
         {
@@ -299,9 +304,248 @@ public sealed class AgentJudgmentTierTests
         Assert.Null(result.Error);
         var observation = judge.Requests[0].Messages[0].Content!;
         Assert.Contains("button \"Increment\"", observation, StringComparison.Ordinal);
-        Assert.Contains("- button \"Increment\" [ref=e1]", observation, StringComparison.Ordinal);
-        Assert.Contains("- textbox \"Password\" [ref=e2] secure purpose=password", observation, StringComparison.Ordinal);
+        Assert.Contains("#e1 button \"Increment\"", observation, StringComparison.Ordinal);
+        Assert.Contains("#e2 textbox \"Password\" secure purpose=password", observation, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
+    }
+
+    /// <summary>.NET-only: the judgment path prints a <c>Screen (route):</c> line before the <c>#id</c> lines (upstream sends the route as the observation's attributes), and the route goes through the redactor.</summary>
+    [Fact]
+    public async Task Redacts_a_secret_in_the_route_of_the_screen_heading_the_judge_reads()
+    {
+        var world = World().Map("/reset", page => page.Button("Increment"));
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the reset page is open"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new DocumentEngine(world),
+            Judge = judge,
+            BaseUrl = "https://app.test",
+            TestTitle = "agent judgment route",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            TestTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
+        await session.Context.App.OpenAsync("/reset?token=hunter2-secret");
+        await session.Context.Agent.AssertAsync("the reset page is open");
+        session.Complete(null);
+
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.Contains("Screen (\"/reset?token=<secret:reset.token>\"):\n#", observation, StringComparison.Ordinal);
+        Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_judgment_reads_the_current_path()
+    {
+        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"/about\"):", StringComparison.Ordinal)
+            ? ModelResponses.Done("passed", "the location is /about")
+            : ModelResponses.Done("failed", "the judge was not shown the location"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the URL path is /about");
+            },
+            judge: judge);
+
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    public async Task A_judgment_keeps_the_origin_of_a_screen_off_the_app()
+    {
+        // A path on another site would read as the app's own route, so the judge is shown the whole address.
+        var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/login");
+        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Screen (\"https://idp.test/login\"):", StringComparison.Ordinal)
+            ? ModelResponses.Done("passed", "the judge read the whole address")
+            : ModelResponses.Done("failed", "the origin was lost"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the screen is at the identity provider's login page");
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    public async Task A_judgment_redacts_a_secret_in_the_address_of_the_screen()
+    {
+        var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?code=hunter2-secret#done");
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the callback page is open"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            Judge = judge,
+            BaseUrl = "https://app.test",
+            TestTitle = "agent judgment address",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            TestTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        session.Remember([Secret.Create("reset.token", "hunter2-secret", "password")]);
+        await session.Context.App.OpenAsync("/about");
+        await session.Context.Agent.AssertAsync("the callback page is open");
+        session.Complete(null);
+
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.Contains("Screen (\"https://idp.test/cb?code=", observation, StringComparison.Ordinal);
+        Assert.DoesNotContain("hunter2-secret", observation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_judgment_redacts_a_secret_the_address_spells_percent_encoded()
+    {
+        // The secret holds a space and an @, which the address spells as %20 and %40. The raw value is not in the URL at all.
+        var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?user=p%40ss%20word#done");
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the callback page is open"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            Judge = judge,
+            BaseUrl = "https://app.test",
+            TestTitle = "agent judgment encoded address",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            TestTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        session.Remember([Secret.Create("login.password", "p@ss word", "password")]);
+        await session.Context.App.OpenAsync("/about");
+        await session.Context.Agent.AssertAsync("the callback page is open");
+        session.Complete(null);
+
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.Contains("Screen (\"https://idp.test/cb?user=", observation, StringComparison.Ordinal);
+        Assert.DoesNotContain("p%40ss", observation, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("p@ss", observation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_judgment_redacts_a_secret_the_address_spells_with_an_escaped_letter()
+    {
+        var engine = new LocationEngine(new DocumentEngine(World()), "https://idp.test/cb?k=%68unter2");
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, Judge = judge, BaseUrl = "https://app.test", TestTitle = "agent judgment escaped letter", AssertionTimeout = TimeSpan.FromSeconds(2), TestTimeout = TimeSpan.FromSeconds(10), StepTimeout = TimeSpan.FromSeconds(5) });
+        session.Remember([Secret.Create("login.password", "hunter2", "password")]);
+        await session.Context.App.OpenAsync("/about");
+        await session.Context.Agent.AssertAsync("the callback page is open");
+        session.Complete(null);
+        var observation = judge.Requests[0].Messages[0].Content!;
+        Assert.DoesNotContain("hunter2", observation, StringComparison.Ordinal);
+        Assert.Contains("Screen (\"https://idp.test/cb?k=", observation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Judges_again_when_only_the_URL_changed()
+    {
+        var engine = new LocationEngine(new DocumentEngine(World().Map("/moves", page => page.Heading("Moves"))), "https://app.test/moves", "https://app.test/moved");
+        var judge = new ScriptedModel(request =>
+        {
+            if (request.Messages[0].Content!.Contains("Screen (\"/moved\"):", StringComparison.Ordinal))
+            {
+                return ModelResponses.Done("passed", "the URL moved to /moved");
+            }
+
+            // The address moves once the first judgment is asked, so only the change can end the wait.
+            engine.Moved = true;
+            return ModelResponses.Done("failed", "the URL is still /moves");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/moves");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("Moves");
+                await ctx.Agent.WaitForAsync("the URL path is /moved", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromSeconds(3), MaxModelCalls = 4 });
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task A_vision_only_wait_does_not_judge_again_on_a_URL_it_is_not_shown()
+    {
+        var engine = new LocationEngine(new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()), "https://app.test/about", "https://app.test/moved");
+        var judge = new ScriptedModel(_ =>
+        {
+            // The address moves after the judgment is asked. A vision-only wait is not shown the address, so the move ends nothing.
+            engine.Moved = true;
+            return ModelResponses.Done("failed", "the chart has not moved");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
+                await ctx.Agent.WaitForAsync("the chart moved", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromMilliseconds(1500), MaxModelCalls = 4, Vision = VisionMode.Only });
+            },
+            engine,
+            judge: judge);
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("STEP_TIMEOUT", error.Code);
+        Assert.Equal(1, judge.CallCount);
+    }
+
+    [Fact]
+    public async Task Partial_leaves_the_location_out_when_the_engine_reports_none()
+    {
+        // An engine with no location: the judge reads the screen's route in the header, and no <location> is compared.
+        var engine = new LocationEngine(new DocumentEngine(World()), null);
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the About page is open"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the About page is open");
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.Contains("Screen (\"/about\"):", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Partial_tells_a_judgment_what_the_location_is_evidence_for()
+    {
+        // Upstream checks the extraction's sentence too; this port's extract prompt is checked by the extract tests.
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the observation supports the assertion"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the About heading is visible");
+            },
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.Contains("The screen's location is the address of the screen: it is evidence only for a statement about the address or route, never for or against what the screen shows.", judge.Requests[0].System, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Partial_sends_no_location_when_the_tree_is_withheld()
+    {
+        // Vision Only withholds the tree, so the screen's header, with its location, is not in the request.
+        var engine = new ScreenshotEngine(World(), _ => ScreenshotEngine.Png());
+        var judge = new ScriptedModel(_ => ModelResponses.Done("passed", "the chart is visible"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/about");
+                await ctx.Agent.AssertAsync("the chart is visible", new AssertOptions { Vision = VisionMode.Only });
+            },
+            engine,
+            judge: judge);
+
+        Assert.Null(result.Error);
+        Assert.DoesNotContain("Screen (", judge.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
     }
 
     private static DocumentWorld World() => CounterPage.World().Map("/about", page => page.Heading("About"));
@@ -338,7 +582,7 @@ public sealed class AgentJudgmentTierTests
         }
 
         session.Complete(error);
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.Steps);
+        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.StepRecords);
     }
 
     private sealed class CounterReading

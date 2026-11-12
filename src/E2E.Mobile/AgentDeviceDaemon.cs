@@ -24,6 +24,12 @@ public static partial class AgentDeviceDaemon
 
     private static readonly ConcurrentDictionary<string, Lazy<Task<DaemonEndpoint>>> Local = new(StringComparer.Ordinal);
 
+    /// <summary>The most stderr text an error message keeps.</summary>
+    private const int MaxExcerpt = 2000;
+
+    /// <summary>The shortest environment value an error message blanks: shorter ones (flags, "1") match too much text.</summary>
+    private const int SecretFloor = 8;
+
     private static readonly HttpClient Http = new() { Timeout = Timeout.InfiniteTimeSpan };
 
     /// <summary>The transport every client shares.</summary>
@@ -113,7 +119,11 @@ public static partial class AgentDeviceDaemon
     /// Stops the daemon of a state directory and removes the directory, as <c>agent-device daemon stop --clean</c> does,
     /// and forgets it. Throws when the command fails, so a caller can report a daemon left running.
     /// </summary>
-    public static async Task StopAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken)
+    public static async Task StopAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken) =>
+        await StopReportAsync(stateDirectory, environment, cancellationToken).ConfigureAwait(false);
+
+    /// <summary><see cref="StopAsync"/>, answering the JSON shutdown report <c>daemon stop --json</c> printed, for a caller that must see whether the provider sessions ended.</summary>
+    internal static async Task<string> StopReportAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken)
     {
         var (program, arguments) = Launcher();
         var start = new ProcessStartInfo(program) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
@@ -130,10 +140,11 @@ public static partial class AgentDeviceDaemon
         var (exitCode, output, error) = await RunAsync(start, TimeSpan.FromSeconds(60), cancellationToken).ConfigureAwait(false);
         if (exitCode != 0)
         {
-            throw new InvalidOperationException($"`agent-device daemon stop` for {stateDirectory} exited with code {exitCode}: {FirstLine(error.Length > 0 ? error : output)}");
+            throw new InvalidOperationException($"`agent-device daemon stop` for {stateDirectory} exited with code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}");
         }
 
         Local.TryRemove(stateDirectory, out _);
+        return output;
     }
 
     /// <summary>A child that sees exactly <paramref name="environment"/>, not this process's own variables.</summary>
@@ -185,7 +196,7 @@ public static partial class AgentDeviceDaemon
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                $"Could not start the agent-device daemon ({program} {string.Join(' ', arguments)}) with exit code {exitCode}: {FirstLine(error.Length > 0 ? error : output)}. agent-device {AgentDeviceVersion.Pinned} needs Node {AgentDeviceVersion.MinimumNode} or newer; install it with `npm install --global agent-device@{AgentDeviceVersion.Pinned}` or let npx fetch it.");
+                $"Could not start the agent-device daemon ({Path.GetFileName(program)} {string.Join(' ', arguments)}) with exit code {exitCode}: {Excerpt(FailureOutput(output, error), environment)}. agent-device {AgentDeviceVersion.Pinned} needs Node {AgentDeviceVersion.MinimumNode} or newer; install it with `npm install --global agent-device@{AgentDeviceVersion.Pinned}` or let npx fetch it.");
         }
 
         var endpoint = ReadEndpoint(stateDirectory)
@@ -268,8 +279,33 @@ public static partial class AgentDeviceDaemon
     /// <summary>The command that runs agent-device: the binary <see cref="BinaryVariable"/> names under node, else the pinned release through npx.</summary>
     private static (string Program, string[] Arguments) Launcher() =>
         Environment.GetEnvironmentVariable(BinaryVariable) is { Length: > 0 } binary
-            ? ("node", [binary])
-            : (OperatingSystem.IsWindows() ? "npx.cmd" : "npx", ["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]);
+            ? (ResolveProgram(OperatingSystem.IsWindows() ? "node.exe" : "node"), [binary])
+            : (ResolveProgram(OperatingSystem.IsWindows() ? "npx.cmd" : "npx"), ["--yes", $"agent-device@{AgentDeviceVersion.Pinned}"]);
+
+    /// <summary>
+    /// The full path of a program, found on the absolute entries of <c>PATH</c>. Starting a bare name made
+    /// <c>npx.cmd</c> fail under <c>dotnet test</c>: npm resolved its own folder against the test's working directory
+    /// and could not find its modules. A full path starts the same program in every host.
+    /// </summary>
+    private static string ResolveProgram(string name)
+    {
+        foreach (var entry in (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var directory = entry.Trim('"');
+            if (!Path.IsPathFullyQualified(directory))
+            {
+                continue;
+            }
+
+            var candidate = Path.Combine(directory, name);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return name;
+    }
 
     private static async Task<(int ExitCode, string Output, string Error)> RunAsync(ProcessStartInfo start, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
@@ -301,6 +337,42 @@ public static partial class AgentDeviceDaemon
     }
 
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>The stream that carries the failure: stderr when it has text, else stdout.</summary>
+    private static string FailureOutput(string output, string error) => string.IsNullOrWhiteSpace(error) ? output : error;
+
+    /// <summary>
+    /// The start of a process's output, trimmed, with the values of the child's environment blanked (a provider's
+    /// credentials reach the daemon that way) and capped, so a Node stack trace shows its real cause.
+    /// </summary>
+    private static string Excerpt(string text, IReadOnlyDictionary<string, string?>? environment)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length == 0)
+        {
+            return "no output";
+        }
+
+        if (environment is not null)
+        {
+            foreach (var value in environment.Values)
+            {
+                if (value is { Length: >= SecretFloor })
+                {
+                    trimmed = trimmed.Replace(value, "[redacted]", StringComparison.Ordinal);
+                }
+            }
+        }
+
+        if (trimmed.Length <= MaxExcerpt)
+        {
+            return trimmed;
+        }
+
+        // Do not cut a surrogate pair in half: that leaves a lone surrogate in the message.
+        var cut = char.IsHighSurrogate(trimmed[MaxExcerpt - 1]) ? MaxExcerpt - 1 : MaxExcerpt;
+        return trimmed[..cut] + " [truncated]";
+    }
 
     private static string FirstLine(string text) =>
         text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "no output";

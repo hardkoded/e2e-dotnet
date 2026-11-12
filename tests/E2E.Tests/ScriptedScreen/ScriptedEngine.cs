@@ -20,7 +20,7 @@ internal sealed class ScriptedEngine(ScriptedScene scene) : IEngine
     public string Version => "1";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location
+        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
         | EngineCapabilities.Scroll | EngineCapabilities.History;
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
@@ -46,6 +46,12 @@ internal sealed class ScriptedEngine(ScriptedScene scene) : IEngine
         }
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken)
+        {
+            scene.Type(text, replace);
+            return Task.CompletedTask;
+        }
 
         public Task BackAsync(CancellationToken cancellationToken)
         {

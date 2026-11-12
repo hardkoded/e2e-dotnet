@@ -25,7 +25,7 @@ One attempt of a test (upstream's `ReportAttempt`).
 
 **Implements:** [IEquatable&lt;ReportAttempt&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L349)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ What the app logged during the attempt, each line with the index of its step. Nu
 
 **Value:** [IReadOnlyList&lt;AppLogRecord&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L366)
-
 <a id="E2E_Reports_ReportAttempt_Artifacts_"></a>
 <a id="E2E_Reports_ReportAttempt_Artifacts"></a>
 
@@ -58,8 +56,6 @@ public IReadOnlyList<ArtifactRecord> Artifacts { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;ArtifactRecord&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L368)
 
 <a id="E2E_Reports_ReportAttempt_Cleanup_"></a>
 <a id="E2E_Reports_ReportAttempt_Cleanup"></a>
@@ -74,8 +70,6 @@ public AttemptCleanup Cleanup { get; init; }
 
 **Value:** [AttemptCleanup](/api/E2E.Reports/AttemptCleanup/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L382)
-
 <a id="E2E_Reports_ReportAttempt_DurationMs_"></a>
 <a id="E2E_Reports_ReportAttempt_DurationMs"></a>
 
@@ -88,8 +82,6 @@ public long DurationMs { get; init; }
 
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L361)
 
 <a id="E2E_Reports_ReportAttempt_Environment_"></a>
 <a id="E2E_Reports_ReportAttempt_Environment"></a>
@@ -106,8 +98,6 @@ What the engine said the attempt ran on, such as `browser` or `device`. Null whe
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L385)
-
 <a id="E2E_Reports_ReportAttempt_Error_"></a>
 <a id="E2E_Reports_ReportAttempt_Error"></a>
 
@@ -122,8 +112,6 @@ public ReportError? Error { get; init; }
 What stopped the attempt.
 
 **Value:** [ReportError](/api/E2E.Reports/ReportError/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L371)
 
 <a id="E2E_Reports_ReportAttempt_Failure_"></a>
 <a id="E2E_Reports_ReportAttempt_Failure"></a>
@@ -140,8 +128,6 @@ What the runner saw when the failure landed. Null on a pass or when nothing coul
 
 **Value:** [FailureEvidence](/api/E2E.Reports/FailureEvidence/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L374)
-
 <a id="E2E_Reports_ReportAttempt_Id_"></a>
 <a id="E2E_Reports_ReportAttempt_Id"></a>
 
@@ -156,8 +142,6 @@ public string Id { get; init; }
 A UUID version 7; also the head of its steps' ids.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L352)
 
 <a id="E2E_Reports_ReportAttempt_Index_"></a>
 <a id="E2E_Reports_ReportAttempt_Index"></a>
@@ -174,8 +158,6 @@ Zero-based.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L355)
-
 <a id="E2E_Reports_ReportAttempt_SecondaryErrors_"></a>
 <a id="E2E_Reports_ReportAttempt_SecondaryErrors"></a>
 
@@ -190,8 +172,6 @@ public IReadOnlyList<ReportError> SecondaryErrors { get; init; }
 What else failed after the error: a teardown hook, the engine's cleanup.
 
 **Value:** [IReadOnlyList&lt;ReportError&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L380)
 
 <a id="E2E_Reports_ReportAttempt_Skip_"></a>
 <a id="E2E_Reports_ReportAttempt_Skip"></a>
@@ -208,8 +188,6 @@ Why the body skipped itself.
 
 **Value:** [SkipInfo](/api/E2E.Reports/SkipInfo/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L377)
-
 <a id="E2E_Reports_ReportAttempt_StartedAt_"></a>
 <a id="E2E_Reports_ReportAttempt_StartedAt"></a>
 
@@ -222,8 +200,6 @@ public DateTimeOffset StartedAt { get; init; }
 
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L359)
 
 <a id="E2E_Reports_ReportAttempt_Status_"></a>
 <a id="E2E_Reports_ReportAttempt_Status"></a>
@@ -238,8 +214,6 @@ public AttemptStatus Status { get; init; }
 
 **Value:** [AttemptStatus](/api/E2E.Reports/AttemptStatus/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L357)
-
 <a id="E2E_Reports_ReportAttempt_Steps_"></a>
 <a id="E2E_Reports_ReportAttempt_Steps"></a>
 
@@ -252,5 +226,3 @@ public IReadOnlyList<ReportStep> Steps { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;ReportStep&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L363)

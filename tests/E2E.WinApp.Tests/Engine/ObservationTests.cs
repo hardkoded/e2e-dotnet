@@ -22,6 +22,7 @@ public sealed class ObservationTests
         var root = Assert.Single(observation.Roots);
         Assert.Equal(UiaProjection.RootId, root.Ref);
         Assert.Equal(new BoundingBox(0, 0, 800, 600), root.Rect);
+        Assert.Equal(new TraceViewport(800, 600), observation.Viewport);
         var window = Assert.Single(root.Children);
         Assert.Equal("window", window.Role);
         Assert.Equal("Settings", window.Name);
@@ -52,6 +53,7 @@ public sealed class ObservationTests
         harness.Driver.Script(session.App!.ProcessId, FakeWindowDriver.MainHandle, "Settings", RawElements.Settings(), new Rect(100, 50, 1600, 1200), scale: 2);
         var observation = await session.ObserveAsync(CancellationToken.None);
         Assert.Equal(new BoundingBox(0, 0, 800, 600), observation.Roots[0].Rect);
+        Assert.Equal(new TraceViewport(800, 600), observation.Viewport);
         Assert.Equal(new BoundingBox(200, 275, 40, 15), Harness.ByTestId(observation, "save-button").Rect);
     }
 

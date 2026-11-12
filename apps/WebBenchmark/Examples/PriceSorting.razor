@@ -1,0 +1,80 @@
+@using System.Globalization
+@* Upstream's app/src/Examples/PriceSorting.tsx. *@
+<div style="@Container">
+    <label style="@SortLabel">
+        Sort by
+        <select data-testid="sort-select" style="@Select" value="@_order" @onchange="args => _order = args.Value as string ?? Featured">
+            <option value="featured">Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
+        </select>
+    </label>
+    <ul data-testid="product-list" style="@List">
+        @foreach (var product in SortProducts(_order))
+        {
+            <li @key="product.Id" data-testid="@($"product-{product.Id}")" style="@Row">
+                <span>@product.Name</span>
+                <span style="@PriceGroup">
+                    @if (product.SalePrice is not null)
+                    {
+                        <s style="@OriginalPrice">$@Money(product.OriginalPrice)</s>
+                    }
+                    <strong>$@Money(EffectivePrice(product))</strong>
+                </span>
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    private const string Featured = "featured";
+    private const string PriceAsc = "price-asc";
+
+    private sealed record Product(string Id, string Name, int OriginalPrice, int? SalePrice);
+
+    private static readonly Product[] Products =
+    [
+        new("backpack", "Trail Backpack 24L", 120, 49),
+        new("bottle", "Steel Water Bottle", 25, null),
+        new("socks", "Merino Hiking Socks", 18, null),
+        new("lantern", "Camp Lantern", 60, 54),
+        new("mug", "Titanium Mug", 35, 12),
+    ];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string SortLabel = "display: flex; align-items: center; gap: 8px; font-size: 14px; color: #333;";
+    private const string Select = "border: 1px solid #ccc; border-radius: 8px; padding: 8px 10px; font-size: 14px;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;";
+    private const string Row = "display: flex; justify-content: space-between; align-items: center; padding: 12px 4px; border-bottom: 1px solid #e5e5e5; font-size: 15px;";
+    private const string PriceGroup = "display: flex; align-items: center; gap: 8px;";
+    private const string OriginalPrice = "color: #999; font-size: 13px;";
+
+    private string _order = Featured;
+
+    /// <summary>Money as <c>toFixed(2)</c> writes it (C# has no such method; the invariant culture keeps the point).</summary>
+    private static string Money(int amount) => amount.ToString("F2", CultureInfo.InvariantCulture);
+
+    /// <summary>Returns the price a customer actually pays: the sale price when one exists.</summary>
+    private static int EffectivePrice(Product product) => product.SalePrice ?? product.OriginalPrice;
+
+    /// <summary>
+    /// Returns the catalog in the requested order.
+    /// PLANTED BUG (do not fix): price sorting compares OriginalPrice instead of the effective sale price, so discounted products land
+    /// in the wrong spot.
+    /// </summary>
+    private static IEnumerable<Product> SortProducts(string order)
+    {
+        if (order == Featured)
+        {
+            return Products;
+        }
+
+        var sorted = Products.OrderBy(product => product.OriginalPrice).ToList();
+        if (order != PriceAsc)
+        {
+            sorted.Reverse();
+        }
+
+        return sorted;
+    }
+}

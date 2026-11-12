@@ -142,6 +142,21 @@ public sealed class ModelProviderTests
         Assert.Equal(cost, usage.EstimatedCostUsd);
     }
 
+    [Theory]
+    [InlineData("gateway", """{"gateway":{"cost":"0.25"}}""")]
+    [InlineData("openrouter", """{"openrouter":{"usage":{"cost":0.25}}}""")]
+    [InlineData("openai", null)]
+    public async Task Compatible_model_reports_the_billed_cost_as_the_provider_metadata_of_the_turn(string provider, string? expected)
+    {
+        var handler = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": 0.25 } }""");
+        using var http = new HttpClient(handler);
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k", Provider = provider }, http);
+
+        var metadata = (await model.CompleteAsync(Conversation(), CancellationToken.None)).ProviderMetadata;
+
+        Assert.Equal(expected, metadata is null ? null : JsonSerializer.Serialize(metadata));
+    }
+
     [Fact]
     public async Task Anthropic_model_marks_cache_breakpoints_and_merges_tool_results()
     {
@@ -227,6 +242,7 @@ public sealed class ModelProviderTests
         Assert.Equal(2, first.ReasoningItems.Count);
         Assert.Equal("sig-1", first.ReasoningItems[0].GetProperty("signature").GetString());
         Assert.Equal("enc-1", first.ReasoningItems[1].GetProperty("data").GetString());
+        Assert.Equal("planunsigned", first.ReasoningText);
 
         await model.CompleteAsync(
             new ModelRequest
@@ -270,6 +286,8 @@ public sealed class ModelProviderTests
 
         Assert.Equal("step by step", first.ReasoningItems.Single().GetString());
         Assert.Equal("other spelling", second.ReasoningItems.Single().GetString());
+        Assert.Equal("step by step", first.ReasoningText);
+        Assert.Equal("other spelling", second.ReasoningText);
 
         await model.CompleteAsync(
             new ModelRequest
@@ -357,6 +375,7 @@ public sealed class ModelProviderTests
 
         Assert.Equal("tapping", first.Content);
         Assert.Equal("c2ln", first.ReasoningItems.Single().GetProperty("thoughtSignature").GetString());
+        Assert.Equal("plan", first.ReasoningText);
         await model.CompleteAsync(
             new ModelRequest
             {
@@ -386,6 +405,56 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Google_model_sends_back_the_signature_of_a_plain_text_part()
+    {
+        var handler = new RecordingHandler(
+            """{ "candidates": [{ "content": { "parts": [{ "text": "done", "thoughtSignature": "c2ln" }] } }] }""",
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-3-pro", ApiKey = "g" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("done", first.Content);
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "again" },
+                ],
+            },
+            CancellationToken.None);
+
+        var parts = handler.Requests[1].Json()["contents"]![1]!["parts"]!.AsArray();
+        var part = Assert.Single(parts)!;
+        Assert.Equal("done", part["text"]!.GetValue<string>());
+        Assert.Equal("c2ln", part["thoughtSignature"]!.GetValue<string>());
+        Assert.Null(part["thought"]);
+
+        // Content that changed since the reply is sent as it is now, not as the signed text was.
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = "shrunk", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "again" },
+                ],
+            },
+            CancellationToken.None);
+        var shrunk = Assert.Single(handler.Requests[2].Json()["contents"]![1]!["parts"]!.AsArray())!;
+        Assert.Equal("shrunk", shrunk["text"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Bedrock_model_returns_reasoning_blocks_and_sends_them_back_ahead_of_text_and_tool_calls()
     {
         var handler = new RecordingHandler(
@@ -405,6 +474,7 @@ public sealed class ModelProviderTests
 
         Assert.Equal("tapping", first.Content);
         Assert.Equal(2, first.ReasoningItems.Count);
+        Assert.Equal("plan", first.ReasoningText);
         await model.CompleteAsync(
             new ModelRequest
             {
@@ -792,6 +862,9 @@ internal sealed class RecordingHandler : HttpMessageHandler
 
     public List<RecordedRequest> Requests { get; } = [];
 
+    /// <summary>Told the number of the request (from 1) as it arrives, before the answer goes out.</summary>
+    public Action<int>? OnRequest { get; set; }
+
     public RecordingHandler Then(HttpStatusCode status, string body)
     {
         _answers.Enqueue((status, body, "application/json"));
@@ -808,6 +881,7 @@ internal sealed class RecordingHandler : HttpMessageHandler
 
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
         Requests.Add(new RecordedRequest(request.Method, request.RequestUri!, headers, body, request.Content?.Headers.ContentType?.ToString()));
+        OnRequest?.Invoke(Requests.Count);
         var (status, answer, contentType) = _answers.Count > 1 ? _answers.Dequeue() : _answers.Peek();
         return new HttpResponseMessage(status) { Content = new StringContent(answer, Encoding.UTF8, contentType) };
     }

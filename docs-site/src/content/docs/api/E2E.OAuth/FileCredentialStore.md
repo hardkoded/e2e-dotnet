@@ -27,7 +27,7 @@ not understand are kept as they are.
 
 **Implements:** [ICredentialStore](/api/E2E.OAuth/ICredentialStore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L76)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
 
 ## Constructors
 
@@ -48,8 +48,6 @@ public FileCredentialStore(string path)
 | --- | --- | --- |
 | `path` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L82)
-
 ## Properties
 
 <a id="E2E_OAuth_FileCredentialStore_FilePath_"></a>
@@ -64,8 +62,6 @@ public string FilePath { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L88)
 
 ## Methods
 
@@ -89,8 +85,6 @@ public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken can
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L90)
-
 <a id="E2E_OAuth_FileCredentialStore_ListAsync_"></a>
 <a id="E2E_OAuth_FileCredentialStore_ListAsync_System_Threading_CancellationToken_"></a>
 
@@ -111,8 +105,6 @@ Every provider id with stored credentials.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L108)
 
 <a id="E2E_OAuth_FileCredentialStore_RemoveAsync_"></a>
 <a id="E2E_OAuth_FileCredentialStore_RemoveAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -136,8 +128,6 @@ Forgets the login. True when one was stored.
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L101)
-
 <a id="E2E_OAuth_FileCredentialStore_SetAsync_"></a>
 <a id="E2E_OAuth_FileCredentialStore_SetAsync_System_String_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
 
@@ -158,5 +148,3 @@ public Task SetAsync(string providerId, OAuthCredentials credentials, Cancellati
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L95)

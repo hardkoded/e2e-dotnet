@@ -29,7 +29,7 @@ because vendors that rotate refresh tokens reject the second concurrent refresh.
 
 **Implements:** [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs)
 
 ## Constructors
 
@@ -52,8 +52,6 @@ public OAuthHandler(IOAuthProvider provider, ICredentialStore store, string? log
 | `store` | [ICredentialStore](/api/E2E.OAuth/ICredentialStore/) |  |
 | `loginHint` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [HttpMessageHandler](https://learn.microsoft.com/dotnet/api/system.net.http.httpmessagehandler) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs#L37)
 
 ## Methods
 
@@ -85,5 +83,3 @@ Sends an HTTP request to the inner handler to send to the server as an asynchron
 | --- | --- |
 | [ArgumentNullException](https://learn.microsoft.com/dotnet/api/system.argumentnullexception) | The &lt;code class="paramref"&gt;request&lt;/code&gt; was &lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null"&gt;null&lt;/a&gt;. |
 | [OperationCanceledException](https://learn.microsoft.com/dotnet/api/system.operationcanceledexception) | The cancellation token was canceled. This exception is stored into the returned task. |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs#L48)

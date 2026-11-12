@@ -19,10 +19,10 @@ namespace E2E;
 internal static class Anchors
 {
     /// <summary>The most anchors one side of the delta records.</summary>
-    public const int Max = 8;
+    public const int Max = Trace.MaxTraceAnchors;
 
     /// <summary>The states a step sets on a control. Focus is where the pointer went, not what the step did.</summary>
-    private static readonly string[] States = ["checked", "expanded", "pressed", "selected"];
+    private static readonly IReadOnlyList<string> States = Trace.TraceAnchorStates;
 
     /// <summary>
     /// Roles an app announces an outcome in: the live regions a screen reader reads out on change, and
@@ -37,20 +37,22 @@ internal static class Anchors
     private static readonly HashSet<string> AlertRoles = new(["alert", "alertdialog"], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Text that cannot read the same on the next run: a minted id, a countdown or age, a date, a clock
-    /// time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists;
+    /// Text that cannot read the same on the next run: a minted id, a countdown or age, a date, an ISO 8601
+    /// instant, a clock time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists on either side of the delta;
     /// with nothing else, the volatile ones stay, because a replay that always hands off is still safer than
     /// one that passes on mechanics alone. An alert keeps it, and is compared with these parts read as one
     /// placeholder each (<see cref="AlertShape"/>).
     /// </summary>
     private static readonly Regex[] VolatileSpans =
     [
+        // The lookbehind is upstream's JavaScript \b: .NET's \b also counts non-ASCII letters as word characters.
+        new(@"(?<![A-Za-z0-9_])\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?", RegexOptions.CultureInvariant),
         new(@"\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{12,}\b", RegexOptions.CultureInvariant),
         new(@"\b\d+\s*(?:ms|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?|weeks?|months?|years?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
-        new(@"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+\d{4})?\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
-        new(@"\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?(?:\s+\d{4})?\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
-        new(@"\b\d{4}-\d{2}-\d{2}\b", RegexOptions.CultureInvariant),
-        new(@"\b\d{1,2}:\d{2}(?::\d{2})?\b", RegexOptions.CultureInvariant),
+        Dates.MonthDayDate,
+        Dates.DayMonthDate,
+        Dates.IsoDate,
+        Dates.ClockTime,
     ];
 
     /// <summary>
@@ -65,48 +67,54 @@ internal static class Anchors
         new(@"\b\d+\s+(?:results?|items?|rows?|entries|records?|matches|total)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
     ];
 
+    /// <summary>
+    /// Every field an anchor records. Unlike target relocation, text is never optional here: for a target, text is a fallback identity and a
+    /// relabeled button is still the button, but for an anchor the text is the effect (a status reading "saved" rather than "empty"), so a looser
+    /// match would pass a step whose save never took. Upstream's <c>ANCHOR_FIELDS</c>.
+    /// </summary>
+    private static readonly DescriptorField[] AnchorFields =
+        [DescriptorField.Role, DescriptorField.Name, DescriptorField.Text, DescriptorField.TestId, DescriptorField.Placeholder, DescriptorField.InputPurpose];
+
     private static readonly Regex BareNumber = new(@"^\d+$", RegexOptions.CultureInvariant);
 
     private static readonly Regex Digits = new(@"\d+", RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Every node of an observation that can serve as an anchor, in document order: a visible node with a
+    /// Every node of a prepared observation's node map that can serve as an anchor, in document order: a visible node with a
     /// name, a text, a test id, or a placeholder. The text is kept only when it differs from the name: for an
-    /// anchor the text is the effect, a status reading "saved" rather than "empty". <paramref name="skip"/>
-    /// drops a node whose name or text the next run reads differently, and <paramref name="record"/> is the
+    /// anchor the text is the effect, a status reading "saved" rather than "empty". <paramref name="record"/> is the
     /// form a name, text, or value is stored in, such as with secrets redacted, and <paramref name="redact"/> the
-    /// form a test id or placeholder is. <paramref name="cut"/>, when given, redacts a name, text, or value as the
-    /// engine observed it, before it is read as one line, with the limit it is cut at: a secret the cut stopped
-    /// partway through leaves a part no whole-value match sees. A secure field's value is never read.
+    /// form a test id or placeholder is. The nodes are a prepared observation's, whose
+    /// strings were redacted as the engine cut them, so a secret the cut stopped partway through leaves no part to see. A secure field's value is never read.
     /// </summary>
-    public static List<AnchorNode> Project(Observation observation, Func<string, bool> skip, Func<string, string> record, Func<string, string> redact, Func<string, int, string>? cut = null)
+    public static List<AnchorNode> Project(IReadOnlyDictionary<string, SemanticNode> nodes, Func<string, string> record, Func<string, string> redact)
     {
         static string? Field(string? value) => value is null || TextRules.Normalize(value) is not { Length: > 0 } text ? null : text;
-        string Read(string raw, int limit, string field) => cut is null ? field : Field(cut(raw, limit)) ?? field;
         var anchors = new List<AnchorNode>();
-        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        foreach (var node in nodes.Values)
         {
             var name = Field(node.Name);
             var text = Field(node.Text) is { } read && read != name ? read : null;
             var testId = Field(node.TestId);
             var placeholder = Field(node.Placeholder);
-            if (node.States.Hidden || node.States.AriaHidden || (name is null && text is null && testId is null && placeholder is null)
-                || (name is not null && skip(name)) || (text is not null && skip(text)))
+            if (node.States.Hidden || node.States.AriaHidden || (name is null && text is null && testId is null && placeholder is null))
             {
                 continue;
             }
 
             var value = node.Value is null || node.States.Secure ? null : Field(node.Value);
             var states = States.Where(state => StateOf(node.States, state)).ToList();
+            // Each field is bounded to the descriptor budget after it is redacted (upstream's describeTarget bounds each field the same way), so
+            // a stored anchor is one the reader accepts.
             var target = new RecordedTarget
             {
-                Role = Field(node.Role),
-                Name = name is null ? null : record(Read(node.Name!, ObservationLimits.Name, name)),
-                Text = text is null ? null : record(Read(node.Text!, ObservationLimits.Text, text)),
-                TestId = testId is null ? null : redact(testId),
-                Placeholder = placeholder is null ? null : redact(placeholder),
-                InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
-                Value = value is null ? null : record(Read(node.Value!, ObservationLimits.Text, value)),
+                Role = Field(node.Role) is { } role ? Trace.BoundDescriptor(redact(role)) : null,
+                Name = name is null ? null : Trace.BoundDescriptor(record(name)),
+                Text = text is null ? null : Trace.BoundDescriptor(record(text)),
+                TestId = testId is null ? null : Trace.BoundDescriptor(redact(testId)),
+                Placeholder = placeholder is null ? null : Trace.BoundDescriptor(redact(placeholder)),
+                InputPurpose = node.InputPurpose is null or "none" or "" ? null : node.InputPurpose,
+                Value = value is null ? null : Trace.BoundDescriptor(record(value)),
                 States = states.Count == 0 ? null : states,
             };
             anchors.Add(new AnchorNode(target, KeyOf(target), node.Children.Count == 0));
@@ -120,19 +128,30 @@ internal static class Anchors
     /// leaves, then containers, each in document order, deduplicated and capped. A container's name is
     /// usually its children's names joined, so it repeats what the leaves already say, and on a list-heavy
     /// screen those repeats would crowd the one status line that names the effect out of the cap. A node counts as appeared only when no start
-    /// node matches its anchor, so the anchor cannot hold before the step ran. A node counts as gone only when no end node
+    /// node has its set key, as upstream's <c>describeDelta</c> compares. A node counts as gone only when no end node
     /// matches its anchor the way <see cref="Mismatch"/> checks one: a radio "Express" the pick replaced
     /// with a status reading "Express" vanished, but an anchor of that name would still match the status,
     /// and the recording would fail its own check on every replay. <paramref name="routeMoved"/> says the step
     /// ended on another route than it began on, whose counts are that screen's data rather than the step's result.
+    /// <para>
+    /// An anchor made of text that never repeats (<see cref="IsTextVolatile"/>, a bare number) is dropped whenever either side of the delta has a
+    /// stable anchor: a clock is never a step's result. A count is dropped only from a side that has a stable anchor of its own, since
+    /// <c>3 records imported</c> is how an import reports its result. With no stable anchor anywhere the volatile ones stay.
+    /// </para>
     /// </summary>
     public static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(IReadOnlyList<AnchorNode> start, IReadOnlyList<AnchorNode> end, bool routeMoved)
     {
         var startKeys = start.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
         var endKeys = end.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
-        return (
-            Side(end, start, anchor => startKeys.Contains(anchor.Key) || In(anchor.Target, start), routeMoved),
-            Side(start, end, anchor => endKeys.Contains(anchor.Key) || In(anchor.Target, end), routeMoved));
+        var appeared = Side(end, start, anchor => startKeys.Contains(anchor.Key), routeMoved);
+        var gone = Side(start, end, anchor => endKeys.Contains(anchor.Key) || AnchorIn(anchor.Target, end), routeMoved);
+        static List<RecordedTarget> Pick(DeltaSide side, DeltaSide other)
+        {
+            var kept = side.Stable.Count > 0 ? side.Stable : other.Stable.Count > 0 ? side.WithCounts : side.All;
+            return kept.Take(Max).ToList();
+        }
+
+        return (Pick(appeared, gone), Pick(gone, appeared));
     }
 
     /// <summary>
@@ -144,13 +163,13 @@ internal static class Anchors
     /// </summary>
     public static DeltaMismatch? Mismatch(CacheEntry entry, IReadOnlyList<AnchorNode> live, IReadOnlyList<AnchorNode> before)
     {
-        var missing = entry.Appeared.Where(anchor => !In(anchor, live)).ToList();
-        var present = entry.Gone.Where(anchor => In(anchor, live)).ToList();
+        var missing = entry.Appeared.Where(anchor => !AppearedIn(anchor, live)).ToList();
+        var present = entry.Gone.Where(anchor => AnchorIn(anchor, live)).ToList();
         var earlier = before.Where(anchor => IsAlert(anchor.Target)).ToList();
         var unrecordedAlerts = live
             .Where(anchor => IsAlert(anchor.Target)
-                && !In(anchor.Target, earlier)
-                && !entry.Appeared.Any(recorded => Matches(recorded, anchor.Target)))
+                && !AnchorIn(anchor.Target, earlier)
+                && !entry.Appeared.Any(recorded => AppearedIn(recorded, [anchor])))
             .Select(anchor => anchor.Target)
             .ToList();
         return missing.Count == 0 && present.Count == 0 && unrecordedAlerts.Count == 0 ? null : new DeltaMismatch(missing, present, unrecordedAlerts);
@@ -181,11 +200,15 @@ internal static class Anchors
         bool Echoes(RecordedTarget anchor) => changed.Contains(IdentityKey(anchor)) && targets.Contains(IdentityKey(anchor));
         var outcome = entry.Appeared.Concat(entry.Gone).Any(anchor => !Echoes(anchor));
         bool Counted(RecordedTarget anchor) => !outcome || !Echoes(anchor);
-        return entry.Appeared.Any(anchor => Counted(anchor) && !In(anchor, baseline))
-            || entry.Gone.Any(anchor => Counted(anchor) && In(anchor, baseline));
+        return entry.Appeared.Any(anchor => Counted(anchor) && !AppearedIn(anchor, baseline))
+            || entry.Gone.Any(anchor => Counted(anchor) && AnchorIn(anchor, baseline));
     }
 
-    private static List<RecordedTarget> Side(IReadOnlyList<AnchorNode> nodes, IReadOnlyList<AnchorNode> other, Func<AnchorNode, bool> inOther, bool routeMoved)
+    /// <summary>One side of the delta in recording order, not yet capped: all of it, the part that is not volatile, and all but the text that never repeats.</summary>
+    private sealed record DeltaSide(IReadOnlyList<RecordedTarget> All, IReadOnlyList<RecordedTarget> Stable, IReadOnlyList<RecordedTarget> WithCounts);
+
+    /// <summary>The side of the delta <paramref name="nodes"/> holds and <paramref name="other"/> does not (<paramref name="inOther"/>), ordered and not yet capped.</summary>
+    private static DeltaSide Side(IReadOnlyList<AnchorNode> nodes, IReadOnlyList<AnchorNode> other, Func<AnchorNode, bool> inOther, bool routeMoved)
     {
         var otherShapes = other.Select(anchor => CountShape(anchor.Target)).ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -203,29 +226,37 @@ internal static class Anchors
         }
 
         var all = announcements.Concat(leaves).Concat(containers).ToList();
-        var stable = all.Where(anchor => IsAlert(anchor) || !IsVolatile(anchor, count => routeMoved || otherShapes.Contains(CountShape(count)))).ToList();
-        return (stable.Count > 0 ? stable : all).Take(Max).ToList();
+        return new DeltaSide(
+            all,
+            all.Where(anchor => IsAlert(anchor) || !IsVolatile(anchor, count => routeMoved || otherShapes.Contains(CountShape(count))))
+                .ToList(),
+            all.Where(anchor => IsAlert(anchor) || !IsTextVolatile(anchor)).ToList());
     }
 
     /// <summary>
-    /// Whether an anchor's text cannot read the same on the next run; <paramref name="countIsData"/> decides an
+    /// Whether an anchor's text, or a minted test id that is all it has, cannot read the same on the next run; <paramref name="countIsData"/> decides an
     /// anchor holding a count. A bare number is a badge or a tally, <c>11</c> unread, and is volatile when it is
     /// all the anchor has to say; the same digit inside a named control, a status labelled "Counter" that reads
     /// <c>1</c>, is the step's effect and stays.
     /// </summary>
     private static bool IsVolatile(RecordedTarget anchor, Func<RecordedTarget, bool> countIsData)
     {
-        var texts = new[] { anchor.Text, anchor.Name, anchor.Value }.OfType<string>().ToList();
+        return IsTextVolatile(anchor) || (AnchorTexts(anchor).Any(text => CountText.Any(pattern => pattern.IsMatch(text))) && countIsData(anchor));
+    }
+
+    /// <summary>Whether an anchor is a clock, date, minted id or bare number: never a step's result, whatever the other side shows.</summary>
+    private static bool IsTextVolatile(RecordedTarget anchor)
+    {
         var label = anchor.Name ?? anchor.Text;
         var bare = label is not null && BareNumber.IsMatch(label) && anchor.TestId is null
             && (anchor.Name is null || anchor.Text is null || anchor.Name == anchor.Text);
-        if (bare || texts.Any(text => VolatileSpans.Any(pattern => pattern.IsMatch(text))))
-        {
-            return true;
-        }
-
-        return texts.Any(text => CountText.Any(pattern => pattern.IsMatch(text))) && countIsData(anchor);
+        return bare
+            || Relocate.DescriptorTiers(anchor).Any(tier => tier.Kind == DescriptorTierKind.Shape)
+            || AnchorTexts(anchor).Any(text => VolatileSpans.Any(pattern => pattern.IsMatch(text)));
     }
+
+    /// <summary>The texts an anchor can say its text in: its text, name and value.</summary>
+    private static List<string> AnchorTexts(RecordedTarget anchor) => new[] { anchor.Text, anchor.Name, anchor.Value }.OfType<string>().ToList();
 
     /// <summary>An anchor's key with every digit run read as one placeholder: the text a running count keeps while its numbers move.</summary>
     private static string CountShape(RecordedTarget anchor)
@@ -244,53 +275,40 @@ internal static class Anchors
     }
 
     /// <summary>
-    /// Whether some node equals a recorded anchor on every field the anchor recorded (role, name, text, test
-    /// id, placeholder, input purpose), and on its value and states exactly: an empty field is not the field
-    /// filled in, nor an unchecked switch the switch turned on. A test id is forgiven when the other fields
-    /// still identify the node, since some apps mint them per render. An alert is compared by its shape.
+    /// Upstream's <c>anchorIn</c>: whether a recorded anchor is on screen, on every tier but a test id shape
+    /// (<see cref="Relocate.DescriptorTiers"/>): a vanished anchor stays exact, as entries recorded beside siblings of its shape expect.
     /// </summary>
-    private static bool In(RecordedTarget anchor, IReadOnlyList<AnchorNode> nodes)
+    private static bool AnchorIn(RecordedTarget anchor, IReadOnlyList<AnchorNode> nodes) =>
+        AnchorOnTiers(anchor, nodes, tier => tier.Kind != DescriptorTierKind.Shape);
+
+    /// <summary>Upstream's <c>appearedIn</c>: whether an anchor that appeared is on screen, on any tier: a minted test id matches any node of its shape.</summary>
+    private static bool AppearedIn(RecordedTarget anchor, IReadOnlyList<AnchorNode> nodes) =>
+        AnchorOnTiers(anchor, nodes, _ => true);
+
+    /// <summary>
+    /// Upstream's <c>anchorOnTiers</c>: whether some tier of a recorded anchor that <paramref name="tried"/> admits equals some projected node
+    /// on every field the anchor recorded (role, name, text, test id, placeholder, input purpose), and on its value and states exactly: an empty
+    /// field is not the field filled in, nor an unchecked switch the switch turned on. A test id is forgiven when the other fields still identify
+    /// the node, since some apps mint them per render. An alert is compared by its shape.
+    /// </summary>
+    private static bool AnchorOnTiers(RecordedTarget anchor, IReadOnlyList<AnchorNode> nodes, Func<DescriptorTier, bool> tried)
     {
-        return nodes.Any(node => Matches(anchor, node.Target));
+        var states = StatesKey(anchor);
+        Func<RecordedTarget, RecordedTarget> shape = IsAlert(anchor) ? AlertShaped : descriptor => descriptor;
+        return Relocate.DescriptorTiers(anchor).Any(tier =>
+            tried(tier)
+            && nodes.Any(node =>
+                Relocate.TierView(tier, node.Target) is { } view
+                && string.Equals(node.Target.Value, anchor.Value, StringComparison.Ordinal)
+                && StatesKey(node.Target) == states
+                && Relocate.FieldsEqual(shape(tier.Descriptor), shape(view), AnchorFields)));
     }
-
-    private static bool Matches(RecordedTarget anchor, RecordedTarget node)
-    {
-        if (!string.Equals(anchor.Value, node.Value, StringComparison.Ordinal) || StatesKey(anchor) != StatesKey(node))
-        {
-            return false;
-        }
-
-        var recorded = Shape(anchor);
-        var candidate = Shape(node);
-        bool Same(string? field, string? other) => field is null || string.Equals(field, other, StringComparison.Ordinal);
-        var semantic = Same(recorded.Role, candidate.Role) && Same(recorded.Name, candidate.Name) && Same(recorded.Text, candidate.Text)
-            && Same(recorded.Placeholder, candidate.Placeholder) && Same(recorded.InputPurpose, candidate.InputPurpose);
-        return semantic && (Same(recorded.TestId, candidate.TestId) || Identifies(Semantic(anchor)));
-    }
-
-    // Whether the fields other than the test id still tell the node apart.
-    private static bool Identifies(RecordedTarget anchor) => anchor.Name is not null || anchor.Text is not null || anchor.Placeholder is not null;
-
-    private static RecordedTarget Semantic(RecordedTarget anchor) => new()
-    {
-        Role = anchor.Role,
-        Name = anchor.Name,
-        Text = anchor.Text,
-        Placeholder = anchor.Placeholder,
-        InputPurpose = anchor.InputPurpose,
-        Value = anchor.Value,
-        States = anchor.States,
-    };
 
     // An alert with its volatile parts read as placeholders; any other anchor as it is.
-    private static RecordedTarget Shape(RecordedTarget anchor)
-    {
-        if (!IsAlert(anchor))
-        {
-            return anchor;
-        }
+    private static RecordedTarget Shape(RecordedTarget anchor) => IsAlert(anchor) ? AlertShaped(anchor) : anchor;
 
+    private static RecordedTarget AlertShaped(RecordedTarget anchor)
+    {
         return new RecordedTarget
         {
             Role = anchor.Role,
@@ -332,14 +350,15 @@ internal static class Anchors
 
     /// <summary>
     /// A control's key without what a step sets on it, its value and states: the same control before and after.
-    /// It is the anchor's loosest identifying form, without the test id whenever the other fields identify
-    /// the node.
+    /// It is the anchor's loosest identifying tier (<see cref="Relocate.DescriptorTiers"/>) over the anchor fields: without the test id whenever
+    /// the other fields identify the node, and a minted test id read as its shape.
     /// </summary>
     private static string IdentityKey(RecordedTarget anchor)
     {
         var shape = Shape(anchor);
-        var testId = Identifies(shape) ? null : shape.TestId;
-        return string.Join('\n', shape.Role, shape.Name, shape.Text, testId, shape.Placeholder, shape.InputPurpose);
+        var tiers = Relocate.DescriptorTiers(shape);
+        var loosest = tiers.Count == 0 ? shape : tiers[^1].Descriptor;
+        return string.Join('\n', loosest.Role, loosest.Name, loosest.Text, loosest.TestId, loosest.Placeholder, loosest.InputPurpose);
     }
 
     private static string StatesKey(RecordedTarget anchor)

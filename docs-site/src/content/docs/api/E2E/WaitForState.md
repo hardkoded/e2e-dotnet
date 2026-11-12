@@ -1,6 +1,6 @@
 ---
 title: "WaitForState"
-description: "The state CancellationToken) waits for."
+description: "The state WaitForAsync waits for."
 editUrl: false
 prev: false
 next: false
@@ -19,9 +19,9 @@ public enum WaitForState
 ```
 
 
-The state `CancellationToken)` waits for.
+The state `WaitForAsync` waits for.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1033)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ Exactly one match, visible or not.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1039)
-
 <a id="E2E_WaitForState_Detached"></a>
 
 ### Detached
@@ -54,8 +52,6 @@ Detached = 2
 No match, visible or not.
 
 **Value:** [WaitForState](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1042)
 
 <a id="E2E_WaitForState_Hidden"></a>
 
@@ -71,8 +67,6 @@ No visible match.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1045)
-
 <a id="E2E_WaitForState_Visible"></a>
 
 ### Visible
@@ -86,5 +80,3 @@ Visible = 0
 Exactly one visible match.
 
 **Value:** [WaitForState](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1036)

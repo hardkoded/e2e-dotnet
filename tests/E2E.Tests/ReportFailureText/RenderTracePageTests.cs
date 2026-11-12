@@ -5,6 +5,11 @@
 using E2E.Internal;
 using E2E.Tests.Traces;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
+using ArtifactProducer = E2E.Reports.ArtifactProducer;
+using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
+using FailureText = E2E.Reports.FailureText;
+using Outcome = E2E.Reports.Outcome;
+using TracePageOptions = E2E.Reports.TracePageOptions;
 
 namespace E2E.Tests.ReportFailureText;
 
@@ -15,7 +20,8 @@ public sealed class RenderTracePageTests
     {
         var failing = ReportBuilders.Result(id: "r1", titlePath: ["todos", "archives a todo"], file: "tests/todos.e2e.ts", status: ResultStatus.Failed, attempts: attempts);
         var document = new Report1Document(new ReportRun("run-1", "0.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [failing]));
-        return FailureText.RenderTracePage(document, failing, Outcome.Of(failing), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
+        var told = ReportBuilders.Public(document);
+        return FailureText.RenderTracePage(told, told.Run.Results[0], Outcome.Of(told.Run.Results[0]), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
     }
 
     [Fact]
@@ -44,6 +50,36 @@ public sealed class RenderTracePageTests
     }
 
     [Fact]
+    public void Places_a_step_in_the_recording_that_covers_it_the_attempts_video_from_its_start_a_stopped_recording_only_until_its_stop_step_ends()
+    {
+        DateTimeOffset At(int seconds) => new(2026, 10, 27, 10, 0, seconds, TimeSpan.Zero);
+        ReportArtifact Video(string id, string file, DateTimeOffset startedAt, ArtifactProducer producer) =>
+            new(id, "video", "t/" + file, StartedAt: startedAt, Producer: producer);
+        // The report names the step that made an artifact by the artifacts the step lists, so a stopped recording is listed by its stop step.
+        List<string> Offsets(IReadOnlyList<ReportArtifact> artifacts, params string[] madeByStopStep) =>
+        [
+            .. Page(
+                [
+                    Failed(
+                        steps:
+                        [
+                            Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
+                            Step(1, api: "locator.tap", startedAt: At(5), durationMs: 500),
+                            Step(2, api: "app.stopRecording", startedAt: At(8), durationMs: 1000, artifacts: madeByStopStep),
+                            Step(3, api: "locator.tap", status: StepStatus.Failed, error: ReportBuilders.Error(), startedAt: At(12), durationMs: 500),
+                        ],
+                        artifacts: artifacts),
+                ])
+                .Split('\n')
+                .Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d\. "))
+                .Select(line => System.Text.RegularExpressions.Regex.Match(line, @"\((?:[^,)]*)(?:, ([^)]*))?\)").Groups[1].Value),
+        ];
+
+        Assert.Equal(["", "video 0:01", "video 0:04", ""], Offsets([Video("a:0", "recordings/001-span.webm", At(4), new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" })], "a:0"));
+        Assert.Equal(["video 0:00", "video 0:04", "video 0:07", "video 0:11"], Offsets([Video("a:0", "video/video.webm", At(1), new ArtifactProducer { Kind = ArtifactProducerKind.Attempt })]));
+    }
+
+    [Fact]
     public void Quotes_a_step_explanation_that_starts_like_a_heading_as_prose_with_its_linkable_tokens_as_code_through_the_shared_cell()
     {
         var body = Page([Failed(steps: [Step(0, StepKind.Agent, "agent.act", StepStatus.Failed, label: "pay", explanation: "# Blocked\nsee @octocat at https://evil.example/p")])]);
@@ -53,7 +89,6 @@ public sealed class RenderTracePageTests
         Assert.DoesNotMatch(@"[^`]@octocat", body);
     }
 
-    // The footer has no pointer to `report.json`: the port writes none.
     [Fact]
     public void Tells_the_whole_story_the_error_in_full_its_facts_the_line_every_step_the_turns_the_screen_inline_and_the_evidence()
     {
@@ -137,7 +172,7 @@ public sealed class RenderTracePageTests
                 "- screenshot `.e2e/artifacts/t/001-failure.png`",
                 "- screen `.e2e/artifacts/t/screen-at-failure.txt`",
                 "",
-                "<sub>e2e 0.0.0 · run `run-1`</sub>",
+                "<sub>e2e 0.0.0 · run `run-1` · the whole run is in `report.json`</sub>",
                 ""),
             body);
     }

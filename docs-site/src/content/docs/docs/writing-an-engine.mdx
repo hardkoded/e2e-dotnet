@@ -1,0 +1,227 @@
+---
+title: Writing an engine
+description: Implement the e2e engine contract for another UI platform.
+sidebar:
+  label: Writing an engine
+---
+
+This page ports upstream's `docs/writing-an-engine.mdx`. An engine connects `Screen`, `App`, and agent calls to a UI platform through the `E2E.Engine` contract. Write one to test a desktop app, a TV, or another platform. `WebEngine`, `MobileEngine`, and `WinAppEngine` implement the same public `IEngine` and `IEngineSession` and are complete examples.
+
+An engine runs in the test's own process. Upstream's out-of-process engine protocol has no port (see [Not in the port](#not-in-the-port)). A .NET engine is two classes: an `IEngine` that describes it and starts a session, and an `IEngineSession` that drives one attempt. The SPI layer (`EngineManifest.DefineEngine` and `EngineSessions.CreateEngineSession`, upstream's `defineEngine` and `createEngineSession`) is an alternative for an engine written as a set of functions; it checks the spec when it is built and runs the same routing rules as upstream. The test runner still takes an `IEngine`.
+
+Engines drive user interfaces only. For an inbox, a database, or a test API, write an ordinary test fixture of your own.
+
+## The ownership boundary
+
+The test framework adapter and `E2ESession` manage the test and its policy. The engine observes and controls the UI.
+
+| Owner | Concerns |
+| --- | --- |
+| harness | Query and assertion polling, strict single-match checks, step recording, timeouts. Agent planning, prompts, budgets, ledger. Tool authorization, secret resolution, defense-in-depth redaction. Test selection, retries, and hooks belong to NUnit or xUnit v3 |
+| engine | One immediate query, one node read. One node's actionability and input dispatch. Process, page, and device mechanics. Source masking of secure observations |
+
+`LocateAsync` returns the current matches at once, or an empty list. Don't retry queries or reject multiple matches.
+
+## The shape of an engine
+
+`IEngine` describes the engine and `StartAsync` opens one attempt's `IEngineSession`. The session is disposed at the end of the attempt, after `afterEach`.
+
+This skeleton assumes a `HyperdriveClient` adapter for your platform. Its nodes must follow the [semantic tree rules](#nodes-and-refs). A member the skeleton leaves out has a default that throws `EngineException` `UNSUPPORTED_CAPABILITY`.
+
+```csharp title="HyperdriveEngine.cs"
+using E2E;
+using E2E.Engine;
+
+public sealed class HyperdriveEngine(string device, string bundleId) : IEngine
+{
+    public string Name => "hyperdrive";
+
+    public string Platform => "ios";
+
+    public string Version => "1.0.0";
+
+    public EngineCapabilities Capabilities =>
+        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Scroll | EngineCapabilities.PinnedApp;
+
+    public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
+    {
+        // The app under test is an option of this engine: StartAsync is handed the base URL and the permissions, not the target's app.
+        if (string.IsNullOrWhiteSpace(bundleId))
+        {
+            throw new ConfigurationException("INVALID_CONFIG", $"target \"{options.TargetName}\" needs a bundle id");
+        }
+
+        var client = await HyperdriveClient.BootAsync(device, cancellationToken);
+        return new HyperdriveSession(client, bundleId);
+    }
+}
+
+public sealed class HyperdriveSession(HyperdriveClient client, string bundleId) : IEngineSession
+{
+    public string Route => client.Title;
+
+    public IReadOnlyCollection<string> ActionKinds => ["tap", "fill", "swipe", "scrollIntoView"];
+
+    public Task OpenAsync(string url, CancellationToken cancellationToken) => client.RelaunchAsync(bundleId, cancellationToken);
+
+    public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    {
+        var screen = await client.SnapshotAsync(cancellationToken);
+        return new Observation
+        {
+            Route = screen.Title,
+            Roots = screen.Nodes,
+            Viewport = new TraceViewport(screen.Width, screen.Height),
+        };
+    }
+
+    public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => action switch
+    {
+        LocatorAction.Tap => client.TapAsync(node.Ref, cancellationToken),
+        LocatorAction.Fill fill => client.TypeAsync(node.Ref, fill.Value, cancellationToken),
+        LocatorAction.Swipe swipe => client.ScrollAsync(node.Ref, swipe.Direction, cancellationToken),
+        LocatorAction.ScrollIntoView => client.RevealAsync(node.Ref, cancellationToken),
+        _ => throw new EngineException(EngineErrorCodes.UnsupportedCapability, "hyperdrive cannot " + EngineActionKinds.Of(action)),
+    };
+
+    public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => client.ScrollAsync(direction, cancellationToken);
+
+    public Task PressAsync(string key, CancellationToken cancellationToken) => client.PressAsync(key, cancellationToken);
+
+    public Task RestartAsync(CancellationToken cancellationToken) => client.RelaunchAsync(bundleId, cancellationToken);
+
+    public ValueTask DisposeAsync() => client.ShutdownAsync();
+}
+```
+
+Hand the engine to the test by overriding `CreateEngine` on the NUnit or xUnit v3 `E2ETest`:
+
+```csharp
+protected override IEngine CreateEngine() => new HyperdriveEngine("iPhone 16", "com.example.app");
+```
+
+To open a session from your own runner, set `OpenHostOptions.EngineFactory` (see the host guide).
+
+- `Version` is required. The report names it, and a saved session restores only under the version that saved it. The replay cache doesn't key on it; it keys on `Name`, which defaults to `Platform`.
+- Without `CanLocate` (it defaults to `false`), the harness resolves `Screen` queries in core over `ObserveAsync`. Set `CanLocate` and override `LocateAsync` to resolve queries yourself. See [Capabilities](#capabilities).
+- The port's `e2e.config.json` names a platform, not a live engine. The `e2e explore`, `e2e mcp`, and `e2e doctor` commands build `web`, `ios`, `android`, and `windows` targets only. A custom engine reaches a test through `CreateEngine`, and `ExploreOptions.Engine` for `Explore.ExploreAsync`.
+
+## Capabilities
+
+`IEngine.Capabilities` is a `[Flags]` enum that you declare, where upstream computes the set from the members a spec implements. Calls to a missing one fail with `UNSUPPORTED_CAPABILITY`. Start with these:
+
+| Declare | Unlocks |
+| --- | --- |
+| `Observation` + `ObserveAsync` | Agent observations and the replay cache |
+| `Actions` + `PerformAsync` + `ActionKinds` | Node actions of the declared kinds |
+| `Scroll` + `SwipeAsync` | The viewport swipe, `LocatorAction.Swipe`, and `LocatorAction.ScrollIntoView`; the agent's `scroll` and `scroll_to` tools |
+| `CanLocate` + `LocateAsync` | Queries resolved by the engine. Declare `Location` with it; the report lists it |
+| `History` + `BackAsync` | `App.BackAsync()` and the agent's `back` verb |
+| `Resize` + `ResizeAsync` | The agent's `resize_viewport` verb |
+| `Screenshot` + `ScreenshotAsync` | `ToHaveScreenshotAsync` |
+| `Keyboard` + `TypeTextAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target (`PressAsync` is always required) |
+| `State` + `CaptureStateAsync` + `RestoreStateAsync` | Saved sessions |
+| `Video` + `StartVideoAsync` + `StopVideoAsync` | Attempt video and `App.StartRecordingAsync()` |
+
+The keyboard, tap modifiers, uploads, and a pinned app are capabilities too, and pointer actions come from `PointerActionKinds` with `PerformAtAsync`, not from a flag. The [engine reference](/reference/engine/#capabilities) lists every flag and which tool each unlocks.
+
+Agent and locator actions both reach `PerformAsync` as a `LocatorAction`. When one node can't do a declared action, throw `UNSUPPORTED_CAPABILITY`.
+
+`OpenAsync` receives a URL that the harness already resolved against the base URL and checked against the origin policy. After `RestartAsync` or `ClearStateAsync` on a target with an app URL, the harness opens the configured address again through `OpenAsync`. On a target with no URL, `App.OpenAsync()` calls `RestartAsync` when the engine declares `PinnedApp`; so relaunch the app in `RestartAsync` and `ClearStateAsync` if your engine opens no URL.
+
+## Lifecycle
+
+| Hook | When | Use it to |
+| --- | --- | --- |
+| `IPreparableEngine.PrepareAsync` | One time per target, before any worker, in a host that calls it | Install runtimes. The `Env` it returns reaches every start |
+| `StartAsync` | Once per attempt, within the launch timeout | Boot devices and create the test's UI. Upstream's `init` and `startAttempt` together |
+| `SettleAttemptAsync` | After the body, and again after teardown | Throw the error of a callback no step awaited, such as a dialog handler |
+| `DisposeAsync` | After each attempt, within the cleanup timeout | Clean up the test's UI and release the session's resources. Upstream's `endAttempt` and `dispose` together. Make it idempotent, and safe after a failed start |
+| `IPreparableEngine.FinishAsync` | One time per target, after the last worker is gone, whenever prepare ran | Release what prepare acquired |
+
+Use `EngineStartOptions.Env` for the processes you start. `EnginePrepareInfo.Log` reports progress. The [engine reference](/reference/engine/#lifecycle) has each hook's arguments and budgets.
+
+## Nodes and refs
+
+`ObserveAsync` returns a `SemanticNode` tree under `Observation.Roots`, and `LocateAsync` returns matching nodes. Give each node a `Ref` that stays unique for the UI's lifetime. The harness stamps `Observation.Revision` and checks staleness.
+
+- The viewport swipe is `SwipeAsync`, which needs no ref. The agent's `scroll` and `Screen.SwipeAsync(SwipeOptions)` call it. A swipe on a node is `LocatorAction.Swipe` through `PerformAsync` and scrolls inside that node.
+- When `PerformAsync` receives a node, look up its `Ref`. Throw `NODE_STALE` when the node no longer exists.
+- When a match leaves the UI while `LocateAsync` reads it, throw a retryable `NODE_STALE`. Never return a node read from what is gone: a removed element has no size, so `ToBeHiddenAsync` would pass while its replacement is on screen. The harness resolves again within the caller's deadline.
+- Limit the snapshot size if the platform can return an unbounded tree, and set `Observation.Truncated` when the limit cuts off nodes.
+- Use the platform's accessible names for nodes.
+- Put test identifiers in `TestId`: a document attribute, an iOS accessibility identifier, an Android resource id, or a desktop automation id. The test id query matches only that field.
+
+An observation's `Route`, such as a URL path or a screen title, goes to the model and the report, and anchors replay cache entries. It is a string without the origin.
+
+## Keyboard
+
+Declare `Keyboard` and override `TypeTextAsync` to type into a control after the agent focuses it. `TypeTextAsync` must go through the platform's keyboard path, so the app gets the key events a person's typing makes: `keydown`, `keypress`, `input`, and `keyup` per character in a browser, the device keyboard on a device. Setting the value without keystrokes doesn't comply.
+
+- Throw `NOT_ACTIONABLE` when no editable control has focus.
+- Leave `CanDismissKeyboard` at `false` on platforms without an on-screen keyboard.
+- `Locator.PressSequentiallyAsync` has no action of its own: the harness focuses the node with a `Focus` action, then types through `TypeTextAsync`, in one call for the whole text or one call per code point with a `Delay`. Keep `focus` in `ActionKinds` and declare `Keyboard`; an engine with neither is refused with `UNSUPPORTED_CAPABILITY` before any node resolves. The typing never retries, because a keystroke may already have landed.
+
+`PressAsync` receives a key such as `Enter` or `ControlOrMeta+a`. The harness rejects keys outside the grammar with `INVALID_ARGUMENT` before the engine sees them (`Locator.PressAsync` checks before it resolves the node, and the agent's `press` checks in its dispatcher). Map valid keys to your platform, and throw `UNSUPPORTED_CAPABILITY` for keys it can't send. See the [key grammar](/reference/engine/#keys).
+
+## Vision-only surfaces
+
+For a UI without a semantic tree, return an observation with `Roots` empty and `Pixels` from `ObserveAsync(ObserveOptions, ...)`. Implement `PerformAtAsync` and declare its kinds in `PointerActionKinds`.
+
+The agent acts through tools such as `tap_at`, and the harness passes the point to `PerformAtAsync`. Coordinate actions replay only at the recorded viewport size.
+
+The port's `Observation.TreeUnavailable` is the signal for a pixel-only observation that replaced a failed semantic read; see [Observation](/reference/engine/#observation).
+
+## Handle secrets
+
+A secret fill reaches the engine as `LocatorAction.Fill` with `Sensitive: true`, with no separate capability flag. For an agent's `type_secret`, the harness has already checked the credential, the observation, and the field. A test's `FillAsync(secret)` skips these checks. Handle the fill securely, or throw `UNSUPPORTED_CAPABILITY`. Screenshots after it still go to the model, with secure fields masked.
+
+An engine option that takes a secret, such as a password the engine sends to the app, is not in the port: `EngineStartOptions.ResolveSecret` and `ResolveSecretOptions.Derived` exist, but both are `internal`, and `IEngine` has no `Secrets` list. An engine outside the `E2E` assembly cannot resolve a secret or register a derived form for redaction. See [Not in the port](#not-in-the-port).
+
+## State is a credential
+
+A `CaptureStateAsync` snapshot can hold cookies and tokens. The harness binds it to the run, target, engine, and app, and the session store holds it for the run. Don't persist, cache, or log snapshots, or put them in errors. `RestoreStateAsync` must replace the app's whole persisted state, not merge into it.
+
+## Errors
+
+Throw `EngineException` with a code from `EngineErrorCodes`; see the [engine reference](/reference/engine/#errors).
+
+- Only `NODE_STALE` and `FRAME_NOT_FOUND` can be retryable. `new EngineException(code, message, retryable: true)` for any other code becomes a non-retryable `ENGINE_FAILURE`.
+- Use `ACTION_MAY_HAVE_COMMITTED` when an action may already have taken effect, so the harness doesn't repeat it.
+- `INVALID_STATE` becomes `APP_NOT_OPEN`, and `UNSUPPORTED_CAPABILITY` is a configuration error.
+- Unknown errors become infrastructure failures.
+
+## Contributed fixtures
+
+Upstream lets an engine contribute fixtures such as `browser` or `device` through `fixtures` and wrap their methods with `context.fixture`. The port's contract has a smaller seam. A session that implements `IEngineFixtureHost` is handed an `EngineFixtureContext` once per attempt, and the context mints locators with `Locator(LocatorExpression)`. The first-party device and window fixtures are built this way. The step recording a fixture's methods use (`RunOperationAsync`) is `internal`, so an engine outside the `E2E` assembly cannot declare recorded operations, `Expectable`, or `requires`. See [Not in the port](#not-in-the-port).
+
+## Ship a tool pack
+
+For platform operations the action set lacks, ship tools the way `MobileTools` and `WinAppTools` do. The tool pack API those use is not yet a public extension point; see the agent guide for custom executors.
+
+## Check the target's app
+
+`ValidateApp` runs once per target at config load, before any session starts. Refuse a field the platform needs and the target left out, or one it cannot drive, with `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName`. See [ValidateApp](/reference/engine/#validateapp).
+
+## Verify it
+
+Run a test class against your engine. Check the lifecycle order, observations, actions, errors, and unsupported capabilities. Upstream's `engine-contract.test.ts` has the checks to copy; the port's session-level ports of it are tracked in [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185).
+
+## Not in the port
+
+| Upstream | In the port |
+| --- | --- |
+| `defineEngine`, `EngineHandle`, `engine.capabilities` | Ported as `EngineManifest.DefineEngine`, `EngineHandle`, and the computed `Capabilities` set. `IEngine.Capabilities` remains a flags enum you declare, and the test runner does not run a `DefineEngine` handle. |
+| The `e2e/engine` import path and the `e2e` peer dependency | `E2E.Engine` types in the `E2E` package. |
+| `prepare`/`init`/`startAttempt` as three hooks, `endAttempt`/`dispose` as two | `StartAsync` and `DisposeAsync` do the work of each pair. |
+| `workers`, per-hook `signal` and `timeoutMs`, a scheduler's grant of `reuseSignal` | Not in the port: there is no worker pool, so no scheduler grants a reuse signal. The port's name for the signal is `EngineDisposeContext.ReuseSignal`, and the mobile engine honors it through `IDisposableEngine`. The harness bounds a start by the launch timeout and a dispose by the cleanup timeout. |
+| `context.resolveSecret` | `EngineStartOptions.ResolveSecret` is `internal`. It resolves only a secret the engine lists in `Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
+| `fixtures`, `context.fixture`, `expectable`, `requires: ['<name>']` | Not public. [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) tracks contributed fixtures and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185) the `requires` its. |
+| `observe(context, options)` `signal` on every call | Every call takes a `CancellationToken`. |
+| Engine servers (`serveEngine`, `connectEngine`, the engine protocol) | Not in the port: [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
+| Project tools with `platforms` | Not a public extension point. |
+
+## Next
+
+- [Engine contract](/reference/engine/): every type and hook of `E2E.Engine`.
+- [Mobile guide](/get-started/mobile/): a complete device engine to read alongside.

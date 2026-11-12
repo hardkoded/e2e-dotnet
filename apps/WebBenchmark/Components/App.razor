@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>e2e Web Benchmark</title>
+    <meta name="description" content="Hard web surfaces to write e2e tests against" />
+    <base href="/" />
+    @* Upstream's app/src/app/globals.css. *@
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #111;
+            background: #fff;
+        }
+        button, input, select, textarea { font: inherit; }
+    </style>
+</head>
+<body>
+    <Routes />
+    @* Where a scenario's portal content lands (upstream's createPortal(..., document.body)); mounted only on the page of a scenario marked IUsesPortal. *@
+    @if (UsesPortal)
+    {
+        <PortalHost @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    }
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private bool UsesPortal =>
+        HttpContext is { } context && context.Request.Path.StartsWithSegments("/e", out var slug)
+        && ExamplesCatalog.Find(slug.Value?.Trim('/') ?? "")?.Component is { } component
+        && typeof(IUsesPortal).IsAssignableFrom(component);
+}

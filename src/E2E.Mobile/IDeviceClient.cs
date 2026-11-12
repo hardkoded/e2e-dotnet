@@ -17,6 +17,14 @@ public interface IDeviceClient
     Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Marks a client that sequences its own steps and stops them when its token is cancelled (a DevFlow boot reads the agent's status, then
+/// claims the lease). The session does not detach such a client from the caller's cancellation, so a cancel cannot be followed by a step
+/// that outlives the cleanup. Only a client of a daemon that keeps running a command after the request ends is detached.
+/// .NET-only: upstream's client takes no token.
+/// </summary>
+public interface ICancellableDeviceClient : IDeviceClient;
+
 /// <summary>Mints the client for one session, with the daemon and configuration a lease supplied, else against the local daemon.</summary>
 public delegate IDeviceClient DeviceClientFactory(string session, DeviceConnection? connection);
 
@@ -27,11 +35,14 @@ public static class DeviceMethods
     public const string DevicesBoot = "devices.boot";
     public const string RecordingRecord = "recording.record";
     public const string CommandPrepare = "command.prepare";
+    public const string CommandDoctor = "command.doctor";
     public const string CommandBack = "command.back";
     public const string AppsOpen = "apps.open";
     public const string AppsClose = "apps.close";
     public const string AppsInstall = "apps.install";
     public const string AppsReinstall = "apps.reinstall";
+    public const string AppsUninstall = "apps.uninstall";
+    public const string AppsList = "apps.list";
     public const string SessionsList = "sessions.list";
     public const string SessionsClose = "sessions.close";
     public const string SettingsUpdate = "settings.update";
@@ -48,6 +59,7 @@ public static class DeviceMethods
     public const string InteractionsDrag = "interactions.drag";
     public const string CommandKeyboard = "command.keyboard";
     public const string CommandAlert = "command.alert";
+    public const string CommandHardwareButton = "command.hardwareButton";
     public const string CommandHome = "command.home";
     public const string CommandOrientation = "command.orientation";
     public const string CommandFold = "command.fold";

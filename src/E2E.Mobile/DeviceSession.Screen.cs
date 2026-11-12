@@ -8,18 +8,23 @@ using E2E.Engine;
 
 namespace E2E.Mobile;
 
-/// <summary>Who acts through a <see cref="DeviceSession"/>: it decides whether an action settles, and whether it waits out a transition.</summary>
+/// <summary>Who acts through a <see cref="DeviceSession"/>. Replaced by the <see cref="OperationContext"/> every action carries.</summary>
+[Obsolete("Every action now carries an OperationContext; the session no longer has an origin of its own. Removed in the next release.")]
 public enum ActionOrigin
 {
-    /// <summary>A test's own step. It verifies its outcome with <c>expect</c>, so it never waits for the screen to settle afterwards. It only lets a control that came with the last action finish arriving.</summary>
+    /// <summary>A test's own step.</summary>
     Test,
 
-    /// <summary>The agent. It reads the screen right after acting, so its actions settle first.</summary>
+    /// <summary>The agent.</summary>
     Agent,
 }
 
-/// <summary>Action data only: a bound node never retains a projected snapshot through parent links.</summary>
-internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States);
+/// <summary>
+/// Action data only: a bound node never retains a projected snapshot through parent links. <c>RefsGeneration</c> is the
+/// capture <c>Ref</c> and <c>ControlRef</c> came from, pinned on every action so agent-device refuses them once a newer capture supersedes it.
+/// <c>TakesText</c> is whether <c>fill</c> and <c>clear</c> may type into the node, judged with the children <c>Node</c> leaves out.
+/// </summary>
+internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States, long? RefsGeneration, bool TakesText, bool KeyboardVisible);
 
 public sealed partial class DeviceSession
 {
@@ -46,16 +51,31 @@ public sealed partial class DeviceSession
 
     /// <summary>Locators of one test may resolve at once, and an action reads the map while a locate fills it.</summary>
     private readonly Lock _locatedLock = new();
-    private IReadOnlyList<ProjectedNode>? _latestIndex;
 
-    /// <summary>The screen as last projected before the last action, to tell controls that were already there from ones that came with it.</summary>
-    private IReadOnlyList<ProjectedNode>? _indexBeforeAction;
+    /// <summary>The newest projected screen, whose capture generation the refs of an action must come from.</summary>
+    private ProjectedSnapshot? _latestScreen;
+
+    /// <summary>The screen as last projected before the last action, with its keyboard state, to tell controls that were already there from ones that came with it.</summary>
+    private ProjectedSnapshot? _screenBeforeAction;
 
     /// <summary>When this session last acted on the device (an input or an app launch). The screen may be in transition for a while after.</summary>
     private DateTimeOffset _lastActionAt = DateTimeOffset.MinValue;
 
+    /// <summary>When a test's swipe or scroll last went out without agent-device's stabilization wait; <see cref="DateTimeOffset.MinValue"/> when nothing is pending.</summary>
+    private DateTimeOffset _skippedStabilizationAt = DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// How long after a test's swipe or scroll skipped agent-device's stabilization wait the next action on a control
+    /// first confirms the control stopped moving. A list still coasting swallows a tap to stop itself, so the press
+    /// would report success and change nothing. Upstream's <c>GESTURE_STEADY_MS</c>.
+    /// </summary>
+    private static readonly TimeSpan GestureSteady = TimeSpan.FromSeconds(2);
+
+    /// <summary>Pause between the reads that confirm a control stopped moving after a gesture. Upstream's <c>GESTURE_STEADY_POLL_MS</c>.</summary>
+    private static readonly TimeSpan GestureSteadyPoll = TimeSpan.FromMilliseconds(100);
+
     /// <summary>The screen as the last look projected it. An action records it as the screen before the action.</summary>
-    internal IReadOnlyList<ProjectedNode>? LatestIndex => _latestIndex;
+    internal ProjectedSnapshot? LatestScreen => _latestScreen;
 
     /// <summary>What agent-device is told about settling after an action: the quiet window, or nothing when <c>Settle</c> is off.</summary>
     internal JsonObject SettleArgs() =>
@@ -63,8 +83,8 @@ public sealed partial class DeviceSession
             ? DeviceArgs.Of(("settle", JsonValue.Create(true)), ("settleQuietMs", JsonValue.Create(Options.SettleMilliseconds)))
             : new JsonObject();
 
-    /// <summary>The settle wait one action of this session carries: a test's step carries none.</summary>
-    internal JsonObject ActionSettle() => Origin == ActionOrigin.Test ? new JsonObject() : SettleArgs();
+    /// <summary>The settle wait one action carries: a test's step carries none.</summary>
+    internal JsonObject ActionSettle(OperationContext context) => context.Origin == OperationOrigin.Test ? new JsonObject() : SettleArgs();
 
     /// <summary>
     /// Runs a fixture command that changes the screen (a back, the home screen, a dismissed alert or keyboard, a
@@ -74,7 +94,7 @@ public sealed partial class DeviceSession
     /// </summary>
     internal async Task<T> ScreenCommandAsync<T>(string label, Func<IDeviceClient, CancellationToken, Task<T>> run, CancellationToken cancellationToken)
     {
-        var before = _latestIndex;
+        var before = _latestScreen;
         var result = await CommandAsync(label, run, cancellationToken).ConfigureAwait(false);
         MarkAction(before);
         return result;
@@ -84,9 +104,9 @@ public sealed partial class DeviceSession
     /// Records an action the device received: the screen as it was projected before it, and when it returned. The
     /// transition budget counts from the return, since the input lands late in the command's own round trip.
     /// </summary>
-    internal void MarkAction(IReadOnlyList<ProjectedNode>? before)
+    internal void MarkAction(ProjectedSnapshot? before)
     {
-        _indexBeforeAction = before;
+        _screenBeforeAction = before;
         _lastActionAt = _engine.Clock.GetUtcNow();
     }
 
@@ -117,7 +137,7 @@ public sealed partial class DeviceSession
     public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        var raw = await LocateSnapshotAsync(timeout, cancellationToken).ConfigureAwait(false);
+        var raw = await LocateSnapshotAsync(InputBudget("locate", timeout), cancellationToken).ConfigureAwait(false);
         if (raw is null)
         {
             return [];
@@ -130,7 +150,7 @@ public sealed partial class DeviceSession
         {
             foreach (var entry in matches)
             {
-                _located[entry.Id] = Bind(entry, projected.Index);
+                _located[entry.Id] = Bind(entry, projected);
             }
 
             while (_located.Count > MaxLocatedRefs)
@@ -145,17 +165,18 @@ public sealed partial class DeviceSession
     /// <summary>
     /// Snapshot for a locate; null for a screen agent-device could not read yet (an app still on its splash, or one iOS does not
     /// report running yet after a launch). The harness polls a locate until its deadline, so that screen matches nothing and the
-    /// poll waits for it to render. A capture that leaves no budget for another poll fails with the reason instead, so a wait that
-    /// ends on an unreadable screen says so.
+    /// poll waits for it to render. When what is left of the budget cannot fit another capture as long as this one, the locate fails
+    /// with the reason instead: the budget bounds every capture, so an unreadable one never outlasts it, and the wait that ends on
+    /// an unreadable screen says so.
     /// </summary>
-    private async Task<RawSnapshot?> LocateSnapshotAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<RawSnapshot?> LocateSnapshotAsync(InputBudget budget, CancellationToken cancellationToken)
     {
         var started = _engine.Clock.GetUtcNow();
         try
         {
-            return await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false);
+            return await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && (DeviceErrors.IsUnreadableCapture(cause) || (_launching && DeviceErrors.IsAppNotRunning(cause))) && _engine.Clock.GetUtcNow() - started < timeout)
+        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && (DeviceErrors.IsUnreadableCapture(cause) || (_launching && DeviceErrors.IsAppNotRunning(cause))) && budget.Remaining >= _engine.Clock.GetUtcNow() - started)
         {
             return null;
         }
@@ -215,7 +236,7 @@ public sealed partial class DeviceSession
         var reference = control ? entry.ControlRef : entry.Ref;
         return reference.Length == 0
             ? throw DeviceSupport.NotActionable($"node {entry.Id} has no agent-device ref to act on")
-            : ("ref", JsonValue.Create("@" + reference));
+            : ("ref", JsonValue.Create(entry.RefsGeneration is { } generation ? $"@{reference}~s{generation}" : "@" + reference));
     }
 
     /// <summary>
@@ -269,8 +290,25 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>Copies the fields actions use and pre-resolves a toggle's inner control.</summary>
-    private static NodeBinding Bind(ProjectedNode entry, IReadOnlyList<ProjectedNode> snapshot) =>
-        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot).Ref, entry.States);
+    private static NodeBinding Bind(ProjectedNode entry, ProjectedSnapshot snapshot) =>
+        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot.Index).Ref, entry.States, snapshot.RefsGeneration, SnapshotProjection.MayTakeText(entry.Node), snapshot.KeyboardVisible);
+
+    /// <summary>The same control in the newest capture: the binding itself when it came from that capture, else found there again where it was.</summary>
+    internal NodeBinding Current(NodeBinding entry)
+    {
+        if (_latestScreen is not { } latest || entry.RefsGeneration == latest.RefsGeneration)
+        {
+            return entry;
+        }
+
+        return SamePlace(entry, latest.Index) is { } found
+            ? Bind(found, latest)
+            : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed since it was located; re-resolve", retryable: true);
+    }
+
+    /// <summary>The node a binding stands for in a snapshot, when it is still where it was.</summary>
+    private static ProjectedNode? SamePlace(NodeBinding entry, IReadOnlyList<ProjectedNode> index) =>
+        Refind(entry, index) is { } found && SameRect(found.Node.Rect, entry.Node.Rect) ? found : null;
 
     /// <summary>The node a binding stands for, in a fresh snapshot: same role, test id, name, and text, and of those the one closest to where it was.</summary>
     private static ProjectedNode? Refind(NodeBinding entry, IReadOnlyList<ProjectedNode> index)
@@ -319,51 +357,187 @@ public sealed partial class DeviceSession
     /// <summary>
     /// Lets a control that came with the last action finish arriving before a test acts on it, and answers the
     /// binding to act on. A control already present at the same place in the snapshot the last action was resolved
-    /// from is not in transition and is acted on at once. Anything else waits out the remainder of the transition
-    /// budget since that action and is then found again in a fresh snapshot. The budget is the only signal that the
+    /// from is acted on at once only when keyboard state also stayed the same: a keyboard change can precede the app's
+    /// relayout. Anything else waits out the remainder of the transition budget since that action and is then found
+    /// again in a fresh snapshot. The budget is the only signal that the
     /// transition is over, since the tree cannot tell a sliding control from a landed one. The fresh snapshot is where
     /// the control landed: Android reports a window's frames while it slides in, so a ref resolved mid-flight would
-    /// send the action where the control was.
+    /// send the action where the control was. When the input's budget cannot cover the rest of the transition, it throws
+    /// <c>OPERATION_TIMEOUT</c> and sends nothing.
     /// </summary>
-    internal async Task<NodeBinding> SettledAsync(NodeBinding entry, CancellationToken cancellationToken)
+    internal async Task<NodeBinding> SettledAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken) =>
+        await WaitForTransitionAsync(entry, input, cancellationToken).ConfigureAwait(false)
+            ? await RelocatedAsync(entry, input, cancellationToken).ConfigureAwait(false)
+            : entry;
+
+    /// <summary>
+    /// The stabilization wait a gesture carries: none for a test's own step (<c>postGestureStabilization: false</c>),
+    /// agent-device's default for the agent. A test's <c>expect</c> polls the screen itself, and agent-device otherwise
+    /// waits up to 3.5 s for a swipe that left the tree unchanged. Upstream's <c>gestureStabilization</c>.
+    /// </summary>
+    internal static JsonObject GestureStabilization(OperationContext context) =>
+        context.Origin == OperationOrigin.Test ? DeviceArgs.Of(("postGestureStabilization", JsonValue.Create(false))) : new JsonObject();
+
+    /// <summary>Records that a test's gesture skipped the stabilization wait, so the next action on a control checks it stopped moving. Upstream's <c>noteGesture</c>.</summary>
+    internal void NoteGesture(OperationContext context)
+    {
+        if (context.Origin == OperationOrigin.Test)
+        {
+            _skippedStabilizationAt = _engine.Clock.GetUtcNow();
+        }
+    }
+
+    /// <summary>
+    /// After a gesture that skipped the stabilization wait, re-reads the control until two reads agree on where it is,
+    /// so an action does not land on a list still coasting. Costs one extra snapshot when the screen already rests, and
+    /// nothing once two seconds have passed. An input action keeps the checks <see cref="RelocatedAsync"/> makes on
+    /// every read, and the poll never outlasts the action's budget. Upstream's <c>steadied</c>.
+    /// </summary>
+    internal async Task<NodeBinding> SteadiedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken, bool forInput = false)
+    {
+        if (_skippedStabilizationAt == DateTimeOffset.MinValue)
+        {
+            return entry;
+        }
+
+        var deadline = _skippedStabilizationAt + GestureSteady;
+        if (_engine.Clock.GetUtcNow() >= deadline)
+        {
+            return entry;
+        }
+
+        var current = entry;
+        while (true)
+        {
+            var next = await RelocatedAsync(current, input, cancellationToken, forInput).ConfigureAwait(false);
+            var steady = SameBounds(current.Node.Rect, next.Node.Rect);
+            current = next;
+            if (steady || _engine.Clock.GetUtcNow() >= deadline)
+            {
+                break;
+            }
+
+            if (input.Remaining <= GestureSteadyPoll)
+            {
+                throw new EngineException(EngineErrorCodes.OperationTimeout, "the control kept moving until the action budget ran out", retryable: false);
+            }
+
+            try
+            {
+                await _engine.Delay(GestureSteadyPoll, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw DeviceSupport.Cancelled("gesture wait cancelled");
+            }
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw DeviceSupport.Cancelled("gesture wait cancelled");
+            }
+        }
+
+        _skippedStabilizationAt = DateTimeOffset.MinValue;
+        return current;
+    }
+
+    /// <summary>True when two bounds are the same; a control without bounds has nothing to compare, so it counts as unmoved. Upstream's <c>sameBounds</c>.</summary>
+    private static bool SameBounds(BoundingBox? a, BoundingBox? b) =>
+        a is null || b is null || (a.X == b.X && a.Y == b.Y && a.Width == b.Width && a.Height == b.Height);
+
+    /// <summary>
+    /// Waits out the remainder of the transition budget when the control came with the last action. True when it waited,
+    /// so the binding may be stale; false when the control was already in place. It throws <c>OPERATION_TIMEOUT</c> when the
+    /// input's budget cannot cover the rest of the transition, and sends nothing in that case.
+    /// </summary>
+    internal async Task<bool> WaitForTransitionAsync(NodeBinding entry, InputBudget? input, CancellationToken cancellationToken)
     {
         var since = _engine.Clock.GetUtcNow() - _lastActionAt;
         var remaining = TimeSpan.FromMilliseconds(Options.TransitionMilliseconds) - since;
         if (remaining <= TimeSpan.Zero)
         {
-            return entry;
+            return false;
         }
 
-        if (_indexBeforeAction is { } before && Refind(entry, before) is { } prior && SameRect(prior.Node.Rect, entry.Node.Rect))
+        if (_screenBeforeAction is { } before && before.KeyboardVisible == entry.KeyboardVisible && SamePlace(entry, before.Index) is not null)
         {
-            return entry;
+            return false;
         }
 
-        try
-        {
-            await _engine.Delay(remaining, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw DeviceSupport.Cancelled("transition wait cancelled");
-        }
+        await WaitOutTransitionAsync(input, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
 
-        // The wait resolves on cancellation. The action behind it must not go out once the caller has already been told
-        // the operation was cancelled.
+    /// <summary>
+    /// Waits out the remainder of the transition budget without outlasting the input's own budget. When the input's budget
+    /// cannot cover the rest of the transition, it throws <c>OPERATION_TIMEOUT</c> rather than sending an input the
+    /// transition has not finished for. Upstream's <c>waitOutTransition</c>.
+    /// </summary>
+    internal async Task WaitOutTransitionAsync(InputBudget? input, CancellationToken cancellationToken)
+    {
+        // The wait resolves on cancellation, and the clock can move before a cancelled wait is noticed. Nothing waits and
+        // nothing goes out once the caller has already been told the operation was cancelled.
         if (cancellationToken.IsCancellationRequested)
         {
             throw DeviceSupport.Cancelled("transition wait cancelled");
         }
 
-        return await RelocatedAsync(entry, cancellationToken).ConfigureAwait(false);
+        var since = _engine.Clock.GetUtcNow() - _lastActionAt;
+        var remaining = TimeSpan.FromMilliseconds(Options.TransitionMilliseconds) - since;
+        if (remaining <= TimeSpan.Zero)
+        {
+            return;
+        }
+
+        var available = input?.Remaining ?? remaining;
+        if (available > TimeSpan.Zero)
+        {
+            try
+            {
+                await _engine.Delay(available < remaining ? available : remaining, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw DeviceSupport.Cancelled("transition wait cancelled");
+            }
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw DeviceSupport.Cancelled("transition wait cancelled");
+        }
+
+        // A wait the budget capped leaves the transition unfinished, so the input it was for is not sent.
+        if (available < remaining)
+        {
+            throw new EngineException(EngineErrorCodes.OperationTimeout, "transition could not finish within the action budget", retryable: false);
+        }
     }
 
-    /// <summary>The same control in a fresh snapshot. The binding as it was when the snapshot no longer lists it.</summary>
-    private async Task<NodeBinding> RelocatedAsync(NodeBinding entry, CancellationToken cancellationToken)
+    /// <summary>
+    /// The same control in a fresh snapshot. A snapshot that no longer lists it is a retryable <c>NODE_STALE</c>, so the locator resolves again.
+    /// An input mutation (<paramref name="forInput"/>) also refuses an incomplete capture and changed security facts, so the field is observed and authorized again.
+    /// </summary>
+    internal async Task<NodeBinding> RelocatedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken, bool forInput = false)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
-        return Refind(entry, projected.Index) is { } found ? Bind(found, projected.Index) : entry;
+        var raw = await SnapshotOrEmptyAsync(false, input, cancellationToken).ConfigureAwait(false);
+        var projected = Project(raw);
+        var found = Refind(entry, projected.Index);
+        if (forInput && (raw.Truncated || raw.Sparse || found is null || SecurityFactsChanged(entry.Node, found.Node)))
+        {
+            throw new EngineException(EngineErrorCodes.NodeStale, $"input node {entry.Id} changed before mutation; observe and authorize it again", retryable: true);
+        }
+
+        return found is not null
+            ? Bind(found, projected)
+            : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed during transition; re-resolve", retryable: true);
     }
+
+    private static bool SecurityFactsChanged(SemanticNode was, SemanticNode now) =>
+        was.InputPurpose != now.InputPurpose
+        || was.States.Disabled != now.States.Disabled
+        || was.States.Secure != now.States.Secure
+        || was.States.Hidden != now.States.Hidden;
 
     /// <summary>
     /// Runs one action's device command, abandoned when the caller's token fires. A ref agent-device refuses as stale
@@ -418,15 +592,15 @@ public sealed partial class DeviceSession
     /// about the screen it never makes on a caller's behalf. The engine makes that guess, the way a user does and
     /// Maestro's <c>hideKeyboard</c> does, in <see cref="DismissKeyboardByGestureAsync"/>.
     /// </summary>
-    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, input: null);
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("device.dismissKeyboard"));
 
     /// <summary>
-    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget, or directly with none: the
-    /// <c>device.dismissKeyboard</c> fixture has no budget. Upstream's <c>dismissKeyboard(signal, input?)</c>.
+    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget: the
+    /// <c>device.dismissKeyboard</c> fixture gets one of its own. Upstream's <c>dismissKeyboard(signal, input?)</c>.
     /// </summary>
-    internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget? input)
+    internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget input)
     {
-        var before = _latestIndex;
+        var before = _latestScreen;
         try
         {
             await CommandAsync(
@@ -456,9 +630,9 @@ public sealed partial class DeviceSession
     /// drags fails naming what does work. Each look is the observation's own capture, sparse-tree retries included: a
     /// one-node tree has no keys and would pass for a dismissed keyboard.
     /// </summary>
-    private async Task DismissKeyboardByGestureAsync(InputBudget? input, CancellationToken cancellationToken)
+    private async Task DismissKeyboardByGestureAsync(InputBudget input, CancellationToken cancellationToken)
     {
-        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, cancellationToken).ConfigureAwait(false), input, cancellationToken).ConfigureAwait(false);
+        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false), input, cancellationToken).ConfigureAwait(false);
         if (!KeyboardShowing(raw))
         {
             return;
@@ -467,7 +641,7 @@ public sealed partial class DeviceSession
         foreach (var horizontal in new[] { true, false })
         {
             var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
-            var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
+            var viewport = await ViewportForAsync(projected, input, cancellationToken).ConfigureAwait(false);
             var from = Keyboard.KeyboardDragStart(projected, viewport, KeyboardTop(raw, viewport))
                 ?? throw new EngineException(
                     EngineErrorCodes.UnsupportedCapability,
@@ -480,7 +654,7 @@ public sealed partial class DeviceSession
                 "keyboard.dismiss",
                 (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", PointNode(from)), ("to", PointNode(to))), token), token),
                 cancellationToken).ConfigureAwait(false);
-            raw = await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
+            raw = await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
             if (!KeyboardShowing(raw))
             {
                 return;
@@ -498,7 +672,7 @@ public sealed partial class DeviceSession
     /// button is the only way past it, and Maestro's <c>hideKeyboard</c> presses it too. Answers the capture after the
     /// press, or the one given when no tip is showing.
     /// </summary>
-    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, InputBudget? input, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, InputBudget input, CancellationToken cancellationToken)
     {
         var tip = raw.Nodes.FirstOrDefault(node => (node.Label ?? node.Value ?? "").StartsWith("Speed up your typing", StringComparison.Ordinal));
         if (tip?.Rect is not { } tipRect)
@@ -517,7 +691,7 @@ public sealed partial class DeviceSession
             "keyboard.dismiss",
             (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y))), token), token),
             cancellationToken).ConfigureAwait(false);
-        return await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
+        return await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
     }
 
     internal static JsonObject PointNode(Point point) => new() { ["x"] = point.X, ["y"] = point.Y };
@@ -528,43 +702,45 @@ public sealed partial class DeviceSession
     /// One screenshot into a temp directory that is removed once <paramref name="read"/> has taken what it needs from
     /// the response or the file, even when the caller abandons the capture.
     /// </summary>
-    private Task<T> CaptureScreenshotAsync<T>(Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, CancellationToken cancellationToken) =>
-        CommandAsync(
-            "screenshot",
-            async (client, token) =>
-            {
-                var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
-                try
+    private Task<T> CaptureScreenshotAsync<T>(Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, InputBudget budget, CancellationToken cancellationToken) =>
+        budget.ReadAsync(
+            () => CommandAsync(
+                "screenshot",
+                async (client, token) =>
                 {
-                    var file = Path.Combine(directory.FullName, "screenshot.png");
-                    var shot = await client.CallAsync(
-                        DeviceMethods.CaptureScreenshot,
-                        DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
-                        token).ConfigureAwait(false);
-                    return await read(
-                        new RawScreenshotResult
-                        {
-                            Path = Text(shot?["path"]),
-                            Width = Number(shot?["width"]),
-                            Height = Number(shot?["height"]),
-                            LogicalWidth = Number(shot?["logicalWidth"]),
-                            LogicalHeight = Number(shot?["logicalHeight"]),
-                            PixelDensity = Number(shot?["pixelDensity"]),
-                        },
-                        file).ConfigureAwait(false);
-                }
-                finally
-                {
+                    var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
                     try
                     {
-                        directory.Delete(recursive: true);
+                        var file = Path.Combine(directory.FullName, "screenshot.png");
+                        var shot = await client.CallAsync(
+                            DeviceMethods.CaptureScreenshot,
+                            DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
+                            token).ConfigureAwait(false);
+                        return await read(
+                            new RawScreenshotResult
+                            {
+                                Path = Text(shot?["path"]),
+                                Width = Number(shot?["width"]),
+                                Height = Number(shot?["height"]),
+                                LogicalWidth = Number(shot?["logicalWidth"]),
+                                LogicalHeight = Number(shot?["logicalHeight"]),
+                                PixelDensity = Number(shot?["pixelDensity"]),
+                            },
+                            file).ConfigureAwait(false);
                     }
-                    catch (IOException)
+                    finally
                     {
-                        // The capture is best effort and so is its cleanup.
+                        try
+                        {
+                            directory.Delete(recursive: true);
+                        }
+                        catch (IOException)
+                        {
+                            // The capture is best effort and so is its cleanup.
+                        }
                     }
-                }
-            },
+                },
+                cancellationToken),
             cancellationToken);
 
     /// <summary>
@@ -572,15 +748,49 @@ public sealed partial class DeviceSession
     /// painted over. Observes first so the regions describe the screen the pixels show. Throws when a secure field
     /// cannot be covered, because an image that may hold a credential must not leave the engine.
     /// </summary>
-    internal async Task<EngineScreenshot> MaskedScreenshotAsync(CancellationToken cancellationToken)
+    internal Task<EngineScreenshot> MaskedScreenshotAsync(InputBudget budget, CancellationToken cancellationToken) => MaskedScreenshotAsync(normalizeStatusBar: true, budget, cancellationToken);
+
+    /// <summary>
+    /// <see cref="MaskedScreenshotAsync(InputBudget, CancellationToken)"/> with the status bar left as the device shows it when
+    /// <paramref name="normalizeStatusBar"/> is false, as an evidence screenshot is kept (upstream's <c>maskedScreenshot</c>).
+    /// </summary>
+    internal async Task<EngineScreenshot> MaskedScreenshotAsync(bool normalizeStatusBar, InputBudget budget, CancellationToken cancellationToken)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
-        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
+        var projected = Project(await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false));
+        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar, budget, cancellationToken).ConfigureAwait(false);
         var viewport = _knownViewport;
         var (masked, regions) = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);
         var scale = viewport is { Width: > 0 } known && DeviceSupport.ReadPngSize(masked) is { } size ? size.Width / known.Width : 1;
         return new EngineScreenshot(masked, scale, regions);
+    }
+
+    /// <summary>
+    /// The viewport's pixels for an observation (upstream's <c>capturePixels</c>). Best effort: a screenshot that cannot be taken, or whose
+    /// secure fields cannot be proven covered, costs the observation its image, not the step, unless the operation's budget ran out.
+    /// </summary>
+    private async Task<EngineScreenshot?> CapturePixelsAsync(ProjectedSnapshot projected, ViewportSize viewport, bool comparable, InputBudget budget, CancellationToken cancellationToken)
+    {
+        byte[] data;
+        try
+        {
+            data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), comparable, budget, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException cause) when (cause.Code == EngineErrorCodes.OperationTimeout)
+        {
+            throw;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+
+        if (RedactSecure(data, projected, viewport) is not { } redacted || DeviceSupport.ReadPngSize(redacted.Data) is not { } size)
+        {
+            return null;
+        }
+
+        return new EngineScreenshot(redacted.Data, viewport.Width > 0 ? size.Width / viewport.Width : 1, redacted.Masked);
     }
 
     /// <summary>

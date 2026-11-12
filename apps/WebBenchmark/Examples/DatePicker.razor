@@ -1,0 +1,118 @@
+@* Upstream's app/src/Examples/DatePicker.tsx.
+   A custom calendar widget: the input is readonly, and a popup of the displayed month opens on click. The booking is confirmed only for
+   the exact required date; any other selection, or none, shows a recoverable error. *@
+<div style="@Container">
+    @if (_booked)
+    {
+        <p data-testid="success-message" style="@SuccessText">Appointment booked for @RequiredDateLabel</p>
+    }
+    else
+    {
+        <p style="@Hint">Book an appointment for @RequiredDateLabel.</p>
+        <div style="@PickerAnchor">
+            <input data-testid="date-input" style="@DateInput" placeholder="Select date" readonly value="@(_selectedDate is { } selected ? FormatIsoDate(selected) : "")"
+                   @onclick="() => _popupOpen = !_popupOpen" />
+            @if (_popupOpen)
+            {
+                <div style="@Popup">
+                    <div style="@PopupHeader">
+                        <button type="button" data-testid="prev-month-button" style="@NavButton" @onclick="() => ShiftMonth(-1)">‹</button>
+                        <span data-testid="month-label" style="@MonthLabel">@MonthNames[_displayedMonth.Month - 1] @_displayedMonth.Year</span>
+                        <button type="button" data-testid="next-month-button" style="@NavButton" @onclick="() => ShiftMonth(1)">›</button>
+                    </div>
+                    <div style="@DayGrid">
+                        @foreach (var weekday in Weekdays)
+                        {
+                            <span @key="weekday" style="@WeekdayCell">@weekday</span>
+                        }
+                        @for (var index = 0; index < LeadingBlanks; index++)
+                        {
+                            <span @key="@($"blank-{index}")"></span>
+                        }
+                        @for (var day = 1; day <= TotalDays; day++)
+                        {
+                            var chosen = day;
+                            <button type="button" @key="@($"day-{day}")" data-testid="@($"day-button-{day}")" style="@DayButton" @onclick="() => HandleSelectDay(chosen)">@day</button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+        <button type="button" data-testid="confirm-button" style="@Button" @onclick="HandleConfirm">Confirm booking</button>
+    }
+</div>
+
+@code {
+    private static readonly DateTime InitialMonth = new(2026, 6, 1);
+    private static readonly DateTime RequiredDate = new(2026, 9, 17);
+    private const string RequiredDateLabel = "September 17, 2026";
+
+    private static readonly string[] MonthNames =
+    [
+        "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December",
+    ];
+
+    private static readonly string[] Weekdays = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string PickerAnchor = "position: relative; display: flex; flex-direction: column;";
+    private const string DateInput = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px; cursor: pointer; width: 100%; box-sizing: border-box;";
+    private const string Popup = "position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); padding: 12px; width: 280px;";
+    private const string PopupHeader = "display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;";
+    private const string NavButton = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 4px 12px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string MonthLabel = "font-size: 14px; font-weight: 600;";
+    private const string DayGrid = "display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;";
+    private const string WeekdayCell = "font-size: 12px; color: #666; text-align: center; padding: 4px 0;";
+    private const string DayButton = "background-color: transparent; color: #111; border: none; border-radius: 8px; padding: 6px 0; font-size: 14px; cursor: pointer;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private DateTime _displayedMonth = InitialMonth;
+    private DateTime? _selectedDate;
+    private bool _popupOpen;
+    private string? _error;
+    private bool _booked;
+
+    /// <summary>The number of blank cells before the first day, Monday-first (upstream's firstWeekdayOffset).</summary>
+    private int LeadingBlanks => ((int)new DateTime(_displayedMonth.Year, _displayedMonth.Month, 1).DayOfWeek + 6) % 7;
+
+    private int TotalDays => DateTime.DaysInMonth(_displayedMonth.Year, _displayedMonth.Month);
+
+    /// <summary>Returns the first day of the month offset months away, rolling years (upstream's addMonths).</summary>
+    private static DateTime AddMonths(DateTime month, int offset) => new DateTime(month.Year, month.Month, 1).AddMonths(offset);
+
+    /// <summary>Formats a date as YYYY-MM-DD without any timezone conversion (upstream's formatIsoDate).</summary>
+    private static string FormatIsoDate(DateTime date) => date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    private void ShiftMonth(int offset)
+    {
+        _displayedMonth = AddMonths(_displayedMonth, offset);
+    }
+
+    private void HandleSelectDay(int day)
+    {
+        _selectedDate = new DateTime(_displayedMonth.Year, _displayedMonth.Month, day);
+        _error = null;
+        _popupOpen = false;
+    }
+
+    /// <summary>Confirms the booking only when the selected date matches the required date exactly; any other selection shows an error.</summary>
+    private void HandleConfirm()
+    {
+        if (_selectedDate is { } selected && FormatIsoDate(selected) == FormatIsoDate(RequiredDate))
+        {
+            _error = null;
+            _booked = true;
+        }
+        else
+        {
+            _error = "Pick the exact requested date";
+        }
+    }
+}

@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -31,6 +32,14 @@ public sealed class ExploreOptions
     /// <summary>The agent (<c>agents.&lt;name&gt;</c>) the exploration runs as. Defaults to <c>default</c>.</summary>
     public string? Agent { get; init; }
 
+    /// <summary>
+    /// The name of a session already restored into the app, which the exploration starts signed in with, as upstream's <c>session</c>:
+    /// the planner and the explorer are told not to sign in again, and the planner does not offer the other-account lens. The port has
+    /// no setup runner here, so unlike upstream the option does not run the setup or restore the state itself; the host that passes an
+    /// <see cref="Engine"/> has done both.
+    /// </summary>
+    public string? Session { get; init; }
+
     /// <summary>Exploration steps, <see cref="Explore.StepBounds"/>.</summary>
     public int? MaxSteps { get; init; }
 
@@ -40,7 +49,7 @@ public sealed class ExploreOptions
     /// <summary>Shows the browser window. Has no effect on an <see cref="Engine"/> of your own.</summary>
     public bool Headed { get; init; }
 
-    /// <summary>The results directory, over the default <c>.e2e/results</c> under the project root. Finding screenshots are kept under it.</summary>
+    /// <summary>The output directory (<c>--output</c>), over the config's <c>output</c>. Finding screenshots and trace pages are kept in <c>results/</c> under it (upstream's <c>output</c>).</summary>
     public string? Output { get; init; }
 
     /// <summary>
@@ -72,7 +81,8 @@ public sealed class ExploreOptions
     /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
     /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>fill_secret</c>; the password never reaches a model.
-    /// Upstream reads them from the config's <c>credentials</c>, which the port rejects; <see cref="Credentials.User"/> reads one from the environment.
+    /// The config's <c>credentials</c> are always accounts, as upstream carries them; this adds accounts the config does not declare
+    /// (.NET-only: <c>e2e explore</c> passes the <c>E2E_USER_*</c> pairs of the environment).
     /// </summary>
     public IReadOnlyDictionary<string, UserCredential>? Credentials { get; init; }
 
@@ -107,10 +117,17 @@ public sealed class ExploreOptions
 
 /// <summary>What an exploration ended with. Upstream's <c>ExploreOutcome</c>, which extends the runner's <c>RunOutcome</c>.</summary>
 /// <param name="Status">How the run ended. An agent step the run could not finish for lack of credentials, environment, or setup is <see cref="RunStatus.Blocked"/>.</param>
-/// <param name="ExitCode">0 when the exploration reported no issue (warnings do not count), 1 when it reported one or explored nothing, 2 for a configuration or policy error, 3 for an engine, app, or model provider failure.</param>
-/// <param name="Error">The error that ended the run, or null for a pass.</param>
+/// <param name="ExitCode">0 when the exploration reported no issue (warnings do not count), 1 when it reported one or explored nothing, 2 for a configuration or policy error, 3 for an engine, app, or model provider failure. A failure of closing the exploration joins it: the code is the verdict's combined with the cleanup failure's (precedence 130, 4, 3, 2, 1, 0).</param>
+/// <param name="Error">The error that ended the run, or else the first cleanup failure, or null for a pass.</param>
 /// <param name="Explore">What was asked, did, and found.</param>
-public sealed record ExploreOutcome(RunStatus Status, int ExitCode, E2EException? Error, ReportExplore Explore);
+public sealed record ExploreOutcome(RunStatus Status, int ExitCode, E2EException? Error, ReportExplore Explore)
+{
+    /// <summary>The artifacts the exploration's attempt kept, where a finding's <see cref="ReportExploreFinding.ArtifactId"/> is found. .NET-only: upstream's list reporter reads them from the run's result event.</summary>
+    internal IReadOnlyList<ArtifactRecord> Artifacts { get; init; } = [];
+
+    /// <summary>The directory the paths of <see cref="Artifacts"/> are relative to. .NET-only, like <see cref="Artifacts"/>.</summary>
+    internal string? ArtifactsRoot { get; init; }
+}
 
 /// <summary>
 /// An exploration: a run whose one test is a goal. The config is loaded as a test run loads it, the exploration body runs as the
@@ -147,11 +164,11 @@ public static class Explore
     /// </summary>
     private const int MaxCredentialBytes = ActParams.MaxBytes / 4;
 
-    /// <summary>Exploration steps per run: breadth first, and diminishing returns come fast.</summary>
-    public static ExploreBounds<int> StepBounds { get; } = new(1, 12, 8);
+    /// <summary>Exploration steps per run, at most: the planner finishes earlier once nothing new is reachable.</summary>
+    public static ExploreBounds<int> StepBounds { get; } = new(1, 100, 8);
 
-    /// <summary>The run's wall clock: three to fifteen minutes.</summary>
-    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } = new(TimeSpan.FromMinutes(3), TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(10));
+    /// <summary>The run's wall clock: three minutes to two hours.</summary>
+    public static ExploreBounds<TimeSpan> TimeoutBounds { get; } = new(TimeSpan.FromMinutes(3), TimeSpan.FromHours(2), TimeSpan.FromMinutes(10));
 
     /// <summary>
     /// Runs one exploration and returns the outcome with the exploration record. The config is resolved once here, with the agent
@@ -171,8 +188,8 @@ public static class Explore
 
         var config = LoadConfig(options);
         var projectRoot = options.RawConfig is null ? config.ProjectRoot : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
-        var target = PickTarget(config.Targets, options.Target);
-        var credentials = NormalizeCredentials(options.Credentials);
+        var target = PickTarget(config.Targets, options.Target, notice);
+        var credentials = NormalizeCredentials(ConfiguredAccounts(config, options.Credentials));
         CheckCredentialInventory(credentials);
 
         // An exploration runs as exactly one agent: the one named, else `default`.
@@ -185,7 +202,7 @@ public static class Explore
         var agentName = options.Agent ?? "default";
         if (!entries.TryGetValue(agentName, out var entry))
         {
-            throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"" + agentName + "\"; configured: " + string.Join(", ", entries.Keys));
+            throw new ConfigurationException("INVALID_CONFIG", "unknown agent \"" + agentName + "\"; configured: " + string.Join(", ", entries.Keys) + Suggestions.DidYouMean(agentName, [.. entries.Keys]));
         }
 
         if (!string.Equals(agentName, "default", StringComparison.Ordinal))
@@ -193,7 +210,7 @@ public static class Explore
             notice("exploring with agent \"" + agentName + "\"");
         }
 
-        var secrets = config.Secrets.Names.Select(config.Secrets.Get).Concat(credentials.Values.Select(credential => credential.Password)).ToList();
+        var secrets = config.AllSecrets.Concat(credentials.Values.Select(credential => credential.Password)).ToList();
         var redactor = Redactor.For(secrets);
         var state = new ExploreState(RedactGoal(goal, redactor), budgets, redactor: redactor);
         if (options.OnProgress is { } listener)
@@ -201,8 +218,11 @@ public static class Explore
             state.Subscribe(listener);
         }
 
+        // The run's event spine carries the exploration too, so a reporter on it renders the moments with the test's own events.
+        state.Subscribe(progress => RunEvents.Emit(new ExploreEvent(progress)));
+
         var resolved = ResolvedAgent.From(agentName, entry);
-        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)));
+        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)), options.Session);
         var resolvedExplorer = ResolvedAgent.From(agentName, explorer);
 
         // Every exploration step calls the model, a custom executor's included, since the built-in agent replaces it: no model is a
@@ -223,43 +243,67 @@ public static class Explore
             notice(message);
         }
 
-        // The target's app command starts before the session opens, and the URL is on the port it was started on.
-        target = await RunApps.StartAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
-        var sessionOptions = new E2ESessionOptions
-        {
-            Engine = engine,
-            Model = defaultAgent.Model,
-            Judge = defaultAgent.Judge,
-            AgentExecutor = defaultAgent.Executor,
-            AgentSystem = defaultAgent.System,
-            AgentTools = defaultAgent.Tools,
-            AgentContext = defaultAgent.Context,
-            MaxSteps = defaultAgent.MaxSteps ?? E2EDefaults.MaxSteps,
-            MaxModelCalls = defaultAgent.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
-            JudgmentTimeout = defaultAgent.JudgmentTimeout,
-            ProviderOptions = defaultAgent.ProviderOptions,
-            Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
-            BaseUrl = target.App.Url,
-            ProjectRoot = projectRoot,
-            TargetName = target.Name,
-            ResultsDirectory = options.Output is null ? null : Path.GetFullPath(options.Output, projectRoot),
-            CacheEnabled = false,
-            CacheMode = CacheMode.Off,
-            TestTitle = state.Goal,
-            TestFile = ExploreFile,
-            TestTimeout = budgets.Timeout + TimeoutGrace,
-            LaunchTimeout = config.LaunchTimeout,
-            CleanupTimeout = config.CleanupTimeout,
-            ActionTimeout = config.ActionTimeout,
-            AssertionTimeout = config.AssertionTimeout,
-            StepTimeout = StepTimeout,
-            Trace = trace,
-            Video = video,
-            Debug = options.Debug || E2EFixture.IsOn("E2E_DEBUG"),
-            AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
-        };
+        // The exploration is a run of one test on one target: its start is announced before the app command's setup, its plan after it.
+        HostRun.Started(config, [target.Name], agentName);
 
-        var attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        // The target's app command starts before the session opens, and the URL is on the port it was started on.
+        var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
+        target = appTarget;
+        RunEvents.Emit(new PlanEvent(1, [(ExploreFile, target.Name, 1)]));
+        var appFailures = new List<Exception>();
+        var resultsDirectory = OutputLayout.Of(config.ResolveOutput(options.Output)).Results;
+        StandaloneAttempt attempt;
+        try
+        {
+            var sessionOptions = new E2ESessionOptions
+            {
+                Engine = engine,
+
+                // The report carries the config's digest as upstream's report does: the agents built in code stand in for the file's, as a fixture's do.
+                Config = HostTestFilters.Resolve(config, [], options.Agents, target),
+                Model = defaultAgent.Model,
+                Judge = defaultAgent.Judge,
+                AgentExecutor = defaultAgent.Executor,
+                AgentSystem = defaultAgent.System,
+                AgentTools = defaultAgent.Tools,
+                AgentContext = defaultAgent.Context,
+                MaxSteps = defaultAgent.MaxSteps ?? E2EDefaults.MaxSteps,
+                MaxModelCalls = defaultAgent.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
+                JudgmentTimeout = defaultAgent.JudgmentTimeout,
+                MaxObservationBytes = defaultAgent.MaxObservationBytes,
+                MaxInputTokens = defaultAgent.MaxInputTokens,
+                ProviderOptions = defaultAgent.ProviderOptions,
+                Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
+                BaseUrl = target.App.Url,
+                Permissions = target.App.Permissions,
+                ProjectRoot = projectRoot,
+                TargetName = target.Name,
+                ResultsDirectory = resultsDirectory,
+                CacheEnabled = false,
+                CacheMode = CacheMode.Off,
+                TestTitle = state.Goal,
+                TestFile = ExploreFile,
+                TestTimeout = budgets.Timeout + TimeoutGrace,
+                LaunchTimeout = config.LaunchTimeout,
+                CleanupTimeout = config.CleanupTimeout,
+                ActionTimeout = config.ActionTimeout,
+                AssertionTimeout = config.AssertionTimeout,
+                StepTimeout = StepTimeout,
+                Trace = trace,
+                Video = video,
+                Debug = options.Debug || E2EFixture.IsOn("E2E_DEBUG"),
+                AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
+            };
+
+            attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The app this exploration started stops with it, whichever way the open failed.
+            await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
+            throw;
+        }
+
         E2EException? error = null;
         ReportExplore record;
         IReadOnlyList<Exception> cleanup;
@@ -268,7 +312,7 @@ public static class Explore
             var session = attempt.Session;
 
             // The values the goal, the app, or a model may echo are redacted wherever they appear.
-            foreach (var secret in secrets)
+            foreach (var secret in secrets.Where(secret => secret.Provider is null))
             {
                 session.Register(secret.Name, secret.Value);
             }
@@ -278,7 +322,8 @@ public static class Explore
                 StepTimeout,
                 target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
                 credentials,
-                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName));
+                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName,
+                Session: options.Session));
             try
             {
                 await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
@@ -299,18 +344,32 @@ public static class Explore
         finally
         {
             // The attempt is closed on every path. Its failures are the run's cleanup errors: they join the outcome and never replace it.
-            cleanup = await attempt.CloseAsync().ConfigureAwait(false);
+            IReadOnlyList<Exception> closed;
+            try
+            {
+                closed = await attempt.CloseAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The app command stops once the engine is done with it, even when closing the attempt throws; its failure joins the cleanup errors the same way.
+                await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
+            }
+
+            cleanup = [.. closed, .. appFailures];
         }
 
         var cleanupErrors = cleanup
             .Select(failure => ErrorSerializer.TranslateProvisioningError(failure, " while closing the exploration", CancellationToken.None))
-            .Select(failure => failure as E2EException ?? new EngineException(EngineErrorCodes.EngineFailure, failure.Message + " while closing the exploration", failure))
             .Select(failure => (E2EException)ErrorRedaction.Cause(failure, redactor.Redact)!)
             .ToList();
         var exitCode = ErrorSerializer.CombineExitCodes(
             cleanupErrors.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)).Append(Runner.ExitCodeOf(error)));
         var status = cleanupErrors.Count > 0 ? RunStatus.Failed : Runner.StatusOf(error);
-        return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record);
+        return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record)
+        {
+            Artifacts = attempt.Session.Artifacts,
+            ArtifactsRoot = Path.GetFullPath(resultsDirectory),
+        };
     }
 
     /// <summary>
@@ -349,11 +408,16 @@ public static class Explore
 
         var cwd = Path.GetFullPath(options.Cwd ?? Directory.GetCurrentDirectory());
         var path = options.ConfigPath is null ? E2EConfig.Find(cwd) : Path.GetFullPath(options.ConfigPath, cwd);
-        if (path is null || !File.Exists(path))
+        if (path is null)
         {
-            throw new ConfigurationException(
-                "CONFIG_NOT_FOUND",
-                path is null ? "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one" : "no config file at " + path);
+            throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+        }
+
+        if (!File.Exists(path))
+        {
+            throw options.ConfigPath is { } explicitPath
+                ? E2EConfig.ExplicitConfigNotFound(cwd, explicitPath, path)
+                : new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
         }
 
         return E2EConfig.Load(path);
@@ -407,41 +471,68 @@ public static class Explore
     }
 
     /// <summary>The target to explore: the one <see cref="ExploreOptions.Target"/> names (an unknown one is <c>UNKNOWN_TARGET</c>), else the first configured.</summary>
-    private static TargetConfig PickTarget(IReadOnlyList<TargetConfig> targets, string? requested)
+    private static TargetConfig PickTarget(IReadOnlyList<TargetConfig> targets, string? requested, Action<string> notice)
     {
         if (requested is null)
         {
+            if (targets.Count > 1)
+            {
+                notice("exploring target \"" + targets[0].Name + "\"; pass --target to explore another");
+            }
+
             return targets[0];
         }
 
+        var names = targets.Select(target => target.Name).ToList();
         return targets.FirstOrDefault(target => string.Equals(target.Name, requested, StringComparison.Ordinal))
             ?? throw new ConfigurationException(
                 "UNKNOWN_TARGET",
-                "unknown target ID \"" + requested + "\"; the config declares " + string.Join(", ", targets.Select(target => "\"" + target.Name + "\"")));
+                "unknown target ID \"" + requested + "\"; the config declares " + string.Join(", ", names.Select(name => "\"" + name + "\"")) + Suggestions.DidYouMean(requested, names));
     }
 
     /// <summary>
     /// The explorer's agent with per-step budgets that default higher than a scripted step's, a charter being longer. An agent that
     /// left a budget out has set none, whatever number it would default to.
     /// </summary>
-    internal static AgentOptions WithStepBudgets(AgentOptions explorer) => new()
+    internal static AgentOptions WithStepBudgets(AgentOptions explorer, string? session = null) => new()
     {
         Model = explorer.Model,
         Judge = explorer.Judge,
         System = explorer.System,
-        Context = explorer.Context,
+        Context = session is null ? explorer.Context : string.Join('\n', new[] { explorer.Context, ExplorePlan.SignedInContext(session) }.Where(part => !string.IsNullOrWhiteSpace(part))),
         MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
         MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
         JudgmentTimeout = explorer.JudgmentTimeout,
+        MaxObservationBytes = explorer.MaxObservationBytes,
+        MaxInputTokens = explorer.MaxInputTokens,
         ProviderOptions = explorer.ProviderOptions,
         Tools = explorer.Tools,
     };
+
+    /// <summary>
+    /// The config's <c>credentials</c>, which are every account upstream's exploration carries (<c>credentialAccounts(resolved.credentials)</c>),
+    /// then the accounts <see cref="ExploreOptions.Credentials"/> adds. .NET-only: an added account replaces a configured one of its name.
+    /// </summary>
+    private static Dictionary<string, UserCredential> ConfiguredAccounts(E2EConfig config, IReadOnlyDictionary<string, UserCredential>? added)
+    {
+        var accounts = config.Credentials.ToDictionary(pair => pair.Key, pair => new UserCredential(pair.Value.Username, pair.Value.Password), StringComparer.Ordinal);
+        foreach (var (name, credential) in added ?? new Dictionary<string, UserCredential>())
+        {
+            accounts[name] = credential;
+        }
+
+        return accounts;
+    }
 
     /// <summary>Each account's password as the secret <c>&lt;name&gt;.password</c> for a password field, as upstream's registry names it.</summary>
     private static Dictionary<string, UserCredential> NormalizeCredentials(IReadOnlyDictionary<string, UserCredential>? credentials) =>
         (credentials ?? new Dictionary<string, UserCredential>()).ToDictionary(
             pair => pair.Key,
-            pair => new UserCredential(pair.Value.Username, Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")),
+            pair => new UserCredential(
+                pair.Value.Username,
+                pair.Value.Password.Provider is { } provider
+                    ? Secret.Create(pair.Key + ".password", provider, "password")
+                    : Secret.Create(pair.Key + ".password", pair.Value.Password.Value, "password")),
             StringComparer.Ordinal);
 
     /// <summary>

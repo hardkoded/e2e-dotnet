@@ -29,7 +29,9 @@ public sealed class TargetEngineChoiceTests
     [Fact]
     public void Builds_a_web_engine_for_a_web_target_without_asking_for_a_device_engine()
     {
-        var engine = TargetEngines.Create(Target("web"), headless: true, mobile: _ => throw new InvalidOperationException("no device engine for web"), windows: _ => throw new InvalidOperationException("no Windows engine for web"));
+        // A web target opens app.url; a bundle id on it is refused at config load (see WebAndTheTargetAppTests).
+        var web = new TargetConfig { Name = "t", Platform = "web", App = new AppConfig { Url = "http://localhost:3000" } };
+        var engine = TargetEngines.Create(web, headless: true, mobile: _ => throw new InvalidOperationException("no device engine for web"), windows: _ => throw new InvalidOperationException("no Windows engine for web"));
         Assert.IsType<WebEngine>(engine);
     }
 

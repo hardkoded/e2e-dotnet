@@ -25,7 +25,7 @@ One thing a step did (upstream's `StepEvent`).
 
 **Implements:** [IEquatable&lt;StepEvent&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L813)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public long? Bytes { get; init; }
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L831)
-
 <a id="E2E_Reports_StepEvent_Code_"></a>
 <a id="E2E_Reports_StepEvent_Code"></a>
 
@@ -57,8 +55,6 @@ public string? Code { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L835)
-
 <a id="E2E_Reports_StepEvent_Count_"></a>
 <a id="E2E_Reports_StepEvent_Count"></a>
 
@@ -66,13 +62,11 @@ public string? Code { get; init; }
 
 
 ```csharp
-public int? Count { get; init; }
+public long? Count { get; init; }
 ```
 
 
-**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L825)
+**Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
 <a id="E2E_Reports_StepEvent_Decision_"></a>
 <a id="E2E_Reports_StepEvent_Decision"></a>
@@ -87,8 +81,6 @@ public PolicyDecision? Decision { get; init; }
 
 **Value:** `PolicyDecision?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L833)
-
 <a id="E2E_Reports_StepEvent_Detail_"></a>
 <a id="E2E_Reports_StepEvent_Detail"></a>
 
@@ -101,8 +93,6 @@ public string? Detail { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L837)
 
 <a id="E2E_Reports_StepEvent_DurationMs_"></a>
 <a id="E2E_Reports_StepEvent_DurationMs"></a>
@@ -117,8 +107,6 @@ public long DurationMs { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L819)
-
 <a id="E2E_Reports_StepEvent_InputTokens_"></a>
 <a id="E2E_Reports_StepEvent_InputTokens"></a>
 
@@ -131,8 +119,6 @@ public long? InputTokens { get; init; }
 
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L827)
 
 <a id="E2E_Reports_StepEvent_Kind_"></a>
 <a id="E2E_Reports_StepEvent_Kind"></a>
@@ -147,8 +133,6 @@ public StepEventKind Kind { get; init; }
 
 **Value:** [StepEventKind](/api/E2E.Reports/StepEventKind/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L815)
-
 <a id="E2E_Reports_StepEvent_Name_"></a>
 <a id="E2E_Reports_StepEvent_Name"></a>
 
@@ -161,8 +145,6 @@ public string? Name { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L823)
 
 <a id="E2E_Reports_StepEvent_OutputTokens_"></a>
 <a id="E2E_Reports_StepEvent_OutputTokens"></a>
@@ -177,8 +159,6 @@ public long? OutputTokens { get; init; }
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L829)
-
 <a id="E2E_Reports_StepEvent_Reasoning_"></a>
 <a id="E2E_Reports_StepEvent_Reasoning"></a>
 
@@ -191,8 +171,6 @@ public string? Reasoning { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L839)
 
 <a id="E2E_Reports_StepEvent_StartedAt_"></a>
 <a id="E2E_Reports_StepEvent_StartedAt"></a>
@@ -207,8 +185,6 @@ public DateTimeOffset StartedAt { get; init; }
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L817)
-
 <a id="E2E_Reports_StepEvent_Status_"></a>
 <a id="E2E_Reports_StepEvent_Status"></a>
 
@@ -221,5 +197,3 @@ public StepEventStatus Status { get; init; }
 
 
 **Value:** [StepEventStatus](/api/E2E.Reports/StepEventStatus/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L821)

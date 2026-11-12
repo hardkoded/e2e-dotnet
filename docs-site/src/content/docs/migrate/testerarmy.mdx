@@ -1,0 +1,153 @@
+---
+title: From TesterArmy
+description: Turn TesterArmy saved tests into e2e tests that run in your repository and CI.
+---
+
+This guide ports upstream's `docs/migrate/testerarmy.mdx` (tester-army/e2e at `7b1b8b27`, tester-army/e2e#1411 and tester-army/e2e#1468). TesterArmy is the hosted product behind upstream, so this guide fits the port without a runner change: the target is a C# test.
+
+A TesterArmy saved test is a list of plain-language steps that a QA agent runs in TesterArmy's cloud. In e2e, each step becomes a line in a C# test that runs on your machine or in your CI: an `Agent.ActAsync` or `Agent.AssertAsync` call, or a locator call when the step needs no judgment. A coding agent reads your projects and tests through the TesterArmy MCP server and writes the e2e tests.
+
+## Agent prompt
+
+```text
+Migrate this project's TesterArmy saved tests to e2e, one group at a time. Docs: the "From TesterArmy" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/testerarmy.mdx).
+
+1. Read the migration guide. It maps TesterArmy project settings, steps, and groups to e2e and marks what e2e does not have yet.
+2. If you have no `testerarmy` MCP tools, add the server with `npx add-mcp --global --name testerarmy https://tester.army/mcp`. If Claude Code uses a custom CLAUDE_CONFIG_DIR, run `claude mcp add --transport http testerarmy https://tester.army/mcp` instead. Ask me to sign in and restart the session, then wait until I confirm.
+3. Call `list_projects` and ask me which project to migrate. Read it with `get_project`, `list_project_environments`, `list_project_credentials`, `list_project_memories`, `list_project_files`, `list_groups`, and `list_tests`. Use only read tools. Never create, update, delete, or run anything in TesterArmy.
+4. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. If the repository has none, run `e2e init <directory> --yes` (add `--engine mobile` for a mobile project, `--framework xunit` for xUnit v3). It creates the test project and example test, writes e2e.config.json, and installs the skill.
+5. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
+6. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
+7. Port the project into the e2e config with the guide's "Port the project" table. TesterArmy never returns passwords. Name each credential in credentials, read its password from an environment variable, and ask me to set it.
+8. List the groups and their tests, and ask me which group to move first. Suggest a small one, or the one with the preparation test the others need.
+9. For each test, read it with `get_test` and write a test method, one awaited call per enabled step, with the guide's "Map each step" table. Turn a preparation or login test into an [E2ESetup] test that saves a session. Where the guide says "Not yet" or "No equivalent", leave that test in TesterArmy and tell me why.
+10. After the last Agent.AssertAsync of each test, add a locator assertion on the same end state when a label or test id names it.
+11. Run the new classes with `dotnet test --filter` and fix them until they pass. Keep the TesterArmy tests until I confirm they can go.
+12. Summarize which tests moved, which stayed in TesterArmy, and why.
+```
+
+For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the TesterArmy tests until you retire each one. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## Connect the TesterArmy MCP server
+
+The coding agent reads your tests from the hosted server at `https://tester.army/mcp`. Add it to the coding agents on your machine:
+
+```bash
+npx add-mcp --global --name testerarmy https://tester.army/mcp
+```
+
+`add-mcp` writes Claude Code's entry to `~/.claude.json`. If you set `CLAUDE_CONFIG_DIR`, run `claude mcp add --transport http testerarmy https://tester.army/mcp` instead. Sign in when the client asks. Other ways to add the server are in [TesterArmy's MCP setup](https://tester.army/docs/cli/mcp).
+
+The migration only reads from TesterArmy. It never edits, deletes, or runs your tests there.
+
+## Port the project
+
+Install e2e and configure a model with the [web guide](/get-started/web/). Agent calls need a model.
+
+| TesterArmy | e2e |
+| --- | --- |
+| web project `url` | `app.url` on a `web` target |
+| mobile project and its uploaded builds | an `ios` or `android` target with `app.bundleId` and `app.appPath`. You build the app, and `MobileAppTest` installs it, see [Mobile](/get-started/mobile/) |
+| static environments (Staging, QA) | one `e2e.config.json` per environment, or `BaseUrl` on the test class. The port runs one target, so run the suite once per environment |
+| PR preview environment | a CI job that sets the app URL to the preview URL (`BaseUrl`, or a generated `e2e.config.json`) |
+| `login` credential | a `credentials` entry. TesterArmy never returns the password or TOTP secret, so read it from `E2E_USER_<NAME>_PASSWORD`, see [Authentication](/features/signing-in/) |
+| credential `totpSecret` | Not yet. The config holds named secrets, not code that computes a value |
+| credential environment overrides | one `credentials` entry, with `E2E_USER_<NAME>_PASSWORD` set per environment |
+| `inbox` credential | Not yet. Call your own test inbox from a helper in the test project |
+| `agentInstructions` | `system` on the agent in `agents.default`, see the `agent` topic of the e2e skill |
+| memories | `context` on the agent |
+| project files | files in the repository, such as `tests/fixtures/receipt.jpg` |
+| test `viewport` setting | `WebEngineOptions.Viewport`, one run per size |
+| `browserRegion`, `simulatorRegion` | No equivalent. The browser runs where `dotnet test` runs, or on a [hosted provider](/features/browser/#hosted-browsers) |
+| `webSearchEnabled` | No equivalent |
+| `accessibilityAuditEnabled` | Not yet |
+| PR testing | an e2e job on each pull request. The port has no GitHub reporter |
+| group schedule | a scheduled CI workflow |
+
+## Rewrite one test
+
+Each step becomes one awaited call. A `login` step becomes a setup test that signs in one time and saves a session:
+
+```json title="TesterArmy (get_test)"
+{
+  "title": "Creates a project",
+  "steps": [
+    { "type": "login", "title": "Log in as the admin" },
+    { "type": "act", "title": "Open Projects from the sidebar and click New Project" },
+    { "type": "act", "title": "Name the project Apollo and save" },
+    { "type": "assert", "title": "Apollo appears in the project list" }
+  ]
+}
+```
+
+```csharp title="ProjectTests.cs (NUnit)"
+using E2E.NUnit;
+
+public sealed class ProjectTests : E2ETest
+{
+    [E2ESetup("log in as the admin", Saves = ["admin"])]
+    [Category("RealModel")]
+    public async Task Log_in_as_the_admin()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Agent.ActAsync("log in", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["username"] = admin.Username, ["password"] = admin.Password },
+        });
+        await Agent.AssertAsync("the dashboard is shown");
+        await SaveSessionAsync("admin");
+    }
+
+    [Test]
+    [E2ESession("admin")]
+    [Category("RealModel")]
+    public async Task Creates_a_project()
+    {
+        await App.OpenAsync("/");
+        await Agent.ActAsync("open Projects from the sidebar and click New Project");
+        await Agent.ActAsync("name the project {name} and save", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["name"] = "Apollo" },
+        });
+        await Agent.AssertAsync("Apollo appears in the project list");
+        await Expect.That(Screen.GetByText("Apollo")).ToBeVisibleAsync();
+    }
+}
+```
+
+For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealModel")]`. Put the setup test and the tests that restore its session in one class. TesterArmy opens the project URL before the first step. In e2e, nothing opens on its own, so each test starts with `App.OpenAsync()`.
+
+## Map each step
+
+| TesterArmy | e2e |
+| --- | --- |
+| `act` step | `Agent.ActAsync("...")`, or a locator call when the step opens a known route or acts on one named control |
+| `assert` step | `Agent.AssertAsync("...")`, then a locator assertion when a label or test id names the end state |
+| `login` step | an `[E2ESetup]` test that signs in and calls `SaveSessionAsync()`, and `[E2ESession]` on each test, see [Authentication](/features/signing-in/) |
+| `login` with `temporaryEmail` | Not yet |
+| `files` step, `@receipt.jpg` in a step, on web | the file's repository path in the goal: `Agent.ActAsync("attach tests/fixtures/receipt.jpg")`, or `locator.SetInputFilesAsync()` |
+| `files` step on mobile (photo library) | Not yet |
+| `screenshot` step | `App.ScreenshotAsync("label")` |
+| `javascript` step | `Browser.EvaluateAsync<T>()`. It fails only when the code throws, so check a `{ success: false }` return with an assertion |
+| `microphone` step | Not yet |
+| step with `disabled: true` | leave it out |
+| disabled test | `[Ignore]` (NUnit) or `[Fact(Skip = "...")]` (xUnit) |
+| group | a test class with `[Category("<group>")]`, run with `dotnet test --filter "TestCategory=<group>"` |
+| group `runMode: sequential` | tests in one class run in order; the framework's parallelism applies across classes |
+| group `maxConcurrentRuns` | the framework's parallelism settings, such as `NUnit.NumberOfTestWorkers` |
+| group `prepTestId` | an `[E2ESetup]` test that saves a session, and `[E2ESession]` on the class |
+| `run_test`, `run_group` | `dotnet test --filter "FullyQualifiedName~<Class>"`, `dotnet test --filter "TestCategory=<group>"` |
+
+Keep the agent for a step that reads the screen to decide, spans several screens, or names no stable control. Before you swap a step for a locator, find the control's exact name, and check the same end state.
+
+## What differs on purpose
+
+- Tests run on your machine or in your CI, not in TesterArmy's cloud. You choose the app URL and the device.
+- The model never sees a password. The runner types it from a handle, see [Authentication](/features/signing-in/).
+- An `Agent.ActAsync` step replays its recorded actions without a model call. When the screen no longer matches, the agent takes over, see [Caching and self-healing](/features/caching/).
+
+## Next
+
+- [Authentication](/features/signing-in/): sessions, credentials, and secrets the model never sees.
+- [Caching and self-healing](/features/caching/): how a verified agent step replays.

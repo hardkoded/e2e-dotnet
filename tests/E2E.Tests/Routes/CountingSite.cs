@@ -12,7 +12,7 @@ namespace E2E.Tests.Routes;
 
 /// <summary>
 /// A server that counts what reaches it: <c>/echo</c> answers with what it received,
-/// <c>/api/*</c> answers <c>network:&lt;path&gt;</c>, and any other path is a page.
+/// <c>/api/*</c> answers <c>network:&lt;path&gt;</c>, <c>/binary</c> answers every byte value once, and any other path is a page.
 /// Every request is counted by path. It reads raw HTTP, so the same server answers
 /// under any host name, such as <c>localhost</c>, a site of its own.
 /// </summary>
@@ -35,6 +35,9 @@ internal sealed class CountingSite : IDisposable
     /// <summary>The same server under another host name.</summary>
     public string OtherSite => "http://localhost:" + Port;
 
+    /// <summary>Every byte value once, which no text decoding keeps intact.</summary>
+    public static readonly byte[] AllBytes = [.. Enumerable.Range(0, 256).Select(value => (byte)value)];
+
     public ConcurrentDictionary<string, int> Hits { get; } = new(StringComparer.Ordinal);
 
     public static CountingSite Start()
@@ -48,6 +51,15 @@ internal sealed class CountingSite : IDisposable
 
     /// <summary>How many requests reached <paramref name="path"/>; null for none, as an unset map entry.</summary>
     public int? HitsOf(string path) => Hits.TryGetValue(path, out var count) ? count : null;
+
+    /// <summary>Closes every open connection, as a Node server's <c>closeAllConnections</c> does, so a body that never finishes ends.</summary>
+    public void CloseAllConnections()
+    {
+        foreach (var client in _clients)
+        {
+            client.Dispose();
+        }
+    }
 
     public void Dispose()
     {
@@ -85,6 +97,24 @@ internal sealed class CountingSite : IDisposable
             var (method, target, headers, body) = await ReadRequestAsync(stream);
             var path = target.Split('?')[0];
             Hits.AddOrUpdate(path, 1, (_, count) => count + 1);
+            if (path == "/stream-download")
+            {
+                // The head promises 4096 bytes and 1024 arrive; the body never finishes.
+                var head = "HTTP/1.1 200 OK\r\ncontent-type: application/octet-stream\r\ncontent-disposition: attachment; filename=\"stream.bin\"\r\ncontent-length: 4096\r\n\r\n";
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(new string('x', 1024)));
+                await stream.FlushAsync();
+                return;
+            }
+
+            if (path == "/redirect")
+            {
+                await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 302 Found\r\nlocation: /echo\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"));
+                await stream.FlushAsync();
+                client.Close();
+                return;
+            }
+
             if (path == "/echo")
             {
                 var echo = JsonSerializer.Serialize(new Dictionary<string, object>
@@ -95,6 +125,12 @@ internal sealed class CountingSite : IDisposable
                     ["body"] = body,
                 });
                 await EndAsync(client, "application/json", echo);
+                return;
+            }
+
+            if (path == "/binary")
+            {
+                await EndAsync(client, "application/octet-stream", AllBytes);
                 return;
             }
 
@@ -166,9 +202,10 @@ internal sealed class CountingSite : IDisposable
         return -1;
     }
 
-    private static async Task EndAsync(TcpClient client, string contentType, string body)
+    private static Task EndAsync(TcpClient client, string contentType, string body) => EndAsync(client, contentType, Encoding.UTF8.GetBytes(body));
+
+    private static async Task EndAsync(TcpClient client, string contentType, byte[] bytes)
     {
-        var bytes = Encoding.UTF8.GetBytes(body);
         var head = "HTTP/1.1 200 OK\r\ncontent-type: " + contentType + "\r\ncontent-length: "
             + bytes.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + "\r\nconnection: close\r\n\r\n";
         var stream = client.GetStream();

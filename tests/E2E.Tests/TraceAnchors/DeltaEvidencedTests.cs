@@ -28,6 +28,15 @@ public sealed class DeltaEvidencedTests
     }
 
     [Fact]
+    public void Counts_a_node_read_by_the_shape_of_its_minted_test_id_only_when_no_node_of_that_shape_was_there_before()
+    {
+        var added = new CacheEntry { Appeared = [Anchor("box", testId: "rf__node-3f9c2a1b-7d4e-4c1a-9b2e-0a1b2c3d4e5f")] };
+
+        Assert.True(Anchors.Evidenced(added, Project([Heading]), []));
+        Assert.False(Anchors.Evidenced(added, Project([Heading, Node("box", testId: "rf__node-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]), []));
+    }
+
+    [Fact]
     public void Fails_for_a_recording_with_no_delta_unless_the_last_action_moved_the_route_leaving_no_baseline_on_the_end_route()
     {
         Assert.False(Anchors.Evidenced(new CacheEntry(), Project([Heading]), []));

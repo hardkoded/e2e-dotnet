@@ -48,17 +48,12 @@ public sealed class OperationsOnAHungPageTests
         using var site = await TinySite.StartAsync(BusyPage);
         await using var session = await StartAsync();
         await FreezeAsync(session, site);
-        var browser = (IBrowserSession)session;
 
-        // The port locates through an observation, and taps a point with the mouse.
+        // The port locates through an observation.
         var locate = await BoundedAsync(() => session.ObserveAsync(CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", locate.Code);
-        var move = await BoundedAsync(() => browser.MouseMoveAsync(10, 10, CancellationToken.None));
-        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", move.Code);
-        var down = await BoundedAsync(() => browser.MouseDownAsync(CancellationToken.None));
-        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", down.Code);
-        var up = await BoundedAsync(() => browser.MouseUpAsync(CancellationToken.None));
-        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", up.Code);
+        var tap = await BoundedAsync(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", tap.Code);
     }
 
     [Fact]

@@ -8,25 +8,53 @@
 - The config
 - The app under test
 - Environment variables
+- App identity and environment
+- Browser permissions
 - Mobile targets
 - Windows targets
 - Done when
 
 ## Requirements
 
-- The .NET 10 SDK. The packages target `net10.0`.
+- The .NET 10 or 11 SDK. The packages target `net10.0` and `net11.0`.
 - NUnit or xUnit v3. xUnit v2 is not supported.
-- Chromium. The first `WebEngine` launch in a test run installs the build it
-  launches (the headless shell for a headless run), so the first run needs
-  network access. Firefox and WebKit are not exposed yet.
+- Chromium, or the browser `WebEngineOptions.BrowserName` names (Firefox or
+  WebKit). The first `WebEngine` launch in a test run installs the build it
+  launches (the headless shell for a headless Chromium run), so the first run
+  needs network access.
 - On a CI image that already has the browser, or with no network, set
   `E2E_SKIP_BROWSER_INSTALL=1` and install it yourself with the `e2e` tool:
   `e2e install` (below), or from the build output:
-  `pwsh bin/Debug/net10.0/playwright.ps1 install chromium`.
+  `pwsh bin/Debug/net10.0/playwright.ps1 install chromium` (or `firefox`,
+  `webkit`).
 
 ## Scaffold
 
-There is no `e2e init`. Create a test project and add the packages:
+`e2e init` scaffolds the e2e side of a project from the installed `E2E.Cli`
+tool; `e2e init my-app` scaffolds into a new directory. It asks the questions
+no flag answered (engines, gateway, skill and MCP locations), shows the changes,
+and asks to apply them; a coding agent has no terminal, so it passes `--yes`,
+which asks nothing. `--yes` writes `e2e.config.json`
+(the web engine and the Vercel AI Gateway as provider `gateway`), installs this
+skill in `.agents/skills/e2e-dotnet` (`.claude/skills/e2e-dotnet` symlinks to
+it), registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and
+updates `.gitignore`. A flag per question overrides one default: `--engine`
+(`web` or `mobile`), `--gateway` (`vercel`, `openrouter`, `openai-compatible`,
+`chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`), `--endpoint`,
+`--skills`, `--mcp` (comma-separated locations, or `none`); `e2e init --help`
+lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
+config only. Init leaves an existing config alone, refreshes the skill and MCP
+entries on a re-run, and never writes through a symlink. A subscription
+gateway needs its sign-in before the first run (`e2e login <provider>`).
+
+Init also creates the test project: a `.csproj` named after the directory with
+the packages of the test framework and of e2e at the tool's version, and an
+`ExampleTests.cs`. `--framework xunit` picks xUnit v3 (NUnit is the default).
+In a directory with a `.csproj` it adds only the package references that project
+lacks, keeping its framework. `--install` runs `dotnet restore`; without it,
+`dotnet test` restores. `--example <name>` (`E2E.Sample`, `E2E.XUnit.V3.Sample`, `TodoMvc`)
+copies a sample into a new or empty directory instead. To add the packages by
+hand:
 
 ```bash
 dotnet new nunit -n MyApp.E2E
@@ -52,7 +80,14 @@ installs Chromium when no browser is named, and `--with-deps` also installs
 the system libraries on Linux. It keeps the other browsers in the Playwright
 cache, as upstream does, and exits with Playwright's exit code. An unknown
 option or browser exits 2. A local tool runs it as `dotnet e2e install`. The
-engine itself drives Chromium only.
+engine launches the browser `BrowserName` names, Chromium by default.
+
+`e2e doctor` checks the setup without starting anything: the .NET runtime, the
+config and its targets, whether the browser a run launches is installed (`warn`
+when the first run will download it), the `InitScripts` files, for a device target agent-device's own checks (toolchain, devices,
+the installed app, the `AppPath` build), and, for an
+agent whose `provider` is `chatgpt`, `copilot`, `grok`, or `opencode-console`,
+the stored login (a set provider API key variable, such as `OPENCODE_API_KEY`, passes it without one). `--check-model` calls each model once to prove it answers. It exits 2 when a check failed.
 
 ## Subscriptions and API keys
 
@@ -121,16 +156,23 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device or Windows target takes `app.launchArguments`, and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
 | `assertionTimeout` | `5000` | `Expect` polling window, ms. |
 | `cleanupTimeout` | `30000` | Engine cleanup, ms: the engine's shutdown after each attempt, and the release of a hosted device when `e2e explore` or `e2e mcp` ends its session. |
+| `testAssembly` | none | Path to the built NUnit test assembly, relative to the config. `open_session {test}` runs one test from it (see the `mcp` topic). |
+| `failOnSkippedFailure` | `false` | A boolean. Checked and carried (`E2EConfig.FailOnSkippedFailure`), but not used: the port has no runner to derive an exit code from skipped tests. Any other value is `INVALID_CONFIG`. |
+| `maxDuration` | none | The run's duration limit, a positive integer of ms up to `2147483647`. Checked and carried (`E2EConfig.MaxDuration`), but not used: the test framework owns the run, so nothing stops it. Neither key changes the config digest. |
 | `retries` | `0` | Checked, but not used: retries come from NUnit `[Retry]`. |
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |
-| `secrets` | `{}` | Named values the model never sees; `null` requires `E2E_SECRET_<NAME>`. |
+| `artifacts` | none | Takes no key: a store is code (below). The removed `kinds` list and `trace` and `video` blocks fail with the `trace` or `video` option that replaced them. |
+| `secrets` | `{}` | Named values the model never sees; `null` requires `E2E_SECRET_<NAME>`. A provider is set in code: `config.WithSecretProvider(name, ct => Task<string>)` (a `SecretProvider`, asked on every fill; at least 6 code points). |
+| `credentials` | `{}` | Accounts by name, each `{ username, password }`. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` win over the config, and `username` or `password` may be left out when its variable sets it, so the config file need not hold a password. The password is the secret `<name>.password` (at least 6 characters). The runner redacts it from the model's prompts, reports, errors, and cache entries; it does not redact the output of your own app process. A `secrets` entry cannot have that name. Two names that map to one variable (`svc-a` and `svc_a`) are `INVALID_CONFIG`. `E2EConfig.Credentials` gives the resolved accounts; `Credentials.User(name)` still reads the variables only. A password provider is set in code: `config.WithCredential(name, username, ct => Task<string>)` (a `SecretProvider`, asked on every fill); the variables still win over it. |
+| `output` | `.e2e` | The directory results go to, relative to the config: `results/` (attempt artifacts), `sessions/`, and `videos/` (`e2e mcp` recordings) under it. It must be a directory inside the project, not the project root, and apart from the cache directory: it is not the cache directory or inside it, and it does not wrap the cache in `results/`, `sessions/`, or `videos/`, which a run clears or owns. Symlinks are followed, so one directory spelled two ways is one directory. A violation is `INVALID_CONFIG` naming the reason. `e2e explore --output <dir>` replaces it. |
+| `reporters` | none | Reporters to run when the run ends, in this order: a type name, or `{ "type": "Namespace.Type, Assembly", "options": { ... } }` (below). |
 | `trace`, `video` | `retain-on-failure`, `off` | Which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. Also allowed on the target. The web engine records `video` (topic `debugging`, "Watch it happen"); the port writes no trace page yet. The old `all` and `retries` spellings of `trace` are `INVALID_CONFIG`. |
 
 For `trace` and `video`, `E2E_TRACE` and `E2E_VIDEO` win over the target's
@@ -140,10 +182,10 @@ secrets included, so keep it `off` unless you need it. A `video` mode on a
 target is required of its engine (`UNSUPPORTED_ARTIFACT` when it cannot
 record); one at the config root or in `E2E_VIDEO` skips an engine that cannot.
 
-There are no `credentials`, `tests`, `workers`, `reporters`, `output`,
-or `artifacts` keys; each is `INVALID_CONFIG`. Accounts
+There are no `tests` or `workers` keys; each is `INVALID_CONFIG`. A host store for artifacts is code (upstream's `artifacts.store`; the `artifacts` key itself holds no `store`): call `E2EConfig.WithArtifactStore(store)` on the config (a fixture and `E2EHost.OpenAsync` read it), override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore`, to an `IArtifactStore`. A model instance is code too (upstream's `agents.default.model` takes an AI SDK instance): `E2EConfig.WithModel(model, judge)` makes the default agent run on an `IAgentModel`, and judge with `judge` (the model when null), in place of the entry's `model` and `judge` ids. The replay cache store is code too (upstream's `cache.store`): `E2EConfig.WithCacheStore(store)` takes an `IStepCache` that replaces the file store at `cache.dir`; like upstream it ignores `E2E_CACHE_DIR`, and CI does not demote an unset mode (the store states its own trust). The file store takes upstream's `maxBytes` and `writable` as `new FileStepCache(directory, maxBytes, writable)`: it does not write an entry over the byte cap (at most `FileStepCache.MaxCacheWireBytes`, 1 MiB) and never writes or deletes when not writable. Its `PutAsync(StoredArtifact)` receives each artifact an attempt registers (a download, a video file, a screenshot or log the test attaches) as it is produced, with `Bytes`, `Sha256`, `Path` (report-relative), `Redaction` (`Complete` or `Incomplete`; a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite), and `RunId`, `TestId`, `AttemptId`, `StepId`, `StartedAt`, and returns the reference the report records as the artifact's `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` receives a video a provider keeps, a link with no bytes (a passed attempt's link under `retain-on-failure` is never handed over). A failed call never fails the run; the record just carries no `ref`. Accounts
 come from `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, read
-with `Credentials.User(name)`.
+with `Credentials.User(name)`. The `credentials` key declares accounts in the
+config too (see the table); a test does not read them yet.
 
 A fixture overrides most values with a virtual property of the same name,
 such as `BaseUrl`, `CacheMode`, or `ActionTimeout`; named agents come from
@@ -180,12 +222,82 @@ and in CI.
 
 - The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
   spawns `command`, polls `readyUrl` (default `url`) for a 200 to 499 status
-  within `startupTimeout` (default 60 s), and the later ones find it running.
-  It stops with the test process (`shutdownTimeout`, default 10 s; a process
-  that is killed outright takes the app down with it). Never ready is
-  `APP_UNREACHABLE`, and the test fails before the session opens
+  within `startupTimeout` (default 60 s), and the later ones find it running
+  and share it: a test, `e2e explore`, and an `e2e mcp` session that declare
+  the same command in one process get one instance, and it stops
+  (`shutdownTimeout`, default 10 s) when the last of them lets go. Never ready
+  is `APP_UNREACHABLE`, and the test fails before the session opens
   (`command.log` still gets this boot's output). The port has no runner, so
-  there is one app per test process, not one per run.
+  the tests of a process hold the app until the run ends. Add the run fixture
+  to stop it then, instead of when the test process exits (on Windows, a process
+  killed outright takes the app down with it; on Unix, SIGKILL bypasses the
+  process-exit cleanup): in NUnit, a
+  `[SetUpFixture]` outside any namespace, `public sealed class AppCommands :
+  E2ERunFixture;` (`E2E.NUnit`); in xUnit v3,
+  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
+  processes, such as `dotnet test` and `e2e mcp`, still start one app each:
+  give a shared app a fixed port and `reuseExisting`.
+- Reporters. `reporters` in `e2e.config.json` lists `E2E.Reports.Reporter`
+  types (public constructor with no parameters), run in config order:
+  `"reporters": ["MyApp.Tests.UploadReporter, MyApp.Tests"]`. An entry is a
+  type name (assembly-qualified, or a type of a loaded assembly) or
+  `{ "type": "...", "options": { ... } }`. `options` reach the reporter only if
+  it implements `IConfigurableReporter` (`Configure(JsonElement options)`, called
+  once, only when `options` is given); the reporter rejects option content it
+  does not know with an error that names the key, not the value. The config
+  load checks only the shape (an array; each entry a string or an object with
+  a string `type` and optional `options` object); a wrong shape is
+  `INVALID_CONFIG`. The type is resolved when the run begins (the fixture builds the reporters in its setup): a name that is
+  not found, a type that is not a `Reporter`, is abstract, or has no such
+  constructor, and `options` on a type that is not configurable, are one
+  stderr line naming the type string. The other reporters still run and the
+  outcome is unchanged. The file is committed: put no token in `options`.
+  Reflection needs the type kept in a trimmed or AOT app. The same type listed
+  twice runs twice; no config file means no reporters. A reporter built in code
+  (upstream's reporter object in `reporters`) is added with
+  `E2EConfig.WithReporter(reporter)`: it runs after the ones the file names, and
+  never enters the config digest, whatever it holds. The run
+  fixture above calls `OnRunFinishedAsync(FinishedRun, CancellationToken)` once,
+  after the last test, with the final `report.json` document (`Report`,
+  `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`, `Traces`, `AiTracePath`). `Traces` maps
+  each result id to the trace page the test kept, as a path from the project
+  root (empty when none did); `AiTracePath` is the AI trace file this process
+  wrote, or null. It is awaited for one minute; the `ReporterSummaryRow`s it returns print to
+  standard output. A throw, a timeout, or a row with no label or text is one
+  line on stderr and never changes the outcome. Without the run fixture no
+  reporter runs. `FinishedRun.LastRun` is the report of the run a `--last-failed` rerun
+  selected from (`E2E_LAST_FAILED=1`, or `LastFailed` on the run fixture), else null.
+  `Reporter.OnEvent(RunEvent)` (a virtual no-op) sees each run event as it
+  happens, from the start of the run: `RunStartedEvent`, `PlanEvent`,
+  `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`,
+  `TestFinishedEvent`, `ExploreEvent`, `RunErrorEvent`, and `RunFinishedEvent` (the
+  `RunEvent` holds `Seq`, `At`, and the `Fact`). Each event comes in `Seq`
+  order, on any thread; keep `OnEvent` quick. A throw is one stderr line, and
+  the reporter gets no more events. A test that retries emits one start and
+  one finish per attempt. `Explore.ExploreAsync` emits an `ExploreEvent` for
+  each moment of the exploration (`Progress` is the `ExploreProgress`), beside
+  the events of its one test. Not emitted: `output`, serial groups.
+  `MarkdownReport.RenderMarkdownReport(run.Report, options)` (`E2E.Reports`)
+  renders that report as one markdown page for a pull request comment or a job
+  summary: a headline with the counts, a block per failed test, the flaky tests
+  and the test filters folded away, every test as a table, and the footer. The
+  `MarkdownReportOptions` are `ArtifactsUrl` (where the run's artifacts can be
+  fetched; evidence links there), `ArtifactsDir` (evidence listed as paths under
+  it when there is no URL), `SourceUrl` (a link to a source line),
+  `Traces` (the path of each traced result's page, by result id), and `Title`.
+  To post the page as a pull request comment from GitHub Actions, add the
+  `E2E.GitHub` package and list its reporter in `reporters` of `e2e.config.json`:
+  `"E2E.GitHub.GitHubReporter, E2E.GitHub"` (`E2E.GitHub`; upstream's
+  `github()` of `@e2e-dev/github`). On Actions it writes the job summary and
+  posts or updates one comment, found by a hidden first-line marker (project,
+  workflow, job, `kind=explore` for an exploration, and a key). The step needs
+  `GITHUB_TOKEN` (or `GH_TOKEN`) in its `env`, and the job needs
+  `permissions: pull-requests: write`. Outside Actions, on a push, or without a
+  token it posts nothing and says why in one row. Set `E2E_GITHUB_KEY` (.NET-only)
+  or the entry's `"options": { "key": "chromium" }` (the only option; an unknown
+  option or a non-string `key` is `INVALID_CONFIG`) to tell matrix jobs apart. With `FinishedRun.LastRun` set it folds the rerun into the run it selected from, so the comment shows the whole suite.
+  It returns text and does not write or post it. The text stays under what a
+  GitHub comment accepts, and every title, label, and message in it is escaped.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
   `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
   `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.
@@ -200,8 +312,11 @@ and in CI.
   unless a name or prefix matches them.
 - Output is discarded unless `log` names a file inside the config's directory,
   such as `.e2e/logs/app.log`; without it a server dying on boot is
-  invisible. A startup failure quotes the last 20 lines of what the process
-  wrote, with `command.env` and `inheritEnv` values redacted.
+  invisible. A startup failure quotes what the process appended since it
+  started, with `command.env` and `inheritEnv` values redacted: a log of up to
+  40 lines inside 8 KiB whole, otherwise its first and last 20 lines with
+  `[startup output omitted]` between them, so the error a service printed before
+  it kept logging survives.
 - A `url` answering before the spawn is `APP_ALREADY_RUNNING`;
   `command.reuseExisting: true` attaches to a running dev server (CI ignores
   it).
@@ -232,25 +347,30 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | Option | Meaning |
 | --- | --- |
 | `Headless` | Unset: headless, unless `E2E_HEADLESS` is `0` or `false`. |
-| `Viewport` | Default 1280 by 720; `null` follows the browser window. |
+| `Viewport` | Default 1280 by 720; `null` follows the browser window. A test calls `Browser.SetViewportAsync()` to resize; the agent resizes with its `resize_viewport` tool. |
 | `TestIdAttribute` | What `GetByTestId` reads; default `data-testid`. |
-| `Headers` | Sent only to the base URL's host; turns the browser HTTP cache off. |
-| `BasicAuth` | Credentials for a `401` challenge. |
+| `Headers` | Sent only on requests that start at the app's origin (scheme, host, and port of `app.url`) or one in `CredentialOrigins`; a request keeps them through its redirects, to any origin. Turns the browser HTTP cache off. |
+| `BasicAuth` | Credentials for a `401` challenge from the app's origin, or one `CredentialOrigins` lists (a redirect to `www` or `https:` is another origin). WebKit answers any origin when one of them is on a default port or an IPv6 host. |
+| `CredentialOrigins` | More exact origins that receive `Headers` and `BasicAuth`, such as `["https://api.example.com"]`; requires `Headers` or `BasicAuth`, else `INVALID_CONFIG`. A wildcard, a path, a query, or port 0 is `INVALID_CONFIG`. |
 | `UserAgent` | The `User-Agent` every attempt sends. |
 | `Locale` | The language every attempt runs in, a BCP 47 tag: `navigator.language`, `Intl`, and `Accept-Language`. An `accept-language` entry in `Headers` beside it is `INVALID_CONFIG`. |
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
 | `Screencast` | `new WebScreencastOptions { Size, Quality }` for the engine's own video: the frame size in whole pixels (default the viewport's) and the JPEG quality, 0 to 100. Which attempts record is `video`, not this. A browser provider that records ignores it (topic `debugging`). |
+| `BrowserName` | `BrowserName.Chromium` (default), `Firefox`, or `Webkit`: the browser the engine launches. Two browsers on one app are two targets, each with its own `WebEngine`. Install an extra one with `e2e install firefox --with-deps` or `e2e install webkit --with-deps`. `Connect` and `Browser` attach over CDP, so they need Chromium: `Connect` with another browser is `INVALID_CONFIG`. Upstream's single `browser` option is a name or a provider; the port splits it into `BrowserName` and `Browser`. |
 | `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
+- With `ReconnectEndpoint`, the engine registers its selector engines in the browser's default context on every connect and reconnect (Playwright seeds custom selectors only in new contexts), so a screenshot masks secure fields in it, including inside closed shadow roots.
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
   `BasicAuth`, `UserAgent`, `Locale`, `TimezoneId` (`INVALID_CONFIG`), or
   `App.ClearStateAsync`. Each attempt needs a fresh browser from `CdpEndpoint`;
   one an earlier attempt rode is refused. Recovery never repeats a dispatched
   operation, and exhausting the action timeout is `OPERATION_TIMEOUT`. After a
-  reconnect, observe again before acting on an observed node. Without
+  reconnect, observe again before acting on an observed node. A ref names the element
+  the walk read; a gone element, a replaced document, a newer observation, an app restart,
+  or a state reset makes it a retryable `NODE_STALE`. Without
   `ReconnectEndpoint` each attempt attaches and creates a new context.
 
 - A provider implements `Name`, `AcquireAsync(BrowserRequest, ct)` returning a
@@ -316,7 +436,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | Variable | Effect |
 | --- | --- |
 | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ... | The provider's key, or the variable `apiKeyEnv` names. |
-| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and `-` becomes `_`. |
+| `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and every character outside A-Z and 0-9 becomes `_`. |
 | `E2E_SECRET_<NAME>` | Overrides `secrets.<name>`. |
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
 | `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |
@@ -324,10 +444,45 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. `E2E_VIDEO` records on the web engine. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
+| `NO_COLOR` | A non-empty value turns colors off in the list reporter, `e2e explore`, and `e2e doctor`. |
+| `PLAYWRIGHT_BROWSERS_PATH` | Playwright's browser cache, used by the web engine's install and by `e2e doctor`. |
+| `E2E_AGENT_DEVICE_POOL_<TARGET>_<digest>`, `E2E_WEB_BROWSERS_<TARGET>_<digest>` | Internal: `PrepareAsync` writes them for the workers. Never set them by hand. |
+
+The full list, with each variable's default and effect, is the docs site's "Environment variables" page (`docs-site/src/content/docs/reference/environment.mdx`).
+
+## App identity and environment
+
+`app.identity` is the stable name that keys the replay cache: the recordings of one app are found again by it. Unset, it is the URL's origin and path as declared (a port-`0` URL keeps the `:0`, so the port changing every run never misses the cache), else `app.bundleId`, else `app.appPath`. Declare it when the origin changes per deploy (a PR preview), so the preview shares the entries of the app it deploys; different apps need different identities. `app.environment` is `test`, `staging`, or `production`. Unset, it is `test` for a loopback, `.localhost`, or `.test` host and for a target without a URL, and `production` for any other host. The environment always joins the cache key, so an identity never shares entries across environments. The site of the URL (the last two labels of its host, three for `example.co.uk`) is derived, not declared.
+
+```json
+{ "targets": [{ "platform": "web", "app": { "url": "https://pr-12.preview.example.dev", "identity": "shop", "environment": "staging" } }] }
+```
+
+Declaring an identity or environment for an app that had none misses the entries recorded before: they are not read, and the next run records them again.
+
+## Browser permissions
+
+Headless Chromium refuses a permission the target does not grant, so `navigator.clipboard.writeText` fails even after a click. A web target's `app.permissions` grants it to every page of every attempt, on any origin, after a restart or `ClearStateAsync` too:
+
+```json
+{ "targets": [{ "platform": "web", "app": { "url": "http://localhost:3000", "permissions": { "clipboard-read": "grant", "clipboard-write": "grant" } } }] }
+```
+
+A web target takes `grant` only; `deny` and `reset` are `INVALID_CONFIG` (leave the permission out instead). The names are Playwright's, and each browser grants its own set; an unknown one is `INVALID_CONFIG` naming the nearest, checked when the attempt starts. A fixture overrides `Permissions` to change them in code.
+
+`WebEngine.ValidateApp(app, targetName)` is the check a web target's `app` must pass: `app.url` is required, `bundleId`, `appPath`, and `launchArguments` (the fields of an installed device app) are refused, and `app.permissions` must name permissions the engine's browser grants, `grant` only. A browser provider or `Connect` takes Chromium's names. All of these are `INVALID_CONFIG`. `ValidateApp` is an explicit check: config loading does not run it (a web target without `app.url` still loads, and the device-app fields are already unknown keys there), and attempt start validates `app.permissions` on its own through `WebPermissions.ValidatePermissions`.
+
+| Browser | Names |
+| --- | --- |
+| `chromium` | `accelerometer`, `ambient-light-sensor`, `background-sync`, `camera`, `clipboard-read`, `clipboard-write`, `geolocation`, `gyroscope`, `local-fonts`, `local-network-access`, `magnetometer`, `microphone`, `midi`, `midi-sysex`, `notifications`, `payment-handler`, `screen-wake-lock`, `storage-access` |
+| `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
+| `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
+
+A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
 
 ## Mobile targets
 
-iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator. For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
+iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots a shut-down one: a phone or tablet over a TV, then the newest OS, then name order; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). `Device.UnstableRaw` gives the test's agent-device session for what `Device` lacks: the session name, device id and name, a `Selection` to pass into a client call, and the client (unstable; its calls are not steps). For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
 
 ## Windows targets
 
