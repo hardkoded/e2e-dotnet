@@ -17,6 +17,7 @@ namespace E2E.Mobile;
 /// <item><term>UNSUPPORTED_OPERATION, NOT_IMPLEMENTED, UNSUPPORTED_PLATFORM, or "not supported on this device" under any code</term><description>UNSUPPORTED_CAPABILITY</description></item>
 /// <item><term>a stale-ref refusal, by <c>details.reason</c> (action paths only)</term><description>NODE_STALE (retryable)</description></item>
 /// <item><term><c>target_still_moving</c> with <c>details.dispatched: no</c></term><description>NODE_STALE (retryable)</description></item>
+/// <item><term>a covered or keyboard-occluded target, <c>dispatched: no</c></term><description>NOT_ACTIONABLE, with the hint</description></item>
 /// <item><term>the iOS runner busy, wedged, or past its watchdog; a snapshot the runner acquired but could not present</term><description>ENGINE_FAILURE, naming the runner and the recovery</description></item>
 /// <item><term>anything else, agent-device's own timeouts included</term><description>ENGINE_FAILURE with the text</description></item>
 /// </list>
@@ -63,6 +64,13 @@ public static partial class DeviceErrors
         "plain_ref_requires_complete_frame",
         "ref_not_issued",
     ];
+
+    /// <summary>
+    /// The <c>details.reason</c> values agent-device refuses an action with when something else is drawn where the touch
+    /// would land: an overlay its occlusion scan found over the target (<c>coveredBy</c> names it), or the soft keyboard
+    /// over the target's touch point. Nothing was sent, and the app is fine; the test has to move the cover or the target first.
+    /// </summary>
+    private static readonly HashSet<string> OccludedReasons = ["target_covered", "tap_keyboard_occludes_target"];
 
     /// <summary>
     /// What the iOS automation runner reported about itself, by the code agent-device emits for it:
@@ -206,6 +214,8 @@ public static partial class DeviceErrors
     /// instead of failing the action. Existing stale-ref reasons are sufficient on their own: Android dialog
     /// recovery can mark a refused drag as <c>dispatched: unknown</c>. A <c>target_still_moving</c> refusal
     /// additionally requires <c>dispatched: no</c>; missing or unknown dispatch is not retryable.
+    /// A target agent-device refused as covered (<see cref="OccludedReasons"/>) with nothing dispatched is
+    /// <c>NOT_ACTIONABLE</c>: the test's own failure, with the hint that names the cover, never an infrastructure one.
     /// </summary>
     public static Exception StaleOr(Exception cause, string operation, string? where = null)
     {
@@ -219,6 +229,11 @@ public static partial class DeviceErrors
             && (StaleRefReasons.Contains(reason) || (reason == "target_still_moving" && details.GetValueOrDefault("dispatched") is "no")))
         {
             return new EngineException(EngineErrorCodes.NodeStale, $"{operation}: {Message(cause)}", retryable: true, cause);
+        }
+
+        if (details.GetValueOrDefault("reason") is string occluded && OccludedReasons.Contains(occluded) && details.GetValueOrDefault("dispatched") is "no")
+        {
+            return new EngineException(EngineErrorCodes.NotActionable, $"{operation} failed: {WithHint(cause, Message(cause))}", retryable: false, cause);
         }
 
         return TranslateError(cause, operation, where);

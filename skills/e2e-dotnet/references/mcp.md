@@ -169,7 +169,7 @@ Test line: await Screen.GetByRole("button", "Sign in").TapAsync();
 `test_lines` returns every line so far, in order, as a draft test body that
 starts with `await App.OpenAsync();` for the session's own opening (after
 `open_session {test}`, it holds only the lines after the test stopped). Paste it
-into a test, then add the assertions.
+into a test, then add the assertions at the end, after every step.
 
 - The locator comes from the node as the newest observation listed it,
   before the action runs. Role and name, label, placeholder, text, and test
@@ -266,6 +266,14 @@ The loop is:
    `listitem` by its text: `status "Saved."` on an unlabelled status is its
    text, so match it with `Screen.GetByRole("status").Filter("Saved.")`
    or `Screen.GetByText`.
+   Write the class as topic `writing-tests` ("Structure") shapes it: one
+   class per feature, a test method named for the one behavior it
+   verifies, and each check (`Agent.AssertAsync`, or an `Expect` you tried
+   first) in its assert block, after every step. A walk that goes on to a
+   second behavior goes on into a second test method in the same class,
+   with its own assert block: `navigate` back to the path its
+   `App.OpenAsync` names first, so its lines run from the state the test
+   starts in.
 
    When the walk ends, the test is written and every locator you copied
    from a `Test line:` or a `locate` result has matched once; the first run
@@ -274,17 +282,19 @@ The loop is:
    goals' paths included. One walk, in order:
 
    ```text
-   write   MembersTests.cs: usings, the test method, App.OpenAsync("/settings/members")
+   write   MembersTests.cs: usings, the test method Invites_a_member_as_an_editor, App.OpenAsync("/settings/members")
    call    open_session, then navigate {url: "/settings/members"}   its line is the App.OpenAsync already written
    edit    + await Agent.ActAsync("invite {email} as an editor", new ActOptions { Params = new Dictionary<string, object?> { ["email"] = "ada@example.test" } });
    call    tap, type, select, tap                   the goal's path; its test lines stay out
    call    locate {role: "status"}                  1 node matches, text "Invite sent"
-   edit    + await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Invite sent");
-   call    type {target: "n40", text: "ada"}       prints the test line below
-           Test line: await Screen.GetByRole("searchbox", "Search members").FillAsync("ada");
+   edit    + await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Invite sent");   in the assert block
+   write   + the test method Finds_a_member_by_name, App.OpenAsync("/settings/members")
+   call    navigate {url: "/settings/members"}      the new test's fresh start
+   call    type {target: "n40", text: "grace"}     prints the test line below
+           Test line: await Screen.GetByRole("searchbox", "Search members").FillAsync("grace");
    edit    + that line, as printed
    call    locate {role: "listitem"}                1 node matches
-   edit    + await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
+   edit    + await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);   in the assert block
    ```
 4. Run only that test from the shell:
    `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,

@@ -405,7 +405,7 @@ content elsewhere on the current screen.
   the path.
 - Keep each goal atomic: one outcome that one check confirms. When two
   parts of an instruction each leave a state worth checking, they are two
-  goals: give each its own `ActAsync` and check. Steps toward a single
+  goals, each its own `ActAsync`. Steps toward a single
   outcome are the path, not more goals: scrolling to a control, closing a
   banner, opening the menu that holds it, filling the fields of one form.
 - A split flow fails at the goal that broke. Each goal replays from its own
@@ -413,31 +413,47 @@ content elsewhere on the current screen.
   timeout still caps them all.
 
 ```csharp
-// BAD: three goals in one instruction, one recording, no check between them.
+// BAD: three goals in one instruction, one recording.
 await Agent.ActAsync("open the Pro plan, set the seats to {seats}, and check out", new ActOptions
 {
     Params = new Dictionary<string, object?> { ["seats"] = 3 },
 });
 
-// GOOD: three atomic goals, each pinned before the next.
-await Agent.ActAsync("open the Pro plan");
-await Expect.That(Screen.GetByRole("heading", "Pro plan")).ToBeVisibleAsync();
-await Agent.ActAsync("set the seats to {seats}", new ActOptions
+// GOOD: arrange with two atomic goals, act with the one under test, assert last.
+[Test]
+public async Task Checks_out_the_Pro_plan()
 {
-    Params = new Dictionary<string, object?> { ["seats"] = 3 },
-});
-await Expect.That(Screen.GetByRole("status", "Seats")).ToHaveTextAsync("3 seats");
-await Agent.ActAsync("check out");
-await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+    await App.OpenAsync("/plans");
+    await Agent.ActAsync("open the Pro plan");
+    await Agent.ActAsync("set the seats to {seats}", new ActOptions
+    {
+        Params = new Dictionary<string, object?> { ["seats"] = 3 },
+    });
+    await Agent.WaitForAsync("the cart shows the Pro plan with 3 seats");
+
+    await Agent.ActAsync("check out");
+
+    await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+    await Expect.That(Screen.GetByText("Pro plan, 3 seats")).ToBeVisibleAsync();
+}
 ```
+
+Choosing the seats is its own behavior, so it gets its own test that ends
+after `set the seats` and asserts the seat count. Tests follow arrange, act,
+assert, one behavior each (topic `writing-tests`, "Structure").
 
 - Use the words on screen: `"open the Billing tab"`, not `"upgrade"`.
 - Values go in `Params`, never pasted into the instruction.
 - Do not describe mechanics the runner handles: waiting, scrolling, retries.
-- Pin every act's outcome right after it; that check lets the cache record:
+- End the test with a check of the outcome. A passing locator or engine
+  matcher, `AssertAsync`, or wait confirms every `ActAsync` before it, which
+  lets the cache record them; close an arrange block of `ActAsync` goals
+  with a wait for its state, so a failure later in the test keeps them
+  recorded:
 
 ```csharp
 await Agent.ActAsync("create a workspace named \"Atlas\" on the Pro plan");
+
 await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Created \"Atlas\" on the Pro plan");
 ```
 
@@ -567,8 +583,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   directory only slows the next run.
 - An entry is written only after a later locator expectation,
   `AssertAsync`, `WaitForAsync`, or `locator.WaitForAsync` passes, so an
-  unchecked act never replays. Locator reads and `ExtractAsync` verify
-  nothing.
+  unchecked act never replays. One check at the end confirms every
+  `ActAsync` before it. Locator reads and `ExtractAsync` verify nothing.
 - A replay re-finds each control by role, name, test id, placeholder, input
   purpose, and its named row (an unnamed control with twins and no named
   container hands off with `target-not-found`, and so does one known only by
@@ -754,7 +770,7 @@ upstream calls `mobileTools`: `open_app`, `swipe`, and `alert`, offered only on
 the platforms of the engines you pass. Return it from `AgentTools` beside your
 own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
-starts in the same app. `open_app` takes an optional `app`: without one it returns to the app under test (the target's `App.BundleId`, or the app the build installed), so the agent can recover after a system sheet or another app took the screen. `samples/MobileApp.E2ETests` shows it in use.
+starts in the same app. A tool of your own that needs a raw driver session gets the running device's from `MobileTools.UnstableDeviceSession(engines)` (the `RawDeviceSession` of `Device.UnstableRaw`; throws `INVALID_STATE` outside an attempt; its client calls are not steps and skip redaction, so declare a mutating tool `mutates: true`; unstable). `open_app` takes an optional `app`: without one it returns to the app under test (the target's `App.BundleId`, or the app the build installed), so the agent can recover after a system sheet or another app took the screen. `samples/MobileApp.E2ETests` shows it in use.
 
 Not ported: decision models and the `--debug` agent step table. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).

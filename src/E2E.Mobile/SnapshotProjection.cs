@@ -217,8 +217,12 @@ public static partial class SnapshotProjection
     /// agent-device published with the snapshot; a producer that measured none leaves it to <see cref="ViewportOf"/>.
     /// <paramref name="refsGeneration"/> is the capture the refs were issued from.
     /// Android's system bars are left out with their children, see <see cref="IsSystemBar"/>.
+    /// <paramref name="keyboard"/> is the band the soft keyboard covers. A node the keyboard draws over is hidden, as one
+    /// scrolled off screen is: its centre is in the band and none of its children shows. Exempt are the keyboard's own
+    /// nodes (see <see cref="KeyboardSide"/>) and the focused node, the field the keyboard types into: the platform keeps
+    /// it above the keyboard, and on iOS its reported frame can lag behind where it moved to.
     /// </summary>
-    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null)
+    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null, Rect? keyboard = null)
     {
         var viewport = publishedViewport ?? ViewportOf(raw);
         var parents = ParentPositions(raw);
@@ -240,6 +244,7 @@ public static partial class SnapshotProjection
             }
         }
 
+        var keyboardSide = keyboard is { } band ? KeyboardSide(raw, parents, roots, children, band) : [];
         var index = new List<ProjectedNode>();
 
         // Whether every node from `position` down is a class that only shows (`StatusIconKinds`).
@@ -254,11 +259,12 @@ public static partial class SnapshotProjection
             return !children.TryGetValue(position, out var below) || below.All(DisplayOnly);
         }
 
-        SemanticNode Build(int position, ProjectedNode? parent)
+        SemanticNode Build(int position, ProjectedNode? parent, bool parentOnKeyboard)
         {
             var source = raw[position];
             var id = mintId();
             var kind = KindOf(source);
+            var onKeyboard = parentOnKeyboard || keyboardSide.Contains(position) || source.KeyboardOwned == true || IsKeyboardElement(source);
             var android = IsAndroidClass(source.Type);
 
             // The role React Native spelled into the value outranks the platform's `Other`: it is the role
@@ -328,7 +334,11 @@ public static partial class SnapshotProjection
                 States = reported,
             };
             index.Add(entry);
-            var childNodes = kids.Where(child => child != folded?.Child).Select(child => Build(child, entry)).ToList();
+            var childNodes = kids.Where(child => child != folded?.Child).Select(child => Build(child, entry, onKeyboard)).ToList();
+            if (!onKeyboard && source.Focused != true && UnderKeyboard(source.Rect, keyboard) && childNodes.All(child => child.States?.Hidden == true))
+            {
+                reported["hidden"] = true;
+            }
 
             // A secure field's value is never observed; the tree carries that it is secure, not what it
             // holds. Android echoes a text view's label as its value, which would render every line twice,
@@ -373,9 +383,117 @@ public static partial class SnapshotProjection
 
         var rootNodes = roots
             .Where(position => !IsSystemBar(raw[position], viewport, () => DisplayOnly(position)))
-            .Select(position => Build(position, null))
+            .Select(position => Build(position, null, false))
             .ToList();
         return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport, RefsGeneration = refsGeneration };
+    }
+
+    /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
+    internal static readonly HashSet<string> KeyboardKinds = ["keyboard", "key"];
+
+    /// <summary>
+    /// Whether a raw node is the soft keyboard: the keyboard element or one of its keys (a capture can list keys with no
+    /// keyboard around them), or the suggestion strip UIKit draws along its top edge (<c>UISystemInputAssistantView</c>),
+    /// which XCTest lists beside the keyboard, not inside it.
+    /// </summary>
+    private static bool IsKeyboardElement(RawNode node) => KeyboardKinds.Contains(KindOf(node)) || node.Identifier == "SystemInputAssistantView";
+
+    /// <summary>
+    /// The band the soft keyboard covers: the frame the capture's producer measured or derived, else the keyboard elements
+    /// in the tree (the keys and the suggestion strip above them), from the highest one's top edge to the bottom of the
+    /// screen, since the dock under the keys is the keyboard's too. agent-device's iOS simulator capture publishes no frame,
+    /// only the elements. A producer that saw no docked keyboard (<c>absent</c>, a rejected tree, a probe that says hidden)
+    /// leaves no band, whatever the tree holds. <paramref name="kind"/>, <paramref name="frame"/> and <paramref name="visible"/>
+    /// are the capture's keyboard fact: its kind, its frame, and what a <c>visibility-only</c> probe says.
+    /// </summary>
+    public static Rect? KeyboardBand(IReadOnlyList<RawNode> nodes, string? kind, Rect? frame, bool? visible, ViewportSize? viewport)
+    {
+        if (kind is "visible" or "derived")
+        {
+            return frame;
+        }
+
+        if (kind is "absent" or "tree-rejected" || (kind == "visibility-only" && visible != true))
+        {
+            return null;
+        }
+
+        var boards = nodes
+            .Where(node => node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && IsKeyboardElement(node))
+            .Select(node => node.Rect!.Value)
+            .ToList();
+        if (boards.Count == 0)
+        {
+            return null;
+        }
+
+        var left = boards.Min(rect => rect.X);
+        var right = boards.Max(rect => rect.X + rect.Width);
+        var top = boards.Min(rect => rect.Y);
+        var bottom = Math.Max((viewport ?? ViewportOf(nodes))?.Height ?? 0, boards.Max(rect => rect.Y + rect.Height));
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Whether the soft keyboard draws over the point a touch on <paramref name="rect"/> aims at, its centre: the keyboard
+    /// sits above every app window, so a touch there lands on a key, and the user sees the keyboard, not the node.
+    /// </summary>
+    private static bool UnderKeyboard(Rect? rect, Rect? keyboard)
+    {
+        if (rect is not { } node || keyboard is not { } band)
+        {
+            return false;
+        }
+
+        var x = node.X + (node.Width / 2);
+        var y = node.Y + (node.Height / 2);
+        return x >= band.X && x <= band.X + band.Width && y >= band.Y && y <= band.Y + band.Height;
+    }
+
+    /// <summary>
+    /// The positions whose subtrees belong to the keyboard, beyond the keyboard element itself: the window that holds it,
+    /// and the nodes after it under the same parent that lie inside the band. Both platforms put the keyboard's dock (the
+    /// globe and dictation buttons) and suggestion bar there, outside the keyboard element, and agent-device marks them
+    /// <c>keyboardOwned</c> only on some captures. A later sibling that starts above the band is app content, not dock:
+    /// XCTest lists the keyboard either before the app or after it, so document order alone cannot say which side of the
+    /// keyboard a node is on.
+    /// </summary>
+    private static HashSet<int> KeyboardSide(
+        IReadOnlyList<RawNode> raw,
+        IReadOnlyList<int?> parents,
+        IReadOnlyList<int> roots,
+        Dictionary<int, List<int>> children,
+        Rect band)
+    {
+        var side = new HashSet<int>();
+        for (var position = 0; position < raw.Count; position++)
+        {
+            if (KindOf(raw[position]) != "keyboard")
+            {
+                continue;
+            }
+
+            var parent = parents[position];
+            IReadOnlyList<int> siblings = parent is not { } owner ? roots : children.TryGetValue(owner, out var below) ? below : [];
+            foreach (var sibling in siblings)
+            {
+                if (sibling > position && raw[sibling].Rect is { } rect && rect.Y >= band.Y)
+                {
+                    side.Add(sibling);
+                }
+            }
+
+            for (var ancestor = parent; ancestor is { } at; ancestor = parents[at])
+            {
+                if (KindOf(raw[at]) == "window")
+                {
+                    side.Add(at);
+                    break;
+                }
+            }
+        }
+
+        return side;
     }
 
     /// <summary>

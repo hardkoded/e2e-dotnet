@@ -199,13 +199,32 @@ over `Screen` (topic `writing-tests`). Record each in the progress file.
 
 Then each test, one at a time:
 
-- Keep its name, and open the class with a comment naming the source
+- Open the class with a comment naming the source
   (`// Ported from Tests/LoginTests.cs`), so reports and reviewers map one
   to the other.
 - Translate literally first, one awaited call per source step. Each source
   assertion maps to its own e2e assertion (`Expect.That(...)`). A wait that
   fails on timeout becomes one more, so the e2e count is at least the
   inventory's.
+- Then, before the first run, arrange the translated lines in the shape the
+  e2e skill's `writing-tests` topic gives ("Structure"). Lines move, split
+  tests copy the steps they need, and closing waits are added; no source
+  step or assertion is dropped:
+  - One test class per source class or feature, named after it.
+  - A source test that checks one behavior keeps its name. A source test
+    that checks several (a check, more steps, another check) splits into
+    one test per behavior, each named for its outcome; the class comment
+    names the source test each came from. Each split test repeats the
+    steps before its behavior in its own arrange block, or reaches that
+    state through the framework's setup or the app's API.
+  - Each test runs arrange, act, assert: the steps that reach the starting
+    state, the steps of the one behavior, then its assertions, last.
+  - A source assertion that only guarded a precondition (the dashboard
+    showed before the real steps began) becomes the wait that closes the
+    arrange block (`locator.WaitForAsync()`, `Agent.WaitForAsync`). It
+    still counts toward the assertion count, since it fails on timeout.
+  - Splitting adds tests, never removes a check: the e2e count across the
+    split tests is still at least the source's.
 - A test the source ignores (`[Ignore]`, `[Fact(Skip = ...)]`) is ported in
   full and stays ignored, with the source's reason, so it can be turned back
   on in either suite. Its row says so; when the reason allows, run it
@@ -238,7 +257,9 @@ Then each test, one at a time:
 `Agent.ActAsync` comes after the literal port passes, never instead of it,
 and only with a model configured. Propose it for a stretch the source kept
 patching: coordinate taps, picker spins, long tap sequences through a
-wizard. Pin the outcome right after with a locator assertion (topic `agent`).
+wizard. Keep the test's shape: an `Agent.ActAsync` in the arrange block
+ends it with a wait for the state it reached, and one under test is
+checked by the locator assertions at the end (topic `agent`).
 One exception: when the guide marks a selector "No equivalent" (an image
 selector, XPath with no locator for the control) and a goal is its only
 workaround, use the goal in place of the literal port, keep the locator

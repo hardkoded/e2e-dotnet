@@ -241,19 +241,26 @@ and the failure it saw. Without subagents, verify one area after another.
                    ["password"] = shopper.Password,
                },
            });
-           await Agent.AssertAsync("the app shows you are signed in");
            await Agent.ActAsync("add \"Dune\" to the cart");
+           await Agent.WaitForAsync("you are signed in and the cart holds \"Dune\"");
+
            await Agent.ActAsync("set the quantity of \"Dune\" in the cart to 2");
+
            await Agent.AssertAsync("the cart line for \"Dune\" totals twice its unit price");
        }
    }
    ```
+
+   Write it in the shape topic `writing-tests` describes: arrange, closed by
+   a wait for the starting state, then the one action that shows the defect,
+   then the assertions. The wait keeps a broken setup from passing as the
+   defect, and keeps the setup goals cached across the failing runs.
 3. Run the class alone: `dotnet test --filter "FullyQualifiedName~BugBash.CartTests"`.
    Confirmed when it fails on the reported defect: `ASSERTION_FAILED` from
    the closing `Agent.AssertAsync`, or a failed `Agent.ActAsync` whose
    message names the defect. A failed `ActAsync` carries the code the model
    chose, so only its message and screenshot tell the defect apart from a
-   failure short of it. A blocked act, a timeout, a setup error, or a
+   failure short of it. A blocked act, a timeout, a setup error, a failed arrange wait, or a
    failure that names something else means the repro is wrong: sharpen the
    step and rerun. A passing test means the bug did not reproduce: reject
    the finding, say so, and delete the test (or offer it as a regression

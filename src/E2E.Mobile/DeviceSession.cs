@@ -718,7 +718,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// </summary>
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
-        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport, raw.RefsGeneration);
+        var projected = SnapshotProjection.ProjectSnapshot(
+            raw.Nodes,
+            () => $"n{++_idCounter}",
+            raw.Viewport,
+            raw.RefsGeneration,
+            SnapshotProjection.KeyboardBand(raw.Nodes, raw.KeyboardKind, raw.KeyboardFrame, raw.KeyboardProbeVisible, raw.Viewport));
         projected.KeyboardVisible = KeyboardShowing(raw);
         _latestScreen = projected;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
@@ -788,7 +793,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         ViewportSize? Viewport = null,
         string? KeyboardKind = null,
         Rect? KeyboardFrame = null,
-        long? RefsGeneration = null)
+        long? RefsGeneration = null,
+        bool? KeyboardProbeVisible = null)
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
 
@@ -826,7 +832,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                     && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
                     ? new Rect(frameX, frameY, frameWidth, frameHeight)
                     : null,
-                Number(data["refsGeneration"]) is { } generation ? (long)generation : null);
+                Number(data["refsGeneration"]) is { } generation ? (long)generation : null,
+                data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed) ? probed : null);
         }
     }
 }

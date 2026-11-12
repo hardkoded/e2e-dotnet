@@ -36,7 +36,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
 | Running isolated per-test sessions from your own runner: `E2EHost.OpenAsync`, `OpenHostOptions` (config value or file, target, `EngineFactory`), `host.OpenSessionAsync`, `E2ESession.CloseAsync` and the failures it returns, `Steps()` | `host` | [references/host.md](references/host.md) |
-| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held, and with none booted agent-device boots a shut-down one: a phone or tablet over a TV, then newest OS, then name order; `prepare` logs a per-device timing line), video of the device screen, `Device.SetPermissionAsync` (the enums, or wire-name strings such as `"camera"` and `"grant"`; an unknown name or state is `INVALID_ARGUMENT` before any device command), `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted, and that throws `NotSupportedException` for the `text-size` and `animations` settings, `apps.uninstall`, and `command.hardwareButton`; unstable; `INVALID_STATE` after the session is disposed), a NativeScript `testID` or `accessibilityIdentifier` as the test id `GetByTestId` reads (an Android `accessibilityLabel` is put before the text), Limrun and BrowserStack hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app, a Compose Multiplatform field on iOS (for an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text, that text is the field's `Placeholder`, the child is left out, and the name is the label before `, `; a non-empty `ContentDescription` stays the name, and that label is then the `Text`; any other field keeps its label and children), and `FillAsync` and `ClearAsync` refusing a node that is not an editable field with `UNSUPPORTED_CAPABILITY` (an iOS `other` that holds a value or only text is typed into), reading the field again before typing (a field the new capture no longer lists, an incomplete capture, or a changed input purpose or secure, disabled, or hidden state is a retryable `NODE_STALE` before anything is typed), looking at the screen again after the keyboard opens or closes (an unmoved control is acted on at once only when keyboard visibility is unchanged, else it waits out `TransitionMilliseconds`; a test's screen swipe waits out the remaining budget before it scrolls), and a `target_still_moving` refusal with `dispatched: no` being a retryable `NODE_STALE` | `mobile` | [references/mobile.md](references/mobile.md) |
+| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held, and with none booted agent-device boots a shut-down one: a phone or tablet over a TV, then newest OS, then name order; `prepare` logs a per-device timing line), video of the device screen, `Device.SetPermissionAsync` (the enums, or wire-name strings such as `"camera"` and `"grant"`; an unknown name or state is `INVALID_ARGUMENT` before any device command), `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted, and that throws `NotSupportedException` for the `text-size` and `animations` settings, `apps.uninstall`, and `command.hardwareButton`; unstable; `INVALID_STATE` after the session is disposed; a custom agent tool gets the running attempt's from `MobileTools.UnstableDeviceSession(engines)`), a NativeScript `testID` or `accessibilityIdentifier` as the test id `GetByTestId` reads (an Android `accessibilityLabel` is put before the text), Limrun and BrowserStack hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app, a Compose Multiplatform field on iOS (for an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text, that text is the field's `Placeholder`, the child is left out, and the name is the label before `, `; a non-empty `ContentDescription` stays the name, and that label is then the `Text`; any other field keeps its label and children), and `FillAsync` and `ClearAsync` refusing a node that is not an editable field with `UNSUPPORTED_CAPABILITY` (an iOS `other` that holds a value or only text is typed into), reading the field again before typing (a field the new capture no longer lists, an incomplete capture, or a changed input purpose or secure, disabled, or hidden state is a retryable `NODE_STALE` before anything is typed), looking at the screen again after the keyboard opens or closes (an unmoved control is acted on at once only when keyboard visibility is unchanged, else it waits out `TransitionMilliseconds`; a test's screen swipe waits out the remaining budget before it scrolls), and a `target_still_moving` refusal with `dispatched: no` being a retryable `NODE_STALE` | `mobile` | [references/mobile.md](references/mobile.md) |
 | Testing a Windows desktop app: `WinAppEngine`, `WinAppTest`, the `Window` fixture, the `windows` target in `e2e explore` and `e2e mcp`, the interactive-desktop requirement, known limits | `windows` | [references/windows.md](references/windows.md) |
 | Asked to bug bash or hunt for bugs: the bug-bash config, many `e2e explore` runs at once, proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
@@ -127,7 +127,9 @@ public sealed class BillingTests : E2ETest
     public async Task Member_upgrades_to_Pro()
     {
         await App.OpenAsync("/settings/billing");
+
         await Agent.ActAsync("upgrade the workspace to the Pro plan");
+
         await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Pro");
     }
 }
@@ -149,9 +151,15 @@ public sealed class BillingTests : E2ETest
    add the `Expect.That`. The walk ends with the test written. Without a
    server, learn the accessible names the app renders from the components or
    a run with `E2E_HEADLESS=0`.
-3. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the flow with
-   `Agent.ActAsync`, one atomic goal per call, and pin each outcome right after with `Expect.That`
-   or `Agent.AssertAsync`. A test with three goals makes three calls.
+3. Shape the class before the steps (topic `writing-tests`, "Structure"):
+   one test class per feature, and in it one test method per behavior,
+   named for the outcome it verifies. Each test runs arrange, act, assert,
+   in that order: reach the starting state, do the one thing under test,
+   then every `Expect.That` or `Agent.AssertAsync` at the end. A second
+   outcome worth checking is a second test, so a failing name says what
+   broke. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the
+   flow with `Agent.ActAsync`, one atomic goal per call; three goals make
+   three calls.
    Start it on the screen it covers, since every rerun pays for the steps
    before: in a browser a sign-in through the app's API in the test's setup
    (cookies set with `Browser.SetCookiesAsync`; a `Secret` cannot go into a
@@ -236,7 +244,8 @@ lines you changed:
   `Timeout` polls until the cancellation token you pass ends. `Agent` calls take a positive
   `Timeout` only: zero or less is `INVALID_ARGUMENT`.
 - Keep the replay cache on. A failed run keeps the recording of every goal
-  whose check passed, and the next run replays those with no model call. New,
+  a later check or wait confirmed (the wait closing the arrange block, topic
+  `writing-tests`), and the next run replays those with no model call. New,
   changed, and failed goals run live, and so does a replay the trace page
   shows as handed off. A handed-off goal's first prompt lists the replayed
   actions, says `Replay stopped (<reason>) after N of M recorded actions.`, and
@@ -383,7 +392,11 @@ lines you changed:
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
-  visibly. On a locator (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
+  visibly. On a device, a node whose centre the soft keyboard covers is hidden, so the
+  scroll goes on past it and `ToBeVisibleAsync` fails on it. The keyboard's own keys and dock, the focused field, and a container with a child still showing stay visible (topic `mobile`). A tap
+  agent-device refuses because the keyboard or an overlay covers the target fails
+  `ACTION_FAILED` with a message that names the cover. On a locator
+  (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
   so a feed or table that is its own scroll container pages. `Timeout` is its own
   default of 30 s, not `actionTimeout`, and bounds the whole scroll, each swipe
   included. `Momentum` is the stride of each step: a longer one must not carry the
@@ -466,12 +479,15 @@ lines you changed:
   mints the refs' revisions, routes each verb to the member that implements it,
   and refuses an action kind the engine did not declare. It sits beside `IEngine`;
   the test runner and the agent still take an `IEngine`.
+- Tests: one test class per feature, one behavior per test method,
+  arrange, act, assert with every assertion last (topic `writing-tests`).
+  Bad: one test that adds a todo, checks it, marks it done, and checks
+  again. Good: `Adds_a_todo_to_the_list` and `Marks_a_todo_as_done`, the
+  second adding its todo in its arrange block.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
-  outcomes worth checking are two goals, so split them into two `ActAsync`
-  calls (topic `agent`). Bad: `"add a todo and mark it done"`. Good: `"add a
-  todo"`, check, then `"mark the todo as done"`, check. Judge meaning, not
-  phrasing. A judgment reads the text snapshot and where the screen is (its
+  outcomes are two goals in two `ActAsync` calls (topic `agent`), never
+  `"add a todo and mark it done"`. Judge meaning, not phrasing. A judgment reads the text snapshot and where the screen is (its
   path on the app, or the whole address off it); the address is evidence only
   for a claim about the URL or route. When the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
@@ -512,8 +528,14 @@ lines you changed:
   the screen an action started on (`App.ScreenshotAsync`). It does not wait
   for the screen to settle. A throw fails the step before the action runs,
   with `agent.act onBeforeAction failed: ...` (topic `agent`).
-- Check each act's outcome. Only a verified act is recorded and replayed
-  (topic `agent`).
+- End every test that runs an agent goal with a verifying check: a locator
+  matcher (`Expect.That(locator)`), an engine matcher
+  (`Expect.That(Browser).ToHaveURLAsync`), or `Agent.AssertAsync`. A passing
+  one confirms every `ActAsync` before it, so they can be recorded and
+  replayed without model calls, and so do `locator.WaitForAsync`,
+  `Browser.WaitForURLAsync`, and `Agent.WaitForAsync`. Reads,
+  `Expect.Poll`, and plain-value checks confirm nothing (topic `agent`,
+  "The replay cache").
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
   attempt's `screenshots/` and returns the absolute path of the file it wrote.
   It masks secure fields only, after a `Secret` fill too (topic

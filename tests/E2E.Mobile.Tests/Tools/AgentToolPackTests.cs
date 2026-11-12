@@ -54,6 +54,38 @@ public sealed class AgentToolPackTests
         JsonAssert.Args("""{"app":"Reminders","platform":"ios"}""", iosHarness.Fake.LastArgs("apps.open"));
     }
 
+    // Partial: upstream also hands unstable_deviceSession an engine handle that mobile() did not return and expects INVALID_STATE. The port
+    // takes MobileEngine, so the compiler refuses that handle.
+    [Fact]
+    public async Task Partial_Hands_a_custom_tool_the_running_attempts_session_and_client()
+    {
+        var iosHarness = Harness.Create();
+        var androidHarness = Android();
+        var ios = iosHarness.Engine;
+        var android = androidHarness.Engine;
+
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+
+        var androidSession = await androidHarness.Boot("android");
+        var raw = MobileTools.UnstableDeviceSession(ios, android);
+        Assert.Equal(MobilePlatform.Android, raw.Platform);
+        Assert.Equal("e2e-android-0", raw.Session);
+        Assert.Same(androidSession.Client, raw.Client);
+
+        var iosSession = await iosHarness.Boot("ios");
+        var several = Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android));
+        Assert.Equal("INVALID_STATE", several.Code);
+        Assert.Contains("several mobile attempts", several.Message, StringComparison.Ordinal);
+
+        await iosSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        await androidSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+
+        await iosSession.DisposeAsync();
+        await androidSession.DisposeAsync();
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => raw.Client).Code);
+    }
+
     [Fact]
     public async Task Refuses_a_link_the_model_hands_to_open_app_before_the_device_sees_it()
     {

@@ -10,6 +10,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 - Test ids by framework
 - A test
 - Roles
+- Visibility
 - Device controls
 - Choosing a device
 - Run the app in another language
@@ -136,6 +137,14 @@ React Native writes a role the platform has no type for into the accessibility v
 
 `StaticText` and `Text` on iOS and `TextView` on Android are `text`, and an Android `WebView` is `document`. Find text with `GetByText`.
 
+## Visibility
+
+A device node is hidden when the platform reports it off screen, or when the soft keyboard covers its centre. So `ToBeVisibleAsync`, `ScrollUntilVisibleAsync`, and `GetByRole` treat a field under the keyboard like a field scrolled out of view. The keyboard's own keys, suggestion bar, and dock stay visible, and so does the focused field.
+
+- The keyboard's area is the frame agent-device measures. When a capture has no frame, the area runs from the top of the keyboard in the tree to the bottom of the screen.
+- A container whose centre is under the keyboard stays visible while one of its children shows above it.
+- A node under another view, such as a footer the keyboard lifts, is not hidden. A tap on it fails with `ACTION_FAILED` when agent-device finds the cover, and the message names the cover. A tap under the keyboard fails the same way. Dismiss the cover, or scroll the target clear of it.
+
 ## Device controls
 
 `Device.OpenAppAsync` launches or foregrounds an app. `new OpenAppOptions { Relaunch = true }` starts it fresh. This is an excerpt of `DeviceTests.cs`.
@@ -158,7 +167,7 @@ React Native writes a role the platform has no type for into the accessibility v
 
 The fixture also has `SetAppearanceAsync(Appearance.Dark)` and `InstallAppAsync()`.
 
-`Device.UnstableRaw` gives the session name, device id and name, a `Selection` (`ToArgs()` it into a call), and an agent-device `IDeviceClient` (`Client`) bound to the test's session, for what `Device` lacks (`raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), ct)`). Client calls are not steps: no report, trace, replay, or secret redaction. On the agent-device client (TestMu refuses every setting and some calls with `UNSUPPORTED_OPERATION`), it takes the `DeviceMethods` calls, among them `apps.uninstall` (`app`), `command.hardwareButton` (`button`: `power`, `volume-up`, `volume-down`), and `settings.update` with the settings `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations` (Android only), `faceid`, `touchid`, `fingerprint`; anything else throws `NotSupportedException`. Unstable: may change or go away in any release. After the worker disposes the session, reading it throws `INVALID_STATE`.
+`Device.UnstableRaw` gives the session name, device id and name, a `Selection` (`ToArgs()` it into a call), and an agent-device `IDeviceClient` (`Client`) bound to the test's session, for what `Device` lacks (`raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), ct)`). Client calls are not steps: no report, trace, replay, or secret redaction. On the agent-device client (TestMu refuses every setting and some calls with `UNSUPPORTED_OPERATION`), it takes the `DeviceMethods` calls, among them `apps.uninstall` (`app`), `command.hardwareButton` (`button`: `power`, `volume-up`, `volume-down`), and `settings.update` with the settings `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations` (Android only), `faceid`, `touchid`, `fingerprint`; anything else throws `NotSupportedException`. A custom agent tool gets the running attempt's `RawDeviceSession` from `MobileTools.UnstableDeviceSession(engines)` (pass every device engine; `INVALID_STATE` outside an attempt or with several running; declare a tool whose client calls change the device `mutates: true`, since a cache replay runs it live). Unstable: may change or go away in any release. After the worker disposes the session, reading it throws `INVALID_STATE`.
 
 `Device.DismissKeyboardAsync()` presses the keyboard's own dismiss key where it has one (Android, iPad). An iPhone keyboard has none, so it drags a short way, horizontal first and vertical second, and stops as soon as the keyboard is gone. Each drag starts at the point nearest the centre of the screen that no control in the captured accessibility tree covers, inside a scroll view when the screen has one, to avoid pressing a button or toggling a checkbox. A control the tree leaves out, such as pressable text, can still be hit. The simulator's "Speed up your typing" tip goes through its Continue button first. A screen with no clear point above the keyboard, or a keyboard that outlives both drags, fails with `UNSUPPORTED_CAPABILITY`. The message names the alternatives: the app's own Done or close control, or pressing Enter on the field.
 
