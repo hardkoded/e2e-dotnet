@@ -574,10 +574,13 @@ internal sealed class Redactor
                 end++;
             }
 
+            // A whitespace run at either end stays outside the marker, and the scan resumes on it.
+            var from = key[start] == ' ' ? start + 1 : start;
+            var to = key[end - 1] == ' ' ? end - 1 : end;
             builder ??= new StringBuilder(text.Length);
-            builder.Append(text, kept, reading.At(start) - kept).Append(_markers[owner]);
-            kept = reading.At(end);
-            start = end;
+            builder.Append(text, kept, reading.At(from) - kept).Append(_markers[owner]);
+            kept = reading.At(to);
+            start = to;
         }
 
         return builder?.Append(text, kept, text.Length - kept).ToString() ?? text;
@@ -665,8 +668,20 @@ internal sealed class Redactor
 /// Bytes are decoded as UTF-8 with a character split across pieces kept whole. <c>Flush</c> releases what is held,
 /// redacted, when the stream ends. The pieces together redact to exactly what the whole text would.
 /// </summary>
-internal sealed class StreamRedactor(Redactor ledger)
+internal sealed class StreamRedactor(Func<Redactor> current)
 {
+    /// <summary>A redactor over one fixed ledger.</summary>
+    public StreamRedactor(Redactor ledger)
+        : this(() => ledger)
+    {
+    }
+
+    /// <summary>A redactor over a ledger that learns values while the stream is open (upstream passes its <c>SecretLedger</c>).</summary>
+    public StreamRedactor(SecretLedger ledger)
+        : this(() => ledger.Current)
+    {
+    }
+
     private readonly Decoder _decoder = Encoding.UTF8.GetDecoder();
     private string _held = "";
 
@@ -674,12 +689,23 @@ internal sealed class StreamRedactor(Redactor ledger)
     public string Push(string chunk)
     {
         ArgumentNullException.ThrowIfNull(chunk);
-        return PushText(chunk);
+        if (chunk.Length == 0)
+        {
+            return "";
+        }
+
+        // A character left unfinished by an earlier piece is released before the string passes it.
+        return PushText(DecoderEnd() + chunk);
     }
 
     /// <summary>Redacts and returns what the bytes complete, decoded as UTF-8; the rest waits for the next piece or <see cref="Flush"/>.</summary>
     public string Push(ReadOnlySpan<byte> chunk)
     {
+        if (chunk.Length == 0)
+        {
+            return "";
+        }
+
         var chars = new char[Encoding.UTF8.GetMaxCharCount(chunk.Length)];
         var count = _decoder.GetChars(chunk, chars, flush: false);
         return PushText(new string(chars, 0, count));
@@ -688,19 +714,26 @@ internal sealed class StreamRedactor(Redactor ledger)
     /// <summary>Redacts and returns whatever is held, an unfinished character included; nothing more will follow.</summary>
     public string Flush()
     {
+        var text = _held + DecoderEnd();
+        _held = "";
+        return current().Redact(text);
+    }
+
+    /// <summary>What the decoder holds of an unfinished character, as the replacement character (upstream's <c>decoder.end()</c>).</summary>
+    private string DecoderEnd()
+    {
         var chars = new char[Encoding.UTF8.GetMaxCharCount(4)];
         var count = _decoder.GetChars([], chars, flush: true);
-        var text = _held + new string(chars, 0, count);
-        _held = "";
-        return ledger.Redact(text);
+        return new string(chars, 0, count);
     }
 
     private string PushText(string chunk)
     {
         var text = _held + chunk;
-        var cut = ledger.HoldFrom(text);
+        var redactor = current();
+        var cut = redactor.HoldFrom(text);
         _held = text[cut..];
-        return ledger.Redact(text[..cut]);
+        return redactor.Redact(text[..cut]);
     }
 }
 
@@ -733,6 +766,18 @@ internal sealed class SecretLedger
             if (_secrets.Count != before)
             {
                 _redactor = Redactor.For(_secrets);
+            }
+        }
+    }
+
+    /// <summary>The redactor over every secret registered so far.</summary>
+    internal Redactor Current
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _redactor;
             }
         }
     }

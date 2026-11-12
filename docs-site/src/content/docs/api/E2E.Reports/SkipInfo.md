@@ -25,7 +25,7 @@ Why a test or an attempt skipped (upstream's `SkipInfo`).
 
 **Implements:** [IEquatable&lt;SkipInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L320)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public SkipCause Cause { get; init; }
 
 **Value:** [SkipCause](/api/E2E.Reports/SkipCause/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L322)
-
 <a id="E2E_Reports_SkipInfo_Filter_"></a>
 <a id="E2E_Reports_SkipInfo_Filter"></a>
 
@@ -59,8 +57,6 @@ The name of the test filter that left the test out; only with cause [Filtered](/
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L329)
-
 <a id="E2E_Reports_SkipInfo_Reason_"></a>
 <a id="E2E_Reports_SkipInfo_Reason"></a>
 
@@ -74,8 +70,6 @@ public string Reason { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L324)
-
 <a id="E2E_Reports_SkipInfo_RelatedId_"></a>
 <a id="E2E_Reports_SkipInfo_RelatedId"></a>
 
@@ -88,5 +82,3 @@ public string? RelatedId { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L326)

@@ -2,22 +2,28 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using E2E.Engine;
 using E2E.Internal;
+using ArtifactRecord = E2E.Reports.ArtifactRecord;
 
 namespace E2E;
 
 /// <summary>Where one attempt's trace page goes, and which attempts keep one.</summary>
 /// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode; null when the mode keeps none for this attempt.</param>
-/// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>.</param>
+/// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>, or <c>&lt;results&gt;/&lt;test&gt;/rerun-&lt;n&gt;/attempt-&lt;n&gt;</c> in a <c>--last-failed</c> rerun.</param>
 /// <param name="CacheDir">The replay cache directory when a <see cref="FileStepCache"/> holds the cache.</param>
-internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir)
+/// <param name="RerunDir">The rerun's directory inside the test's, when the run is a <c>--last-failed</c> rerun.</param>
+internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir, string? RerunDir = null)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
-    public string TestDir => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!;
+    public string TestDir => RerunDir is null
+        ? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!
+        : Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!)!;
+
+    /// <summary>The attempt's directory below the test's, as a report path: <c>attempt-&lt;n&gt;</c>, with the rerun's directory before it in a rerun.</summary>
+    public string AttemptPath => RerunDir is null ? Path.GetFileName(AttemptDir) : RerunDir + "/" + Path.GetFileName(AttemptDir);
 
     /// <summary>The results directory.</summary>
     public string ResultsRoot => Path.GetDirectoryName(TestDir)!;
@@ -25,49 +31,24 @@ internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheD
 
 /// <summary>
 /// The in-memory report of one attempt, which the trace page reads. The port has no <c>report.json</c>: the session builds this from
-/// the records it keeps (the step timeline, the environment facts, the videos), adds it to the test's other attempts in
+/// the records it keeps (the step timeline, the environment facts, the attempt's artifacts), adds it to the test's other attempts in
 /// <see cref="RunReport"/>, and hands the result to <see cref="TracePages.WriteTracePagesAsync"/>. Upstream builds the same page from
 /// the report of the whole run.
 /// </summary>
 internal static class AttemptReport
 {
-    private static readonly string RunId = Guid.CreateVersion7().ToString();
+    internal static readonly string RunId = Guid.CreateVersion7().ToString();
 
     // Upstream forbids NUL in a title, so no title-only hash input starts with it and none can equal a hashed test id.
     private const char TestIdMark = '\0';
 
     /// <summary>
     /// The id of the result of the test titled <paramref name="title"/> in <paramref name="file"/>, whose head ends the result's directory
-    /// name. It hashes the test id, <see cref="TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
+    /// name. It hashes the test id, <see cref="Ids.TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
     /// file hashes the title alone.
     /// </summary>
     public static string ResultId(string? file, string title) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))));
-
-    /// <summary>
-    /// The test id <c>file::title</c>, with the title percent-encoded so a <c>::</c> in a title cannot pass for the separator. Upstream's
-    /// <c>testId</c> (<c>internal/ids.ts</c>) with a title path of one title.
-    /// </summary>
-    public static string TestId(string file, string title) => file + "::" + EncodeTitle(title);
-
-    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c>. Upstream's <c>encodeTitle</c>.</summary>
-    public static string EncodeTitle(string title)
-    {
-        var encoded = new StringBuilder();
-        foreach (var value in Encoding.UTF8.GetBytes(title.Normalize(NormalizationForm.FormC)))
-        {
-            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
-            {
-                encoded.Append((char)value);
-            }
-            else
-            {
-                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
-            }
-        }
-
-        return encoded.ToString();
-    }
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + Ids.TestId(file, [title]))));
 
     /// <summary>
     /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
@@ -91,20 +72,19 @@ internal static class AttemptReport
         AttemptStatus status,
         Exception? error,
         long durationMs,
-        IReadOnlyList<VideoSegment> videos,
         ReportExplore? explore = null,
-        FailureEvidence? evidence = null)
+        FailureEvidence? evidence = null,
+        IReadOnlyList<Exception>? cleanupErrors = null)
     {
         var steps = scope.Steps.All();
         var id = ResultId(scope.TestFile, scope.TestTitle);
         var located = steps.Select(step => step.Source).OfType<SourceLocation>().FirstOrDefault();
         var directory = Path.GetFileName(output.TestDir);
-        var attemptSegment = Path.GetFileName(output.AttemptDir);
+        var attemptSegment = output.AttemptPath;
         var failed = error is not null && status != AttemptStatus.Passed;
         ReportArtifact[] kept =
         [
-            .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
-            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path, Redaction: attached.Redaction)),
+            .. scope.Attached.Select(Artifact),
             .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
             .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
         ];
@@ -122,6 +102,9 @@ internal static class AttemptReport
             Artifacts = [.. kept.Select(artifact => artifact with { Size = SizeOf(output.ResultsRoot, artifact.Path) })],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
             AppLog = scope.Steps.AppLog(),
+            // A teardown that threw does not change the verdict: it marks the cleanup failed and adds a cleanup-phase secondary error (upstream's closeSession).
+            Cleanup = cleanupErrors is { Count: > 0 } ? AttemptCleanup.Failed : AttemptCleanup.Complete,
+            SecondaryErrors = [.. (cleanupErrors ?? []).Select(cause => ReportError.Of(ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact), "cleanup"))],
         };
         var result = new ReportResult
         {
@@ -142,7 +125,14 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EnginePlatform, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore)), id);
+
+        // A test run by a framework is named by its class and method, which the host discovers too.
+        if (scope.TestFile is { Length: > 0 } testFile && scope.TestMethod is { } method)
+        {
+            result = result with { TestId = Ids.TestId(testFile, [method]) };
+        }
+
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
     }
 
     // The size of a file the attempt kept, which the run's usage adds up; null for a link and for a file that cannot be read.
@@ -158,16 +148,7 @@ internal static class AttemptReport
         }
     }
 
-    // A video file is registered under the results directory, as upstream registers an attempt's artifacts; a link stays a link.
-    private static ReportArtifact Artifact(VideoSegment video, int index, string directory, string attemptSegment)
-    {
-        var id = "video-" + index.ToString(CultureInfo.InvariantCulture);
-        var startedAt = DateTimeOffset.TryParse(video.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : (DateTimeOffset?)null;
-        return video switch
-        {
-            VideoFile file => new ReportArtifact(id, "video", directory + "/" + attemptSegment + "/" + file.Path.Replace('\\', '/'), StartedAt: startedAt),
-            VideoLink link => new ReportArtifact(id, "video", Url: link.Url, StartedAt: startedAt),
-            _ => new ReportArtifact(id, "video", StartedAt: startedAt),
-        };
-    }
+    // The kept file or link, as the sink registered it: its path already starts at the results directory, as upstream's records do.
+    private static ReportArtifact Artifact(ArtifactRecord record) =>
+        new(record.Id, record.Kind.ToString().ToLowerInvariant(), record.Path, record.Url, record.StartedAt, Redaction: record.Redaction, Ref: record.Ref, Producer: record.Producer);
 }

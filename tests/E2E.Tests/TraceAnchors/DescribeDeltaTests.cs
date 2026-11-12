@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using E2E.Engine;
+using E2E.Internal;
 using static E2E.Tests.TraceAnchors.AnchorFixtures;
 
 namespace E2E.Tests.TraceAnchors;
@@ -49,11 +50,11 @@ public sealed class DescribeDeltaTests
     [Fact]
     public void Strips_the_structural_selector_and_drops_nodes_nothing_could_relocate()
     {
-        // The port has no structural selector, so the icon button is a button with nothing else.
-        var (appeared, _) = Describe([], [Row, Node("button"), Node("generic")]);
+        // The icon button carries a structural selector on its node; an anchor leaves it out, so it is a button with nothing else.
+        var (appeared, _) = Describe([], [Row, Node("button", selector: "[data-testid=\"icon\"] > svg"), Node("generic")]);
 
         Assert.Equal(["link|PB-Twin-Alpha"], Shapes(appeared));
-        Assert.DoesNotContain("selector", JsonSerializer.Serialize(appeared), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("selector", JsonSerializer.Serialize(appeared, JsonDefaults.Options), StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -178,9 +179,9 @@ public sealed class DescribeDeltaTests
     {
         var (appeared, _) = Describe(
             [Heading],
-            [Heading, Node(text: "3 / 30 steps"), Node(text: "v2.2.1"), Node(text: "E2E workspace 00d8365e"), Node("status", "Counter", text: "1")]);
+            [Heading, Node(text: "3 / 30 steps"), Node(text: "v2.2.1"), Node(text: "E2E workspace 00d8365e"), Node("status", "Counter", text: "1"), Node(text: "Marketing 12"), Node(text: "Mayor 3"), Node(text: "Augusta 3"), Node(text: "12 Marketing")]);
 
-        Assert.Equal(4, appeared.Count);
+        Assert.Equal(8, appeared.Count);
     }
 
     [Fact]

@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using System.Text.Json;
 
 namespace E2E.Tests.TraceCacheConfig;
@@ -272,6 +273,8 @@ public sealed class FlushStagedTracesTests
     {
         public Dictionary<string, string> Entries { get; } = new(StringComparer.Ordinal);
 
+        public bool Writable => true;
+
         public CacheLookup Read(string key)
         {
             return Entries.TryGetValue(key, out var text)
@@ -279,9 +282,11 @@ public sealed class FlushStagedTracesTests
                 : new CacheLookup { Reason = "no-entry" };
         }
 
-        public void Write(string key, CacheEntry entry)
+        public int? Write(string key, CacheEntry entry)
         {
-            Entries[key] = JsonSerializer.Serialize(entry);
+            var text = JsonSerializer.Serialize(entry);
+            Entries[key] = text;
+            return Encoding.UTF8.GetByteCount(text);
         }
 
         public bool DeleteFails { get; init; }

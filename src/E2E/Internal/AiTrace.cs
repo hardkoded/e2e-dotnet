@@ -817,6 +817,23 @@ internal static class AiTrace
     public static string PathFor(string outputDirectory) =>
         Path.Combine(outputDirectory, "ai-trace-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + ".json");
 
+    /// <summary>
+    /// The trace file of this process under <paramref name="outputDirectory"/> once it exists, else null. Only a file this process collected into counts: the name
+    /// carries the process id, which a later process may reuse, so a file on disk alone says nothing about this run. Pending records are written first, so the
+    /// file a reporter is told of holds every session so far. Upstream's <c>aiTracePath</c> of <c>FinishedRun</c>.
+    /// </summary>
+    public static string? WrittenPath(string outputDirectory)
+    {
+        var path = PathFor(outputDirectory);
+        if (!Files.TryGetValue(path, out var file))
+        {
+            return null;
+        }
+
+        file.FlushQuietly();
+        return File.Exists(path) ? path : null;
+    }
+
     /// <summary>Takes everything the recorder holds and adds it to the process's document for <paramref name="path"/>, which is written soon after.</summary>
     public static void Collect(AiTraceRecorder recorder, string path)
     {

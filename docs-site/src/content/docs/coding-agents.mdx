@@ -3,7 +3,33 @@ title: Coding agents
 description: Give a coding agent the skill, a live app session, and a way to migrate your suite.
 ---
 
-A coding agent such as Claude Code, Codex, or Cursor can write, run, and debug e2e tests. It learns e2e from the skill, uses the app through the `e2e mcp` server, and reads the output of a failed `dotnet test`. This page ports upstream's `docs/coding-agents.mdx`. The port has no `e2e init`, so each step below is a separate command.
+A coding agent such as Claude Code, Codex, or Cursor can write, run, and debug e2e tests. It learns e2e from the skill, uses the app through the `e2e mcp` server, and reads the output of a failed `dotnet test`. This page ports upstream's `docs/coding-agents.mdx`. Start with `e2e init`, or run each step below as a separate command.
+
+## Scaffold with `e2e init`
+
+```bash
+dotnet tool install --global E2E.Cli
+e2e init --yes
+```
+
+`e2e init [directory]` scaffolds the e2e side of a project. It never overwrites an existing config; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. It asks the questions no flag answered: the engines, the model gateway (and the endpoint of an OpenAI-compatible one), where to install the skill, and where to register the MCP server. The engine, gateway, and endpoint questions are asked only when `e2e.config.json` does not exist. The skill and MCP questions are asked only when no flag names the locations and no earlier run left any; a rerun refreshes the ones it finds. Then it lists the changes and asks to apply them; leaving a question or declining the plan writes nothing. If a skill directory is a symlink, it asks before replacing the link with a copy (or with a link to the other copy), and declines by default; declining skips only that replacement. Under `--yes` it never asks and leaves such a symlink alone. Without a terminal it needs `--yes`. It writes `e2e.config.json` (a web target and a model gateway), a test project (a `.csproj` named after the directory, with the packages of the test framework and of e2e at this tool's version, and an `ExampleTests.cs`), installs the skill into `.agents/skills/e2e-dotnet` (with `.claude/skills/e2e-dotnet` as a symlink to it), registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and adds `bin/`, `obj/`, and the `.e2e/` outputs to `.gitignore`. In a directory that already has a `.csproj` it adds only the package references that project lacks, keeping the framework it uses, and never touches an existing `ExampleTests.cs`. With `--example` it copies a sample instead. The closing line points at `dotnet test`, which restores the packages when `--install` did not. Re-run it after an upgrade to refresh the skill and the MCP entries. A re-run keeps the settings you added to the e2e entry of an MCP file, and never writes through a symlink.
+
+| Option | Description |
+| --- | --- |
+| `[directory]` | Where to scaffold; created when missing. Default: the working directory. |
+| `-y`, `--yes` | Ask nothing. Each answer not given as a flag takes its default: the web engine, the Vercel AI Gateway, the skill and the MCP config in all three locations. |
+| `--example <name>` | Start from a sample downloaded from GitHub into a new or empty directory: `E2E.Sample` (NUnit, the Dariten demo), `E2E.XUnit.V3.Sample` (xUnit v3), or `TodoMvc` (NUnit, agent tests of TodoMVC). The name is the folder under `samples/`, in any case. The sample comes from the `v<version>` tag of this tool, or from `main` when the tag does not exist (a preview or a source build), and its `ProjectReference`s become `PackageReference`s at this tool's version. It brings its own config and project, so it cannot be combined with `--engine`, `--gateway`, `--endpoint`, or `--framework`. Cancelling removes the copy. |
+| `--framework <id>` | The test framework of a new project: `nunit` (the default) or `xunit` (xUnit v3). An existing project keeps the framework it uses; a different flag exits 2. |
+| `--install`, `--no-install` | Run `dotnet restore` after scaffolding, or not. Without either flag it asks; under `--yes` it does not. |
+| `--engine <ids>` | The engine for a new config: `web`, `mobile`, or `none`. One target only. |
+| `--gateway <id>` | The model gateway for agent steps in a new config: `vercel`, `openrouter`, `openai-compatible`, `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`. The config names the matching `provider`. |
+| `--endpoint <url>` | Base URL for `--gateway openai-compatible`, and implies it. HTTPS, or HTTP on a loopback host. Default: `http://127.0.0.1:11434/v1`. |
+| `--skills <dirs>` | Where to install the agent skill: `.agents/skills`, `.claude/skills`, or `none`. Comma-separated or repeated. |
+| `--mcp <files>` | Where to register the MCP server: `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`, or `none`. Comma-separated or repeated. |
+
+`--engine`, `--gateway`, and `--endpoint` apply only to a new config. Exit code 2 means an unknown flag value, no terminal and no `--yes`, a directory argument that is a file or, with `--example`, not empty, more than one engine chosen, a `.csproj` that cannot be read, a directory with more than one `.csproj`, a failed example download or restore, the skill missing from the installed tool, or an invalid MCP file. A file or directory in the way of the skill, and a symlink that cannot be replaced, are warned about and skipped; a replaceable symlink asks first, except under `--yes`, which leaves it alone.
+
+For a subscription gateway, sign in before the first run with `e2e login <provider>`. See [COMPATIBILITY.md](/compatibility/#coding-agents) for what the port leaves out.
 
 ## Install the skill
 
@@ -19,12 +45,28 @@ End-to-end tests use e2e; read .agents/skills/e2e-dotnet/SKILL.md before writing
 
 ## Let the agent use the app
 
-`e2e mcp` gives the agent a live session on your app. It checks its locators against the screen before it writes them. Install the tool, then register it once:
+Run `e2e doctor` first. It checks that `e2e explore` and `e2e mcp` can start here, and exits 2 when they cannot.
+
+`e2e mcp` gives the agent a live session on your app. It walks the flow in a session and writes each step as it takes it, and checks its locators against the screen before it writes them. Its `upload` tool attaches project files, or one of six small sample files e2e ships (`sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`, `sample:notes.txt`, `sample:table.csv`, `sample:empty.txt`), under the same path rules as the agent. A project file's upload writes a `SetInputFilesAsync` line; a sample has none, since a test needs a file in the project. A key press with `times` above 1 writes no line either: press it once per call to get lines. Install the tool, then register it once:
 
 ```bash
 dotnet tool install --global E2E.Cli
 claude mcp add e2e -- e2e mcp
 ```
+
+`e2e init` also registers the server for Codex in `.codex/config.toml`, keeping the comments and settings already there. Codex reads `.codex/config.toml` only in a trusted project; install the tools, then start a new Codex session from the project directory. To add Codex to an existing setup, run `e2e init --yes --skills none --mcp .codex/config.toml`.
+
+The server's instructions and every `open_session` result tell the agent to read the `writing-tests` guide (`e2e://guide/writing-tests`, or `e2e guide writing-tests` in a shell) before it writes or edits a test.
+
+`open_session` names the app URL (and the port a free-port `url` was assigned) and the app command it started: its executable, readiness URL, and the names of its `env` and `inheritEnv`. It prints no `args` and no `env` values. The config reads the MCP server's environment, not the agent's shell. The `screenshot` tool takes an optional `path` to save a `.png` file inside the project. `type_secret {target, secret}` is listed when the config declares `credentials` or `secrets`: it fills a credential's password (the secret `<name>.password`) into a password field, or a `secrets` entry into any editable field, and the agent never sees the value. The opening text lists each credential's name, username, and password secret, and the test line names `Credentials.User(name).Password` or `Secrets.Get(name)`. What a test run through `open_session {test}` prints goes to the server's stderr with every secret value replaced by its `<secret:name>` marker, even when written in pieces; output printed while a config loads is held until its secrets are known, and withheld (with a warning line) if the load fails.
+
+Each node in `observe` starts its line with a node id (`#n42 button "Save"`), and an action takes that id as its `target`. `observe` shows the whole screen under a revision (`Current screen (revision b3, path /, 12 nodes):`). An action reports only what changed since the screen the agent last received: the lines that were `added`, `changed` (with what each read before), or `removed`. An id stays the same for as long as its element exists, so a node that is not listed as removed is still on screen under the id the agent has. When the screen changed mostly, the action sends it whole again.
+
+`open_session {test: "Shop.CheckoutTests.MemberChecksOut"}` runs one NUnit test of the config's `testAssembly` in the session and stops on the screen where it passed or failed. The opening text names the failing line with the code around it, the screen's nodes nearest a failed locator, and the last steps. A `[OneTimeSetUp]` that failed is the outcome, `HOOK_FAILED in beforeAll`, with no steps and no screen (`No screen to show`), and a test that ran out of time is `TEST_TIMEOUT`. A test marked as expected to fail with NUnit's property `E2E.Fail` (`[Property("E2E.Fail", "reason")]`, or set in its body) reads `failed as expected` with `Expected to fail: <reason>` when its body fails, and `UNEXPECTED_PASS` when it passes; the mark does not change the verdict of `dotnet test`. A task the test left faulted and never awaited fails it with its error (`Also failed:` for any further ones); one that faults after the body ended is reported at `close_session` as `UNHANDLED_REJECTION`, and one that faults after the session closed is a warning on the server's stderr. `test_lines` returns the lines the agent adds after the test stopped. Name the test by its full name or as `file:line`, the line its attributes or signature is on (not a line inside the body). The name must select one test: several fail with `TEST_AMBIGUOUS`, and a test that starts from a saved session (`[E2ESession]`) fails with `SESSION_TEST_UNSUPPORTED`. If the test's timeout cut its body short, the session still opens on the screen the body left, and the steps the body would have run after the cut do not run. The agent reads the failure, checks the screen, and fixes the test, instead of clicking through the flow again. Build the test project first. The assembly loads again on every `open_session`, so a rebuilt test runs as it is now, with no server restart. Tests take turns: a second `open_session {test}` waits until the test before it has ended, and cancelling it while it waits runs none of its test.
+
+When the engine records video, the catalog also has `start_recording {name?}` and `stop_recording`. The session records only between them. `stop_recording` saves the video to `.e2e/videos/<session>/<n>[-<name>].<ext>` in the project and returns each file's absolute path, or the URL where a hosted provider keeps it. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video.
+
+The server has four fixed tools: `open_session`, `tools`, `call`, and `close_session`. Upstream's `run_tests`, which runs `e2e run` and returns the command, the exit code, and the run's output, has no counterpart, because the port has no `e2e run`. The agent runs the suite with `dotnet test` in its own shell, a whole suite or one test with `--filter`, and reads the output of a failed run. To look at a failing NUnit test, it uses `open_session {test}`.
 
 See the [README](/guide/#coding-agents-mcp) and [COMPATIBILITY.md](/compatibility/#mcp-server).
 
@@ -40,7 +82,7 @@ Then ask the agent for `/create-verification-skill`.
 
 ## Migrate an existing suite
 
-The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice per session. The old suite keeps running beside the new tests, so you can stop after any session.
+The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice per session. The old suite keeps running beside the new tests, so you can stop after any session.
 
 ```bash
 npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
@@ -48,4 +90,8 @@ npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
 
 Then ask the agent for `/migrate-to-e2e`. It ports the slice you pick as NUnit or xUnit v3 tests and runs each ported test three times on every target. A `MIGRATION.md` file records progress for the next session. Optionally, the agent plants a temporary bug in the app, such as a wrong checkout total, and checks whether both suites fail on it. The agent deletes an old test only when you confirm.
 
-Upstream reads a migration guide for the runner first (`docs/migrate/*.mdx`). The port has no such guides, so the skill reads the e2e skill's topics instead. See [COMPATIBILITY.md](/compatibility/#verification-skill).
+The skill reads the [migration guide](/migrate/) for the runner first (`docs/migrate/*.mdx` upstream), then the e2e skill's topics. See [COMPATIBILITY.md](/compatibility/#migration-guides).
+
+## Run steps on a coding agent
+
+The other direction also works. `E2E.Acp` runs `agent.act` and `agent.assert` steps on a coding agent that speaks the [Agent Client Protocol](https://agentclientprotocol.com) on stdio. `AcpExecutor.ClaudeCode()` and `AcpExecutor.Codex()` start those agents with the step tools as their only tools (Codex can still start a subagent, which fails the step), and `AcpExecutor.Create(command, args)` starts any other. Set the executor as `AgentOptions.Executor`. The agent gets the built-in action tools and `done` as an MCP server on `127.0.0.1`, and every action goes through the step's own actions, so cached steps replay as usual. The presets run the agent's npm adapter with `node`, so Node must be on the `PATH`. See [Run steps on your coding agent](/features/acp/).

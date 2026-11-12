@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Tests.Traces;
+using FailureText = E2E.Reports.FailureText;
 
 namespace E2E.Tests.ReportFailureText;
 
@@ -14,11 +15,11 @@ public sealed class DetailLinesTests
     {
         Assert.Equal(
             ["Expected: text \"2 remaining\"", "Observed: text \"1 remaining\" (1 match)"],
-            FailureText.DetailLines(ReportBuilders.Error(details: new() { Expected = "text \"2 remaining\"", Observed = "text \"1 remaining\"", Matches = 1 })));
+            FailureText.DetailLines(ReportBuilders.Public(ReportBuilders.Error(details: new() { Expected = "text \"2 remaining\"", Observed = "text \"1 remaining\"", Matches = 1 }))));
         Assert.Equal(
             ["Asked for: button \"Add todo item\"", "Waited: 3.0s"],
-            FailureText.DetailLines(ReportBuilders.Error(details: new() { Role = "button", Name = "Add todo item", WaitedMs = 3000 })));
-        Assert.Equal(["Asked for: test id \"todo\""], FailureText.DetailLines(ReportBuilders.Error(details: new() { TestId = "todo" })));
-        Assert.Equal(["Expected: two &lt;b&gt;labels&lt;/b&gt;"], FailureText.DetailLines(ReportBuilders.Error(details: new() { Expected = "two <b>labels</b>" })));
+            FailureText.DetailLines(ReportBuilders.Public(ReportBuilders.Error(details: new() { Role = "button", Name = "Add todo item", WaitedMs = 3000 }))));
+        Assert.Equal(["Asked for: test id \"todo\""], FailureText.DetailLines(ReportBuilders.Public(ReportBuilders.Error(details: new() { TestId = "todo" }))));
+        Assert.Equal(["Expected: two &lt;b&gt;labels&lt;/b&gt;"], FailureText.DetailLines(ReportBuilders.Public(ReportBuilders.Error(details: new() { Expected = "two <b>labels</b>" }))));
     }
 }

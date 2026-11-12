@@ -23,6 +23,6 @@ public sealed record GotoOptions
     /// <summary>When the navigation counts as done. Defaults to <see cref="GotoWaitUntil.Load"/>.</summary>
     public GotoWaitUntil WaitUntil { get; init; } = GotoWaitUntil.Load;
 
-    /// <summary>The navigation budget. Defaults to the action timeout.</summary>
+    /// <summary>The navigation budget. Defaults to the action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is <c>INVALID_ARGUMENT</c>.</summary>
     public TimeSpan? Timeout { get; init; }
 }

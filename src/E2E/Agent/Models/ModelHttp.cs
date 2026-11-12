@@ -60,6 +60,13 @@ internal static class ModelHttp
     internal static string? OptionalString(JsonElement element, string name) =>
         element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
+    /// <summary>The reasoning text of a turn (upstream's <c>StepResult.reasoningText</c>): its parts joined, or null when it has none.</summary>
+    internal static string? ReasoningText(IEnumerable<string> parts)
+    {
+        var text = string.Concat(parts);
+        return text.Length == 0 ? null : text;
+    }
+
     /// <summary>The most characters of a provider's finish reason a refusal message quotes.</summary>
     private const int MaxFinishReasonChars = 128;
 
@@ -79,6 +86,21 @@ internal static class ModelHttp
         return new AgentException("MODEL_REFUSED", "the model " + model + " refused the request (" + reason + ")");
     }
 
+    /// <summary>
+    /// Upstream's <c>errorFinish</c> (<c>agent/model/sdk.ts</c>): <c>MODEL_PROVIDER_FAILED</c> for a call the provider ended on an <c>error</c>
+    /// finish, whatever text came with it. The raw finish reason is provider text, so it is redacted and cut.
+    /// </summary>
+    internal static AgentException ErrorFinishError(string? rawFinishReason, Redactor redactor)
+    {
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ErrorFinish : redactor.Redact(rawFinishReason);
+        if (reason.Length > MaxFinishReasonChars)
+        {
+            reason = reason[..MaxFinishReasonChars];
+        }
+
+        return new AgentException("MODEL_PROVIDER_FAILED", "model provider failed: the call ended on an error finish (raw finish reason: " + reason + ")");
+    }
+
     /// <summary>The most response body bytes a failure message quotes.</summary>
     private const int MaxProviderBodyBytes = 1024;
 
@@ -92,12 +114,14 @@ internal static class ModelHttp
     /// the body, redacted with <paramref name="redactor"/> and cut at 1 KB. <paramref name="sign"/> runs on each attempt's copy just before
     /// it is sent, so a request that carries a timestamp (Bedrock's SigV4) is signed again for every retry, as the AI SDK signs inside each fetch.
     /// </summary>
-    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null)
+    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null, int? maxRetries = null)
     {
+        var retries = maxRetries ?? TransportRetries;
         ModelEndpoint.AddHeaders(message, RequestHeaders);
         // A request message can be sent once, so each attempt sends a copy of the same bytes.
         var payload = message.Content is null ? null : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var backoff = InitialRetryDelay;
+        var attempts = new List<Exception>();
         for (var retry = 0; ; retry++)
         {
             using var attempt = CopyRequest(message, payload);
@@ -114,14 +138,15 @@ internal static class ModelHttp
             catch (HttpRequestException ex)
             {
                 // The AI SDK retries a fetch that failed before an answer (a refused or reset connection).
-                if (retry < TransportRetries)
+                if (retry < retries)
                 {
+                    attempts.Add(ex);
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
                     continue;
                 }
 
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex);
+                throw Spent(new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex), attempts);
             }
             catch (OAuth.OAuthException ex)
             {
@@ -137,27 +162,51 @@ internal static class ModelHttp
                     return body;
                 }
 
-                if (retry < TransportRetries && IsRetryableStatus((int)response.StatusCode))
+                if (retry < retries && IsRetryableStatus((int)response.StatusCode))
                 {
+                    attempts.Add(ProviderFailed(response, body, redactor));
                     await Task.Delay(RetryDelay(response, backoff), cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
                     continue;
                 }
 
-                var failure = FailureText(response, body, redactor);
                 // A request too big is not an outage: the step's observations are what must shrink, and the code says so.
                 if (ContextOverflow.DescribesOverflow((int)response.StatusCode, null, body))
                 {
-                    throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + failure, blocked: true);
+                    throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + FailureText(response, body, redactor), blocked: true);
                 }
 
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: " + failure)
-                {
-                    ProviderStatus = (int)response.StatusCode,
-                    ProviderErrorCode = ErrorCode(body),
-                };
+                throw Spent(ProviderFailed(response, body, redactor), attempts);
             }
         }
+    }
+
+    private static AgentException ProviderFailed(HttpResponseMessage response, string body, Redactor redactor) =>
+        new("MODEL_PROVIDER_FAILED", "The model provider failed: " + FailureText(response, body, redactor))
+        {
+            ProviderStatus = (int)response.StatusCode,
+            ProviderErrorCode = ErrorCode(body),
+        };
+
+    /// <summary>
+    /// The AI SDK throws a <c>RetryError</c> (<c>reason: 'maxRetriesExceeded'</c>) once its retries are spent. The port keeps the
+    /// <see cref="AgentException"/> callers match (its code, <c>ProviderStatus</c>, and message are the last attempt's) and carries the
+    /// <see cref="RetryError"/> with every attempt as its <see cref="Exception.InnerException"/>, so <see cref="ToolChoice.IsForcedToolChoiceRejected"/>
+    /// reads <c>lastError</c> through it. A request that failed on its first attempt has no chain and throws the failure itself.
+    /// </summary>
+    private static AgentException Spent(AgentException last, List<Exception> attempts)
+    {
+        if (attempts.Count == 0)
+        {
+            return last;
+        }
+
+        var chain = new RetryError("Failed after " + (attempts.Count + 1) + " attempts. Last error: " + last.Message, [.. attempts, last]);
+        return new AgentException(last.Code, last.Message, chain)
+        {
+            ProviderStatus = last.ProviderStatus,
+            ProviderErrorCode = last.ProviderErrorCode,
+        };
     }
 
     /// <summary>
@@ -304,6 +353,66 @@ internal static class ModelHttp
         {
             throw new AgentException("MODEL_OUTPUT_INVALID", "The model provider returned JSON that could not be read.", ex);
         }
+    }
+
+    /// <summary>
+    /// The tool a provider with no structured-output field is made to call to answer with <see cref="ModelRequest.Schema"/>
+    /// (the AI SDK's <c>json</c> tool).
+    /// </summary>
+    public const string JsonToolName = "json";
+
+    public static string JsonToolDescription(ModelRequest request) => "Respond with a JSON object" + (request.SchemaName is null ? "." : " named " + request.SchemaName + ".");
+
+    /// <summary>
+    /// A structured answer given as the forced <see cref="JsonToolName"/> tool call, as the content of the turn: the arguments, as text.
+    /// A turn that made no such call comes back as it is.
+    /// </summary>
+    public static ModelResponse StructuredAnswer(ModelResponse response)
+    {
+        var call = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, JsonToolName, StringComparison.Ordinal));
+        if (call is null)
+        {
+            return response;
+        }
+
+        return new ModelResponse
+        {
+            Content = call.Arguments.GetRawText(),
+            Usage = response.Usage,
+            ReasoningItems = response.ReasoningItems,
+            ReasoningText = response.ReasoningText,
+            FinishReason = response.FinishReason,
+            RawFinishReason = response.RawFinishReason,
+            ProviderMetadata = response.ProviderMetadata,
+        };
+    }
+
+    /// <summary>Whether a <c>thinking</c> provider option turns thinking on (present and not <c>disabled</c>).</summary>
+    public static bool Thinks(JsonNode? thinking) => thinking is not null && (string?)(thinking as JsonObject)?["type"] != "disabled";
+
+    /// <summary>
+    /// Whether a provider that refuses a forced tool while the model thinks (Anthropic, Bedrock) sends <c>auto</c> in place of the
+    /// forced choice <paramref name="request"/> asks for. Upstream's AI SDK provider does this itself and says so as a call warning.
+    /// </summary>
+    public static bool DowngradesToolChoice(ModelRequest request, bool thinks) =>
+        thinks && request.Tools.Count > 0 && request.Schema is null && request.ToolChoice is { Forced: true };
+
+    /// <summary>The call warning for a forced tool choice sent as <c>auto</c> (upstream's <c>unsupported</c> <c>toolChoice</c> warning).</summary>
+    public static ModelResponse WithToolChoiceDowngrade(ModelResponse response, ModelToolChoice asked)
+    {
+        var warning = new ModelWarning("unsupported", "toolChoice", "toolChoice '" + asked.Type + "' is not supported while the model thinks. Using 'auto' instead.");
+        return new ModelResponse
+        {
+            Content = response.Content,
+            ToolCalls = response.ToolCalls,
+            Usage = response.Usage,
+            ReasoningItems = response.ReasoningItems,
+            ReasoningText = response.ReasoningText,
+            Warnings = [.. response.Warnings, warning],
+            FinishReason = response.FinishReason,
+            RawFinishReason = response.RawFinishReason,
+            ProviderMetadata = response.ProviderMetadata,
+        };
     }
 
     public static StringContent Json(JsonNode payload)

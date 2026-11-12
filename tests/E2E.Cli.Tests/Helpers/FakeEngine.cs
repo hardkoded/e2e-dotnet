@@ -44,6 +44,12 @@ internal sealed class FakeEngine : IEngine
         }
     }
 
+    /// <summary>The locator action kinds the engine declares. Null declares every kind, as an engine that says nothing does.</summary>
+    public IReadOnlyCollection<string>? Kinds { get; init; }
+
+    /// <summary>The pointer kinds the engine takes at a bare point.</summary>
+    public IReadOnlyCollection<string> Pointer { get; init; } = [];
+
     /// <summary>Capabilities the engine declares beyond the base four.</summary>
     public EngineCapabilities Also { get; init; }
 
@@ -80,7 +86,7 @@ internal sealed class FakeEngine : IEngine
         cancellationToken.ThrowIfCancellationRequested();
         OnStart?.Invoke();
         Interlocked.Increment(ref _started);
-        return Task.FromResult<IEngineSession>(new Session(this));
+        return Task.FromResult<IEngineSession>(new Session(this, options.ArtifactsDir));
     }
 
     private void Record(string operation)
@@ -91,9 +97,38 @@ internal sealed class FakeEngine : IEngine
         }
     }
 
-    private sealed class Session(FakeEngine engine) : IEngineSession
+    private sealed class Session(FakeEngine engine, string? artifactsDir) : IEngineSession
     {
         private bool _launched;
+        private bool _recording;
+
+        public Task StartVideoAsync(CancellationToken cancellationToken)
+        {
+            engine.Record("startVideo");
+            _recording = true;
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Writes <c>video/fake.webm</c> in the attempt's directory, as upstream's fake engine does, and hands it back.</summary>
+        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken)
+        {
+            engine.Record("stopVideo");
+            if (!_recording)
+            {
+                return Task.FromResult<IReadOnlyList<VideoSegment>>([]);
+            }
+
+            _recording = false;
+            var directory = Path.Combine(artifactsDir!, "video");
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "fake.webm"), "video");
+            return Task.FromResult<IReadOnlyList<VideoSegment>>([new VideoFile { Path = "video/fake.webm", StartedAt = DateTimeOffset.UtcNow.ToString("O") }]);
+        }
+
+
+        public IReadOnlyCollection<string> ActionKinds => engine.Kinds ?? EngineActionKinds.Locator;
+
+        public IReadOnlyCollection<string> PointerActionKinds => engine.Pointer;
 
         public string Route { get; private set; } = "/";
 

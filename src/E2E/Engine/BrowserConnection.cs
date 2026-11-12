@@ -6,16 +6,51 @@ using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
+/// <summary>A browser the engine launches (upstream <c>BrowserName</c>).</summary>
+public enum BrowserName
+{
+    /// <summary>Chromium, the default.</summary>
+    Chromium,
+
+    /// <summary>Firefox.</summary>
+    Firefox,
+
+    /// <summary>WebKit.</summary>
+    Webkit,
+}
+
 /// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial.</summary>
 internal static class BrowserConnection
 {
-    /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches Chromium only.</summary>
+    /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches each of them.</summary>
     public static readonly IReadOnlyList<string> BrowserNames = ["chromium", "firefox", "webkit"];
 
     /// <summary>Whether <paramref name="name"/> is a browser Playwright installs (upstream <c>isBrowserName</c>).</summary>
     public static bool IsBrowserName(string name)
     {
         return BrowserNames.Contains(name);
+    }
+
+    /// <summary>The name <c>playwright install</c> and upstream's <c>BROWSER_NAMES</c> use for <paramref name="name"/>.</summary>
+    public static string NameOf(BrowserName name)
+    {
+        return name switch
+        {
+            BrowserName.Firefox => "firefox",
+            BrowserName.Webkit => "webkit",
+            _ => "chromium",
+        };
+    }
+
+    /// <summary>Maps a browser name to its Playwright <see cref="IBrowserType"/> (upstream <c>browserType</c>).</summary>
+    public static IBrowserType BrowserType(IPlaywright playwright, BrowserName name)
+    {
+        return name switch
+        {
+            BrowserName.Firefox => playwright.Firefox,
+            BrowserName.Webkit => playwright.Webkit,
+            _ => playwright.Chromium,
+        };
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 ---
 title: "ScriptedModel"
-description: "Returns whatever the callback decides for each request. Records every request."
+description: "Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (..."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,16 @@ public sealed class ScriptedModel : IAgentModel
 ```
 
 
-Returns whatever the callback decides for each request. Records every request.
+Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop
+and the judge may answer a judgment (a request with a [Schema](/api/E2E/ModelRequest/#E2E_ModelRequest_Schema)) with `Done`:
+`passed` reads as `holds`, a `failed` without the code `ASSERTION_INCONCLUSIVE` as `fails`, and a
+`blocked` or inconclusive one as `inconclusive`. `Judgment` answers it directly.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L164)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 ## Constructors
 
@@ -46,8 +49,6 @@ public ScriptedModel(Func<ModelRequest, ModelResponse> next)
 | --- | --- | --- |
 | `next` | [Func&lt;ModelRequest, ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L168)
-
 ## Properties
 
 <a id="E2E_ScriptedModel_CallCount_"></a>
@@ -62,8 +63,6 @@ public int CallCount { get; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L176)
 
 <a id="E2E_ScriptedModel_Name_"></a>
 <a id="E2E_ScriptedModel_Name"></a>
@@ -80,8 +79,6 @@ Provider and model id, printed in the run summary. Changing it does not miss the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L174)
-
 <a id="E2E_ScriptedModel_Requests_"></a>
 <a id="E2E_ScriptedModel_Requests"></a>
 
@@ -94,8 +91,6 @@ public List<ModelRequest> Requests { get; }
 
 
 **Value:** [List&lt;ModelRequest&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L178)
 
 ## Methods
 
@@ -118,5 +113,3 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L180)

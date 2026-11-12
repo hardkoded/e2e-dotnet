@@ -7,9 +7,8 @@ using System.Text.RegularExpressions;
 namespace E2E.Tests.Urls;
 
 /// <summary>
-/// Upstream tests <c>urlMatches</c> as a function. The port has no such function: the
-/// comparison lives in <see cref="BrowserExpect.ToHaveURLAsync(string, bool?, TimeSpan?, CancellationToken)"/>,
-/// so these run it against the URL a real browser reports.
+/// The browser-level cases of upstream's <c>urlMatches</c>: they run <see cref="BrowserExpect.ToHaveURLAsync(string, bool?, TimeSpan?, CancellationToken)"/>
+/// against the URL a real browser reports. The function itself is <c>Urls.UrlMatches</c>, tested in <see cref="UrlMatchesFunctionTests"/>.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class UrlMatchesTests

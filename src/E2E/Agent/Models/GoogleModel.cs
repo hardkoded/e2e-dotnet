@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -22,7 +21,6 @@ public sealed class GoogleModel : IAgentModel, IDisposable
     private readonly GoogleModelOptions _options;
     private readonly HttpClient _http;
     private readonly bool _ownsClient;
-    private readonly ConcurrentDictionary<string, string> _signatures = new(StringComparer.Ordinal);
     private int _calls;
 
     public GoogleModel(GoogleModelOptions options, HttpClient? httpClient = null)
@@ -49,7 +47,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
 
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
         return ModelHttp.Parse(body, Parse);
     }
 
@@ -61,6 +59,14 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         }
     }
 
+    // The AI SDK's mapping: required is mode ANY, a named tool is mode ANY limited to that function.
+    private static JsonObject FunctionCalling(ModelToolChoice? choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["mode"] = "ANY" },
+        { Type: "tool" } => new JsonObject { ["mode"] = "ANY", ["allowedFunctionNames"] = new JsonArray(choice.ToolName) },
+        _ => new JsonObject { ["mode"] = "AUTO" },
+    };
+
     internal JsonObject BuildBody(ModelRequest request)
     {
         var names = ModelHttp.ToolNames(request.Messages);
@@ -70,7 +76,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             if (message.ToolCalls is { Count: > 0 })
             {
                 var parts = Reasoning(message);
-                if (!string.IsNullOrEmpty(message.Content))
+                if (!string.IsNullOrEmpty(message.Content) && !HasPlainText(parts))
                 {
                     parts.Add(new JsonObject { ["text"] = message.Content });
                 }
@@ -87,7 +93,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                     };
 
                     // Gemini 3 rejects a function call without its signature; a call from elsewhere gets the documented placeholder.
-                    if (_signatures.TryGetValue(call.Id, out var signature))
+                    if (SignatureOf(call) is { } signature)
                     {
                         part["thoughtSignature"] = signature;
                     }
@@ -120,7 +126,11 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "model" : "user";
                 var parts = Reasoning(message);
-                parts.Add(new JsonObject { ["text"] = message.Content ?? "" });
+                if (!HasPlainText(parts))
+                {
+                    parts.Add(new JsonObject { ["text"] = message.Content ?? "" });
+                }
+
                 foreach (var image in ModelHttp.UserImages(message))
                 {
                     parts.Add(new JsonObject
@@ -153,12 +163,27 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         if (declarations.Count > 0)
         {
             payload["tools"] = new JsonArray { new JsonObject { ["functionDeclarations"] = declarations } };
-            payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = new JsonObject { ["mode"] = "AUTO" } };
+            payload["toolConfig"] = new JsonObject { ["functionCallingConfig"] = FunctionCalling(request.ToolChoice) };
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction", "toolConfig");
+
+        // The format joins the generation options a provider option may have set (thinking).
+        if (request.Schema is { } schema)
+        {
+            var generation = payload["generationConfig"] as JsonObject ?? [];
+            generation["responseMimeType"] = "application/json";
+            generation["responseJsonSchema"] = JsonNode.Parse(schema.GetRawText());
+            payload["generationConfig"] = generation;
+        }
+
         return payload;
     }
+
+    /// <summary>The thought signature the call's Google metadata carries, when it carries one.</summary>
+    private static string? SignatureOf(ModelToolCall call) =>
+        call.ProviderMetadata is not null && call.ProviderMetadata.TryGetValue("google", out var google)
+        && google.ValueKind == JsonValueKind.Object ? ModelHttp.OptionalString(google, "thoughtSignature") : null;
 
     // The thought parts of an earlier turn go back as they came, signature included, ahead of its text and function calls.
     private static JsonArray Reasoning(ModelMessage message)
@@ -166,14 +191,23 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var parts = new JsonArray();
         if (string.Equals(message.Role, "assistant", StringComparison.Ordinal))
         {
-            foreach (var item in message.ReasoningItems ?? [])
+            var items = (message.ReasoningItems ?? []).Select(item => JsonNode.Parse(item.GetRawText())).OfType<JsonObject>().ToList();
+            // Signed text parts replace Content only while they still spell it; a Content changed since the reply goes as it is.
+            var replayed = string.Concat(items.Where(IsPlainText).Select(item => item["text"]?.GetValue<string>()));
+            var keepText = replayed.Length > 0 && string.Equals(replayed, message.Content, StringComparison.Ordinal);
+            foreach (var item in items.Where(item => keepText || !IsPlainText(item)))
             {
-                parts.Add(JsonNode.Parse(item.GetRawText()));
+                parts.Add(item);
             }
         }
 
         return parts;
     }
+
+    // A signed text part comes back among the reasoning items with its text, so the message's Content is not sent again.
+    private static bool IsPlainText(JsonObject item) => item.ContainsKey("text") && !item.ContainsKey("thought");
+
+    private static bool HasPlainText(JsonArray parts) => parts.OfType<JsonObject>().Any(IsPlainText);
 
     private static void Append(JsonArray contents, string role, JsonArray parts)
     {
@@ -196,6 +230,8 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var items = new List<JsonObject>();
+        var signedText = false;
         if (root.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0
             && candidates[0].TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var parts))
         {
@@ -206,14 +242,12 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                     var id = call.TryGetProperty("id", out var given) && given.ValueKind == JsonValueKind.String
                         ? given.GetString()!
                         : "gemini_" + Interlocked.Increment(ref _calls).ToString(CultureInfo.InvariantCulture);
-                    if (part.TryGetProperty("thoughtSignature", out var signature) && signature.ValueKind == JsonValueKind.String)
-                    {
-                        _signatures[id] = signature.GetString()!;
-                    }
-
                     calls.Add(new ModelToolCall
                     {
                         Id = id,
+                        ProviderMetadata = ModelHttp.OptionalString(part, "thoughtSignature") is { } signature
+                            ? new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = signature }) }
+                            : null,
                         Name = call.GetProperty("name").GetString() ?? "",
                         Arguments = call.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object ? args.Clone() : ModelHttp.Arguments(null),
                     });
@@ -227,20 +261,34 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                         item["thoughtSignature"] = thoughtSignature;
                     }
 
-                    using var document = JsonDocument.Parse(item.ToJsonString());
-                    reasoning.Add(document.RootElement.Clone());
+                    items.Add(item);
                 }
                 else if (part.TryGetProperty("text", out var value))
                 {
                     text.Add(value.GetString() ?? "");
+                    var plain = new JsonObject { ["text"] = value.GetString() ?? "" };
+                    if (ModelHttp.OptionalString(part, "thoughtSignature") is { } textSignature)
+                    {
+                        plain["thoughtSignature"] = textSignature;
+                        signedText = true;
+                    }
+
+                    items.Add(plain);
                 }
             }
         }
 
-        ModelUsage? usage = null;
+        // A plain text part can carry a signature too. When one does, the text parts go back in order with the thoughts, signature on the part it belongs to.
+        foreach (var item in items.Where(item => signedText || item.ContainsKey("thought")))
+        {
+            reasoning.Add(JsonSerializer.SerializeToElement(item));
+        }
+
+        var reasoningText = ModelHttp.ReasoningText(items.Where(item => item.ContainsKey("thought")).Select(item => (string?)item["text"] ?? ""));
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usageMetadata", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "promptTokenCount"),
                 OutputTokens = ModelHttp.Int(usageElement, "candidatesTokenCount") + ModelHttp.Int(usageElement, "thoughtsTokenCount"),
@@ -253,7 +301,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var blocked = finish is null && root.TryGetProperty("promptFeedback", out var feedback) ? ModelHttp.OptionalString(feedback, "blockReason") : null;
         if (blocked is not (null or "" or "BLOCK_REASON_UNSPECIFIED" or "BLOCKED_REASON_UNSPECIFIED"))
         {
-            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
+            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, ReasoningText = reasoningText, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
         }
 
         return new ModelResponse
@@ -262,6 +310,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = reasoningText,
             FinishReason = ModelHttp.FinishReason(finish, "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"),
             RawFinishReason = finish,
         };

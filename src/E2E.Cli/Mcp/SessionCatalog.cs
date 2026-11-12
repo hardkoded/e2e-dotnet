@@ -19,15 +19,16 @@ internal interface ISessionContext
 {
     E2ESession Session { get; }
 
-    /// <summary>Whether a secret was filled in this session, so a screenshot may show it.</summary>
-    bool PixelsTainted { get; set; }
+    /// <summary>Called once <c>type_secret</c> filled a secret, so the session's videos say they may show one (upstream's pixel taint, which the port has not).</summary>
+    void SecretFilled()
+    {
+    }
 }
 
 /// <summary>
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
-/// grammar is what the target's engine honors, <c>screenshot</c> answers <c>PIXEL_TAINTED</c> once a secret has
-/// been filled, <c>type_secret</c> exists when the config declares a secret, <c>locate</c> tries a semantic
-/// locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
+/// grammar is what the target's engine honors, <c>screenshot</c> masks secure fields and also saves a file when given a path, <c>type_secret</c> exists when the config
+/// declares a credential or a secret, <c>locate</c> tries a semantic locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
 internal sealed class SessionCatalog
@@ -38,12 +39,19 @@ internal sealed class SessionCatalog
     /// <summary>The time an engine that locates has to resolve one locator of a test line.</summary>
     private static readonly TimeSpan LineLocateBudget = TimeSpan.FromSeconds(2);
 
-    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
+    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines, ScreenPresenter screen)
     {
         Entries = entries;
         ReadOnly = readOnly;
         Lines = lines;
+        Screen = screen;
     }
+
+    /// <summary>
+    /// What the session has told the coding agent about the screen: <c>observe</c> sends the whole screen and sets it as the baseline, and every
+    /// action answers with the changes since (upstream's session shares one <c>ScreenPresenter</c> the same way).
+    /// </summary>
+    public ScreenPresenter Screen { get; }
 
     /// <summary>Every tool <c>call</c> can run, in the order <c>tools</c> lists them.</summary>
     public IReadOnlyList<KeyValuePair<string, CatalogTool>> Entries { get; }
@@ -62,63 +70,191 @@ internal sealed class SessionCatalog
 
     /// <summary>
     /// Builds the catalog from what the session's engine declares and the secrets the config holds. <paramref name="appBase"/> is the
-    /// target's app URL, which a navigation's test line is made relative to.
+    /// target's app URL, which a navigation's test line is made relative to. <paramref name="projectRoot"/> is where a relative <c>screenshot</c> path
+    /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
+    /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
+    /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue.
+    /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
+    /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named. <paramref name="pointerKinds"/> is what the engine takes at a bare point
+    /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
+    /// <paramref name="canDismissKeyboard"/> is <see cref="IEngineSession.CanDismissKeyboard"/>: <c>dismiss_keyboard</c> is a tool only where it is true.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, Uri? appBase = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false, IReadOnlyDictionary<string, AgentTool>? projectTools = null, string? platform = null, Action<string>? warn = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
+        ArgumentNullException.ThrowIfNull(projectRoot);
+        ArgumentNullException.ThrowIfNull(attemptDir);
+        var kinds = actionKinds ?? [];
         var lines = new SessionTestLines(new TestLineOptions
         {
-            Newest = () => context.Session.Agent.Feed.Latest?.Roots,
+            Newest = () => context.Session.Agent.Feed.Latest?.Tree,
             Resolve = () => LineResolver(context.Session.Engine),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
-            Secrets = secrets,
+            Fills = fills ?? new TestLineFills([], secrets),
+            TestRan = testRan,
         });
+        // The presenter also holds the latest screenshot the session showed its coding agent, which a point tool reads its coordinates against.
+        var screen = new ScreenPresenter();
         var tools = new List<KeyValuePair<string, CatalogTool>>();
         void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
-        Add("observe", Observe(context));
+        Add("observe", Observe(context, screen));
         var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
-        Add("tap", Verb(context, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
-        Add("double_tap", Verb(context, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
-        Add("type", Verb(context, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
-        Add("press", Verb(context, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
-        Add("select", Verb(context, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
-        Add("check", Verb(context, "check", "check", "Check a checkbox or radio.", Schema(Target)));
-        Add("uncheck", Verb(context, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
-        Add("clear", Verb(context, "clear", "clear", "Clear a field.", Schema(Target)));
+        // The verbs the engine's declarations unlock (upstream's declaredVerbs): a tool whose verb they leave out is not in the catalog.
+        var verbs = ActContext.VerbsOf(capabilities, kinds, pointerKinds ?? [], canDismissKeyboard);
+        if (verbs.Contains(ExecutorVerb.Tap))
+        {
+            Add("tap", Verb(context, screen, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
+        }
+
+        if (verbs.Contains(ExecutorVerb.DoubleTap))
+        {
+            Add("double_tap", Verb(context, screen, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
+        }
+
+        if (kinds.Contains("longPress"))
+        {
+            Add("long_press", Verb(context, screen, "long_press", "long_press", "Press one node and hold: only for a control with a long-press menu or action. Anything else takes tap.", Schema(Target)));
+        }
+
+        if (kinds.Contains("secondaryTap"))
+        {
+            Add("right_click", Verb(context, screen, "right_click", "right_click", "Right-click one node to open its context menu, and only for that. The menu items it opens, and every button, link, or field, take tap. When nothing opens, the app has no context menu there: look for a menu button or another path instead.", Schema(Target, holdable)));
+        }
+
+        if (kinds.Contains("hover"))
+        {
+            Add("hover", Verb(context, screen, "hover", "hover", "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.", Schema(Target)));
+        }
+
+        // With a keyboard, a type with no target goes to whatever has focus, as upstream's type does with typeText; an engine that declares no
+        // fill takes that form alone, with no target to give.
+        var typeText = verbs.Contains(ExecutorVerb.TypeText);
+        if (verbs.Contains(ExecutorVerb.Type) || typeText)
+        {
+            if (typeText)
+            {
+                var typeTarget = verbs.Contains(ExecutorVerb.Type) ? OptionalTarget : [];
+                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(typeTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
+            }
+            else
+            {
+                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+            }
+        }
+
+        if (verbs.Contains(ExecutorVerb.Press) || verbs.Contains(ExecutorVerb.PressKey))
+        {
+            var pressTarget = verbs.Contains(ExecutorVerb.Press) ? OptionalTarget : [];
+            Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(pressTarget, ("key", Property("string", "The key, such as Enter"), true), ("times", PressTimes, false))));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Select))
+        {
+            Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Check))
+        {
+            Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
+            Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
+        }
+
+        if (verbs.Contains(ExecutorVerb.Clear))
+        {
+            Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+        }
+
+        // Upstream's grammarTools serves upload with the agent's description; the session takes the agent tool's text and names its node as target.
+        if (verbs.Contains(ExecutorVerb.Upload))
+        {
+            var upload = AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Single(tool => tool.Name == "upload");
+            Add("upload", Verb(context, screen, "upload", "upload", upload.Description, Schema(Target, ("files", Files, true))));
+        }
+
+        if (kinds.Contains("dragTo"))
+        {
+            Add("drag", Verb(context, screen, "drag", "drag", "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.", Schema(Target, ("to", Property("string", "Node id of the drop target"), true))));
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
-            Add("scroll_to", Verb(context, "scroll_to", "scroll_to", "Scroll until a node is inside the viewport. With a target, one listed node above or below the fold. With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen until a node reading that text shows.", Schema(OptionalTarget, ("text", Property("string", "The visible text of the node to reach, or a distinctive part of it"), false), ("direction", Direction, false))));
-            Add("scroll", Verb(context, "scroll", "scroll", "Scroll the viewport, or one scrollable node when a target is given, by a screen or a few.", Schema(OptionalTarget, ("direction", Direction, true), ("times", TimesProperty, false))));
+            Add("scroll_to", Verb(context, screen, "scroll_to", "scroll_to", "Scroll until a node is inside the viewport. With a target, one listed node above or below the fold. With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen until a node reading that text shows.", Schema(OptionalTarget, ("text", Property("string", "The visible text of the node to reach, or a distinctive part of it"), false), ("direction", Direction, false))));
+            Add("scroll", Verb(context, screen, "scroll", "scroll", "Scroll the viewport, or one scrollable node when a target is given, by a screen or a few.", Schema(OptionalTarget, ("direction", Direction, true), ("times", TimesProperty, false))));
         }
 
         // An engine that pins an app has no URL to open: the app is what the session drives.
         if (!capabilities.HasFlag(EngineCapabilities.PinnedApp))
         {
-            Add("navigate", Verb(context, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
+            Add("navigate", Verb(context, screen, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
         }
 
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
-            Add("back", Verb(context, "back", "back", "Go back one entry in the browser history.", Schema([])));
+            Add("back", Verb(context, screen, "back", "back", "Go back one entry in the browser history.", Schema([])));
+        }
+
+        if (capabilities.HasFlag(EngineCapabilities.Resize))
+        {
+            Add(AgentTools.ResizeViewportName, Verb(context, screen, AgentTools.ResizeViewportName, AgentTools.ResizeViewportName, AgentTools.ResizeViewportDescription, Schema([], ("width", ViewportSide("width"), true), ("height", ViewportSide("height"), true))));
+        }
+
+        if (canDismissKeyboard && capabilities.HasFlag(EngineCapabilities.Keyboard))
+        {
+            Add(AgentTools.DismissKeyboardName, Verb(context, screen, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardDescription, Schema([])));
         }
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
         {
-            Add("screenshot", Screenshot(context));
+            Add("screenshot", Screenshot(context, projectRoot, attemptDir, screen));
+
+            // The point tools come after the screenshot they read their points from, as upstream's grammar lists them.
+            foreach (var point in AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Where(tool => tool.Name.EndsWith("_at", StringComparison.Ordinal)))
+            {
+                Add(point.Name, Verb(context, screen, point.Name, point.Name, point.Description, point.Parameters));
+            }
         }
 
-        if (secrets.Count > 0)
+        if (secrets.Count > 0 && verbs.Contains(ExecutorVerb.TypeSecret))
         {
-            Add("type_secret", TypeSecret(context));
+            Add("type_secret", TypeSecret(context, screen));
         }
 
         Add("locate", Locate(context));
+
+        // When the engine records video, start_recording and stop_recording follow locate, as upstream's catalog lists them.
+        if (recorder is not null && capabilities.HasFlag(EngineCapabilities.Video))
+        {
+            tools.AddRange(recorder.Tools());
+        }
+
         Add("test_lines", lines.Tool());
-        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines);
+
+        // The agent's project tools (agents.<name>.tools) follow the built-in ones, as upstream's catalog serves them. A name a built-in tool holds is not served.
+        var readOnly = new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal);
+        foreach (var (name, tool) in projectTools ?? new Dictionary<string, AgentTool>())
+        {
+            if (platform is not null && !tool.AppliesTo(platform))
+            {
+                continue;
+            }
+
+            if (tools.Any(entry => entry.Key == name))
+            {
+                warn?.Invoke("project tool \"" + name + "\" is not served over MCP: the name belongs to a built-in session tool");
+                continue;
+            }
+
+            tools.Add(new(name, ProjectTool(tool)));
+            if (!tool.Mutates)
+            {
+                readOnly.Add(name);
+            }
+        }
+
+        return new SessionCatalog(tools, readOnly, lines, screen);
     }
 
     /// <summary>
@@ -200,11 +336,11 @@ internal sealed class SessionCatalog
         }
         else if (count == 0)
         {
-            lines.Add("A test using this locator would fail with NOT_FOUND. " + redactor.Redact(query.NotFound));
+            lines.Add("A test using this locator would fail with LOCATOR_NOT_FOUND. " + redactor.Redact(query.NotFound));
         }
         else
         {
-            lines.Add("A test action on " + redactor.Redact(query.Code) + " would fail with STRICT_MODE. Narrow it with a name, GetByRole(role, name), .Filter(...), .First(), or .Nth(i), or scope it under a container.");
+            lines.Add("A test action on " + redactor.Redact(query.Code) + " would fail with LOCATOR_AMBIGUOUS. Narrow it with a name, GetByRole(role, name), .Filter(...), .First(), or .Nth(i), or scope it under a container.");
         }
 
         lines.AddRange(nodes.Select(node => "- " + DescribeNode(node, redactor)));
@@ -217,14 +353,17 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
 
+    // The files an upload names: one or more non-empty project-relative paths, or a sample (upstream's grammar schema).
+    private static JsonNode Files => new JsonObject { ["type"] = "array", ["items"] = new JsonObject { ["type"] = "string", ["minLength"] = 1 }, ["minItems"] = 1, ["description"] = "Project-relative paths of the files to attach, or sample:<name> for one of e2e's sample files" };
+
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
-        [("target", Property("string", "Node ref from the newest observation, such as the value after ref= in observe"), true)];
+        [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), true)];
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] OptionalTarget =
-        [("target", Property("string", "Node ref from the newest observation, such as the value after ref= in observe"), false)];
+        [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), false)];
 
     private static JsonNode Direction => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("up", "down", "left", "right") };
 
@@ -234,6 +373,23 @@ internal sealed class SessionCatalog
         ["minimum"] = 1,
         ["maximum"] = AgentTools.MaxScrollTimes,
         ["description"] = "How many screens to scroll in this one call; default 1",
+    };
+
+    // The repeat count of a key press, bounded as the agent's press tool bounds it (upstream's press times).
+    private static JsonNode PressTimes => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = 1,
+        ["maximum"] = AgentTools.MaxPressTimes,
+        ["description"] = "Press the key this many times in this one call, 1 to " + AgentTools.MaxPressTimes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "; default 1. Use more to extend a selection or move a caret several steps at once.",
+    };
+
+    private static JsonNode ViewportSide(string what) => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = Geometry.ViewportLimits.Min,
+        ["maximum"] = Geometry.ViewportLimits.Max,
+        ["description"] = "Viewport " + what + " in CSS pixels",
     };
 
     private static JsonObject Property(string type, string description)
@@ -271,22 +427,22 @@ internal sealed class SessionCatalog
         return JsonSerializer.SerializeToElement(root);
     }
 
-    private static CatalogTool Observe(ISessionContext context)
+    private static CatalogTool Observe(ISessionContext context, ScreenPresenter screen)
     {
         return new CatalogTool
         {
-            Description = "Look at the whole current screen: every node with its ref, role, name, and state. Action results show the screen after the action; call this to look again after waiting for something in progress.",
+            Description = "Look at the whole current screen: every node with its id, role, name, and state. Action results report only what changed since the screen you last received; call this to see everything again or after waiting for something in progress.",
             InputSchema = Schema([]),
             Execute = async (_, token) =>
             {
-                var outcome = await RunAsync(context, "observe", "observe", default, token).ConfigureAwait(false);
-                return outcome.Content.StartsWith("observed\n", StringComparison.Ordinal) ? outcome.Content["observed\n".Length..] : outcome.Content;
+                var outcome = await RunAsync(context, screen, "observe", "observe", default, token).ConfigureAwait(false);
+                return outcome.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? outcome.Content["Observed.\n".Length..] : outcome.Content;
             },
         };
     }
 
     /// <summary>A grammar verb: the arguments are renamed to the agent tool's (<c>target</c> is its <c>ref</c>), and the tool runs as in an act.</summary>
-    private static CatalogTool Verb(ISessionContext context, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
+    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
     {
         return new CatalogTool
         {
@@ -297,35 +453,49 @@ internal sealed class SessionCatalog
                 var mapped = new JsonObject();
                 foreach (var property in args.EnumerateObject())
                 {
+                    // A drag names its drop target as it names the node dragged.
+                    if (agentTool == "drag" && property.Name == "to" && property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        mapped["to"] = new JsonObject { ["ref"] = property.Value.GetString() };
+                        continue;
+                    }
+
                     var key = property.Name == "target" ? "ref" : rename is { } map && map.From == property.Name ? map.To : property.Name;
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }
 
-                var outcome = await RunAsync(context, name, agentTool, args, token, mapped).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
     }
 
-    private static CatalogTool TypeSecret(ISessionContext context)
+    /// <summary>A project tool as a catalog tool: the model's input as the tool reads it, and its answer as text.</summary>
+    private static CatalogTool ProjectTool(AgentTool tool) => new()
+    {
+        Description = tool.Description,
+        InputSchema = JsonSerializer.SerializeToElement(tool.InputSchema),
+        Execute = async (args, token) => await tool.ExecuteAsync(args.ValueKind == JsonValueKind.Object ? JsonNode.Parse(args.GetRawText())!.AsObject() : throw new ConfigurationException("INVALID_ARGUMENT", "a project tool takes an object"), token).ConfigureAwait(false),
+    };
+
+    private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen)
     {
         return new CatalogTool
         {
-            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>. After a fill, screenshot withholds pixels.",
+            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>.",
             InputSchema = Schema(Target, ("secret", Property("string", "The secret's name from the config"), true)),
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
-
-                // Before the fill: a fill that reached the page and then failed must still withhold pixels.
-                context.PixelsTainted = true;
-                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+                // Marked before the fill runs: a fill that fails after typing still leaves the secret on screen.
+                context.SecretFilled();
+                var outcome = await RunAsync(context, screen, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
     }
 
-    private static async Task<ToolOutcome> RunAsync(ISessionContext context, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
+    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
     {
         ToolOutcome outcome;
         var target = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("target", out var node) ? node.GetString() : null;
@@ -333,7 +503,7 @@ internal sealed class SessionCatalog
         var label = subject is null ? name : name + " " + subject;
         try
         {
-            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token).ConfigureAwait(false);
+            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen).ConfigureAwait(false);
         }
         catch (E2EException ex)
         {
@@ -342,7 +512,7 @@ internal sealed class SessionCatalog
 
         if (!outcome.Succeeded)
         {
-            var message = outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content;
+            var message = outcome.Error ?? (outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content);
             throw new ToolFailedException(Failure(label, outcome.Code, message, target));
         }
 
@@ -351,42 +521,80 @@ internal sealed class SessionCatalog
 
     private static string Failure(string label, string? code, string message, string? target)
     {
-        if (code == "NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
+        if (code == "LOCATOR_NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
         {
-            message = "node " + target + " is not on the current screen; re-observe for the newest refs";
+            message = "node " + target + " is not on the current screen; re-observe for the newest ids";
         }
 
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 
-    private static CatalogTool Screenshot(ISessionContext context)
+    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir, ScreenPresenter screen)
     {
         return new CatalogTool
         {
-            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered. After a secret was filled in the session, it answers PIXEL_TAINTED and attaches nothing.",
-            InputSchema = Schema([]),
-            Execute = async (_, token) =>
+            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered. With path, also saves the masked full-resolution screenshot as a PNG file and returns its absolute path.",
+            InputSchema = Schema([], ("path", Property("string", "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""), false)),
+            Execute = async (args, token) =>
             {
-                if (context.PixelsTainted)
+                var file = Text(args, "path");
+                if (file is not null && !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new ScreenshotOutput(null, "No screenshot: a secret was filled in this attempt and the app may show it outside a secure field. PIXEL_TAINTED");
+                    throw new ConfigurationException("INVALID_ARGUMENT", "call screenshot: path: a .png file; tools {tool: \"screenshot\"} shows its arguments");
                 }
 
                 var shot = await context.Session.Engine.ScreenshotAsync(token).ConfigureAwait(false);
                 var (width, height) = PngSize(shot.Png);
                 var text = "Screenshot attached: " + width.ToString(CultureInfo.InvariantCulture) + " by " + height.ToString(CultureInfo.InvariantCulture)
                     + " pixels (" + shot.Scale.ToString("0.##", CultureInfo.InvariantCulture) + " per CSS pixel).";
+                await context.Session.Agent.NoteScreenshotAsync(screen, new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0), token).ConfigureAwait(false);
+                if (file is not null)
+                {
+                    text += "\nSaved to " + context.Session.Redactor.Redact(await SaveScreenshotAsync(context, projectRoot, attemptDir, file, token).ConfigureAwait(false));
+                }
+
                 return new ScreenshotOutput(shot.Png, text);
             },
             ToModelOutput = (_, output, _) =>
             {
                 var shot = (ScreenshotOutput)output!;
-                IReadOnlyList<ToolOutputPart> parts = shot.Png is null
-                    ? [new ToolOutputPart.Text(shot.Text)]
-                    : [new ToolOutputPart.Text(shot.Text), new ToolOutputPart.File(Convert.ToBase64String(shot.Png), "image/png")];
+                IReadOnlyList<ToolOutputPart> parts = [new ToolOutputPart.Text(shot.Text), new ToolOutputPart.File(Convert.ToBase64String(shot.Png), "image/png")];
                 return Task.FromResult<ToolModelOutput>(new ToolModelOutput.Content(parts));
             },
         };
+    }
+
+    /// <summary>
+    /// Saves the engine's masked screenshot, the one <c>app.ScreenshotAsync</c> keeps, to <paramref name="file"/> resolved against the project root,
+    /// and returns the absolute path (upstream's <c>saveScreenshot</c> in <c>mcp/catalog.ts</c>). As with <c>upload</c>, a path outside the project or
+    /// under a hidden directory is <c>POLICY_DENIED</c>.
+    /// </summary>
+    private static async Task<string> SaveScreenshotAsync(ISessionContext context, string projectRoot, string attemptDir, string file, CancellationToken token)
+    {
+        var redactor = context.Session.Redactor;
+        var destination = Path.GetFullPath(file, projectRoot);
+        var relative = Paths.RelativeToProjectRoot(projectRoot, destination)
+            ?? throw new ConfigurationException("POLICY_DENIED", redactor.Redact(Quote(file)) + " is outside the project root; screenshots are saved inside the project");
+        if (relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(segment => segment.StartsWith('.')))
+        {
+            throw new ConfigurationException("POLICY_DENIED", redactor.Redact(Quote(file)) + " is a hidden file or sits under a hidden directory; screenshots are never saved there");
+        }
+
+        var source = Path.Combine(attemptDir, await context.Session.Engine.ScreenshotArtifactAsync(Path.GetFileNameWithoutExtension(destination), token).ConfigureAwait(false));
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, temporary);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+            File.Delete(source);
+        }
+
+        return destination;
     }
 
     private static (int Width, int Height) PngSize(byte[] png) =>
@@ -492,7 +700,7 @@ internal sealed class SessionCatalog
 
     internal static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.Mcp.Tools.Json);
 
-    private sealed record ScreenshotOutput(byte[]? Png, string Text);
+    private sealed record ScreenshotOutput(byte[] Png, string Text);
 }
 
 /// <summary>The arguments of <c>locate</c>.</summary>

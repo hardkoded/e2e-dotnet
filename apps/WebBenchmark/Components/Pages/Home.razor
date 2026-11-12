@@ -1,0 +1,21 @@
+@page "/"
+
+@* Upstream's app/src/app/page.tsx. *@
+<main style="max-width: 640px; margin: 0 auto; padding: 24px;">
+    <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Benchmark Examples</h1>
+    <p style="font-size: 13px; color: #666; margin-top: 0; margin-bottom: 16px;">
+        Self-contained scenarios to write e2e tests against.
+    </p>
+    <ul style="list-style: none; margin: 0; padding: 0;">
+        @foreach (var example in ExamplesCatalog.All)
+        {
+            <li style="border-bottom: 1px solid #e5e5e5;">
+                <a href="/e/@example.Slug" data-testid="@example.Name"
+                   style="display: block; padding: 14px 4px; text-decoration: none; color: inherit;">
+                    <span style="display: block; font-size: 16px; font-weight: 600;">@example.Name</span>
+                    <span style="display: block; font-size: 13px; color: #666; margin-top: 2px;">@example.Description</span>
+                </a>
+            </li>
+        }
+    </ul>
+</main>

@@ -3,7 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Tests.Traces;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
+using FailureText = E2E.Reports.FailureText;
+using Outcome = E2E.Reports.Outcome;
 
 namespace E2E.Tests.ReportFailureText;
 
@@ -23,7 +26,8 @@ public sealed class EvidenceOfTests
         ];
         var result = Result(attempts: [Failed(artifacts: artifacts, failure: new E2E.FailureEvidence { Screenshot = "a:3", Screen = "a:4" })]);
 
-        var told = FailureText.ToldAttempt(result, Outcome.Of(result));
+        var published = ReportBuilders.Public(result);
+        var told = FailureText.ToldAttempt(published, Outcome.Of(published));
 
         Assert.Equal(["a:3", "a:4", "a:0", "a:2"], FailureText.EvidenceOf(told).Select(artifact => artifact.Id));
     }

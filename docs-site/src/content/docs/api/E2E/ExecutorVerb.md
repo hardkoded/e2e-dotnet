@@ -21,7 +21,7 @@ public enum ExecutorVerb
 
 One verb of [IExecutorActions](/api/E2E/IExecutorActions/). The port has the verbs its engines can perform.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L231)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Fields
 
@@ -31,13 +31,11 @@ One verb of [IExecutorActions](/api/E2E/IExecutorActions/). The port has the ver
 
 
 ```csharp
-Back = 12
+Back = 16
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L245)
 
 <a id="E2E_ExecutorVerb_Check"></a>
 
@@ -45,13 +43,11 @@ Back = 12
 
 
 ```csharp
-Check = 7
+Check = 11
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L240)
 
 <a id="E2E_ExecutorVerb_Clear"></a>
 
@@ -59,13 +55,25 @@ Check = 7
 
 
 ```csharp
-Clear = 4
+Clear = 8
 ```
 
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L237)
+<a id="E2E_ExecutorVerb_DismissKeyboard"></a>
+
+### DismissKeyboard
+
+
+```csharp
+DismissKeyboard = 23
+```
+
+
+Upstream's `dismissKeyboard`: [DismissKeyboardAsync(CancellationToken)](/api/E2E/IExecutorActions/#E2E_IExecutorActions_DismissKeyboardAsync_System_Threading_CancellationToken_), with an engine whose [CanDismissKeyboard](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_CanDismissKeyboard) is true.
+
+**Value:** [ExecutorVerb](./)
 
 <a id="E2E_ExecutorVerb_DoubleTap"></a>
 
@@ -79,7 +87,69 @@ DoubleTap = 1
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L234)
+<a id="E2E_ExecutorVerb_Drag"></a>
+
+### Drag
+
+
+```csharp
+Drag = 5
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_DragAt"></a>
+
+### DragAt
+
+
+```csharp
+DragAt = 20
+```
+
+
+Upstream's `dragAt`: `DragAtAsync`, with the engine's `dragTo` pointer kind.
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_Hover"></a>
+
+### Hover
+
+
+```csharp
+Hover = 4
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_HoverAt"></a>
+
+### HoverAt
+
+
+```csharp
+HoverAt = 19
+```
+
+
+Upstream's `hoverAt`: `HoverAtAsync`, with the engine's `hover` pointer kind.
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_LongPress"></a>
+
+### LongPress
+
+
+```csharp
+LongPress = 2
+```
+
+
+**Value:** [ExecutorVerb](./)
 
 <a id="E2E_ExecutorVerb_Navigate"></a>
 
@@ -87,13 +157,11 @@ DoubleTap = 1
 
 
 ```csharp
-Navigate = 11
+Navigate = 15
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L244)
 
 <a id="E2E_ExecutorVerb_Press"></a>
 
@@ -101,13 +169,39 @@ Navigate = 11
 
 
 ```csharp
-Press = 5
+Press = 9
 ```
 
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L238)
+<a id="E2E_ExecutorVerb_PressKey"></a>
+
+### PressKey
+
+
+```csharp
+PressKey = 22
+```
+
+
+Upstream's `pressKey`: `PressKeyAsync`, with an engine that declares [Keyboard](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Keyboard).
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_Resize"></a>
+
+### Resize
+
+
+```csharp
+Resize = 24
+```
+
+
+Upstream's `resize`: `ResizeAsync`, with an engine that declares [Resize](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Resize).
+
+**Value:** [ExecutorVerb](./)
 
 <a id="E2E_ExecutorVerb_Scroll"></a>
 
@@ -115,13 +209,11 @@ Press = 5
 
 
 ```csharp
-Scroll = 10
+Scroll = 14
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L243)
 
 <a id="E2E_ExecutorVerb_ScrollTo"></a>
 
@@ -129,13 +221,11 @@ Scroll = 10
 
 
 ```csharp
-ScrollTo = 8
+ScrollTo = 12
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L241)
 
 <a id="E2E_ExecutorVerb_ScrollUntil"></a>
 
@@ -143,13 +233,23 @@ ScrollTo = 8
 
 
 ```csharp
-ScrollUntil = 9
+ScrollUntil = 13
 ```
 
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L242)
+<a id="E2E_ExecutorVerb_SecondaryTap"></a>
+
+### SecondaryTap
+
+
+```csharp
+SecondaryTap = 3
+```
+
+
+**Value:** [ExecutorVerb](./)
 
 <a id="E2E_ExecutorVerb_Select"></a>
 
@@ -157,13 +257,11 @@ ScrollUntil = 9
 
 
 ```csharp
-Select = 6
+Select = 10
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L239)
 
 <a id="E2E_ExecutorVerb_Tap"></a>
 
@@ -177,7 +275,19 @@ Tap = 0
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L233)
+<a id="E2E_ExecutorVerb_TapAt"></a>
+
+### TapAt
+
+
+```csharp
+TapAt = 18
+```
+
+
+Upstream's `tapAt`: `TapAtAsync`, with the engine's `tap` pointer kind.
+
+**Value:** [ExecutorVerb](./)
 
 <a id="E2E_ExecutorVerb_Type"></a>
 
@@ -185,13 +295,11 @@ Tap = 0
 
 
 ```csharp
-Type = 2
+Type = 6
 ```
 
 
 **Value:** [ExecutorVerb](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L235)
 
 <a id="E2E_ExecutorVerb_TypeSecret"></a>
 
@@ -199,10 +307,34 @@ Type = 2
 
 
 ```csharp
-TypeSecret = 3
+TypeSecret = 7
 ```
 
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L236)
+<a id="E2E_ExecutorVerb_TypeText"></a>
+
+### TypeText
+
+
+```csharp
+TypeText = 21
+```
+
+
+Upstream's `typeText`: `TypeTextAsync`, with an engine that declares [Keyboard](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Keyboard).
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_Upload"></a>
+
+### Upload
+
+
+```csharp
+Upload = 17
+```
+
+
+**Value:** [ExecutorVerb](./)

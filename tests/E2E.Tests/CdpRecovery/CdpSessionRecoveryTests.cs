@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using E2E.Engine;
+using E2E.Internal;
 using Microsoft.Playwright;
 
 namespace E2E.Tests.CdpRecovery;
@@ -64,7 +65,13 @@ public sealed class CdpSessionRecoveryTests
             Assert.True(await recovered.EvaluateAsync<bool>("() => confirm('Handler survived?')"));
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(stale, new LocatorAction.Tap(), None))).Code);
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code);
+            Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None))).Code);
+            // A locate after the recovery stores a ref the page answers now, so an action on it needs no observation (upstream's perform
+            // requires one only for the pointer and keyboard paths).
+            var fresh = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("heading", "Login", new RoleOptions()), TimeSpan.FromSeconds(10), None));
+            await session.PerformAsync(fresh, new LocatorAction.Hover(), None);
             await session.ObserveAsync(None);
+            await session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None);
             Assert.Equal(1, provisioned);
             Assert.Equal(1, reconnected);
         }
@@ -295,30 +302,52 @@ public sealed class CdpSessionRecoveryTests
     [Fact]
     public async Task Counts_reconnect_time_against_the_operation_budget()
     {
-        using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        await using var session = await StartAsync(
-            app,
-            new WebConnectOptions
+        // The operation budget reads a clock the test moves: the reconnect takes 300 ms of it, and the page script, which never ends on
+        // its own, gets the 800 ms that pass once it has started. Real waits would let a loaded runner spend the whole 1 s before the script runs.
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var connect = new WebConnectOptions
+        {
+            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
+            ReconnectEndpoint = _ =>
             {
-                CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-                ReconnectEndpoint = async _ =>
-                {
-                    await Task.Delay(300);
-                    return remote.Endpoint;
-                },
+                clock.Advance(TimeSpan.FromMilliseconds(300));
+                return Task.FromResult(remote.Endpoint);
             },
-            TimeSpan.FromSeconds(1));
-        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
-        var error = await Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
-            async () => {
+        };
+        // The page is about:blank: the test measures the budget, and a page served over the network is a navigation a loaded runner can abort.
+        await using var session = await StartAsync("about:blank", "about:blank", new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock }, TimeSpan.FromSeconds(1));
+        var live = WebEngine.SurfaceOf(session)!;
+        await live.Context().Browser!.CloseAsync();
+        var evaluating = Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
+            () => {
               document.body.dataset['started'] = 'true';
-              await new Promise((resolve) => setTimeout(resolve, 800));
-              return 'too late';
+              return new Promise(() => { });
             }
             """));
+        using var give = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        while (!evaluating.IsCompleted && await StartedAsync(live) != "true")
+        {
+            await Task.Delay(10, give.Token);
+        }
+
+        clock.Advance(TimeSpan.FromMilliseconds(800));
+        var error = await evaluating;
         Assert.Equal("OPERATION_TIMEOUT", error.Code);
         Assert.Equal("true", await WebEngine.SurfaceOf(session)!.Page().GetAttributeAsync("body", "data-started"));
+    }
+
+    /// <summary>The page's <c>data-started</c>, or null while the page is the one that was closed and the session has not yet swapped it for the reconnected one.</summary>
+    private static async Task<string?> StartedAsync(LiveSurface live)
+    {
+        try
+        {
+            return await live.Page().GetAttributeAsync("body", "data-started");
+        }
+        catch (PlaywrightException)
+        {
+            return null;
+        }
     }
 
     [Fact]
@@ -422,7 +451,11 @@ public sealed class CdpSessionRecoveryTests
         var wheel = await PollAsync(() => EvaluateAsync<string?>(session, "() => document.body.dataset['wheel'] ?? null"), "25");
         Assert.Equal("25", wheel);
         Assert.Equal("1", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
+
+        Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None))).Code);
         await session.ObserveAsync(None);
+        await session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None);
+        Assert.Equal("2", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
     }
 
     [Fact]
@@ -498,6 +531,53 @@ public sealed class CdpSessionRecoveryTests
         Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code);
     }
 
+    [Fact]
+    public async Task Masks_password_fields_in_light_and_closed_shadow_DOM_before_and_after_reconnect()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, Fixed(remote));
+        await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync("""
+            () => {
+              // A polyfill that replaces the global must not hide the record the init script made.
+              Reflect.set(globalThis, 'WeakMap', Map);
+              document.body.innerHTML = '';
+              document.body.style.background = 'blue';
+              const field = document.createElement('input');
+              field.type = 'password';
+              field.value = 'private';
+              field.style.cssText = 'position:fixed;left:20px;top:20px;width:180px;height:40px';
+              document.body.append(field);
+              const shadowHost = document.createElement('div');
+              document.body.append(shadowHost);
+              const root = shadowHost.attachShadow({ mode: 'closed' });
+              const hiddenField = field.cloneNode(true);
+              hiddenField.style.top = '80px';
+              root.append(hiddenField);
+            }
+            """);
+        foreach (var reconnect in new[] { false, true })
+        {
+            if (reconnect)
+            {
+                await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+            }
+
+            var snapshot = await session.ScreenshotAsync(None);
+            Assert.Equal(2, snapshot.MaskedRegionCount);
+            var image = ImageOps.DecodePng(snapshot.Png);
+            Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 40));
+            Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 100));
+            Assert.Equal([0, 0, 255, 255], PixelAt(image, 300, 160));
+        }
+    }
+
+    private static byte[] PixelAt(RgbaImage image, int x, int y)
+    {
+        var at = ((y * image.Width) + x) * 4;
+        return image.Data[at..(at + 4)];
+    }
+
     private static WebConnectOptions Fixed(RemoteChrome remote) => new()
     {
         CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
@@ -510,9 +590,13 @@ public sealed class CdpSessionRecoveryTests
         return StartAsync(app, new WebEngine(new WebEngineOptions { Connect = connect }), actionTimeout);
     }
 
-    private static async Task<IEngineSession> StartAsync(TinySite app, WebEngine engine, TimeSpan? actionTimeout = null)
+    private static Task<IEngineSession> StartAsync(TinySite app, WebEngine engine, TimeSpan? actionTimeout = null) =>
+        StartAsync(app.Url, app.Url + "login", engine, actionTimeout);
+
+    /// <summary>Starts the engine's attempt at <paramref name="baseUrl"/> and opens <paramref name="loginUrl"/>; a page that is not served over the network cannot be aborted by a loaded runner.</summary>
+    private static async Task<IEngineSession> StartAsync(string baseUrl, string loginUrl, WebEngine engine, TimeSpan? actionTimeout = null)
     {
-        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
+        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
         try
         {
             // Upstream opens /login under its own 10 s operation and gives only the operation under test the short budget. The session here
@@ -522,7 +606,7 @@ public sealed class CdpSessionRecoveryTests
             {
                 try
                 {
-                    await session.OpenAsync(app.Url + "login", None);
+                    await session.OpenAsync(loginUrl, None);
                     break;
                 }
                 catch (EngineException failure) when (actionTimeout is not null && failure.Code == "OPERATION_TIMEOUT" && attempt < 3)

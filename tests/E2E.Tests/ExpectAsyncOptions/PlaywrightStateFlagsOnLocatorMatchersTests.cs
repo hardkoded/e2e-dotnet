@@ -15,7 +15,7 @@ public sealed class PlaywrightStateFlagsOnLocatorMatchersTests
         await At("terms").ToBeCheckedAsync(isChecked: false);
         await At("agree").ToBeCheckedAsync(isChecked: true);
         await At("agree").Not.ToBeCheckedAsync(isChecked: false, timeout: Soon);
-        await FailsAssertion(() => At("agree").ToBeCheckedAsync(isChecked: false, timeout: Soon), "expected unchecked");
+        await FailsAssertion(() => At("agree").ToBeCheckedAsync(isChecked: false, timeout: Soon), "expected: unchecked");
         await FailsAssertion(() => At("terms").Not.ToBeCheckedAsync(isChecked: false, timeout: Soon));
     }
 
@@ -24,7 +24,7 @@ public sealed class PlaywrightStateFlagsOnLocatorMatchersTests
     {
         await At("locked").ToBeEnabledAsync(enabled: false);
         await At("banner").ToBeEnabledAsync(enabled: true);
-        await FailsAssertion(() => At("banner").ToBeEnabledAsync(enabled: false, timeout: Soon), "expected disabled");
+        await FailsAssertion(() => At("banner").ToBeEnabledAsync(enabled: false, timeout: Soon), "expected: disabled");
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public sealed class PlaywrightStateFlagsOnLocatorMatchersTests
         await At("tucked").ToBeVisibleAsync(visible: false);
         await At("nowhere").ToBeVisibleAsync(visible: false);
         await At("banner").ToBeVisibleAsync(visible: true);
-        await FailsAssertion(() => At("banner").ToBeVisibleAsync(visible: false, timeout: Soon), "expected hidden or absent");
+        await FailsAssertion(() => At("banner").ToBeVisibleAsync(visible: false, timeout: Soon), "expected: hidden or absent");
         await FailsAssertion(() => At("tucked").Not.ToBeVisibleAsync(visible: false, timeout: Soon));
     }
 
@@ -42,6 +42,6 @@ public sealed class PlaywrightStateFlagsOnLocatorMatchersTests
     {
         await At("nowhere").ToBeAttachedAsync(attached: false);
         await At("tucked").ToBeAttachedAsync(attached: true);
-        await FailsAssertion(() => At("tucked").ToBeAttachedAsync(attached: false, timeout: Soon), "expected detached");
+        await FailsAssertion(() => At("tucked").ToBeAttachedAsync(attached: false, timeout: Soon), "expected: detached");
     }
 }

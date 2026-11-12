@@ -11,6 +11,8 @@
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <PackageReference Include="NUnit" Version="5.0.0" />
+    <PackageReference Include="NUnitLite" Version="5.0.0" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.NUnit.Tests" />
   </ItemGroup>
 </Project>

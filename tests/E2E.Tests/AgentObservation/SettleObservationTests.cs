@@ -4,14 +4,13 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using E2E.Engine;
 using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// <c>settleObservation</c>: the loop that waits for the screen to leave the pre-action shape, then to hold still.
-/// Upstream's "settles a changed canvas from matching permitted screenshots instead of waiting out both windows" is not
-/// ported: the port's observations carry no pixels.
 /// </summary>
 public sealed class SettleObservationTests
 {
@@ -74,6 +73,34 @@ public sealed class SettleObservationTests
         var options = new SettleOptions<string> { Transitional = value => value.Length == 0, Poll = FastPoll, StableWait = FastStableWait };
         Assert.Equal("", await RunAllTimersAsync(time, SettleAsync(source, time, options)));
         Assert.Equal(2, source.Calls);
+    }
+
+    [Fact]
+    public async Task Returns_a_capture_the_caller_vouches_for_without_proving_it_holds_still_and_settles_one_it_declines()
+    {
+        var time = new SteppingTime();
+        var vouched = new Scripted("a", "b", "b");
+        Assert.Equal("a", await RunAllTimersAsync(time, SettleAsync(vouched, time, Fast(time, changedFrom: false, settledWhen: _ => true))));
+        Assert.Equal(1, vouched.Calls);
+
+        var declined = new Scripted("a", "b", "b");
+        Assert.Equal("b", await RunAllTimersAsync(time, SettleAsync(declined, time, Fast(time, changedFrom: false, settledWhen: _ => false))));
+        Assert.Equal(3, declined.Calls);
+    }
+
+    [Fact]
+    public async Task Still_waits_out_the_change_wait_before_asking_whether_a_capture_is_settled()
+    {
+        var time = new SteppingTime();
+        var source = new Scripted("old", "old", "new", "new");
+        var asked = new List<string>();
+        var value = await RunAllTimersAsync(time, SettleAsync(source, time, Fast(time, changedFrom: true, settledWhen: seen =>
+        {
+            asked.Add(seen);
+            return true;
+        })));
+        Assert.Equal("new", value);
+        Assert.Equal(["new"], asked);
     }
 
     [Fact]
@@ -157,11 +184,47 @@ public sealed class SettleObservationTests
         Assert.Equal(TimeSpan.FromSeconds(1), time.GetUtcNow() - started);
     }
 
-    private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom) => new()
+    [Fact]
+    public async Task Settles_a_changed_canvas_from_matching_permitted_screenshots_instead_of_waiting_out_both_windows()
+    {
+        var time = new SteppingTime();
+        var started = time.GetUtcNow();
+        Observation Canvas(byte data) => new()
+        {
+            Route = "/",
+            Roots = [new SemanticNode { Ref = "e1", Role = "screen", States = new NodeStates(), Children = [] }],
+            Pixels = new EngineScreenshot([data], 1, 0),
+        };
+        var before = Canvas(1);
+        var after = Canvas(2);
+        var calls = 0;
+        var pending = global::E2E.AgentObservation.SettleAsync(
+            _ =>
+            {
+                calls++;
+                return Task.FromResult(after);
+            },
+            global::E2E.AgentObservation.Shape,
+            new SettleOptions<Observation>
+            {
+                ChangedFrom = new PendingChange(global::E2E.AgentObservation.Shape(before), started + TimeSpan.FromSeconds(2)),
+                Transitional = global::E2E.AgentObservation.IsTransitional,
+                StableWait = TimeSpan.FromSeconds(1),
+                Poll = TimeSpan.FromMilliseconds(100),
+            },
+            time,
+            CancellationToken.None);
+        Assert.Same(after, await RunAllTimersAsync(time, pending));
+        Assert.Equal(2, calls);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), time.GetUtcNow() - started);
+    }
+
+    private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom, Func<string, bool>? settledWhen = null) => new()
     {
         ChangedFrom = changedFrom ? Leaving(time) : null,
         Poll = FastPoll,
         StableWait = FastStableWait,
+        SettledWhen = settledWhen,
     };
 
     private static Task<string> SettleAsync(Scripted source, TimeProvider time, SettleOptions<string> options)

@@ -1,0 +1,68 @@
+@* Upstream's app/src/Examples/SavedAddresses.tsx.
+   PLANTED BUG (do not fix): the delete button shows its confirmation toast, but the address is never removed from the list, no matter
+   how many times delete is clicked. *@
+<div style="@Container">
+    @if (_toast is not null)
+    {
+        <p data-testid="toast" style="@Toast">@_toast</p>
+    }
+    <ul data-testid="address-list" style="@List">
+        @foreach (var address in _addresses)
+        {
+            <li @key="address.Id" data-testid="address-@address.Id" style="@Row">
+                <span style="@AddressText"><strong>@address.Label</strong> @address.Line</span>
+                <button type="button" data-testid="delete-@address.Id" style="@DeleteButton" @onclick="DeleteAddress">Delete</button>
+            </li>
+        }
+    </ul>
+    <div style="@Form">
+        <input data-testid="label-input" style="@Field" placeholder="Label (e.g. Cabin)" value="@_label" @oninput="HandleLabelInput" />
+        <input data-testid="line-input" style="@Field" placeholder="Street address" value="@_line" @oninput="HandleLineInput" />
+        <button type="button" data-testid="add-button" style="@AddButton" @onclick="AddAddress">Add address</button>
+    </div>
+</div>
+
+@code {
+    private sealed record Address(string Id, string Label, string Line);
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string Toast = "background-color: #111; color: #fff; border-radius: 8px; padding: 10px 14px; font-size: 14px; margin: 0; text-align: center;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;";
+    private const string Row = "display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid #e5e5e5; font-size: 14px;";
+    private const string AddressText = "display: flex; gap: 8px;";
+    private const string DeleteButton = "border: 1px solid #c00; color: #c00; background-color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;";
+    private const string Form = "display: flex; flex-direction: column; gap: 8px;";
+    private const string Field = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 15px;";
+    private const string AddButton = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 15px; font-weight: 600; cursor: pointer;";
+
+    private readonly List<Address> _addresses =
+    [
+        new("home", "Home", "12 Rosewood Lane, Portland"),
+        new("office", "Office", "400 Market Street, Portland"),
+    ];
+
+    private string _label = string.Empty;
+    private string _line = string.Empty;
+    private string? _toast;
+
+    private void HandleLabelInput(ChangeEventArgs args) => _label = args.Value?.ToString() ?? string.Empty;
+
+    private void HandleLineInput(ChangeEventArgs args) => _line = args.Value?.ToString() ?? string.Empty;
+
+    /// <summary>Appends a new address from the form fields and clears the form.</summary>
+    private void AddAddress()
+    {
+        if (_label.Trim().Length == 0 || _line.Trim().Length == 0)
+        {
+            return;
+        }
+
+        _addresses.Add(new($"custom-{_addresses.Count}", _label.Trim(), _line.Trim()));
+        _label = string.Empty;
+        _line = string.Empty;
+        _toast = "Address saved";
+    }
+
+    /// <summary>Shows the delete toast only; the address stays in the list (planted bug).</summary>
+    private void DeleteAddress() => _toast = "Address deleted";
+}

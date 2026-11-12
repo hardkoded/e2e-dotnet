@@ -1,0 +1,30 @@
+@page "/e/{Slug}"
+@inject NavigationManager Navigation
+
+@* Upstream's app/src/app/e/[slug]/page.tsx: the header is static, the scenario beneath it is interactive. *@
+@if (_example is { Component: not null })
+{
+    <main style="max-width: 640px; margin: 0 auto; padding: 24px;">
+        <header style="margin-bottom: 24px;">
+            <a href="/" style="font-size: 13px; color: #666;">&larr; Benchmark Examples</a>
+            <h1 style="font-size: 20px; font-weight: 700; margin: 8px 0 0;">@_example.Name</h1>
+        </header>
+        <ExampleHost Slug="@Slug" @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    </main>
+}
+
+@code {
+    private Example? _example;
+
+    [Parameter]
+    public string Slug { get; set; } = "";
+
+    protected override void OnParametersSet()
+    {
+        _example = ExamplesCatalog.Find(Slug);
+        if (_example?.Component is null)
+        {
+            Navigation.NotFound();
+        }
+    }
+}

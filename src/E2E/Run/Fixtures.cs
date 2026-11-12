@@ -2,10 +2,38 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
+
+/// <summary>What the producer of an artifact knows about it beyond its file (upstream's <c>ArtifactRegistration</c>).</summary>
+internal sealed record ArtifactRegistration
+{
+    /// <summary>When a time-based artifact (a video segment) began recording.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+}
+
+/// <summary>A provider-hosted recording (upstream's <c>ArtifactSink.link</c> argument).</summary>
+internal sealed record ArtifactLink(string MediaType, DateTimeOffset StartedAt);
+
+/// <summary>
+/// Where an attempt registers the files and links it produced (upstream's <c>ArtifactSink</c>, <c>run/fixtures.ts</c>). Registration is
+/// synchronous and cheap; the size, digest, and hand-off to a store finish in the background (see <c>AttemptArtifacts.SettleAsync</c>).
+/// </summary>
+internal interface IArtifactSink
+{
+    /// <summary>The absolute attempt artifact directory (upstream's <c>dir</c>).</summary>
+    string Dir { get; }
+
+    /// <summary>Registers a file under <see cref="Dir"/> (upstream's <c>register</c>) and returns the artifact's id.</summary>
+    string Register(ArtifactKind kind, string relativePath, ArtifactRegistration? registration = null);
+
+    /// <summary>Registers a video a hosted service keeps, by its URL (upstream's <c>link</c>), and returns the artifact's id.</summary>
+    string Link(string url, ArtifactLink link);
+}
 
 /// <summary>
 /// Opens and resets the app under test. A relative URL is resolved against
@@ -16,6 +44,9 @@ public sealed class App
     private readonly IEngineSession _session;
     private readonly string? _baseUrl;
     private readonly Func<CancellationToken> _token;
+
+    /// <summary>The budget an app call on the named api has (the browser's, bounded by the test); null outside a session, where a call has none.</summary>
+    internal Func<string, TimeSpan>? OperationBudget { get; set; }
 
     private readonly StepRecorder? _steps;
     private readonly bool _pinnedApp;
@@ -31,13 +62,19 @@ public sealed class App
         _steps = steps;
     }
 
-    /// <summary>The target base URL relative URLs resolve against, or null when the test declares none.</summary>
-    public string? BaseUrl => _baseUrl;
+    /// <summary>
+    /// The resolved base URL of the target's app, with the port the run allocated when <c>app.url</c> declared port 0 and no trailing
+    /// slash, so <c>$"{BaseUrl}/api/users"</c> joins with one slash; null when the test declares none. <see cref="OpenAsync"/> still
+    /// resolves a relative URL against <c>app.url</c> as declared: a base path that ends in <c>/</c> is kept, and one without it is replaced.
+    /// </summary>
+    public string? BaseUrl => _baseUrl is null ? null : Urls.BaseUrlOf(_baseUrl);
 
     /// <summary>
     /// Opens a path or URL, resolved against the base URL. No URL opens the base URL itself.
     /// Throws <c>APP_URL_REQUIRED</c> for a relative URL when the test declares no base URL, and <c>POLICY_DENIED</c>
-    /// for a malformed URL or a scheme other than <c>http:</c> or <c>https:</c> (the exact <c>about:blank</c> is admitted).
+    /// for a malformed URL or a scheme other than <c>http:</c> or <c>https:</c> (the exact <c>about:blank</c> is admitted). Throws
+    /// <c>APP_UNREACHABLE</c>, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
+    /// name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is <c>ENGINE_FAILURE</c>.
     /// </summary>
     public Task OpenAsync(string? url = null, CancellationToken cancellationToken = default)
     {
@@ -46,7 +83,7 @@ public sealed class App
             return LaunchPinnedAppAsync(url, cancellationToken);
         }
 
-        return RunStepAsync("app.open", url ?? "/", () => _session.OpenAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
+        return RunStepAsync("app.open", url ?? "/", () => OpenAtAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
     }
 
     /// <summary>
@@ -65,45 +102,174 @@ public sealed class App
                     "app.open(\"" + url + "\") needs an app URL and target \"" + _target + "\" has none: on a device app.open() launches the pinned app, and a link goes through device.openLink");
             }
 
-            await _session.RestartAsync(Token(cancellationToken)).ConfigureAwait(false);
+            await _session.RestartAsync(Operation("app.open", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
         });
     }
 
     /// <summary>Goes back one entry in the history. With no earlier entry it does nothing.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default)
     {
-        return RunStepAsync("app.back", "", () => _session.BackAsync(Token(cancellationToken)));
+        return RunStepAsync("app.back", "", () => _session.BackAsync(Operation("app.back", OperationContext.Test), Token(cancellationToken)));
     }
 
-    /// <summary>Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept.</summary>
+    /// <summary>
+    /// Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept. The reopen, which
+    /// happens when a base URL is set, throws <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// </summary>
     public Task RestartAsync(CancellationToken cancellationToken = default)
     {
-        return RunStepAsync("app.restart", "", () => SteerAsync(_session.RestartAsync, Token(cancellationToken)));
+        return RunStepAsync("app.restart", "", () => SteerAsync("app.restart", (context, token) => _session.RestartAsync(context, token), Token(cancellationToken)));
     }
 
-    /// <summary>Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>.</summary>
+    /// <summary>
+    /// Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>. The reopen, which happens when a base URL is set, throws
+    /// <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// </summary>
     public Task ClearStateAsync(CancellationToken cancellationToken = default)
     {
-        return RunStepAsync("app.clearState", "", () => SteerAsync(_session.ClearStateAsync, Token(cancellationToken)));
+        return RunStepAsync("app.clearState", "", () => SteerAsync("app.clearState", (context, token) => _session.ClearStateAsync(context, token), Token(cancellationToken)));
     }
 
-    // Each call that steers the app is a recorded step of the attempt, or runs as it is without a timeline.
+    /// <summary>
+    /// Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
+    /// <c>screenshots/</c>, and the returned path is absolute (upstream's <c>app.screenshot</c>, <c>createApp</c> in <c>run/fixtures.ts</c>).
+    /// A screenshot taken while the page navigates captures the document showing.
+    /// Throws <c>UNSUPPORTED_CAPABILITY</c> on an engine that keeps no screenshots.
+    /// </summary>
+    /// <param name="label">Names the step and joins the file name.</param>
+    /// <param name="cancellationToken">Cancels the capture.</param>
+    public async Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
+    {
+        var path = "";
+        var artifactsDir = ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "screenshot outside an attempt: the app has no artifact directory");
+        await RunStepAsync("app.screenshot", label ?? "", async () =>
+        {
+            // .NET-only hardening: the label joins the file name and the artifact path, so a secret spelled into it stops here.
+            var relative = await _session.ScreenshotArtifactAsync(label is null ? null : Redact(label), Operation("app.screenshot", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
+            Attach("screenshot", relative);
+            path = Path.GetFullPath(Path.Combine(artifactsDir, relative));
+        }).ConfigureAwait(false);
+        return path;
+    }
+
+    /// <summary>
+    /// Starts recording the screen, until <see cref="StopRecordingAsync"/>. One recording at a time, and none while the test's
+    /// <c>video</c> records, since the engine has one recorder: set the test's video to <c>off</c>. A recording still running when the
+    /// test ends is stopped and kept. Like the test's video, a recording masks nothing. Upstream's <c>app.startRecording</c>.
+    /// Throws <c>UNSUPPORTED_CAPABILITY</c> while the test's video records or when the engine records no video, and
+    /// <c>INVALID_ARGUMENT</c> when another recording is running.
+    /// </summary>
+    /// <param name="options">Names the file: <c>recordings/001-&lt;name&gt;.&lt;ext&gt;</c>.</param>
+    /// <param name="cancellationToken">Cancels the start.</param>
+    public async Task StartRecordingAsync(RecordingOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
+        _ = SinkOf() ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
+        var name = options?.Name;
+        await RunStepAsync("app.startRecording", name ?? "", () => recordings.StartSpanAsync(name, Operation("app.startRecording", OperationContext.Test), Token(cancellationToken))).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stops the recording and returns its videos, in play order: a file (absolute <c>Path</c>) under the attempt's <c>recordings/</c>,
+    /// named <c>001-&lt;name&gt;.&lt;ext&gt;</c>, or a link when a hosted browser or device keeps the recording. There is one video, except on
+    /// the web when the page was replaced while it recorded (<c>app.RestartAsync()</c>, <c>app.ClearStateAsync()</c>): then one per page.
+    /// The step links each video in the trace. Never empty. Upstream's <c>app.stopRecording</c>. Throws <c>INVALID_ARGUMENT</c> when no
+    /// recording is running and <c>ENGINE_FAILURE</c> when the engine wrote no video.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the stop.</param>
+    public async Task<IReadOnlyList<RecordedVideo>> StopRecordingAsync(CancellationToken cancellationToken = default)
+    {
+        var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
+        var sink = SinkOf() ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
+        IReadOnlyList<RecordedVideo> videos = [];
+        await RunStepAsync("app.stopRecording", "", async () =>
+        {
+            var stopped = await recordings.StopSpanAsync(sink, Operation("app.stopRecording", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
+            foreach (var id in stopped.Ids)
+            {
+                _steps?.AttachArtifact(id);
+            }
+
+            videos = stopped.Videos;
+        }).ConfigureAwait(false);
+        return videos;
+    }
+
+    /// <summary>The engine's one recorder, shared with the attempt's video (upstream's <c>sessionRecordings</c>).</summary>
+    internal SessionRecordings? Recordings { get; set; }
+
+    /// <summary>Where the attempt registers the videos a recording produced (upstream's <c>environment.artifacts</c>); read when a recording stops, since asking for it creates the attempt's directory.</summary>
+    internal Func<IArtifactSink?> SinkOf { get; set; } = static () => null;
+
+    /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
+    internal string? ArtifactsDir { get; set; }
+
+    /// <summary>Replaces the secrets the attempt knows in text that reaches a file name; identity outside a session.</summary>
+    internal Func<string, string> Redact { get; set; } = static text => text;
+
+    /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
+    internal Action<string, string> Attach { get; set; } = static (_, _) => { };
+
+    // Each call that steers the app is a recorded step of the attempt, which maps the engine error the call throws (upstream's fixture
+    // runtime), or runs as it is without a timeline.
     private Task RunStepAsync(string api, string label, Func<Task> body) =>
-        _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);
+        _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, () => FixtureRecording.Translated(api, label, body));
 
     // A steering hook ends at a blank surface, so the app is reopened at its base URL
     // inside the same step. Without a base URL there is nothing to reopen.
-    private async Task SteerAsync(Func<CancellationToken, Task> hook, CancellationToken cancellationToken)
+    private async Task SteerAsync(string api, Func<OperationContext, CancellationToken, Task> hook, CancellationToken cancellationToken)
     {
-        await hook(cancellationToken).ConfigureAwait(false);
+        await hook(Operation(api, OperationContext.Test), cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(_baseUrl))
         {
-            await _session.OpenAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
+            await OpenAtAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Network-level failures a browser or device reports when nothing is listening where the app should be. Anything else that fails a
+    /// navigation (a certificate, a 500, a crash mid-load) stays an engine failure. Upstream's <c>NOTHING_LISTENING</c>.
+    /// </summary>
+    private static readonly Regex NothingListening = new(
+        "ERR_CONNECTION_REFUSED|ECONNREFUSED|ERR_NAME_NOT_RESOLVED|ENOTFOUND|ERR_ADDRESS_UNREACHABLE|EHOSTUNREACH|ERR_CONNECTION_TIMED_OUT|ETIMEDOUT",
+        RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(2));
+
+    /// <summary>
+    /// A navigation the network refused means the app is down, which is the first thing a new project runs into and the last thing an engine
+    /// failure message suggests. Named by its own code, with the URL and the three ways to fix it. Upstream's <c>unreachableApp</c>.
+    /// </summary>
+    private static EngineException? UnreachableApp(Exception cause, string url)
+    {
+        var match = NothingListening.Match(cause.Message);
+        return match.Success
+            ? new EngineException(
+                "APP_UNREACHABLE",
+                $"nothing answered at {url} ({match.Value}); start the app there, point the target's app.url at where it runs, or give the target an app.command so the runner starts it",
+                cause)
+            { Mapped = true }
+            : null;
+    }
+
+    /// <summary>Opens one resolved URL; a refused connection is reported as the app being down (upstream's <c>openAt</c>).</summary>
+    private async Task OpenAtAsync(string resolved, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _session.OpenAsync(resolved, Operation("app.open", OperationContext.Test), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception cause) when (cause is not (OperationCanceledException or (E2EException and not EngineException)) && UnreachableApp(cause, resolved) is { } unreachable)
+        {
+            throw unreachable;
         }
     }
 
     private CancellationToken Token(CancellationToken cancellationToken) =>
         Time.Link(cancellationToken, _token());
+
+    /// <summary>The context of an app call on <paramref name="api"/>: <paramref name="context"/> with the call's budget as its <c>Timeout</c>, or as it is outside a session.</summary>
+    private OperationContext Operation(string api, OperationContext context) =>
+        OperationBudget is { } budget ? context with { Timeout = Time.Between(budget(api), TimeSpan.FromMilliseconds(1), Time.Unbounded) } : context;
 }
 
 /// <summary>The fixtures for one test. Call <see cref="Skip"/> before the first step when a precondition is missing.</summary>

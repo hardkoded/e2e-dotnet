@@ -20,8 +20,7 @@ namespace E2E.Tests.EngineTargets;
 public sealed partial class EngineTargetsTests
 {
     /// <summary>
-    /// Partial: an engine of the port has no name besides its platform, so the target's engine name in the report is the platform
-    /// <c>ios</c>, not upstream's <c>toy-device</c>. The verbs are the ones the engine's capabilities allow: the port's engines declare capabilities, not action kinds.
+    /// Partial: the toy engine's name is <c>toy-device</c> and the report records it. The verbs are the ones the engine's capabilities allow: the port's engines declare capabilities, not action kinds.
     /// </summary>
     [Fact]
     public async Task Partial_Runs_an_agent_step_over_the_adapter_with_lifecycle_and_honest_provenance()
@@ -30,8 +29,9 @@ public sealed partial class EngineTargetsTests
         var executor = new TestExecutor("toy-tapper", async (context, _) =>
         {
             // The executor is told which grammar the surface honors: no scroll and no back, since the toy declares neither.
+            // It declares no action kinds, so it gets every locator one, and the pointer verbs with them.
             var verbs = string.Join(",", context.Target.Verbs.Select(verb => verb.ToString()).Order(StringComparer.Ordinal));
-            if (context.Target.Platform != "ios" || verbs != "Check,Clear,DoubleTap,Navigate,Press,Select,Tap,Type,TypeSecret")
+            if (context.Target.Platform != "ios" || verbs != "Check,Clear,DoubleTap,Drag,Hover,LongPress,Navigate,Press,SecondaryTap,Select,Tap,Type,TypeSecret")
             {
                 return Failed("unexpected target " + context.Target.Platform + " " + verbs);
             }
@@ -76,7 +76,7 @@ public sealed partial class EngineTargetsTests
         Assert.Equal(["init", "dispose"], toy.Lifecycle);
         Assert.Equal(0, (int)report.Run()["exitCode"]!);
         var reportTarget = report.Run()["targets"]!.AsArray().Single(entry => (string)entry!["id"]! == "toy-sim")!;
-        Assert.Equal("ios", (string)reportTarget["engine"]!["name"]!);
+        Assert.Equal("toy-device", (string)reportTarget["engine"]!["name"]!);
         Assert.Equal("ios", (string)reportTarget["platform"]!);
     }
 

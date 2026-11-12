@@ -8,11 +8,10 @@ namespace E2E.Tests.ExpectSoft;
 
 /// <summary>
 /// The port's soft assertions take locator matchers only, so the value-matcher parts of upstream's describe are not
-/// ported. Not ported at all: "throws like expect outside an attempt" (it checks <c>expect.soft(1).toBe(2)</c>, and a
-/// locator matcher outside a session cannot be written), "keeps a usage failure too, since the matcher could not pass"
-/// (only <c>ASSERTION_FAILED</c> is kept, and the port has no value matcher to misuse), and the <c>toMatchSchema</c>
-/// describe. The tests below that name what they check are partial: each runs a locator matcher where upstream runs a value
-/// matcher, and none reads a JavaScript stack.
+/// ported. The <c>toMatchSchema</c> describe is in <see cref="ExpectSoftToMatchSchemaTests"/>. Two of upstream's value its are
+/// ported below with <see cref="SoftValueExpectation{T}"/> on a <see cref="SoftFailures"/> of their own: "throws like expect outside an attempt"
+/// (a closed collection) and "keeps a usage failure too, since the matcher could not pass". The tests below that name what they
+/// check are partial: each runs a locator matcher where upstream runs a value matcher, and none reads a JavaScript stack.
 /// </summary>
 public sealed class ExpectSoftTests
 {
@@ -122,7 +121,7 @@ public sealed class ExpectSoftTests
         await Expect.Soft(screen.GetByRole("heading", "Billing")).Not.ToBeVisibleAsync();
         await Expect.Soft(screen.GetByRole("heading", "Billing")).ToHaveCountAsync(1);
         var other = await Assert.ThrowsAsync<TestException>(() => Expect.Soft(screen.GetByRole("button", "Save")).ToBeVisibleAsync());
-        Assert.Equal("STRICT_MODE", other.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", other.Code);
 
         var error = Assert.IsType<TestException>(session.CloseSoftFailures());
         Assert.StartsWith("1 soft assertion failed\n1. ", error.Message, StringComparison.Ordinal);
@@ -141,5 +140,23 @@ public sealed class ExpectSoftTests
             ActionTimeout = TimeSpan.FromMilliseconds(300),
             TestTimeout = TimeSpan.FromSeconds(10),
         });
+    }
+
+    [Fact]
+    public void Throws_like_expect_outside_an_attempt()
+    {
+        var failures = new SoftFailures();
+        failures.Close();
+        var error = Assert.Throws<TestException>(() => new SoftValueExpectation<int>(new ValueExpectation<int>(1, negated: false, message: null), failures).ToBe(2));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        new SoftValueExpectation<int>(new ValueExpectation<int>(1, negated: false, message: null), failures).ToBe(1);
+    }
+
+    [Fact]
+    public void Keeps_a_usage_failure_too_since_the_matcher_could_not_pass()
+    {
+        var failures = new SoftFailures();
+        new SoftValueExpectation<int>(new ValueExpectation<int>(42, negated: false, message: null), failures).ToContain("x");
+        Assert.Contains("string or collection", failures.Close()?.Message, StringComparison.Ordinal);
     }
 }

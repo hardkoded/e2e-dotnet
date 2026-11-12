@@ -1,0 +1,257 @@
+---
+title: "v0.8.0"
+description: "E2E for .NET v0.8.0: test filters, session setup, Firefox and WebKit, e2e init, scroll and gesture locators, scoped recordings, and a new docs site."
+sidebar:
+  label: "v0.8.0"
+---
+
+_Released November 2, 2026_
+
+v0.8.0 is the biggest release of E2E for .NET so far. More than 150 pull requests bring the port much closer to upstream [e2e](https://github.com/tester-army/e2e). Highlights:
+
+- Run only the tests a change can affect.
+- Sign in once and reuse the session.
+- Run web tests on Firefox and WebKit.
+- Set up a project for coding agents with one command.
+- Gestures, scrolling, and recording spans for web and mobile.
+- A new documentation site with Get started guides, samples, and examples.
+
+```bash
+dotnet add package E2E --version 0.8.0
+dotnet add package E2E.NUnit --version 0.8.0   # or E2E.XUnit.V3
+dotnet tool update --global E2E.Cli
+```
+
+> ⚠️ This release has a few breaking changes. See [Breaking changes](#breaking-changes) before you upgrade.
+
+## Highlights
+
+### Run only the tests a change can affect (test filters)
+
+A test filter leaves tests out before the run starts. It sees every test and the files changed since a base ref (`ChangedSince` or `E2E_CHANGED_SINCE`). Skipped tests show as ignored in NUnit.
+
+```csharp
+// Outside any namespace, so it covers the whole assembly.
+[SetUpFixture]
+public sealed class AppCommands : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
+
+public sealed class ChangedFilesFilter : ITestFilter
+{
+    public string Name => "changed-files";
+
+    public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
+        Task.FromResult(new TestFilterResult
+        {
+            Exclude = tests
+                .Where(test => !context.Changes.Files.Contains(test.File))
+                .ToDictionary(test => test.Id, test => $"{test.File} did not change"),
+        });
+}
+```
+
+```bash
+E2E_CHANGED_SINCE=origin/main dotnet test
+```
+
+[Test filters guide](/docs/test-filters/)
+
+### Sign in once, reuse the session (NUnit)
+
+A setup test signs in and saves a named session. Other tests start from it with `[E2ESession]`.
+
+```csharp
+public sealed class AccountTests : E2ETest
+{
+    [E2ESetup("sign in", Saves = ["member"])]
+    public async Task Sign_in()
+    {
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Email").FillAsync("member@example.com");
+        await Screen.GetByLabel("Password").FillAsync(Secrets.Get("member-password"));
+        await Screen.GetByRole("button", "Sign in").ClickAsync();
+        await SaveSessionAsync("member");
+    }
+
+    [Test, E2ESession("member")]
+    public async Task Member_sees_the_dashboard()
+    {
+        await App.OpenAsync("/dashboard");
+        await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+    }
+}
+```
+
+### Firefox and WebKit
+
+`WebEngine` was Chromium-only. Now `WebEngineOptions.BrowserName` picks the browser it launches and installs.
+
+```csharp
+protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
+{
+    BrowserName = BrowserName.Firefox, // or BrowserName.Webkit; Chromium is the default
+});
+```
+
+```bash
+e2e install firefox webkit --with-deps
+```
+
+### `e2e init` for coding agents
+
+One command sets a project up for Claude Code, Cursor, and other coding agents:
+- Scaffolds `e2e.config.json`.
+- Installs the e2e skill into `.agents/skills` and `.claude/skills`.
+- Registers the `e2e mcp` server in `.mcp.json` and `.cursor/mcp.json`.
+- Updates `.gitignore`.
+
+It asks which engine, model gateway, and locations to use, or `--yes` takes the defaults. It never overwrites an existing config.
+
+```bash
+dotnet tool install --global E2E.Cli
+e2e init
+```
+
+The MCP server now answers each action with the test line that repeats it, so the agent writes the test as it walks the flow. The `migrate-to-e2e` skill moves Playwright .NET, Selenium, Appium, Cypress, Detox, Maestro, or TesterArmy suites one slice at a time.
+
+### Scroll until visible, and gestures on locators
+
+`ScrollUntilVisibleAsync` swipes the screen, or a scroll container, until the target shows up. Locators also gained `SecondaryTapAsync`, `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync`, and click modifiers.
+
+```csharp
+var feed = Screen.GetByRole("list", "Feed");
+await feed.ScrollUntilVisibleAsync(Screen.GetByText("Accept"));
+
+await Screen.GetByText("Invoice #1042").LongPressAsync();
+await Screen.GetByText("Draft").DragToAsync(Screen.GetByRole("region", "Archive"));
+```
+
+### Filter locators by what they don't contain
+
+`Filter` now takes `hasNot` and `hasNotText`.
+
+```csharp
+var items = Screen.GetByRole("listitem");
+var editable = items.Filter(has: Screen.GetByRole("button", "Remove"), hasNot: Screen.GetByText("Read only"));
+await Expect.That(editable).ToHaveCountAsync(1);
+```
+
+### Record one span of the screen
+
+Record just the part of a test that matters, such as one transition, on the web or on devices. (Turn the test's `video` off; the engine has one recorder.)
+
+```csharp
+await App.StartRecordingAsync(new RecordingOptions { Name = "checkout-dialog" });
+await Screen.GetByRole("button", "Pay").ClickAsync();
+await Expect.That(Screen.GetByRole("dialog")).ToBeVisibleAsync();
+var videos = await App.StopRecordingAsync(); // recordings/001-checkout-dialog.webm
+```
+
+### Evidence screenshots, soft assertions, and parameterized judgments
+
+- `App.ScreenshotAsync(label)` returns the absolute path of the redacted screenshot.
+- `Expect.Soft(...)` keeps a failure and lets the test continue.
+- `Agent.AssertAsync` and `Agent.WaitForAsync` take `Params`.
+
+```csharp
+var path = await App.ScreenshotAsync("cart");
+await Expect.Soft(Screen.GetByRole("status")).ToContainTextAsync("3 items");
+await Agent.AssertAsync("the cart total is {total}", new AssertOptions
+{
+    Params = new Dictionary<string, object?> { ["total"] = "$42.00" },
+});
+```
+
+### Network and browser control
+
+- `route.FetchAsync()` fetches the real upstream response inside a route handler, so you can change it and fulfill it.
+- `Browser.WaitForDownloadsAsync(trigger, count)` collects several downloads from one click.
+- `Browser.OnDialogAsync` handles dialogs.
+- `Browser.ClearCookiesAsync` clears cookies.
+- Upload buttons that open a file chooser are supported.
+- `app.permissions` grants browser permissions.
+
+```csharp
+await Browser.RouteAsync("**/api/prices", async route =>
+{
+    var upstream = await route.FetchAsync();
+    var prices = await upstream.JsonAsync<Prices>();
+    await route.FulfillAsync(new RouteFulfillResponse { Json = prices! with { Discount = 0.1m } });
+});
+
+var files = await Browser.WaitForDownloadsAsync(
+    () => Screen.GetByRole("button", "Export all").ClickAsync(), count: 2);
+```
+
+### Host sessions in your own runner
+
+`E2EHost` opens isolated sessions for a runner that is not NUnit or xUnit.
+
+```csharp
+await using var host = await E2EHost.OpenAsync(new OpenHostOptions { Cwd = projectDir });
+await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "home screen" });
+await session.Fixtures.App.OpenAsync("/");
+```
+
+## All changes
+
+### Features
+- Test filters with change detection, wired into NUnit (`E2ERunFixture.Filters`, `ChangedSince`) (#662, #926)
+- Setup runner for NUnit: `E2ESetup`, `E2ESession`, `SaveSessionAsync`; session store (#728, #707, #853)
+- Firefox and WebKit through `WebEngineOptions.BrowserName` (#725)
+- `e2e init` with interactive prompts: config, skill, MCP registration (#761, #779)
+- `screen`/`locator.ScrollUntilVisibleAsync` (#664)
+- Locator `SecondaryTapAsync`, `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync`, click modifiers (#860)
+- Locator filters `hasNot` and `hasNotText` (#790)
+- `App.StartRecordingAsync` / `StopRecordingAsync` (#862)
+- `App.ScreenshotAsync` returns the absolute path (#797)
+- `Expect.Soft(screen)` and wheel-gesture scrolling on the web (#897)
+- `Params` on `Agent.AssertAsync` and `Agent.WaitForAsync` (#891)
+- `route.FetchAsync` in route handlers (#840)
+- Multiple downloads from one trigger (#834); `OnDialog`, `WaitForDownload`, `sanitizeFilename`, `artifactPath` (#686)
+- Upload buttons that open file choosers (#841); the agent upload tool and its path policy (#864)
+- `Browser.ClearCookiesAsync` (#789); `browser.Locator`, `browser.FrameLocator`, `Expect(browser).ToHaveClassAsync` (#710)
+- Browser permissions from `app.permissions`; `app.identity`, `app.environment`, `launchArguments` (#795, #759)
+- Config: `app.command`, `readyUrl`, port 0; a shared app command stopped at the end of the run (#699, #780)
+- Config: `maxObservationBytes` and `maxInputTokens` with observation cutting (#711)
+- Public host: `E2EHost.OpenAsync` and `host.OpenSessionAsync`, with host traces (#910, #758, #919)
+- Markdown report renderer and the reporter seam (`Reporter`, `FinishedRun`, `onRunFinished`) (#880, #883)
+- Run summary cache tally, and the app's first errors quoted in failures (#820, #844, #886)
+- Run one NUnit test in an `e2e mcp` session; MCP writes each test line as you walk the flow (#899, #848)
+- MCP screenshot saves to a path; `open_session` names the app command, URL, and port (#889)
+- `explore` runs in a given working directory (#896)
+- Retries for model requests; reasoning replay on Google and Bedrock; Bedrock uses the AWS credential chain (#678, #704, #719, #726)
+- Mobile: provider recording, `device.Locator`, in-flight commands, `Device.UnstableRaw`, Compose Multiplatform text fields on iOS, skips devices another session holds (#697, #813, #849, #787)
+- Run-wide `ModelUsage` accounting (#781)
+
+### Fixes and reliability
+- Self-healing replay parity: misses before the first action, scrolled lists re-found by their place, multi-line `unique()` values, the recorded end wait (#712, #769, #828, #829)
+- Replay cache: placeholder grammar, uri/slug encodings, navigations recorded without the origin (#838, #852, #863, #888, #921)
+- Mobile inputs, reads, observe, and screenshots bounded by the operation's remaining budget (#660, #893, #909)
+- Mobile: stale refs rejected after transitions; input bindings revalidated before fill/clear; fill/clear refused on nodes that can't take text (#866, #878, #925)
+- Web locate reads under the wait's remaining budget; a ref stays strict only when its locator matched alone (#703, #772)
+- Closed shadow roots stay tracked on pages that replace `WeakMap` (#816)
+- The screenshot caret is hidden with a stylesheet (#784)
+- Cleanup failures: the exit code reflects them, and failed session teardown marks cleanup as failed (#786, #822)
+- Interrupted retries keep the earlier verdict and exit 130 (#825, #836, #859)
+- Text downloads are rewritten through the secret ledger (#722)
+- Flaky test fixes across Linux CI and the timing tests (#683, #723, #730, #771, #930)
+
+### Docs
+- New Astro Starlight docs site at [hardkoded.com/e2e-dotnet](https://www.hardkoded.com/e2e-dotnet/), with a homepage (#667, #713, #716, #720)
+- Get started and Samples sections (#663)
+- Examples: i18n, file uploads, location, biometrics, deep links (#912)
+- Self-healing tests section; coding-agents and Limrun integration docs; `migrate-to-e2e` skill (#792, #672)
+
+### Breaking changes
+- **Error codes renamed:** `NOT_FOUND` → `LOCATOR_NOT_FOUND`, `STRICT_MODE` → `LOCATOR_AMBIGUOUS`. These are plain strings, so the compiler won't warn about `ex.Code == "STRICT_MODE"` (#907)
+- **`App.BaseUrl` has no trailing slash:** `$"{App.BaseUrl}/api/users"` now joins with one slash (#879)
+- **`ModelUsage` → `ModelCallUsage`** for custom `IAgentModel` authors. `ModelUsage` is now the run-wide accumulator (#781)
+- **Model screenshots are kept after a secret fill.** The `PIXEL_TAINTED` guarantee and `StepExecutorContext.PixelsTainted` are gone. Secure fields are still masked, but use test credentials (#874)
+
+## Links
+- [GitHub release](https://github.com/hardkoded/e2e-dotnet/releases/tag/v0.8.0)
+- [Full changelog: v0.7.0...v0.8.0](https://github.com/hardkoded/e2e-dotnet/compare/v0.7.0...v0.8.0)
+- [NuGet: E2E](https://www.nuget.org/packages/E2E)

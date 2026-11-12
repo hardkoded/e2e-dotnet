@@ -35,7 +35,10 @@ internal static class StepCacheHarness
 
     public static StepHost MakeHost(string[] paths, params SemanticNode[][] screens) => new(paths, screens);
 
-    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null)
+    /// <summary>A host on <paramref name="time"/>, which a test fakes as upstream fakes its timers.</summary>
+    public static StepHost MakeHost(TimeProvider time, string[] paths, params SemanticNode[][] screens) => new(paths, screens, time);
+
+    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null, string? appOrigin = null)
     {
         return new StepTraceSession(
             host,
@@ -44,12 +47,14 @@ internal static class StepCacheHarness
                 Cache = context.Store,
                 Write = context.Write,
                 Strict = context.Strict,
+                StrictAdvice = context.Strict ? CacheContexts.CreateAgentCacheContext(new CacheConfig { Strict = true, Store = context.Store }, Path.GetTempPath(), 0)!.Strict!.Advice : "",
                 ReplayEligible = context.ReplayEligible,
                 Claim = new ClaimedKey(Key, step ?? ExampleStep),
                 Instruction = "open billing",
                 Params = parameters,
                 Recorder = host.Recorder,
                 StepIndex = stepIndex,
+                AppOrigin = appOrigin,
             });
     }
 
@@ -63,13 +68,19 @@ internal static class StepCacheHarness
         string? endPath = null,
         RecordedTarget[]? endAnchors = null,
         RecordedTarget[]? goneAnchors = null,
-        RecordedAction[]? actions = null)
+        RecordedAction[]? actions = null,
+        int? endWaitMs = null,
+        bool truncated = false,
+        string? summary = null)
     {
         var entry = new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
+            Summary = summary ?? "opened the customers page",
             Route = startPath,
             EndRoute = endPath,
+            EndWaitMs = endWaitMs,
+            Truncated = truncated ? true : null,
             Actions = [.. actions ?? [Navigate("/customers")]],
             Appeared = [.. endAnchors ?? []],
             Gone = [.. goneAnchors ?? []],
@@ -125,13 +136,19 @@ internal sealed class StubCache(Func<CacheLookup> read) : IStepCache
 
     public List<string> Written { get; } = [];
 
+    public bool Writable => true;
+
     public CacheLookup Read(string key)
     {
         Reads++;
         return read();
     }
 
-    public void Write(string key, CacheEntry entry) => Written.Add(key);
+    public int? Write(string key, CacheEntry entry)
+    {
+        Written.Add(key);
+        return 1;
+    }
 
     public bool DeleteFails { get; set; }
 
@@ -154,14 +171,19 @@ internal sealed class StepHost : IStepCacheHost
     private string _path = "/";
     private SemanticNode[] _nodes = [];
 
-    public StepHost(string[] paths, SemanticNode[][] screens)
+    public StepHost(string[] paths, SemanticNode[][] screens, TimeProvider? time = null)
     {
         _paths = new Queue<string>(paths);
         _screens = new Queue<SemanticNode[]>(screens);
-        Actions = new Grammar();
+        Time = time ?? TimeProvider.System;
+        Recorder = new(() => Redactor.None, Time);
+        Actions = new Grammar(this);
     }
 
-    public E2E.Cache.TraceRecorder Recorder { get; } = new(() => Redactor.None);
+    public E2E.Cache.TraceRecorder Recorder { get; }
+
+    /// <summary>Runs for each navigate the replay performs; a throw is the action's failure.</summary>
+    public Action<string>? OnNavigate { get; set; }
 
     /// <summary>How far each look asked to settle, in order.</summary>
     public List<SettleMode> Looks { get; } = [];
@@ -171,6 +193,9 @@ internal sealed class StepHost : IStepCacheHost
 
     public IExecutorActions Actions { get; }
 
+    /// <summary>Upstream's host <c>traceEligible</c>: false once a look has lost its semantic evidence, which a test flips as upstream's getter does.</summary>
+    public bool TraceEligible { get; set; } = true;
+
     public CancellationToken Signal => CancellationToken.None;
 
     public Redactor Redact { get; set; } = Redactor.None;
@@ -178,16 +203,23 @@ internal sealed class StepHost : IStepCacheHost
     /// <summary>Short enough that a missing anchor is not waited for: the end check takes one look.</summary>
     public TimeSpan ReplayTimeout { get; set; } = TimeSpan.Zero;
 
-    public Observation? Latest { get; private set; }
+    /// <summary>What is left of the step's clock. Zero leaves no room to wait for a recording's end wait.</summary>
+    public int Remaining { get; set; }
 
-    public Observation? FirstActedOn { get; private set; }
+    public int RemainingMs() => Remaining;
 
-    public Task<Observation> ObserveAsync(SettleMode mode)
+    public TimeProvider Time { get; }
+
+    public PreparedObservation? Latest { get; private set; }
+
+    public PreparedObservation? FirstActedOn { get; private set; }
+
+    public Task<PreparedObservation> ObserveAsync(SettleMode mode)
     {
         Looks.Add(mode);
         if (Capture is { } capture)
         {
-            return Task.FromResult(Latest = capture(mode));
+            return Task.FromResult(Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(capture(mode), Redact));
         }
 
         if (_paths.Count > 0)
@@ -200,7 +232,7 @@ internal sealed class StepHost : IStepCacheHost
             _nodes = _screens.Count > 1 ? _screens.Dequeue() : _screens.Peek();
         }
 
-        return Task.FromResult(Latest = new Observation { Route = _path, Roots = _nodes });
+        return Task.FromResult(Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = _path, Roots = _nodes }, Redact));
     }
 
     public bool TryReserve() => true;
@@ -213,11 +245,19 @@ internal sealed class StepHost : IStepCacheHost
         return Task.CompletedTask;
     }
 
-    private sealed class Grammar : IExecutorActions
+    private sealed class Grammar(StepHost host) : IExecutorActions
     {
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -227,17 +267,35 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+
+        public Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+
+        public Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default) => Task.FromResult(new PointDragResult(from, to, null, null, ""));
+
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
 
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NavigateAsync(string url, CancellationToken cancellationToken = default)
+        {
+            host.OnNavigate?.Invoke(url);
+            return Task.CompletedTask;
+        }
 
         public Task BackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

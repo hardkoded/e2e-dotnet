@@ -8,7 +8,7 @@ namespace E2E.Cli.Tests.McpTestLines;
 
 /// <summary>
 /// Test lines end to end: the built <c>e2e mcp</c> server on a fixture page, driven by a real MCP client. Every action
-/// answers with the line that repeats it, a password by its secret and never its value, a button repeated per row scoped under
+/// answers with the line that repeats it, a password by its credential and never its value, a button repeated per row scoped under
 /// its row (the web engine names a list item from its content, so the row is found by that name), twins in plain divs by their order, a shadow root's twin by its place among the matches, and an icon button by its test
 /// id; <c>test_lines</c> returns them in order. Pasted into a test class, that draft passes a run.
 /// </summary>
@@ -27,7 +27,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         _app = FixtureApp.Start();
         _project = new FixtureProject(new Dictionary<string, string>
         {
-            ["e2e.config.json"] = FixtureProject.Config(_app.Url, $"\"adminPassword\": \"{Password}\""),
+            ["e2e.config.json"] = FixtureProject.Config(_app.Url, credentials: $"\"admin\": {{ \"username\": \"{Username}\", \"password\": \"{Password}\" }}"),
         });
         _cli = await ServedCli.StartAsync(_project.Directory);
     }
@@ -44,27 +44,30 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
     {
         var opened = await _cli.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
+        Assert.Contains($"Credentials: \"admin\" (username \"{Username}\", password secret \"admin.password\"). Type the username with type; fill the password with type_secret and its password secret's name.", opened.Text, StringComparison.Ordinal);
+        Assert.Contains("type_secret", ServedCli.CatalogNames(opened.Text));
+        Assert.DoesNotContain(Password, opened.Text, StringComparison.Ordinal);
 
         var navigated = await _cli.CallAsync("navigate", new() { ["url"] = _app.Url + "/test-lines" });
-        Assert.Equal(["navigated to /test-lines", "Test line: await App.OpenAsync(\"/test-lines\");"], navigated.Text.Split('\n').Take(2));
+        Assert.Equal(["Navigated to " + _app.Url + "/test-lines.", "Test line: await App.OpenAsync(\"/test-lines\");"], navigated.Text.Split('\n').Take(2));
         var screen = (await _cli.CallAsync("observe")).Text;
         var afterOfferB = screen[screen.IndexOf("Offer B", StringComparison.Ordinal)..];
         var afterRowTwo = screen[screen.IndexOf("Row two", StringComparison.Ordinal)..];
 
         (string Tool, Dictionary<string, object?> Args, string Line)[] steps =
         [
-            ("type", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Username\""), ["text"] = Username }, $"await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(\"{Username}\");"),
-            ("type_secret", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["secret"] = "adminPassword" }, "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Secrets.Get(\"adminPassword\"));"),
+            ("type", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Username\""), ["text"] = Username }, "await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);"),
+            ("type_secret", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["secret"] = "admin.password" }, "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);"),
             ("select", new() { ["target"] = ServedCli.RefOf(screen, "combobox \"Plan\""), ["value"] = "Pro" }, "await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");"),
             ("check", new() { ["target"] = ServedCli.RefOf(screen, "checkbox \"Accept terms\"") }, "await Screen.GetByRole(\"checkbox\", \"Accept terms\").CheckAsync();"),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterOfferB, "button \"Reserve\"") },
-                "await Screen.GetByRole(\"listitem\", \"Offer B Reserve\").GetByRole(\"button\", \"Reserve\").TapAsync();"),
+                "await Screen.GetByRole(\"listitem\").Filter(\"Offer B\").GetByRole(\"button\", \"Reserve\").TapAsync();"),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(screen, "button \"Keep\"") },
-                "await Screen.GetByRole(\"button\", \"Keep\").First().TapAsync(); // 1 of 2 matches, by position; a unique name or test id holds up better"),
+                "await Screen.GetByRole(\"button\", \"Keep\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterRowTwo, "button \"Pick\"") },

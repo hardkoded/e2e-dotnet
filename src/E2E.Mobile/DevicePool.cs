@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Engine;
@@ -87,7 +89,7 @@ public sealed record DeviceSelection(MobilePlatform Platform, string? Device = n
 /// <summary>
 /// The devices one target drives: one simulator or emulator per worker slot, each under its own agent-device
 /// session. A named device is a pool of one and a list a pool of many. With no device the pool is every booted
-/// device of the platform, discovered in prepare. A <see cref="IDeviceProvider"/> leases one hosted device per slot
+/// device of the platform no other agent-device session holds, discovered in prepare. A <see cref="IDeviceProvider"/> leases one hosted device per slot
 /// instead. Prepare binds one <see cref="SlotBinding"/> per slot, warms each once per run before any worker exists,
 /// and hands the bindings to the workers through the run's environment.
 /// </summary>
@@ -291,13 +293,19 @@ public sealed partial class DevicePool
                 ? throw new ConfigurationException(
                     "INVALID_CONFIG",
                     "mobile: `device` is an empty pool; name at least one simulator or emulator, or omit it to use every booted one")
-                : new ConfiguredDevices(devices);
+                : new ConfiguredDevices([.. devices.Select(NamedDevice)]);
         }
 
         return options.Device is { } device
-            ? new ConfiguredDevices([device])
+            ? new ConfiguredDevices([NamedDevice(device)])
             : new BootedDevices(options.Platform, createClient, (targetName, slot) => Session(targetName, slot));
     }
+
+    /// <summary>A device name from the options (upstream's <c>namedDevice</c>); a blank one would select no device, and the daemon would refuse several booted ones as ambiguous.</summary>
+    private static string NamedDevice(string? device) =>
+        string.IsNullOrWhiteSpace(device)
+            ? throw new ConfigurationException("INVALID_CONFIG", "mobile: `device` names a simulator, emulator, or phone by name, UDID, or serial, and must not be blank; omit it to use every booted one")
+            : device;
 
     /// <summary>
     /// Boots every bound device, starts the iOS automation runner on it, and opens the pinned app on it once, so a
@@ -309,7 +317,8 @@ public sealed partial class DevicePool
     /// run here too: the first attempt could only meet the same runner and fail its first observation with the app
     /// blamed. A runner that did not start leaves the slot unopened: the open would start it again under a shorter
     /// budget. A build <c>appPath</c> is not on the device yet, so that slot boots and starts the runner only, unless a
-    /// lease says the build is already there.
+    /// lease says the build is already there. Each slot logs one line of how long its boot, runner start, and open
+    /// took, a failed step included.
     /// </summary>
     private async Task WarmAsync(IReadOnlyList<SlotBinding> bindings, MobilePrepareInfo info, CancellationToken cancellationToken)
     {
@@ -323,37 +332,62 @@ public sealed partial class DevicePool
             var client = _createClient(session, binding);
             Retain(info.TargetName, client);
             info.Log($"booting {label} ({slot + 1} of {bindings.Count})");
-            await DeviceErrors.RunCommandAsync(
-                "boot",
-                token => client.CallAsync(DeviceMethods.DevicesBoot, where.ToArgs(), token),
-                cancellationToken,
-                at).ConfigureAwait(false);
-            var runnerUp = _options.Platform != MobilePlatform.Ios || await PrepareRunnerAsync(client, where, info, at, cancellationToken).ConfigureAwait(false);
-            var app = DeviceBindings.PinnedApp(info.App, binding.InstalledApp);
-            if (app is null || !runnerUp)
-            {
-                continue;
-            }
-
-            // A build the suite installs itself is not on the device yet, so there is nothing to open: the first attempt installs it.
-            if (info.App.AppPath is not null && binding.InstalledApp is null)
-            {
-                info.Log($"{label}: {app} awaits the suite's device.installApp()");
-                continue;
-            }
-
+            var took = new List<string>();
             try
             {
-                await DeviceErrors.RunCommandAsync(
-                    $"open {app}",
-                    token => client.CallAsync(DeviceMethods.AppsOpen, where.ToArgs(("app", JsonValue.Create(app))), token),
+                await TimedAsync(took, "boot", () => DeviceErrors.RunCommandAsync(
+                    "boot",
+                    token => client.CallAsync(DeviceMethods.DevicesBoot, BootRequest(where), token),
                     cancellationToken,
-                    at).ConfigureAwait(false);
+                    at)).ConfigureAwait(false);
+                var runnerUp = _options.Platform != MobilePlatform.Ios || await TimedAsync(took, "iOS runner", () => PrepareRunnerAsync(client, where, info, at, cancellationToken)).ConfigureAwait(false);
+                var app = DeviceBindings.PinnedApp(info.App, binding.InstalledApp);
+                if (app is null || !runnerUp)
+                {
+                    continue;
+                }
+
+                // A build the suite installs itself is not on the device yet, so there is nothing to open: the first attempt installs it.
+                if (info.App.AppPath is not null && binding.InstalledApp is null)
+                {
+                    info.Log($"{label}: {app} awaits the suite's device.installApp()");
+                    continue;
+                }
+
+                try
+                {
+                    await TimedAsync(took, $"open {app}", () => DeviceErrors.RunCommandAsync(
+                        $"open {app}",
+                        token => client.CallAsync(DeviceMethods.AppsOpen, where.ToArgs(("app", JsonValue.Create(app))), token),
+                        cancellationToken,
+                        at)).ConfigureAwait(false);
+                }
+                catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+                {
+                    info.Log($"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it");
+                }
             }
-            catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+            finally
             {
-                info.Log($"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it");
+                info.Log($"{label}: {string.Join(", ", took)}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Runs one warm-up step and appends <c>&lt;name&gt; &lt;seconds&gt;s</c> to <paramref name="took"/>, also when the
+    /// step throws, so the line warm logs for the slot says where a slow or failed prepare spent its time.
+    /// </summary>
+    private static async Task<T> TimedAsync<T>(List<string> took, string name, Func<Task<T>> step)
+    {
+        var start = Stopwatch.GetTimestamp();
+        try
+        {
+            return await step().ConfigureAwait(false);
+        }
+        finally
+        {
+            took.Add($"{name} {Stopwatch.GetElapsedTime(start).TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)}s");
         }
     }
 
@@ -394,6 +428,16 @@ public sealed partial class DevicePool
             clients.Add(client);
         }
     }
+
+    /// <summary>
+    /// The request <c>boot</c> takes for a selection. One that names no device asks agent-device to pick among several
+    /// shut-down matches (mobile over TV, newest OS, then name order) instead of failing with <c>AMBIGUOUS_MATCH</c>;
+    /// several booted matches still fail.
+    /// </summary>
+    public static JsonObject BootRequest(DeviceSelection selection) =>
+        (selection.Device ?? selection.Udid ?? selection.Serial) is null
+            ? selection.ToArgs(("pick", JsonValue.Create("newest")))
+            : selection.ToArgs();
 
     /// <summary>
     /// The selection agent-device commands take for a binding: an id the pool discovered goes under the platform's
@@ -438,7 +482,13 @@ internal sealed class ConfiguredDevices : IDeviceSource
         Task.FromResult<IReadOnlyList<SlotBinding>>([.. Fallback!.Take(Math.Min(info.Slots, Fallback!.Count))]);
 }
 
-/// <summary>Every booted device of the platform, as many as the run has slots. With none booted, one slot the daemon fills.</summary>
+/// <summary>A booted device as the inventory lists it, with the agent-device session that holds it, when one does.</summary>
+internal sealed record BootedDevice(string Id, string Name, string? ClaimedBy = null);
+
+/// <summary>
+/// Every booted device of the platform no other agent-device session holds, as many as the run has slots. With none
+/// booted, one slot that boots a shut-down simulator or emulator agent-device picks. A device held by one of this target's own slot sessions stays in the pool.
+/// </summary>
 internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory createClient, Func<string, int, string> session) : IDeviceSource
 {
     public int? Size => null;
@@ -448,19 +498,31 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
     public async Task<IReadOnlyList<SlotBinding>> BindAsync(MobilePrepareInfo info, CancellationToken cancellationToken)
     {
         var booted = await InventoryAsync(info.TargetName, cancellationToken).ConfigureAwait(false);
-        var chosen = booted.Take(info.Slots).ToList();
+        var own = Enumerable.Range(0, info.Slots).Select(slot => session(info.TargetName, slot)).ToHashSet();
+        var held = booted.Where(device => device.ClaimedBy is not null && !own.Contains(device.ClaimedBy)).ToList();
+        var chosen = booted.Where(device => !held.Contains(device)).Take(info.Slots).ToList();
+        var heldBy = string.Join(", ", held.Select(device => $"{device.Name} by session \"{device.ClaimedBy}\""));
+        if (chosen.Count == 0 && held.Count > 0)
+        {
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"every booted {platform.WireName()} device is held by another agent-device session ({heldBy}); boot another one, close a holding session, or name the device in the target's `device` option",
+                retryable: false);
+        }
+
         if (chosen.Count == 0)
         {
-            info.Log($"no booted {platform.WireName()} device; agent-device boots one");
+            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (newest OS, then name)");
             return [new SlotBinding()];
         }
 
-        info.Log($"{booted.Count} booted {platform.WireName()} device(s); driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}");
+        var skipped = held.Count == 0 ? "" : $", skipping {held.Count} held by another agent-device session ({heldBy})";
+        info.Log($"{booted.Count} booted {platform.WireName()} device(s){skipped}; driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}");
         return [.. chosen.Select(device => new SlotBinding { DeviceId = device.Id })];
     }
 
-    /// <summary>Every booted device of the platform, by stable id and name, in agent-device's inventory order.</summary>
-    private async Task<List<(string Id, string Name)>> InventoryAsync(string targetName, CancellationToken cancellationToken)
+    /// <summary>Every booted device of the platform, by stable id and name, with the session holding it, in agent-device's inventory order.</summary>
+    private async Task<List<BootedDevice>> InventoryAsync(string targetName, CancellationToken cancellationToken)
     {
         var client = createClient(session(targetName, 0), null);
         var inventory = await DeviceErrors.RunCommandAsync(
@@ -472,7 +534,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
             return [];
         }
 
-        var result = new List<(string, string)>();
+        var result = new List<BootedDevice>();
         foreach (var node in devices)
         {
             if (node is JsonObject device
@@ -480,7 +542,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
                 && device["booted"] is JsonValue { } booted && booted.TryGetValue<bool>(out var isBooted) && isBooted
                 && Text(device["platform"]) == platform.WireName())
             {
-                result.Add((id, Text(device["name"]) ?? id));
+                result.Add(new BootedDevice(id, Text(device["name"]) ?? id, device["claimedBy"] is JsonObject claim ? Text(claim["session"]) : null));
             }
         }
 

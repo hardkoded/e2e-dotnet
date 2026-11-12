@@ -21,7 +21,7 @@ public enum ActionSource
 
 Who chose an action an [ActionEvent](/api/E2E/ActionEvent/) reports.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L936)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ The executor chose the action.
 
 **Value:** [ActionSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L939)
-
 <a id="E2E_ActionSource_Replay"></a>
 
 ### Replay
@@ -54,5 +52,3 @@ Replay = 1
 The replay cache replayed the action.
 
 **Value:** [ActionSource](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L942)

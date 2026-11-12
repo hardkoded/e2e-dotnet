@@ -1,0 +1,242 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+using E2E.Engine;
+using E2E.Internal;
+using Microsoft.Extensions.Time.Testing;
+
+namespace E2E.Tests.LocatorEngine;
+
+/// <summary>
+/// Upstream's <c>LocatorEngine perform contract</c>. The retry tests run through <c>Screen</c> and <c>Locator</c>, which hand the
+/// <see cref="E2E.LocatorEngine"/> their query; the origin test runs on the engine itself.
+/// </summary>
+public sealed class LocatorEnginePerformContractTests
+{
+    private static Screen ScreenThatPerforms(Func<Task> perform, Action onPerform) => new(
+        _ => Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" }] }),
+        (_, _, _) =>
+        {
+            onPerform();
+            return perform();
+        },
+        () => CancellationToken.None,
+        () => { },
+        TimeSpan.FromMilliseconds(1000),
+        TimeSpan.FromMilliseconds(1000));
+
+    [Fact]
+    public async Task Re_resolves_and_retries_the_action_after_a_retryable_stale_node()
+    {
+        var resolves = 0;
+        var performs = 0;
+        var screen = new Screen(
+            _ =>
+            {
+                resolves++;
+                return Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" }] });
+            },
+            (_, _, _) => ++performs == 1 ? throw new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: true) : Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(1000));
+
+        await screen.GetByRole("button").TapAsync();
+
+        Assert.Equal(2, performs);
+        Assert.Equal(2, resolves);
+    }
+
+    [Fact]
+    public async Task NET_only_a_stale_node_that_is_not_retryable_fails_without_a_second_try()
+    {
+        var performs = 0;
+        var screen = ScreenThatPerforms(() => throw new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), () => performs++);
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
+
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Equal(1, performs);
+    }
+
+    [Fact]
+    public async Task Never_repeats_an_action_that_may_have_committed()
+    {
+        var performs = 0;
+        var screen = ScreenThatPerforms(() => throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "maybe committed", retryable: false), () => performs++);
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
+
+        Assert.Equal("ACTION_FAILED", error.Code);
+        Assert.Equal(1, performs);
+    }
+
+    [Fact]
+    public async Task Maps_NOT_ACTIONABLE_to_ACTION_FAILED_without_retrying()
+    {
+        var performs = 0;
+        var screen = ScreenThatPerforms(() => throw new EngineException(EngineErrorCodes.NotActionable, "covered by overlay", retryable: false), () => performs++);
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
+
+        Assert.Equal("ACTION_FAILED", error.Code);
+        Assert.Equal(1, performs);
+    }
+
+    [Fact]
+    public async Task NET_only_sends_the_action_to_a_hidden_node_and_leaves_its_actionability_to_the_engine()
+    {
+        // Upstream's performUntil reads no state; Playwright waits for the node to be actionable, and scrollIntoView needs no visibility.
+        var performed = new List<LocatorAction>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "node-1", Text = "Hello", States = new NodeStates { Hidden = true } }] }),
+            (_, action, _) =>
+            {
+                performed.Add(action);
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(300),
+            TimeSpan.FromMilliseconds(300));
+
+        await screen.GetByText("Hello").ScrollIntoViewAsync();
+
+        Assert.IsType<LocatorAction.ScrollIntoView>(Assert.Single(performed));
+    }
+
+    [Fact]
+    public async Task Never_sends_an_action_whose_target_resolved_past_the_deadline()
+    {
+        // The slow resolves move a fake clock, so the deadline passes without any waiting.
+        var clock = new FakeTimeProvider();
+        var resolves = 0;
+        var performs = 0;
+        var target = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" };
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, _, _) =>
+            {
+                performs++;
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(1000),
+            clock: clock,
+            locate: (_, budget, _) => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), ++resolves == 1 ? [] : [target], budget));
+
+        var error = await Assert.ThrowsAsync<TestException>(
+            () => screen.GetByRole("button").PerformUntilAsync(new LocatorAction.Tap(), new Deadline(TimeSpan.FromMilliseconds(350), screen.Clock), CancellationToken.None));
+
+        Assert.Equal("ACTION_FAILED", error.Code);
+        Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
+        Assert.Equal(2, resolves);
+        Assert.Equal(0, performs);
+    }
+
+    [Fact]
+    public async Task Never_sends_a_positioned_tap_whose_target_became_visible_past_the_deadline()
+    {
+        // The slow resolves move a fake clock, so the deadline passes without any waiting.
+        var clock = new FakeTimeProvider();
+        var visible = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 10, 100, 40) };
+        var resolves = 0;
+        var performed = new List<LocatorAction>();
+        var performedAt = new List<PointerAction>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, action, _) =>
+            {
+                performed.Add(action);
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(350),
+            TimeSpan.FromMilliseconds(350),
+            clock: clock,
+            locate: (_, budget, _) => ++resolves switch
+            {
+                1 => Task.FromResult<IReadOnlyList<SemanticNode>>([visible]),
+                2 => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
+                _ => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [visible], budget),
+            },
+            performAt: (_, action, _) =>
+            {
+                performedAt.Add(action);
+                return Task.CompletedTask;
+            })
+        {
+            PointerActionKinds = ["tap"],
+        };
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 5) }));
+
+        Assert.Equal("ACTION_FAILED", error.Code);
+        Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
+        Assert.Equal<LocatorAction>([new LocatorAction.ScrollIntoView()], performed);
+        Assert.Empty(performedAt);
+    }
+
+    [Fact]
+    public async Task Offsets_a_positioned_tap_from_the_node_origin_when_it_reports_one_else_its_box_corner()
+    {
+        var boxed = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 20, 100, 40) };
+        var bordered = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 20, 100, 40), Origin = new Point(18, 28) };
+        var node = boxed;
+        var points = new List<Point>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(1000),
+            locate: (_, _, _) => Task.FromResult<IReadOnlyList<SemanticNode>>([node]),
+            performAt: (point, _, _) =>
+            {
+                points.Add(point);
+                return Task.CompletedTask;
+            })
+        {
+            PointerActionKinds = ["tap"],
+        };
+
+        await screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 6) });
+        node = bordered;
+        await screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 6) });
+
+        Assert.Equal([new Point(15, 26), new Point(23, 34)], points);
+    }
+
+    [Fact]
+    public async Task Marks_every_action_it_performs_with_the_test_origin_so_an_engine_can_act_without_settling()
+    {
+        var scripted = ScriptedLocatorEngine.Make();
+
+        await scripted.Engine.PerformAsync(ScriptedLocatorEngine.Expression, (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()), null, CancellationToken.None);
+
+        Assert.Equal([OperationOrigin.Test], scripted.Origins);
+    }
+
+    [Fact]
+    public async Task NET_only_a_session_wires_the_test_origin_to_the_engine_a_test_acts_on()
+    {
+        var engine = new OriginRecordingEngine(new DocumentEngine(BillingWorld.Create()));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            BaseUrl = "https://billing.test",
+            TestTitle = "taps a node",
+        });
+        await session.App.OpenAsync("/settings/billing");
+
+        await session.Screen.GetByRole("button").TapAsync();
+
+        Assert.Equal([OperationOrigin.Test], engine.Origins);
+    }
+}

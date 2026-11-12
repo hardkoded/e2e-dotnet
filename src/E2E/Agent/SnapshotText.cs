@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -13,53 +14,22 @@ internal static class SnapshotText
     /// <summary>Link target UTF-16 units a line shows; a longer target is cut there and ends with <c>…</c>.</summary>
     private const int MaxHrefLength = 256;
 
+    /// <summary>Appended when the node walk stopped at the observation byte budget (upstream's <c>TRUNCATION_MARKER</c>).</summary>
+    internal const string TruncationMarker = "[observation truncated at the resolved observation byte limit]";
+
     /// <summary>
-    /// The screen as the model reads it. A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its
-    /// path: the one a navigation to a path resolves against.
+    /// The screen as the model reads it (upstream's <c>prepareObservation</c> text): one <c>#id role "name"</c> line per node
+    /// (<see cref="FailureEvidence.Listing"/>). A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its path.
     /// </summary>
-    public static string Render(Observation observation, Redactor redactor, string? appOrigin = null)
+    public static string Render(Observation observation, Redactor redactor, string? appOrigin = null) =>
+        Render(observation, redactor, appOrigin, int.MaxValue, out _);
+
+    /// <summary><see cref="Render(Observation, Redactor, string?)"/> within <paramref name="maxBytes"/>. <paramref name="cut"/> says whether the budget cut it.</summary>
+    public static string Render(Observation observation, Redactor redactor, string? appOrigin, int maxBytes, out bool cut)
     {
-        var builder = new StringBuilder();
-        builder.Append("Screen (").Append(redactor.Redact(observation.Route)).Append("):");
-        var any = false;
-        foreach (var root in observation.Roots)
-        {
-            any |= Write(builder, root, 0, redactor, appOrigin);
-        }
-
-        if (!any)
-        {
-            builder.Append('\n');
-            builder.Append("(empty)");
-        }
-
-        if (observation.Truncated)
-        {
-            builder.Append('\n');
-            builder.Append("(More of the page is off screen. Scroll to reach it.)");
-        }
-
-        return builder.ToString();
-    }
-
-    private static bool Write(StringBuilder builder, SemanticNode node, int depth, Redactor redactor, string? appOrigin)
-    {
-        var wrote = false;
-        if (!(node.States.Hidden || node.States.AriaHidden))
-        {
-            builder.Append('\n');
-            builder.Append(' ', depth * 2);
-            builder.Append("- ");
-            builder.Append(Describe(node, redactor, appOrigin, listing: true));
-            wrote = true;
-        }
-
-        foreach (var child in node.Children)
-        {
-            wrote |= Write(builder, child, node.States.Hidden || node.States.AriaHidden ? depth : depth + 1, redactor, appOrigin);
-        }
-
-        return wrote;
+        var (lines, nodes) = FailureEvidence.Listing(observation, redactor, appOrigin, maxBytes);
+        cut = lines.Count > nodes && lines[^1] == TruncationMarker;
+        return string.Join('\n', lines);
     }
 
     /// <summary>Levels of indent a <see cref="FormatNode"/> line keeps; deeper nodes line up with the tenth.</summary>
@@ -70,18 +40,18 @@ internal static class SnapshotText
     /// <c>agent/observation.ts</c>). A node with no role reads as <c>text</c>, as in the lines the model reads. Focus is listed.
     /// </summary>
     internal static string FormatNode(SemanticNode node, int depth, Redactor redactor, string? appOrigin) =>
-        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, listing: false, focus: true);
+        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, focus: true);
 
     /// <summary>
     /// One node as a line names it, after its <c>- </c> and indent: role, name, text, the disambiguators, value, and the states
-    /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). A <paramref name="listing"/> line is the one the model
-    /// reads, with the node's reference and focus; without it, the line is the node as a reader comparing two screens counts it:
-    /// ids are minted per observation and focus moves with every action. <paramref name="focus"/> lists focus without the reference.
+    /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). The line is the node as a reader comparing two screens
+    /// counts it: ids are minted per observation and focus moves with every action. <paramref name="focus"/> lists focus.
     /// </summary>
-    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool listing = true, bool focus = false)
+    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool focus = false)
     {
         var builder = new StringBuilder();
-        builder.Append(node.Role ?? "text");
+        // The role is page text too (a secret can be used as one), redacted like every other string field of the node.
+        builder.Append(node.Role is null ? "text" : AgentObservation.RedactText(node.Role, redactor));
         // A node with no accessible name, such as one listed for its text
         // or its test id, shows the text it owns, so a container does not repeat its children's.
         // A named node shows its text too, when it differs.
@@ -115,11 +85,6 @@ internal static class SnapshotText
         if (!string.IsNullOrEmpty(node.Placeholder) && string.IsNullOrEmpty(node.Name))
         {
             builder.Append(" placeholder=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor))).Append('"');
-        }
-
-        if (listing)
-        {
-            builder.Append(" [ref=").Append(node.Ref).Append(']');
         }
 
         // A checkbox's or radio's value is an app token its checked state already says more than.
@@ -170,7 +135,7 @@ internal static class SnapshotText
             builder.Append(" [pressed]");
         }
 
-        if (node.States.Focused && (listing || focus))
+        if (node.States.Focused && focus)
         {
             builder.Append(" [focused]");
         }
@@ -179,14 +144,19 @@ internal static class SnapshotText
     }
 
     /// <summary>
-    /// A link target as a line shows it: a path when it is on the app's origin, else the whole URL, since a path on another
-    /// site would send the model back to the app. Redacted first, then cut at <see cref="MaxHrefLength"/> with a trailing
+    /// A link target as a line shows it: a path when it is on the app's origin, the one a recorded navigation keeps
+    /// (<see cref="CacheRoute.AppNavigation"/>), else the whole URL, since a path on another site would send the model back to the app. Redacted first, then cut at <see cref="MaxHrefLength"/> with a trailing
     /// <c>…</c>, so a cut target never reads as whole and no part of a secret survives the cut.
     /// </summary>
     internal static string Href(string href, Redactor redactor, string? appOrigin)
     {
         var redacted = AgentObservation.RedactText(href, redactor);
-        var shown = appOrigin is not null && redacted.StartsWith(appOrigin + "/", StringComparison.Ordinal) ? redacted[appOrigin.Length..] : redacted;
+        return Bound(CacheRoute.AppNavigation(redacted, appOrigin));
+    }
+
+    /// <summary>A link target cut at <see cref="MaxHrefLength"/> with a trailing <c>…</c>, never inside a surrogate pair.</summary>
+    internal static string Bound(string shown)
+    {
         if (shown.Length <= MaxHrefLength)
         {
             return shown;
@@ -201,7 +171,7 @@ internal static class SnapshotText
     /// A string quoted and escaped as upstream's <c>JSON.stringify</c> writes it: lowercase <c>\u</c> escapes, a lone
     /// surrogate escaped rather than rejected, and no escaping of non-ASCII or HTML characters.
     /// </summary>
-    private static string Quote(string text)
+    internal static string Quote(string text)
     {
         var builder = new StringBuilder(text.Length + 2).Append('"');
         for (var index = 0; index < text.Length; index++)

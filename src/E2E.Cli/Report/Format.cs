@@ -30,6 +30,17 @@ internal sealed class Colors(bool enabled)
 
     public string Cyan(string text) => Wrap(text, 36, 39);
 
+    public string Gray(string text) => Wrap(text, 90, 39);
+
+    public string Black(string text) => Wrap(text, 30, 39);
+
+    public string White(string text) => Wrap(text, 37, 39);
+
+    public string BgRed(string text) => Wrap(text, 41, 49);
+
+    /// <summary>Bright yellow, cyan, green, and magenta backgrounds, by the target's declaration order (upstream's <c>BADGE_COLORS</c>); GitHub Actions renders plain yellow as dark brown.</summary>
+    public string BgBright(int index, string text) => Wrap(text, (index % 4) switch { 0 => 103, 1 => 106, 2 => 102, _ => 105 }, 49);
+
     /// <summary>Black on cyan, as the list reporter's target badge.</summary>
     public string Badge(string text) => Enabled ? Wrap(Wrap(text, 46, 49), 30, 39) : text;
 
@@ -37,9 +48,16 @@ internal sealed class Colors(bool enabled)
         Enabled ? "\u001b[" + open.ToString(CultureInfo.InvariantCulture) + "m" + text + "\u001b[" + close.ToString(CultureInfo.InvariantCulture) + "m" : text;
 }
 
+/// <summary>Where <see cref="Format.Rule(string, RuleAlign)"/> puts its text.</summary>
+internal enum RuleAlign
+{
+    Center,
+    Right,
+}
+
 /// <summary>
 /// Pure presentation helpers shared by the terminal reporters: glyphs, durations, and widths. Upstream's <c>report/format.ts</c>,
-/// the part the exploration view uses.
+/// the part the exploration view uses and the cache tally of the run summary row.
 /// </summary>
 internal static partial class Format
 {
@@ -98,6 +116,90 @@ internal static partial class Format
     /// <summary>Wall-clock <c>HH:MM:SS</c> for the summary's <c>Start at</c> row.</summary>
     public static string FormatClock(DateTimeOffset time) => time.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 
+    /// <summary>The trace cache's part in a run's steps, by step (upstream's <c>CacheTally</c>).</summary>
+    public sealed class CacheTally
+    {
+        public int Replayed { get; set; }
+
+        public int HandedOff { get; set; }
+
+        public int Missed { get; set; }
+
+        public int NotSaved { get; set; }
+    }
+
+    /// <summary>The <c>step.cache.write</c> outcomes where the step's recording was not written (upstream's <c>NOT_SAVED</c>).</summary>
+    private static readonly HashSet<CacheWrite> NotSaved = [CacheWrite.Unconfirmed, CacheWrite.NoChange, CacheWrite.NotWritten];
+
+    /// <summary>Upstream's <c>notSavedCount</c>: the steps whose recording was not saved.</summary>
+    public static int NotSavedCount(IEnumerable<StepRecord> steps) =>
+        steps.Count(step => step.CacheWrite is { } write && NotSaved.Contains(write));
+
+    /// <summary>Upstream's <c>emptyCacheTally</c>.</summary>
+    public static CacheTally EmptyCacheTally() => new();
+
+    /// <summary>Upstream's <c>addCacheTally</c>.</summary>
+    public static void AddCacheTally(CacheTally into, CacheTally counts)
+    {
+        into.Replayed += counts.Replayed;
+        into.HandedOff += counts.HandedOff;
+        into.Missed += counts.Missed;
+        into.NotSaved += counts.NotSaved;
+    }
+
+    /// <summary>Upstream's <c>stepsCacheTally</c>: the trace cache's part in several step lists, by step. A step with no cache detail counts nowhere.</summary>
+    public static CacheTally StepsCacheTally(IEnumerable<IEnumerable<StepRecord>> stepLists)
+    {
+        var counts = EmptyCacheTally();
+        foreach (var step in stepLists.SelectMany(steps => steps))
+        {
+            switch (step.Cache?.Mode)
+            {
+                case "self-finalized":
+                    counts.Replayed++;
+                    break;
+                case "agent-concluded":
+                    counts.HandedOff++;
+                    break;
+                case "missed":
+                    counts.Missed++;
+                    break;
+            }
+        }
+
+        return counts;
+    }
+
+    /// <summary>
+    /// Upstream's <c>cacheText</c>: <c>9 replayed · 2 handed off · 4 missed · 1 not saved</c>, zero counts left out, or null when no step went
+    /// through the trace cache.
+    /// </summary>
+    public static string? CacheText(Colors pc, CacheTally counts)
+    {
+        List<string> parts = [];
+        if (counts.Replayed > 0)
+        {
+            parts.Add(pc.Green(counts.Replayed.ToString(CultureInfo.InvariantCulture) + " replayed"));
+        }
+
+        if (counts.HandedOff > 0)
+        {
+            parts.Add(pc.Yellow(counts.HandedOff.ToString(CultureInfo.InvariantCulture) + " handed off"));
+        }
+
+        if (counts.Missed > 0)
+        {
+            parts.Add(counts.Missed.ToString(CultureInfo.InvariantCulture) + " missed");
+        }
+
+        if (counts.NotSaved > 0)
+        {
+            parts.Add(pc.Yellow(counts.NotSaved.ToString(CultureInfo.InvariantCulture) + " not saved"));
+        }
+
+        return parts.Count == 0 ? null : string.Join(pc.Dim(" · "), parts);
+    }
+
     /// <summary>One padded summary title, right-aligned like vitest's <c>Test Files</c> column.</summary>
     public static string PadTitle(Colors pc, string title) => pc.Dim(title.PadLeft(TitleWidth) + "  ");
 
@@ -113,15 +215,474 @@ internal static partial class Format
         return (new string(LongDash, before), new string(LongDash, after));
     }
 
-    /// <summary>Printed width of a line in text elements, ANSI sequences excluded. Wide East Asian characters count as one.</summary>
-    public static int VisibleWidth(string text) => new StringInfo(Ansi().Replace(text, string.Empty)).LengthInTextElements;
+    /// <summary>Printed width of a line in terminal columns, ANSI sequences excluded (upstream's <c>visibleWidth</c>).</summary>
+    public static int VisibleWidth(string text) => Graphemes(Ansi().Replace(text, string.Empty)).Sum(cluster => cluster.Columns);
 
-    /// <summary>Clips plain text to <paramref name="columns"/> text elements with the ellipsis inside the budget; untouched when it fits.</summary>
+    /// <summary>
+    /// Clips terminal text to <paramref name="columns"/> with the ellipsis inside the budget, whole grapheme clusters only; untouched when it
+    /// fits (upstream's <c>fitColumns</c>).
+    /// </summary>
     public static string FitColumns(string text, int columns)
     {
-        var info = new StringInfo(text);
-        return info.LengthInTextElements <= columns ? text : info.SubstringByTextElements(0, Math.Max(0, columns - 1)) + "…";
+        var clusters = Graphemes(text);
+        if (clusters.Sum(cluster => cluster.Columns) <= columns)
+        {
+            return text;
+        }
+
+        var limit = Math.Max(0, columns - 1);
+        var width = 0;
+        var clipped = new StringBuilder();
+        foreach (var (cluster, clusterColumns) in clusters)
+        {
+            if (width + clusterColumns > limit)
+            {
+                break;
+            }
+
+            clipped.Append(cluster);
+            width += clusterColumns;
+        }
+
+        return clipped.Append('…').ToString();
     }
+
+    /// <summary>
+    /// Code point ranges a terminal paints two columns wide: East Asian wide and fullwidth forms, and the symbols with default emoji
+    /// presentation (upstream's <c>WIDE_RANGES</c>).
+    /// </summary>
+    private static readonly (int Start, int End)[] WideRanges =
+    [
+        (0x1100, 0x115f), (0x231a, 0x231b), (0x2329, 0x232a), (0x23e9, 0x23ec), (0x23f0, 0x23f0), (0x23f3, 0x23f3), (0x25fd, 0x25fe),
+        (0x2614, 0x2615), (0x2648, 0x2653), (0x267f, 0x267f), (0x2693, 0x2693), (0x26a1, 0x26a1), (0x26aa, 0x26ab), (0x26bd, 0x26be),
+        (0x26c4, 0x26c5), (0x26ce, 0x26ce), (0x26d4, 0x26d4), (0x26ea, 0x26ea), (0x26f2, 0x26f3), (0x26f5, 0x26f5), (0x26fa, 0x26fa),
+        (0x26fd, 0x26fd), (0x2705, 0x2705), (0x270a, 0x270b), (0x2728, 0x2728), (0x274c, 0x274c), (0x274e, 0x274e), (0x2753, 0x2755),
+        (0x2757, 0x2757), (0x2795, 0x2797), (0x27b0, 0x27b0), (0x27bf, 0x27bf), (0x2b1b, 0x2b1c), (0x2b50, 0x2b50), (0x2b55, 0x2b55),
+        (0x2e80, 0x303e), (0x3041, 0x33ff), (0x3400, 0x4dbf), (0x4e00, 0x9fff), (0xa000, 0xa4cf), (0xa960, 0xa97f), (0xac00, 0xd7a3),
+        (0xf900, 0xfaff), (0xfe10, 0xfe19), (0xfe30, 0xfe6f), (0xff00, 0xff60), (0xffe0, 0xffe6), (0x16fe0, 0x16fe4), (0x17000, 0x18cff),
+        (0x1b000, 0x1b2ff), (0x1f004, 0x1f004), (0x1f0cf, 0x1f0cf), (0x1f18e, 0x1f18e), (0x1f191, 0x1f19a), (0x1f200, 0x1f251),
+        (0x1f300, 0x1f64f), (0x1f680, 0x1f6ff), (0x1f7e0, 0x1f7eb), (0x1f7f0, 0x1f7f0), (0x1f90c, 0x1f9ff), (0x1fa70, 0x1faff),
+        (0x20000, 0x2fffd), (0x30000, 0x3fffd),
+    ];
+
+    private const int ZeroWidthJoiner = 0x200d;
+
+    private const int VariationSelectorText = 0xfe0e;
+
+    private const int VariationSelectorEmoji = 0xfe0f;
+
+    private const int CombiningKeycap = 0x20e3;
+
+    /// <summary>
+    /// Terminal columns one code point paints on its own: 0 for a combining mark, a format character, a Hangul medial or final jamo, or an
+    /// emoji skin tone modifier; 2 for East Asian wide and fullwidth forms and default emoji presentation; else 1 (upstream's <c>codePointColumns</c>).
+    /// </summary>
+    private static int CodePointColumns(Rune rune)
+    {
+        var codePoint = rune.Value;
+        if (codePoint < 0x300)
+        {
+            return 1;
+        }
+
+        var category = Rune.GetUnicodeCategory(rune);
+        if (category is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark or UnicodeCategory.Format
+            || codePoint is >= 0x1160 and <= 0x11ff
+            || codePoint is >= 0x1f3fb and <= 0x1f3ff)
+        {
+            return 0;
+        }
+
+        return WideRanges.Any(range => codePoint >= range.Start && codePoint <= range.End) ? 2 : 1;
+    }
+
+    /// <summary>
+    /// Terminal columns one grapheme cluster paints. An emoji sequence is two whatever its length: a ZWJ sequence, a base with the emoji
+    /// variation selector, a keycap, or a regional indicator pair; the text variation selector makes a symbol one. Anything else is the sum
+    /// of its code points (upstream's <c>graphemeColumns</c>).
+    /// </summary>
+    private static int GraphemeColumns(string cluster)
+    {
+        var runes = cluster.EnumerateRunes().ToList();
+        if (runes.Any(rune => rune.Value == VariationSelectorText))
+        {
+            return 1;
+        }
+
+        if (runes.Any(rune => rune.Value is ZeroWidthJoiner or VariationSelectorEmoji or CombiningKeycap))
+        {
+            return 2;
+        }
+
+        if (runes.Count == 2 && runes.All(rune => rune.Value is >= 0x1f1e6 and <= 0x1f1ff))
+        {
+            return 2;
+        }
+
+        return runes.Sum(CodePointColumns);
+    }
+
+    /// <summary>The grapheme clusters of <paramref name="text"/>, each with the columns it paints; ANSI sequences count as text, so strip them first (upstream's <c>graphemes</c>).</summary>
+    public static IReadOnlyList<(string Text, int Columns)> Graphemes(string text)
+    {
+        var clusters = new List<(string Text, int Columns)>();
+        var enumerator = StringInfo.GetTextElementEnumerator(text);
+        while (enumerator.MoveNext())
+        {
+            var cluster = (string)enumerator.Current;
+            clusters.Add((cluster, GraphemeColumns(cluster)));
+        }
+
+        return clusters;
+    }
+
+    /// <summary>The size a test sets for the terminal, in place of the console's (.NET-only: a console's size cannot be set from a test).</summary>
+    private static readonly AsyncLocal<(int? Rows, int? Columns)?> TerminalOverride = new();
+
+    /// <summary>.NET-only, for tests: reports this terminal size (80 columns and 40 rows for one left out, as upstream's defaults) until the returned scope is disposed, in the current async flow.</summary>
+    public static IDisposable WithTerminalSize(int? rows = null, int? columns = null)
+    {
+        var saved = TerminalOverride.Value;
+        TerminalOverride.Value = (rows, columns);
+        return new Restore(() => TerminalOverride.Value = saved);
+    }
+
+    private sealed class Restore(Action action) : IDisposable
+    {
+        public void Dispose() => action();
+    }
+
+    /// <summary>The terminal width; a terminal without a size (or none) gives 80 (upstream's <c>terminalColumns</c>).</summary>
+    public static int TerminalColumns()
+    {
+        if (TerminalOverride.Value is { } size)
+        {
+            return size.Columns ?? 80;
+        }
+
+        try
+        {
+            return Console.IsOutputRedirected ? 80 : Console.WindowWidth is var width and > 0 ? width : 80;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
+        {
+            return 80;
+        }
+    }
+
+    /// <summary>The terminal height; a terminal without a size (or none) gives 40 (upstream's <c>terminalRows</c>).</summary>
+    public static int TerminalRows()
+    {
+        if (TerminalOverride.Value is { } size)
+        {
+            return size.Rows ?? 40;
+        }
+
+        try
+        {
+            return Console.IsOutputRedirected ? 40 : Console.WindowHeight is var height and > 0 ? height : 40;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
+        {
+            return 40;
+        }
+    }
+
+    /// <summary>A span as <c>11m 23s</c>. Rounds to whole seconds first, so 119.5 s is <c>2m 0s</c> and never <c>1m 60s</c> (upstream's <c>formatMinutes</c>).</summary>
+    public static string FormatMinutes(TimeSpan span)
+    {
+        var total = (long)Math.Round(span.TotalSeconds, MidpointRounding.AwayFromZero);
+        return (total / 60).ToString(CultureInfo.InvariantCulture) + "m " + (total % 60).ToString(CultureInfo.InvariantCulture) + "s";
+    }
+
+    /// <summary>
+    /// Upstream's <c>durationText</c>: the summary's <c>Duration</c> cell, the seconds, then dimmed in parentheses the same span in minutes
+    /// once it has one and the startup split when a process started.
+    /// </summary>
+    public static string DurationText(Colors pc, TimeSpan elapsed, TimeSpan startup)
+    {
+        List<string> aside = [];
+        if (elapsed.TotalMilliseconds >= 60_000)
+        {
+            aside.Add(FormatMinutes(elapsed));
+        }
+
+        if (startup > TimeSpan.Zero)
+        {
+            aside.Add("startup " + FormatTime(startup));
+        }
+
+        var time = FormatTime(elapsed);
+        return aside.Count == 0 ? time : time + " " + pc.Dim("(" + string.Join(", ", aside) + ")");
+    }
+
+    /// <summary>Compact token count: plain under a thousand, <c>12.4k</c>, then <c>4.2M</c> (upstream's <c>formatTokens</c>).</summary>
+    public static string FormatTokens(long count) => ReportFormat.FormatTokens(count);
+
+    /// <summary>USD with enough precision for sub-cent model calls (upstream's <c>formatCost</c>).</summary>
+    public static string FormatCost(double costUsd) => ReportFormat.FormatCost(costUsd);
+
+    /// <summary>
+    /// Upstream's <c>rule</c>: the dashes of a full-width rule around <paramref name="text"/>, centered, or with the text pushed to the
+    /// right edge as vitest draws <c>[1/3]</c> markers.
+    /// </summary>
+    public static (string Before, string After) Rule(string text, RuleAlign align)
+    {
+        var columns = TerminalColumns();
+        if (align == RuleAlign.Center)
+        {
+            return Rule(text, columns);
+        }
+
+        var width = VisibleWidth(text);
+        var after = 1;
+        var before = Math.Max(0, columns - width - after);
+        return (new string(LongDash, before), new string(LongDash, after));
+    }
+
+    /// <summary>The counts of results by bucket (upstream's <c>Counters</c>).</summary>
+    public sealed class Counters
+    {
+        public int Passed { get; set; }
+
+        public int Failed { get; set; }
+
+        public int Interrupted { get; set; }
+
+        public int Flaky { get; set; }
+
+        public int Skipped { get; set; }
+
+        public int Total { get; set; }
+
+        /// <summary>Counts one more in <paramref name="bucket"/>, a value of <see cref="StatusBucket"/>.</summary>
+        public void Add(string bucket)
+        {
+            switch (bucket)
+            {
+                case "passed":
+                    Passed++;
+                    break;
+                case "failed":
+                    Failed++;
+                    break;
+                case "interrupted":
+                    Interrupted++;
+                    break;
+                case "flaky":
+                    Flaky++;
+                    break;
+                default:
+                    Skipped++;
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Upstream's <c>emptyCounters</c>.</summary>
+    public static Counters EmptyCounters() => new();
+
+    /// <summary>
+    /// Upstream's <c>statusBucket</c>: the counter a result status lands in. A timeout is a failure; an interrupted test was stopped by the
+    /// run, not by its own verdict, so it counts on its own.
+    /// </summary>
+    public static string StatusBucket(ResultStatus status) =>
+        status switch
+        {
+            ResultStatus.TimedOut or ResultStatus.Failed => "failed",
+            ResultStatus.Interrupted => "interrupted",
+            ResultStatus.Flaky => "flaky",
+            ResultStatus.Skipped => "skipped",
+            _ => "passed",
+        };
+
+    /// <summary>Upstream's <c>tally</c>: counts results by bucket; <c>Total</c> is the number of items.</summary>
+    public static Counters Tally(IEnumerable<ResultStatus> statuses)
+    {
+        var counters = EmptyCounters();
+        foreach (var status in statuses)
+        {
+            counters.Add(StatusBucket(status));
+            counters.Total++;
+        }
+
+        return counters;
+    }
+
+    /// <summary>Upstream's <c>fileOutcome</c>: failed if any test did, else interrupted if any was, skipped if all were, else passed.</summary>
+    public static string FileOutcome(Counters counters) =>
+        counters.Failed > 0 ? "failed"
+        : counters.Interrupted > 0 ? "interrupted"
+        : counters.Total > 0 && counters.Skipped == counters.Total ? "skipped"
+        : "passed";
+
+    /// <summary>Upstream's <c>stateString</c>: <c>2 failed | 1 interrupted | 10 passed | 1 flaky (14)</c> in vitest's colors and order.</summary>
+    public static string StateString(Colors pc, Counters counters)
+    {
+        List<string> parts = [];
+        if (counters.Failed > 0)
+        {
+            parts.Add(pc.Bold(pc.Red(counters.Failed.ToString(CultureInfo.InvariantCulture) + " failed")));
+        }
+
+        if (counters.Interrupted > 0)
+        {
+            parts.Add(pc.Bold(pc.Yellow(counters.Interrupted.ToString(CultureInfo.InvariantCulture) + " interrupted")));
+        }
+
+        parts.Add(pc.Bold(pc.Green(counters.Passed.ToString(CultureInfo.InvariantCulture) + " passed")));
+        if (counters.Flaky > 0)
+        {
+            parts.Add(pc.Yellow(counters.Flaky.ToString(CultureInfo.InvariantCulture) + " flaky"));
+        }
+
+        if (counters.Skipped > 0)
+        {
+            parts.Add(pc.Gray(counters.Skipped.ToString(CultureInfo.InvariantCulture) + " skipped"));
+        }
+
+        return string.Join(pc.Dim(" | "), parts) + pc.Gray(" (" + counters.Total.ToString(CultureInfo.InvariantCulture) + ")");
+    }
+
+    /// <summary>Model usage across steps (upstream's <c>AiUsage</c>).</summary>
+    public sealed class AiUsage
+    {
+        public long Calls { get; set; }
+
+        /// <summary>Input plus output tokens.</summary>
+        public long Tokens { get; set; }
+
+        /// <summary>Input tokens alone; the denominator of the cached share.</summary>
+        public long InputTokens { get; set; }
+
+        /// <summary>Input tokens the provider served from its prompt cache; part of <see cref="InputTokens"/>.</summary>
+        public long CachedTokens { get; set; }
+
+        public double? CostUsd { get; set; }
+    }
+
+    /// <summary>Upstream's <c>emptyUsage</c>.</summary>
+    public static AiUsage EmptyUsage() => new();
+
+    /// <summary>Upstream's <c>addUsage</c>.</summary>
+    public static void AddUsage(AiUsage into, AiUsage usage)
+    {
+        into.Calls += usage.Calls;
+        into.Tokens += usage.Tokens;
+        into.InputTokens += usage.InputTokens;
+        into.CachedTokens += usage.CachedTokens;
+        if (usage.CostUsd is { } cost)
+        {
+            into.CostUsd = (into.CostUsd ?? 0) + cost;
+        }
+    }
+
+    /// <summary>Upstream's <c>stepsUsage</c>: the model usage of several step lists summed.</summary>
+    public static AiUsage StepsUsage(IEnumerable<IEnumerable<StepRecord>> stepLists)
+    {
+        var usage = EmptyUsage();
+        foreach (var step in stepLists.SelectMany(steps => steps))
+        {
+            if (step.Model is not { } model)
+            {
+                continue;
+            }
+
+            usage.Calls += model.Calls;
+            usage.Tokens += model.InputTokens + model.OutputTokens;
+            usage.InputTokens += model.InputTokens;
+            usage.CachedTokens += model.CacheReadTokens ?? 0;
+            if (model.EstimatedCostUsd is { } cost)
+            {
+                usage.CostUsd = (usage.CostUsd ?? 0) + cost;
+            }
+        }
+
+        return usage;
+    }
+
+    /// <summary>Upstream's <c>sumUsage</c>: the model usage of several items summed.</summary>
+    public static AiUsage SumUsage(IEnumerable<AiUsage> items)
+    {
+        var total = EmptyUsage();
+        foreach (var item in items)
+        {
+            AddUsage(total, item);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Upstream's <c>usageText</c>: tokens, cached share, and cost, <c>12.4k tokens · 38% cached · $0.01</c>, or null when no model was
+    /// used. The cached share appears only when the provider served some of the input from its prompt cache.
+    /// </summary>
+    public static string? UsageText(AiUsage usage)
+    {
+        if (usage.Calls == 0)
+        {
+            return null;
+        }
+
+        var cached = usage.CachedTokens > 0 && usage.InputTokens > 0
+            ? " · " + Math.Round((double)usage.CachedTokens / usage.InputTokens * 100, MidpointRounding.AwayFromZero).ToString("F0", CultureInfo.InvariantCulture) + "% cached"
+            : string.Empty;
+        var cost = usage.CostUsd is { } costUsd ? " · " + FormatCost(costUsd) : string.Empty;
+        return FormatTokens(usage.Tokens) + " tokens" + cached + cost;
+    }
+
+    /// <summary>Upstream's <c>aiSegment</c>: <see cref="UsageText"/> labeled <c>ai …</c> for lines where nothing else names it.</summary>
+    public static string? AiSegment(AiUsage usage) => UsageText(usage) is { } text ? "ai " + text : null;
+
+    /// <summary>
+    /// Upstream's <c>stepModelLabel</c>: <c>provider/model</c>, the form the run header names the configured model in; null when the record
+    /// lacks either half, so a step an executor reported without provenance never prints as <c>undefined/undefined</c>.
+    /// </summary>
+    public static string? StepModelLabel(StepModelInfo model) =>
+        string.IsNullOrEmpty(model.Provider) || string.IsNullOrEmpty(model.Model) ? null : model.Provider + "/" + model.Model;
+
+    /// <summary>Upstream's <c>addModelTally</c>.</summary>
+    public static void AddModelTally(Dictionary<string, int> into, Dictionary<string, int> counts)
+    {
+        foreach (var (label, calls) in counts)
+        {
+            into[label] = into.GetValueOrDefault(label) + calls;
+        }
+    }
+
+    /// <summary>Upstream's <c>stepsModelTally</c>: the models several step lists reported, with their call counts.</summary>
+    public static Dictionary<string, int> StepsModelTally(IEnumerable<IEnumerable<StepRecord>> stepLists)
+    {
+        // Upstream's ModelTally is a Map<string, number>: provider/model to the calls each answered.
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var step in stepLists.SelectMany(steps => steps))
+        {
+            if (step.Model is { } model && StepModelLabel(model) is { } label)
+            {
+                counts[label] = counts.GetValueOrDefault(label) + model.Calls;
+            }
+        }
+
+        return counts;
+    }
+
+    /// <summary>
+    /// Upstream's <c>modelsText</c>: the models that answered, most calls first. One model by its label alone, since the row's call total is
+    /// its count, several as <c>gateway/openai/gpt-6-luna-fast (22 calls) · typesafe-ai/jev (1 call)</c>; null when no step reported a model.
+    /// </summary>
+    public static string? ModelsText(Dictionary<string, int> counts)
+    {
+        var sorted = counts.OrderByDescending(entry => entry.Value).ThenBy(entry => entry.Key, StringComparer.InvariantCulture).ToList();
+        return sorted.Count switch
+        {
+            0 => null,
+            1 => Bounded(sorted[0].Key),
+            _ => string.Join(" · ", sorted.Select(entry => Bounded(entry.Key) + " (" + entry.Value.ToString(CultureInfo.InvariantCulture) + (entry.Value == 1 ? " call)" : " calls)"))),
+        };
+    }
+
+    /// <summary>Upstream's <c>repeatSuffix</c>: the title suffix of a repeat-each run past the first, <c> (repeat #2)</c>; empty for the first run.</summary>
+    public static string RepeatSuffix(int repeat) => repeat == 0 ? string.Empty : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
 
     [GeneratedRegex("\u001b\\[[0-9;]*m")]
     private static partial Regex Ansi();

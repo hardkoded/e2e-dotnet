@@ -28,7 +28,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Null(result.Error);
     }
 
-    // Upstream lists a toolset the port does not have (hover, drag, upload, and the pixel verbs), and its tool
+    // Upstream lists a toolset the port does not have here (upload, and the point tools). The document engine declares no pointer action,
+    // so it offers no long_press, right_click, hover, or drag. Upstream's tool
     // results report changes since a revision. The port's results carry the whole screen instead.
     [Fact]
     public async Task Offers_the_port_toolset_and_concludes_through_done()
@@ -46,7 +47,7 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Null(result.Error);
         Assert.True(model.CallCount >= 2);
         Assert.Equal(
-            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "scroll", "scroll_to", "select", "tap", "uncheck"],
+            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var opening = model.Requests[0].Messages[0].Content!;
         Assert.Contains("Goal: " + Instruction, opening, StringComparison.Ordinal);
@@ -66,7 +67,7 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
             new ScriptedModel(request => new ModelResponse
             {
                 ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
-                Usage = new ModelUsage { InputTokens = 11, OutputTokens = 3 },
+                Usage = new ModelCallUsage { InputTokens = 11, OutputTokens = 3 },
             }),
             "fake-loop/scripted-loop");
         var result = await RunAsync(

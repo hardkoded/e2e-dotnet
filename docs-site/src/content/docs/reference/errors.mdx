@@ -1,0 +1,106 @@
+---
+title: Errors
+description: The error codes the port raises, each one's class, and its exit code.
+---
+
+This page ports upstream's `docs/reference/errors.mdx` (tester-army/e2e#1582, `f185ca8`), listing the codes the .NET port raises. Every runner error carries a class and a code. The class sets the exit code, and the code names the cause. A model never selects either. In the port the class and the code are the `E2EException` subclass and its `Code`: `AgentException` for an agent step, `TestException` for a locator or an expectation, `ConfigurationException` for a bad setup, and `EngineException` for an engine fault.
+
+```csharp
+try
+{
+    await Agent.ActAsync("upgrade the workspace to Pro");
+}
+catch (AgentException error) when (error.Code == "STEP_TIMEOUT")
+{
+    // the step ran out of time; the message carries the last judgment
+    Console.Error.WriteLine(error.Message);
+    throw;
+}
+```
+
+For the fix of a code, see [Error codes](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/debugging.md#error-codes) in the debugging guide.
+
+## Reference
+
+### Exit codes
+
+| Class | Exit code |
+| --- | ---: |
+| test | 1 |
+| configuration | 2 |
+| infrastructure | 3 |
+| internal | 4 |
+| interrupted | 130 |
+
+- In a mixed run the highest-precedence code present wins, `130 > 4 > 3 > 2 > 1 > 0`.
+- The `internal` class and exit code 4 are reserved for runner invariant violations. No first-party code raises a code in that class today.
+- The exit numbers apply to the `e2e` CLI commands. A test run under NUnit or xUnit reports through its runner, which decides the process exit code. The class is kept in the report.
+
+| Codes | Description |
+| --- | --- |
+| [Agent codes](#agent-codes) | The `Code` of the exception a step raises. The Class column is the code's class, not the .NET type |
+| [Session codes](#session-codes) | Saved sessions |
+| [Engine codes](#engine-codes) | Engine faults, in the engine contract |
+| [Not in the port](#not-in-the-port) | Upstream codes the port does not raise |
+
+### Agent codes
+
+The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `blocked:` names the category a blocked verdict reports as the obstacle.
+
+| Code | When it happens | Class | Exit |
+| --- | --- | --- | ---: |
+| `AUTH_CREDENTIAL_UNAVAILABLE` | A `Secret` or `Credentials.User(name)` names a credential the config does not declare, or `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` is not set, or the password's provider returned no string of at least 6 characters (code points) | configuration | 2 |
+| `AUTH_CREDENTIAL_INVALID` | The application rejected a configured credential (blocked: credentials) | configuration | 2 |
+| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
+| `ENVIRONMENT_UNAVAILABLE` | The environment under test is down or unreachable beyond the app itself (blocked: environment) | infrastructure | 3 |
+| `SEED_DATA_MISSING` | Data the step depends on does not exist in the environment (blocked: seed_data) | configuration | 2 |
+| `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |
+| `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as drag-and-drop (blocked: automation) | test | 1 |
+| `MODEL_UNAVAILABLE` | No model configured, or GitHub Copilot does not serve the configured model to this account (`model_not_supported`) | configuration | 2 |
+| `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, a read from a secure field, or an action that changes the screen during an assertion | configuration | 2 |
+| `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. With a `log`, the startup error quotes the log's output since the command started, `command.env` values redacted, or says there was none. A long log keeps its first and last 20 lines, with `[startup output omitted]` between them. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |
+| `APP_ALREADY_RUNNING` | The ready URL answered before the target's app command was spawned | infrastructure | 3 |
+| `BROWSER_INSTALL_FAILED` | Browser provisioning failed: the first-launch Playwright install exited non-zero. The message names the exit code | infrastructure | 3 |
+| `MODEL_PROVIDER_FAILED` | Provider transport failure (network error, 5xx, rate limit, or no response within 120 s) after the adapter's transport retries | infrastructure | 3 |
+| `CANCELLED` | The runner cancelled the operation without a process signal | infrastructure | 3 |
+| `MODEL_OUTPUT_INVALID` | Structured output still failed validation after the repair budget was spent | test | 1 |
+| `APP_NOT_OPEN` | An operation needed an open app: `App.OpenAsync()` had not run, or the engine reported invalid state | test | 1 |
+| `LOCATOR_NOT_FOUND` | No matching node within the deadline, or an agent action refers to a node that is no longer available | test | 1 |
+| `LOCATOR_AMBIGUOUS` | More than one match for a single-node operation. Fails at once, with no polling | test | 1 |
+| `ACTION_FAILED` | Actionability failure, operation timeout, or an action that may already have committed | test | 1 |
+| `STEP_BUDGET_EXHAUSTED` | The model-call or action-step budget ran out before a conclusion | test | 1 |
+| `STEP_TIMEOUT` | The invocation deadline expired. Carries the last judgment where one exists | test | 1 |
+| `CONTEXT_OVERFLOW` | A request exceeded the model's context window. Reported as blocked: automation | test | 1 |
+| `MODEL_REFUSED` | The model refused the request (finish reason `content-filter`) and returned no usable answer. Reported as blocked: automation | test | 1 |
+| `ASSERTION_FAILED` | `AssertAsync` judged false, or a locator, `Browser`, or value expectation failed | test | 1 |
+| `ASSERTION_INCONCLUSIVE` | `AssertAsync` could not judge: the screen did not show enough to decide either way. An exploring assertion (`Explore = true`) reports it too when its time or action and model-call budget ran out, or its evidence outgrew the model's context window, in place of `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED`, `STEP_NO_CONCLUSION`, and `CONTEXT_OVERFLOW`. `ExtractAsync` raises it when the model answers that the screen does not show the requested data. A failure, never a pass | test | 1 |
+| `AUTHENTICATION_FAILED` | The executor concluded that signing in failed inside the app: a product verdict. `AUTH_CREDENTIAL_INVALID` is the blocked counterpart, for a configured credential the app rejects | test | 1 |
+| `STEP_NO_CONCLUSION` | The executor used every turn without calling `done` (upstream's `complete_step`). The step fails with the agent's last summary | test | 1 |
+| `REPLAY_STALE` | Under `cache.strict`, the step's recording exists but no longer replays, so the step fails with no model call instead of handing off to the agent. See [Caching](/features/caching/) | configuration | 2 |
+
+### Session codes
+
+These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see [Authentication](/features/signing-in/)).
+
+| Code | When it happens | Class | Exit |
+| --- | --- | --- | ---: |
+| `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity | configuration | 2 |
+| `SESSION_EXPIRED` | A stored session is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | configuration or test | 2 or 1 |
+| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt | configuration | 2 |
+| `SESSION_UNAVAILABLE` | A test requires a session no selected setup test produced | configuration | 2 |
+| `SESSION_CONTRACT` | A setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | test | 1 |
+
+### Engine codes
+
+Engine faults (`ENGINE_FAILURE`, infrastructure, exit 3; `UNSUPPORTED_CAPABILITY`, usually configuration, exit 2, though a step can raise it as a test failure, exit 1; and the codes an `IEngine` throws) are listed in the [engine contract](/reference/engine/#errors).
+
+### Not in the port
+
+A user cannot hit these upstream codes in the port. It has no suite runner and no `test.only`.
+
+| Code | Upstream | Why the port has none |
+| --- | --- | --- |
+| `ONLY_IN_CI` | A focused test (`test.only`) reached a CI run (configuration, exit 2) | NUnit and xUnit have no `test.only`. The selection step carries the check, but no public path marks a test as focused, so it is not reachable from a test |
+| `RUNNER_BUSY` | A suite overlapped another suite, an opening or open host, or a live attempt; or an `e2e mcp` `run_tests` started while another was running (configuration, exit 2) | The port has no suite runner and no `run_tests` tool. The iOS device layer has a code with the same name, for an automation runner still finishing a command; it is a device code, not this one |
+
+The runner codes upstream lists besides these (`CONFIG_*`, `WORKER_*`, `TEST_TIMEOUT`, the `e2e mcp` session codes, and so on) belong to features the port does not have, or that NUnit and xUnit own. [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md) lists them.

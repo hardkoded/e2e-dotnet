@@ -44,7 +44,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
         var cloud = new FakeCloud();
         var host = Host(cloud);
         Assert.Equal(0, cloud.Acquired);
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         Assert.Equal((1, 0), (cloud.Acquired, cloud.Released));
         await host.CloseAsync("done");
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
@@ -55,13 +55,13 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud { OnOpen = (count, _) => count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask };
         var host = Host(cloud);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => host.OpenAsync(new OpenSessionOptions()));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => host.OpenAsync(new Mcp.OpenSessionOptions()));
         Assert.Contains("the app would not launch", failure.Message, StringComparison.Ordinal);
         Assert.False(host.IsOpen);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
 
         cloud.OnOpen = null;
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         await host.CloseAsync("done");
         Assert.Equal((2, 2), (cloud.Acquired, cloud.Released));
     }
@@ -83,7 +83,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
         };
         var host = Host(cloud);
         using var request = new CancellationTokenSource();
-        var opening = host.OpenAsync(new OpenSessionOptions(), request.Token);
+        var opening = host.OpenAsync(new Mcp.OpenSessionOptions(), request.Token);
         await launching.Task.WaitAsync(Patience);
         await request.CancelAsync();
         var cancelled = await Assert.ThrowsAnyAsync<E2EException>(() => opening);
@@ -107,7 +107,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
         };
         var host = Host(cloud);
         using var request = new CancellationTokenSource();
-        var opening = host.OpenAsync(new OpenSessionOptions(), request.Token);
+        var opening = host.OpenAsync(new Mcp.OpenSessionOptions(), request.Token);
         await leasing.Task.WaitAsync(Patience);
         await request.CancelAsync();
 
@@ -127,7 +127,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud();
         var host = Host(cloud, lifetime: TimeSpan.FromMilliseconds(500));
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         await UntilAsync(() => !host.IsOpen);
         await UntilAsync(() => cloud.Released == 1);
         Assert.Equal(1, cloud.Acquired);
@@ -139,7 +139,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud();
         var host = Host(cloud, idle: TimeSpan.FromMilliseconds(200));
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         await UntilAsync(() => cloud.Released == 1);
         Assert.False(host.IsOpen);
     }
@@ -149,7 +149,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud();
         var host = Host(cloud);
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         var summary = await host.CloseAllAsync("server shutdown");
         Assert.Contains("closed (server shutdown)", summary, StringComparison.Ordinal);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
@@ -171,7 +171,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
             },
         };
         var host = Host(cloud);
-        var opening = host.OpenAsync(new OpenSessionOptions());
+        var opening = host.OpenAsync(new Mcp.OpenSessionOptions());
         await launching.Task.WaitAsync(Patience);
         await host.CloseAllAsync("server shutdown");
         var cancelled = await Assert.ThrowsAnyAsync<E2EException>(() => opening.WaitAsync(Patience));
@@ -185,14 +185,14 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud();
         var host = Host(cloud, maxSessions: 2);
-        var first = Regex.Match(await host.OpenAsync(new OpenSessionOptions()), @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
-        var other = await Assert.ThrowsAsync<ConfigurationException>(() => host.OpenAsync(new OpenSessionOptions()));
+        var first = Regex.Match(await host.OpenAsync(new Mcp.OpenSessionOptions()), @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() => host.OpenAsync(new Mcp.OpenSessionOptions()));
         Assert.Equal("ENGINE_IN_USE", other.Code);
         Assert.Equal((1, 0), (cloud.Acquired, cloud.Released));
         await host.CloseAsync("done", first);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
 
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         await host.CloseAsync("done");
         Assert.Equal((2, 2), (cloud.Acquired, cloud.Released));
     }
@@ -202,7 +202,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
     {
         var cloud = new FakeCloud { OnRelease = () => throw new InvalidOperationException("stop failed") };
         var host = Host(cloud);
-        await host.OpenAsync(new OpenSessionOptions());
+        await host.OpenAsync(new Mcp.OpenSessionOptions());
         var closed = await host.CloseAsync("done");
         Assert.Contains("Cleanup:", closed, StringComparison.Ordinal);
         Assert.Contains("could not release a device: stop failed", closed, StringComparison.Ordinal);

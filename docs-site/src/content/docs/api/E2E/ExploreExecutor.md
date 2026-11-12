@@ -1,6 +1,6 @@
 ---
 title: "ExploreExecutor"
-description: "The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's vocabulary, reportfinding. Nothing e..."
+description: "The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's vocabulary, report_finding. Nothing..."
 editUrl: false
 prev: false
 next: false
@@ -25,7 +25,7 @@ transcript are the harness's, and each exploration step runs as one ordinary `Ac
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs)
 
 ## Fields
 
@@ -42,5 +42,3 @@ public const string FindingToolName = "report_finding"
 The name of the tool the explorer reports a defect with.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs#L26)

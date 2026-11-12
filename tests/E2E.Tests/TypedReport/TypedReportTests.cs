@@ -18,10 +18,10 @@ public sealed class TypedReportTests
         var document = (JsonObject)ReportSchema.ReadJson("fixtures", "report-v1.valid.json");
         var report = ReportSerializer.Read(document);
 
-        // The port has no serial groups and no carried block, and the typed report leaves out the stack and the extensions of a document.
+        // The port has no serial groups, and the typed report leaves out the stack and the extensions of a document.
         var run = document["run"]!.AsObject();
         run.Remove("serialGroups");
-        run.Remove("carried");
+        run["carried"]?.AsObject().Remove("serialGroups");
         Strip(document);
 
         var difference = FirstDifference(document, JsonNode.Parse(ReportJsonWriter.Write(report)), "$");

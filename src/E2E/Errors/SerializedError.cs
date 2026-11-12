@@ -43,10 +43,64 @@ internal static class ErrorSerializer
             AgentException agent => (AgentError.CategoryByCode.GetValueOrDefault(agent.Code, "test"), agent.Code, agent.Message, false),
             TestException test => ("test", test.Code, test.Message, false),
             ConfigurationException configuration => ("configuration", configuration.Code, configuration.Message, false),
+            EngineException { Mapped: false } engine when IsEngineErrorCode(engine.Code) => ClassifyEngineError(engine),
             EngineException engine => ("infrastructure", engine.Code, engine.Message, engine.Retryable),
             E2EException other => ("test", other.Code, other.Message, false),
             OperationCanceledException => ("interrupted", Cancelled, cause.Message, false),
             _ => ("test", "ERROR", MessageWithCauses(cause), false),
+        };
+    }
+
+    // Upstream's classifyError runs translateEngineError for any EngineError, so the canonical mapping applies from any surface.
+    // The translated error carries no retry claim. Like upstream's asEngineError, only the closed engine code set counts: any other
+    // code (APP_UNREACHABLE, WORKER_PROTOCOL) is a runner InfrastructureError upstream, and a Mapped error is one the runner already named.
+    private static bool IsEngineErrorCode(string code) => code is EngineErrorCodes.NodeStale or EngineErrorCodes.FrameNotFound
+        or EngineErrorCodes.FrameAmbiguous or EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted
+        or EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled or EngineErrorCodes.UnsupportedCapability
+        or EngineErrorCodes.InvalidState or EngineErrorCodes.EngineFailure;
+
+    private static (string Category, string Code, string Message, bool Retryable) ClassifyEngineError(EngineException engine)
+    {
+        var translated = TranslateEngineError(engine);
+        return translated is EngineException infrastructure
+            ? ("infrastructure", infrastructure.Code, infrastructure.Message, false)
+            : Classify(translated);
+    }
+
+    /// <summary>
+    /// Upstream's <c>translateEngineError</c> (<c>internal/errors.ts</c>): an engine failure as the test sees it, the engine error kept as the
+    /// cause. A stale node is <c>LOCATOR_NOT_FOUND</c>, a missing frame the same, an ambiguous frame is
+    /// <c>LOCATOR_AMBIGUOUS</c>, a node that cannot take the action, an action that may have committed, and an operation
+    /// that timed out are <c>ACTION_FAILED</c>, and no open app is <c>APP_NOT_OPEN</c>. <c>CANCELLED</c> is an infrastructure failure,
+    /// <c>UNSUPPORTED_CAPABILITY</c> a configuration failure, and <c>ENGINE_FAILURE</c>, any other engine code, and any error that is no
+    /// e2e error are an infrastructure <c>ENGINE_FAILURE</c>. An e2e error that is no engine error is returned as it is.
+    /// </summary>
+    /// <param name="cause">What the engine threw.</param>
+    /// <param name="suffix">Text appended to the message, such as <c>: getByRole("button")</c>.</param>
+    public static Exception TranslateEngineError(Exception cause, string suffix = "")
+    {
+        // A caller's cancel must surface as cancellation, not as an engine failure (.NET-only).
+        if (cause is OperationCanceledException or (E2EException and not EngineException) or EngineException { Mapped: true })
+        {
+            return cause;
+        }
+
+        if (cause is not EngineException engine)
+        {
+            return new EngineException(EngineErrorCodes.EngineFailure, cause.Message, cause);
+        }
+
+        return engine.Code switch
+        {
+            EngineErrorCodes.NodeStale => new TestException("LOCATOR_NOT_FOUND", "node became stale" + suffix, engine),
+            EngineErrorCodes.FrameNotFound => new TestException("LOCATOR_NOT_FOUND", engine.Message + suffix, engine),
+            EngineErrorCodes.FrameAmbiguous => new TestException("LOCATOR_AMBIGUOUS", engine.Message + suffix, engine),
+            EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException("ACTION_FAILED", engine.Message + suffix, engine),
+            EngineErrorCodes.OperationTimeout => new TestException("ACTION_FAILED", "operation timed out" + suffix, engine),
+            EngineErrorCodes.Cancelled => new EngineException(EngineErrorCodes.Cancelled, "operation cancelled", engine),
+            EngineErrorCodes.UnsupportedCapability => new ConfigurationException(EngineErrorCodes.UnsupportedCapability, engine.Message, engine),
+            EngineErrorCodes.InvalidState => new TestException("APP_NOT_OPEN", engine.Message, engine),
+            _ => new EngineException(EngineErrorCodes.EngineFailure, engine.Message, engine),
         };
     }
 
@@ -119,12 +173,21 @@ internal static class ErrorSerializer
 
     /// <summary>
     /// What a provisioning hook's failure is reported as: an e2e error stays itself, a caller's cancel is a cancel (an engine may call a
-    /// lease that was cancelled a failed one), and anything else, such as an installer's plain exception, is an engine failure. Upstream's
-    /// <c>translateProvisioningError</c> (<c>internal/errors.ts</c>).
+    /// lease that was cancelled a failed one), an engine error of a closed engine code is an infrastructure <c>ENGINE_FAILURE</c> with the
+    /// suffix, and anything else, such as an installer's plain exception, is an engine failure. Upstream's <c>translateProvisioningError</c>
+    /// (<c>internal/errors.ts</c>). The engine-code split is the one <see cref="Classify"/> uses: an error the runner already named
+    /// (<see cref="EngineException.Mapped"/>, or a code outside the closed set) stays as it is.
     /// </summary>
     internal static Exception TranslateProvisioningError(Exception cause, string suffix, CancellationToken cancellationToken)
     {
-        if (cause is E2EException { Code: EngineErrorCodes.Cancelled })
+        if (cause is EngineException { Mapped: false, Code: EngineErrorCodes.Cancelled })
+        {
+            return TranslateEngineError(cause);
+        }
+
+        // An e2e error the harness named keeps its category, even during a caller's cancel, as upstream's isE2EError does.
+        var engineError = cause is EngineException { Mapped: false } engine && IsEngineErrorCode(engine.Code);
+        if (cause is E2EException && !engineError)
         {
             return cause;
         }
@@ -134,12 +197,19 @@ internal static class ErrorSerializer
             return new EngineException(EngineErrorCodes.Cancelled, "preparing the engine was cancelled", cause);
         }
 
-        return cause is E2EException or OperationCanceledException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
+        if (cause is EngineException { Mapped: false } closed && engineError)
+        {
+            return new EngineException(EngineErrorCodes.EngineFailure, closed.Message + suffix, closed);
+        }
+
+        // An abort that is not the caller's cancel, such as an installer's own timeout, is an engine failure, as upstream makes it.
+        return new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
     }
 
     /// <summary>
     /// An error's message followed by its causes, innermost last: <c>fetch failed: connect ECONNREFUSED</c>. The detail an
-    /// operator acts on is often in the inner exception, which a bare message hides. A message already present is not repeated.
+    /// operator acts on is often in the inner exception, which a bare message hides. An aggregate lists each member once, a
+    /// cause with an empty message contributes its <c>code</c>, and a message already present is not repeated.
     /// </summary>
     internal static string MessageWithCauses(Exception error)
     {
@@ -147,14 +217,37 @@ internal static class ErrorSerializer
         var current = error.InnerException;
         for (var depth = 0; current is not null && depth < MaxCauseDepth; depth++)
         {
-            if (current.Message.Length > 0 && !parts.Contains(current.Message, StringComparer.Ordinal))
+            var text = DescribeCause(current);
+            if (text.Length > 0 && !parts.Contains(text, StringComparer.Ordinal))
             {
-                parts.Add(current.Message);
+                parts.Add(text);
             }
 
-            current = current.InnerException;
+            // An AggregateException's InnerException is only its first member, which DescribeCause already listed; an
+            // AggregateError upstream has no cause of its own.
+            current = current is AggregateException ? null : current.InnerException;
         }
 
         return string.Join(": ", parts);
+    }
+
+    private static string DescribeCause(Exception cause)
+    {
+        if (cause is AggregateException aggregate)
+        {
+            var members = aggregate.InnerExceptions.Select(DescribeCause).Where(text => text.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+            if (members.Count > 0)
+            {
+                return string.Join("; ", members);
+            }
+        }
+
+        if (cause.Message.Length > 0)
+        {
+            return cause.Message;
+        }
+
+        // The counterpart of upstream's string `code` property, which .NET keeps in Exception.Data.
+        return cause.Data["code"] as string ?? "";
     }
 }

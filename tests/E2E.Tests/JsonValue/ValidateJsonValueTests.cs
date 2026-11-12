@@ -23,7 +23,7 @@ public sealed class ValidateJsonValueTests
             ["r"] = new List<object?> { shared, shared },
         };
 
-        ActParams.Validate(parameters);
+        ActParams.Validate(parameters, "agent.act");
     }
 
     [Fact]
@@ -31,13 +31,13 @@ public sealed class ValidateJsonValueTests
     {
         var self = new Dictionary<string, object?>();
         self["me"] = self;
-        var error = Assert.Throws<TestException>(() => ActParams.Validate(self));
+        var error = Assert.Throws<TestException>(() => ActParams.Validate(self, "agent.act"));
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains("contains a cycle", error.Message);
 
         var list = new List<object?>();
         list.Add(new Dictionary<string, object?> { ["list"] = list });
-        var inList = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["items"] = list }));
+        var inList = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["items"] = list }, "agent.act"));
         Assert.Contains("contains a cycle", inList.Message);
     }
 
@@ -45,7 +45,7 @@ public sealed class ValidateJsonValueTests
     [Fact]
     public void Rejects_a_non_finite_number()
     {
-        var error = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["n"] = double.NaN }));
+        var error = Assert.Throws<TestException>(() => ActParams.Validate(new Dictionary<string, object?> { ["n"] = double.NaN }, "agent.act"));
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains("non-finite", error.Message);
     }
@@ -65,8 +65,8 @@ public sealed class ValidateJsonValueTests
             return innermost;
         }
 
-        var error = Assert.Throws<TestException>(() => ActParams.Validate(Nested(ActParams.MaxDepth + 2)));
+        var error = Assert.Throws<TestException>(() => ActParams.Validate(Nested(ActParams.MaxDepth + 2), "agent.act"));
         Assert.Contains("levels", error.Message);
-        ActParams.Validate(Nested(ActParams.MaxDepth));
+        ActParams.Validate(Nested(ActParams.MaxDepth), "agent.act");
     }
 }

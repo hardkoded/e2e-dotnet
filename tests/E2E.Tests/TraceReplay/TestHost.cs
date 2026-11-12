@@ -15,14 +15,14 @@ internal sealed class TestHost : IReplayHost
 {
     private readonly Action<string, object?>? _onAction;
 
-    private TestHost(IReadOnlyList<SemanticNode> nodes, Action<string, object?>? onAction)
+    private TestHost(IReadOnlyList<SemanticNode> nodes, Action<string, object?>? onAction, TraceViewport? viewport)
     {
         _onAction = onAction;
         Actions = new Grammar(this);
         Capture = () =>
         {
             Observations++;
-            return Screen(nodes);
+            return Screen(nodes, viewport);
         };
     }
 
@@ -48,25 +48,62 @@ internal sealed class TestHost : IReplayHost
 
     public IExecutorActions Actions { get; }
 
-    public CancellationToken Signal => CancellationToken.None;
+    public CancellationToken Signal { get; set; } = CancellationToken.None;
 
     public Redactor Redact => Redactor.None;
 
-    public TimeSpan ReplayTimeout => TimeSpan.FromMilliseconds(100);
+    public TimeSpan ReplayTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
 
-    public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null) =>
-        new(nodes ?? [Upgrade, Email], onAction);
+    /// <summary>Upstream's <c>remainingMs</c> option of <c>makeHost</c>: what is left of the step's clock, in milliseconds.</summary>
+    public int Remaining { get; set; } = 60_000;
+
+    public int RemainingMs() => Remaining;
+
+    /// <summary>The clock the replay reads; a test swaps in a fake one, as upstream's fake timers.</summary>
+    public TimeProvider Time { get; set; } = TimeProvider.System;
+
+    public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null, TraceViewport? viewport = null) =>
+        new(nodes ?? [Upgrade, Email], onAction, viewport);
+
+    /// <summary>The viewport every screen is observed in unless a test names another (upstream's <c>VIEWPORT</c>).</summary>
+    public static TraceViewport Viewport { get; } = new(1280, 720);
 
     /// <summary>One observed screen over the given nodes.</summary>
-    public static Observation Screen(IReadOnlyList<SemanticNode> nodes) => new() { Route = "/plan", Roots = nodes };
+    public static Observation Screen(IReadOnlyList<SemanticNode> nodes, TraceViewport? viewport = null) => new() { Route = "/plan", Roots = nodes, Viewport = viewport ?? Viewport };
 
-    public Task<Observation> ObserveAsync(SettleMode mode)
+    public Task<PreparedObservation> ObserveAsync(SettleMode mode)
     {
         Looks.Add(mode);
-        return Task.FromResult(Capture());
+        return Task.FromResult(Prepare(Capture(), Redact));
     }
 
-    public bool TryReserve() => true;
+    /// <summary>A raw look as the feed prepares it: redacted, indexed, and cut at the default byte budget.</summary>
+    internal static PreparedObservation Prepare(Observation observation, Redactor redactor) =>
+        global::E2E.AgentObservation.PrepareObservation(observation, new PrepareObservationOptions { Redactor = redactor, MaxBytes = E2EDefaults.MaxObservationBytes });
+
+    /// <summary>The order the replay asked the host for its upload authorization, an action slot, and the before hook (.NET-only).</summary>
+    public List<string> Gates { get; } = [];
+
+    /// <summary>The upload policy: throws to refuse the paths (.NET-only; upstream's dispatcher owns it).</summary>
+    public Action<IReadOnlyList<string>>? UploadPolicy { get; set; }
+
+    public void AuthorizeUpload(IReadOnlyList<string> paths)
+    {
+        Gates.Add("authorize");
+        UploadPolicy?.Invoke(paths);
+    }
+
+    public bool TryReserve()
+    {
+        Gates.Add("reserve");
+        return true;
+    }
+
+    public Task BeforeAsync()
+    {
+        Gates.Add("before");
+        return Task.CompletedTask;
+    }
 
     public void MarkActing()
     {
@@ -100,6 +137,14 @@ internal sealed class TestHost : IReplayHost
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
 
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("secondaryTap", target, options);
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("longPress", target.Id);
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("hover", target.Id);
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => host.Act("drag", (source.Id, destination.Id));
+
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("type", (target.Id, value));
 
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => host.Act("typeSecret", (target.Id, secretName));
@@ -108,11 +153,39 @@ internal sealed class TestHost : IReplayHost
 
         public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => host.Act("press", (target?.Id, key));
 
+        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => host.Act("typeText", (value, options?.Replace == true));
+
+        public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => host.Act("pressKey", key);
+
+        public Task DismissKeyboardAsync(CancellationToken cancellationToken = default) => host.Act("dismissKeyboard");
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("select", (target.Id, value));
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => host.Act("check", (target.Id, check));
 
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => host.Act("upload", (target.Id, paths));
+
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("scrollTo", target.Id);
+
+        public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await host.Act("tapAt", (point.X, point.Y)).ConfigureAwait(false);
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await host.Act("hoverAt", (point.X, point.Y)).ConfigureAwait(false);
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        {
+            await host.Act("dragAt", (from.X, from.Y, to.X, to.Y)).ConfigureAwait(false);
+            return new PointDragResult(from, to, null, null, "");
+        }
+
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
 
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) =>
             host.Act("scrollUntil", (text, direction, list?.Id));
@@ -123,5 +196,7 @@ internal sealed class TestHost : IReplayHost
         public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => host.Act("navigate", url);
 
         public Task BackAsync(CancellationToken cancellationToken = default) => host.Act("back");
+
+        public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) => host.Act("resize", size);
     }
 }

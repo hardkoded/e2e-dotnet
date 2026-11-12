@@ -15,9 +15,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Keeps_the_code_and_keeps_serving_when_the_browser_drops_the_connection_before_the_reply()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort();
+        using var stop = server;
 
         using var http = new HttpClient();
         using (var browser = new TcpClient())
@@ -46,9 +45,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Survives_connections_reset_before_they_are_accepted()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort();
+        using var stop = server;
 
         for (var i = 0; i < 50; i++)
         {
@@ -66,9 +64,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Refuses_a_head_over_16_KB_and_still_takes_a_later_code()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort();
+        using var stop = server;
 
         var oversized = "GET /auth/callback?code=oversized&state=st HTTP/1.1\r\nX-Pad: " + new string('a', 20 * 1024) + "\r\n\r\n";
         Assert.Equal("", await SendRawAsync(port, oversized));
@@ -79,9 +76,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Ignores_a_method_other_than_GET_and_still_takes_a_later_code()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort();
+        using var stop = server;
 
         Assert.Equal("", await SendRawAsync(port, "POST /auth/callback?code=posted&state=st HTTP/1.1\r\nHost: localhost\r\n\r\n"));
 
@@ -91,9 +87,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Drops_a_request_that_stalls_past_the_timeout_and_still_takes_a_later_code()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test", TimeSpan.FromMilliseconds(200));
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort(TimeSpan.FromMilliseconds(200));
+        using var stop = server;
 
         // The head never ends, so the server must close the connection by itself.
         Assert.Equal("", await SendRawAsync(port, "GET /auth/callback?code=stalled&state=st HTTP/1.1\r\n"));
@@ -104,9 +99,8 @@ public sealed class CallbackServerTests
     [Fact]
     public async Task Answers_400_to_a_wrong_state_and_still_takes_a_later_code()
     {
-        var port = FreePort();
-        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
-        Assert.NotNull(server);
+        var (server, port) = StartOnFreePort();
+        using var stop = server;
 
         Assert.StartsWith("HTTP/1.1 400", await SendRawAsync(port, "GET /auth/callback?code=forged&state=other HTTP/1.1\r\nHost: localhost\r\n\r\n"));
 
@@ -142,12 +136,11 @@ public sealed class CallbackServerTests
         return Encoding.ASCII.GetString(reply.ToArray());
     }
 
-    private static int FreePort()
+    /// <summary>Starts the server on a port the OS picks at bind time, so no other connection can take it first.</summary>
+    private static (CallbackServer Server, int Port) StartOnFreePort(TimeSpan? requestTimeout = null)
     {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        return port;
+        var server = CallbackServer.TryStart(0, "/auth/callback", "st", "Test", requestTimeout)
+            ?? throw new InvalidOperationException("the callback server could not bind a port");
+        return (server, new Uri(server.RedirectUri).Port);
     }
 }

@@ -23,9 +23,9 @@ Options for one locator action.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Derived:** [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/)
+**Derived:** [ClickOptions](/api/E2E/ClickOptions/), [LongPressOptions](/api/E2E/LongPressOptions/), [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/), [SwipeOptions](/api/E2E/SwipeOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1004)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-How long to wait for exactly one enabled match. Defaults to the configured action timeout.
+How long to wait for exactly one enabled match. Defaults to the configured action timeout. Zero sets no deadline of its own: the test timeout bounds it. A negative value is `INVALID_ARGUMENT`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1007)

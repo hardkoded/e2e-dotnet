@@ -65,6 +65,13 @@ internal static class Suggestions
         return match is null ? "" : "; did you mean \"" + match + "\"?";
     }
 
+    /// <summary><c> (did you mean x?)</c> for a note right after the word in a list, or the empty string (upstream's <c>suggestionNote</c>).</summary>
+    public static string SuggestionNote(string word, IReadOnlyList<string> candidates)
+    {
+        var match = Suggest(word, candidates);
+        return match is null ? "" : " (did you mean " + match + "?)";
+    }
+
     /// <summary>The edits a typo may take: one for short words, a third of the length otherwise.</summary>
     private static int TypoBudget(string word)
     {

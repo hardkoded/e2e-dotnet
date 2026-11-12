@@ -154,13 +154,15 @@ internal sealed record PlanAccount(string Name, string Username);
 /// <param name="Accounts">The accounts the explorer can sign in with.</param>
 /// <param name="Reason">Why the run must end, in the planner's prompt.</param>
 /// <param name="Agent">The agent the call runs as. Null is <c>default</c>.</param>
+/// <param name="Session">The saved session the exploration started from, when it started signed in.</param>
 internal sealed record PlanRequest(
     bool MustFinish,
     TimeSpan Remaining,
     TimeSpan Timeout,
     IReadOnlyList<PlanAccount>? Accounts = null,
     string? Reason = null,
-    string? Agent = null);
+    string? Agent = null,
+    string? Session = null);
 
 /// <summary>
 /// The planner: between exploration steps, one structured model call decides the next charter or finishes the run. It runs as an
@@ -171,6 +173,9 @@ internal static class ExplorePlan
 {
     /// <summary>A title derived from an instruction stops at the first clause or here.</summary>
     private const int DerivedTitleChars = 80;
+
+    /// <summary>The latest steps the planner reads with their summaries; earlier ones list only their title and outcome, so a long run's prompt stays bounded.</summary>
+    private const int SummarizedSteps = 8;
 
     /// <summary>
     /// What the closing assessment is for. The findings and the steps print above it, so it carries what neither list can: the
@@ -183,6 +188,13 @@ internal static class ExplorePlan
         "what the goal names that was not reached or not fully exercised, and why; and which one or two flows are most worth",
         "turning into scripted tests. Name screens and controls as the app names them; no headings, bullets, or markdown.",
     ];
+
+    /// <summary>
+    /// What the planner and the explorer are told when the exploration starts from a saved session, so neither spends a step signing
+    /// in again or signs the rest of the run out. Upstream's <c>signedInContext</c>.
+    /// </summary>
+    public static string SignedInContext(string session) =>
+        "The app starts signed in: the run restored the session \"" + session + "\" a setup test saved. Do not sign in again, and do not sign out, unless the goal asks for it.";
 
     /// <summary>Asks the model for the next charter or the closing assessment.</summary>
     public static async Task<PlanDecision> PlanNextAsync(IExploreAgent agent, ExploreState state, PlanRequest request, CancellationToken cancellationToken = default)
@@ -235,7 +247,9 @@ internal static class ExplorePlan
         var minutesLeft = Math.Max(0, Math.Round(request.Remaining.TotalMinutes, MidpointRounding.AwayFromZero));
         var stepLines = steps.Count == 0
             ? "(none yet: this is the first step)"
-            : string.Join('\n', steps.Select(step => step.Index.ToString(CultureInfo.InvariantCulture) + ". [" + StatusMark(step.Status) + "] " + step.Title + (step.Summary is null ? "" : " — " + step.Summary)));
+            : string.Join('\n', steps.Select((step, position) =>
+                step.Index.ToString(CultureInfo.InvariantCulture) + ". [" + StatusMark(step.Status) + "] " + step.Title
+                + (step.Summary is null || position < steps.Count - SummarizedSteps ? "" : " — " + step.Summary)));
         var findingLines = findings.Count == 0
             ? "(none yet)"
             : string.Join('\n', findings.Select(finding => "- [" + KindName(finding.Kind) + ", severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "] " + finding.Title));
@@ -255,6 +269,12 @@ internal static class ExplorePlan
             "Findings so far:",
             findingLines,
         };
+        if (request.Session is not null)
+        {
+            header.Add("");
+            header.Add(SignedInContext(request.Session));
+        }
+
         if (request.Accounts is { Count: > 0 } accounts)
         {
             header.Add("");
@@ -271,19 +291,34 @@ internal static class ExplorePlan
             return string.Join('\n', header);
         }
 
+        var signIn = request.Session is null
+            ? "sign in with the accounts listed above (or made-up credentials when none are configured)"
+            : "work as the signed-in user rather than signing in again";
+        var lenses = string.Join("; ",
+        [
+            "edge-case inputs",
+            "filters, sorting, and search combined",
+            "state after reload or across screens that show the same data",
+            .. request.Session is null && request.Accounts is { Count: > 1 } ? ["another account or role"] : Array.Empty<string>(),
+        ]);
         header.AddRange(
         [
             "Decide from the goal, the steps so far, and the current screen:",
-            "- \"step\": the next exploration charter. \"title\" names the area or flow in a few words. \"instruction\" is a concrete,",
-            "  self-contained charter for an agent that sees only the screen and that text: which flow to exercise, what inputs",
-            "  to try, what to check. One flow or screen per step, sized for five to fifteen actions; split anything bigger.",
+            "- \"step\": the next exploration charter. \"title\" names the area or flow, and the lens once one applies, in a few",
+            "  words. \"instruction\" is a concrete, self-contained charter for an agent that sees only the screen and that text:",
+            "  which flow to exercise, what inputs to try, what to check. One flow or screen per step, sized for five to fifteen",
+            "  actions; split anything bigger.",
             "  Ask the agent to interact, not only to look: submit forms with made-up test data, save and revisit,",
-            "  sign in with the accounts listed above (or made-up credentials when none are configured), act on a non-first item of a list. Prefer breadth: touch the main",
-            "  flows the goal names before drilling deeper into one. Do not re-test an area a passed step already covered, and",
+            "  " + signIn + ", act on a non-first item of a list. Prefer breadth: touch the main",
+            "  flows the goal names before drilling deeper into one. Once each flow has a step, return to them with a new lens",
+            "  per step: " + lenses + ". Do not repeat a lens a passed step already used on that flow, and",
             "  never plan a step to re-confirm a finding already recorded above. When a step ended at its limit, continue where",
             "  it stopped or move on. When a step summary mentions something odd that is not among the findings, spend the next",
-            "  step confirming it.",
-            "- \"finish\": the goal is covered, or nothing new is reachable. \"summary\" is the closing assessment.",
+            "  step confirming it. When a finding names a control or behavior that other screens offer too (the same sort,",
+            "  filter, form, or count elsewhere), plan a step that checks those screens for it.",
+            "- \"finish\": nothing new is reachable, or every flow the goal names has been through every lens above that applies",
+            "  to it. While time is left, a flow that passed without findings is worth another lens, not a finish. \"summary\" is",
+            "  the closing assessment.",
         ]);
         header.AddRange(AssessmentRules.Select(line => "  " + line));
         header.Add("Respond with every field present: {\"decision\": \"step\", \"title\": \"...\", \"instruction\": \"...\", \"summary\": \"\"} or {\"decision\": \"finish\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}.");

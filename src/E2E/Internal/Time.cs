@@ -2,12 +2,13 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using E2E.Engine;
 
 namespace E2E.Internal;
 
 /// <summary>A point in time a wait must end by, as upstream's <c>Deadline</c>.</summary>
-internal sealed class Deadline(DateTimeOffset endsAt)
+public sealed class Deadline(DateTimeOffset endsAt)
 {
     public Deadline(TimeSpan timeout, TimeProvider clock)
         : this(clock.GetUtcNow() + timeout)
@@ -20,10 +21,101 @@ internal sealed class Deadline(DateTimeOffset endsAt)
     public TimeSpan Remaining(DateTimeOffset now) => now >= EndsAt ? TimeSpan.Zero : EndsAt - now;
 
     public bool Expired(DateTimeOffset now) => now >= EndsAt;
+
+    /// <summary>The earlier of two deadlines (upstream's <c>Deadline.min</c>).</summary>
+    public static Deadline Min(Deadline first, Deadline second) => first.EndsAt <= second.EndsAt ? first : second;
+}
+
+/// <summary>
+/// The reads of one wait, as upstream's <c>ReadWindow</c>. Each engine read runs until the wait's deadline plus the longest read the
+/// wait has finished, capped by <c>cap</c> (the running phase's deadline), so a slow last read still finishes. Reads past the deadline
+/// share that extra time instead of each getting it again. Without a cap, reads end at the deadline.
+/// </summary>
+internal sealed class ReadWindow
+{
+    private readonly TimeProvider _clock;
+    private readonly Deadline _cap;
+    private TimeSpan _slowest = TimeSpan.Zero;
+    private TimeSpan _lastStartedWith = TimeSpan.MaxValue;
+
+    public ReadWindow(Deadline deadline, TimeProvider clock, Deadline? cap = null)
+    {
+        Deadline = deadline;
+        _clock = clock;
+        _cap = cap ?? deadline;
+    }
+
+    public Deadline Deadline { get; }
+
+    /// <summary>The budget for an engine read starting now, never under 1 ms (upstream's <c>timeoutMs</c>).</summary>
+    public TimeSpan Timeout()
+    {
+        var now = _clock.GetUtcNow();
+        var left = Deadline.EndsAt + _slowest - now;
+        var capped = _cap.Remaining(now);
+        var budget = capped < left ? capped : left;
+        var least = TimeSpan.FromMilliseconds(1);
+        return budget > Time.Unbounded ? Time.Unbounded : budget > least ? budget : least;
+    }
+
+    /// <summary>Marks a read starting now: the one <see cref="CutOff"/> judges until the next starts.</summary>
+    public void Starting(DateTimeOffset? now = null) => _lastStartedWith = Deadline.Remaining(now ?? _clock.GetUtcNow());
+
+    /// <summary>Runs one engine read on <see cref="Timeout"/>, timing it when it answers.</summary>
+    public async Task<T> ReadAsync<T>(Func<TimeSpan, Task<T>> call)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        var startedAt = _clock.GetUtcNow();
+        Starting(startedAt);
+        var value = await call(Timeout()).ConfigureAwait(false);
+        var took = _clock.GetUtcNow() - startedAt;
+        if (took > _slowest)
+        {
+            _slowest = took;
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="cause"/> is a read the deadline cut off: an operation timeout of this window's latest read when it
+    /// started with less than one poll tick, or the longest read this wait finished, of the deadline left, so it timed out because the
+    /// wait did, not because the app stopped answering. A read that started with more and still timed out hung, and its timeout is the
+    /// failure. Reads the engine error a locator failure wraps as well as a bare one.
+    /// </summary>
+    public bool CutOff(Exception cause) =>
+        _lastStartedWith < (Time.PollInterval > _slowest ? Time.PollInterval : _slowest) && Time.IsOperationTimeout(cause);
+}
+
+/// <summary>What <see cref="Time.PollReadsAsync"/> polls, and how it ends.</summary>
+internal sealed class PollReadsOptions
+{
+    public required Deadline Deadline { get; init; }
+
+    /// <summary>The window every read of the poll runs through.</summary>
+    public required ReadWindow Reads { get; init; }
+
+    public required TimeProvider Clock { get; init; }
+
+    public required CancellationToken Token { get; init; }
+
+    public required bool Negated { get; init; }
+
+    /// <summary>The longest pause between reads.</summary>
+    public TimeSpan Interval { get; init; } = Time.PollInterval;
+
+    /// <summary>
+    /// Evaluates the positive condition once, every read run through the window. Returns null when the condition cannot be evaluated
+    /// yet: the positive poll keeps waiting and the negation grace window resets.
+    /// </summary>
+    public required Func<ReadWindow, Task<bool?>> Evaluate { get; init; }
+
+    /// <summary>Builds the poll's failure; the argument is the read the deadline cut off, when one did.</summary>
+    public required Func<Exception?, Exception> OnTimeout { get; init; }
 }
 
 /// <summary>What <see cref="Time.PollConditionAsync"/> polls, and how it ends.</summary>
-internal sealed class PollConditionOptions
+public sealed class PollConditionOptions
 {
     public required Deadline Deadline { get; init; }
 
@@ -48,7 +140,7 @@ internal sealed class PollConditionOptions
 }
 
 /// <summary>Deadline and polling helpers, as upstream's <c>internal/time.ts</c>.</summary>
-internal static class Time
+public static class Time
 {
     /// <summary>A budget as a message names it, exactly, in the largest unit that divides it: <c>5m</c>, <c>30s</c>, <c>1500ms</c> (upstream's <c>budgetText</c>).</summary>
     public static string BudgetText(long ms)
@@ -76,19 +168,67 @@ internal static class Time
         return session.CanBeCanceled ? CancellationTokenSource.CreateLinkedTokenSource(caller, session).Token : caller;
     }
 
+    /// <summary>
+    /// The deadline of a step that has none of its own and no running phase to end it: far enough that nothing reaches it, and not
+    /// <see cref="DateTimeOffset.MaxValue"/>, so adding a read's time to it cannot overflow.
+    /// </summary>
+    public static readonly DateTimeOffset Never = new(9000, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+    /// <summary>The longest budget handed to an engine read or a timer: a day, standing for no limit when nothing caps a step.</summary>
+    public static readonly TimeSpan Unbounded = TimeSpan.FromDays(1);
+
+    /// <summary><paramref name="value"/> held between <paramref name="least"/> and <paramref name="most"/> (.NET-only helper for upstream's <c>Math.max(1, ms)</c>).</summary>
+    public static TimeSpan Between(TimeSpan value, TimeSpan least, TimeSpan most) => value < least ? least : value > most ? most : value;
+
+    /// <summary>
+    /// Refuses a per-call step timeout below zero as <c>INVALID_ARGUMENT</c> (upstream's <c>checkStepTimeout</c>; a <see cref="TimeSpan"/> is
+    /// always a finite number of milliseconds, so only the sign is left to check). Zero means no step deadline: the step waits until the
+    /// running phase's deadline (the test timeout in the body).
+    /// </summary>
+    public static void CheckStepTimeout(TimeSpan? timeout, string api)
+    {
+        if (timeout is { } given && given < TimeSpan.Zero)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " timeout must be a finite number of milliseconds, 0 or more; got " + ((long)given.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
+    /// <summary>
+    /// The deadline of a step on a call's own <paramref name="timeout"/> (upstream's <c>stepTimeout</c>, capped by the phase as
+    /// <c>Deadline.min</c> does): the timeout, or <paramref name="fallback"/> when none is given, from now. Zero sets no deadline of its
+    /// own, so <paramref name="phase"/> alone bounds it; with no phase it is <see cref="Never"/>.
+    /// </summary>
+    public static Deadline StepDeadline(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    {
+        CheckStepTimeout(timeout, api);
+        return timeout == TimeSpan.Zero ? phase ?? new Deadline(Never) : new Deadline(timeout ?? fallback, clock);
+    }
+
+    /// <summary>
+    /// <see cref="StepDeadline"/> as a budget, for a call that hands one to the engine: what is left of the deadline, at least 1 ms and
+    /// at most <see cref="Unbounded"/>.
+    /// </summary>
+    public static TimeSpan StepBudget(TimeSpan? timeout, string api, TimeSpan fallback, Deadline? phase, TimeProvider clock)
+    {
+        if (timeout != TimeSpan.Zero)
+        {
+            CheckStepTimeout(timeout, api);
+            return timeout ?? fallback;
+        }
+
+        var left = StepDeadline(timeout, api, fallback, phase, clock).Remaining(clock.GetUtcNow());
+        return left < TimeSpan.FromMilliseconds(1) ? TimeSpan.FromMilliseconds(1) : left > Unbounded ? Unbounded : left;
+    }
+
     /// <summary>Canonical polling cadence for locator and assertion loops.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
     /// <summary>How long a negated assertion must hold before it passes.</summary>
     public static readonly TimeSpan NegationGrace = TimeSpan.FromMilliseconds(1000);
 
-    /// <summary>
-    /// Whether <paramref name="cause"/> is a read a wait's deadline cut off: an operation timeout of a read that
-    /// started with less than one poll tick of the wait left, so it timed out because the wait did, not because the
-    /// app stopped answering. A read that started with more and still timed out hung, and its timeout is the failure.
-    /// </summary>
-    public static bool CutOffAtDeadline(Exception cause, TimeSpan startedWith) =>
-        startedWith < PollInterval && cause is EngineException { Code: EngineErrorCodes.OperationTimeout };
+    /// <summary>Whether <paramref name="cause"/> is the engine's <c>OPERATION_TIMEOUT</c>, bare or wrapped by the locator failure it was translated into (upstream's <c>isOperationTimeout</c>).</summary>
+    public static bool IsOperationTimeout(Exception cause) =>
+        (cause as EngineException ?? cause.InnerException as EngineException) is { Code: EngineErrorCodes.OperationTimeout };
 
     /// <summary>
     /// Polls a condition until it holds (or, when negated, until its negation has held continuously for the negation
@@ -97,12 +237,30 @@ internal static class Time
     /// A negation holds from the moment the read that first saw it was issued, so a slow read counts toward the
     /// window. A budget shorter than the window still has to be satisfiable: the negation then only needs to hold for
     /// the whole budget, and passes at the deadline on what it has seen, since a read past the deadline has no budget
-    /// left. A read the deadline cut off (see <see cref="CutOffAtDeadline"/>) after an earlier one completed saw
+    /// left. A read the deadline cut off (see <see cref="ReadWindow.CutOff"/>) after an earlier one completed saw
     /// nothing: the poll ends there, and a negation passes if it had held long enough by then.
     /// </summary>
-    public static async Task PollConditionAsync(PollConditionOptions options)
+    public static Task PollConditionAsync(PollConditionOptions options) =>
+        PollReadsAsync(new PollReadsOptions
+        {
+            Deadline = options.Deadline,
+            Reads = new ReadWindow(options.Deadline, options.Clock),
+            Clock = options.Clock,
+            Token = options.Token,
+            Negated = options.Negated,
+            Interval = options.Interval,
+            Evaluate = _ => options.Evaluate(),
+            OnTimeout = options.OnTimeout,
+        });
+
+    /// <summary>
+    /// <see cref="PollConditionAsync"/> with its reads run through <c>options.Reads</c>: a window with a cap lets the last read run past
+    /// the deadline by the longest read the poll has finished, and a read cut off (see <see cref="ReadWindow.CutOff"/>) is one that
+    /// started with under one poll tick, or that longest read, left.
+    /// </summary>
+    internal static async Task PollReadsAsync(PollReadsOptions options)
     {
-        var (deadline, clock, token, negated) = (options.Deadline, options.Clock, options.Token, options.Negated);
+        var (deadline, reads, clock, token, negated) = (options.Deadline, options.Reads, options.Clock, options.Token, options.Negated);
         var startedAt = clock.GetUtcNow();
         var grace = deadline.Remaining(startedAt) < NegationGrace ? deadline.Remaining(startedAt) : NegationGrace;
         var readAt = startedAt;
@@ -112,14 +270,14 @@ internal static class Time
         while (true)
         {
             token.ThrowIfCancellationRequested();
-            var startedWith = deadline.Remaining(readAt);
             bool? value;
+            reads.Starting(readAt);
             try
             {
-                value = await options.Evaluate().ConfigureAwait(false);
+                value = await options.Evaluate(reads).ConfigureAwait(false);
                 sampled = true;
             }
-            catch (EngineException ex) when (sampled && CutOffAtDeadline(ex, startedWith))
+            catch (Exception ex) when (sampled && reads.CutOff(ex))
             {
                 var now = clock.GetUtcNow();
                 if (negated && Holds(now < deadline.EndsAt ? now : deadline.EndsAt))
@@ -144,7 +302,7 @@ internal static class Time
             }
 
             var current = clock.GetUtcNow();
-            if (Holds(current))
+            if (Holds(current < deadline.EndsAt ? current : deadline.EndsAt))
             {
                 return;
             }
@@ -169,6 +327,84 @@ internal static class Time
 
                 throw options.OnTimeout(null);
             }
+        }
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="duration"/> on <paramref name="clock"/> (upstream's <c>sleep</c>). A cancel rejects with <c>CANCELLED</c>,
+    /// immediately when it was already cancelled.
+    /// </summary>
+    public static async Task Sleep(TimeSpan duration, TimeProvider clock, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+
+        try
+        {
+            await Task.Delay(duration, clock, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, "sleep cancelled", retryable: false);
+        }
+    }
+
+    /// <summary>
+    /// Races <paramref name="work"/> against a timeout; on timeout throws what <paramref name="onTimeout"/> builds (upstream's
+    /// <c>withTimeout</c>). An infinite timeout sets no timer.
+    /// </summary>
+    public static async Task<T> WithTimeout<T>(Task<T> work, TimeSpan timeout, Func<Exception> onTimeout)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        ArgumentNullException.ThrowIfNull(onTimeout);
+        if (timeout == Timeout.InfiniteTimeSpan)
+        {
+            return await work.ConfigureAwait(false);
+        }
+
+        using var timer = new CancellationTokenSource();
+        var expired = Task.Delay(timeout, timer.Token);
+        try
+        {
+            if (await Task.WhenAny(work, expired).ConfigureAwait(false) == expired)
+            {
+                throw onTimeout();
+            }
+        }
+        finally
+        {
+            timer.Cancel();
+        }
+
+        return await work.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Best-effort cleanup (upstream's <c>withinCleanupBudget</c>): returns when <paramref name="work"/> settles, when <paramref name="abort"/>
+    /// fires, or after <paramref name="timeout"/>, and absorbs the work's failure, so a cleanup never fails the attempt it closes.
+    /// </summary>
+    public static async Task WithinCleanupBudget(Task work, CancellationToken abort, TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+        if (abort.IsCancellationRequested)
+        {
+            return;
+        }
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(abort);
+        budget.CancelAfter(timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout);
+        var settled = work.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+        var stop = Task.Delay(Timeout.Infinite, budget.Token);
+        try
+        {
+            await Task.WhenAny(settled, stop).ConfigureAwait(false);
+        }
+        finally
+        {
+            budget.Cancel();
         }
     }
 }

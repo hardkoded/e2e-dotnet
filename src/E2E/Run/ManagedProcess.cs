@@ -34,10 +34,11 @@ internal sealed class ManagedProcessHooks
 
     public Action<string>? Notice { get; init; }
 
-    public Action<string>? Starting { get; init; }
+    /// <summary>The label, and the URL the readiness probe polls; null for a command that is ready when it exits.</summary>
+    public Action<string, string?>? Starting { get; init; }
 
-    /// <summary>The label, how long the start took, and whether the process attached to one already serving the URL instead of spawning.</summary>
-    public Action<string, TimeSpan, bool>? Ready { get; init; }
+    /// <summary>The label, the readiness URL (null for a command that is ready when it exits), how long the start took, and whether the process attached to one already serving the URL instead of spawning.</summary>
+    public Action<string, string?, TimeSpan, bool>? Ready { get; init; }
 }
 
 /// <summary>What one started process, or everything a run or a session started, is released by (upstream's <c>AppProcesses</c>).</summary>
@@ -75,9 +76,12 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     // How long a leader's exit waits for the last of its output to land in the log.
     private static readonly TimeSpan OutputDrain = TimeSpan.FromSeconds(2);
 
-    // How much of the process's own output a startup failure quotes.
-    private const int OutputTailLines = 20;
-    private const int OutputTailBytes = 4_096;
+    // How much of the process's own output a startup failure quotes: a log within two windows is quoted whole, up to this many lines in all.
+    private const int OutputWindowLines = 20;
+    private const int OutputWindowBytes = 4_096;
+
+    // Stands between the first and last lines of a log too long to quote whole.
+    private const string OutputOmitted = "[startup output omitted]";
 
     // command.env and inheritEnv values this long are redacted from the quoted output; shorter ones (a port, a flag) would blank ordinary
     // text without hiding anything. The shared redactor has no floor of its own.
@@ -164,9 +168,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var startedAt = Stopwatch.StartNew();
-        _hooks.Starting?.Invoke(_label);
+        var url = _readiness.ReadyUrl;
+        _hooks.Starting?.Invoke(_label, url);
         await LaunchAsync(cancellationToken).ConfigureAwait(false);
-        _hooks.Ready?.Invoke(_label, startedAt.Elapsed, _reusedExisting);
+        _hooks.Ready?.Invoke(_label, url, startedAt.Elapsed, _reusedExisting);
     }
 
     /// <summary>Gracefully terminates the process, then force-kills its tree. A reused process was never ours to stop. Safe to call before start and more than once.</summary>
@@ -665,9 +670,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     }
 
     /// <summary>
-    /// The startup failure with the log's tail under it, so the report alone says what the process was doing when it stalled or died. The
-    /// message lands in the report, so <c>command.env</c> and <c>inheritEnv</c> values are redacted from the quote with the same redactor and
-    /// markers as the traces, the way the log itself never is. Without a log there is nothing to quote, and the message says how to get one.
+    /// The startup failure with the log's first and last lines under it, so the report alone says what the process was doing when it stalled or
+    /// died. The message lands in the report, so <c>command.env</c> and <c>inheritEnv</c> values are redacted from the quote with the same
+    /// redactor and markers as the traces, the way the log itself never is. Without a log there is nothing to quote, and the message says how
+    /// to get one.
     /// </summary>
     private EngineException Unreachable(string message, long? logOffset)
     {
@@ -684,8 +690,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     }
 
     /// <summary>
-    /// The last lines appended to the log past <paramref name="offset"/>, terminal controls stripped, bounded in bytes before lines so a chatty
-    /// process cannot turn the message into the whole log.
+    /// The lines appended to the log past <paramref name="offset"/>, terminal controls stripped, bounded in bytes before lines so a chatty
+    /// process cannot turn the message into the whole log. A log longer than the two windows is quoted as its first and last lines with an
+    /// omission marker between them: a service that fails early and then keeps logging, a watcher for instance, would otherwise bury the error
+    /// that matters under its own tail.
     /// </summary>
     private List<string> OutputSince(long offset)
     {
@@ -693,34 +701,70 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         {
             using var stream = new FileStream(LogPath(), FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
             var end = stream.Length;
-            var start = Math.Max(offset, end - OutputTailBytes);
-            if (end <= start)
+            if (end <= offset)
             {
                 return [];
             }
 
-            // One byte before a cut tells whether it landed mid-line: a fragment says nothing and goes, a line that ended right at the cut stays.
-            var readFrom = start > offset ? start - 1 : start;
-            stream.Seek(readFrom, SeekOrigin.Begin);
-            var buffer = new byte[end - readFrom];
-            stream.ReadExactly(buffer);
-            var text = Encoding.UTF8.GetString(buffer);
-            var cutMidLine = start > offset && !(text.StartsWith('\r') || text.StartsWith('\n'));
-            var lines = LineBreak().Split(ControlSequences().Replace(text, ""))
-                .Select(line => line.TrimEnd())
-                .Where(line => line.Length > 0)
-                .ToList();
-            if (cutMidLine && lines.Count > 0)
+            if (end - offset <= OutputWindowBytes * 2)
             {
-                lines.RemoveAt(0);
+                // The two windows cover everything the command appended: quote it whole, and reach for the marker only when the line cap drops some.
+                var lines = ReadLines(stream, offset, end, Unclipped);
+                return lines.Count <= OutputWindowLines * 2
+                    ? lines
+                    : [.. lines.Take(OutputWindowLines), OutputOmitted, .. lines.TakeLast(OutputWindowLines)];
             }
 
-            return lines.Count > OutputTailLines ? lines[^OutputTailLines..] : lines;
+            // The head starts at `offset` without clipping the start: a previous run that left the log mid-line leaves the command's own first
+            // line behind it, and that line is the one a startup failure is usually about.
+            var head = ReadLines(stream, offset, offset + OutputWindowBytes, new WindowClip(Start: false, End: true));
+            var tail = ReadLines(stream, end - OutputWindowBytes, end, new WindowClip(Start: true, End: false));
+
+            // Both windows are capped at the line budget, and the marker stays even when a single huge first line leaves nothing to quote above it.
+            return [.. head.Take(OutputWindowLines), OutputOmitted, .. tail.TakeLast(OutputWindowLines)];
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return [];
         }
+    }
+
+    /// <summary>Which edges of a read window the log runs past; a cut edge drops the fragment it left.</summary>
+    private readonly record struct WindowClip(bool Start, bool End);
+
+    /// <summary>Both edges of the window are line boundaries: neither fragment needs dropping.</summary>
+    private static readonly WindowClip Unclipped = new(Start: false, End: false);
+
+    /// <summary>
+    /// The non-empty lines in <c>[from, to)</c> of the log, terminal controls stripped. A window the log runs past yields a fragment at that
+    /// edge, which says nothing and goes. The fragment is dropped before empty lines are filtered out, so a trailing indent the cut landed in
+    /// cannot take the complete line above it.
+    /// </summary>
+    private static List<string> ReadLines(FileStream stream, long from, long to, WindowClip clip)
+    {
+        var readFrom = clip.Start ? from - 1 : from;
+        var readTo = clip.End ? to + 1 : to;
+        if (readTo <= readFrom)
+        {
+            return [];
+        }
+
+        stream.Seek(readFrom, SeekOrigin.Begin);
+        var buffer = new byte[readTo - readFrom];
+        stream.ReadExactly(buffer);
+        var text = Encoding.UTF8.GetString(buffer);
+        var parts = LineBreak().Split(ControlSequences().Replace(text, "")).ToList();
+        if (clip.Start && !(text.StartsWith('\r') || text.StartsWith('\n')) && parts.Count > 0)
+        {
+            parts.RemoveAt(0);
+        }
+
+        if (clip.End && !(text.EndsWith('\r') || text.EndsWith('\n')) && parts.Count > 0)
+        {
+            parts.RemoveAt(parts.Count - 1);
+        }
+
+        return parts.Select(line => line.TrimEnd()).Where(line => line.Length > 0).ToList();
     }
 
     private string LogPath() => Path.GetFullPath(_command.Log ?? "", _projectRoot);

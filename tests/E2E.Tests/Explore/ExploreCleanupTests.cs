@@ -1,4 +1,4 @@
-﻿// Copyright 2026 TesterArmy.
+// Copyright 2026 TesterArmy.
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 

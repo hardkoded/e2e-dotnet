@@ -37,10 +37,7 @@ internal static partial class ScreenshotAssertion
             throw new TestException("INVALID_ARGUMENT", api + " option maxDiffPixels must be a whole number of pixels, 0 or more");
         }
 
-        if (options?.Timeout is { } timeout && timeout <= TimeSpan.Zero)
-        {
-            throw new TestException("INVALID_ARGUMENT", api + " option timeout must be a positive number of milliseconds");
-        }
+        Time.CheckStepTimeout(options?.Timeout, api + " option");
 
         var stem = name is null ? UnnamedStem(store) : NamedStem(api, name);
         var tolerance = new ImageTolerance(

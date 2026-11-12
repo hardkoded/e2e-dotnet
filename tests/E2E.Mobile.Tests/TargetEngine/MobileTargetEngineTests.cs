@@ -48,6 +48,36 @@ public sealed class MobileTargetEngineTests
     }
 
     [Fact]
+    public void Hands_the_targets_launch_arguments_and_permissions_to_the_app()
+    {
+        var app = new AppConfig
+        {
+            BundleId = "com.example.shop",
+            LaunchArguments = ["-e2e"],
+            Permissions = new Dictionary<string, AppPermissionState> { ["camera"] = AppPermissionState.Grant, ["media-library"] = AppPermissionState.Reset, ["location"] = AppPermissionState.Deny },
+        };
+        var engine = MobileTargetEngine.Create(Target("ios", app), NoEnvironment, null);
+        Assert.Equal(["-e2e"], engine.Options.App.LaunchArguments);
+        Assert.Equal(
+            new Dictionary<DevicePermission, PermissionState>
+            {
+                [DevicePermission.Camera] = PermissionState.Grant,
+                [DevicePermission.MediaLibrary] = PermissionState.Reset,
+                [DevicePermission.Location] = PermissionState.Deny,
+            },
+            engine.Options.App.Permissions);
+    }
+
+    [Fact]
+    public void Refuses_a_permission_the_device_does_not_know_naming_the_nearest()
+    {
+        var app = new AppConfig { BundleId = "com.example.shop", Permissions = new Dictionary<string, AppPermissionState> { ["camara"] = AppPermissionState.Grant } };
+        var error = Assert.Throws<ConfigurationException>(() => MobileTargetEngine.Create(Target("ios", app), NoEnvironment, null));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal("target \"shop\" app.permissions has unknown key \"camara\"; did you mean \"camera\"?", error.Message);
+    }
+
+    [Fact]
     public void Takes_a_build_path_alone_as_the_app()
     {
         var engine = MobileTargetEngine.Create(Target("ios", new AppConfig { AppPath = "build/shop.app" }), NoEnvironment, null);

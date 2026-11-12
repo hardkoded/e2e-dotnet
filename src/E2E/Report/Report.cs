@@ -7,7 +7,7 @@ namespace E2E.Reports;
 /// <summary>
 /// The report-1 document, the shape <see cref="E2ESession.Report"/> returns and <c>report.json</c> holds (upstream's <c>Report</c>, an alias of
 /// <c>Report1Document</c>, <c>report/build.ts</c>). A report is a record of what happened. Changing it changes nothing, and a caller that
-/// wants the document as JSON reads <c>report.json</c>. The port has no serial groups and no <c>carried</c> block, so the document has neither.
+/// wants the document as JSON reads <c>report.json</c>. The port has no serial groups, so the document has none (its <c>serialGroups</c> is always empty, and so is a carried block's).
 /// </summary>
 public sealed record Report
 {
@@ -30,7 +30,7 @@ public sealed record ReportRun
 
     public ReportRunStatus Status { get; init; }
 
-    /// <summary>0, 1, 2, 3, 4, or 130.</summary>
+    /// <summary>0, 1, 2, 3, 4, or 130. A test that failed or timed out and whose retry was interrupted keeps that verdict and the exit code of its failure, not 130, since the port has no run-level interrupt flag.</summary>
     public int ExitCode { get; init; }
 
     public DateTimeOffset StartedAt { get; init; }
@@ -65,6 +65,23 @@ public sealed record ReportRun
 
     /// <summary>What an exploration asked, did, and found. Null on a run that did not explore.</summary>
     public ReportExplore? Explore { get; init; }
+
+    /// <summary>What earlier runs left unresolved that a <c>--last-failed</c> rerun did not run again. Null when nothing is carried.</summary>
+    public ReportCarried? Carried { get; init; }
+}
+
+/// <summary>
+/// What earlier runs left unresolved that a <c>--last-failed</c> rerun did not run again (upstream's <c>run.carried</c>): their results as
+/// they reported them, and the suite hook failures whose scope still holds one of them. The next <c>--last-failed</c> selects these tests too.
+/// Not part of the run's status, exit code, or summary. The port has no serial groups, so the block's <c>serialGroups</c> is always empty and not modelled.
+/// </summary>
+public sealed record ReportCarried
+{
+    /// <summary>The results as the run that last ran them reported them; at least one.</summary>
+    public IReadOnlyList<ReportResult> Results { get; init; } = [];
+
+    /// <summary>The suite hook failures whose scope still holds a carried result.</summary>
+    public IReadOnlyList<ReportError> Errors { get; init; } = [];
 }
 
 /// <summary>The runner that made a report (upstream's <c>run.runner</c>).</summary>
@@ -245,7 +262,7 @@ public enum ResultKind
     Setup,
 }
 
-/// <summary>How a test ended, over all its attempts.</summary>
+/// <summary>How a test ended, over all its attempts. A pass after an earlier attempt is <see cref="Flaky"/>, and a retry that was interrupted keeps the <see cref="Failed"/> or <see cref="TimedOut"/> verdict of the attempt before it.</summary>
 public enum ResultStatus
 {
     Passed,
@@ -542,6 +559,7 @@ public enum StepPhase
 /// <summary>Why a step's pixels were not trusted.</summary>
 public enum VisionDegradation
 {
+    /// <summary>Only on a result an earlier version wrote, such as one <c>--last-failed</c> carries. A step no longer degrades this way.</summary>
     PixelTainted,
     MaskingUnproven,
     UnsupportedCapability,
@@ -758,7 +776,7 @@ public sealed record StepModelInfo
 
     public TokenAccounting TokenAccounting { get; init; }
 
-    public int PeakTokensPerCall { get; init; }
+    public long PeakTokensPerCall { get; init; }
 
     public long InputTokens { get; init; }
 
@@ -822,7 +840,7 @@ public sealed record StepEvent
 
     public string? Name { get; init; }
 
-    public int? Count { get; init; }
+    public long? Count { get; init; }
 
     public long? InputTokens { get; init; }
 

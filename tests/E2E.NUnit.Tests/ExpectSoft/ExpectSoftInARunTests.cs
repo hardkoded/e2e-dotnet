@@ -25,7 +25,7 @@ public sealed class ExpectSoftInARunTests
         var result = NestedRun.Run(nameof(SoftSuiteFixture.Soft_failures_let_the_body_run_on));
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
+        Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\""));
         Assert.That(result.Message, Does.Contain("toBeHidden failed"));
         Assert.That(result.Message.IndexOf("toHaveText failed", StringComparison.Ordinal), Is.LessThan(result.Message.IndexOf("toBeHidden failed", StringComparison.Ordinal)));
         // The hard matcher after the failures ran and passed, so exactly the two soft failures are recorded.
@@ -40,7 +40,7 @@ public sealed class ExpectSoftInARunTests
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
         Assert.That(result.Message, Does.Contain("the body gave up"));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
+        Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\""));
     }
 
     [Test]
@@ -53,6 +53,6 @@ public sealed class ExpectSoftInARunTests
         var result = NestedRun.Run(nameof(SoftSuiteFixture.A_timed_out_body_still_settles_its_soft_failures));
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
+        Assert.That(result.Message, Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\""));
     }
 }

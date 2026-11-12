@@ -20,7 +20,7 @@ namespace E2E.Mobile.DevFlow;
 /// <c>settle</c> options are not honored: the engine's own observe loop waits for the screen to settle.
 /// </para>
 /// </summary>
-internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, MobilePlatform? platform = null) : IDeviceClient
+internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, MobilePlatform? platform = null) : ICancellableDeviceClient
 {
     private const string Api = "api/v1/";
 

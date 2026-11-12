@@ -13,6 +13,9 @@ namespace E2E.Cache;
 /// query's parameters, with every segment or value that looks minted per record read as one placeholder.
 /// Every other query value is part of the screen. The fragment is dropped, except that an app routing in the
 /// fragment (<c>#/companies/1</c>) routes by that path and its query.
+/// The origin is relative to the app (<see cref="AppLocation"/>): a location on the app's own origin is kept as its path, so a
+/// recording made against one deployment of the app replays on another that shares its <c>app.identity</c>, while a screen on
+/// any other origin keeps its origin and is another route.
 /// </summary>
 internal static partial class CacheRoute
 {
@@ -35,6 +38,58 @@ internal static partial class CacheRoute
         LongValueToken(),
         Timestamp(),
     ];
+
+    /// <summary>
+    /// A location as the cache compares it: a URL on the app's own origin as its path, query, and fragment, so a recording follows
+    /// the app to another deployment of it; anything else (another origin, a device screen title) as it is.
+    /// </summary>
+    public static string AppLocation(string location, string? appOrigin)
+    {
+        if (appOrigin is null || !SchemePrefix().IsMatch(location) || !Uri.TryCreate(location, UriKind.Absolute, out var url))
+        {
+            return location;
+        }
+
+        return url.Scheme is "http" or "https" && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+            ? url.PathAndQuery + url.Fragment
+            : location;
+    }
+
+    /// <summary>
+    /// A navigation as a recording keeps it: a URL on the app's origin without that origin, the rest as typed. Anything else
+    /// stays as given, and so does a URL with credentials or a rest that would not open the same URL.
+    /// </summary>
+    public static string AppNavigation(string url, string? appOrigin)
+    {
+        // The prefix is the scheme and authority as a URL parser reads them, which skips leading whitespace and any run of slashes.
+        var prefix = UrlOriginPrefix().Match(url);
+        if (appOrigin is null || !prefix.Success)
+        {
+            return url;
+        }
+
+        // .NET's parser rejects the extra slashes that the web's skips, so it parses the URL with them removed.
+        var rest = url[prefix.Length..];
+        var colon = prefix.Value.IndexOf(':', StringComparison.Ordinal);
+        var scheme = prefix.Value[..colon].TrimStart();
+        var authority = prefix.Value[(colon + 1)..].TrimStart('/', '\\');
+        if (!Uri.TryCreate($"{scheme}://{authority}{rest}", UriKind.Absolute, out var parsed)
+            || parsed.Scheme is not ("http" or "https")
+            || !string.Equals(parsed.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+            || parsed.UserInfo.Length > 0)
+        {
+            return url;
+        }
+
+        // A backslash or a line break reads differently in a web URL parser than in .NET's, so such a rest is kept whole.
+        if (rest.IndexOfAny(['\\', '\t', '\r', '\n']) >= 0)
+        {
+            return url;
+        }
+
+        var path = rest.StartsWith('/') ? rest : "/" + rest;
+        return Uri.TryCreate(new Uri(appOrigin), path, out var opened) && string.Equals(opened.AbsoluteUri, parsed.AbsoluteUri, StringComparison.Ordinal) ? path : url;
+    }
 
     /// <summary>Whether two locations name the same screen: one origin, and segments and query that read alike.</summary>
     public static bool Same(string? recorded, string? live) =>
@@ -110,6 +165,10 @@ internal static partial class CacheRoute
     private static string Decode(string raw) => Uri.UnescapeDataString(raw);
 
     private static string FormDecode(string raw) => Decode(raw.Replace('+', ' '));
+
+    // Scheme and authority as a URL parser skips them: leading whitespace and any run of slashes.
+    [GeneratedRegex(@"^\s*[a-z][a-z\d+.-]*:[/\\]*[^/?#\\]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex UrlOriginPrefix();
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePrefix();

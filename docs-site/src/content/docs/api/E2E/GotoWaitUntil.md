@@ -1,6 +1,6 @@
 ---
 title: "GotoWaitUntil"
-description: "When CancellationToken) counts a navigation as done."
+description: "When GotoAsync counts a navigation as done."
 editUrl: false
 prev: false
 next: false
@@ -19,9 +19,9 @@ public enum GotoWaitUntil
 ```
 
 
-When `CancellationToken)` counts a navigation as done.
+When `GotoAsync` counts a navigation as done.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ The `DOMContentLoaded` event fired.
 
 **Value:** [GotoWaitUntil](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L14)
-
 <a id="E2E_GotoWaitUntil_Load"></a>
 
 ### Load
@@ -55,8 +53,6 @@ The `load` event fired. The default.
 
 **Value:** [GotoWaitUntil](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L11)
-
 <a id="E2E_GotoWaitUntil_NetworkIdle"></a>
 
 ### NetworkIdle
@@ -70,5 +66,3 @@ NetworkIdle = 2
 The network was idle for at least 500 ms.
 
 **Value:** [GotoWaitUntil](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs#L17)

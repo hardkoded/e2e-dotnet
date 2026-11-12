@@ -14,90 +14,157 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
+| [AppEvent](/api/E2E.Engine/AppEvent/) | What the app did on its own, as the session passes it on: a log line, or where it went. |
 | [AppLogEntry](/api/E2E.Engine/AppLogEntry/) | One line of what the app did on its own, as an engine reports it to AppLog (upstream's AppLogEntry): console output, an exception nothing caught, a failed request. The harness redacts and bounds it. |
+| [AppLogEvent](/api/E2E.Engine/AppLogEvent/) | An app log entry the engine reported. |
+| [AppLogRoute](/api/E2E.Engine/AppLogRoute/) | Upstream's AppLogRoute (engine/session.ts): where the engine's app log goes. The engine reports from startAttempt on, before any step records; what arrives before a sink is set waits, up to a bound per kind, and each kind has its own quota so chatter never crowds out an error. |
+| [AppNavigationEvent](/api/E2E.Engine/AppNavigationEvent/) | A line saying where the app went (upstream's navigated). |
 | [BoundingBox](/api/E2E.Engine/BoundingBox/) | A viewport-relative rectangle in CSS pixels. |
 | [BrowserCookie](/api/E2E.Engine/BrowserCookie/) | A browser cookie. When setting one, give either Url, or Domain with an optional Path, never both. |
 | [BrowserDownload](/api/E2E.Engine/BrowserDownload/) | A download the browser saved as an artifact of the attempt (upstream's waitForDownload result, { path, absolutePath, suggestedFilename }). |
 | [BrowserDownloadContext](/api/E2E.Engine/BrowserDownloadContext/) | Handed to ReadAsync, once per file. |
-| [BrowserLease](/api/E2E.Engine/BrowserLease/) | One leased browser, as CancellationToken) returns it and CancellationToken) gets it back. A provider may derive from it and keep further fields: release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it. |
+| [BrowserLease](/api/E2E.Engine/BrowserLease/) | One leased browser, as AcquireAsync returns it and ReleaseAsync gets it back. A provider may derive from it and keep further fields: release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it. |
 | [BrowserProviderDownloads](/api/E2E.Engine/BrowserProviderDownloads/) | How a download reaches the runner from a browser on another machine. The browser saves every file to its own disk, where the runner cannot open it, so the engine points the browser's downloads at Dir there and reads each finished file back through ReadAsync. |
 | [BrowserReleaseContext](/api/E2E.Engine/BrowserReleaseContext/) | Handed to release, once per lease. |
 | [BrowserRequest](/api/E2E.Engine/BrowserRequest/) | What the engine asks a provider for: one browser for one worker slot, or for one attempt, of a run. |
 | [BrowserResponse](/api/E2E.Engine/BrowserResponse/) | A response an engine observed, with its body still being read. |
+| [CookieFilter](/api/E2E.Engine/CookieFilter/) | Cookie filters are combined; a string matches the field exactly, a regular expression matches its text. |
 | [Dialog](/api/E2E.Engine/Dialog/) | A native dialog as a test's handler sees it (upstream's Dialog). |
 | [DialogHandler](/api/E2E.Engine/DialogHandler/) | What answers a native dialog (upstream's DialogHandler): Accept, Dismiss, or a function that must call AcceptAsync(string) or DismissAsync() before it returns. |
 | [DocumentElement](/api/E2E.Engine/DocumentElement/) | A mutable control on a DocumentPage. |
 | [DocumentEngine](/api/E2E.Engine/DocumentEngine/) | In-memory page engine for samples and tests that do not need a browser. Each open builds a fresh page from the route mapped on DocumentWorld. Actions mutate that page until the next open. app.back rebuilds the previous route, and app.restart and app.clearState drop the history and reopen the base URL. The document engine has no browser, so the Browser fixture is unsupported. |
 | [DocumentPage](/api/E2E.Engine/DocumentPage/) | One in-memory screen. Builder methods append controls in reading order. |
 | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) | Routes a DocumentEngine can open. Each open builds a new page from the mapped factory. |
-| [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (CancellationToken)), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
-| [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record no steps of their own yet. |
+| [EngineActionKinds](/api/E2E.Engine/EngineActionKinds/) | The action kinds of the engine contract, by upstream's names, in contract order: what an engine declares in ActionKinds and PointerActionKinds. Upstream's LOCATOR_ACTION_KINDS and POINTER_ACTION_KINDS. |
+| [EngineAppCheckInfo](/api/E2E.Engine/EngineAppCheckInfo/) | Handed to ValidateApp beside the declaration (upstream's EngineAppCheckInfo). |
+| [EngineAppDeclaration](/api/E2E.Engine/EngineAppDeclaration/) | The app a target declares, as its engine reads it at config load (upstream's EngineAppDeclaration): the target's app, with the URL the target opens. The harness has checked the shape of every field before ValidateApp sees it. |
+| [EngineAppInfo](/api/E2E.Engine/EngineAppInfo/) | The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device launches. The URL itself stays with the harness. Upstream's EngineAppInfo, with the members the port's config declares. |
+| [EngineArtifactsSpec](/api/E2E.Engine/EngineArtifactsSpec/) | Upstream's artifacts hooks of an engine: the screenshot, and video started and stopped together. |
+| [EngineCleanupContext](/api/E2E.Engine/EngineCleanupContext/) | Upstream's EngineCleanupContext: the signal and the cleanup budget the harness hands an engine's cleanup hooks. |
+| [EngineDisposeContext](/api/E2E.Engine/EngineDisposeContext/) | What DisposeAsync is given: the cleanup budget of one engine's dispose, and whether it may keep what it holds for a replacement worker. Upstream's EngineDisposeContext (engine/index.ts). |
+| [EngineDoctorCheck](/api/E2E.Engine/EngineDoctorCheck/) | One finding of DoctorAsync. Upstream's EngineDoctorCheck. |
+| [EngineDoctorInfo](/api/E2E.Engine/EngineDoctorInfo/) | The facts handed to an engine's doctor (DoctorAsync), once per target in the process e2e doctor runs in. Upstream's EngineDoctorInfo; its signal is the CancellationToken of the call. |
+| [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (FinishAsync), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
+| [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
+| [EngineHandle](/api/E2E.Engine/EngineHandle/) | Upstream's engine handle (defineEngine's result, engine/manifest.ts): the validated engine with its capability set. A handle is only built by DefineEngine(EngineSpec). |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
-| [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (CancellationToken)), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
+| [EngineKeyboardSpec](/api/E2E.Engine/EngineKeyboardSpec/) | Upstream's keyboard hooks of an engine (engine/index.ts): typing, pressing, and dismissing. |
+| [EngineManifest](/api/E2E.Engine/EngineManifest/) | Upstream's defineEngine and isEngineHandle (engine/manifest.ts). The engine manifest: DefineEngine(EngineSpec) validates an engine at config load, synchronously and loudly, and computes its capability set. A combination the contract does not allow is INVALID_CONFIG, never a silent demotion to a lower tier. .NET-only holder name: C# has no free functions. |
+| [EngineNode](/api/E2E.Engine/EngineNode/) | Upstream's SemanticNode (engine/contract.ts): one node of an engine's tree. Named EngineNode because the port's IEngine already has a SemanticNode, which carries the port's own observation fields. |
+| [EngineNodeStates](/api/E2E.Engine/EngineNodeStates/) | Upstream's SemanticNode.states: the flags of a node the harness reads. |
+| [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (PrepareAsync), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
 | [EnginePrepareResult](/api/E2E.Engine/EnginePrepareResult/) | What prepare learned that the run must honour. Upstream's EnginePrepareResult. |
 | [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/) | A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes. |
-| [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to CancellationToken) once per test attempt. |
-| [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEYMODIFIERS and isKeyModifier. |
-| [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action CancellationToken) carries out on one node. |
+| [EngineSessionOptions](/api/E2E.Engine/EngineSessionOptions/) | Upstream's createEngineSession options (engine/session.ts). |
+| [EngineSessions](/api/E2E.Engine/EngineSessions/) | Upstream's createEngineSession (engine/session.ts): the engine-to-session adapter. One adapter per attempt satisfies ITargetSession over the engine contract, and is the single seam every engine call crosses. A capability the engine does not declare fails loud with UNSUPPORTED_CAPABILITY at the moment of use, a press key outside the grammar fails with INVALID_ARGUMENT before any engine sees it, and anything an engine throws that is not an EngineException is normalized to a non-retryable ENGINE_FAILURE. .NET-only holder name: C# has no free functions. |
+| [EngineSessionSpec](/api/E2E.Engine/EngineSessionSpec/) | Upstream's session hooks of an engine: opening, navigating back, resizing, restarting, and resetting the app. |
+| [EngineSnapshot](/api/E2E.Engine/EngineSnapshot/) | Upstream's EngineSnapshot (engine/index.ts): what an engine's observe returns. A snapshot with TreeUnavailable carries only the root reference and the pixels. |
+| [EngineSpec](/api/E2E.Engine/EngineSpec/) | Upstream's Engine (engine/index.ts): what an engine author declares, handed to DefineEngine(EngineSpec). Every member is optional; DefineEngine(EngineSpec) validates the combination and computes the capability set. |
+| [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to StartAsync once per test attempt. |
+| [EngineStateSpec](/api/E2E.Engine/EngineStateSpec/) | Upstream's state hooks of an engine: capturing and restoring the app's state. |
+| [EnvironmentFacts](/api/E2E.Engine/EnvironmentFacts/) | Upstream's EnvironmentFacts (engine/session.ts): what the engine said the attempt runs on, bounded to eight facts, with each name and value redacted before it is clipped. |
+| [ExpressionResolution](/api/E2E.Engine/ExpressionResolution/) | The reference locator semantics over a semantic tree, as upstream's resolveExpression in engine/resolve.ts. An engine over such a tree (a device's accessibility snapshot, an in-memory fake) calls this instead of interpreting the expression itself; an engine with a native query engine (a browser) reproduces these rules. One immediate pass, every match in document order; polling, strictness, and staleness stay with the runner. .NET-only holder name: C# has no free functions. |
+| [KeyGrammar](/api/E2E.Engine/KeyGrammar/) | .NET-only holder name (C# has no free functions): upstream's KEY_MODIFIERS, KEY_NAMES and parseKey in engine/contract.ts. The key grammar of press, shared by every engine so a test's key names are portable: zero or more modifiers and one key, joined by +. A modifier is Shift, Control, Alt, Meta, or ControlOrMeta. A named key is one of KeyNames. Any single printable character is typed as itself. The harness refuses a key outside it with INVALID_ARGUMENT (Keys.RequireKey); an engine without a grammar-valid key refuses it with UNSUPPORTED_CAPABILITY. It never reinterprets the spelling. |
+| [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEY_MODIFIERS and isKeyModifier. |
+| [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action PerformAsync carries out on one node. |
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
-| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. <code class="paramref">Modifiers</code> are held for both clicks, as for LocatorAction.Tap. |
+| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap. |
+| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto Target, a node of the same observation. |
 | [LocatorAction.Fill](/api/E2E.Engine/LocatorAction.Fill/) |  |
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
+| [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
+| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
-| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types <code class="paramref">Text</code> one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
-| [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
-| [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is CancellationToken). |
-| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. <code class="paramref">Modifiers</code> are held for the click, and only an engine that declares TapModifiers receives them. |
+| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
+| [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) | Selects one option: the one whose value or label is Text, or the one Option names by its label, its value, or its index. Exactly one of the two is set. |
+| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator resolves them from the project root. |
+| [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
+| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
+| [NodeRef](/api/E2E.Engine/NodeRef/) | Upstream's NodeRef (engine/contract.ts): a node's stable id and the revision of the observation or resolution that minted it. |
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
 | [ObservationLimits](/api/E2E.Engine/ObservationLimits/) | Limits from the engine contract. Engines cut names and text before they reach the model. |
+| [ObservationPixels](/api/E2E.Engine/ObservationPixels/) | Upstream's ObservationPixels: an encoded image of the screen with every secure field covered, and its geometry. Named apart from the port's EngineScreenshot, which carries no geometry. |
+| [ObservationRedaction](/api/E2E.Engine/ObservationRedaction/) | Upstream's Observation.redaction: the counts a capture's pixels are judged by. |
+| [ObserveOptions](/api/E2E.Engine/ObserveOptions/) | What an observation takes besides the tree. Upstream's EngineObserveOptions. |
+| [OperationContext](/api/E2E.Engine/OperationContext/) | What an engine call carries about the call itself. Upstream's OperationContext. origin, runId and attemptId are members here: upstream's signal is the CancellationToken every engine call takes, and timeoutMs is Timeout (or the per-call timeout of a read, such as ObserveAsync). |
+| [ParsedKey](/api/E2E.Engine/ParsedKey/) | Upstream's ParsedKey (engine/contract.ts): one parsed press key: its modifiers, and either a named key or a single character. |
+| [PointerAction](/api/E2E.Engine/PointerAction/) | One action PerformAtAsync carries out at a viewport point, with no node behind it: the pointer half of the action vocabulary, for a surface that has pixels and coordinates where the tree lists nothing (a canvas, a map, a desktop shell, a game), and for a test that names a point outright (Screen.TapAtAsync, Screen.SwipeAsync from one point to another, a tap's Position). The kinds are the pointer subset of LocatorAction with the same meanings; PointerAction.DragTo ends at a second point, and PointerAction.Swipe is a scroll gesture started at the point. PointerAction.SwipeTo is the one kind with no node form: the finger's path from the point to its target, a touch swipe on a device and a pointer drag on a document platform, which is distinct from PointerAction.DragTo where a platform holds before it drags. Upstream's PointerAction. |
+| [PointerAction.DoubleTap](/api/E2E.Engine/PointerAction.DoubleTap/) |  |
+| [PointerAction.DragTo](/api/E2E.Engine/PointerAction.DragTo/) |  |
+| [PointerAction.Hover](/api/E2E.Engine/PointerAction.Hover/) |  |
+| [PointerAction.LongPress](/api/E2E.Engine/PointerAction.LongPress/) | A hold. Without a duration the engine holds its own default. |
+| [PointerAction.SecondaryTap](/api/E2E.Engine/PointerAction.SecondaryTap/) |  |
+| [PointerAction.Swipe](/api/E2E.Engine/PointerAction.Swipe/) | A scroll gesture started at the point, as far as Momentum says. |
+| [PointerAction.SwipeTo](/api/E2E.Engine/PointerAction.SwipeTo/) | A drag to another point. With a duration the finger takes that long to get there. |
+| [PointerAction.Tap](/api/E2E.Engine/PointerAction.Tap/) |  |
 | [ProviderRecordContext](/api/E2E.Engine/ProviderRecordContext/) | Handed to a provider's RecordAsync, once per attempt that records video. |
 | [ProviderRecording](/api/E2E.Engine/ProviderRecording/) | A recording a provider's service makes of the browser or device it leased, as RecordAsync started it. |
 | [ProviderRecordingResult](/api/E2E.Engine/ProviderRecordingResult/) | What a stopped recording became: a file the provider wrote into the directory it was given, by name (File), or a recording its service keeps, by http(s) URL and media type (Url and MediaType). |
-| [ProviderRecordings](/api/E2E.Engine/ProviderRecordings/) | The recording seam every engine's provider shares (upstream recording.ts): a hosted browser or device service recording the attempt itself, in place of the engine's own capture. A provider's RecordAsync starts a ProviderRecording for the lease the attempt rides; CancellationToken) ends it and checks what the provider handed back, so every engine turns a recording into a VideoSegment the same way. |
-| [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to CancellationToken), once per recording. |
-| [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for CancellationToken). |
+| [ProviderRecordings](/api/E2E.Engine/ProviderRecordings/) | The recording seam every engine's provider shares (upstream recording.ts): a hosted browser or device service recording the attempt itself, in place of the engine's own capture. A provider's RecordAsync starts a ProviderRecording for the lease the attempt rides; StopProviderRecordingAsync ends it and checks what the provider handed back, so every engine turns a recording into a VideoSegment the same way. |
+| [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to StopAsync, once per recording. |
+| [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for StopProviderRecordingAsync. |
+| [ResolveExpressionOptions](/api/E2E.Engine/ResolveExpressionOptions/) | Options for ResolveExpression: upstream's ResolveExpressionOptions (engine/resolve.ts). |
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
+| [ScreenRoute](/api/E2E.Engine/ScreenRoute/) | Upstream's ScreenRoute (engine/session.ts): where the screens of an attempt go for its trace. Without a sink they are dropped, and nothing waits for them. |
 | [SemanticNode](/api/E2E.Engine/SemanticNode/) | One node of an observation tree. Ref is valid only for the observation it came from. |
+| [SessionObservation](/api/E2E.Engine/SessionObservation/) | Upstream's Observation (engine/surface.ts) as the session returns it: a semantic capture with a Tree, or a pixel-only capture with Pixels and no tree. |
+| [Timing](/api/E2E.Engine/Timing/) | Cancellation with the engine error taxonomy (upstream engine/timing.ts). |
+| [TraceViewport](/api/E2E.Engine/TraceViewport/) | Upstream's TraceViewport: the size of the viewport a capture was taken in, in CSS pixels. |
 | [VideoFile](/api/E2E.Engine/VideoFile/) | A video file in the attempt artifact directory. |
 | [VideoLink](/api/E2E.Engine/VideoLink/) | A recording a hosted service keeps, by URL: the report links to it and the runner never downloads it. |
 | [VideoSegment](/api/E2E.Engine/VideoSegment/) | One recorded video of an attempt: a file the engine wrote into the attempt artifact directory (VideoFile), or a recording a hosted service keeps and links to (VideoLink). |
 | [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/) | HTTP basic authentication the browser answers a 401 challenge with. |
 | [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/) | Attach to a remote Chromium over CDP instead of launching one. Supplying ReconnectEndpoint opts into a persistent context instead. |
-| [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium from this project's build output. |
+| [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium (or firefox, webkit) from this project's build output. |
 | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) | Options of the browser engine: how it drives the app. |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
-| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null">null</a> keeps the browser's own value, or the one an earlier call set. |
+| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
+
+## Structs
+
+| Type | Summary |
+| --- | --- |
+| [Point](/api/E2E.Engine/Point/) | A point of the viewport, in the space Rect is in and PerformAtAsync dispatches in. Upstream's ViewportPoint. |
 
 ## Interfaces
 
 | Type | Summary |
 | --- | --- |
-| [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/) | A source of hosted browsers: the seam a hosted browser service plugs into (upstream BrowserProvider). In Worker scope CancellationToken) is called once per worker slot, for every slot at once, in the runner; a worker whose browser drops calls it again, from its own process, for a replacement. In Attempt scope every attempt start calls it from the worker. CancellationToken) is called exactly once per lease, by the process that acquired it, also after an acquire of another slot failed; a worker that dies first never calls it, and CancellationToken) releases what it left. A provider must not rely on runner-process state to serve a request from a worker. Nothing here knows any vendor. |
+| [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/) | A source of hosted browsers: the seam a hosted browser service plugs into (upstream BrowserProvider). In Worker scope AcquireAsync is called once per worker slot, for every slot at once, in the runner; a worker whose browser drops calls it again, from its own process, for a replacement. In Attempt scope every attempt start calls it from the worker. ReleaseAsync is called exactly once per lease, by the process that acquired it, also after an acquire of another slot failed; a worker that dies first never calls it, and SweepAsync releases what it left. A provider must not rely on runner-process state to serve a request from a worker. Nothing here knows any vendor. |
 | [IBrowserRoute](/api/E2E.Engine/IBrowserRoute/) | One intercepted request, as an engine hands it to a route handler. The harness has already validated each decision and takes at most one. |
-| [IBrowserSession](/api/E2E.Engine/IBrowserSession/) | The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTEDCAPABILITY when the session does not implement it. The harness has already validated every argument. |
+| [IBrowserSession](/api/E2E.Engine/IBrowserSession/) | The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTED_CAPABILITY when the session does not implement it. The harness has already validated every argument. |
+| [IDisposableEngine](/api/E2E.Engine/IDisposableEngine/) | An engine with upstream's optional dispose hook (declared in engine/index.ts): worker shutdown within the cleanup budget, where the engine releases what its workers hold, or keeps the run-owned part of it when ReuseSignal is live. .NET-only name: upstream's engine has the member in the same contract as prepare and finish. |
+| [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/) | An engine with upstream's optional doctor hook (declared in engine/index.ts): what e2e doctor asks once per target, instead of starting a run. Without it the target gets one engine check with status skip. .NET-only name: upstream's Engine declares the member, and the port keeps its optional hooks in their own interfaces (IPreparableEngine), so an engine without the hook compiles unchanged. |
 | [IEngine](/api/E2E.Engine/IEngine/) | The body of one target. Core knows this contract and never an engine's internals. Version is the engine version. It is not part of the replay cache key: a recording re-finds its nodes at replay. |
 | [IEngineFixtureHost](/api/E2E.Engine/IEngineFixtureHost/) | An engine session that contributes a fixture, which the harness tells about the attempt when it starts. .NET-only: upstream's engine declares fixtures, factories the harness calls with an EngineFixtureContext; the port's session builds its own fixture (Device), so this hands it the context. |
 | [IEngineSession](/api/E2E.Engine/IEngineSession/) | One attempt's session with the app. Disposed at the end of the attempt, after afterEach. |
-| [IPreparableEngine](/api/E2E.Engine/IPreparableEngine/) | An engine with upstream's optional prepare and finish hooks (declared in engine/index.ts): what a run provisions once per target before any worker starts, such as a hosted device, and gives back after the last worker ended, so the provisioning happens once per run instead of per worker. The port has no test runner that calls them: a host that starts the engine on its own, as e2e explore and e2e mcp do, calls them around the one attempt (upstream's openStandaloneAttempt), prepare when the session opens and finish when it closes, on every path; the mobile adapters' MobileAppTest runs them once per test process. .NET-only name: upstream tests the engine handle for the members. WebEngine does not implement it, because it leases for the attempt it starts. |
+| [IPreparableEngine](/api/E2E.Engine/IPreparableEngine/) | An engine with upstream's optional prepare and finish hooks (declared in engine/index.ts): what a run provisions once per target before any worker starts, such as a hosted device, and gives back after the last worker ended, so the provisioning happens once per run instead of per worker. The run's own path calls them: Runner.RunAsync and the run fixtures of E2E.NUnit and E2E.XUnit.V3 prepare each engine once and finish it when the run ends, and a host that starts the engine on its own, as e2e explore and e2e mcp do, calls them around the one attempt (upstream's openStandaloneAttempt), prepare when the session opens and finish when it closes, on every path. .NET-only name: upstream tests the engine handle for the members. WebEngine does not implement it, because it leases for the attempt it starts. |
+| [ISessionApp](/api/E2E.Engine/ISessionApp/) | Upstream's SessionApp: the app's session hooks, each failing with UNSUPPORTED_CAPABILITY when the engine lacks it. |
+| [ISessionArtifacts](/api/E2E.Engine/ISessionArtifacts/) | Upstream's SessionArtifacts: the screenshot, and video started and stopped together when the engine declares them. |
+| [ISessionKeyboard](/api/E2E.Engine/ISessionKeyboard/) | Upstream's SessionKeyboard: typing, pressing, and dismissing for whatever holds focus. |
+| [ITargetSession](/api/E2E.Engine/ITargetSession/) | Upstream's TargetSession (engine/surface.ts): the internal session surface the harness consumes for one attempt. It is produced only by CreateEngineSession(EngineSessionOptions), the engine-to-session adapter, so revision minting, staleness checks, and capability gating exist once. |
 
 ## Enums
 
 | Type | Summary |
 | --- | --- |
+| [BrowserName](/api/E2E.Engine/BrowserName/) | A browser the engine launches (upstream BrowserName). |
 | [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/) | The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint. |
 | [BrowserProviderScope](/api/E2E.Engine/BrowserProviderScope/) | How long a lease lives. Worker (the default) is one browser per worker slot, acquired in prepare and released in finish. Attempt is a fresh browser per attempt, acquired when the attempt starts and released when it ends, reconnected through the lease's ReconnectEndpoint after a transport drop. |
 | [DialogType](/api/E2E.Engine/DialogType/) | The kind of a native dialog, independent of its message (upstream's Dialog['type']). |
 | [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/) | Capabilities the harness reads off an engine. An engine never calls a model. |
+| [EngineDoctorStatus](/api/E2E.Engine/EngineDoctorStatus/) | How one finding of an engine's doctor went. Upstream's EngineDoctorCheck.status, a union of four strings. .NET-only name: a C# union has to be a type. |
 | [KeyModifier](/api/E2E.Engine/KeyModifier/) | A key held for a click, as a Shift-click extends a selection. Upstream's KeyModifier (engine/contract.ts). ControlOrMeta is Control, or Meta on macOS. |
 | [Momentum](/api/E2E.Engine/Momentum/) | Fling strength of a swipe: how far the gesture travels. Upstream's Momentum (none, slow, fast). |
+| [OperationOrigin](/api/E2E.Engine/OperationOrigin/) | Who acts: a test's own deterministic step, or the agent acting on a screen it observed. A deterministic step verifies its outcome with expect, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. .NET-only: upstream's origin is the string union 'test' \| 'agent'. |
 | [ScrollDirection](/api/E2E.Engine/ScrollDirection/) | Which way a scroll moves the content into view. Down reveals what is below. |
 | [WebColorScheme](/api/E2E.Engine/WebColorScheme/) | The prefers-color-scheme a page reports. |
 | [WebReducedMotion](/api/E2E.Engine/WebReducedMotion/) | The prefers-reduced-motion a page reports. |

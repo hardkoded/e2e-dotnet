@@ -54,6 +54,38 @@ public sealed class AgentToolPackTests
         JsonAssert.Args("""{"app":"Reminders","platform":"ios"}""", iosHarness.Fake.LastArgs("apps.open"));
     }
 
+    // Partial: upstream also hands unstable_deviceSession an engine handle that mobile() did not return and expects INVALID_STATE. The port
+    // takes MobileEngine, so the compiler refuses that handle.
+    [Fact]
+    public async Task Partial_Hands_a_custom_tool_the_running_attempts_session_and_client()
+    {
+        var iosHarness = Harness.Create();
+        var androidHarness = Android();
+        var ios = iosHarness.Engine;
+        var android = androidHarness.Engine;
+
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+
+        var androidSession = await androidHarness.Boot("android");
+        var raw = MobileTools.UnstableDeviceSession(ios, android);
+        Assert.Equal(MobilePlatform.Android, raw.Platform);
+        Assert.Equal("e2e-android-0", raw.Session);
+        Assert.Same(androidSession.Client, raw.Client);
+
+        var iosSession = await iosHarness.Boot("ios");
+        var several = Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android));
+        Assert.Equal("INVALID_STATE", several.Code);
+        Assert.Contains("several mobile attempts", several.Message, StringComparison.Ordinal);
+
+        await iosSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        await androidSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+
+        await iosSession.DisposeAsync();
+        await androidSession.DisposeAsync();
+        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => raw.Client).Code);
+    }
+
     [Fact]
     public async Task Refuses_a_link_the_model_hands_to_open_app_before_the_device_sees_it()
     {
@@ -79,5 +111,73 @@ public sealed class AgentToolPackTests
         Assert.Contains("not a URL", tools["open_app"].Description, StringComparison.Ordinal);
         Assert.Equal("Opened com.apple.Preferences.", await Run(tools, "open_app", """{"app":"com.apple.Preferences"}"""));
         JsonAssert.Args("""{"app":"com.apple.Preferences","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
+    }
+
+    private static async Task<(Harness Harness, Func<string, Task<string>> Open)> AttemptTools(Func<MobileApp, MobileApp>? app = null, bool pinned = true)
+    {
+        var h = Harness.Create(pinned: pinned, app: app);
+        await h.Boot("ios");
+        var tools = MobileTools.Create(h.Engine);
+        return (h, input => Run(tools, "open_app", input));
+    }
+
+    [Fact]
+    public async Task Returns_to_the_app_under_test_when_open_app_names_no_app()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["appBundleId"] = "dev.e2e.benchmark" });
+        Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("{}"));
+        JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
+        Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("""{"relaunch":true}"""));
+        JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
+    }
+
+    [Fact]
+    public async Task Asks_for_an_app_when_the_target_pins_none()
+    {
+        var (h, open) = await AttemptTools(pinned: false);
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<EngineException>(() => open("{}"));
+        Assert.Equal("INVALID_STATE", failure.Code);
+        Assert.Contains("needs the app", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Points_a_name_no_installed_app_matches_at_the_app_under_test_without_CLI_advice()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(
+            DeviceMethods.AppsOpen,
+            _ => throw new AgentDeviceError(
+                "APP_NOT_INSTALLED",
+                "No app found matching \"e2eBenchmark\"",
+                new Dictionary<string, object?> { ["hint"] = "Run apps to discover the exact installed package or bundle id, or install the app before open." }));
+        var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":"e2eBenchmark"}"""));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("Omit app to return to the app under test", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run apps", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Keeps_the_device_error_when_the_app_under_test_is_not_installed()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(
+            DeviceMethods.AppsOpen,
+            _ => throw new AgentDeviceError("APP_NOT_INSTALLED", "No app found matching \"dev.e2e.benchmark\""));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => open("{}"));
+        Assert.Contains("No app found matching \"dev.e2e.benchmark\"", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Omit app", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Rejects_an_explicit_null_app_instead_of_returning_to_the_app_under_test()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":null,"relaunch":true}"""));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Equal(before, h.Fake.Calls.Count);
     }
 }

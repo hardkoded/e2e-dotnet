@@ -63,20 +63,21 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
     public async Task Spends_the_preflight_probe_from_startupTimeout_a_slow_answer_past_the_budget_is_APP_UNREACHABLE_on_time()
     {
         // A server that takes longer than the whole budget to answer: the probe must give up within it.
-        await using var server = new TestServer(async _ =>
+        var probes = 0;
+        await using var server = new TestServer(_ =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            return 200;
+            Interlocked.Increment(ref probes);
+            return Task.FromResult<int?>(null);
         });
         var app = new ManagedProcessUnderTest("app.command", ServerApp(true, TimeSpan.FromMilliseconds(300)), _dir, new Readiness(server.Url), new ManagedProcessHooks { Ci = false });
-        var startedAt = DateTime.UtcNow;
         var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
-        var elapsed = DateTime.UtcNow - startedAt;
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("within 300 ms", failure.Message, StringComparison.Ordinal);
 
-        // Well under the 2 s probe cap plus the 300 ms budget the old code would have spent back to back.
-        Assert.True(elapsed < TimeSpan.FromMilliseconds(1_500), "took " + elapsed);
+        // The probe is cut at the budget, which leaves none for the readiness wait to probe again. The old code spent the 2 s probe cap and
+        // then the whole budget again, probing a second time. Counting probes holds on a loaded runner, where a time limit does not. The
+        // server counts a request once it has read it, which a probe cut on a loaded runner can beat, so none is allowed too.
+        Assert.InRange(probes, 0, 1);
         await app.StopAsync();
     }
 }

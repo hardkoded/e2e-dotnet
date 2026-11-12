@@ -1,0 +1,121 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/ShadowDomForm.tsx.
+   A form buried in nested shadow roots: the host gets an OPEN shadow root, and inside it a wrapper gets a CLOSED one that holds the hint, the
+   input, and the submit button. Blazor cannot render into a shadow root, so the DOM is built by the script below, as upstream builds it in an
+   effect. Submission crosses the closed root as a composed CustomEvent that the light-DOM host listens for. *@
+@if (_unlocked)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">Access granted</p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">The form below lives inside a closed shadow root. Enter @AccessCode and press Submit.</p>
+        <div @ref="_host"></div>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+    </div>
+}
+
+@code {
+    private const string AccessCode = "SHADOW-42";
+
+    /// <summary>
+    /// Builds the open root, the wrapper, and the closed root with the hint, input, and button; the button dispatches a composed
+    /// <c>shadow-submit</c> event with the input's value, which the host hands to .NET. Upstream's <c>buildShadowForm</c>.
+    /// </summary>
+    private const string BuildScript = """
+        window.webBenchmarkShadowForm = {
+          build(host, callback) {
+            const openRoot = host.attachShadow({ mode: "open" });
+            const wrapper = document.createElement("div");
+            openRoot.appendChild(wrapper);
+
+            const closedRoot = wrapper.attachShadow({ mode: "closed" });
+
+            const inner = document.createElement("div");
+            inner.style.cssText = "display:flex;flex-direction:column;gap:12px;";
+
+            const hint = document.createElement("p");
+            hint.textContent = "Access code hint: SHADOW-42";
+            hint.style.cssText = "font-size:13px;color:#666;margin:0;";
+
+            const input = document.createElement("input");
+            input.placeholder = "Access code";
+            input.style.cssText = "border:1px solid #ccc;border-radius:8px;padding:10px 12px;font-size:16px;";
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = "Submit";
+            button.style.cssText =
+              "background-color:#111;color:#fff;border:none;border-radius:8px;" +
+              "padding:12px 16px;font-size:16px;font-weight:600;cursor:pointer;";
+            button.addEventListener("click", () => {
+              button.dispatchEvent(
+                new CustomEvent("shadow-submit", { bubbles: true, composed: true, detail: input.value }),
+              );
+            });
+
+            host.addEventListener("shadow-submit", (event) => {
+              callback.invokeMethodAsync("HandleShadowSubmit", event.detail);
+            });
+
+            inner.appendChild(hint);
+            inner.appendChild(input);
+            inner.appendChild(button);
+            closedRoot.appendChild(inner);
+          },
+        };
+        """;
+
+    private ElementReference _host;
+    private DotNetObjectReference<ShadowDomForm>? _callback;
+    private string? _error;
+    private bool _unlocked;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("eval", BuildScript);
+        _callback = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("webBenchmarkShadowForm.build", _host, _callback);
+    }
+
+    /// <summary>Receives the composed submit event from inside the closed root and validates the code in the light DOM.</summary>
+    [JSInvokable]
+    public void HandleShadowSubmit(string value)
+    {
+        if (value.Trim() == AccessCode)
+        {
+            _error = null;
+            _unlocked = true;
+        }
+        else
+        {
+            _error = "Wrong access code";
+        }
+
+        StateHasChanged();
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _callback?.Dispose();
+        return ValueTask.CompletedTask;
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0 0 16px;";
+}

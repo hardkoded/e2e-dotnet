@@ -5,9 +5,7 @@
 namespace E2E.Tests.LoopGuards;
 
 /// <summary>
-/// Upstream's "checkLoopGuards thresholds" and "failure streak" describes are not ported. The port fixes the thresholds
-/// and takes no caller override. Its failure-streak guard is its own, and it reads no tool result text: it counts every
-/// failed action and empty turn of the act (COMPATIBILITY, Ported).
+/// Upstream's "loop guards" describe (loop-guards.test.ts).
 /// </summary>
 public sealed class LoopGuardsTests
 {

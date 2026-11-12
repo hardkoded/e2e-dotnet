@@ -70,39 +70,39 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         var failures = new (string Name, Func<Task> Run, string[] Fragments)[]
         {
             ("toBeVisible fails on a hidden node", () => Expect.That(screen.GetByText("Hidden content")).ToBeVisibleAsync(timeout: Fast),
-                ["getByText(\"Hidden content\")", ".toBeVisible failed", "expected visible", "observed hidden (match count 1)"]),
+                ["getByText(\"Hidden content\")", ".toBeVisible failed", "expected: visible", "observed: hidden (match count 1)"]),
             ("toBeHidden fails on a visible node", () => Expect.That(screen.GetByRole("button", "Submit")).ToBeHiddenAsync(timeout: Fast),
-                ["expected hidden or absent", "observed visible (match count 1)"]),
+                ["expected: hidden or absent", "observed: visible (match count 1)"]),
             ("toBeAttached fails on a missing node", () => Expect.That(screen.GetByText("Never rendered")).ToBeAttachedAsync(timeout: Fast),
-                ["expected attached", "observed no node (match count 0)"]),
+                ["expected: attached", "observed: no node (match count 0)"]),
             ("toBeEnabled fails on a disabled node", () => Expect.That(screen.GetByRole("button", "Disabled action")).ToBeEnabledAsync(timeout: Fast),
-                ["expected enabled", "observed states: disabled"]),
+                ["expected: enabled", "observed: states: disabled"]),
             ("toBeChecked fails on an unchecked node", () => Expect.That(screen.GetByRole("checkbox", "Notifications")).ToBeCheckedAsync(timeout: Fast),
-                ["expected checked", "observed "]),
+                ["expected: checked", "observed: "]),
             ("toBeExpanded fails on a collapsed node", () => Expect.That(screen.GetByRole("button", "Menu")).ToBeExpandedAsync(timeout: Fast),
-                ["expected expanded", "observed "]),
+                ["expected: expanded", "observed: "]),
             ("toHaveText fails on other text", () => Expect.That(screen.GetByRole("heading", new RoleOptions { Level = 1 })).ToHaveTextAsync("Recent", timeout: Fast),
-                ["expected text \"Recent\"", "observed text \"Dashboard\""]),
+                ["expected: text \"Recent\"", "observed: text \"Dashboard\""]),
             ("toContainText fails on absent text", () => Expect.That(screen.GetByTestId("card")).ToContainTextAsync("footer", timeout: Fast),
-                ["expected text containing \"footer\"", "observed text \"Card body\""]),
+                ["expected: text containing \"footer\"", "observed: text \"Card body\""]),
             ("toHaveValue fails on a node without a value", () => Expect.That(screen.GetByRole("heading", new RoleOptions { Level = 1 })).ToHaveValueAsync("Dashboard", timeout: Fast),
-                ["expected value \"Dashboard\"", "observed no value (not a form control)"]),
+                ["expected: value \"Dashboard\"", "observed: no value (not a form control)"]),
             ("toHaveValue never normalizes the value", () => Expect.That(screen.GetByLabel("Notes")).ToHaveValueAsync("line1 line2", timeout: Fast),
-                ["observed value \"line1\\n\\nline2  \""]),
+                ["observed: value \"line1\\n\\nline2  \""]),
             ("toHaveAttribute fails on an absent attribute", () => Expect.That(screen.GetByTestId("card")).ToHaveAttributeAsync("hidden", timeout: Fast),
-                ["expected attribute \"hidden\"", "observed attribute \"hidden\" absent"]),
+                ["expected: attribute \"hidden\"", "observed: attribute \"hidden\" absent"]),
             ("toHaveAttribute fails on another value", () => Expect.That(screen.GetByTestId("card")).ToHaveAttributeAsync("data-state", "closed", timeout: Fast),
-                ["expected attribute \"data-state\" \"closed\"", "observed attribute \"data-state\" \"open\""]),
+                ["expected: attribute \"data-state\" \"closed\"", "observed: attribute \"data-state\" \"open\""]),
             ("toHaveAccessibleName fails on another name", () => Expect.That(screen.GetByRole("list", "Todos")).ToHaveAccessibleNameAsync("Done", timeout: Fast),
-                ["expected accessible name \"Done\"", "observed accessible name \"Todos\""]),
+                ["expected: accessible name \"Done\"", "observed: accessible name \"Todos\""]),
             ("toHaveCount fails on another count", () => Expect.That(screen.GetByTestId("todo")).ToHaveCountAsync(2, timeout: Fast),
-                ["expected count 2", "observed count 3 (match count 3)"]),
+                ["expected: count 2", "observed: count 3 (match count 3)"]),
             ("the list form of toHaveText fails on a shorter list", () => Expect.That(screen.GetByTestId("todo")).ToHaveTextAsync(["Write spec", "Ship runner"], timeout: Fast),
-                ["expected text [\"Write spec\", \"Ship runner\"]", "observed text [\"Write spec\", \"Ship runner\", \"Release\"] (match count 3)"]),
+                ["expected: text [\"Write spec\", \"Ship runner\"]", "observed: text [\"Write spec\", \"Ship runner\", \"Release\"] (match count 3)"]),
             ("the negated list form of toContainText fails when one match contains the entry", () => Expect.That(screen.GetByTestId("todo")).Not.ToContainTextAsync(["runner"], timeout: Fast),
-                [".not.toContainText failed", "expected not text containing [\"runner\"]"]),
+                [".not.toContainText failed", "expected: not text containing [\"runner\"]"]),
             ("a negated matcher fails while the condition holds", () => Expect.That(screen.GetByRole("button", "Submit")).Not.ToBeVisibleAsync(timeout: Fast),
-                [".not.toBeVisible failed", "expected not visible", "observed visible (match count 1)"]),
+                [".not.toBeVisible failed", "expected: not visible", "observed: visible (match count 1)"]),
         };
 
         foreach (var (name, run, fragments) in failures)
@@ -158,7 +158,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         watch.Restart();
         var ambiguous = await Assert.ThrowsAsync<TestException>(() => Expect.That(screen.GetByText("Duplicated")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(250)));
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(250), watch.Elapsed.ToString());
-        Assert.Equal("STRICT_MODE", ambiguous.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", ambiguous.Code);
         Assert.Contains("getByText(\"Duplicated\")", ambiguous.Message, StringComparison.Ordinal);
         Assert.Contains("(match count 2)", ambiguous.Message, StringComparison.Ordinal);
         Assert.Equal(2, ambiguous.Details?.Matches);

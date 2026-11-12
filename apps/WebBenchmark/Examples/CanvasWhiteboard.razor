@@ -1,0 +1,324 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/CanvasWhiteboard.tsx.
+   ADVERSARIAL: a Figma/Excalidraw style whiteboard where the whole app - toolbar, shapes, drop slots, and status - is painted onto one
+   aria-hidden canvas. There is no DOM to query and clicks alone do nothing to the shapes. The agent must visually locate the blue
+   rectangle and the orange circle, drag each onto its matching dashed slot with real pointer press-move-release sequences at pixel
+   coordinates, and then click the painted Save button. Wrong or missed drops send the shape back to the shelf. Success exists only in
+   pixels: the painted "Design saved" banner.
+   The painting and pointer capture are done by the page script installed below (a .NET port has no canvas API, and capture must be set
+   inside the browser's own pointerdown). *@
+@inject IJSRuntime JS
+<div style="@Container">
+    <canvas @ref="_canvas" width="640" height="440" aria-hidden="true" role="presentation" style="@CanvasStyle"
+            @onpointerdown="HandlePointerDown" @onpointermove="HandlePointerMove" @onpointerup="HandlePointerUp"
+            @onpointercancel="HandlePointerCancel"></canvas>
+</div>
+
+@code {
+    private const int CanvasWidth = 640;
+    private const int CanvasHeight = 440;
+    private const int ToolbarHeight = 56;
+    private static readonly Rect SaveButton = new(516, 12, 108, 32);
+
+    private static readonly Size RectSize = new(90, 70);
+    private static readonly Point RectHome = new(60, 130);
+    private static readonly Point RectSlot = new(430, 130);
+
+    private const int CircleRadius = 40;
+    private static readonly Point CircleHome = new(105, 320);
+    private static readonly Point CircleSlot = new(475, 320);
+
+    /// <summary>
+    /// The page script (upstream's canvas painting, rect read, and pointer capture, as .NET-only glue). Capture is set by a listener on the
+    /// canvas itself, so it happens in the browser during the press, the way upstream's setPointerCapture does.
+    /// </summary>
+    private const string PageScript = """
+        window.__benchPaint = (canvas, ops) => {
+          const context = canvas.getContext("2d");
+          for (const op of ops) {
+            if (op.set) Object.assign(context, op.set);
+            else context[op.call](...op.args);
+          }
+        };
+        window.__benchRect = (element) => {
+          const box = element.getBoundingClientRect();
+          return { left: box.left, top: box.top, width: box.width, height: box.height };
+        };
+        window.__benchCapture = (root, selector) => {
+          root.addEventListener("pointerdown", (event) => {
+            event.target.closest(selector)?.setPointerCapture(event.pointerId);
+          });
+        };
+        """;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string CanvasStyle = "width: 640px; max-width: 100%; border: 1px solid #ccc; border-radius: 8px; touch-action: none;";
+
+    private ElementReference _canvas;
+    private BoxRect? _box;
+    private DragInfo? _drag;
+    private Point _rectPos = RectHome;
+    private Point _circleCenter = CircleHome;
+    private bool _rectPlaced;
+    private bool _circlePlaced;
+    private bool _saved;
+    private Message _message = Message.Idle;
+
+    private enum Message { Idle, WrongSlot, Missed, Incomplete }
+
+    private enum ShapeName { Rect, Circle }
+
+    private readonly record struct Point(double X, double Y);
+
+    private readonly record struct Size(double Width, double Height);
+
+    private readonly record struct Rect(double X, double Y, double Width, double Height);
+
+    private sealed record BoxRect(double Left, double Top, double Width, double Height);
+
+    private sealed record DragInfo(ShapeName Shape, double OffsetX, double OffsetY);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", PageScript);
+            await JS.InvokeVoidAsync("__benchCapture", _canvas, "canvas");
+        }
+
+        _box = await JS.InvokeAsync<BoxRect>("__benchRect", _canvas);
+        await JS.InvokeVoidAsync("__benchPaint", _canvas, BuildScene());
+    }
+
+    /// <summary>Maps a pointer event from CSS pixels to canvas pixels, so hit-testing and painting share one coordinate space.</summary>
+    private Point? ToCanvasPoint(double clientX, double clientY)
+    {
+        if (_box is null)
+        {
+            return null;
+        }
+
+        return new Point((clientX - _box.Left) * CanvasWidth / _box.Width, (clientY - _box.Top) * CanvasHeight / _box.Height);
+    }
+
+    /// <summary>Hit-tests the unplaced shapes and starts a drag, remembering the grab offset so the shape does not jump under the pointer.</summary>
+    private void HandlePointerDown(PointerEventArgs args)
+    {
+        if (_saved)
+        {
+            return;
+        }
+
+        if (ToCanvasPoint(args.ClientX, args.ClientY) is not { } point)
+        {
+            return;
+        }
+
+        if (!_circlePlaced && double.Hypot(point.X - _circleCenter.X, point.Y - _circleCenter.Y) <= CircleRadius)
+        {
+            _drag = new DragInfo(ShapeName.Circle, point.X - _circleCenter.X, point.Y - _circleCenter.Y);
+        }
+        else if (!_rectPlaced && point.X >= _rectPos.X && point.X <= _rectPos.X + RectSize.Width
+                 && point.Y >= _rectPos.Y && point.Y <= _rectPos.Y + RectSize.Height)
+        {
+            _drag = new DragInfo(ShapeName.Rect, point.X - _rectPos.X, point.Y - _rectPos.Y);
+        }
+        else
+        {
+            return;
+        }
+
+        _message = Message.Idle;
+    }
+
+    /// <summary>Moves the grabbed shape with the pointer.</summary>
+    private void HandlePointerMove(PointerEventArgs args)
+    {
+        if (_drag is null || ToCanvasPoint(args.ClientX, args.ClientY) is not { } point)
+        {
+            return;
+        }
+
+        if (_drag.Shape == ShapeName.Rect)
+        {
+            _rectPos = new Point(point.X - _drag.OffsetX, point.Y - _drag.OffsetY);
+        }
+        else
+        {
+            _circleCenter = new Point(point.X - _drag.OffsetX, point.Y - _drag.OffsetY);
+        }
+    }
+
+    /// <summary>
+    /// Finishes a drag by hit-testing the shape center against the slots - snapping into the matching slot, bouncing back off the wrong slot
+    /// or a miss - and, when no drag is in flight, treats the release as a click on the painted Save button.
+    /// </summary>
+    private void HandlePointerUp(PointerEventArgs args)
+    {
+        if (ToCanvasPoint(args.ClientX, args.ClientY) is not { } point)
+        {
+            return;
+        }
+
+        var drag = _drag;
+        _drag = null;
+        if (drag is null)
+        {
+            HandleSaveAttempt(point);
+            return;
+        }
+
+        if (drag.Shape == ShapeName.Rect)
+        {
+            var center = new Point(_rectPos.X + RectSize.Width / 2, _rectPos.Y + RectSize.Height / 2);
+            if (IsInsideRectSlot(center))
+            {
+                _rectPos = RectSlot;
+                _rectPlaced = true;
+                return;
+            }
+
+            if (_rectPos == RectHome)
+            {
+                return;
+            }
+
+            _rectPos = RectHome;
+            _message = IsInsideCircleSlot(center) ? Message.WrongSlot : Message.Missed;
+            return;
+        }
+
+        if (IsInsideCircleSlot(_circleCenter))
+        {
+            _circleCenter = CircleSlot;
+            _circlePlaced = true;
+            return;
+        }
+
+        if (_circleCenter == CircleHome)
+        {
+            return;
+        }
+
+        var circleAt = _circleCenter;
+        _circleCenter = CircleHome;
+        _message = IsInsideRectSlot(circleAt) ? Message.WrongSlot : Message.Missed;
+    }
+
+    private void HandlePointerCancel(PointerEventArgs args) => _drag = null;
+
+    /// <summary>Completes the design on Save once both shapes sit in their slots; otherwise it explains what is left.</summary>
+    private void HandleSaveAttempt(Point point)
+    {
+        if (_saved)
+        {
+            return;
+        }
+
+        var inSaveButton = point.X >= SaveButton.X && point.X <= SaveButton.X + SaveButton.Width
+                           && point.Y >= SaveButton.Y && point.Y <= SaveButton.Y + SaveButton.Height;
+        if (!inSaveButton)
+        {
+            return;
+        }
+
+        if (!_rectPlaced || !_circlePlaced)
+        {
+            _message = Message.Incomplete;
+            return;
+        }
+
+        _saved = true;
+    }
+
+    /// <summary>True when the point sits inside the dashed rectangle slot.</summary>
+    private static bool IsInsideRectSlot(Point point) =>
+        point.X >= RectSlot.X && point.X <= RectSlot.X + RectSize.Width && point.Y >= RectSlot.Y && point.Y <= RectSlot.Y + RectSize.Height;
+
+    /// <summary>True when the point sits inside the dashed circle slot.</summary>
+    private static bool IsInsideCircleSlot(Point point) => double.Hypot(point.X - CircleSlot.X, point.Y - CircleSlot.Y) <= CircleRadius;
+
+    private static string MessageText(Message message) => message switch
+    {
+        Message.WrongSlot => "Wrong slot - shape returned to the shelf",
+        Message.Missed => "Missed the slot - shape returned to the shelf",
+        Message.Incomplete => "Place both shapes before saving",
+        _ => "",
+    };
+
+    /// <summary>Upstream's redraw: repaints the whole whiteboard from state.</summary>
+    private object[] BuildScene()
+    {
+        var placedCount = (_rectPlaced ? 1 : 0) + (_circlePlaced ? 1 : 0);
+        var saveActive = _rectPlaced && _circlePlaced && !_saved;
+        var ops = new List<object>
+        {
+            Call("clearRect", 0, 0, CanvasWidth, CanvasHeight),
+            Set("fillStyle", "#fff"),
+            Call("fillRect", 0, 0, CanvasWidth, CanvasHeight),
+            Set("fillStyle", "#f4f4f4"),
+            Call("fillRect", 0, 0, CanvasWidth, ToolbarHeight),
+            Set("strokeStyle", "#ddd"),
+            Call("setLineDash", new object[] { Array.Empty<int>() }),
+            Call("beginPath"),
+            Call("moveTo", 0, ToolbarHeight),
+            Call("lineTo", CanvasWidth, ToolbarHeight),
+            Call("stroke"),
+            Set("fillStyle", "#111"),
+            Set("font", "700 18px sans-serif"),
+            Set("textAlign", "left"),
+            Call("fillText", "TA Whiteboard", 16, 35),
+            Set("fillStyle", saveActive ? "#2563eb" : "#ddd"),
+            Call("beginPath"),
+            Call("roundRect", SaveButton.X, SaveButton.Y, SaveButton.Width, SaveButton.Height, 6),
+            Call("fill"),
+            Set("fillStyle", saveActive ? "#fff" : "#888"),
+            Set("font", "600 14px sans-serif"),
+            Set("textAlign", "center"),
+            Call("fillText", _saved ? "Saved" : $"Save ({placedCount}/2)", SaveButton.X + SaveButton.Width / 2, SaveButton.Y + 21),
+            Set("fillStyle", "#111"),
+            Set("font", "600 15px sans-serif"),
+            Set("textAlign", "center"),
+            Call("fillText", "Drag each shape into its matching dashed slot, then press Save", CanvasWidth / 2, 88),
+            Call("setLineDash", new object[] { new[] { 6, 4 } }),
+            Set("lineWidth", 2),
+            Set("strokeStyle", _rectPlaced ? "#0a0" : "#888"),
+            Call("strokeRect", RectSlot.X, RectSlot.Y, RectSize.Width, RectSize.Height),
+            Set("strokeStyle", _circlePlaced ? "#0a0" : "#888"),
+            Call("beginPath"),
+            Call("arc", CircleSlot.X, CircleSlot.Y, CircleRadius, 0, Math.PI * 2),
+            Call("stroke"),
+            Call("setLineDash", new object[] { Array.Empty<int>() }),
+            Set("lineWidth", 1),
+            Set("fillStyle", "#2563eb"),
+            Call("fillRect", _rectPos.X, _rectPos.Y, RectSize.Width, RectSize.Height),
+            Set("fillStyle", "#ea580c"),
+            Call("beginPath"),
+            Call("arc", _circleCenter.X, _circleCenter.Y, CircleRadius, 0, Math.PI * 2),
+            Call("fill"),
+        };
+
+        if (_saved)
+        {
+            ops.Add(Set("fillStyle", "#0a0"));
+            ops.Add(Set("font", "600 22px sans-serif"));
+            ops.Add(Set("textAlign", "center"));
+            ops.Add(Call("fillText", "Design saved", CanvasWidth / 2, 424));
+        }
+        else if (_message != Message.Idle)
+        {
+            ops.Add(Set("fillStyle", "#c00"));
+            ops.Add(Set("font", "600 15px sans-serif"));
+            ops.Add(Set("textAlign", "center"));
+            ops.Add(Call("fillText", MessageText(_message), CanvasWidth / 2, 424));
+        }
+
+        return ops.ToArray();
+    }
+
+    /// <summary>A canvas property assignment for the page script to apply.</summary>
+    private static object Set(string property, object value) => new { set = new Dictionary<string, object> { [property] = value } };
+
+    /// <summary>A canvas method call for the page script to make.</summary>
+    private static object Call(string method, params object[] args) => new { call = method, args };
+}

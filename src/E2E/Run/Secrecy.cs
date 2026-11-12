@@ -18,13 +18,14 @@ internal static class Secrecy
     public static bool RedactsDownloads(Redactor ledger) => !ledger.IsEmpty;
 
     /// <summary>
-    /// The plaintext of one secret an engine option carries. The value joins <paramref name="ledger"/> before it is
-    /// returned, so it is redacted from the moment it exists, whoever it is handed to.
+    /// The plaintext of one secret an engine option carries, a provider's value computed fresh. The value joins <paramref name="ledger"/>
+    /// before it is returned, so it is redacted from the moment it exists, whoever it is handed to. Upstream's <c>resolveSecretValue</c>.
     /// </summary>
-    public static string ResolveSecretValue(Secret secret, ICollection<(string Name, string Value)> ledger)
+    public static async Task<string> ResolveSecretValueAsync(Secret secret, ICollection<(string Name, string Value)> ledger, CancellationToken cancellationToken)
     {
-        Register(ledger, secret.Name, secret.Value);
-        return secret.Value;
+        var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
+        Register(ledger, resolved.Name, resolved.Value);
+        return resolved.Value;
     }
 
     /// <summary>
@@ -48,12 +49,3 @@ internal static class Secrecy
         }
     }
 }
-
-/// <summary>What a saved session carries of the secrecy of the attempt that saved it (upstream's <c>SavedSecrecy</c>, <c>run/secrecy.ts</c>).</summary>
-/// <param name="Secrets">
-/// Name and value pairs the saving session learned beyond the static config values; they travel only inside the encrypted payload.
-/// </param>
-/// <param name="Tainted">
-/// Whether a secret was filled on the saving session, so its viewport, and any state restored from it, may carry one.
-/// </param>
-internal sealed record SavedSecrecy(IReadOnlyList<(string Name, string Value)> Secrets, bool Tainted);

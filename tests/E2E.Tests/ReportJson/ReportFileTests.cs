@@ -74,6 +74,31 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Names_the_test_of_a_result_by_its_class_and_method_so_every_row_of_a_parameterized_test_is_one_test()
+    {
+        foreach (var title in new[] { "App.Tests.CartTests.Pays(1)", "App.Tests.CartTests.Pays(2)" })
+        {
+            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+            {
+                Engine = new ReportEngine(),
+                TestTitle = title,
+                TestFile = "App.Tests.CartTests",
+                TestMethod = "Pays",
+                BaseUrl = "http://127.0.0.1:4100",
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = Results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            });
+            session.Complete();
+        }
+
+        var results = Read()["run"]!["results"]!.AsArray();
+        Assert.Equal(2, results.Count);
+        Assert.All(results, result => Assert.Equal(E2E.Internal.Ids.TestId("App.Tests.CartTests", ["Pays"]), (string)result!["testId"]!));
+    }
+
+    [Fact]
     public async Task Writes_the_document_when_the_mode_keeps_no_trace_and_the_test_passes()
     {
         await using (var session = await StartAsync("quiet > passes", 1, RecordingMode.Off))
@@ -100,6 +125,119 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal("skipped", (string)result["status"]!);
         Assert.Equal("not on this platform", (string)result["skip"]!["reason"]!);
         Assert.Null(result["attempts"]![0]!["error"]);
+    }
+
+    [Fact]
+    public async Task Tells_what_the_filters_left_out_beside_the_tests_that_ran()
+    {
+        var leftOut = ReportBuilders.Result(id: new string('b', 64)) with
+        {
+            File = "tests/Login/LoginTests.cs",
+            Selected = false,
+            Status = ResultStatus.Skipped,
+            Skip = new ReportSkip("filtered", "tests/Login/LoginTests.cs did not change", "changed-files"),
+            Attempts = [],
+        };
+        var selection = new HostSelection(
+            new Dictionary<string, string> { ["Login"] = "tests/Login/LoginTests.cs did not change" },
+            [leftOut],
+            [new ReportFilter("changed-files", 2, 1)],
+            new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+
+        // Only the left-out tests are known: the run has its document before any test starts.
+        var digest = new string('c', 64);
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest });
+        var before = Read()["run"]!;
+        Assert.Equal(digest, (string)before["project"]!["configDigest"]!);
+        Assert.Equal("skipped", (string)before["results"]![0]!["status"]!);
+        Assert.Equal("filtered", (string)before["results"]![0]!["skip"]!["cause"]!);
+        Assert.Equal("changed-files", (string)before["results"]![0]!["skip"]!["filter"]!);
+        Assert.False((bool)before["results"]![0]!["selected"]!);
+        Assert.Equal(0, (int)before["summary"]!["selected"]!);
+
+        await using (var session = await StartAsync("shop > browses", 1))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("passed", (string)run["status"]!);
+        Assert.Equal(2, run["results"]!.AsArray().Count);
+        Assert.Equal(1, (int)run["summary"]!["selected"]!);
+        Assert.Equal(digest, (string)run["project"]!["configDigest"]!);
+        Assert.Equal("changed-files", (string)run["filters"]![0]!["name"]!);
+        Assert.Equal(1, (int)run["filters"]![0]!["excluded"]!);
+        Assert.Equal(1, (int)run["changes"]!["files"]!);
+        Assert.Equal("document", (string)run["targets"]![0]!["platform"]!);
+        Assert.Single(run["targets"]!.AsArray());
+    }
+
+    [Fact]
+    public async Task Keeps_one_target_when_the_session_runs_on_a_target_the_left_out_tests_did_not_name()
+    {
+        var leftOut = ReportBuilders.Result(id: new string('c', 64)) with
+        {
+            File = "tests/Login/LoginTests.cs",
+            TargetId = "web",
+            Selected = false,
+            Status = ResultStatus.Skipped,
+            Skip = new ReportSkip("filtered", "did not change", "changed-files"),
+            Attempts = [],
+        };
+        var selection = new HostSelection(new Dictionary<string, string>(), [leftOut], [new ReportFilter("changed-files", 2, 1)], new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+
+        // The config calls the target "web"; the session runs on "document".
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null)), _output, Results);
+        await using (var session = await StartAsync("shop > browses", 1))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        var run = Read()["run"]!;
+        var target = Assert.Single(run["targets"]!.AsArray())!;
+        Assert.Equal("document", (string)target["id"]!);
+        Assert.All(run["results"]!.AsArray(), result => Assert.Equal("document", (string)result!["targetId"]!));
+        Assert.Equal(2, run["results"]!.AsArray().Count);
+    }
+
+    [Fact]
+    public async Task Carries_the_config_digest_of_a_session_into_the_run_document()
+    {
+        var digest = new string('d', 64);
+        await using (var session = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest }))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        Assert.Equal(digest, (string)Read()["run"]!["project"]!["configDigest"]!);
+
+        // A later session that holds no config leaves the digest the run has.
+        await using (var other = await StartAsync("shop > browses", 1))
+        {
+            await other.App.OpenAsync("/");
+            other.Complete();
+        }
+
+        Assert.Equal(digest, (string)Read()["run"]!["project"]!["configDigest"]!);
+    }
+
+    [Fact]
+    public async Task Keeps_the_digest_of_a_session_when_the_left_out_tests_come_after_it()
+    {
+        var session = new string('d', 64);
+        await using (var started = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = session }))
+        {
+            await started.App.OpenAsync("/");
+            started.Complete();
+        }
+
+        var selection = new HostSelection(new Dictionary<string, string>(), [], [], null);
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = new string('c', 64) });
+
+        Assert.Equal(session, (string)Read()["run"]!["project"]!["configDigest"]!);
     }
 
     [Fact]
@@ -140,6 +278,149 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal((ReportRunStatus.Error, 2), ReportFile.StatusOf([failed, configuration]));
         Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([configuration, interrupted]));
         Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([]));
+    }
+
+    [Fact]
+    public void Exits_130_when_the_run_was_interrupted_whatever_the_results_say()
+    {
+        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
+
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([failed], interrupted: true));
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([], interrupted: true));
+        Assert.Equal((ReportRunStatus.Failed, 1), ReportFile.StatusOf([failed]));
+    }
+
+    [Fact]
+    public async Task Exits_130_when_a_retry_after_a_failure_was_interrupted_and_keeps_the_failed_verdict()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new OperationCanceledException(), new CancellationToken(canceled: true));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
+        Assert.Equal("interrupted", (string)run["status"]!);
+        Assert.Equal(130, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Keeps_a_failure_a_failure_when_the_runner_token_is_cancelled_too()
+    {
+        await using (var failed = await StartAsync("shop > pays", 1))
+        {
+            await failed.App.OpenAsync("/");
+            failed.Complete(new TestException("TEST_FAILED", "The test failed."), new CancellationToken(canceled: true));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Does_not_exit_130_for_a_cancellation_the_user_did_not_ask_for()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new OperationCanceledException("an HTTP call timed out"));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Clears_the_interrupt_flag_when_a_rerun_replaces_the_interrupted_result()
+    {
+        await using (var interrupted = await StartAsync("shop > pays", 1))
+        {
+            await interrupted.App.OpenAsync("/");
+            interrupted.Complete(new OperationCanceledException(), new CancellationToken(canceled: true));
+        }
+
+        Assert.Equal(130, (int)Read()["run"]!["exitCode"]!);
+
+        await using (var rerun = await StartAsync("shop > pays", 1))
+        {
+            await rerun.App.OpenAsync("/");
+            rerun.Complete();
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("passed", (string)run["status"]!);
+        Assert.Equal(0, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Reads_a_cancellation_by_the_session_test_timeout_as_timed_out()
+    {
+        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new ReportEngine(),
+            TestTitle = "shop > slow",
+            BaseUrl = "http://127.0.0.1:4100",
+            ProjectRoot = ProjectRoot(),
+            ResultsDirectory = Results,
+            CacheEnabled = false,
+            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            TestTimeout = TimeSpan.FromMilliseconds(100),
+        }))
+        {
+            var token = session.Context.CancellationToken;
+            var timedOut = new TaskCompletionSource();
+            using var registration = token.Register(() => timedOut.TrySetResult());
+            await timedOut.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            session.Complete(new OperationCanceledException(token));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Does_not_exit_130_for_a_retry_that_timed_out()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new TestException("TEST_TIMEOUT", "too slow"));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
+    {
+        var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
+        var passed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup])]);
+
+        Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([passed]));
     }
 
     [Fact]
@@ -215,9 +496,10 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal("a\uFFFDb😀\uFFFD", ReportWire.Clip("a\uD800b😀\uDC00", 20));
     }
 
-    private Task<E2ESession> StartAsync(string title, int attempt, RecordingMode mode = RecordingMode.RetainOnFailure) =>
+    private Task<E2ESession> StartAsync(string title, int attempt, RecordingMode mode = RecordingMode.RetainOnFailure, ResolvedConfig? config = null) =>
         E2ESession.StartAsync(new E2ESessionOptions
         {
+            Config = config,
             Engine = new ReportEngine(),
             TestTitle = title,
             BaseUrl = "http://127.0.0.1:4100",

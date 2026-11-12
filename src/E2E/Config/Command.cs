@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
 
@@ -159,6 +160,53 @@ internal static partial class Command
         }
     }
 
+    /// <summary>A command as it enters the config digest (upstream's <c>digestCommand</c>): the env values reduced to their names.</summary>
+    public static JsonObject DigestCommand(CommandConfig command)
+    {
+        var digest = new JsonObject { ["executable"] = command.Executable };
+        if (command.Args is not null)
+        {
+            digest["args"] = new JsonArray([.. command.Args.Select(arg => (JsonNode?)JsonValue.Create(arg))]);
+        }
+
+        if (command.Cwd is not null)
+        {
+            digest["cwd"] = command.Cwd;
+        }
+
+        if (command.Env is not null)
+        {
+            digest["env"] = new JsonObject(command.Env.Keys.Select(key => KeyValuePair.Create(key, (JsonNode?)new JsonObject { ["envName"] = key })));
+        }
+
+        if (command.InheritEnv is not null)
+        {
+            digest["inheritEnv"] = new JsonArray([.. command.InheritEnv.Select(name => (JsonNode?)JsonValue.Create(name))]);
+        }
+
+        if (command.StartupTimeout is { } startup)
+        {
+            digest["startupTimeout"] = (long)startup.TotalMilliseconds;
+        }
+
+        if (command.ShutdownTimeout is { } shutdown)
+        {
+            digest["shutdownTimeout"] = (long)shutdown.TotalMilliseconds;
+        }
+
+        if (command.Log is not null)
+        {
+            digest["log"] = command.Log;
+        }
+
+        if (command.ReuseExisting is { } reuse)
+        {
+            digest["reuseExisting"] = reuse;
+        }
+
+        return digest;
+    }
+
     /// <summary>A value as the author wrote it, for messages that quote the offending input (upstream's <c>describeValue</c>).</summary>
     internal static string DescribeValue(JsonElement value) => value.ValueKind switch
     {
@@ -220,17 +268,20 @@ internal static partial class Command
         return text;
     }
 
-    private static TimeSpan? PositiveMs(JsonElement? value, string label)
+    internal static TimeSpan? PositiveMs(JsonElement? value, string label)
     {
         if (value is not { } raw)
         {
             return null;
         }
 
-        if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetInt64(out var ms) || ms <= 0)
+        // JS numbers: `1e3` is 1000, and anything past 2^53 - 1 is not a safe integer (upstream's Number.isSafeInteger).
+        if (raw.ValueKind != JsonValueKind.Number || !raw.TryGetDouble(out var number) || !double.IsInteger(number) || Math.Abs(number) > 9007199254740991d || number <= 0)
         {
             throw Invalid(label + " must be a positive safe integer of milliseconds, got " + DescribeValue(raw));
         }
+
+        var ms = (long)number;
 
         // A .NET timer cannot wait longer than int.MaxValue milliseconds.
         return ms > MaxTimerMs

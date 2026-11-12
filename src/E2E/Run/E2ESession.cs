@@ -19,27 +19,41 @@ public sealed class E2ESession : IAsyncDisposable
 {
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
+    private readonly AttemptBudget _budget;
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
+    private IDisposable? _credentials;
+    private ResolvedConfig? _config;
     private readonly TextWriter? _debugOutput;
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
     private int _disposed;
     private ExecuteVideo? _video;
+    private SessionRecordings? _recordings;
     private TraceOutput? _trace;
+    private SessionPlan? _sessions;
     private int _evidenceTried;
     private FailureEvidence? _evidence;
     private Exception? _error;
+    private TimeSpan _testTimeout;
+
+    // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
+    private readonly List<Exception> _cleanupErrors = [];
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
     private Lazy<Report>? _report;
+    private readonly Lazy<Task<IReadOnlyList<Exception>>> _ending;
+    private Func<Task<IReadOnlyList<Exception>>>? _hostedClose;
+    private SessionEvents? _events;
 
-    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
+    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, AttemptBudget budget, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
+        _ending = new Lazy<Task<IReadOnlyList<Exception>>>(EndOnceAsync);
         _debugOutput = debugOutput;
         _errorRedaction = errorRedaction;
         _scope = scope;
         _timeout = timeout;
+        _budget = budget;
         _engine = engine;
         App = app;
         Browser = browser;
@@ -61,11 +75,38 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The engine session, for a host that drives the app without a test body.</summary>
     internal IEngineSession Engine => _engine;
 
-    /// <summary>The unique id of this attempt, the one its report names.</summary>
-    internal string AttemptId => _scope.AttemptId;
+    /// <summary>The unique id of this attempt, the one its report names. Upstream's <c>attemptId</c>.</summary>
+    public string AttemptId => _scope.AttemptId;
+
+    /// <summary>The id of the run the session belongs to: the one its report names. Upstream's <c>runId</c>.</summary>
+    public string RunId => AttemptReport.RunId;
+
+    /// <summary>The name of the target the session runs on. Upstream's <c>target</c>.</summary>
+    public string Target => _scope.TargetName;
+
+    /// <summary>
+    /// The session's fixtures, the same <see cref="TestContext"/> as <see cref="Context"/>. Upstream's <c>fixtures</c>, a <c>TestFixtures</c> that
+    /// <c>test.extend</c> can add to; the port has no <c>extend</c>, so there is no fixtures type argument.
+    /// </summary>
+    public TestContext Fixtures => Context;
+
+    /// <summary>The records of the artifacts the attempt kept, settled once the session has closed. .NET-only: upstream reads them from the report.</summary>
+    internal IReadOnlyList<Reports.ArtifactRecord> Artifacts => _scope.Attached;
+
+    /// <summary>The absolute directory of the attempt's artifacts. Upstream's <c>artifactsDir</c>.</summary>
+    public string ArtifactsDir => _scope.ArtifactsDir!;
+
+    /// <summary>
+    /// The absolute path of the session's trace page. It is written when the session closes. A session of a test framework writes it if the
+    /// trace mode keeps the attempt; a hosted one (<see cref="E2EHost.OpenSessionAsync"/>) always does, as upstream's. Upstream's <c>tracePath</c>.
+    /// </summary>
+    public string TracePath => Path.Combine(_trace!.TestDir, TracePages.TracePage);
+
+    /// <summary>The attempt's step timeline as the report tells it. Upstream's <c>steps()</c>, which returns <c>StepRecord[]</c>.</summary>
+    public IReadOnlyList<E2E.Reports.ReportStep> Steps() => [.. StepRecords.Select(StepProgressWire.Public)];
 
     /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
-    internal IReadOnlyList<StepRecord> Steps => _scope.Steps.All();
+    internal IReadOnlyList<StepRecord> StepRecords => _scope.Steps.All();
 
     /// <summary>The hook steps run in from now on; null for the test body (upstream's <c>enter</c>). A test framework's hook methods name theirs themselves.</summary>
     internal StepPhase? Phase
@@ -93,7 +134,7 @@ public sealed class E2ESession : IAsyncDisposable
     internal void Remember(IEnumerable<Secret> secrets) =>
         _scope.Remember(secrets.ToDictionary(secret => secret.Name, secret => (object?)secret, StringComparer.Ordinal));
 
-    /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and it withholds no pixels.</summary>
+    /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and a screenshot does not mask it.</summary>
     internal void Register(string name, string value) => _scope.Register(name, value);
 
     /// <summary>
@@ -133,32 +174,41 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Engine);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
+        var runLimits = ResolvedAgent.RunLimits(agents.Values);
         if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
         {
-            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys));
+            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys) + Suggestions.DidYouMean(pinned, [.. agents.Keys]));
         }
 
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
         var recording = ExecuteVideo.Plan(options);
 
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
             timeout.CancelAfter(options.TestTimeout);
+            budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
         }
+
+        // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
+        var budget = new AttemptBudget(timeout);
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
-        var attemptDir = Path.Combine(
+        var attemptDir = Path.Combine([
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
-            "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            .. ArtifactPaths.AttemptSegments(options.RerunDir, AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle), options.Attempt - 1)]);
         IEngineSession engine;
+
+        // The attempt's id is minted here, before the engine starts, so the start options and every call's context name the one id.
+        var attemptId = Guid.CreateVersion7().ToString();
 
         // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
         var screens = new SessionScreens(RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null);
         var environment = new EnvironmentFacts();
         var appLog = new AppLogRoute();
+        var events = SessionEvents.For(options, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName);
 
         // The values the engine registers while it starts, before the attempt's scope exists to take them.
         var ledger = new List<(string Name, string Value)>();
@@ -170,10 +220,17 @@ public sealed class E2ESession : IAsyncDisposable
                 launch.CancelAfter(options.LaunchTimeout);
             }
 
-            engine = await debug.Time("session.launch", () => options.Engine.StartAsync(
+            engine = EngineSession.Create(await debug.Time("session.launch", () => options.Engine.StartAsync(
                 new EngineStartOptions
                 {
                     BaseUrl = baseUrl,
+                    TargetName = options.TargetName,
+                    RunId = AttemptReport.RunId,
+                    AttemptId = attemptId,
+                    Permissions = options.Permissions,
+                    BundleId = options.BundleId,
+                    AppPath = options.AppPath,
+                    LaunchArguments = options.LaunchArguments,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
                     Env = env,
@@ -182,14 +239,23 @@ public sealed class E2ESession : IAsyncDisposable
                     Environment = environment.Push,
                     AppLog = appLog.Push,
                     Navigation = appLog.Navigated,
-                    ResolveSecret = (secret, resolve) =>
+                    ResolveSecret = async (secret, resolve) =>
                     {
-                        var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
+                        // Only a secret the engine declared in its secrets resolves (upstream's resolveEngineSecret, run/execute.ts).
+                        if (secret is null || !options.Engine.Secrets.Any(declared => string.Equals(declared.Name, secret.Name, StringComparison.Ordinal)))
+                        {
+                            var asked = secret is null ? "a value that is not a Secrets.Get handle" : "\"" + secret.Name + "\"";
+                            throw new ConfigurationException(
+                                "SECRET_UNAVAILABLE",
+                                "engine " + options.Engine.Name + " asked for secret " + asked + ", which it did not declare in its secrets");
+                        }
+
+                        var plaintext = await Secrecy.ResolveSecretValueAsync(secret, ledger, launch.Token).ConfigureAwait(false);
                         Secrecy.RegisterDerivedSecrets(secret.Name, resolve?.Derived?.Invoke(plaintext) ?? [], ledger);
-                        return Task.FromResult(plaintext);
+                        return plaintext;
                     },
                 },
-                launch.Token)).ConfigureAwait(false);
+                launch.Token)).ConfigureAwait(false), AttemptReport.RunId, attemptId);
         }
         catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
@@ -213,16 +279,62 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            var video = await ExecuteVideo.StartAsync(recording, engine, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
+            // The saved session restores before the video starts, and the values its saving session learned join the ledger the attempt starts with.
+            if (options.Sessions?.Restore is { } restoring)
+            {
+                if ((options.Engine.Capabilities & EngineCapabilities.State) == 0)
+                {
+                    throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{(string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName)}\" has no engine state capability for session restore");
+                }
+
+                // Bounded by the launch timeout, as upstream's launch step 'restoring the session' is.
+                using var restoreBudget = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
+                if (Bounded(options.LaunchTimeout))
+                {
+                    restoreBudget.CancelAfter(options.LaunchTimeout);
+                }
+
+                try
+                {
+                    var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, restoreBudget.Token).ConfigureAwait(false);
+                    ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
+                    await engine.RestoreStateAsync(saved.State, OperationContext.Test, restoreBudget.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && restoreBudget.IsCancellationRequested && !timeout.IsCancellationRequested)
+                {
+                    throw new EngineException("ENVIRONMENT_UNAVAILABLE", "Restoring the session did not finish within the launch timeout (" + options.LaunchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
+                }
+            }
+
+            var recordings = Recordings.SessionRecordings(engine, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, (options.Engine.Capabilities & EngineCapabilities.Video) != 0);
+            var video = await ExecuteVideo.StartAsync(recording, recordings, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
 
             // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
             // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
             var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
+            // Upstream's createAgentCacheContext: the store's mode and replay eligibility, and the advice a stale strict replay carries.
+            var cache = cacheOn
+                ? CacheContexts.CreateAgentCacheContext(
+                    new CacheConfig
+                    {
+                        Mode = options.CacheMode,
+                        Directory = (options.Cache as FileStepCache)?.CacheDirectory ?? Path.Combine(projectRoot, ".e2e", "cache"),
+                        Strict = options.CacheStrict,
+                        StrictSource = options.CacheStrict ? options.CacheStrictSource ?? new CacheStrictSource(true, false) : null,
+                        Store = options.Cache is FileStepCache ? null : options.Cache,
+                    },
+                    projectRoot,
+                    options.Attempt - 1)
+                : null;
             var softFailures = new SoftFailures(options.OnSoftFailure);
             var testFailed = options.TestFailed ?? (static () => false);
             var scope = new AttemptScope
             {
+                AttemptId = attemptId,
                 ArtifactsDir = attemptDir,
+                RerunDir = options.RerunDir,
+                OnProgress = events is null ? options.OnProgress : events.Progress(options.OnProgress),
+                ArtifactStore = options.ArtifactStore,
                 Session = engine,
                 Screens = screens,
                 Environment = environment,
@@ -235,23 +347,28 @@ public sealed class E2ESession : IAsyncDisposable
                 AgentName = options.Agent ?? "default",
                 Cache = options.Cache,
                 CacheEnabled = cacheOn,
-                CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
-                ReplayEligible = options.CacheStrict || options.Attempt == 1,
+                AppIdentity = options.AppIdentity!,
+                CacheWrite = cache?.Mode == CacheMode.ReadWrite,
+                ReplayEligible = cache?.ReplayEligible ?? false,
                 CacheStrict = options.CacheStrict,
+                StrictAdvice = cache?.Strict?.Advice ?? "",
                 CleanupTimeout = options.CleanupTimeout,
                 TestTitle = options.TestTitle,
                 TestFile = options.TestFile,
+                TestMethod = options.TestMethod,
                 ProjectRoot = projectRoot,
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
+                EngineName = options.Engine.Name,
                 EngineVersion = options.Engine.Version,
                 EngineCapabilities = options.Engine.Capabilities,
+                ActionKinds = engine.ActionKinds,
                 Attempt = options.Attempt,
                 ActionTimeout = options.ActionTimeout,
                 ReplayTimeout = options.ReplayTimeout,
                 StepTimeout = options.StepTimeout,
-                Token = () => timeout.Token,
+                Token = () => budget.Token,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
             foreach (var (name, value) in ledger)
@@ -260,37 +377,51 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             // A screen is read once, when its step ends, redacted with what the attempt knows by then.
-            screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, StepScreens.DefaultObservationBytes, scope.AppOrigin))));
+            screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, runLimits.MaxObservationBytes, scope.AppOrigin))));
 
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
-            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName);
-            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
+            var app = new App(engine, baseUrl, () => budget.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, SinkOf = () => scope.Artifacts?.Sink };
+            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => budget.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
+            app.OperationBudget = api => browser.OperationBudget(api);
             browser.Failed = scope.Implicate;
             browser.Attach = scope.AttachArtifact;
             var agent = new Agent(scope);
+            var locatorEngine = new LocatorEngine(new LocatorEngineOptions
+            {
+                Observe = token => scope.ObserveAsync(OperationContext.Test, token),
+                ObserveWithin = (timeout, token) => scope.ObserveAsync(timeout, OperationContext.Test, token),
+                Locate = engine.CanLocate ? (expression, timeout, token) => engine.LocateAsync(expression, timeout, OperationContext.Test, token) : null,
+                Perform = engine.PerformAsync,
+                PerformAt = engine.PerformAtAsync,
+                TypeText = engine.TypeTextAsync,
+                Cancellation = () => budget.Token,
+                ActionTimeout = options.ActionTimeout,
+                AssertionTimeout = options.AssertionTimeout,
+            });
             var screen = new Screen(
-                scope.ObserveAsync,
-                (node, action, token) => engine.PerformAsync(node, action, token),
-                () => timeout.Token,
+                locatorEngine,
                 scope.MarkVerified,
-                options.ActionTimeout,
-                options.AssertionTimeout,
                 softFailures,
-                locate: engine.CanLocate ? engine.LocateAsync : null,
-                swipe: engine.SwipeAsync);
+                (direction, momentum, token) => engine.SwipeAsync(direction, momentum, OperationContext.Test, token));
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
-            screen.Exposure = scope.Exposure;
+            screen.Capabilities = options.Engine.Capabilities;
+            screen.ActionKinds = engine.ActionKinds;
+            screen.PointerActionKinds = engine.PointerActionKinds;
+            screen.BudgetDeadline = budgetDeadline;
+            browser.BudgetDeadline = budgetDeadline;
+            screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
+            screen.RegisterSecretValue = scope.Register;
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;
-            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, StepScreens.DefaultObservationBytes);
+            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, runLimits.MaxObservationBytes);
             screen.Screenshots = scope.Screenshots = new ScreenshotContext
             {
                 ProjectRoot = projectRoot,
@@ -301,7 +432,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-                Capture = token => engine.ScreenshotAsync(token),
+                Capture = (budget, token) => engine.ScreenshotAsync(budget, OperationContext.Test, token),
             };
             var context = new TestContext
             {
@@ -313,8 +444,19 @@ public sealed class E2ESession : IAsyncDisposable
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
-            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory, options.RerunDir);
+            var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
+            try
+            {
+                var session = new E2ESession(scope, timeout, budget, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _config = options.Config, _events = events, _testTimeout = options.TestTimeout };
+                events?.Started();
+                return session;
+            }
+            catch
+            {
+                hold?.Dispose();
+                throw;
+            }
         }
         catch
         {
@@ -327,12 +469,83 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     /// <summary>
+    /// Captures the engine's state and stages it under <paramref name="name"/> with the secret values this session learned, to be saved
+    /// when the setup test passes. Upstream's <c>session.save(name)</c> fixture. Fails with <c>SESSION_CONTRACT</c> outside a setup test,
+    /// for a name the setup did not declare, or for a name saved twice, and with <c>UNSUPPORTED_CAPABILITY</c> on an engine with no
+    /// state capability. Assert that the sign-in worked before you save: the state is saved as it is.
+    /// </summary>
+    internal async Task SaveSessionAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (_sessions?.Staging is not { } staging)
+        {
+            throw new TestException("SESSION_CONTRACT", "session.save() is only available in a setup test");
+        }
+
+        if ((_scope.EngineCapabilities & EngineCapabilities.State) == 0)
+        {
+            throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{_scope.TargetName}\" has no engine state capability for session.save()");
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
+        if (Bounded(_scope.ActionTimeout))
+        {
+            linked.CancelAfter(_scope.ActionTimeout);
+        }
+
+        var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
+        staging.Stage(name, state, _scope.Learned());
+    }
+
+    /// <summary>
+    /// Ends a setup test's attempt: when it passed, fails with <c>SESSION_CONTRACT</c> if it left a declared session unsaved, and otherwise
+    /// writes each staged session to the run's store. A failed attempt saves nothing. Does nothing for a test that is not a setup test.
+    /// </summary>
+    internal async Task FinishSetupAsync(bool passed, CancellationToken cancellationToken = default)
+    {
+        if (_sessions is not { Staging: { } staging } plan || !passed)
+        {
+            return;
+        }
+
+        var missing = staging.Missing();
+        if (missing.Count > 0)
+        {
+            throw new TestException("SESSION_CONTRACT", $"setup must save each declared session exactly once; missing: [{string.Join(", ", missing)}]");
+        }
+
+        foreach (var (name, saved) in staging.Entries())
+        {
+            await plan.Store.SaveAsync(name, plan.Identity, saved, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Ends <c>expect.soft</c> collection and returns one <c>ASSERTION_FAILED</c>
     /// for every failure kept since the session started, or null. Call it when
     /// the test body settles and fail the test with the result. Later soft
     /// matchers throw as hard ones would.
     /// </summary>
     public TestException? CloseSoftFailures() => Screen.SoftFailures.Close();
+
+    /// <summary>
+    /// Collects a failure the engine holds from a path no step awaited (a route or dialog handler), within the cleanup budget, and
+    /// throws it as it was so its code is kept. An adapter calls it when the test body has settled, then again after the teardown, before
+    /// the verdict. Upstream's <c>settleAttempt</c>.
+    /// </summary>
+    public async Task SettleAttemptAsync(CancellationToken cancellationToken = default)
+    {
+        var settling = _scope.Session.SettleAttemptAsync(_scope.CleanupTimeout, OperationContext.Test, cancellationToken);
+        try
+        {
+            await (Bounded(_scope.CleanupTimeout) ? settling.WaitAsync(_scope.CleanupTimeout, cancellationToken) : settling).ConfigureAwait(false);
+        }
+        catch (TimeoutException ex) when (!settling.IsCompleted)
+        {
+            // Only the wait timing out: a TimeoutException a handler threw (a Playwright timeout) is the engine-to-session adapter's ENGINE_FAILURE, not this.
+            throw new EngineException("CLEANUP_TIMEOUT", "settling the attempt timed out", ex);
+        }
+    }
 
     /// <summary>
     /// Writes verified acts and evicts the unverified ones this attempt recorded or
@@ -361,7 +574,109 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Enters the teardown's budget, as upstream's <c>enter('afterEach')</c> does before each teardown: the session's operations run under a
+    /// signal that follows <paramref name="interrupt"/> (the run's cancel), not the test timeout, so a body its timeout cut short can still drive
+    /// the session. The teardown's deadline is the cleanup timeout, which caps the screen and browser steps that wait on the phase.
+    /// </summary>
+    internal void EnterTeardownBudget(CancellationToken interrupt)
+    {
+        _budget.Enter(interrupt);
+        var deadline = Bounded(_scope.CleanupTimeout) ? new Deadline(_scope.CleanupTimeout, TimeProvider.System) : null;
+        Screen.BudgetDeadline = deadline;
+        Browser.BudgetDeadline = deadline;
+    }
+
+    /// <summary>
+    /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>
+    /// and gives its slot back, and <see cref="DisposeAsync"/> throws what <see cref="CloseAsync"/> returns.
+    /// </summary>
+    internal void Host(Func<Task<IReadOnlyList<Exception>>> close) => _hostedClose = close;
+
+    /// <summary>
+    /// Ends the session, once, and returns what went wrong: the soft assertion failures (as one <c>ASSERTION_FAILED</c>), the steps the test
+    /// left running (<c>STEP_NOT_AWAITED</c>, whose work is cancelled), and the cleanup failures. A second call returns the same list.
+    /// Disposing a session its owner hosts throws them as an <see cref="AggregateException"/>. Upstream's <c>close()</c>, which returns
+    /// <c>SerializedError[]</c>: the port keeps the exceptions, and <see cref="E2EException.Code"/> carries the code.
+    /// </summary>
+    public Task<IReadOnlyList<Exception>> CloseAsync() => _hostedClose is { } close ? close() : EndAsync();
+
+    internal Task<IReadOnlyList<Exception>> EndAsync() => _ending.Value;
+
+    private async Task<IReadOnlyList<Exception>> EndOnceAsync()
+    {
+        var errors = new List<Exception>();
+        TestException? soft = null;
+        TestException? abandoned = null;
+        try
+        {
+            soft = CloseSoftFailures();
+            abandoned = _scope.Steps.AbandonRunning();
+        }
+#pragma warning disable CA1031 // The close result is cached, so a failure here is one of the failures it returns, never a faulted task.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+        }
+
+        foreach (var failure in new Exception?[] { soft, abandoned })
+        {
+            if (failure is not null)
+            {
+                errors.Add(failure);
+            }
+        }
+
+        if (abandoned is not null)
+        {
+            // The work the test left running stops with the session, as upstream's close cancels the operations it still holds.
+            try
+            {
+                await _budget.CancelCurrentAsync().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The session was released already.
+            }
+        }
+
+        Complete(soft ?? abandoned);
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // The session's failures are reported together, whichever step they came from.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+            CleanupFailed = true;
+        }
+
+        return errors;
+    }
+
+    /// <summary>Whether releasing the session failed: what it left may be unclean, unlike a test outcome in <see cref="CloseAsync"/>'s list.</summary>
+    internal bool CleanupFailed { get; private set; }
+
     public async ValueTask DisposeAsync()
+    {
+        if (_hostedClose is null)
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // Disposal has no result to return, so it throws the failures rather than dropping them, always as an aggregate.
+        var failures = await CloseAsync().ConfigureAwait(false);
+        if (failures.Count > 0)
+        {
+            throw new AggregateException("closing the e2e session failed: " + string.Join("; ", failures.Select(failure => failure.Message)), failures);
+        }
+    }
+
+    private async ValueTask DisposeCoreAsync()
     {
         Exception? commitFailure = null;
         try
@@ -419,17 +734,21 @@ public sealed class E2ESession : IAsyncDisposable
                 await CaptureFailureEvidenceAsync(failure).ConfigureAwait(false);
             }
 
+            // A recording the test left running is stopped and kept before the attempt's own video is collected.
+            await StopRunningRecordingAsync().ConfigureAwait(false);
+
             if (_video is not null)
             {
                 try
                 {
-                    await _video.StopAsync(_status, _scope.CleanupTimeout).ConfigureAwait(false);
+                    await _video.StopAsync(_status, _scope.CleanupTimeout, _scope.Artifacts?.Sink).ConfigureAwait(false);
                 }
 #pragma warning disable CA1031 // The engine is released first, then this is rethrown.
                 catch (Exception ex)
 #pragma warning restore CA1031
                 {
                     videoFailure = ex;
+                    _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while stopping the video", CancellationToken.None));
                 }
 
                 Videos = _video.Kept;
@@ -437,29 +756,42 @@ public sealed class E2ESession : IAsyncDisposable
 
             await _scope.Debug.Time("session.close", async () =>
             {
-                var cleanup = _engine.DisposeAsync().AsTask();
-                if (Bounded(_scope.CleanupTimeout))
+                try
                 {
-                    await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+                    var cleanup = _engine.DisposeAsync().AsTask();
+                    if (Bounded(_scope.CleanupTimeout))
+                    {
+                        await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await cleanup.ConfigureAwait(false);
+                    }
                 }
-                else
+#pragma warning disable CA1031 // Recorded for the report, then rethrown.
+                catch (Exception ex) when (ex is not TimeoutException)
+#pragma warning restore CA1031
                 {
-                    await cleanup.ConfigureAwait(false);
+                    _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while ending the attempt", CancellationToken.None));
+                    throw;
                 }
             }).ConfigureAwait(false);
         }
         catch (TimeoutException ex)
         {
-            throw new EngineException(
+            var timeout = new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
                 "The engine did not shut down within the cleanup timeout (" + _scope.CleanupTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
                 ex);
+            _cleanupErrors.Add(timeout);
+            throw timeout;
         }
         finally
         {
             _errorRedaction.Dispose();
+            _credentials?.Dispose();
             _scope.Ended.Dispose();
-            _timeout.Dispose();
+            _budget.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
             await WriteTracePageAsync().ConfigureAwait(false);
@@ -468,6 +800,36 @@ public sealed class E2ESession : IAsyncDisposable
         if (videoFailure is not null)
         {
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(videoFailure);
+        }
+    }
+
+    /// <summary>
+    /// Stops a recording the test started with <c>app.StartRecordingAsync</c> and left running, within the cleanup budget, and keeps it as
+    /// the attempt's artifact. One that cannot be finalized is a cleanup failure. Upstream's <c>stopRunningRecording</c>.
+    /// </summary>
+    private async Task StopRunningRecordingAsync()
+    {
+        if (_recordings is not { SpanRunning: true } recordings || _scope.Artifacts?.Sink is not { } sink)
+        {
+            return;
+        }
+
+        try
+        {
+            using var cleanup = new CancellationTokenSource();
+            if (Bounded(_scope.CleanupTimeout))
+            {
+                cleanup.CancelAfter(_scope.CleanupTimeout);
+            }
+
+            // Like the attempt's video, the recording belongs to the attempt: no step links it.
+            await recordings.StopSpanAsync(sink, OperationContext.Test with { Timeout = Bounded(_scope.CleanupTimeout) ? _scope.CleanupTimeout : null }, cleanup.Token).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // A recording that cannot be finalized is a cleanup failure, and the rest of the teardown goes on.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while stopping the recording", CancellationToken.None));
         }
     }
 
@@ -503,6 +865,8 @@ public sealed class E2ESession : IAsyncDisposable
                 MaxSteps = options.MaxSteps,
                 MaxModelCalls = options.MaxModelCalls,
                 JudgmentTimeout = options.JudgmentTimeout,
+                MaxObservationBytes = options.MaxObservationBytes,
+                MaxInputTokens = options.MaxInputTokens,
                 ProviderOptions = options.ProviderOptions,
                 Tools = options.AgentTools,
             }),
@@ -600,11 +964,12 @@ public sealed class E2ESession : IAsyncDisposable
         {
             _evidence = await FailureEvidence.CaptureAsync(new FailureEvidenceOptions
             {
-                Observe = token => _scope.Session.ObserveAsync(token),
+                Observe = token => _scope.Session.ObserveAsync(OperationContext.Test, token),
                 Capture = token => _scope.CaptureAsync(token),
                 Error = error,
                 Redactor = _scope.Redactor,
                 AppOrigin = _scope.AppOrigin,
+                MaxObservationBytes = ResolvedAgent.RunLimits(_scope.Agents.Values).MaxObservationBytes,
                 AttemptDir = trace.AttemptDir,
             }).ConfigureAwait(false);
         }
@@ -628,13 +993,23 @@ public sealed class E2ESession : IAsyncDisposable
         var kept = trace.Keep is { } keep && RecordingModes.Keeps(keep, _status);
         try
         {
+            // The artifacts' sizes and digests, and the hand-offs to the store, finish before the record is read.
+            await SettleArtifactsAsync().ConfigureAwait(false);
+
             // Every attempt joins its test's report, and the run's report.json tells them all.
-            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
+            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence, _cleanupErrors);
+            if (_hostedClose is not null)
+            {
+                _events?.Finished(single.Run.Results[0], trace.ResultsRoot, _scope.Redactor.Redact);
+                await WriteHostTracePageAsync(single, trace).ConfigureAwait(false);
+                return;
+            }
+
             var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
             {
-                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact).ConfigureAwait(false);
+                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact, _config).ConfigureAwait(false);
             }
 #pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -643,16 +1018,21 @@ public sealed class E2ESession : IAsyncDisposable
                 Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
             }
 
+            _events?.Finished(report.Run.Results[0], trace.ResultsRoot, redact);
             if (traced)
             {
-                await TracePages.WriteTracePagesAsync(
+                var pages = await TracePages.WriteTracePagesAsync(
                     report,
                     new HashSet<string>(StringComparer.Ordinal) { id },
                     new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
                     redact).ConfigureAwait(false);
+                foreach (var (resultId, page) in pages)
+                {
+                    ReportFile.SetTrace(trace.ResultsRoot, resultId, page);
+                }
             }
 
-            var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false);
+            var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact, _config).ConfigureAwait(false);
             Volatile.Write(ref _report, new Lazy<Report>(() => ReportSerializer.Read(document)));
 
             if (!traced && _scope.Attempt == 1)
@@ -661,6 +1041,7 @@ public sealed class E2ESession : IAsyncDisposable
                 try
                 {
                     File.Delete(Path.Combine(trace.TestDir, TracePages.TracePage));
+                    ReportFile.SetTrace(trace.ResultsRoot, id, null);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -674,12 +1055,106 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    // A hosted attempt is a test of another runner: it writes its own page, and has no report.json or retries to join.
+    private async Task WriteHostTracePageAsync(Report1Document single, TraceOutput trace)
+    {
+        var hosted = await HostTrace.WriteHostTraceAsync(new HostTraceOptions
+        {
+            Attempt = single,
+            ProjectRoot = ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot),
+            ResultsDir = trace.ResultsRoot,
+            Segments = [Path.GetFileName(trace.TestDir)],
+            TracePath = TracePath,
+            Redact = _scope.Redactor.Redact,
+        }).ConfigureAwait(false);
+        Volatile.Write(ref _report, new Lazy<Report>(() => hosted));
+    }
+
+    // A store that hangs must not hold the session: the hand-offs are bounded by the cleanup timeout, and one that is not done by then
+    // leaves its record without a ref (the store's failure is its own).
+    private async Task SettleArtifactsAsync()
+    {
+        if (_scope.CreatedArtifacts is not { } artifacts)
+        {
+            return;
+        }
+
+        using var bound = new CancellationTokenSource();
+        if (Bounded(_scope.CleanupTimeout))
+        {
+            bound.CancelAfter(_scope.CleanupTimeout);
+        }
+
+        try
+        {
+            await artifacts.SettleAsync(bound.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (bound.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("[e2e] the artifacts of " + _scope.TestTitle + " were not all stored within the cleanup timeout.");
+        }
+    }
+
     private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
+
+    /// <summary>
+    /// How the attempt ended. The caller's <paramref name="cancellationToken"/> is the user's cancel (upstream's interrupt signal), kept apart
+    /// from the verdict: a cancellation the user did not ask for (an HTTP timeout inside the test, with the token not cancelled) is a
+    /// failure, not an interrupt. A failure is never upgraded, so a timeout the framework reported as a failure stays one.
+    /// </summary>
+    private AttemptStatus StatusOf(Exception? error, CancellationToken cancellationToken)
+    {
+        var status = ExecuteVideo.StatusOf(error);
+        if (status != AttemptStatus.Interrupted || cancellationToken.IsCancellationRequested)
+        {
+            return status;
+        }
+
+        // The session's own test timeout cancels the calls the test awaits: that is a timeout, not a failure.
+        return _timeout.IsCancellationRequested ? AttemptStatus.TimedOut : AttemptStatus.Failed;
+    }
+
+    /// <summary>
+    /// The failure the attempt ends with for <paramref name="error"/>, as <see cref="Complete"/> keeps it. A cancellation nobody asked for fails the
+    /// test: left as is, its CANCELLED error would read as the interrupt category and exit 130. The session's own timeout is upstream's
+    /// <c>TestTimeoutError</c>, <c>test timed out after N ms in phase body</c>.
+    /// </summary>
+    internal Exception? VerdictOf(Exception? error, CancellationToken cancellationToken)
+    {
+        // A step the session's own timeout cut short fails with its CANCELLED error: that is the timeout.
+        if (error is E2EException { Code: "CANCELLED" } && !cancellationToken.IsCancellationRequested && _timeout.IsCancellationRequested)
+        {
+            return TimeoutFailure(error);
+        }
+
+        return VerdictOf(error, StatusOf(error, cancellationToken));
+    }
+
+    private TestException TimeoutFailure(Exception cause) =>
+        new("TEST_TIMEOUT", "test timed out after " + ((long)_testTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms in phase body", cause);
+
+    private Exception? VerdictOf(Exception? error, AttemptStatus status)
+    {
+        if (error is null || status is not (AttemptStatus.Failed or AttemptStatus.TimedOut) || ExecuteVideo.StatusOf(error) != AttemptStatus.Interrupted)
+        {
+            return error;
+        }
+
+        return status == AttemptStatus.TimedOut ? TimeoutFailure(error) : new TestException("TEST_FAILED", error.Message, error);
+    }
 
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
-        _status = ExecuteVideo.StatusOf(error);
-        _error = error;
+        _status = StatusOf(error, cancellationToken);
+        _error = VerdictOf(error, _status);
+
+        // A step the session's own timeout cut short is the timeout, as the host's hand-over reads it.
+        if (_status == AttemptStatus.Failed && VerdictOf(error, cancellationToken) is TestException { Code: "TEST_TIMEOUT" } timedOut)
+        {
+            _status = AttemptStatus.TimedOut;
+            _error = timedOut;
+        }
+
         _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {
@@ -730,10 +1205,9 @@ public sealed class E2ESession : IAsyncDisposable
                     }
                     else
                     {
-                        // A store that throws did not write the recording.
+                        // A store that throws did not write the recording, and neither did one that answers null.
                         outcome = CacheWrite.NotWritten;
-                        cache.Write(act.Key, act.Entry!);
-                        outcome = CacheWrite.Saved;
+                        outcome = cache.Write(act.Key, act.Entry!) is null ? CacheWrite.NotWritten : CacheWrite.Saved;
                     }
                 }
                 // An entry read for an act that then passed with nothing to record is evicted too: it did not serve
@@ -785,7 +1259,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // Rewriting an identical flow would only churn a committed cache directory. The model that recorded it decides nothing
-    // a replay does, so another model recording the same flow rewrites nothing.
+    // a replay does, and neither does the measured end wait, so another model recording the same flow rewrites nothing.
     private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
     {
         var existing = cache.Read(key).Entry;
@@ -800,7 +1274,18 @@ public sealed class E2ESession : IAsyncDisposable
     {
         var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
         flow.Remove("recordedBy");
+        flow.Remove("endWaitMs");
         flow.Remove("keyedBy");
+        // The rule that flagged a gap's typed value follows how the agent read the value this time. A replay stops at a gap
+        // whatever its rule, which only names the hand-off in the report (upstream's flowOf).
+        foreach (var action in flow["actions"]?.AsArray().OfType<JsonObject>() ?? [])
+        {
+            if (string.Equals((action["kind"] as JsonValue)?.TryGetValue<string>(out var kind) == true ? kind : null, "tool", StringComparison.Ordinal))
+            {
+                action.Remove("derived");
+            }
+        }
+
         return flow.ToJsonString();
     }
 }
@@ -809,6 +1294,12 @@ public sealed class E2ESession : IAsyncDisposable
 public sealed class E2ESessionOptions
 {
     public required IEngine Engine { get; init; }
+
+    /// <summary>The config's accounts, which <see cref="E2E.Credentials.User"/> resolves while the session runs. A fixture passes <c>Config.Credentials</c>.</summary>
+    internal IReadOnlyDictionary<string, ResolvedCredential>? Credentials { get; init; }
+
+    /// <summary>The resolved config the session runs under, whose digest every report it writes carries as <c>project.configDigest</c> (upstream's <c>config</c> of <c>buildReport</c>). A fixture passes <c>HostTestFilters.Resolve</c> of its config.</summary>
+    internal ResolvedConfig? Config { get; init; }
 
     /// <summary>The default agent's model.</summary>
     public IAgentModel? Model { get; init; }
@@ -831,6 +1322,12 @@ public sealed class E2ESessionOptions
     /// <summary>The default agent's <c>judgmentTimeout</c>: the deadline of one <c>assert</c>, <c>waitFor</c>, or <c>extract</c>.</summary>
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
 
+    /// <summary>The default agent's <c>maxObservationBytes</c>. See <see cref="AgentOptions.MaxObservationBytes"/>.</summary>
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
+
+    /// <summary>The default agent's <c>maxInputTokens</c>. See <see cref="AgentOptions.MaxInputTokens"/>.</summary>
+    public int MaxInputTokens { get; init; } = E2EDefaults.MaxInputTokens;
+
     /// <summary>The default agent's provider options, keyed by provider. See <see cref="ModelRequest.ProviderOptions"/>.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
@@ -848,10 +1345,38 @@ public sealed class E2ESessionOptions
 
     public string? BaseUrl { get; init; }
 
+    /// <summary>The target's <c>app.permissions</c>: what the engine grants the app. Upstream's <c>EngineAppInfo.permissions</c>.</summary>
+    public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
+    /// <summary>The target's <c>app.bundleId</c>, handed to the engine as <see cref="EngineStartOptions.BundleId"/>.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>The target's <c>app.appPath</c>, handed to the engine as <see cref="EngineStartOptions.AppPath"/>.</summary>
+    public string? AppPath { get; init; }
+
+    /// <summary>The target's <c>app.launchArguments</c>, handed to the engine as <see cref="EngineStartOptions.LaunchArguments"/>.</summary>
+    public IReadOnlyList<string>? LaunchArguments { get; init; }
+
     /// <summary>Anchors the files a test names, such as a route's fulfill <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }
 
     public IStepCache? Cache { get; init; }
+
+    /// <summary>
+    /// Where artifacts go besides the results directory (upstream's <c>artifacts.store</c>): every artifact the attempt registers, a
+    /// download or a video, is handed to the store as it is produced, and the store's reference is recorded as the artifact's <c>ref</c>.
+    /// Null keeps files local only. The automatic failure screen text and screenshot are not handed over yet.
+    /// </summary>
+    public IArtifactStore? ArtifactStore { get; init; }
+
+    /// <summary>
+    /// The digest of the target app's resolved <c>identity</c> and <c>environment</c> that the replay cache keys on (upstream's
+    /// <c>SessionIdentity.appIdentity</c>). Unset, entries key on the <c>test</c> environment alone.
+    /// </summary>
+    public string? AppIdentity { get; init; }
+
+    /// <summary>The saved session this test restores and the sessions it saves; see <see cref="SessionPlan"/>. Null for a test that uses none.</summary>
+    internal SessionPlan? Sessions { get; init; }
 
     public bool CacheEnabled { get; init; } = true;
 
@@ -864,6 +1389,9 @@ public sealed class E2ESessionOptions
     /// Retries replay too, and the session never writes or deletes a recording, whatever <see cref="CacheMode"/> says.
     /// </summary>
     public bool CacheStrict { get; init; }
+
+    /// <summary>What turned <see cref="CacheStrict"/> on, for the advice a stale strict replay carries. Unset, the config key did.</summary>
+    internal CacheStrictSource? CacheStrictSource { get; init; }
 
     /// <summary>How long the engine may take to start. Upstream <c>launchTimeout</c>.</summary>
     public TimeSpan LaunchTimeout { get; init; } = E2EDefaults.LaunchTimeout;
@@ -881,6 +1409,9 @@ public sealed class E2ESessionOptions
     /// alone as the identity and adds no title line, as for an <c>e2e mcp</c> session, which runs no test.
     /// </summary>
     public string? TestFile { get; init; }
+
+    /// <summary>The name of the test's method (.NET-only). With <see cref="TestFile"/> it is the test's id in the report (<see cref="Ids.TestId"/>), shared by every row of a parameterized test.</summary>
+    internal string? TestMethod { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;
 
@@ -907,6 +1438,14 @@ public sealed class E2ESessionOptions
     public Action<TestException>? OnSoftFailure { get; init; }
 
     /// <summary>
+    /// Whether the session reports its start, steps, and end to the process's run events. Off for a session whose run a test supplies.
+    /// </summary>
+    internal bool EmitRunEvents { get; init; } = true;
+
+    /// <summary>Live progress of the attempt's steps; null feeds none. Upstream's <c>onProgress</c> of the step recorder.</summary>
+    internal Action<StepProgress>? OnProgress { get; init; }
+
+    /// <summary>
     /// Reports whether the test has already failed. Once it returns true, a passing check no longer
     /// verifies acts, so a teardown assertion after a failure does not record them.
     /// </summary>
@@ -923,6 +1462,12 @@ public sealed class E2ESessionOptions
 
     /// <summary>Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to <c>.e2e/results</c> under the project root.</summary>
     public string? ResultsDirectory { get; init; }
+
+    /// <summary>
+    /// The directory a <c>--last-failed</c> rerun files its attempts in, inside each test's directory (<c>rerun-&lt;n&gt;</c>, upstream's <c>rerunDir</c>), so no
+    /// attempt writes over the evidence of the report it reruns. Null for any other run.
+    /// </summary>
+    internal string? RerunDir { get; init; }
 
     /// <summary>Where the stored screenshots of the test file a call was made from live. Null keeps them in <c>&lt;test file&gt;-snapshots</c>.</summary>
     internal Func<string?, string?>? SnapshotDirectoryOf { get; init; }

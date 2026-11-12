@@ -78,11 +78,58 @@ public sealed class DeltaMismatchTests
     }
 
     [Fact]
+    public void Reads_an_ISO_8601_instant_in_an_alert_as_one_placeholder_whatever_precision_or_offset_it_has()
+    {
+        static SemanticNode Saved(string at) => Node("alert", text: $"Saved at {at}");
+        List<RecordedTarget> recorded = [Anchor("alert", text: "Saved at 2026-10-24T15:41:27.955Z")];
+
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:45:03.120Z")]));
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:30:00Z")]));
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:30+02:00")]));
+        Assert.True(Holds([Anchor("alert", text: "Saved at 2026-10-24T15:30:00Z")], [Saved("2026-10-24T15:30:00.250Z")]));
+        Assert.False(Holds(recorded, [Node("alert", text: "Save failed")]));
+    }
+
+    [Fact]
+    public void Reads_a_date_with_an_ordinal_suffix_in_an_alert_as_a_placeholder_in_either_order()
+    {
+        static SemanticNode Due(string text) => Node("alert", text: text);
+
+        Assert.True(Holds([Anchor("alert", text: "Due October 26th")], [Due("Due October 3rd")]));
+        Assert.True(Holds([Anchor("alert", text: "Due October 3rd, 2026")], [Due("Due October 4th, 2027")]));
+        Assert.True(Holds([Anchor("alert", text: "Due 3rd October")], [Due("Due 22nd October")]));
+        Assert.False(Holds([Anchor("alert", text: "Due October 26th")], [Due("Overdue")]));
+    }
+
+    [Fact]
+    public void Skips_a_date_with_an_ordinal_suffix_as_volatile_when_the_step_has_a_stable_result()
+    {
+        SemanticNode[] after = [Heading, Node("status", text: "Task created"), Node(text: "Due October 26th")];
+
+        Assert.Equal(["status|~Task created"], Shapes(Describe([Heading], after).Appeared));
+    }
+
+    [Fact]
     public void Forgives_a_churned_test_id_when_the_other_fields_still_identify_the_node()
     {
         var rerendered = Node("link", "PB-Twin-Alpha", testId: "row-9f8e");
 
         Assert.True(Holds([Anchor("link", "PB-Twin-Alpha", testId: "row-1a2b")], [rerendered]));
         Assert.False(Holds([Anchor("listitem", testId: "row-1a2b")], [rerendered]));
+    }
+
+    [Fact]
+    public void Reads_a_minted_test_id_by_its_shape_when_nothing_else_identifies_the_node()
+    {
+        const string mintedA = "rf__node-3f9c2a1b-7d4e-4c1a-9b2e-0a1b2c3d4e5f";
+        const string mintedB = "rf__node-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f";
+        var anchor = Anchor("box", testId: mintedA);
+
+        Assert.True(Holds([anchor], [Node("box", testId: mintedB)]));
+        Assert.False(Holds([anchor], [Node("box", testId: "rf__edge-8e21d0c4-5b6a-4f3e-8d2c-1a0b9c8d7e6f")]));
+        Assert.False(Holds([anchor], [Node("button", "Delete", testId: mintedB)]));
+        // A vanished one stays exact: an older entry recorded it beside siblings of its shape.
+        Assert.True(Holds([], [Heading, Node("box", testId: mintedB)], [Heading, Node("box", testId: mintedA)], [anchor]));
+        Assert.False(Holds([], [Heading, Node("box", testId: mintedA)], [Heading, Node("box", testId: mintedA)], [anchor]));
     }
 }

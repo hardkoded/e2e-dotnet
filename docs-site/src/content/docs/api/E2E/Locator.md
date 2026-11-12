@@ -23,7 +23,7 @@ A query that resolves against a fresh observation every time it is used.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L382)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Methods
 
@@ -48,8 +48,6 @@ One [Nth(int)](#E2E_Locator_Nth_System_Int32_) locator per current match, withou
 
 **Returns:** [Task&lt;IReadOnlyList&lt;Locator&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L640)
-
 <a id="E2E_Locator_AllTextContentsAsync_"></a>
 <a id="E2E_Locator_AllTextContentsAsync_System_Threading_CancellationToken_"></a>
 
@@ -71,8 +69,6 @@ Fails with `POLICY_DENIED` when any match is a secure field.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L656)
 
 <a id="E2E_Locator_BoundingBoxAsync_"></a>
 <a id="E2E_Locator_BoundingBoxAsync_System_Threading_CancellationToken_"></a>
@@ -96,8 +92,6 @@ Waits up to the action timeout for one match, then reads its viewport-relative b
 
 **Returns:** [Task&lt;BoundingBox&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L626)
-
 <a id="E2E_Locator_CheckAsync_"></a>
 <a id="E2E_Locator_CheckAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -117,8 +111,6 @@ public Task CheckAsync(ActionOptions? options = null, CancellationToken cancella
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L529)
 
 <a id="E2E_Locator_ClearAsync_"></a>
 <a id="E2E_Locator_ClearAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -140,8 +132,6 @@ public Task ClearAsync(ActionOptions? options = null, CancellationToken cancella
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L539)
-
 <a id="E2E_Locator_ClickAsync_"></a>
 <a id="E2E_Locator_ClickAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -153,7 +143,7 @@ public Task ClickAsync(ActionOptions? options = null, CancellationToken cancella
 ```
 
 
-Alias of `CancellationToken)`.
+Alias of `TapAsync`.
 
 **Parameters**
 
@@ -164,7 +154,47 @@ Alias of `CancellationToken)`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L484)
+<a id="E2E_Locator_ClickAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
+
+### ClickAsync(ClickOptions?, CancellationToken)
+
+
+```csharp
+public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Alias of `TapAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Locator_ClickAsync_E2E_TapOptions_System_Threading_CancellationToken_"></a>
+
+### ClickAsync(TapOptions?, CancellationToken)
+
+
+```csharp
+public Task ClickAsync(TapOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Alias of `TapAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [TapOptions](/api/E2E/TapOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_CountAsync_"></a>
 <a id="E2E_Locator_CountAsync_System_Threading_CancellationToken_"></a>
@@ -187,8 +217,6 @@ Counts current matches without waiting.
 
 **Returns:** [Task&lt;int&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L633)
-
 <a id="E2E_Locator_DblClickAsync_"></a>
 <a id="E2E_Locator_DblClickAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -200,7 +228,7 @@ public Task DblClickAsync(ActionOptions? options = null, CancellationToken cance
 ```
 
 
-Alias of `CancellationToken)`.
+Alias of `DoubleTapAsync`.
 
 **Parameters**
 
@@ -211,7 +239,26 @@ Alias of `CancellationToken)`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L492)
+<a id="E2E_Locator_DblClickAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
+
+### DblClickAsync(ClickOptions?, CancellationToken)
+
+
+```csharp
+public Task DblClickAsync(ClickOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Alias of `DoubleTapAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_DoubleTapAsync_"></a>
 <a id="E2E_Locator_DoubleTapAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -224,6 +271,8 @@ public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken canc
 ```
 
 
+Double taps the node, waiting for exactly one enabled match.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -233,7 +282,56 @@ public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken canc
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L486)
+<a id="E2E_Locator_DoubleTapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
+
+### DoubleTapAsync(ClickOptions?, CancellationToken)
+
+
+```csharp
+public Task DoubleTapAsync(ClickOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Double taps the node. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) are held for both taps, as for `TapAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Locator_DragToAsync_"></a>
+<a id="E2E_Locator_DragToAsync_E2E_Locator_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### DragToAsync(Locator, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task DragToAsync(Locator target, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Drags the node onto &lt;code class="paramref"&gt;target&lt;/code&gt;. The drop target resolves inside the retry, so a target that changes under the
+drag is resolved again along with the source.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `target` | [Locator](./) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | &lt;code class="paramref"&gt;target&lt;/code&gt; is a locator of another screen (`INVALID_LOCATOR`). |
 
 <a id="E2E_Locator_FillAsync_"></a>
 <a id="E2E_Locator_FillAsync_E2E_Secret_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -246,7 +344,9 @@ public Task FillAsync(Secret value, ActionOptions? options = null, CancellationT
 ```
 
 
-Fills a secret. The engine marks the value sensitive and never reports it.
+Fills a secret. The engine marks the value sensitive and never reports it. A secret whose value a provider computes is asked
+for it inside the step, before the node is looked for, and the value joins redaction before it is filled. A provider that returns less than
+six code points fails the step with `AUTH_CREDENTIAL_UNAVAILABLE` (a password) or `SECRET_UNAVAILABLE`.
 
 **Parameters**
 
@@ -257,8 +357,6 @@ Fills a secret. The engine marks the value sensitive and never reports it.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L501)
 
 <a id="E2E_Locator_FillAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -279,8 +377,6 @@ public Task FillAsync(string value, ActionOptions? options = null, CancellationT
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L494)
 
 <a id="E2E_Locator_Filter_"></a>
 <a id="E2E_Locator_Filter_E2E_Locator_"></a>
@@ -303,8 +399,6 @@ Keeps the matches with a descendant that &lt;code class="paramref"&gt;has&lt;/co
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L403)
-
 <a id="E2E_Locator_Filter_E2E_TextMatch_"></a>
 
 ### Filter(TextMatch)
@@ -325,7 +419,38 @@ Keeps the matches whose own or descendants' name, text, or value contains &lt;co
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L395)
+<a id="E2E_Locator_Filter_E2E_TextMatch_E2E_TextMatch_E2E_Locator_E2E_Locator_"></a>
+
+### Filter(TextMatch?, TextMatch?, Locator?, Locator?)
+
+
+```csharp
+public Locator Filter(TextMatch? hasText = null, TextMatch? hasNotText = null, Locator? has = null, Locator? hasNot = null)
+```
+
+
+Adds deterministic filters, upstream's `locator.filter({ hasText, hasNotText, has, hasNot })`. Every filter given must hold
+for a match. `hasText` and `hasNotText` are case-insensitive substrings of the match's own or descendants' name, text, or
+value, or a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) as written. `has` keeps a match whose subtree resolves the inner
+locator, and `hasNot` drops it. Both resolve inside each match. .NET-only: the named-argument form of upstream's options
+object, beside [Filter(TextMatch)](#E2E_Locator_Filter_E2E_TextMatch_) and [Filter(Locator)](#E2E_Locator_Filter_E2E_Locator_).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `hasText` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `hasNotText` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `has` | [Locator](./) |  |
+| `hasNot` | [Locator](./) |  |
+
+**Returns:** [Locator](./)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: no filter is given, or the `has` or `hasNot` locator belongs to another screen or attempt. |
 
 <a id="E2E_Locator_First_"></a>
 <a id="E2E_Locator_First"></a>
@@ -339,8 +464,6 @@ public Locator First()
 
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L429)
 
 <a id="E2E_Locator_FocusAsync_"></a>
 <a id="E2E_Locator_FocusAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -361,8 +484,6 @@ public Task FocusAsync(ActionOptions? options = null, CancellationToken cancella
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L551)
 
 <a id="E2E_Locator_GetAttributeAsync_"></a>
 <a id="E2E_Locator_GetAttributeAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -386,8 +507,6 @@ Waits up to the action timeout for one match, then reads one platform attribute 
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L583)
-
 <a id="E2E_Locator_GetByDisplayValue_"></a>
 <a id="E2E_Locator_GetByDisplayValue_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
@@ -410,8 +529,6 @@ Creates a displayed-value query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L476)
-
 <a id="E2E_Locator_GetByDisplayValue_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByDisplayValue(TextMatch, bool)
@@ -432,8 +549,6 @@ Creates a displayed-value query among this locator's descendants.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L473)
 
 <a id="E2E_Locator_GetByLabel_"></a>
 <a id="E2E_Locator_GetByLabel_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -457,8 +572,6 @@ Creates a label query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L458)
-
 <a id="E2E_Locator_GetByLabel_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByLabel(TextMatch, bool)
@@ -479,8 +592,6 @@ Creates a label query among this locator's descendants.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L455)
 
 <a id="E2E_Locator_GetByPlaceholder_"></a>
 <a id="E2E_Locator_GetByPlaceholder_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -504,8 +615,6 @@ Creates a placeholder query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L470)
-
 <a id="E2E_Locator_GetByPlaceholder_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByPlaceholder(TextMatch, bool)
@@ -526,8 +635,6 @@ Creates a placeholder query among this locator's descendants.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L467)
 
 <a id="E2E_Locator_GetByRole_"></a>
 <a id="E2E_Locator_GetByRole_System_String_E2E_RoleOptions_"></a>
@@ -551,8 +658,6 @@ Creates a role query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L443)
-
 <a id="E2E_Locator_GetByRole_System_String_E2E_TextMatch_E2E_RoleOptions_"></a>
 
 ### GetByRole(string, TextMatch, RoleOptions)
@@ -574,8 +679,6 @@ Creates a role query among this locator's descendants.
 | `options` | [RoleOptions](/api/E2E/RoleOptions/) |  |
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L446)
 
 <a id="E2E_Locator_GetByRole_System_String_E2E_TextMatch_System_Boolean_"></a>
 
@@ -599,8 +702,6 @@ Creates a role query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L440)
-
 <a id="E2E_Locator_GetByTestId_"></a>
 <a id="E2E_Locator_GetByTestId_E2E_TextMatch_"></a>
 
@@ -622,8 +723,6 @@ Creates a test-id query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L461)
-
 <a id="E2E_Locator_GetByTestId_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
 ### GetByTestId(TextMatch, TextMatchOptions)
@@ -644,8 +743,6 @@ Creates a test-id query among this locator's descendants.
 | `options` | [TextMatchOptions](/api/E2E/TextMatchOptions/) |  |
 
 **Returns:** [Locator](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L464)
 
 <a id="E2E_Locator_GetByText_"></a>
 <a id="E2E_Locator_GetByText_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -669,8 +766,6 @@ Creates a visible-text query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L452)
-
 <a id="E2E_Locator_GetByText_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByText(TextMatch, bool)
@@ -692,7 +787,27 @@ Creates a visible-text query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L449)
+<a id="E2E_Locator_HoverAsync_"></a>
+<a id="E2E_Locator_HoverAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### HoverAsync(ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task HoverAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Moves the pointer over the node.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_InputValueAsync_"></a>
 <a id="E2E_Locator_InputValueAsync_System_Threading_CancellationToken_"></a>
@@ -705,9 +820,9 @@ public Task<string> InputValueAsync(CancellationToken cancellationToken = defaul
 ```
 
 
-Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
+Waits up to the action timeout for one match, then reads an input value once, the empty string for a field with none. Does not retry for a value and does not verify an earlier `act`. A checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked state. Fails with
-`POLICY_DENIED` on a secure field.
+`POLICY_DENIED` on a secure field, and with `ACTION_FAILED` on a node with no value, such as a heading or a button.
 
 **Parameters**
 
@@ -716,8 +831,6 @@ radio reads its value attribute, `on` when it has none, whatever its checked sta
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L576)
 
 <a id="E2E_Locator_IsCheckedAsync_"></a>
 <a id="E2E_Locator_IsCheckedAsync_System_Threading_CancellationToken_"></a>
@@ -730,7 +843,7 @@ public Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Waits up to the action timeout for one match, then reads its checked state once.
+Waits up to the action timeout for one match, then reads its checked state once. A checkable role with no state reported reads false. Fails with `ACTION_FAILED` on a node with no checked state, such as a button or a heading.
 
 **Parameters**
 
@@ -739,8 +852,6 @@ Waits up to the action timeout for one match, then reads its checked state once.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L616)
 
 <a id="E2E_Locator_IsDisabledAsync_"></a>
 <a id="E2E_Locator_IsDisabledAsync_System_Threading_CancellationToken_"></a>
@@ -763,8 +874,6 @@ Waits up to the action timeout for one match, then reads its disabled state once
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L610)
-
 <a id="E2E_Locator_IsEnabledAsync_"></a>
 <a id="E2E_Locator_IsEnabledAsync_System_Threading_CancellationToken_"></a>
 
@@ -785,8 +894,6 @@ Waits up to the action timeout for one match, then reads its enabled state once.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L603)
 
 <a id="E2E_Locator_IsHiddenAsync_"></a>
 <a id="E2E_Locator_IsHiddenAsync_System_Threading_CancellationToken_"></a>
@@ -809,8 +916,6 @@ Reads current hidden or absent state, the negation of [IsVisibleAsync(Cancellati
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L597)
-
 <a id="E2E_Locator_IsVisibleAsync_"></a>
 <a id="E2E_Locator_IsVisibleAsync_System_Threading_CancellationToken_"></a>
 
@@ -832,8 +937,6 @@ Reads current visibility: true when exactly one visible node matches. More than 
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L591)
-
 <a id="E2E_Locator_Last_"></a>
 <a id="E2E_Locator_Last"></a>
 
@@ -847,7 +950,33 @@ public Locator Last()
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L431)
+<a id="E2E_Locator_LongPressAsync_"></a>
+<a id="E2E_Locator_LongPressAsync_E2E_LongPressOptions_System_Threading_CancellationToken_"></a>
+
+### LongPressAsync(LongPressOptions?, CancellationToken)
+
+
+```csharp
+public Task LongPressAsync(LongPressOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Holds a press on the node for [Duration](/api/E2E/LongPressOptions/#E2E_LongPressOptions_Duration), from 100 ms through 10 s; without one the engine holds its default.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [LongPressOptions](/api/E2E/LongPressOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) | The duration is not a whole number of milliseconds from 100 through 10000 (upstream's `INVALID_ARGUMENT`). |
 
 <a id="E2E_Locator_Nth_"></a>
 <a id="E2E_Locator_Nth_System_Int32_"></a>
@@ -868,8 +997,6 @@ public Locator Nth(int index)
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L433)
-
 <a id="E2E_Locator_Or_"></a>
 <a id="E2E_Locator_Or_E2E_Locator_"></a>
 
@@ -882,7 +1009,7 @@ public Locator Or(Locator other)
 
 
 Matches either locator, preserving document order without duplicate nodes. `a.Or(b)` stays strict: when both match
-different nodes, an action fails with `STRICT_MODE`, so add [First()](#E2E_Locator_First) if either will do. Both locators must come
+different nodes, an action fails with `LOCATOR_AMBIGUOUS`, so add [First()](#E2E_Locator_First) if either will do. Both locators must come
 from the same screen and attempt. Upstream's `locator.or`.
 
 **Parameters**
@@ -898,8 +1025,6 @@ from the same screen and attempt. Upstream's `locator.or`.
 | Type | Condition |
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;other&lt;/code&gt; belongs to another screen or attempt. |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L416)
 
 <a id="E2E_Locator_PressAsync_"></a>
 <a id="E2E_Locator_PressAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -922,8 +1047,6 @@ public Task PressAsync(string key, ActionOptions? options = null, CancellationTo
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L523)
-
 <a id="E2E_Locator_PressSequentiallyAsync_"></a>
 <a id="E2E_Locator_PressSequentiallyAsync_System_String_E2E_PressSequentiallyOptions_System_Threading_CancellationToken_"></a>
 
@@ -935,8 +1058,12 @@ public Task PressSequentiallyAsync(string text, PressSequentiallyOptions? option
 ```
 
 
-Focuses the input and types &lt;code class="paramref"&gt;text&lt;/code&gt; one character at a time,
-so the app receives key events. [Delay](/api/E2E/PressSequentiallyOptions/#E2E_PressSequentiallyOptions_Delay) waits between characters.
+Focuses the input and types &lt;code class="paramref"&gt;text&lt;/code&gt;, so the app receives key events. Core composes it from the engine's
+`focus` action and its keyboard: with no [Delay](/api/E2E/PressSequentiallyOptions/#E2E_PressSequentiallyOptions_Delay) the whole text is one keyboard call, and with one
+each code point is its own call, with the delay waited between them. The whole call shares one [Timeout](/api/E2E/ActionOptions/#E2E_ActionOptions_Timeout): a
+pause is cut at the deadline, no character is sent past it, and the call fails with `ACTION_FAILED` naming how many it typed. A target
+whose engine declares no keyboard, or does not declare `focus`, is refused with `UNSUPPORTED_CAPABILITY` before any node
+resolves. A secret is not typed as keystrokes; pass it to `FillAsync`.
 
 **Parameters**
 
@@ -947,8 +1074,6 @@ so the app receives key events. [Delay](/api/E2E/PressSequentiallyOptions/#E2E_P
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L512)
 
 <a id="E2E_Locator_ScrollIntoViewAsync_"></a>
 <a id="E2E_Locator_ScrollIntoViewAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -969,8 +1094,6 @@ public Task ScrollIntoViewAsync(ActionOptions? options = null, CancellationToken
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L556)
 
 <a id="E2E_Locator_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Locator_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
@@ -996,9 +1119,58 @@ without the pointer having to hover it first. Both locators must come from the s
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L849)
+<a id="E2E_Locator_SecondaryTapAsync_"></a>
+<a id="E2E_Locator_SecondaryTapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
+
+### SecondaryTapAsync(ClickOptions?, CancellationToken)
+
+
+```csharp
+public Task SecondaryTapAsync(ClickOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+A right click on the node, or the platform's equivalent. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) are held for it, as for `TapAsync`.
+An engine with no secondary tap (a device, the document engine) fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_SelectOptionAsync_"></a>
+<a id="E2E_Locator_SelectOptionAsync_E2E_SelectOption_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### SelectOptionAsync(SelectOption, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task SelectOptionAsync(SelectOption option, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Selects the option &lt;code class="paramref"&gt;option&lt;/code&gt; names by its label, its value, or its index. A select takes one option per call.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `option` | [SelectOption](/api/E2E/SelectOption/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when &lt;code class="paramref"&gt;option&lt;/code&gt; names none or more than one of the three, or an index below 0. |
+
 <a id="E2E_Locator_SelectOptionAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
 ### SelectOptionAsync(string, ActionOptions?, CancellationToken)
@@ -1021,7 +1193,81 @@ Selects the option whose value or label is &lt;code class="paramref"&gt;value&lt
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L545)
+<a id="E2E_Locator_SetInputFilesAsync_"></a>
+<a id="E2E_Locator_SetInputFilesAsync_System_Collections_Generic_IEnumerable_System_String__E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### `SetInputFilesAsync(IEnumerable<string>, ActionOptions?, CancellationToken)`
+
+
+```csharp
+public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
+On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires `input` and `change`. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `paths` | [IEnumerable&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; has a blank entry (upstream's `INVALID_ARGUMENT`). |
+
+<a id="E2E_Locator_SetInputFilesAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### SetInputFilesAsync(string, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
+On the web it also takes a button that opens a file chooser. An empty list of paths clears the input and fires `input` and `change`. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `path` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Locator_SwipeAsync_"></a>
+<a id="E2E_Locator_SwipeAsync_E2E_SwipeOptions_System_Threading_CancellationToken_"></a>
+
+### SwipeAsync(SwipeOptions, CancellationToken)
+
+
+```csharp
+public Task SwipeAsync(SwipeOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Scrolls the node about three quarters of its extent along [Direction](/api/E2E/SwipeOptions/#E2E_SwipeOptions_Direction), further or less far with
+[Momentum](/api/E2E/SwipeOptions/#E2E_SwipeOptions_Momentum). The viewport swipe is the screen's.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [SwipeOptions](/api/E2E/SwipeOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_TapAsync_"></a>
 <a id="E2E_Locator_TapAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1034,6 +1280,8 @@ public Task TapAsync(ActionOptions? options = null, CancellationToken cancellati
 ```
 
 
+Taps the node, waiting for exactly one enabled match.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -1043,7 +1291,50 @@ public Task TapAsync(ActionOptions? options = null, CancellationToken cancellati
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L478)
+<a id="E2E_Locator_TapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
+
+### TapAsync(ClickOptions?, CancellationToken)
+
+
+```csharp
+public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Taps the node. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) are held for the tap, on an engine that declares
+[TapModifiers](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_TapModifiers); any other engine refuses them with `UNSUPPORTED_CAPABILITY` before the node is resolved.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Locator_TapAsync_E2E_TapOptions_System_Threading_CancellationToken_"></a>
+
+### TapAsync(TapOptions?, CancellationToken)
+
+
+```csharp
+public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner, inside its border on a document platform: the node is scrolled
+into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
+engine's `tap` pointer action. A node that never has a box fails with `LOCATOR_NOT_FOUND`, as `WaitForAsync` does.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [TapOptions](/api/E2E/TapOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_TextContentAsync_"></a>
 <a id="E2E_Locator_TextContentAsync_System_Threading_CancellationToken_"></a>
@@ -1067,8 +1358,6 @@ Does not retry for a value and does not verify an earlier `act`. Fails with `POL
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L565)
-
 <a id="E2E_Locator_UncheckAsync_"></a>
 <a id="E2E_Locator_UncheckAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -1080,6 +1369,8 @@ public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancel
 ```
 
 
+Unchecks a checkbox, switch, or `role="radio"` with one click. A checked native radio button fails with `ACTION_FAILED`: only another radio in its group clears it.
+
 **Parameters**
 
 | Name | Type | Description |
@@ -1088,8 +1379,6 @@ public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancel
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L534)
 
 <a id="E2E_Locator_WaitForAsync_"></a>
 <a id="E2E_Locator_WaitForAsync_E2E_LocatorWaitForOptions_System_Threading_CancellationToken_"></a>
@@ -1105,8 +1394,8 @@ public Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToke
 Waits for [State](/api/E2E/LocatorWaitForOptions/#E2E_LocatorWaitForOptions_State), [Visible](/api/E2E/WaitForState/#E2E_WaitForState_Visible) by default:
 [Attached](/api/E2E/WaitForState/#E2E_WaitForState_Attached) for one match, visible or not;
 [Detached](/api/E2E/WaitForState/#E2E_WaitForState_Detached) for none; [Hidden](/api/E2E/WaitForState/#E2E_WaitForState_Hidden) for none
-or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
-Does not verify an earlier `act`.
+or a hidden one. The timeout defaults to the action timeout and fails with `LOCATOR_NOT_FOUND`.
+More than one match fails at once. A pass verifies an earlier `act`.
 
 **Parameters**
 
@@ -1116,5 +1405,3 @@ Does not verify an earlier `act`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L670)

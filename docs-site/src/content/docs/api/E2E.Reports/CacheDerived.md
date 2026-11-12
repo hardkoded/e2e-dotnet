@@ -21,7 +21,7 @@ public enum CacheDerived
 
 What a replayed action found its target by.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L678)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Date = 3
 
 **Value:** [CacheDerived](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L683)
-
 <a id="E2E_Reports_CacheDerived_MintedToken"></a>
 
 ### MintedToken
@@ -50,8 +48,6 @@ MintedToken = 2
 
 
 **Value:** [CacheDerived](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L682)
 
 <a id="E2E_Reports_CacheDerived_Pixels"></a>
 
@@ -65,8 +61,6 @@ Pixels = 0
 
 **Value:** [CacheDerived](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L680)
-
 <a id="E2E_Reports_CacheDerived_WholeNode"></a>
 
 ### WholeNode
@@ -78,5 +72,3 @@ WholeNode = 1
 
 
 **Value:** [CacheDerived](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L681)

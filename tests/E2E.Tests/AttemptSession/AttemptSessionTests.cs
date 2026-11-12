@@ -128,6 +128,7 @@ public sealed class AttemptSessionTests
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = ConnectAsync,
+            RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
             Clock = new FakeTimeProvider(),
         };
         await using var owner = await engine.StartAsync(Start(), None);
@@ -463,6 +464,7 @@ public sealed class AttemptSessionTests
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = ConnectAsync,
+            RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
             Clock = clock ?? new FakeTimeProvider(),
         };
     }

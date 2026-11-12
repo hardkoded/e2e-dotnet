@@ -1,6 +1,6 @@
 ---
 title: "ConfigurationException"
-description: "e2e.config.json is invalid. The code is INVALIDCONFIG."
+description: "e2e.config.json is invalid. The code is INVALID_CONFIG."
 editUrl: false
 prev: false
 next: false
@@ -25,7 +25,7 @@ public sealed class ConfigurationException : E2EException, ISerializable
 
 **Implements:** [ISerializable](https://learn.microsoft.com/dotnet/api/system.runtime.serialization.iserializable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L210)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Constructors
 
@@ -47,8 +47,6 @@ public ConfigurationException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L212)
-
 <a id="E2E_ConfigurationException__ctor_System_String_System_String_System_Exception_"></a>
 
 ### ConfigurationException(string, string, Exception)
@@ -66,5 +64,3 @@ public ConfigurationException(string code, string message, Exception inner)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L217)

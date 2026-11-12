@@ -1,0 +1,76 @@
+@using System.Globalization
+@* Upstream's app/src/Examples/CartTotals.tsx. *@
+<div style="@Container">
+    <ul data-testid="cart-lines" style="@List">
+        @foreach (var item in LineItems)
+        {
+            var quantity = _quantities[item.Id];
+            <li @key="item.Id" style="@Row">
+                <span style="@ItemName">@item.Name</span>
+                <span style="@Stepper">
+                    <button type="button" data-testid="@($"decrease-{item.Id}")" style="@StepButton" @onclick="() => AdjustQuantity(item.Id, -1)">-</button>
+                    <span data-testid="@($"quantity-{item.Id}")" style="@Quantity">@quantity</span>
+                    <button type="button" data-testid="@($"increase-{item.Id}")" style="@StepButton" @onclick="() => AdjustQuantity(item.Id, 1)">+</button>
+                </span>
+                <span data-testid="@($"line-total-{item.Id}")" style="@LineTotal">$@Money(item.UnitPrice * quantity)</span>
+            </li>
+        }
+    </ul>
+    <div data-testid="order-summary" style="@Summary">
+        <div style="@SummaryRow">
+            <span>Subtotal</span>
+            <span data-testid="summary-subtotal">$@Money(_summarySubtotal)</span>
+        </div>
+        <div style="@SummaryRow">
+            <span>Shipping</span>
+            <span data-testid="summary-shipping">$@Money(Shipping)</span>
+        </div>
+        <div style="@SummaryTotalRow">
+            <span>Order total</span>
+            <span data-testid="summary-total">$@Money(_summarySubtotal + Shipping)</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    private sealed record LineItem(string Id, string Name, int UnitPrice);
+
+    private static readonly LineItem[] LineItems =
+    [
+        new("tee", "Organic Cotton Tee", 20),
+        new("cap", "Corduroy Cap", 29),
+    ];
+
+    private const int Shipping = 5;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 20px; padding: 24px 0;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;";
+    private const string Row = "display: flex; align-items: center; gap: 12px; padding: 12px 4px; border-bottom: 1px solid #e5e5e5; font-size: 15px;";
+    private const string ItemName = "flex: 1;";
+    private const string Stepper = "display: flex; align-items: center; gap: 8px;";
+    private const string StepButton = "width: 28px; height: 28px; border: 1px solid #ccc; border-radius: 6px; background-color: #fff; font-size: 16px; cursor: pointer;";
+    private const string Quantity = "min-width: 16px; text-align: center; font-variant-numeric: tabular-nums;";
+    private const string LineTotal = "min-width: 72px; text-align: right; font-weight: 600;";
+    private const string Summary = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;";
+    private const string SummaryRow = "display: flex; justify-content: space-between;";
+    private const string SummaryTotalRow = "display: flex; justify-content: space-between; border-top: 1px solid #e5e5e5; padding-top: 8px; font-weight: 700; font-size: 15px;";
+
+    private readonly Dictionary<string, int> _quantities = new() { ["tee"] = 1, ["cap"] = 1 };
+
+    // PLANTED BUG (do not fix): the order summary is computed once from the initial quantities and never recalculated, so quantity
+    // changes update the line totals but leave the summary stale.
+    private int _summarySubtotal;
+
+    protected override void OnInitialized() => _summarySubtotal = ComputeSubtotal(_quantities);
+
+    /// <summary>Sums line totals for the given quantities.</summary>
+    private static int ComputeSubtotal(Dictionary<string, int> quantities) =>
+        LineItems.Sum(item => item.UnitPrice * quantities.GetValueOrDefault(item.Id, 0));
+
+    /// <summary>Adjusts a line item quantity, clamped to the 1-9 range.</summary>
+    private void AdjustQuantity(string itemId, int delta) =>
+        _quantities[itemId] = Math.Min(9, Math.Max(1, _quantities.GetValueOrDefault(itemId, 1) + delta));
+
+    /// <summary>Upstream's <c>toFixed(2)</c>.</summary>
+    private static string Money(int amount) => amount.ToString("F2", CultureInfo.InvariantCulture);
+}

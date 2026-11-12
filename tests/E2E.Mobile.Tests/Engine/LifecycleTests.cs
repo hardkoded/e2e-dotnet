@@ -24,7 +24,7 @@ public sealed class LifecycleTests
         await session.RestartAsync(CancellationToken.None);
         Assert.Equal(["e2e-ios-simulator-0"], h.Sessions);
         Assert.Equal(["devices.boot", "apps.open"], h.Fake.Methods());
-        JsonAssert.Args("""{"platform":"ios"}""", h.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", h.Fake.LastArgs("devices.boot"));
         JsonAssert.Args("""{"app":"Settings","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
 
         await session.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
@@ -84,7 +84,12 @@ public sealed class LifecycleTests
         JsonAssert.Args("""{"action":"ios-runner","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[1].Args);
         JsonAssert.Args("""{"app":"Settings","platform":"ios","device":"iPhone 17"}""", h.Fake.Calls[2].Args);
         JsonAssert.Args("""{"platform":"ios","device":"iPhone 17 Pro"}""", h.Fake.Calls[3].Args);
-        Assert.Equal(["booting iPhone 17 (1 of 2)", "booting iPhone 17 Pro (2 of 2)"], lines);
+        // One line of step times per slot, after its `booting` line.
+        Assert.Equal(4, lines.Count);
+        Assert.Equal("booting iPhone 17 (1 of 2)", lines[0]);
+        Assert.Matches(@"^iPhone 17: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", lines[1]);
+        Assert.Equal("booting iPhone 17 Pro (2 of 2)", lines[2]);
+        Assert.Matches(@"^iPhone 17 Pro: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$", lines[3]);
 
         // Without a pinned app there is nothing to open, so it boots and starts the runner only. So does a build
         // `appPath` nobody has installed and no bundle id, since the engine installs nothing on its own and the
@@ -101,6 +106,7 @@ public sealed class LifecycleTests
         await pinnedBuild.Engine.PrepareAsync(pinnedBuild.PrepareInfo(1, log: pinnedLines.Add), CancellationToken.None);
         Assert.Equal(["devices.boot", "command.prepare"], pinnedBuild.Fake.Methods());
         Assert.Matches(@"Settings awaits the suite's device.installApp\(\)", pinnedLines[1]);
+        Assert.Matches(@"^iPhone 16e: boot \d+\.\ds, iOS runner \d+\.\ds$", pinnedLines[2]);
 
         var single = Harness.Create(options => options with { Device = "iPhone 16e", Session = "qa" });
         Assert.Equal(1, single.Engine.Pool.Size);
@@ -165,8 +171,10 @@ public sealed class LifecycleTests
 
         // Android has no XCTest runner to start.
         var android = Harness.Create(options => options with { Device = "emulator-5556", Platform = MobilePlatform.Android });
-        await android.Engine.PrepareAsync(android.PrepareInfo(1, targetName: "android"), CancellationToken.None);
+        var androidLines = new List<string>();
+        await android.Engine.PrepareAsync(android.PrepareInfo(1, targetName: "android", log: androidLines.Add), CancellationToken.None);
         Assert.DoesNotContain("command.prepare", android.Fake.Methods());
+        Assert.Matches(@"^emulator-5556: boot \d+\.\ds, open Settings \d+\.\ds$", androidLines[1]);
     }
 
     [Fact]
@@ -222,7 +230,7 @@ public sealed class LifecycleTests
     }
 
     [Fact]
-    public async Task With_fewer_slots_than_booted_devices_drives_only_that_many_with_none_booted_one_slot_boots_what_agent_device_picks()
+    public async Task With_fewer_slots_than_booted_devices_drives_only_that_many_with_none_booted_one_slot_boots_a_shut_down_device_agent_device_picks()
     {
         var h = Harness.Create();
         h.Fake.Respond(DeviceMethods.DevicesList, _ => Inventory(("ios", "A", "A", true), ("ios", "B", "B", true)));
@@ -248,10 +256,44 @@ public sealed class LifecycleTests
         cold.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray());
         var coldResult = await cold.Engine.PrepareAsync(cold.PrepareInfo(1, targetName: "ios"), CancellationToken.None);
         Assert.Equal(1, coldResult.Workers);
-        JsonAssert.Args("""{"platform":"ios"}""", cold.Fake.LastArgs("devices.boot"));
+        JsonAssert.Args("""{"platform":"ios","pick":"newest"}""", cold.Fake.LastArgs("devices.boot"));
 
-        // One slot bound to no device in particular: the daemon picks.
+        // One slot bound to no device in particular: agent-device picks.
         Assert.Equal("""[{}]""", coldResult.Env[Harness.PoolVariableIn(coldResult.Env, "IOS")]);
+    }
+
+    private static JsonObject Claimed(string id, string session, string workspace) =>
+        new() { ["platform"] = "ios", ["id"] = id, ["name"] = id, ["booted"] = true, ["claimedBy"] = new JsonObject { ["session"] = session, ["workspace"] = workspace } };
+
+    [Fact]
+    public async Task Skips_a_booted_device_another_agent_device_session_holds_keeps_one_its_own_slot_session_holds_and_fails_when_every_booted_one_is_held()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(
+            Claimed("A", "t3-holder", "/elsewhere"),
+            new JsonObject { ["platform"] = "ios", ["id"] = "B", ["name"] = "B", ["booted"] = true },
+            Claimed("C", "e2e-ios-1", "/project"),
+            Claimed("D", "e2e-ios-2", "/project")));
+        var lines = new List<string>();
+        var result = await h.Engine.PrepareAsync(h.PrepareInfo(2, targetName: "ios", log: lines.Add), CancellationToken.None);
+
+        // e2e-ios-2 is no slot of a two-slot run, so its device is as foreign as another tool's.
+        Assert.Equal(2, result.Workers);
+        var boots = h.Fake.Calls.Where(call => call.Method == "devices.boot").ToList();
+        Assert.Equal(2, boots.Count);
+        JsonAssert.Args("""{"platform":"ios","udid":"B"}""", boots[0].Args);
+        JsonAssert.Args("""{"platform":"ios","udid":"C"}""", boots[1].Args);
+        Assert.Equal(
+            "4 booted ios device(s), skipping 2 held by another agent-device session (A by session \"t3-holder\", D by session \"e2e-ios-2\"); driving 2: B, C",
+            lines[0]);
+
+        var held = Harness.Create();
+        held.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(Claimed("A", "t3-holder", "/elsewhere")));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => held.Engine.PrepareAsync(held.PrepareInfo(1, targetName: "ios"), CancellationToken.None));
+        Assert.Equal(EngineErrorCodes.EngineFailure, failure.Code);
+        Assert.False(failure.Retryable);
+        Assert.Matches(@"every booted ios device is held by another agent-device session \(A by session ""t3-holder""\)", failure.Message);
+        Assert.DoesNotContain("devices.boot", held.Fake.Methods());
     }
 
     [Fact]
@@ -295,6 +337,13 @@ public sealed class LifecycleTests
 
         Assert.Contains("non-negative integer", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { SettleMilliseconds = -1 })).Message, StringComparison.Ordinal);
         Assert.Contains("non-negative integer", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { TransitionMilliseconds = -5 })).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_a_blank_device_name_at_config_time()
+    {
+        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Device = "" })).Message, StringComparison.Ordinal);
+        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = ["iPhone 17", " "] })).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -401,6 +450,23 @@ public sealed class LifecycleTests
         var failed = await Assert.ThrowsAsync<EngineException>(() => session.InstallAppAsync());
         Assert.Equal("ENGINE_FAILURE", failed.Code);
         Assert.Equal(["devices.boot", "apps.install"], h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Refuses_a_second_startAttempt_while_one_runs_and_treats_cold_cleanup_as_a_no_op()
+    {
+        var h = Harness.Create();
+        await h.Engine.EndAttemptAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        await h.Engine.DisposeAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        Assert.Empty(h.Fake.Methods());
+        var session = await h.Boot();
+        var second = await Assert.ThrowsAsync<EngineException>(() => h.Boot());
+        Assert.Equal("INVALID_STATE", second.Code);
+
+        // Another worker slot runs its own attempt, and the slot is free again once the attempt ended.
+        await using var other = await h.Boot(workerSlot: 1);
+        await session.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        await using var next = await h.Boot();
     }
 
     [Fact]

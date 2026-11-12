@@ -11,10 +11,12 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 - macOS with Xcode and an iOS simulator runtime, or the Android SDK with an emulator.
 - Node 22.12 or newer. `MobileEngine` starts agent-device through `npx`.
-- Check the setup once: `npx --yes agent-device@0.21.29 doctor`.
+- Check the setup once: `e2e doctor`. It runs agent-device's own checks for each configured device (toolchain, devices, the installed app) and checks that the `AppPath` build exists. Without `AppPath`, it checks that the `BundleId` is installed when one device is booted.
 - An app build: an `.app` bundle for the simulator, or an `.apk`.
 
 ## 1. Create the test project
+
+Run `e2e init MyApp.MobileTests --engine mobile` to scaffold the project, an example test, and the config in one step (`--framework xunit` for xUnit v3, `--install` to restore). Or create it by hand:
 
 ```bash
 dotnet new nunit -n MyApp.MobileTests
@@ -53,7 +55,7 @@ dotnet add package E2E.Mobile.NUnit      # or E2E.Mobile.XUnit.V3
 
 ## 3. Write a test
 
-Derive from `MobileAppTest`. It builds a `MobileEngine` from the config, installs the build once per run, launches the app fresh before each test, and gives the agent the `open_app`, `swipe`, and `alert` tools.
+Derive from `MobileAppTest`. It builds a `MobileEngine` from the config, installs the build once per run, launches the app fresh before each test, and gives the agent the `open_app`, `swipe`, and `alert` tools. `open_app` without an app returns to the target's app (`App.BundleId`), so the agent can recover after a system sheet or another app takes the foreground.
 
 ```csharp
 using E2E.Mobile.NUnit;
@@ -82,7 +84,9 @@ public sealed class GreetingTests : MobileAppTest
 }
 ```
 
-`GetByTestId` finds a control by its accessibility identifier. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
+`GetByTestId` finds a control by its accessibility identifier. A field's hint is its `Placeholder`, shown or not, so `GetByPlaceholder` finds it. Compose Multiplatform reports no placeholder on iOS: an empty field appends the text it draws to its label (`Name, Ada Lovelace`) over one `StaticText` child. For an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text (`Name, Ada Lovelace`), that text is the field's `Placeholder`, the child is left out of the tree, and the name is the label before `, ` (a non-empty `ContentDescription` stays the name, and that label is then the `Text`). A field of any other shape keeps its label and children as reported. So `GetByPlaceholder("Ada Lovelace")` finds such a field and `GetByText("Ada Lovelace")` does not. `FillAsync` and `ClearAsync` read the field again before typing into it, and refuse anything that is not an editable field with `UNSUPPORTED_CAPABILITY`, a button or a text view included. An iOS `other`, the type of an element the platform did not classify, is typed into when it holds a value or only text, since a custom-drawn field (Compose Multiplatform, Flutter) can read that way; an `other` with no value and no children, such as a React Native `Pressable`, or one that holds a control, stays refused. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
+
+In NativeScript, `testID` and `accessibilityIdentifier` set the same id: `GetByTestId("login-button")` finds `<Button text="Login" testID="login-button" />` on both platforms. `accessibilityLabel` sets the name, not the id. On Android, NativeScript puts it before the text, so `<Button text="Help" accessibilityLabel="Open help" />` is named `Open help. Help`. Match it with `GetByRole("button", new Regex("^Open help"))`.
 
 ```csharp
 await Device.HomeAsync();
@@ -96,26 +100,262 @@ await Expect.That(Device.Locator("role=navigation-bar id=About")).ToBeVisibleAsy
 await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
 ```
 
+Every action on a node pins its ref to the capture that issued it, so a ref a newer capture replaced is never sent to a different element. If the control changed during the `TransitionMilliseconds` wait (500 ms by default), the action fails with a retryable `NODE_STALE` and a locator resolves it again within its timeout. When the action's own timeout runs out before the transition does, the action fails with a non-retryable `OPERATION_TIMEOUT` and sends nothing. A direct `Device` call such as `DragToAsync` does not retry, so it surfaces the `NODE_STALE`. Unmoved controls are acted on immediately only when keyboard visibility is unchanged: opening or closing the keyboard also uses the remaining `TransitionMilliseconds` budget. A `target_still_moving` refusal from agent-device that reports `dispatched: no` is a retryable `NODE_STALE` as well.
+
+A step of your test does not wait for the screen to settle after it acts: it checks its outcome with `Expect`, and it only waits out `TransitionMilliseconds` for a control that came with the last action. A screen swipe in a test waits out the remaining `TransitionMilliseconds` budget before it scrolls. The agent's actions settle first, because it reads the screen right after acting. `Device.BackAsync` settles too, as `MobileOptions.Settle` says. The engine tells the two apart by the `OperationContext` of the call (`OperationContext.Test` or `OperationContext.Agent`). `DeviceSession.Origin` and `ActionOrigin` are obsolete and go in the next release: pass an `OperationContext` to the `PerformAsync`, `PerformAtAsync`, `SwipeAsync`, or `BackAsync` overload instead.
+
+`FillAsync` and `ClearAsync` read the field again before typing. A field the fresh capture no longer lists, a changed input purpose or secure, disabled, or hidden state, or an incomplete capture fails with a retryable `NODE_STALE` before anything is typed, and the locator resolves it again. A node that cannot take text fails with `UNSUPPORTED_CAPABILITY`.
+
+For anything `Device` does not cover, `Device.UnstableRaw` has a raw driver client (the [agent-device](https://github.com/callstack/agent-device) client by default) bound to the test's session, plus the session name, the device's id and name, and a `Selection` to pass into a client call. It is unstable and may change or go away in any release:
+
+```csharp
+var raw = Device.UnstableRaw;
+var sessions = await raw.Client.CallAsync("sessions.list", null, CancellationToken.None);
+await raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), CancellationToken.None);
+```
+
+`raw.Selection` is the device selection the engine passes commands (`ToArgs()` turns it into call options), for a call that can run before `app.open()`. `raw.Platform`, `raw.Session` (`e2e-<target>-<worker slot>`, or `<session>-<worker slot>` with the `Session` option), `raw.DeviceId` (a simulator UDID or an Android serial), and `raw.DeviceName` name the session and device. Client calls aren't steps: the report and trace leave them out, the agent cache doesn't replay them, secrets passed to them aren't redacted, and nothing waits for the screen to settle after one. After the worker disposes the session, reading `UnstableRaw` or its `Client` throws `INVALID_STATE`.
+
+A custom agent tool gets the running attempt's session the same way, from `MobileTools.UnstableDeviceSession(engines)` in `E2E.Mobile`. It returns the same `RawDeviceSession` as `Device.UnstableRaw`, whose `Client` is bound to the engine's daemon, lease, and per-worker session, for capabilities e2e does not wrap yet. The following example assumes the current driver supports `settings.update`:
+
+```csharp
+var mobileData = new AgentTool(
+    "Turn cellular mobile data on or off. Wi-Fi is not affected.",
+    schema,
+    mutates: true,
+    async (input, token) =>
+    {
+        var on = input["on"]!.GetValue<bool>();
+        var raw = MobileTools.UnstableDeviceSession(iphone, pixel);
+        await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+            ("setting", JsonValue.Create("mobile-data")),
+            ("state", JsonValue.Create(on ? "on" : "off"))), token);
+        return on ? "mobile data is on" : "mobile data is off";
+    },
+    platforms: ["android"]);
+```
+
+- Pass every device engine the config declares, as with `MobileTools.Create`. Outside an attempt it throws `INVALID_STATE`, and so it does when several attempts run in one worker.
+- Spread `Selection.ToArgs(...)` into a call so it reaches the worker's device even before the session has an app open, as the engine's own calls do.
+- Client calls are not steps: the report shows the tool call, not what the client did, and a cache replay runs a `mutates: true` tool live.
+- Client calls skip e2e's guards, as with `UnstableRaw`. A snapshot or screenshot a tool returns is not redacted or masked, even after a secret fill, nothing waits for the screen to settle after a call, and a tool whose calls change the device must declare `mutates: true`.
+- Like `UnstableRaw`, it can change in any release.
+
+On an Android build with no shell command for the clipboard service (the Android 16 emulator is one), `Device.ClipboardAsync()` and `Device.SetClipboardAsync(text)` fail with `UNSUPPORTED_CAPABILITY`. To check a copy, paste into a field and read the field back.
+
+### What the raw client takes
+
+This section is about the agent-device client, the default. `Client.CallAsync(method, options, ct)` takes the calls the engine itself makes, named as agent-device's client names them (the `DeviceMethods` constants: `apps.list`, `apps.install`, `command.home`, `settings.update`, and so on). Any other method throws `NotSupportedException`. For `settings.update` the `setting` is one of `permission`, `clear-app-state`, `reset-keychain`, `location`, `wifi`, `airplane`, `appearance`, `text-size`, `animations`, `faceid`, `touchid`, or `fingerprint`; another one throws `NotSupportedException` too. The TestMu client differs: it refuses every setting, `apps.install`, `apps.reinstall`, `interactions.hover`, `command.fold`, `command.appState`, `apps.uninstall`, and `command.hardwareButton`, with an `UNSUPPORTED_OPERATION` error, not `NotSupportedException`.
+
+Four operations with no `Device` method go through `UnstableRaw` (two settings, an uninstall, and the hardware buttons). A raw call is not a step, so nothing waits for the screen after it.
+
+**Text size and animations.** Set the text size before `App.OpenAsync()`. A running app can keep the old size until it launches again, so call `App.RestartAsync()` after a change mid-test:
+
+```csharp
+var raw = Device.UnstableRaw;
+await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+    ("setting", JsonValue.Create("text-size")),
+    ("state", JsonValue.Create("accessibility-extra-extra-extra-large"))), CancellationToken.None);
+await App.OpenAsync();
+await Expect(Screen.GetByRole("button", "Checkout")).ToBeVisibleAsync();
+```
+
+`ToArgs` takes extra `(name, JsonValue)` pairs after the device selection. `text-size` works on iOS simulators and Android; `large` is the default on both. `setting: "animations"` with `state: "off"` or `"on"` is Android only and fails on iOS. On Android it sets the window, transition, and animator scales to 0 or 1. Both settings outlast the test, so put them back in a teardown. The next test's `App.OpenAsync()` relaunches the app, so restoring the setting is enough. In NUnit, a `[TearDown]` runs before the base class's, so the session is still open. Restore a changed `animations` setting the same way, with `state: "on"`, on Android. This example is NUnit. Read `Device` in the teardown only when the test opened the app, since the session exists only after that:
+
+```csharp
+[TearDown]
+public async Task RestoreTextSize()
+{
+    var raw = Device.UnstableRaw;
+    await raw.Client.CallAsync(DeviceMethods.SettingsUpdate, raw.Selection.ToArgs(
+        ("setting", JsonValue.Create("text-size")),
+        ("state", JsonValue.Create("large"))), TestContext.CurrentContext.CancellationToken);
+}
+```
+
+**Uninstall an app.** `apps.uninstall` takes the app id:
+
+```csharp
+await raw.Client.CallAsync(DeviceMethods.AppsUninstall, raw.Selection.ToArgs(("app", JsonValue.Create("com.example.app"))), CancellationToken.None);
+```
+
+`Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app and installs the build with no data (it needs an app: `InstallAppOptions.App`, the engine's build, or the pinned app; and it is refused on TestMu), and `App.ClearStateAsync()` resets the app's data.
+
+**Hardware buttons.** `command.hardwareButton` presses one: `"power"`, `"volume-up"`, or `"volume-down"` on Android; on iOS only the volume keys, on a physical device, not a simulator:
+
+```csharp
+await raw.Client.CallAsync(DeviceMethods.CommandHardwareButton, raw.Selection.ToArgs(("button", JsonValue.Create("volume-up"))), CancellationToken.None);
+```
+
+These calls are tester-army/e2e#1622 and #1618 (`63e207a`, `1f57583`); the "Not yet" notes in the Detox, Maestro, and Appium migration guides and the skill's `mobile.md` now name them.
+
 ## 4. Run
 
 Boot exactly one simulator, then run:
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test --project .
+dotnet test
 ```
 
 To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices available`). With two booted or matching devices the run fails with `AMBIGUOUS_MATCH`.
 
+With none booted, agent-device boots a shut-down simulator or emulator: a phone or tablet over a TV, then the newest OS, then name order (a stopped Android emulator reports no OS version, so the name decides).
+
+Without `MobileOptions.Device`, a booted simulator or emulator that another tool holds through its own agent-device session is skipped, and the run drives the free ones. When every booted device is held, the run fails at `prepare` with `ENGINE_FAILURE`, naming the holding sessions. A booted device nothing holds, such as one you are using by hand, is still in the pool: name the device to keep the run off it.
+
+`prepare` boots each device, starts the iOS automation runner (iOS only), and opens the target's `BundleId` once per device, so a cold boot on CI is never charged against the launch timeout. A build the suite installs itself is not opened here: call `Device.InstallAppAsync` once per device, and `App.OpenAsync` then launches it (`MobileAppTest` installs and opens the build for you). Each device logs one line of how long those steps took, a failed step included. A cold iOS simulator:
+
+```text
+ℹ booting E93FA5E5-1592-43C7-9149-F1B5FE0AD5F5 (1 of 1)
+ℹ E93FA5E5-1592-43C7-9149-F1B5FE0AD5F5: boot 36.3s, iOS runner 61.6s, open dev.e2e.benchmark 9.2s
+```
+
+- `boot` is the device boot, a few seconds on a device that is already up.
+- `iOS runner` is the automation runner's start, on iOS only.
+- `open <app>` brings the app to the foreground, launching it on a cold device. It is missing where the open is skipped.
+
+An ordinary app-open failure is logged on a line of its own, and the run goes on. That line prints before the device's timing line, which still lists the failed `open <app>` step.
+
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
+
+## Test ids by framework
+
+`GetByTestId` reads the accessibility identifier on iOS and the resource id on Android. Each UI framework sets them its own way:
+
+| Framework | Set the id with |
+| --- | --- |
+| React Native | `testID` |
+| SwiftUI | `.accessibilityIdentifier()` |
+| UIKit | `view.accessibilityIdentifier`, or Identifier in Interface Builder's Identity inspector |
+| Jetpack Compose | `Modifier.testTag()` |
+| Compose Multiplatform | `Modifier.testTag()` |
+| Flutter | `Semantics(identifier:)` |
+| .NET MAUI | `AutomationId` (the [sample app](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp) sets it in `MainPage.xaml`) |
+| NativeScript | `testID` |
+
+- On Android, a native `android:id` and a .NET MAUI `AutomationId` read as `<package>:id/<id>`. `GetByTestId("greet")` finds them without the app's package, as on iOS, when nothing matches the full id. Framework ids such as `android:id/content` match only in full.
+- On Android, Compose hides test tags until a root composable sets `Modifier.semantics { testTagsAsResourceId = true }`. Without it, `GetByTestId` finds nothing. iOS reads a Compose Multiplatform tag as is, so a shared screen sets the flag in its Android activity.
+- In SwiftUI, an `.accessibilityIdentifier()` on a container such as a `VStack` replaces the ids of every element inside it. `GetByTestId` then fails with `LOCATOR_AMBIGUOUS` on the container's id and finds nothing for the children's ids. Put `.accessibilityElement(children: .contain)` before the identifier to keep both.
+- In Flutter, wrap a button's `Semantics` in `MergeSemantics` so the id and the button role land on one node.
+
+## Roles
+
+`Screen.GetByRole` on a device matches the role each element type maps to. A type not listed keeps its own simple name, lower-cased, with a hyphen put between a lower-case letter or digit and the capital that follows it, and whitespace and `_` turned into hyphens (`PickerWheel` is `picker-wheel`). Nothing else is split or removed: `$` stays, and a run of capitals is not broken up, so `Widget$IconView` is `widget$icon-view` and `GLSurfaceView` is `glsurface-view`. It matches only when you pass that name. `GetByRole` takes the role as a string, so any such name works. A node the platform reports editable is a `textbox`, unless it already maps to `combobox` or `searchbox` (`GetByRole("textbox")` does not find an editable node whose role is `searchbox`).
+
+| Role | iOS | Android |
+| --- | --- | --- |
+| `button` | `Button` | `Button`, `ImageButton`, `MaterialButton` |
+| `link` | `Link` | |
+| `textbox` | `TextField`, `SearchField`, `TextView`, `EditText`, `SecureTextField` | `EditText`, `AutoCompleteTextView`, `TextInputEditText`, `SearchView` |
+| `combobox` | | `Spinner` |
+| `switch` | `Switch`, `Toggle` | `Switch`, `SwitchCompat`, `SwitchMaterial`, `ToggleButton` |
+| `checkbox` | `CheckBox` | `CheckBox`, `MaterialCheckBox` |
+| `radio` | `RadioButton` | `RadioButton` |
+| `radiogroup` | `RadioGroup` | `RadioGroup` |
+| `slider` | `Slider` | `SeekBar`, `Slider` |
+| `spinbutton` | `Stepper` | `NumberPicker` |
+| `progressbar` | `ProgressIndicator` | `ProgressBar` |
+| `status` | `ActivityIndicator` | |
+| `image` | `Image`, `ImageView` | `ImageView` |
+| `heading` | `Heading`, `Header` | A view flagged as a heading |
+| `list` | | `RecyclerView`, `ListView`, `AbsListView` (React Native's `FlatList`), `GridView` |
+| `listitem` | `Cell`, `ListItem`, `TableCell`, `CollectionCell` | |
+| `row` | `TableRow` | |
+| `tablist` | `TabBar`, `TabGroup`, `SegmentedControl` | `TabLayout`, `TabWidget`, `BottomNavigationView` |
+| `tab` | `Tab`, `TabBarItem`, `TabBarButton`, and a `Button` inside a `TabBar` or `SegmentedControl` | `TabLayout$TabView`, `BottomNavigationItemView` |
+| `menu` | `Menu` | |
+| `menubar` | `MenuBar` | |
+| `menuitem` | `MenuItem`, `MenuBarItem`, `MenuButton` | |
+| `toolbar` | `Toolbar` | `Toolbar` |
+| `alert` | `Alert` | |
+| `dialog` | `Dialog`, `Sheet`, `ActionSheet` | |
+| `navigation` | `NavigationBar` | |
+| `group` | | `ScrollView`, `ViewGroup`, `View`, `ComposeView`, `ViewFactoryHolder`, `CardView`, and any other `*Layout` |
+
+React Native writes a role the platform has no type for into the accessibility value on iOS (`checkbox, unchecked`) and into the role description on Android (`Tab List`). A node with one of these descriptions takes the role in place of its type's. The description and the role it gives: `alert` is `alert`, `checkbox` is `checkbox`, `combo box` is `combobox`, `menu` is `menu`, `menu bar` is `menubar`, `menu item` is `menuitem`, `progress bar` is `progressbar`, `radio button` is `radio`, `radio group` is `radiogroup`, `scroll bar` is `scrollbar`, `spin button` is `spinbutton`, `switch` is `switch`, `tab` is `tab`, `tab list` is `tablist`, `timer` is `timer`, and `tool bar` is `toolbar`. Match the role, not the description: `GetByRole("radio")` finds a `radio button`. On Android a node flagged as a heading is a `heading` even when its description says `checkbox`; on iOS the description in the value wins over the type. On iOS only an `Other` carries one, and the state words after the role set `checked` and `expanded` (`checked`, `unchecked`, `expanded`, `collapsed`). `mixed` and `busy` set no state and stay in the value, so `checkbox, busy, checked, ready` has the value `busy, ready`; the rest after the state words is the node's value.
+
+`StaticText` and `Text` on iOS and `TextView` on Android are `text`, and an Android `WebView` is `document`. Find text with `GetByText`.
+
+## Record a transition
+
+`App.StartRecordingAsync()` and `App.StopRecordingAsync()` record one span of the screen as an `.mp4`, and return the videos: a file `Path` under the attempt's `recordings/`, or a `Url` when a hosted device keeps the recording. The test's `video` must be off, since the engine has one recorder.
+
+```csharp
+public async Task The_sheet_slides_up()
+{
+    await App.OpenAsync();
+    await App.StartRecordingAsync(new RecordingOptions { Name = "sheet" });
+    await Screen.GetByRole("button", "Open sheet").TapAsync();
+    var videos = await App.StopRecordingAsync();
+}
+```
+
+Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`; on a hosted daemon such as Expo Simulators, that pass can outlast `CleanupTimeout`, so set it `false` there. A pending agent-device screen-recording stop is shared with later callers and the attempt's cleanup: cancelling one caller's wait does not repeat the stop or discard its completion, a failed device stop is sent again by cleanup, and a cancelled caller still reports cancellation.
+
+## Dismiss the keyboard
+
+`Device.DismissKeyboardAsync()` presses the keyboard's own dismiss key where it has one (Android, iPad). An iPhone keyboard has none, so it drags a short way, horizontal first and vertical second, from the clear point nearest the centre of the screen. A control the captured accessibility tree leaves out, such as pressable text, can still be hit. A screen with no clear point above the keyboard, or a keyboard that outlives both drags, fails with `UNSUPPORTED_CAPABILITY`; the message names the alternatives: the app's own Done or close control, or pressing Enter on the field. Full details are in the [mobile skill reference](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/mobile.md).
 
 ## Hosted devices
 
-Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.Eas` and `E2E.TestMu.Mobile` add other providers. A provider whose service records its devices records the video of an attempt in place of agent-device (`IDeviceProvider.RecordAsync`). See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.
+Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.BrowserStack` (see [BrowserStack](/integrations/browserstack/)), `E2E.Expo`, and `E2E.TestMu.Mobile` add other providers. A provider whose service records its devices records the video of an attempt in place of agent-device (`IDeviceProvider.RecordAsync`). A worker keeps its leased device across the attempts that run on it, so a replacement worker resumes the same agent-device session. A worker disposed without reuse permission, or with an unconfirmed agent-device screen recording, closes its session. A provider recording whose stop fails stays with its worker: the next attempt waits for that stop to finish before it records, and a failed stop keeps the attempt from starting. The engine closes its sessions and the provider releases its leases at run end. Providers must clean up any external recording they leave when they release a lease, since closing an agent-device session cannot guarantee that a cloud recording stopped. See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.
+
+### Example: a device cloud that agent-device supports
+
+A device cloud that agent-device itself speaks to needs no session API of your own. `AgentDeviceLeases` (`E2E.Mobile.Lease`) starts an agent-device daemon per worker slot with the credentials in the run's environment, allocates a lease (with `Selectors` when the caller names a device), keeps it alive while the run holds it, and on release fails unless agent-device confirms the session ended. `E2E.TestMu.Mobile` works this way for TestMu AI, and `E2E.BrowserStack` for [BrowserStack](/integrations/browserstack/). The leases are made from the `AgentDeviceLeaseOptions` of the cloud's name; `leasesFactory` is only there so a test can stand in for the service.
+
+```csharp title="DeviceCloudProvider.cs"
+using E2E.Mobile;
+using E2E.Mobile.Lease;
+
+/// <summary>What <see cref="DeviceCloudProvider.CloudDevices"/> leases: a device of a cloud agent-device itself speaks to.</summary>
+/// <param name="Provider">agent-device's name for the cloud.</param>
+/// <param name="StateDir">The directory the run's leases keep their state in: each run's leases share <c>&lt;StateDir&gt;/&lt;runId&gt;</c>.</param>
+public sealed record CloudDevicesOptions(string Provider, string StateDir);
+
+/// <summary>
+/// Upstream's <c>docs/examples/mobile/device-cloud-provider.ts</c>, which exports <c>cloudDevices</c>. C# has no free function, so
+/// the holder is a static class (.NET-only name).
+/// </summary>
+public static class DeviceCloudProvider
+{
+    /// <summary>
+    /// Leases devices from a device cloud agent-device itself speaks to. Each worker slot gets its own agent-device daemon, whose
+    /// runtime for the cloud starts the session when the lease is allocated and ends it on release. The cloud picks the device.
+    /// <c>Provider</c> is agent-device's name for the cloud. <paramref name="leasesFactory"/> (.NET-only) makes the leases, so a test
+    /// can stand in for the service.
+    /// </summary>
+    public static IDeviceProvider CloudDevices(CloudDevicesOptions options, Func<AgentDeviceLeaseOptions, IAgentDeviceLeases>? leasesFactory = null)
+    {
+        var leases = (leasesFactory ?? (leaseOptions => new AgentDeviceLeases(leaseOptions)))(
+            new AgentDeviceLeaseOptions { Provider = options.Provider, Label = options.Provider, StateDir = options.StateDir });
+        return new CloudDeviceProvider(options, leases);
+    }
+
+    private sealed class CloudDeviceProvider(CloudDevicesOptions options, IAgentDeviceLeases leases) : IDeviceProvider
+    {
+        public string Name => options.Provider;
+
+        public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken) =>
+            leases.AcquireAsync(
+                request,
+                new AgentDeviceLeaseRequest
+                {
+                    // The daemon's runtime reads the cloud's credentials from the run's environment.
+                    Env = new Dictionary<string, string>(),
+                    Summary = request.Platform.WireName(),
+                },
+                cancellationToken);
+
+        public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) =>
+            leases.ReleaseAsync(lease, context, cancellationToken);
+    }
+}
+```
 
 ## Next
 
 <CardGrid>
-  <LinkCard title="Mobile app sample" href={`${import.meta.env.BASE_URL}samples/mobile-app/`} description="A MAUI app and its tests, ready to run." />
   <LinkCard title=".NET MAUI" href={`${import.meta.env.BASE_URL}get-started/maui/`} description="AutomationId, a Debug DevFlow attach, and the MAUI build." />
 </CardGrid>

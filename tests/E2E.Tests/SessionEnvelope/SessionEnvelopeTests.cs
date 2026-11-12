@@ -10,20 +10,19 @@ namespace E2E.Tests.SessionEnvelope;
 public sealed class SessionEnvelopeTests : SessionEnvelopeKit
 {
     [Fact]
-    public async Task Carries_learned_secret_values_and_the_taint_naming_the_secrets_in_the_clear_and_the_values_only_inside_the_ciphertext()
+    public async Task Carries_learned_secret_values_naming_the_secrets_in_the_clear_and_the_values_only_inside_the_ciphertext()
     {
-        var (store, raw, _, envelope) = await SaveEnvelope(new SavedSecrecy([("token", SecretValue), ("token", "rotated-token-0042")], true));
+        var (store, raw, _, envelope) = await SaveEnvelope([("token", SecretValue), ("token", "rotated-token-0042")]);
         try
         {
             SessionSchema.AssertValidSessionEnvelope(envelope);
             Assert.Equal("A256GCM", (string?)envelope["state"]!["algorithm"]);
-            Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"tainted":true,"names":["token"]}"""), envelope["secrecy"]));
+            Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"names":["token"]}"""), envelope["secrecy"]));
             Assert.DoesNotContain(SecretValue, raw, StringComparison.Ordinal);
             Assert.DoesNotContain("rotated-token-0042", raw, StringComparison.Ordinal);
             var loaded = await store.LoadAsync("member", Identity);
             Assert.True(JsonNode.DeepEquals(Cookies().Data, loaded.State.Data));
-            Assert.Equal([("token", SecretValue), ("token", "rotated-token-0042")], loaded.Secrecy.Secrets);
-            Assert.True(loaded.Secrecy.Tainted);
+            Assert.Equal([("token", SecretValue), ("token", "rotated-token-0042")], loaded.Secrets);
         }
         finally
         {
@@ -36,13 +35,13 @@ public sealed class SessionEnvelopeTests : SessionEnvelopeKit
     {
         var longName = new string('x', 300);
         (string, string)[] secrets = [(longName, SecretValue), .. Enumerable.Range(0, 300).Select(index => ($"token-{index}", $"value-{index}-padded"))];
-        var (store, _, _, envelope) = await SaveEnvelope(new SavedSecrecy(secrets, true));
+        var (store, _, _, envelope) = await SaveEnvelope(secrets);
         try
         {
             SessionSchema.AssertValidSessionEnvelope(envelope);
             Assert.Equal(301, envelope["secrecy"]!["names"]!.AsArray().Count);
             var loaded = await store.LoadAsync("member", Identity);
-            Assert.Equal(secrets, loaded.Secrecy.Secrets);
+            Assert.Equal(secrets, loaded.Secrets);
         }
         finally
         {

@@ -80,12 +80,12 @@ public sealed class WebEngineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "deleted");
             }
 
-            var target = Regex.Matches(text, @"button ""Delete"" \[ref=(e\d+)\]")[^1].Groups[1].Value;
+            var target = Regex.Matches(text, @"#(e\d+) button ""Delete""")[^1].Groups[1].Value;
             return ModelResponses.Call("tap", new { @ref = target });
         });
         var session = await StartAsync(site, model, cache: null);
@@ -140,6 +140,22 @@ public sealed class WebEngineTests
 
             Assert.Equal("Net worth", nodes["label"].Text);
             Assert.Equal("Save draft", nodes["save"].Name);
+        }
+    }
+
+    /// <summary>.NET-only: the web engine reports the viewport a capture was taken in, which a recorded scroll measures its list against.</summary>
+    [Fact]
+    public async Task Chromium_observation_reports_the_viewport_it_was_taken_in()
+    {
+        using var site = await TinySite.StartAsync(BillingPage);
+        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+
+        await using (session)
+        {
+            await session.OpenAsync(site.Url, CancellationToken.None);
+            var observation = await session.ObserveAsync(CancellationToken.None);
+
+            Assert.Equal(new TraceViewport(WebViewport.Default.Width, WebViewport.Default.Height), observation.Viewport);
         }
     }
 
@@ -205,7 +221,7 @@ public sealed class WebEngineTests
         await RunAsync(session, async () =>
         {
             var browser = session.Browser;
-            Assert.Equal(site.Url, session.App.BaseUrl);
+            Assert.Equal(site.Url.TrimEnd('/'), session.App.BaseUrl);
             await session.App.OpenAsync("/");
             await browser.SetCookiesAsync([new BrowserCookie { Name = "plan", Value = "pro", Url = site.Url }]);
             var denied = await Assert.ThrowsAsync<TestException>(() => browser.SetCookiesAsync([new BrowserCookie { Name = "x", Value = "y" }]));
@@ -302,7 +318,7 @@ public sealed class WebEngineTests
             <div role="tablist"><div role="tab" aria-selected="true">One</div><div role="tab" aria-selected="false">Two</div></div>
             <button type="button" aria-expanded="true">Menu</button>
             <button type="button" aria-pressed="true">Bold</button>
-            <div role="img" aria-label="Logo"></div>
+            <div role="img" aria-label="Logo" style="width: 20px; height: 20px"></div>
             <div style="display: none"><p>Saved</p></div>
             <p>Saved</p>
             </body></html>
@@ -327,7 +343,7 @@ public sealed class WebEngineTests
         {
             onCall();
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "upgraded");
             }
@@ -399,12 +415,13 @@ public sealed class WebEngineTests
 
 internal sealed class TinySite : IDisposable
 {
-    private readonly HttpListener _listener = new();
+    private readonly HttpListener _listener;
     private readonly CancellationTokenSource _stop = new();
     private readonly Func<HttpListenerContext, Task> _handler;
 
-    private TinySite(string url, Func<HttpListenerContext, Task> handler)
+    private TinySite(HttpListener listener, string url, Func<HttpListenerContext, Task> handler)
     {
+        _listener = listener;
         Url = url;
         _handler = handler;
     }
@@ -425,18 +442,37 @@ internal sealed class TinySite : IDisposable
         context.Response.Close();
     }
 
-    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
+    public static Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
-        var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
-        site._listener.Prefixes.Add(site.Url);
-        site._listener.Start();
-        _ = Task.Run(() => site.ListenAsync(site._stop.Token));
-        await Task.Delay(30);
-        return site;
+        // .NET-only: HttpListener cannot bind port 0, so take a free port and try again when another test takes it first.
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            var url = "http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            try
+            {
+                listener.Start();
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
+            }
+
+            var site = new TinySite(listener, url, handler);
+            _ = Task.Run(() => site.ListenAsync(site._stop.Token));
+            return Task.FromResult(site);
+        }
     }
 
     public void Dispose()

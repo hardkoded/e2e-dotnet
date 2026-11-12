@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -18,8 +19,68 @@ namespace E2E;
 /// </summary>
 internal sealed record SessionIdentity(string TargetId, string EngineName, string EngineVersion, int SpiVersion, string Platform, string AppIdentity);
 
+/// <summary>The identity-making function of upstream's <c>run/sessions.ts</c>.</summary>
+internal static class Sessions
+{
+    /// <summary>
+    /// The identity session and replay cache entries key on for one target (upstream's <c>targetIdentity</c>). It comes from the engine's
+    /// name and version and the target's resolved app, so an engine swap never restores another engine's state. The app's declared
+    /// identity (else its URL, bundle id, or build path) keys entries, so an ephemeral per-deploy origin (a PR preview) can share them
+    /// with the app it is a deployment of. The environment always joins the digest: an identity must never bleed entries across
+    /// environments.
+    /// </summary>
+    public static SessionIdentity TargetIdentity(string targetName, string platform, IEngine engine, ResolvedApp app)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(app);
+        var identity = new JsonObject();
+        if (app.Identity is not null)
+        {
+            identity["identity"] = app.Identity;
+        }
+
+        identity["environment"] = app.Environment;
+        return new SessionIdentity(targetName, engine.Name, engine.Version, BuildReport.EngineSpiVersion, platform, Ids.CanonicalDigest(identity));
+    }
+}
+
 /// <summary>What one saved session holds once decrypted (upstream's <c>SavedSession</c>).</summary>
-internal sealed record SavedSession(EngineState State, SavedSecrecy Secrecy);
+/// <param name="State">The engine's state.</param>
+/// <param name="Secrets">
+/// Name and value pairs the saving session learned beyond the static config values (upstream's <c>SavedSecrets</c>); they travel only
+/// inside the encrypted payload.
+/// </param>
+internal sealed record SavedSession(EngineState State, IReadOnlyList<(string Name, string Value)> Secrets);
+
+/// <summary>
+/// Collects the states saved by one setup attempt and owns the setup session contract (upstream's <c>SessionStaging</c>,
+/// <c>run/sessions.ts</c>): each declared name saved exactly once, nothing undeclared.
+/// </summary>
+internal sealed class SessionStaging(IReadOnlyList<string> declared)
+{
+    private readonly Dictionary<string, SavedSession> _staged = new(StringComparer.Ordinal);
+
+    /// <summary>Stages one captured state with the secret values of the session it came from, rejecting a duplicate or undeclared name.</summary>
+    public void Stage(string name, EngineState state, IReadOnlyList<(string Name, string Value)> secrets)
+    {
+        if (_staged.ContainsKey(name))
+        {
+            throw new TestException("SESSION_CONTRACT", $"session \"{name}\" saved twice");
+        }
+
+        if (!declared.Contains(name, StringComparer.Ordinal))
+        {
+            throw new TestException("SESSION_CONTRACT", $"session \"{name}\" was not declared by this setup test");
+        }
+
+        _staged.Add(name, new SavedSession(state, secrets));
+    }
+
+    /// <summary>Declared names the attempt finished without saving.</summary>
+    public IReadOnlyList<string> Missing() => [.. declared.Where(name => !_staged.ContainsKey(name))];
+
+    public IEnumerable<KeyValuePair<string, SavedSession>> Entries() => _staged;
+}
 
 /// <summary>
 /// The per-run encrypted session store (upstream's <c>SessionStore</c>, <c>run/sessions.ts</c>). It holds the run's AES-256-GCM key in
@@ -83,8 +144,8 @@ internal sealed class SessionStore
 
     /// <summary>
     /// Encrypts and atomically persists one captured engine state. The secret values the saving session learned ride inside the ciphertext,
-    /// beside the state they may be stored in, so the session that restores it redacts them too; the envelope names them and carries the
-    /// taint in the clear, authenticated.
+    /// beside the state they may be stored in, so the session that restores it redacts them too; the envelope names them in the clear,
+    /// authenticated.
     /// </summary>
     public async Task SaveAsync(string name, SessionIdentity identity, SavedSession saved, CancellationToken cancellationToken = default)
     {
@@ -123,8 +184,7 @@ internal sealed class SessionStore
             ["expiresAt"] = Ids.Timestamp(expiresAt),
             ["secrecy"] = new JsonObject
             {
-                ["tainted"] = saved.Secrecy.Tainted,
-                ["names"] = new JsonArray([.. saved.Secrecy.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(each => (JsonNode)each)]),
+                ["names"] = new JsonArray([.. saved.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(each => (JsonNode)each)]),
             },
             ["state"] = new JsonObject
             {
@@ -138,7 +198,7 @@ internal sealed class SessionStore
         var payload = new JsonObject
         {
             ["data"] = saved.State.Data?.DeepClone(),
-            ["secrets"] = new JsonArray([.. saved.Secrecy.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
+            ["secrets"] = new JsonArray([.. saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
         };
         var plaintext = Encoding.UTF8.GetBytes(payload.ToJsonString());
         var ciphertext = new byte[plaintext.Length];
@@ -153,6 +213,9 @@ internal sealed class SessionStore
         state["ciphertext"] = Convert.ToBase64String(ciphertext);
         await AtomicWrite.WriteFileAtomicAsync(FilePath(identity.TargetId, name), envelope.ToJsonString(EnvelopeOptions) + "\n", UnixFileMode.UserRead | UnixFileMode.UserWrite, cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>Whether a file for the session is in the store. It says nothing about the file being valid or unexpired: <see cref="LoadAsync"/> checks that.</summary>
+    public bool Exists(string name, SessionIdentity identity) => File.Exists(FilePath(identity.TargetId, name));
 
     /// <summary>
     /// Validates identity and expiry, then decrypts one session state. A session is immutable for the life of the run that produced it, so the
@@ -318,10 +381,9 @@ internal sealed class SessionStore
         }
 
         var payload = ParsePayload(Encoding.UTF8.GetString(plaintext), name);
-        var tainted = envelope["secrecy"] is JsonObject secrecy && secrecy["tainted"] is JsonValue flag && flag.TryGetValue<bool>(out var isTainted) && isTainted;
         return new SavedSession(
             new EngineState(Text(state, "format"), state["version"]?.GetValue<int>() ?? throw new InvalidOperationException("version is not a number"), payload["data"]?.DeepClone(), expiresAt),
-            new SavedSecrecy([.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))], tainted));
+            [.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))]);
     }
 
     private static string Text(JsonObject owner, string key) => (string?)owner[key] ?? throw new InvalidOperationException(key + " is not text");

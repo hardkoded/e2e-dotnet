@@ -39,15 +39,22 @@ public sealed class PerformTests
             before,
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e4","count":2,"settle":true,"settleQuietMs":150}"""),
-            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":900}"""),
+            ("interactions.longPress", """{"ref":"@e4","durationMs":900}"""),
 
             // No duration named: the engine's one-second hold, past a Pressable's delayLongPress.
-            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
+            ("interactions.longPress", """{"ref":"@e4","durationMs":1000}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
+
+            // A fill or clear reads the field again before typing into it.
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"blue","settle":true,"settleQuietMs":150}"""),
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e6","settle":true,"settleQuietMs":150}"""),
+
+            // Enter reaches the field through the soft keyboard, so the unfocused field is tapped first.
+            ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("command.keyboard", """{"action":"enter"}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.type", """{"text":"a"}"""),
@@ -57,9 +64,56 @@ public sealed class PerformTests
             ("interactions.type", """{"text":" "}"""),
             ("interactions.swipe", """{"from":{"x":195,"y":620},"to":{"x":195,"y":420}}"""),
 
-            // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, settled like a tap.
-            ("interactions.scroll", """{"direction":"up","settle":true,"settleQuietMs":150}"""),
+            // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, a test's step carries no settle wait.
+            ("interactions.scroll", """{"direction":"up","postGestureStabilization":false}"""),
+            // The swipe left the stabilization wait to the next action, so the drag first reads its control again.
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+    }
+
+    [Fact]
+    public async Task Performs_the_locator_long_press_hover_and_drag_actions_as_the_session_calls_do()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var (about, back) = (Named(root, "About"), Named(root, "Back"));
+        var before = h.Fake.Calls.Count;
+        await session.PerformAsync(about, new LocatorAction.LongPress(TimeSpan.FromMilliseconds(900)), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.LongPress(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Hover(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.DragTo(back), CancellationToken.None);
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":900}"""),
+            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
+            ("interactions.hover", """{"ref":"@e4"}"""),
+            ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+    }
+
+    [Fact]
+    public async Task Refuses_a_secondary_tap_because_a_touch_surface_has_none()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var about = Named(await RootOf(session), "About");
+        await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.SecondaryTap(), CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("Enter", "command.keyboard")]
+    [InlineData("a", "interactions.type")]
+    public async Task Sends_a_key_to_a_focused_field_without_tapping_it_first(string key, string method)
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
+            [.. RawNodes.SettingsNodes.Select(node => node.Label == "Search" ? node with { Focused = true } : node)]));
+        var session = await OpenAttempt(h);
+        var search = await Observed(session, "Search");
+        var before = h.Fake.Calls.Count;
+        await session.PerformAsync(search, new LocatorAction.Press(key), CancellationToken.None);
+        Assert.Equal([method], h.Fake.Calls.Skip(before).Select(call => call.Method));
     }
 
     [Theory]

@@ -23,7 +23,7 @@ model tests use the GitHub Copilot login (`e2e login github-copilot`).
 ## Doctor
 
 ```bash
-dotnet test --project samples/TodoMvc --filter "FullyQualifiedName~AddingTodosTests.Adds_a_single_todo"   # opens the app, adds a todo; exit 0
+dotnet test samples/TodoMvc --filter "FullyQualifiedName~AddingTodosTests.Adds_a_single_todo"   # opens the app, adds a todo; exit 0
 ```
 
 The sample has no model-free test, so its Doctor uses the model; a project
@@ -56,13 +56,17 @@ it.
 
 ## Bug bash
 
-The bug bash fan-out is not ported, so a bash is a live MCP walk of a feature's
-charter from [features/](features/), one H2 per feature, in the
-`slug|target|charter` line format. A finding is a bug once a repro test
-fails with `ASSERTION_FAILED` on the assertion that encodes it (topic
-`bug-bash`). Give each repro its own data with `Values.Unique(...)`. The
-demo is hosted and shared, but the list is per browser context, so several
-walks do not collide.
+`samples/TodoMvc/e2e.bugbash.config.json` (untracked) copies
+`e2e.config.json` and adds the `skeptic` and `fuzzer` agents, each with the
+model, 40 steps and model calls, and a `context` that says what is not a bug
+here (the list starts empty; the demo is hosted and shared). The charters are
+in [features/](features/), one H2 per feature, already in the
+`slug|target|agent|charter` line format the fan-out in topic `bug-bash` step 3
+reads. The app is hosted, so several explorers need no isolation change, and
+the list is per browser context, so they do not collide. `.e2e/bugbash/` is in
+`.gitignore`. A finding is a bug once a repro test in a `BugBash` folder of
+the test project fails on the reported defect, as topic `bug-bash` step 6
+reads it. Give each repro its own data with `Values.Unique(...)`.
 
 ## Cleanup
 

@@ -10,6 +10,7 @@ frameworks share: locators, reads, expectations, agent steps, and the
 - Project
 - The base class
 - Attributes
+- Saved sessions
 - Soft checks and polls
 - A complete example
 - Run
@@ -79,9 +80,70 @@ public sealed class BillingTests : E2ETest
 - `Assert.Skip(reason)` or `Assert.SkipWhen(condition, reason)` skips a test
   from inside its body.
 
+## Saved sessions
+
+Sign in once, then start other tests signed in (upstream's `test.setup` and
+`session`). Mark the sign-in test `[E2ESetup("title", Saves = ["admin"])]`
+instead of `[Fact]`; its body signs in, checks that it worked, and calls
+`await SaveSessionAsync("admin")` once for each name in `Saves`. Mark a test or
+a class `[E2ESession("admin")]` to restore it before the body runs.
+
+```csharp
+public sealed class Dashboard : E2ETest
+{
+    [E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await Expect.That(Browser).ToHaveURLAsync("/dashboard");
+        await SaveSessionAsync("admin");
+    }
+
+    [Fact]
+    [E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly()
+    {
+        await App.OpenAsync("/dashboard");
+    }
+}
+```
+
+- A name saved twice, a name not in `Saves`, or a name in `Saves` the body
+  never saved fails the setup test with `SESSION_CONTRACT`. `SaveSessionAsync`
+  outside a setup test fails the same way. Nothing is saved when the setup
+  test fails.
+- `E2ETest` orders the setup tests of a class before its other tests (a test
+  method orderer, `SetupTestMethodOrderer`); a class with its own
+  `[TestMethodOrderer]` loses it. A test that restores a session nobody saved
+  yet runs the setup test that declares it first, once per run, so a dependent
+  can run alone (upstream's runner schedules the setup before its dependents
+  too). The test that needs it runs the setup itself: it builds the setup's
+  class with its parameterless constructor and runs the method in a session of
+  its own, without the class's own `[SetUp]` and `[TearDown]` methods, and the
+  framework then skips that setup test when its turn comes. Exactly one setup
+  test of the test assembly must declare the name: with none, or with two, the
+  restore fails with `SESSION_UNAVAILABLE`. A setup test that fails fails each
+  of its dependents with `SESSION_UNAVAILABLE` (upstream skips them as `setup-
+  failed`). A class-level `[E2ESession]` does not apply to the setup tests of
+  that class.
+- A restore leaves no page open: call `App.OpenAsync` first. A session holds
+  what the browser keeps (cookies, local storage, IndexedDB), not server state.
+- An engine without a state capability (`stateCapability` false in
+  `report.json`) fails `SaveSessionAsync` and a restore with
+  `UNSUPPORTED_CAPABILITY`. `WebEngine` has it.
+- A session lasts one run. It is encrypted with a key held in memory and kept
+  under `.e2e/sessions/<run id>`. Register `E2ERunFixture` as an assembly
+  fixture to delete it when the run ends.
+- The package needs `xunit.v3.extensibility.core` 4.0.1 or later (the test
+  method orderer).
+
 ## Soft checks and polls
 
-- `Expect.Soft(locator)` keeps each failure on the session. The test body
+- `Expect.Soft(locator)` and `Expect.Soft(screen)` keep each failure on the session. The test body
   runs on, and the test fails when it is disposed, with every failure in
   one message.
 - `Expect.Poll(read)` retries a value with `ToBeAsync` or

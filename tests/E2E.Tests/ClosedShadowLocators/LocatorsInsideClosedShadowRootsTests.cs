@@ -83,29 +83,54 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     }
 
     [Fact]
-    public async Task Scopes_a_child_query_to_a_root_inside_the_closed_root_and_filters_a_region_by_a_button_inside_it()
+    public async Task Scopes_a_child_query_to_a_root_inside_the_closed_root_and_lets_has_cross_the_boundary()
     {
-        await WithScreenAsync(async screen =>
+        await WithSessionAsync(async session =>
         {
-            var nested = await screen.GetByRole("region", "Advanced").GetByRole("button").ResolveAsync(CancellationToken.None);
+            var nested = await session.Screen.GetByRole("region", "Advanced").GetByRole("button").ResolveAsync(CancellationToken.None);
             Assert.Equal(["Open inside closed", "Closed inside open"], nested.Select(node => node.Name));
 
-            // Not ported: `has` on the `x-access` host. The port has no CSS selector locator, and the host is
-            // no node of the tree, so there is nothing to filter. The region that holds the root stands in for it.
-            var advanced = screen.GetByRole("region");
-            Assert.Equal(1, await advanced.Filter(screen.GetByRole("button", "Open inside closed")).CountAsync());
-            Assert.Equal(0, await advanced.Filter(screen.GetByRole("button", "Sidecar")).CountAsync());
+            // The host is a light-DOM element; the button it must contain is inside its closed root.
+            var host = session.Browser.Locator("x-access");
+            Assert.Equal(1, await host.Filter(session.Screen.GetByRole("button", "Submit")).CountAsync());
+            Assert.Equal(0, await host.Filter(session.Screen.GetByRole("button", "Sidecar")).CountAsync());
+            Assert.Equal(0, await host.Filter(hasNot: session.Screen.GetByRole("button", "Submit")).CountAsync());
+            Assert.Equal(1, await host.Filter(hasNot: session.Screen.GetByRole("button", "Sidecar")).CountAsync());
         });
     }
 
     [Fact]
-    public async Task Filters_a_node_inside_a_closed_root_by_its_text()
+    public async Task Reads_hasText_as_Playwright_does_so_text_inside_a_closed_root_does_not_count_toward_the_host()
+    {
+        await WithSessionAsync(async session =>
+        {
+            Assert.Equal(0, await session.Browser.Locator("x-access").Filter("SHADOW-42").CountAsync());
+            // Inside the root the text is ordinary text again.
+            Assert.Equal(1, await session.Screen.GetByTestId("hint").Filter("SHADOW-42").CountAsync());
+        });
+    }
+
+    [Fact]
+    public async Task Reads_hasNotText_as_Playwright_does_so_text_inside_a_closed_root_does_not_exclude_the_host()
+    {
+        await WithSessionAsync(async session =>
+        {
+            Assert.Equal(1, await session.Browser.Locator("x-access").Filter(hasNotText: "SHADOW-42").CountAsync());
+            Assert.Equal(0, await session.Screen.GetByTestId("hint").Filter(hasNotText: "SHADOW-42").CountAsync());
+        });
+    }
+
+    [Fact]
+    public async Task Excludes_button_text_with_string_and_RegExp_filters_across_roots()
     {
         await WithScreenAsync(async screen =>
         {
-            // Not ported: the `x-access` host half. The port has no CSS selector locator, and the host is
-            // no node of the tree. Inside the root the text is ordinary text again.
-            Assert.Equal(1, await screen.GetByTestId("hint").Filter("SHADOW-42").CountAsync());
+            var buttons = screen.GetByRole("button");
+            var retained = await buttons.Filter(hasNotText: "twin").ResolveAsync(CancellationToken.None);
+            Assert.Equal(["Submit", "Open inside closed", "Closed inside open", "Sidecar"], retained.Select(node => node.Name));
+            var regex = await buttons.Filter(hasNotText: new Regex("^Twin$", RegexOptions.IgnoreCase)).ResolveAsync(CancellationToken.None);
+            Assert.Equal(retained.Select(node => node.Name), regex.Select(node => node.Name));
+            Assert.Empty(await buttons.Filter(hasText: "Twin", hasNotText: "Twin").ResolveAsync(CancellationToken.None));
         });
     }
 
@@ -169,20 +194,26 @@ public sealed class LocatorsInsideClosedShadowRootsTests
         });
     }
 
-    private static async Task WithScreenAsync(Func<Screen, Task> body)
-    {
-        using var site = await FixtureApp.StartAsync();
-        await WithScreenAsync(site, body);
-    }
+    private static Task WithScreenAsync(Func<Screen, Task> body) =>
+        WithSessionAsync(session => body(session.Screen));
 
-    private static async Task WithScreenAsync(TinySite site, Func<Screen, Task> body)
+    private static Task WithScreenAsync(TinySite site, Func<Screen, Task> body) =>
+        WithSessionAsync(site, session => body(session.Screen));
+
+    private static async Task WithSessionAsync(TinySite site, Func<E2ESession, Task> body)
     {
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
         await WebSemanticsTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/closed-form");
-            await body(session.Screen);
+            await body(session);
         });
+    }
+
+    private static async Task WithSessionAsync(Func<E2ESession, Task> body)
+    {
+        using var site = await FixtureApp.StartAsync();
+        await WithSessionAsync(site, body);
     }
 
     private static async Task<List<string?>> TestIdsAsync(Locator locator) =>

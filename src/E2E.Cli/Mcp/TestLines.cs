@@ -9,10 +9,16 @@ using E2E.Internal;
 
 namespace E2E.Cli.Mcp;
 
+/// <summary>One credential as a test line names it: the name <c>Credentials.User</c> takes, its username, and its password secret's name (upstream's <c>TestLineFills.credentials</c>).</summary>
+internal sealed record TestLineCredential(string Name, string Username, string Password);
+
+/// <summary>The names a test fills values from, as the config declares them (upstream's <c>TestLineFills</c>).</summary>
+internal sealed record TestLineFills(IReadOnlyList<TestLineCredential> Credentials, IReadOnlyCollection<string> Secrets);
+
 /// <summary>What a session's test lines need of the session around them. Upstream's <c>TestLineOptions</c>.</summary>
 internal sealed class TestLineOptions
 {
-    /// <summary>The newest observation's tree: the screen the agent's node refs name. Null when nothing was observed yet.</summary>
+    /// <summary>The newest observation's tree: the screen the agent's node ids name. Null when nothing was observed yet.</summary>
     public required Func<IReadOnlyList<SemanticNode>?> Newest { get; init; }
 
     /// <summary>
@@ -27,8 +33,11 @@ internal sealed class TestLineOptions
     /// <summary>The app's base URL, which a navigation line is made relative to.</summary>
     public Uri? AppBase { get; init; }
 
-    /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
-    public IReadOnlyCollection<string> Secrets { get; init; } = [];
+    /// <summary>The configured credentials and secrets a fill is written with (upstream's <c>fills</c>).</summary>
+    public TestLineFills? Fills { get; init; }
+
+    /// <summary>The full name of the test the session ran before it went live: the lines carry on from where it stopped. Upstream's <c>testRan</c> (<c>file:line</c> there).</summary>
+    public string? TestRan { get; init; }
 }
 
 /// <summary>
@@ -70,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "dismiss_keyboard"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -78,6 +87,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
     {
         ["tap"] = "TapAsync",
         ["double_tap"] = "DoubleTapAsync",
+        ["long_press"] = "LongPressAsync",
+        ["right_click"] = "SecondaryTapAsync",
+        ["hover"] = "HoverAsync",
         ["check"] = "CheckAsync",
         ["uncheck"] = "UncheckAsync",
         ["clear"] = "ClearAsync",
@@ -136,14 +148,20 @@ internal sealed class SessionTestLines(TestLineOptions options)
         }
 
         var body = _entries.Select(entry => entry.Line ?? "// " + entry.Tool + ": no test line: " + entry.Reason);
+        var count = "in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):";
+
+        // A session that ran a test holds only what came after it: the test's own lines are in its file.
+        var (lead, place) = _options.TestRan is { } ran
+            ? ("Test lines from this session's actions after test " + ran + " stopped, " + count, "Put them in that test where it stopped, in place of the line that failed or after its last line,")
+            : ("Draft test body from this session's actions, " + count, "Paste it into a test method,");
         return string.Join(
             '\n',
             [
-                "Draft test body from this session's actions, in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):",
+                lead,
                 "",
                 .. body,
                 "",
-                "Paste it into a test method, and add an Expect after each step that should change the screen.",
+                place + " and add an Expect after each step that should change the screen.",
             ]);
     }
 
@@ -211,6 +229,12 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>Records a performed action's line and puts it after the result's lead.</summary>
     private string Annotate(string tool, string text, LinePlan plan)
     {
+        // A type whose node took the value through the keyboard has no line, whatever the plan found (upstream's annotate).
+        if (tool == "type" && ActTools.TypedThroughKeyboard(text))
+        {
+            plan = LinePlan.None("the node is not an input and took the value through the keyboard, which no locator line repeats");
+        }
+
         _entries.Add(new Entry(tool, plan.Line, plan.Reason));
         var note = plan.Line is { } line ? "Test line: " + line : "No test line: " + plan.Reason + ".";
         var cut = text.IndexOf('\n', StringComparison.Ordinal);
@@ -237,9 +261,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
         var target = Field(args, "target");
         if (NodeMethods.TryGetValue(name, out var method))
         {
-            if (name is "tap" or "double_tap" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
+            if (name is "tap" or "double_tap" or "right_click" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
             {
-                return LinePlan.None("a locator " + (name == "tap" ? "tap" : "double tap") + " takes no modifier keys");
+                return LinePlan.None("a locator " + name.Replace('_', ' ') + " takes no modifier keys");
             }
 
             return await OnTargetAsync(target, locator => locator + "." + method + "()", token).ConfigureAwait(false);
@@ -251,38 +275,106 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 {
                     // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
                     var text = Field(args, "text") ?? "";
+                    if (target is null)
+                    {
+                        return LinePlan.None("the value went to the focused field; type into a listed node by id for a line");
+                    }
+
                     return _options.Redact(text) != text
                         ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
-                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + SessionCatalog.Quote(text) + ")", token).ConfigureAwait(false);
+                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(text) + ")", token).ConfigureAwait(false);
                 }
 
             case "type_secret":
                 {
-                    var secret = Field(args, "secret") ?? "";
-                    return _options.Secrets.Contains(secret)
-                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(Secrets.Get(" + SessionCatalog.Quote(secret) + "))", token).ConfigureAwait(false)
-                        : LinePlan.None("the secret is not a config secret");
+                    return SecretExpression(Field(args, "secret") ?? "") is { } secret
+                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token).ConfigureAwait(false)
+                        : LinePlan.None("the secret is neither a credential password nor a config secret");
                 }
 
             case "press":
-                return target is null
-                    ? LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line")
-                    : await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
+                if (target is null)
+                {
+                    return LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line");
+                }
+
+                // A key pressed several times in one call has no one-line equivalent (upstream's press case).
+                if (args.ValueKind == JsonValueKind.Object && args.TryGetProperty("times", out var times) && times.ValueKind == JsonValueKind.Number && times.TryGetInt32(out var count) && count > 1)
+                {
+                    return LinePlan.None("a key pressed several times in one call has no one-line equivalent; press it once per call for lines");
+                }
+
+                return await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
             case "select":
                 return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")", token).ConfigureAwait(false);
+            case "upload":
+                {
+                    var files = Strings(args, "files");
+                    if (files.Any(file => file.StartsWith(SampleFiles.SamplePrefix, StringComparison.Ordinal)))
+                    {
+                        return LinePlan.None("a sample file exists only for the agent; save a file in the project and upload its path for a line");
+                    }
+
+                    var paths = files.Count == 1 ? SessionCatalog.Quote(files[0]) : "[" + string.Join(", ", files.Select(SessionCatalog.Quote)) + "]";
+                    return await OnTargetAsync(target, locator => locator + ".SetInputFilesAsync(" + paths + ")", token).ConfigureAwait(false);
+                }
             case "scroll_to":
                 return target is not null && Field(args, "text") is null
                     ? await OnTargetAsync(target, locator => locator + ".ScrollIntoViewAsync()", token).ConfigureAwait(false)
                     : LinePlan.None("scrolling to a text has none; a test action brings its node into view");
             case "scroll":
                 return LinePlan.None("a test action brings its node into view itself");
+            case "dismiss_keyboard":
+                return LinePlan.None("a test hides the keyboard only when it covers the next control");
+            case "drag":
+                return await DragAsync(target, Field(args, "to"), token).ConfigureAwait(false);
             case "navigate":
                 return LinePlan.Of(NavigationLine(Field(args, "url") ?? "", _options.AppBase));
             case "back":
                 return LinePlan.Of("await App.BackAsync();");
+            case "resize_viewport":
+                return LinePlan.None("set " + Side(args, "width") + "x" + Side(args, "height") + " with the engine fixture's viewport call");
             default:
                 return LinePlan.None(name + " has no test line");
         }
+    }
+
+    /// <summary>A drag's line: both ends need a locator (upstream's <c>drag</c>).</summary>
+    private async Task<LinePlan> DragAsync(string? source, string? destination, CancellationToken token)
+    {
+        var from = await LocatorAsync(source, token).ConfigureAwait(false);
+        if (from.Reason is { } reason)
+        {
+            return LinePlan.None(reason);
+        }
+
+        var to = await LocatorAsync(destination, token).ConfigureAwait(false);
+        if (to.Reason is { } dropReason)
+        {
+            return LinePlan.None("the drop target: " + dropReason);
+        }
+
+        var comments = new[] { from.Comment, to.Comment }.Where(comment => comment is not null).ToList();
+        return LinePlan.Of("await " + from.Code + ".DragToAsync(" + to.Code + ");" + (comments.Count == 0 ? "" : " // " + string.Join("; ", comments)));
+    }
+
+    /// <summary>A typed value as the line spells it: a credential's username by its name, anything else as written (upstream's <c>typed</c>).</summary>
+    private string Typed(string value)
+    {
+        var credential = _options.Fills?.Credentials.FirstOrDefault(candidate => candidate.Username == value);
+        return credential is null ? SessionCatalog.Quote(value) : "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Username";
+    }
+
+    /// <summary>How a test names a secret <c>type_secret</c> filled: a credential's password, or a config secret (upstream's <c>secretExpression</c>).</summary>
+    private string? SecretExpression(string name)
+    {
+        var credential = _options.Fills?.Credentials.FirstOrDefault(candidate => candidate.Password == name);
+        if (credential is not null)
+        {
+            return "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Password";
+        }
+
+        return _options.Fills?.Secrets.Contains(name) == true ? "Secrets.Get(" + SessionCatalog.Quote(name) + ")" : null;
     }
 
     /// <summary>A line acting on one target, or why there is none.</summary>
@@ -658,6 +750,16 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     private static string? Field(JsonElement args, string name) =>
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    // The string items of a list field, as upload's files: the ones that are not strings are left out, as the policy never sees them.
+    private static List<string> Strings(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Array
+            ? [.. value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)]
+            : [];
+
+    // A viewport side as the model sent it, for the reason a resize has no line.
+    private static string Side(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) ? value.ToString() : "undefined";
 
     /// <summary>One recorded action: its line, or why it has none.</summary>
     private sealed record Entry(string Tool, string? Line, string? Reason);

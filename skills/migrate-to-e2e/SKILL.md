@@ -1,6 +1,6 @@
 ---
 name: migrate-to-e2e
-description: Moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to the .NET port of e2e one slice at a time, with the old suite running beside the new one until each ported test is proven. Keeps a MIGRATION.md progress file so any later session resumes where the last stopped. Optionally plants a defect to show both suites catch it. Use for /migrate-to-e2e, "migrate our tests to e2e", "port these Playwright tests", or when a project has an e2e test project and an older suite still running.
+description: Moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to the .NET port of e2e one slice at a time, with the old suite running beside the new one until each ported test is proven. Keeps a MIGRATION.md progress file so any later session resumes where the last stopped. Optionally plants a defect to show both suites catch it. Use for /migrate-to-e2e, "migrate our tests to e2e", "port these Playwright tests", "move our TesterArmy tests", or when a project has an e2e test project and an older suite still running.
 disable-model-invocation: true
 ---
 
@@ -14,8 +14,8 @@ agent's, starts from it instead of from scratch. The user decides when an old te
 
 This is the .NET port's version of upstream's `migrate-to-e2e`. The e2e
 tests are NUnit or xUnit v3 tests that derive from `E2ETest`, run with
-`dotnet test`. The port has no `e2e init`, `e2e run`, `e2e list`, or
-`e2e feedback`, and no per-runner migration guides.
+`dotnet test`. The port has no `e2e run`, `e2e list`, or
+`e2e feedback`, and its `e2e init` creates the test project (`--framework xunit` for xUnit v3).
 
 One reference does most of the work. Read it; do not restate it.
 
@@ -25,24 +25,65 @@ One reference does most of the work. Read it; do not restate it.
   `writing-tests-nunit`, `writing-tests-xunit`, `agent`, `mcp`, `running`,
   `debugging`, `mobile`, `windows`) are its reference files.
 
-Detect the source runner, then read the topics in its row in full, before
-the inventory and before writing any code.
+Detect the source runner, then read the guide and the topics in its row in
+full, before the inventory and before writing any code. A guide maps the
+runner's config, API, and commands to e2e and marks what has no port. It is a
+page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
+(`docs-site/src/content/docs/migrate/<guide>.mdx` in a clone of the repo).
 
-| Source | Detect it by | Engine topic |
-| --- | --- | --- |
-| Playwright .NET | `Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright` in a `.csproj` | `setup` (web) |
-| Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `setup` (web) |
-| Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `setup` (web) |
-| Appium, Detox, Maestro | `Appium.WebDriver` in a `.csproj`, `.detoxrc*`, YAML flows opening with `appId:` and `---` | `mobile` |
+| Source | Detect it by | Guide | Engine topic |
+| --- | --- | --- | --- |
+| Playwright .NET | `Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright` in a `.csproj` | `playwright` | `setup` (web) |
+| Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `selenium` | `setup` (web) |
+| Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `cypress` for Cypress; `playwright` for Playwright, with Node names for .NET ones | `setup` (web) |
+| Detox, Maestro | `.detoxrc*`, YAML flows opening with `appId:` and `---` | `detox`, `maestro` | `mobile` |
+| Appium | `Appium.WebDriver` in a `.csproj`, `appium:` capabilities in a `wdio.conf.*` or test setup, `appium` in `package.json`, `io.appium` in a `pom.xml` or `build.gradle`, `Appium-Python-Client` in `requirements.txt`; a dependency alone is a hint, so check that the tests drive a mobile app | `appium` | `mobile` |
+| TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
+
+An Appium .NET project often references `Selenium.WebDriver` too: when both
+packages are present, the Appium row wins, since the suite drives a device.
+
+WebdriverIO for the web has no guide. Map its WebDriver calls with the
+`selenium` guide, and tell the user the mapping is partial. WebdriverIO with
+Appium capabilities is an Appium project.
 
 Also read `writing-tests-nunit` when the e2e project uses NUnit, or
 `writing-tests-xunit` when it uses xUnit v3. Follow the source project's
 framework when it is a .NET one; otherwise ask the user.
 
-No guide maps a runner's API to e2e. Use the e2e skill's `writing-tests`
-topics and the locator table in `setup`, and tell the user the mapping is
-by hand. A project with two source runners migrates one at a time, one
-section of the progress file each.
+A guide marks each feature `missing`, `by design`, `web only`, "Not yet", or
+"No equivalent". Where it gives a workaround, use it. Where it gives none, the test stays in the old
+runner and the progress file says why. A project with two source runners
+migrates one at a time, one section of the progress file each.
+
+### TesterArmy
+
+TesterArmy tests live in TesterArmy, not in the repo. Read them through
+the TesterArmy MCP server (`https://tester.army/mcp`). When your client has
+no `testerarmy` tools, add it (`npx add-mcp --global --name testerarmy https://tester.army/mcp`,
+or `claude mcp add --transport http testerarmy https://tester.army/mcp` when
+Claude Code uses a custom `CLAUDE_CONFIG_DIR`), ask the user to sign in and
+restart the session, and wait.
+
+- Ask which project to migrate (`list_projects`). Its settings,
+  environments, credentials, memories, and files are the harness inputs
+  (step 3); its groups are the slices (step 4).
+- A source file is a saved test. Its row's Source is the test's title and
+  id, and its assertions are its `assert` steps. A disabled test counts as
+  skipped. A disabled step is left out and not counted.
+- Use the read tools only. `run_test` and `run_group` start cloud runs
+  against the deployed app: in step 6, call them only when the user agrees,
+  else record `Run old: not run`. Never create, update, or delete anything
+  in TesterArmy; retiring a test means the user disables or deletes it.
+- TesterArmy never returns passwords or TOTP secrets. Name each credential
+  in the test project's environment and ask the user to set its variable.
+- The literal port of a step is an agent call (`Agent.ActAsync`,
+  `Agent.AssertAsync`), so the project needs a model (step 3.2). A step that
+  needs no judgment ports to a locator call instead. Learn the exact name
+  first (step 5), and note each swap in the row's Notes.
+- The `testerarmy` guide's "Port the project" table maps the project
+  settings, and its "Map each step" table maps each step type and group
+  setting. Use them for steps 3 and 5.
 
 ## 1. Resume or start
 
@@ -121,11 +162,18 @@ once and the progress file says so; later sessions skip this step.
      environment and read it with `Credentials.User(name)` (topic `setup`).
      The config has no `credentials` key. Other secrets go under `secrets`
      with `null`, read from `E2E_SECRET_<NAME>`.
-4. Port the simplest source test, often the sign-in or the launch, as the
+4. Restore and build the test project (`dotnet build`), then run `e2e doctor`
+   and fix every check it fails. It loads the config and checks each target's
+   engine without starting the app: the browser on a web target; agent-device,
+   the toolchain, the devices, and the build at `AppPath` on a local-device
+   mobile target (a device-provider target, such as Limrun or TestMu, skips
+   these). When step 2 configured a model, add `--check-model` to call each
+   model once.
+5. Port the simplest source test, often the sign-in or the launch, as the
    smoke test. It must pass on every target before any other port. When it
    cannot, the harness is wrong, not the test: fix the harness.
-5. Keep the old suite's project and scripts as they were.
-6. Mark the harness done in the progress file, with the commands that start
+6. Keep the old suite's project and scripts as they were.
+7. Mark the harness done in the progress file, with the commands that start
    the dependencies, run the old suite, and run the new one.
 
 ## 4. Pick the slice
@@ -137,7 +185,8 @@ which. When they leave it to you, suggest in this order:
 1. Tests whose shared helpers are already ported.
 2. Tests that break often in the old runner: retries, flaky history in CI,
    comments explaining a workaround for the runner. They gain the most.
-3. Tests that need a capability the port lacks, last (read `COMPATIBILITY.md`).
+3. Tests that need a capability the guide marks "Not yet", "No equivalent", or
+   `missing`, last (read `COMPATIBILITY.md`).
 
 Write the slice into the progress file's `Next` section before starting, so
 an interrupted session leaves a trail.
@@ -177,8 +226,9 @@ Then each test, one at a time:
   coordinate tap, a retry loop) is a workaround for the old runner. Try the
   plain step first; keep a workaround only when e2e needs it too, with its
   own comment saying why.
-- Where the port lacks a feature, the test stays in the old runner: mark it
-  `stays` with the reason, and offer to open an issue at
+- Where the guide marks a step "Not yet", "No equivalent", or `missing`, use
+  its workaround. When there is none, the test stays in the old runner: mark
+  it `stays` with the reason, and offer to open an issue at
   `hardkoded/e2e-dotnet` with the gap. Open it only when the user agrees.
 - Do not change app code. A test that needs a test id the app lacks gets
   `Agent.ActAsync` or a different locator; propose the app change to the
@@ -189,6 +239,10 @@ Then each test, one at a time:
 and only with a model configured. Propose it for a stretch the source kept
 patching: coordinate taps, picker spins, long tap sequences through a
 wizard. Pin the outcome right after with a locator assertion (topic `agent`).
+One exception: when the guide marks a selector "No equivalent" (an image
+selector, XPath with no locator for the control) and a goal is its only
+workaround, use the goal in place of the literal port, keep the locator
+assertion on the outcome, and note it in the row.
 
 ## 6. Prove each port
 
@@ -275,7 +329,7 @@ Defect check: on
 
 ## Gaps
 
-- The source test uses a feature the port does not have; issue filed.
+- The source test uses a feature the port does not have (guide: Not yet, with no workaround); issue filed.
 
 ## Next
 

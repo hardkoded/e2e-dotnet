@@ -25,6 +25,9 @@ public sealed partial class WebEngine
         // Navigations the engine itself is making: the app log leaves them to the step that asked for them.
         private int _ownNavigations;
 
+        // One entry per navigation in flight, set to the URL of a document request a test route aborted during it.
+        private readonly List<RouteAbortWatch> _navigationAborts = [];
+
         /// <summary>Opens the attempt's trace feed over the sinks the harness handed <paramref name="options"/>.</summary>
         internal WebSession TraceTo(EngineStartOptions options)
         {
@@ -47,24 +50,82 @@ public sealed partial class WebEngine
         private async Task<Observation> CaptureScreenAsync(OperationBudget budget)
         {
             var page = OpenPage() ?? throw new EngineException(EngineErrorCodes.InvalidState, "no app page is open");
-            var walk = new FrameWalk { Publish = false };
-            var roots = await CollectAsync(page.MainFrame, walk, budget).ConfigureAwait(false);
-            return new Observation { Route = Routes.LocationOf(page.Url), Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
+            var walk = new FrameWalk { Publish = false, Site = Site };
+            var roots = await CollectAsync(page.MainFrame, walk, budget, framePath: []).ConfigureAwait(false);
+            var url = page.Url;
+            return new Observation { Route = Routes.LocationOf(url), Location = url, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         }
 
-        /// <summary>Runs one navigation the engine itself makes, so the app log leaves it to the step that asked for it. Tells the trace what the attempt runs on once it is done.</summary>
+        /// <summary>
+        /// Runs one navigation the engine itself makes, so the app log leaves it to the step that asked for it. Tells the trace what the
+        /// attempt runs on once it is done. A navigation that fails after a test route aborted its document request failed because the
+        /// test aborted it: an action failure, not an engine fault.
+        /// </summary>
         private async Task NavigatingAsync(Func<Task> work)
         {
             Interlocked.Increment(ref _ownNavigations);
+            var watch = new RouteAbortWatch();
+            lock (_navigationAborts)
+            {
+                _navigationAborts.Add(watch);
+            }
+
             try
             {
                 await work().ConfigureAwait(false);
                 _trace?.TellEnvironment();
             }
+            catch (Exception cause) when (watch.Url is { } url && cause is not (E2EException or System.TimeoutException or OperationCanceledException))
+            {
+                throw new TestException("ACTION_FAILED", $"navigation failed: a route aborted the request for {url}: {WebErrors.Message(cause)}", cause);
+            }
             finally
             {
+                lock (_navigationAborts)
+                {
+                    _navigationAborts.Remove(watch);
+                }
+
                 Interlocked.Decrement(ref _ownNavigations);
             }
+        }
+
+        /// <summary>
+        /// Records a request a test route is about to abort, when it loads the document of the attempt's page. Never throws: the abort must follow.
+        /// </summary>
+        private void NoteRouteAbort(IRequest request)
+        {
+            if (!request.IsNavigationRequest || OpenPage()?.MainFrame is not { } main || FrameOf(request) != main)
+            {
+                return;
+            }
+
+            lock (_navigationAborts)
+            {
+                foreach (var watch in _navigationAborts)
+                {
+                    watch.Url ??= request.Url;
+                }
+            }
+        }
+
+        // The frame a request belongs to; null for a popup's first navigation, which Playwright issues before the popup's frame exists.
+        private static IFrame? FrameOf(IRequest request)
+        {
+            try
+            {
+                return request.Frame;
+            }
+            catch (PlaywrightException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>One navigation in flight, set to the URL of a document request a test route aborted during it.</summary>
+        private sealed class RouteAbortWatch
+        {
+            public string? Url { get; set; }
         }
 
         /// <summary>Runs one action, then hands the trace the screen it left. An action that failed leaves none.</summary>

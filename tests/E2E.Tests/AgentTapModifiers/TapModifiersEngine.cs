@@ -6,10 +6,13 @@ using E2E.Engine;
 
 namespace E2E.Tests.AgentTapModifiers;
 
-/// <summary>An engine over another that declares <see cref="EngineCapabilities.TapModifiers"/> and keeps every tap and double tap it is sent.</summary>
+/// <summary>
+/// An engine over another that declares <see cref="EngineCapabilities.TapModifiers"/> and keeps every tap, double tap, and secondary tap it
+/// is sent. The inner document engine has no secondary button, so a secondary tap reaches it as the tap it stands in for.
+/// </summary>
 internal sealed class TapModifiersEngine(IEngine inner) : IEngine
 {
-    /// <summary>The taps and double taps the engine received, in order.</summary>
+    /// <summary>The taps, double taps, and secondary taps the engine received, in order.</summary>
     public List<LocatorAction> Clicks { get; } = [];
 
     public string Platform => inner.Platform;
@@ -31,12 +34,12 @@ internal sealed class TapModifiersEngine(IEngine inner) : IEngine
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
-            if (action is LocatorAction.Tap or LocatorAction.DoubleTap)
+            if (action is LocatorAction.Tap or LocatorAction.DoubleTap or LocatorAction.SecondaryTap)
             {
                 engine.Clicks.Add(action);
             }
 
-            return session.PerformAsync(node, action, cancellationToken);
+            return session.PerformAsync(node, action is LocatorAction.SecondaryTap secondary ? new LocatorAction.Tap(secondary.Modifiers) : action, cancellationToken);
         }
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
