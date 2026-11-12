@@ -794,6 +794,24 @@ internal static class ReadSemantics
             const box = rectOf(el);
             return box === null || (box.width > 0 && box.height > 0);
           };
+          // Upstream's isDrawnByLabel (in-page/read-semantics.ts): a checkbox or radio with no box under a shown label of its own that
+          // draws it, as in Element Plus. A tap clicks the label in its place (PageScript.PickStandIn), which needs a box (so not
+          // display: contents) and refuses when the label's centre lands on a link or other control. This rule is stricter: a label that
+          // is one, or holds one anywhere, does not count.
+          const isDrawnByLabel = (el, style) => {
+            if (!(el instanceof HTMLInputElement) || (el.type !== "checkbox" && el.type !== "radio")) return false;
+            if (style.visibility !== "visible") return false;
+            // A slotted element is skipped with the slot it renders in (upstream's isSkippedContent reads assignedSlot first).
+            for (let parent = el.assignedSlot ?? parentOrHostOf(el); parent !== null; parent = parent.assignedSlot ?? parentOrHostOf(parent)) {
+              if (hidesSubtree(parent, getComputedStyle(parent))) return false;
+            }
+            const INTERACTIVE = 'a,button,input,select,textarea,summary,[contenteditable],[role="button"],[role="link"]';
+            return [...(el.labels ?? [])].some((label) =>
+              getComputedStyle(label).display !== "contents" &&
+              shownInTree(label) &&
+              !label.matches(INTERACTIVE) &&
+              ![...label.querySelectorAll(INTERACTIVE)].some((inner) => inner !== el));
+          };
         """;
 
     /// <summary>
