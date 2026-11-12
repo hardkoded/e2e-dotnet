@@ -90,7 +90,7 @@ internal static class NestedSessionRun
                 Directory.Delete(directory, true);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
-{
+            {
                 Console.Error.WriteLine("e2e: could not remove " + directory + ": " + ex.Message);
             }
         }

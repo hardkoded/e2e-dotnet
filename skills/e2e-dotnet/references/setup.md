@@ -49,7 +49,10 @@ gateway needs its sign-in before the first run (`e2e login <provider>`).
 
 Init also creates the test project: a `.csproj` named after the directory with
 the packages of the test framework and of e2e at the tool's version, and an
-`ExampleTests.cs`. `--framework xunit` picks xUnit v3 and `--framework tunit` picks TUnit (NUnit is the default).
+`ExampleTests.cs`. `--framework xunit` picks xUnit v3 and `--framework tunit` picks TUnit (NUnit is the default). The closing line says
+`dotnet run` for TUnit (and `dotnet test` for the others): on .NET SDK 10 and later
+`dotnet test` refuses a TUnit project unless `global.json` opts into the
+Microsoft.Testing.Platform runner.
 In a directory with a `.csproj` it adds only the package references that project
 lacks, keeping its framework. `--install` runs `dotnet restore`; without it,
 `dotnet test` restores. `--example <name>` (`E2E.Sample`, `E2E.XUnit.V3.Sample`, `TodoMvc`)

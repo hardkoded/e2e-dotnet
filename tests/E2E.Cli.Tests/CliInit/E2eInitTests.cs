@@ -870,6 +870,16 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.DoesNotContain("NUnit", example, StringComparison.Ordinal);
     }
 
+    [Fact]
+    // .NET-only: TUnit runs on Microsoft.Testing.Platform, which `dotnet test` refuses on .NET SDK 10+ without a global.json opt-in, so the next step is `dotnet run`. The project has one entry point: TUnit's own.
+    public async Task Tells_a_TUnit_project_to_dotnet_run_and_adds_no_entry_point()
+    {
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Framework = "tunit", Gateway = "none" })).ExitCode);
+        Assert.Contains("Next: dotnet run", Output, StringComparison.Ordinal);
+        Assert.DoesNotContain("dotnet test", Output, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(Dir, "Program.cs")));
+    }
+
     [Theory]
     [InlineData("web", "E2E.TUnit")]
     [InlineData("mobile", "E2E.Mobile.TUnit")]

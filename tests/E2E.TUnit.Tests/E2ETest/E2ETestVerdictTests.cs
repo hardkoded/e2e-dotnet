@@ -82,7 +82,7 @@ public sealed class SoftEvidenceFixture : SessionFixtureBase
 
     internal override StateSpyEngine Spy => Engine;
 
-        [Test, Explicit]
+    [Test, Explicit]
     public async Task Soft_failure_then_the_body_returns()
     {
         await App.OpenAsync("/browser");

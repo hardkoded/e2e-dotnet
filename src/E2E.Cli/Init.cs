@@ -590,7 +590,7 @@ internal static partial class Init
             before.Add("e2e login " + subscription);
         }
 
-        log.Outro("Next: " + string.Join(", then ", [.. before, "dotnet test"]));
+        log.Outro("Next: " + string.Join(", then ", [.. before, framework.TestCommand]));
         return Done(InitResult.Scaffolded, 0);
     }
 

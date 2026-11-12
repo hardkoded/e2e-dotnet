@@ -15,7 +15,8 @@ namespace E2E.TUnit;
 /// Base class for a TUnit test that drives the app. A before-test hook starts one engine session.
 /// An after-test hook commits the replay cache from the TUnit result: a pass or a skip records
 /// verified acts, a failure evicts the unverified ones it recorded or replayed, and a cancelled test
-/// leaves the cache alone. The first attempt can replay. <c>[Retry]</c> attempts run live and still
+/// leaves the cache alone. A derived <c>[After(Test)]</c> hook that throws fails the test, and the cache sees that failure: the commit
+/// runs when TUnit ends the test, because the result holds the hook's failure only then. The first attempt can replay. <c>[Retry]</c> attempts run live and still
 /// record. TUnit builds one instance per test, so the session lives on the instance.
 /// Each <c>Expect.Soft</c> failure is kept on the session. The test body runs on, and the test
 /// fails when its after-test hook runs, with every soft failure in one message.

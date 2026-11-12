@@ -19,10 +19,15 @@ expectations, agent steps, and the `Browser` member.
 
 ```bash
 dotnet new console -n MyApp.E2E
+rm MyApp.E2E/Program.cs      # Windows: del MyApp.E2E\Program.cs
 dotnet add MyApp.E2E package TUnit
 dotnet add MyApp.E2E package E2E
 dotnet add MyApp.E2E package E2E.TUnit
 ```
+
+Delete the generated `Program.cs`: TUnit supplies the entry point, and a second
+one fails the build. `e2e init --framework tunit` writes no
+`Program.cs`.
 
 TUnit runs on Microsoft.Testing.Platform, so the project is an executable
 (`<OutputType>Exe</OutputType>`), and `dotnet run` or `dotnet test` starts it.
@@ -56,7 +61,11 @@ public sealed class BillingTests : E2ETest
   ones, and a cancelled test leaves the cache alone.
 - Your own `[Before(Test)]` hook runs after the session starts, and your own
   `[After(Test)]` hook runs before the session is committed. A check in an
-  `[After(Test)]` hook after a failure verifies nothing.
+  `[After(Test)]` hook after a failure verifies nothing. When the body passes
+  and your `[After(Test)]` hook throws, TUnit fails the test, and the session
+  is committed with that failure (the unverified acts are evicted), as in the
+  other adapters. The commit waits for TUnit's end-of-test event, because the
+  hook's failure is in the test result only then.
 - The first attempt can replay. The attempts of `[Retry]` run live and still
   record.
 - The default cache title is the class and method name with every argument

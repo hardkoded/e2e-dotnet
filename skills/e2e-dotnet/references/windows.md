@@ -41,6 +41,21 @@ public sealed class SettingsTests : WinAppTest
 }
 ```
 
+With TUnit, import `E2E.WinApp.TUnit`, use TUnit's `[Test]`, and mark the class `[NotInParallel]`:
+
+```csharp
+using E2E;
+using E2E.WinApp.TUnit;
+
+[NotInParallel]
+public sealed class SettingsTests : WinAppTest
+{
+    [Test]
+    public async Task Shows_the_settings_page() =>
+        await Expect.That(Screen.GetByRole("button", new() { Name = "Save" })).ToBeVisibleAsync();
+}
+```
+
 - A `windows` target takes `app.appPath` and `app.bundleId`, not `app.url`. `appPath` is the executable to launch, relative to the folder of `e2e.config.json`. `bundleId` is the app's process name: with `appPath` it is the name the agent's `open_app` tool knows the app by; alone, the engine attaches to the running app of that name and never ends it. `app.launchArguments` (an array of strings) are the arguments of every fresh launch; a Windows app has no `app.permissions`. `app.identity` and `app.environment` key the replay cache (topic `setup`).
 - `WinAppTest` launches the app fresh before each test and ends it after when the target names `app.appPath`; a target with `app.bundleId` alone attaches to the running app and leaves it running, so tests share its state, gives the agent `WinAppTools`, and sets the step timeout to 90 seconds. A desktop app has no URL, so `App.OpenAsync()` takes no path: it relaunches the app, and `WinAppTest` already does that before each test. `App.RestartAsync()` and `App.ClearStateAsync()` relaunch it too; the engine does not know where the app keeps its data, so a test that needs clean data removes it before the launch.
 - To set a value in code, override `AppId` or `AppPath`. Override `CreateWinAppOptions()` to change the `WinAppOptions`: `LaunchArguments`, `LaunchTimeout`, and `Settle` (the wait after an injected input, 150 ms by default; `Settle = false` skips it).

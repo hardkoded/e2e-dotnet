@@ -17,6 +17,7 @@ namespace E2E.Cli;
 /// <param name="TestAttribute">The attribute of a test method.</param>
 /// <param name="TrueAssertion">A format string for an assertion that its argument is true.</param>
 /// <param name="Executable">Whether the test project is an executable (xUnit v3 and TUnit are).</param>
+/// <param name="TestCommand">The command that runs the tests: <c>dotnet test</c>, except for TUnit. TUnit runs on Microsoft.Testing.Platform, and on .NET SDK 10 and newer <c>dotnet test</c> refuses such a project unless a <c>global.json</c> opts in, so <c>dotnet run</c> is the command that always works.</param>
 internal sealed record FrameworkPreset(
     string Id,
     string Label,
@@ -27,7 +28,8 @@ internal sealed record FrameworkPreset(
     string FrameworkUsing,
     string TestAttribute,
     string TrueAssertion,
-    bool Executable);
+    bool Executable,
+    string TestCommand = "dotnet test");
 
 /// <summary>.NET-only: the test frameworks of the scaffold. NUnit is the default, as the get-started pages lead with it.</summary>
 internal static class Frameworks
@@ -80,7 +82,8 @@ internal static class Frameworks
             "TUnit.Core",
             "Test",
             "await Assert.That({0}).IsTrue()",
-            true),
+            true,
+            "dotnet run"),
     ];
 
     /// <summary>Resolves a framework by id.</summary>
