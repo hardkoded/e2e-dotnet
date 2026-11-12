@@ -53,8 +53,8 @@ Playwright .NET has no config file: a test class overrides `ContextOptions()`, a
 | --- | --- | --- |
 | `ViewportSize` | `WebEngineOptions.Viewport`, default 1280 by 720 | renamed |
 | `Playwright.Selectors.SetTestIdAttribute` | `WebEngineOptions.TestIdAttribute` | renamed |
-| `HttpCredentials` | `WebEngineOptions.BasicAuth = new WebBasicAuth(username, secret)` | renamed |
-| `ExtraHTTPHeaders` | `WebEngineOptions.Headers`, sent to the app's site only | renamed |
+| `HttpCredentials` | `WebEngineOptions.BasicAuth = new WebBasicAuth(username, secret)`, answered for the app's origin only; `CredentialOrigins` adds more | renamed |
+| `ExtraHTTPHeaders` | `WebEngineOptions.Headers`, sent on requests that start at the app's origin; `CredentialOrigins` adds more | renamed |
 | `BrowserType.ConnectOverCDPAsync(url)` | `WebEngineOptions.Connect = new WebConnectOptions { CdpEndpoint = ct => ... }`, Chromium only | renamed |
 | `BrowserType.ConnectAsync(wsEndpoint)` | `Connect` attaches over CDP only | missing |
 | `StorageState`, a setup test that saves it | `[E2ESetup("title", Saves = ["admin"])]` with `SaveSessionAsync("admin")`, then `[E2ESession("admin")]` on a test; no file | by design |
@@ -250,7 +250,7 @@ The agent does the checkout steps and adapts when the form changes. A test can a
 | `route.FetchAsync()` | argument-free: no options, and redirects return unfollowed; returns `{ Url, Status, Headers, BodyAsync(), TextAsync(), JsonAsync<T>() }` without deciding the route | web only |
 | `route.AbortAsync(errorCode)` | `AbortAsync()` takes no error code | missing |
 | `Page.UnrouteAsync()` | `Browser.UnrouteAsync(pattern)` | web only |
-| `Page.UnrouteAllAsync()` | `Browser.UnrouteAllAsync()`; configured site headers stay | web only |
+| `Page.UnrouteAllAsync()` | `Browser.UnrouteAllAsync()`; configured headers stay | web only |
 | `Page.WaitForResponseAsync(pattern)`, `RunAndWaitForResponseAsync` | `Browser.WaitForResponseAsync(pattern)`: a string or `Regex`, no predicate; `Url`, `Status`, `Headers`, `BodyAsync()`, `JsonAsync<T>()`, `TextAsync()`. A string is the glob of `Browser.RouteAsync`, tested against the whole URL, query included: Playwright's `"/api/orders"` is the full URL or `"**/api/orders"`, and `"\\?"` is a literal `?`. Start it before the step that sends the request, and await it after | web only |
 | a `Timeout` of `0` for no timeout | the same: `TimeSpan.Zero` sets no deadline of its own on a locator action, `WaitForAsync`, a matcher, `ToHaveScreenshotAsync`, `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, and `WaitForDownloadsAsync`; the test timeout still bounds it. A negative `TimeSpan` throws `TestException` with `INVALID_ARGUMENT`. `Expect.Poll` with `Timeout = TimeSpan.Zero` polls until the cancellation token you pass ends, and without one it throws `ConfigurationException` with `INVALID_CONFIG` | same |
 | `response.Ok`, `response.Request` | `Status` | missing |

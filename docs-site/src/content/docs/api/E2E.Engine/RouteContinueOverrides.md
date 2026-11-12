@@ -57,7 +57,7 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 ```
 
 
-Replaces every request header; the configured headers for the app's host are added on top.
+Replaces every request header; the configured headers for an allowed origin are added on top.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 

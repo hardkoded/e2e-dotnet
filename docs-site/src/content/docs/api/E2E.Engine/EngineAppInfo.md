@@ -1,6 +1,6 @@
 ---
 title: "EngineAppInfo"
-description: "The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device launches. The URL itself s..."
+description: "The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device launches. The..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public record EngineAppInfo : IEquatable<EngineAppInfo>
 ```
 
 
-The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device
+The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device
 launches. The URL itself stays with the harness. Upstream's `EngineAppInfo`, with the members the port's config declares.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
@@ -76,6 +76,23 @@ public IReadOnlyList<string>? LaunchArguments { get; init; }
 Arguments every fresh launch passes the app.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+<a id="E2E_Engine_EngineAppInfo_Origin_"></a>
+<a id="E2E_Engine_EngineAppInfo_Origin"></a>
+
+### Origin
+
+
+```csharp
+public string? Origin { get; init; }
+```
+
+
+The origin of the app's URL on the run's port (`scheme://host:port`, as `URL.origin` serializes it): where credentials an
+engine injects into requests (headers, basic auth) go by default. Null for an app without a URL, and for a free port the run has not
+assigned (`e2e doctor`).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineAppInfo_Permissions_"></a>
 <a id="E2E_Engine_EngineAppInfo_Permissions"></a>

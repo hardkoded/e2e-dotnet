@@ -269,7 +269,7 @@ public sealed class Browser
         return UnrouteCoreAsync(pattern, cancellationToken);
     }
 
-    /// <summary>Removes every route added through this browser. The configured site headers stay.</summary>
+    /// <summary>Removes every route added through this browser. The configured headers stay.</summary>
     public Task UnrouteAllAsync(CancellationToken cancellationToken = default) =>
         RunStepAsync(StepKind.Resource, "browser.unrouteAll", "", () => RemoveRoutesAsync("unrouteAll", _ => true, cancellationToken));
 

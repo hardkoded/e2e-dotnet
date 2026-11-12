@@ -218,11 +218,11 @@ public interface IBrowserRoute
     /// <summary>Answers the request. <see cref="RouteFulfillResponse.Status"/> is set, and <see cref="RouteFulfillResponse.Json"/> has become a <see cref="RouteFulfillResponse.Body"/>.</summary>
     Task FulfillAsync(RouteFulfillResponse response);
 
-    /// <summary>Sends the request to the network, skipping every other route. The configured site headers are added on top of the request headers.</summary>
+    /// <summary>Sends the request to the network, skipping every other route. The configured headers are added on top of the request headers.</summary>
     Task ContinueAsync(RouteContinueOverrides overrides);
 
     /// <summary>
-    /// Reads the upstream response without deciding the route or following redirects. The configured site headers
+    /// Reads the upstream response without deciding the route or following redirects. The configured headers
     /// are added on top of the request headers. Bounded by <paramref name="timeout"/>.
     /// </summary>
     Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellationToken);
@@ -284,7 +284,7 @@ public sealed record RouteContinueOverrides
 
     public string? Method { get; init; }
 
-    /// <summary>Replaces every request header; the configured headers for the app's host are added on top.</summary>
+    /// <summary>Replaces every request header; the configured headers for an allowed origin are added on top.</summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
     /// <summary>

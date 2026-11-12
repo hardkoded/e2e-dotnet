@@ -135,8 +135,8 @@ public static partial class Urls
     }
 
     /// <summary>
-    /// True when a URL's host is on <paramref name="site"/> as <see cref="SiteOf"/> reads it (upstream's <c>sameSite</c>): the one rule for where
-    /// an app's secrets, headers, and basic-auth credentials may go. An unparseable URL is off every site.
+    /// True when a URL's host is on <paramref name="site"/> as <see cref="SiteOf"/> reads it (upstream's <c>sameSite</c>): the rule for which
+    /// child frames an observation reads. An unparseable URL is off every site.
     /// </summary>
     public static bool SameSite(string url, string site)
     {

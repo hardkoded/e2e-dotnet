@@ -548,7 +548,7 @@ misses.
   `set-cookie`),
   `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, DropHeaders, PostData })`
   (straight to the network; `DropHeaders` names request headers to send
-  without, configured site headers still added), `FallbackAsync()` (the route registered before
+  without, the configured `Headers` still added on an allowed origin), `FallbackAsync()` (the route registered before
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root. An error the handler throws fails the next step; when
@@ -556,7 +556,7 @@ misses.
   A step the handler made fail, such as the `GotoAsync` whose request it left
   aborted, fails with the handler's error. A `GotoAsync` whose request a
   handler aborted on purpose fails with `ACTION_FAILED`.
-- `UnrouteAllAsync()` removes every route; configured site headers stay.
+- `UnrouteAllAsync()` removes every route; configured headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the
