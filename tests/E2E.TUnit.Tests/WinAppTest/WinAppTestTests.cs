@@ -4,6 +4,8 @@
 
 using System.Reflection;
 using E2E.WinApp.TUnit;
+using TUnit.Core.Exceptions;
+using TUnitContext = global::TUnit.Core.TestContext;
 
 namespace E2E.TUnit.Tests.WinAppTest;
 
@@ -22,10 +24,19 @@ public sealed class WinAppProbe : E2E.WinApp.TUnit.WinAppTest
     public TimeSpan ReadStepTimeout() => StepTimeout;
 }
 
+/// <summary>A Windows app fixture whose test the filters leave out. Its test never runs, and the tests call its setup by hand.</summary>
+public sealed class LeftOutWinAppFixture : E2E.WinApp.TUnit.WinAppTest
+{
+    [Test]
+    [Skip("only found by reflection")]
+    public void Windows_test_is_left_out()
+    {
+    }
+}
+
 /// <summary>
-/// .NET-only (upstream has no Windows adapter): <see cref="E2E.WinApp.TUnit.WinAppTest"/> derives from <c>E2E.TUnit.E2ETest</c>
-/// and reads the app from the target, like the xUnit v3 and NUnit twins. The TUnit adapter has no run selection yet,
-/// so the left-out-test checks of those twins have no counterpart here.
+/// .NET-only (upstream has no Windows adapter): <see cref="E2E.WinApp.TUnit.WinAppTest"/> derives from <c>E2E.TUnit.E2ETest</c>,
+/// reads the app from the target, and skips a test the filters left out before the app opens, like the xUnit v3 and NUnit twins.
 /// </summary>
 public sealed class WinAppTestTests
 {
@@ -51,5 +62,42 @@ public sealed class WinAppTestTests
 
         await Assert.That(hook).IsNotNull();
         await Assert.That(hook!.GetCustomAttributes<global::TUnit.Core.BeforeAttribute>().Any()).IsTrue();
+    }
+
+    [Test]
+    [NotInParallel("RunSelectionTests")]
+    public async Task Skips_a_windows_test_the_filters_left_out_before_the_app_opens(CancellationToken cancellationToken)
+    {
+        var context = TUnitContext.Current!;
+        var method = context.Metadata.TestDetails.MethodName;
+        E2E.TUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutWinAppFixture).FullName}.{method}"] = "login.cs did not change" });
+        try
+        {
+            // The assertions would take the skip for a failure, so the skip is read by hand.
+            // A test that went on would fail at the engine it has no session for, not with the skip.
+            string? reason = null;
+            try
+            {
+                await new LeftOutWinAppFixture().StartE2ESessionAsync(context, cancellationToken);
+            }
+            catch (SkipTestException ex)
+            {
+                reason = ex.Message;
+            }
+
+            await Assert.That(reason).IsEqualTo("login.cs did not change");
+        }
+        finally
+        {
+            E2E.TUnit.RunSelection.Set(new Dictionary<string, string>());
+        }
+    }
+
+    [Test]
+    public async Task Finds_the_tests_of_a_windows_fixture()
+    {
+        var found = E2E.TUnit.RunSelection.Discover([typeof(LeftOutWinAppFixture)], typeof(LeftOutWinAppFixture).Assembly);
+
+        await Assert.That(found.Select(test => test.Title).ToArray()).IsEquivalentTo([nameof(LeftOutWinAppFixture.Windows_test_is_left_out)]);
     }
 }
