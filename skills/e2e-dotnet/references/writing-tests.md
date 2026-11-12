@@ -3,6 +3,7 @@
 ## Contents
 
 - Pick your framework
+- Structure: one class, arrange-act-assert, one behavior
 - Fixtures
 - Locators
 - Expect
@@ -35,19 +36,99 @@ await Agent.ActAsync("add a todo with the given title", new ActOptions
 {
     Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
 });
+
 await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
 ```
 
-The agent does the flow; `Expect` pins what must be true after each goal,
-and that check lets the replay cache rerun the step later. `Screen` actions
-are for exact interactions and values. Every test starts from a fresh
-browser context with no page open, so it calls `App.OpenAsync` first.
+The agent does the flow; `Expect` pins what must be true at the end, and
+that check lets the replay cache rerun every goal before it later. `Screen`
+actions are for exact interactions and values. Every test starts from a
+fresh browser context with no page open, so it calls `App.OpenAsync` first.
 There is no `describe`, `test.setup`, or tag of e2e's own: grouping, setup, and
 categories are the framework's. For a serial group whose members share one
 session (the page state of one member is still there in the next), mark an
 NUnit fixture `[Serial]` and order its tests with `[DependsOnTest]`. The session
 starts with the first member and ends with the group, and a member that fails
 skips the rest. xUnit has no such attribute.
+
+## Structure: one class, arrange-act-assert, one behavior
+
+Write every test in this shape. When a test fails, its name alone should
+say what broke, with no debugging needed, unless the arrange or act steps
+themselves failed or the app changed under them.
+
+- **One test class per unit or feature.** Name it after the feature
+  (`TodosTests`, `CheckoutTests`) and put every test for it inside, with
+  the setup those tests share (NUnit `[SetUp]`, xUnit v3
+  `InitializeAsync`). A file holds one feature. Split a class only to share
+  a setup or an attribute with some of its tests.
+- **Arrange, act, assert, in that order**, with a blank line between the
+  three blocks:
+  - Arrange reaches the state the behavior starts from: sign-in in the
+    framework's setup, `App.OpenAsync` on the screen's path, data from the
+    app's API. When the app offers no shorter way, an `Agent.ActAsync` or
+    `Screen` lines can arrange too, as in `Marks_a_todo_as_done` below.
+    End such an arrange block with a wait for the state it reached
+    (`locator.WaitForAsync()`, `Agent.WaitForAsync`). A setup goal that
+    passed without doing its job then fails there, not at the outcome
+    check, and the wait confirms the setup goals for the replay cache.
+  - Act does the one thing under test: one `Agent.ActAsync` goal, or the
+    `Screen` lines of one interaction. A wait for the state the action
+    triggers (`Agent.WaitForAsync`, `locator.WaitForAsync`) closes the act
+    block.
+  - Assert holds every `Expect.That`, `Expect.Poll`, and
+    `Agent.AssertAsync`, and nothing after them. No check sits between
+    arrange and act steps.
+- **One behavior per test.** A test verifies one outcome, and its name
+  states it: `Marks_a_todo_as_done`, not `Todos_work` or
+  `Adds_and_completes_a_todo`. An "and" in a name usually means two tests.
+  Several assertions are fine when they all check that one outcome (the
+  count and the remaining label after an add). A second behavior is a
+  second test. When it starts from the first one's result, its arrange
+  block repeats the first one's act (or seeds the result through the API)
+  rather than chaining both into one test.
+
+```csharp
+public sealed class TodosTests : E2ETest
+{
+    [Test]
+    public async Task Adds_a_todo_to_the_list()
+    {
+        await App.OpenAsync("/todos");
+
+        await Agent.ActAsync("add a todo named {title}", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
+        });
+
+        await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
+        await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("1 remaining");
+    }
+
+    [Test]
+    public async Task Marks_a_todo_as_done()
+    {
+        await App.OpenAsync("/todos");
+        await Agent.ActAsync("add a todo named {title}", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
+        });
+        await Screen.GetByRole("checkbox", "Write the release notes").WaitForAsync();
+
+        await Agent.ActAsync("mark the todo as done");
+
+        await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("0 remaining");
+    }
+}
+```
+
+For the replay cache (topic `agent`), a passing locator or engine matcher,
+`locator.WaitForAsync`, `Agent.AssertAsync`, or `Agent.WaitForAsync`
+confirms every `ActAsync` before it; `Expect.Poll` and a plain-value check
+confirm nothing, so end with a locator check too. When the test fails,
+every goal after the last passing confirmation runs live again on the next
+run: the arrange block's closing wait keeps the setup goals cached while
+you fix the act or the assertions.
 
 ## Fixtures
 
@@ -467,8 +548,10 @@ public async Task DeleteProject()
 public async Task Renames_a_project()
 {
     await App.OpenAsync($"/projects/{_projectId}/settings"); // straight to the screen under test
+
     await Screen.GetByLabel("Name").FillAsync("Atlas");
     await Screen.GetByRole("button", "Save").ClickAsync();
+
     await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Saved");
 }
 ```
@@ -479,7 +562,9 @@ link, in the app.
 
 Grow a test that spans several screens one screen at a time when you have
 not checked its steps live: write up to the next screen you have not seen
-pass, run it, then add the next. A passing locator step takes milliseconds,
+pass, end it with a temporary check of that screen, run it, then replace
+the check with the next part. The finished test keeps only its outcome
+checks, in the assert block. A passing locator step takes milliseconds,
 and an `ActAsync` that a later check confirmed replays from the cache with
 no model call. The cache keeps those entries when a later line fails, so
 each run pays model calls only for its new part. That holds for a first
@@ -679,7 +764,9 @@ function fails with `INVALID_ARGUMENT`, and a `Secret` in the argument with
 
 ## Habits
 
-- One goal per `ActAsync`, followed by a check of its outcome.
+- One goal per `ActAsync`; end the test with a check of the outcome.
+- One test class per feature, one behavior per test, arrange, act, assert
+  ("Structure").
 - Prefer `Expect.That` with a locator when the check is exact. It needs no
   model and does not flake.
 - Pass data in `Params`. Use `Values.Unique(...)` for fresh emails or names,

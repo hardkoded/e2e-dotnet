@@ -135,6 +135,9 @@ public sealed class Dashboard : E2ETest
 
 ## A complete example
 
+One class per feature, one behavior per test, arrange, act, assert
+(topic `writing-tests`, "Structure").
+
 ```csharp
 using E2E;
 using E2E.NUnit;
@@ -145,9 +148,10 @@ public sealed class DaritenTests : E2ETest
     public async Task The_dashboard_links_to_the_transaction_register()
     {
         await App.OpenAsync("/");
-        await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+        await Screen.GetByRole("heading", "Dashboard").WaitForAsync();
 
         await Screen.GetByRole("link", "Transactions").ClickAsync();
+
         await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
     }
 
@@ -156,7 +160,9 @@ public sealed class DaritenTests : E2ETest
     public async Task An_agent_filters_the_register_by_category()
     {
         await App.OpenAsync("/transactions");
+
         await Agent.ActAsync("filter the register to show only the Groceries category");
+
         await Agent.AssertAsync("every transaction listed is in the Groceries category, or the register says no transactions match");
         await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
     }

@@ -127,7 +127,9 @@ public sealed class BillingTests : E2ETest
     public async Task Member_upgrades_to_Pro()
     {
         await App.OpenAsync("/settings/billing");
+
         await Agent.ActAsync("upgrade the workspace to the Pro plan");
+
         await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Pro");
     }
 }
@@ -149,9 +151,15 @@ public sealed class BillingTests : E2ETest
    add the `Expect.That`. The walk ends with the test written. Without a
    server, learn the accessible names the app renders from the components or
    a run with `E2E_HEADLESS=0`.
-3. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the flow with
-   `Agent.ActAsync`, one atomic goal per call, and pin each outcome right after with `Expect.That`
-   or `Agent.AssertAsync`. A test with three goals makes three calls.
+3. Shape the class before the steps (topic `writing-tests`, "Structure"):
+   one test class per feature, and in it one test method per behavior,
+   named for the outcome it verifies. Each test runs arrange, act, assert,
+   in that order: reach the starting state, do the one thing under test,
+   then every `Expect.That` or `Agent.AssertAsync` at the end. A second
+   outcome worth checking is a second test, so a failing name says what
+   broke. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the
+   flow with `Agent.ActAsync`, one atomic goal per call; three goals make
+   three calls.
    Start it on the screen it covers, since every rerun pays for the steps
    before: in a browser a sign-in through the app's API in the test's setup
    (cookies set with `Browser.SetCookiesAsync`; a `Secret` cannot go into a
@@ -236,7 +244,8 @@ lines you changed:
   `Timeout` polls until the cancellation token you pass ends. `Agent` calls take a positive
   `Timeout` only: zero or less is `INVALID_ARGUMENT`.
 - Keep the replay cache on. A failed run keeps the recording of every goal
-  whose check passed, and the next run replays those with no model call. New,
+  a later check or wait confirmed (the wait closing the arrange block, topic
+  `writing-tests`), and the next run replays those with no model call. New,
   changed, and failed goals run live, and so does a replay the trace page
   shows as handed off. A handed-off goal's first prompt lists the replayed
   actions, says `Replay stopped (<reason>) after N of M recorded actions.`, and
@@ -470,12 +479,15 @@ lines you changed:
   mints the refs' revisions, routes each verb to the member that implements it,
   and refuses an action kind the engine did not declare. It sits beside `IEngine`;
   the test runner and the agent still take an `IEngine`.
+- Tests: one test class per feature, one behavior per test method,
+  arrange, act, assert with every assertion last (topic `writing-tests`).
+  Bad: one test that adds a todo, checks it, marks it done, and checks
+  again. Good: `Adds_a_todo_to_the_list` and `Marks_a_todo_as_done`, the
+  second adding its todo in its arrange block.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
-  outcomes worth checking are two goals, so split them into two `ActAsync`
-  calls (topic `agent`). Bad: `"add a todo and mark it done"`. Good: `"add a
-  todo"`, check, then `"mark the todo as done"`, check. Judge meaning, not
-  phrasing. A judgment reads the text snapshot and where the screen is (its
+  outcomes are two goals in two `ActAsync` calls (topic `agent`), never
+  `"add a todo and mark it done"`. Judge meaning, not phrasing. A judgment reads the text snapshot and where the screen is (its
   path on the app, or the whole address off it); the address is evidence only
   for a claim about the URL or route. When the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
@@ -516,8 +528,14 @@ lines you changed:
   the screen an action started on (`App.ScreenshotAsync`). It does not wait
   for the screen to settle. A throw fails the step before the action runs,
   with `agent.act onBeforeAction failed: ...` (topic `agent`).
-- Check each act's outcome. Only a verified act is recorded and replayed
-  (topic `agent`).
+- End every test that runs an agent goal with a verifying check: a locator
+  matcher (`Expect.That(locator)`), an engine matcher
+  (`Expect.That(Browser).ToHaveURLAsync`), or `Agent.AssertAsync`. A passing
+  one confirms every `ActAsync` before it, so they can be recorded and
+  replayed without model calls, and so do `locator.WaitForAsync`,
+  `Browser.WaitForURLAsync`, and `Agent.WaitForAsync`. Reads,
+  `Expect.Poll`, and plain-value checks confirm nothing (topic `agent`,
+  "The replay cache").
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
   attempt's `screenshots/` and returns the absolute path of the file it wrote.
   It masks secure fields only, after a `Secret` fill too (topic
