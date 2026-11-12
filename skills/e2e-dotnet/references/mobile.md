@@ -10,6 +10,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 - Test ids by framework
 - A test
 - Roles
+- Visibility
 - Device controls
 - Choosing a device
 - Video
