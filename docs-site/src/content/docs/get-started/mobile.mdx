@@ -207,7 +207,8 @@ App = new MobileApp
 ```
 
 - The app must ship the language. If it doesn't, iOS shows its development language.
-- Android has no launch argument for the language. Set the device's language before the run. The hosted providers have no `language` or `locale` option.
+- Android has no launch argument for the language. Set the device's language before the run.
+- BrowserStack takes `Language` and `Locale` in `BrowserStackDevicesOptions`, for example `fr` and `fr_FR`. Other hosted providers may lack these options. Set the device's language before the run in that case.
 
 ## Test ids by framework
 
