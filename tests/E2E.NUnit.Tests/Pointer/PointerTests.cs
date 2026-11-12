@@ -9,7 +9,7 @@ using static E2E.NUnit.Tests.Helpers;
 namespace E2E.NUnit.Tests.Pointer;
 
 /// <summary>
-/// The tests of upstream's <c>apps/testbed/tests/pointer.e2e.ts</c> that sit outside a <c>describe</c>: a tap at a viewport point, a tap at a
+/// The tests of upstream's <c>apps/testbed/tests/pointer.e2e.ts</c> that sit outside a <c>describe</c>: a tap and a double tap at a viewport point, a tap at a
 /// position of a node, and a swipe along a path, against the playground's <c>/pointer</c> pad and <c>/board</c>.
 /// </summary>
 public sealed class PointerTests : E2ETest
@@ -82,5 +82,41 @@ public sealed class PointerTests : E2ETest
         await Screen.SwipeAsync(new SwipePathOptions { From = card, To = done });
 
         await Expect.That(Screen.GetByLabel("Board state")).ToHaveTextAsync("Design review is done");
+    }
+
+    [Test]
+    public async Task Screen_doubleTapAt_edits_a_label_beneath_a_sibling_SVG()
+    {
+        await App.OpenAsync("/pointer");
+        var label = Screen.GetByRole("textbox", "Edit label");
+        var point = CenterOf(await BoxOf(label));
+        var hit = await Browser.EvaluateAsync<Dictionary<string, string?>>(
+            """
+            ({ x, y }) => {
+              const node = document.querySelector('#diagram-node');
+              node.dataset.events = '';
+              for (const type of ['mousedown', 'mouseup', 'click', 'dblclick']) {
+                node.addEventListener(type, (event) => {
+                  node.dataset.events += `${event.type}|${event.isTrusted}|${event.button}|${event.detail}|${event.clientX},${event.clientY};`;
+                });
+              }
+              const target = document.elementFromPoint(x, y);
+              return { tag: target?.localName ?? null, node: target?.closest('#diagram-node')?.id ?? null };
+            }
+            """,
+            new { x = point.X, y = point.Y });
+        Assert.That(hit, Is.EqualTo(new Dictionary<string, string?> { ["tag"] = "path", ["node"] = "diagram-node" }));
+
+        await Screen.DoubleTapAtAsync(point);
+
+        var events = await Browser.EvaluateAsync<string>("() => document.querySelector('#diagram-node').dataset.events ?? ''");
+        var at = $"{Math.Round(point.X, MidpointRounding.AwayFromZero)},{Math.Round(point.Y, MidpointRounding.AwayFromZero)}";
+        Assert.That(
+            events,
+            Is.EqualTo(
+                $"mousedown|true|0|1|{at};mouseup|true|0|1|{at};click|true|0|1|{at};" +
+                $"mousedown|true|0|2|{at};mouseup|true|0|2|{at};click|true|0|2|{at};dblclick|true|0|2|{at};"));
+        await label.FillAsync("Renamed");
+        await Expect.That(label).ToHaveValueAsync("Renamed");
     }
 }

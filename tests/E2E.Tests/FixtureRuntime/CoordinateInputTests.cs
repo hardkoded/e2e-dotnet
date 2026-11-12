@@ -9,7 +9,7 @@ namespace E2E.Tests.FixtureRuntime;
 
 /// <summary>
 /// Upstream's <c>fixture-runtime.test.ts</c>, "coordinate input", over a screen whose engine declares the <c>tap</c> and
-/// <c>scrollIntoView</c> actions and the <c>tap</c> and <c>swipeTo</c> pointer actions. Not ported: the unknown option of "rejects a
+/// <c>scrollIntoView</c> actions and the <c>tap</c>, <c>doubleTap</c>, and <c>swipeTo</c> pointer actions. Not ported: the unknown option of "rejects a
 /// point off the plane and an unknown option before any engine call" (options are typed), the points of other shapes (a missing or
 /// string coordinate; a <see cref="Point"/> is two numbers), and, of "screen.swipe({ from, to })...", the options that name both a
 /// direction and a path or lack one (a call takes one of the two option classes). A duration is a <see cref="TimeSpan"/>, so the
@@ -17,7 +17,7 @@ namespace E2E.Tests.FixtureRuntime;
 /// </summary>
 public sealed class CoordinateInputTests
 {
-    private sealed record Pointer(Screen Screen, List<string> Performed, List<string> PerformedAt, List<int> Locates);
+    private sealed record Pointer(Screen Screen, List<string> Performed, List<string> PerformedAt, List<int> Locates, List<TimeSpan?> PointTimeouts);
 
     private static string Format(double value) => value.ToString(CultureInfo.InvariantCulture);
 
@@ -34,42 +34,47 @@ public sealed class CoordinateInputTests
         var performed = new List<string>();
         var performedAt = new List<string>();
         var locates = new List<int>();
+        var pointTimeouts = new List<TimeSpan?>();
         var screen = new Screen(
-            _ => Task.FromResult(new Observation { Route = "/", Roots = [node] }),
-            (_, action, _) =>
+            new global::E2E.LocatorEngine(new global::E2E.LocatorEngineOptions
             {
-                performed.Add(EngineActionKinds.Of(action));
-                return Task.CompletedTask;
-            },
-            () => CancellationToken.None,
-            () => { },
-            timeout ?? TimeSpan.FromSeconds(2),
-            TimeSpan.FromSeconds(2),
-            locate: (_, _, _) =>
-            {
-                locates.Add(1);
-                return Task.FromResult<IReadOnlyList<SemanticNode>>([node]);
-            },
-            performAt: (point, action, _) =>
-            {
-                var path = action is PointerAction.SwipeTo swipe
-                    ? $" -> {Format(swipe.Target.X)},{Format(swipe.Target.Y)}{(swipe.Duration is { } duration ? $" for {Format(duration.TotalMilliseconds)}ms" : "")}"
-                    : "";
-                performedAt.Add($"{EngineActionKinds.Of(action)} @ {Format(point.X)},{Format(point.Y)}{path}");
-                return Task.CompletedTask;
-            })
+                Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [node] }),
+                Perform = (_, action, _, _) =>
+                {
+                    performed.Add(EngineActionKinds.Of(action));
+                    return Task.CompletedTask;
+                },
+                Cancellation = () => CancellationToken.None,
+                ActionTimeout = timeout ?? TimeSpan.FromSeconds(2),
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                Locate = (_, _, _) =>
+                {
+                    locates.Add(1);
+                    return Task.FromResult<IReadOnlyList<SemanticNode>>([node]);
+                },
+                PerformAt = (point, action, operation, _) =>
+                {
+                    pointTimeouts.Add(operation.Timeout);
+                    var path = action is PointerAction.SwipeTo swipe
+                        ? $" -> {Format(swipe.Target.X)},{Format(swipe.Target.Y)}{(swipe.Duration is { } duration ? $" for {Format(duration.TotalMilliseconds)}ms" : "")}"
+                        : "";
+                    performedAt.Add($"{EngineActionKinds.Of(action)} @ {Format(point.X)},{Format(point.Y)}{path}");
+                    return Task.CompletedTask;
+                },
+            }),
+            () => { })
         {
             ActionKinds = ["tap", "scrollIntoView"],
-            PointerActionKinds = pointer ? ["tap", "swipeTo"] : [],
+            PointerActionKinds = pointer ? ["tap", "doubleTap", "swipeTo"] : [],
             Steps = new StepRecorder("attempt"),
         };
-        return new Pointer(screen, performed, performedAt, locates);
+        return new Pointer(screen, performed, performedAt, locates, pointTimeouts);
     }
 
     [Fact]
     public async Task Screen_tapAt_dispatches_a_pointer_tap_at_the_viewport_point_with_no_locate_and_records_the_step()
     {
-        var (screen, _, performedAt, locates) = PointerScreen();
+        var (screen, _, performedAt, locates, _) = PointerScreen();
 
         await screen.TapAtAsync(new Point(12.5, 40));
 
@@ -80,20 +85,38 @@ public sealed class CoordinateInputTests
     }
 
     [Fact]
-    public async Task Rejects_a_point_off_the_plane_and_an_unknown_option_before_any_engine_call()
+    public async Task Screen_doubleTapAt_dispatches_a_bare_double_tap_and_records_the_step()
     {
-        var (screen, _, performedAt, _) = PointerScreen();
+        var (screen, _, performedAt, locates, pointTimeouts) = PointerScreen(timeout: TimeSpan.FromSeconds(5));
 
-        foreach (var point in new[] { new Point(double.NaN, 1), new Point(double.PositiveInfinity, 1) })
+        await screen.DoubleTapAtAsync(new Point(12.5, 40), new ActionOptions { Timeout = TimeSpan.FromSeconds(1) });
+
+        Assert.Equal(["doubleTap @ 12.5,40"], performedAt);
+        Assert.True(pointTimeouts[0] > TimeSpan.Zero);
+        Assert.True(pointTimeouts[0] <= TimeSpan.FromSeconds(1));
+        Assert.Empty(locates);
+        var step = screen.Steps!.All()[^1];
+        Assert.Equal((StepKind.Screen, "screen.doubleTapAt", "(12.5, 40)", StepStatus.Passed), (step.Kind, step.Api, step.Label, step.Status));
+    }
+
+    [Fact]
+    public async Task Partial_rejects_a_point_off_the_plane_before_any_engine_call()
+    {
+        var (screen, _, performedAt, _, _) = PointerScreen();
+
+        foreach (var (method, call) in new (string, Func<Point, Task>)[] { ("tapAt", point => screen.TapAtAsync(point)), ("doubleTapAt", point => screen.DoubleTapAtAsync(point)) })
         {
-            var error = await Assert.ThrowsAsync<TestException>(() => screen.TapAtAsync(point));
-            Assert.Equal("INVALID_ARGUMENT", error.Code);
-            Assert.Equal("tapAt requires a point { x, y } of finite numbers", error.Message);
-        }
+            foreach (var point in new[] { new Point(double.NaN, 1), new Point(double.PositiveInfinity, 1) })
+            {
+                var error = await Assert.ThrowsAsync<TestException>(() => call(point));
+                Assert.Equal("INVALID_ARGUMENT", error.Code);
+                Assert.Equal($"{method} requires a point {{ x, y }} of finite numbers", error.Message);
+            }
 
-        var negative = await Assert.ThrowsAsync<TestException>(() => screen.TapAtAsync(new Point(-1, 0)));
-        Assert.Equal("INVALID_ARGUMENT", negative.Code);
-        Assert.Equal("tapAt requires a point { x, y } of non-negative numbers", negative.Message);
+            var negative = await Assert.ThrowsAsync<TestException>(() => call(new Point(-1, 0)));
+            Assert.Equal("INVALID_ARGUMENT", negative.Code);
+            Assert.Equal($"{method} requires a point {{ x, y }} of non-negative numbers", negative.Message);
+        }
 
         var position = Assert.IsType<TestException>(Record.Exception((Action)(() => screen.GetByLabel("Pad").TapAsync(new TapOptions { Position = new Point(-1, 0) }))));
         Assert.Equal("INVALID_ARGUMENT", position.Code);
@@ -104,7 +127,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public void NET_only_a_position_on_a_tap_family_verb_other_than_tap_is_refused_not_dropped()
     {
-        var (screen, _, performedAt, _) = PointerScreen();
+        var (screen, _, performedAt, _, _) = PointerScreen();
         var options = new TapOptions { Position = new Point(1, 1) };
 
         var error = Assert.IsType<TestException>(Record.Exception((Action)(() => screen.GetByLabel("Pad").DoubleTapAsync(options))));
@@ -117,14 +140,17 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Fails_UNSUPPORTED_CAPABILITY_without_a_pointer_tap_before_the_locator_is_resolved()
     {
-        var (screen, _, _, locates) = PointerScreen(pointer: false);
+        var (screen, _, _, locates, _) = PointerScreen(pointer: false);
         const string tapAt = "the \"tap\" action at a point is not available on this target: its engine declares no pointer actions";
 
         var tapped = await Assert.ThrowsAsync<EngineException>(() => screen.TapAtAsync(new Point(1, 1)));
+        var doubleTapped = await Assert.ThrowsAsync<EngineException>(() => screen.DoubleTapAtAsync(new Point(1, 1)));
         var positioned = await Assert.ThrowsAsync<EngineException>(() => screen.GetByLabel("Pad").TapAsync(new TapOptions { Position = new Point(1, 1) }));
         var swiped = await Assert.ThrowsAsync<EngineException>(() => screen.SwipeAsync(new SwipePathOptions { From = new Point(1, 1), To = new Point(1, 9) }));
 
         Assert.Equal((EngineErrorCodes.UnsupportedCapability, tapAt), (tapped.Code, tapped.Message));
+        Assert.Equal(EngineErrorCodes.UnsupportedCapability, doubleTapped.Code);
+        Assert.Contains("the \"doubleTap\" action at a point", doubleTapped.Message, StringComparison.Ordinal);
         Assert.Equal((EngineErrorCodes.UnsupportedCapability, tapAt), (positioned.Code, positioned.Message));
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, swiped.Code);
         Assert.Contains("the \"swipeTo\" action at a point", swiped.Message, StringComparison.Ordinal);
@@ -138,7 +164,7 @@ public sealed class CoordinateInputTests
     [InlineData("has no box")]
     public async Task Waits_for_a_node_that_is_x_and_fails_LOCATOR_NOT_FOUND_at_the_deadline(string state)
     {
-        var (screen, _, performedAt, _) = PointerScreen(rect: state != "has no box", hidden: state == "hidden");
+        var (screen, _, performedAt, _, _) = PointerScreen(rect: state != "has no box", hidden: state == "hidden");
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByLabel("Pad").TapAsync(new TapOptions { Position = new Point(1, 1), Timeout = TimeSpan.FromMilliseconds(250) }));
 
@@ -151,7 +177,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Taps_the_point_of_the_box_the_position_names_once_the_node_is_scrolled_into_view()
     {
-        var (screen, performed, performedAt, _) = PointerScreen();
+        var (screen, performed, performedAt, _, _) = PointerScreen();
 
         await screen.GetByLabel("Pad").TapAsync(new TapOptions { Position = new Point(5, 5) });
 
@@ -162,7 +188,7 @@ public sealed class CoordinateInputTests
     [Fact]
     public async Task Screen_swipe_from_to_dispatches_a_pointer_swipe_along_the_path_a_direction_still_needs_the_swipe_action()
     {
-        var (screen, _, performedAt, _) = PointerScreen();
+        var (screen, _, performedAt, _, _) = PointerScreen();
 
         await screen.SwipeAsync(new SwipePathOptions { From = new Point(10, 20), To = new Point(10, 300) });
         Assert.Equal(["swipeTo @ 10,20 -> 10,300"], performedAt);

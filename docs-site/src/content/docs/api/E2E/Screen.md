@@ -54,6 +54,36 @@ xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Screen_DoubleTapAtAsync_"></a>
+<a id="E2E_Screen_DoubleTapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### DoubleTapAtAsync(Point, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Double-taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the
+`doubleTap` pointer action; the web engine sends a primary-button double click. Upstream's `screen.doubleTapAt`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative. |
+
 <a id="E2E_Screen_GetByDisplayValue_"></a>
 <a id="E2E_Screen_GetByDisplayValue_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
