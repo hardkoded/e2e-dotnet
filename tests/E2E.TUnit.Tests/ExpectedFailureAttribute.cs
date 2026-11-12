@@ -15,6 +15,9 @@ namespace E2E.TUnit.Tests;
 [AttributeUsage(AttributeTargets.Method)]
 public sealed class ExpectedFailureAttribute(params string[] messageParts) : Attribute, ITestEndEventReceiver
 {
+    /// <summary>Texts the failure must not hold.</summary>
+    public string[] Without { get; init; } = [];
+
     public int Order => 0;
 
     public EventReceiverStage Stage => EventReceiverStage.Late;
@@ -30,6 +33,10 @@ public sealed class ExpectedFailureAttribute(params string[] messageParts) : Att
         else if (messageParts.FirstOrDefault(part => !message.Contains(part, StringComparison.Ordinal)) is { } missing)
         {
             context.Execution.OverrideResult(TestState.Failed, $"The failure does not hold \"{missing}\": {message}");
+        }
+        else if (Without.FirstOrDefault(part => message.Contains(part, StringComparison.Ordinal)) is { } present)
+        {
+            context.Execution.OverrideResult(TestState.Failed, $"The failure holds \"{present}\": {message}");
         }
         else
         {

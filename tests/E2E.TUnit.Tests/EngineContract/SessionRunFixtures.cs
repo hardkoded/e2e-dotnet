@@ -78,12 +78,21 @@ internal static class NestedSessionRun
         }
         finally
         {
-            if (!process.HasExited)
+            // The child holds files in the directory: it is gone before the directory is, and a cleanup that throws must not hide the failure above.
+            try
             {
-                process.Kill(entireProcessTree: true);
-            }
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                    process.WaitForExit(TimeSpan.FromSeconds(10));
+                }
 
-            Directory.Delete(directory, true);
+                Directory.Delete(directory, true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
+{
+                Console.Error.WriteLine("e2e: could not remove " + directory + ": " + ex.Message);
+            }
         }
     }
 }
