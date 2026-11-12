@@ -18,10 +18,14 @@ The verification half works with plain tests. For each suspected bug:
 1. Write one test that reproduces it: open the screen with `App.OpenAsync`,
    reach the state with `Screen` actions or `Agent.ActAsync`, and pin the
    expected behavior with `Expect.That` or `Agent.AssertAsync` (topic
-   `writing-tests`).
+   `writing-tests`). Write it in the shape that topic describes: arrange,
+   closed by a wait for the starting state, then the one action that shows
+   the defect, then the assertions. The wait keeps a broken setup from
+   passing as the defect, and keeps the setup goals cached across the
+   failing runs.
 2. Run it with `dotnet test --filter "FullyQualifiedName~<Test>"`. It must
-   fail, and fail for the reason reported, not for a locator or setup
-   problem (topic `debugging`).
+   fail, and fail for the reason reported, not for a locator, setup, or
+   failed arrange wait problem (topic `debugging`).
 3. Run it again. A bug that fails only some of the time is a flake until
    the cause is known.
 

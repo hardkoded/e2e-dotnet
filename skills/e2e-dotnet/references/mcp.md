@@ -129,7 +129,7 @@ Test line: await Screen.GetByRole("button", "Sign in").TapAsync();
 
 `test_lines` returns every line so far, in order, as a draft test body that
 starts with `await App.OpenAsync();` for the session's own opening. Paste it
-into a test, then add the assertions.
+into a test, then add the assertions at the end, after every step.
 
 - The locator comes from the node as the newest observation listed it,
   before the action runs. Role and name, label, placeholder, text, and test
@@ -183,8 +183,16 @@ The loop is:
    `listitem` by its text: `status "Saved."` on an unlabelled status is its
    text, so match it with `Screen.GetByRole("status").Filter("Saved.")`
    or `Screen.GetByText`.
-3. Write an `E2ETest` class (topic `writing-tests`). Deterministic steps where
-   you saw exact names; `Agent.ActAsync` where the flow varies.
+3. Write an `E2ETest` class (topic `writing-tests`, "Structure"): one class
+   per feature, a test method named for the one behavior it verifies, and
+   the call that opens the screen it covers, such as
+   `App.OpenAsync("/settings/members")`. Deterministic steps where you saw
+   exact names; `Agent.ActAsync` where the flow varies. Put each check
+   (`Agent.AssertAsync`, or an `Expect` you tried first) in the test's
+   assert block, after every step. A walk that goes on to a second
+   behavior goes on into a second test method in the same class, with its
+   own assert block: `navigate` back to the path its `App.OpenAsync` names
+   first, so its lines run from the state the test starts in.
 4. Run only that test from the shell:
    `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,
    "Rerunning a test while you fix it"). On a failure, fix from the exception

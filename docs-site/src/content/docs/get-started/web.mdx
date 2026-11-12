@@ -68,6 +68,7 @@ public sealed class SignupTests : E2ETest
     public async Task The_home_page_opens()
     {
         await App.OpenAsync("/");
+
         await Expect.That(Screen.GetByRole("heading", "Welcome")).ToBeVisibleAsync();
     }
 
@@ -92,8 +93,9 @@ public sealed class SignupTests : E2ETest
 }
 ```
 
+- Write one test class per feature and one test method per behavior, named for its outcome. Each test arranges the starting state, acts, then asserts, with every check last.
 - Give `ActAsync` one atomic goal per call. `Params` fills the placeholders.
-- `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so pair each agent step with one.
+- `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so end every test that runs an agent step with one.
 - Tag tests that call a model, for example `[Category("RealModel")]`, so CI can skip them with `--filter "TestCategory!=RealModel"`.
 
 ## 4. Run
@@ -103,7 +105,7 @@ dotnet test --project .
 E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 ```
 
-The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
+The first run asks the model to perform each `ActAsync`. A passing run records each step a later check or wait confirmed in `.e2e/cache`, and the next run replays it with no model call.
 
 ## Next
 

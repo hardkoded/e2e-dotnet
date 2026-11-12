@@ -665,7 +665,7 @@ public sealed class Locator
     /// <see cref="WaitForState.Attached"/> for one match, visible or not;
     /// <see cref="WaitForState.Detached"/> for none; <see cref="WaitForState.Hidden"/> for none
     /// or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
-    /// Does not verify an earlier <c>act</c>.
+    /// Verifies the earlier <c>act</c> calls once it passes, as a locator matcher does.
     /// </summary>
     public Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToken cancellationToken = default) =>
         _screen.RunStepAsync(

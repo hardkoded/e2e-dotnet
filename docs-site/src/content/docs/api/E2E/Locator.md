@@ -1106,7 +1106,7 @@ Waits for [State](/api/E2E/LocatorWaitForOptions/#E2E_LocatorWaitForOptions_Stat
 [Attached](/api/E2E/WaitForState/#E2E_WaitForState_Attached) for one match, visible or not;
 [Detached](/api/E2E/WaitForState/#E2E_WaitForState_Detached) for none; [Hidden](/api/E2E/WaitForState/#E2E_WaitForState_Hidden) for none
 or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
-Does not verify an earlier `act`.
+Verifies the earlier `act` calls once it passes, as a locator matcher does.
 
 **Parameters**
 

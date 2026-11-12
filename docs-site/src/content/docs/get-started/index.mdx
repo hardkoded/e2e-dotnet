@@ -18,6 +18,7 @@ Every platform shares the same test API: `App`, `Agent`, `Screen`, and `Expect`.
 
 ```csharp
 await Agent.ActAsync("sign in as {user}", new ActOptions { Params = new Dictionary<string, object?> { ["user"] = "ada" } });
+
 await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!");
 ```
 
