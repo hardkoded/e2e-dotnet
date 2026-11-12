@@ -1,13 +1,13 @@
 ---
 title: "API reference"
-description: "Public types in E2E, E2E.NUnit, and E2E.XUnit.V3."
+description: "Public types in E2E, E2E.NUnit, E2E.XUnit.V3, and E2E.TUnit."
 editUrl: false
 sidebar:
   label: "Overview"
   order: 0
 ---
 
-Generated from the XML documentation of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. Regenerate it with `npm run api` from `docs-site/` after a public API change. See [Contributing](/contributing/#documentation).
+Generated from the XML documentation of `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, and `E2E.TUnit`. Regenerate it with `npm run api` from `docs-site/` after a public API change. See [Contributing](/contributing/#documentation).
 
 ## E2E
 
@@ -24,3 +24,7 @@ Generated from the XML documentation of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. 
 ## E2E.XUnit.V3
 
 - [E2E.XUnit.V3](/api/E2E.XUnit.V3/) — The xUnit v3 runner. Subclass E2ETest to get a session per test.
+
+## E2E.TUnit
+
+- [E2E.TUnit](/api/E2E.TUnit/) — The TUnit runner. Subclass E2ETest to get a session per test.

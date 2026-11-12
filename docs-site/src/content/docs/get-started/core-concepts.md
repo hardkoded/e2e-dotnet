@@ -42,6 +42,17 @@ public sealed class BillingTests : E2ETest
 
 xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
 
+### TUnit
+
+`E2E.TUnit.E2ETest` has the same members and reads the same config. Write `[Test]` methods, with `[Arguments]` for data rows. TUnit builds a new instance of the class for each test. It differs from the NUnit fixture in a few ways:
+
+- A before-test hook starts the session, and an after-test hook commits the replay cache. Your own `[After(Test)]` hook runs before the commit.
+- `Expect.Soft` failures fail the test when its after-test hook runs, in one `ASSERTION_FAILED`. A soft failure before `Skip.Test(...)` fails the test.
+- The first attempt can replay. `[Retry]` attempts run live and still record.
+- The session stops on the test's cancellation token, so a call does not need it.
+- `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
+- Not supported yet: `E2ERunFixture` (reporters, app-command shutdown, `--changed-since`, `--last-failed`), `[E2ESetup]` and `[E2ESession]` saved sessions, and the mobile and Windows base classes.
+
 ## Config
 
 `E2ETest` reads the nearest `e2e.config.json` above the test assembly directory, then above the working directory. The shape follows upstream `e2e.config.ts`. Every key is optional, and an unknown key fails with `INVALID_CONFIG`.

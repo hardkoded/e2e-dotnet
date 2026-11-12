@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.TUnit</RootNamespace>
+    <AssemblyName>E2E.TUnit</AssemblyName>
+    <PackageId>E2E.TUnit</PackageId>
+    <Description>TUnit fixture for the E2E .NET port. Each test gets an engine session, and the replay cache commits from the TUnit result.</Description>
+    <PackageTags>e2e;testing;tunit;agent</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E\E2E.csproj" />
+    <PackageReference Include="TUnit.Core" Version="1.83.8" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

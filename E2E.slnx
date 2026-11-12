@@ -9,6 +9,7 @@
     <Project Path="samples/E2E.Sample/E2E.Sample.csproj" />
     <Project Path="samples/MobileApp.E2ETests/MobileApp.E2ETests.csproj" />
     <Project Path="samples/E2E.XUnit.V3.Sample/E2E.XUnit.V3.Sample.csproj" />
+    <Project Path="samples/E2E.TUnit.Sample/E2E.TUnit.Sample.csproj" />
     <Project Path="samples/TodoMvc/TodoMvc.csproj" />
   </Folder>
   <Folder Name="/src/">
@@ -24,6 +25,7 @@
     <Project Path="src/E2E.Mobile.XUnit.V3/E2E.Mobile.XUnit.V3.csproj" />
     <Project Path="src/E2E.Mobile/E2E.Mobile.csproj" />
     <Project Path="src/E2E.NUnit/E2E.NUnit.csproj" />
+    <Project Path="src/E2E.TUnit/E2E.TUnit.csproj" />
     <Project Path="src/E2E.TestMu.Mobile/E2E.TestMu.Mobile.csproj" />
     <Project Path="src/E2E.TestMu/E2E.TestMu.csproj" />
     <Project Path="src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj" />
@@ -45,6 +47,7 @@
     <Project Path="tests/E2E.Mobile.DevFlow.Tests/E2E.Mobile.DevFlow.Tests.csproj" />
     <Project Path="tests/E2E.Mobile.Tests/E2E.Mobile.Tests.csproj" />
     <Project Path="tests/E2E.NUnit.Tests/E2E.NUnit.Tests.csproj" />
+    <Project Path="tests/E2E.TUnit.Tests/E2E.TUnit.Tests.csproj" />
     <Project Path="tests/E2E.TestMu.Mobile.Tests/E2E.TestMu.Mobile.Tests.csproj" />
     <Project Path="tests/E2E.TestMu.Tests/E2E.TestMu.Tests.csproj" />
     <Project Path="tests/E2E.Tests.App/E2E.Tests.App.csproj" />

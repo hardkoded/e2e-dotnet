@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.83.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\E2E.Agent.Tests\Testbed.cs" Link="Testbed\Playground.cs" />
+    <Compile Include="..\E2E.Agent.Tests\PlaywrightRoutes.cs" Link="Testbed\PlaywrightRoutes.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\E2E.TUnit\E2E.TUnit.csproj" />
+  </ItemGroup>
+</Project>

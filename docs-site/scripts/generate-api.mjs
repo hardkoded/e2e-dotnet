@@ -37,8 +37,9 @@ const namespaceBlurbs = {
     E2E: "The core. Agent, Screen, Expect, the engines, model clients, config, and the replay cache.",
     "E2E.NUnit": "The NUnit runner. Subclass E2ETest to get a session per test.",
     "E2E.XUnit.V3": "The xUnit v3 runner. Subclass E2ETest to get a session per test.",
+    "E2E.TUnit": "The TUnit runner. Subclass E2ETest to get a session per test.",
 };
-const assemblyOrder = ["E2E", "E2E.NUnit", "E2E.XUnit.V3"];
+const assemblyOrder = ["E2E", "E2E.NUnit", "E2E.XUnit.V3", "E2E.TUnit"];
 
 process.env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD ??= "1";
 process.env.DOTNET_CLI_TELEMETRY_OPTOUT ??= "1";
@@ -131,6 +132,7 @@ const required = [
     path.join(apiDir, "E2E", "PollExpectation-1.md"),
     path.join(apiDir, "E2E.NUnit", "E2ETest.md"),
     path.join(apiDir, "E2E.XUnit.V3", "E2ETest.md"),
+    path.join(apiDir, "E2E.TUnit", "E2ETest.md"),
 ];
 for (const file of required) {
     await readFile(file);
@@ -142,11 +144,11 @@ function renderApiIndex(grouped) {
     const lines = [
         frontmatter({
             title: "API reference",
-            description: "Public types in E2E, E2E.NUnit, and E2E.XUnit.V3.",
+            description: "Public types in E2E, E2E.NUnit, E2E.XUnit.V3, and E2E.TUnit.",
             editUrl: false,
             sidebar: { label: "Overview", order: 0 },
         }),
-        "Generated from the XML documentation of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. Regenerate it with `npm run api` from `docs-site/` after a public API change. See [Contributing](/contributing/#documentation).",
+        "Generated from the XML documentation of `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, and `E2E.TUnit`. Regenerate it with `npm run api` from `docs-site/` after a public API change. See [Contributing](/contributing/#documentation).",
         "",
     ];
     const assemblies = [...grouped.keys()].sort(compareAssembly);

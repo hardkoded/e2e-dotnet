@@ -42,6 +42,7 @@ jobs:
           dotnet pack src/E2E/E2E.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.NUnit/E2E.NUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.XUnit.V3/E2E.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.TUnit/E2E.TUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Cli/E2E.Cli.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release --no-build -o artifacts --nologo

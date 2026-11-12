@@ -11,6 +11,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | `e2e` and `@e2e-dev/web` | `E2E` (`WebEngine` is Playwright, in the same package) |
 | NUnit `[Test]` | `E2E.NUnit.E2ETest`. The fixture commits the replay cache from the NUnit result |
 | xUnit v3 `[Fact]` | `E2E.XUnit.V3.E2ETest`. The fixture commits the replay cache from the xUnit result |
+| TUnit `[Test]` (.NET only) | `E2E.TUnit.E2ETest`. A before-test hook starts the session and an after-test hook commits the replay cache from the TUnit result. No `E2ERunFixture`, `[E2ESetup]`, or `[E2ESession]` yet |
 | `e2e.config.ts` | `e2e.config.json`, the same keys as JSON. `E2ETest` finds and applies it; fixture properties override it |
 | Vercel AI SDK model | `OpenAiCompatibleModel`, `OpenAiResponsesModel`, `AnthropicModel`, `GoogleModel`, and `BedrockModel`, built from `provider` in JSON or `ModelProviders` in code. See [Models](#models) |
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |

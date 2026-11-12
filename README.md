@@ -12,7 +12,7 @@ Docs and API reference: https://www.hardkoded.com/e2e-dotnet/
 
 ```bash
 dotnet add package E2E
-dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
+dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3, or E2E.TUnit for TUnit
 ```
 
 The library targets `net10.0` and `net11.0` and includes `WebEngine`, which drives Chromium, Firefox, or WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/); `WebEngineOptions.BrowserName` picks one, and Chromium is the default. `Connect` and a `Browser` provider attach over CDP, so they need Chromium. The first `WebEngine` launch in a process installs the browser it launches, so the first run needs network access. A headless Chromium run installs only the headless shell, the build it launches; Firefox and WebKit have one build. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
@@ -191,6 +191,17 @@ public sealed class HostedBrowsers(string serviceUrl) : IBrowserProvider
 - `E2E` and `Xunit` both have a `TestContext`. With both `using` lines, write `Xunit.TestContext.Current` for the xUnit one.
 
 xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
+
+### TUnit
+
+`E2E.TUnit.E2ETest` has the same members and reads the same config. Write `[Test]` methods, with `[Arguments]` for data rows. TUnit builds a new instance of the class for each test. It differs from the NUnit fixture in a few ways:
+
+- A before-test hook starts the session, and an after-test hook commits the replay cache. Your own `[After(Test)]` hook runs before the commit.
+- `Expect.Soft` failures fail the test when its after-test hook runs, in one `ASSERTION_FAILED`. A soft failure before `Skip.Test(...)` fails the test.
+- The first attempt can replay. `[Retry]` attempts run live and still record.
+- The session stops on the test's cancellation token, so a call does not need it.
+- `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
+- Not supported yet: `E2ERunFixture` (reporters, app-command shutdown, `--changed-since`, `--last-failed`), `[E2ESetup]` and `[E2ESession]` saved sessions, and the mobile and Windows base classes.
 
 ## Config
 
@@ -474,7 +485,7 @@ dotnet test samples/E2E.Sample
 
 To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.config.json`, for example to `"provider": "openai", "model": "gpt-4.1-mini"` with `OPENAI_API_KEY` set.
 
-[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`.
+[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`. [`samples/E2E.TUnit.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.TUnit.Sample) has them for TUnit.
 
 Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test samples/E2E.Sample`.
 
@@ -497,6 +508,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `e2e` test, expect, agent, cache, and `@e2e-dev/web` | `E2E` (`WebEngine`) |
 | NUnit | `E2E.NUnit` (`E2ETest`) |
 | xUnit v3 | `E2E.XUnit.V3` (`E2ETest`) |
+| TUnit | `E2E.TUnit` (`E2ETest`) |
 | none (.NET only) | `E2E.Mobile.NUnit` and `E2E.Mobile.XUnit.V3` (`MobileAppTest`), a ready base class for a device test |
 | none (.NET only) | `E2E.WinApp` (`WinAppEngine`), Windows desktop apps through Windows UI Automation |
 | none (.NET only) | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` (`WinAppTest`), a ready base class for a Windows app test |
