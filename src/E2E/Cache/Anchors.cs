@@ -38,7 +38,7 @@ internal static class Anchors
 
     /// <summary>
     /// Text that cannot read the same on the next run: a minted id, a countdown or age, a date, an ISO 8601
-    /// instant, a clock time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists;
+    /// instant, a clock time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists on either side of the delta;
     /// with nothing else, the volatile ones stay, because a replay that always hands off is still safer than
     /// one that passes on mechanics alone. An alert keeps it, and is compared with these parts read as one
     /// placeholder each (<see cref="AlertShape"/>).
@@ -133,14 +133,25 @@ internal static class Anchors
     /// with a status reading "Express" vanished, but an anchor of that name would still match the status,
     /// and the recording would fail its own check on every replay. <paramref name="routeMoved"/> says the step
     /// ended on another route than it began on, whose counts are that screen's data rather than the step's result.
+    /// <para>
+    /// An anchor made of text that never repeats (<see cref="IsTextVolatile"/>, a bare number) is dropped whenever either side of the delta has a
+    /// stable anchor: a clock is never a step's result. A count is dropped only from a side that has a stable anchor of its own, since
+    /// <c>3 records imported</c> is how an import reports its result. With no stable anchor anywhere the volatile ones stay.
+    /// </para>
     /// </summary>
     public static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(IReadOnlyList<AnchorNode> start, IReadOnlyList<AnchorNode> end, bool routeMoved)
     {
         var startKeys = start.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
         var endKeys = end.Select(anchor => anchor.Key).ToHashSet(StringComparer.Ordinal);
-        return (
-            Side(end, start, anchor => startKeys.Contains(anchor.Key), routeMoved),
-            Side(start, end, anchor => endKeys.Contains(anchor.Key) || AnchorIn(anchor.Target, end), routeMoved));
+        var appeared = Side(end, start, anchor => startKeys.Contains(anchor.Key), routeMoved);
+        var gone = Side(start, end, anchor => endKeys.Contains(anchor.Key) || AnchorIn(anchor.Target, end), routeMoved);
+        static List<RecordedTarget> Pick(DeltaSide side, DeltaSide other)
+        {
+            var kept = side.Stable.Count > 0 ? side.Stable : other.Stable.Count > 0 ? side.WithCounts : side.All;
+            return kept.Take(Max).ToList();
+        }
+
+        return (Pick(appeared, gone), Pick(gone, appeared));
     }
 
     /// <summary>
@@ -193,7 +204,11 @@ internal static class Anchors
             || entry.Gone.Any(anchor => Counted(anchor) && AnchorIn(anchor, baseline));
     }
 
-    private static List<RecordedTarget> Side(IReadOnlyList<AnchorNode> nodes, IReadOnlyList<AnchorNode> other, Func<AnchorNode, bool> inOther, bool routeMoved)
+    /// <summary>One side of the delta in recording order, not yet capped: all of it, the part that is not volatile, and all but the text that never repeats.</summary>
+    private sealed record DeltaSide(IReadOnlyList<RecordedTarget> All, IReadOnlyList<RecordedTarget> Stable, IReadOnlyList<RecordedTarget> WithCounts);
+
+    /// <summary>The side of the delta <paramref name="nodes"/> holds and <paramref name="other"/> does not (<paramref name="inOther"/>), ordered and not yet capped.</summary>
+    private static DeltaSide Side(IReadOnlyList<AnchorNode> nodes, IReadOnlyList<AnchorNode> other, Func<AnchorNode, bool> inOther, bool routeMoved)
     {
         var otherShapes = other.Select(anchor => CountShape(anchor.Target)).ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -211,8 +226,11 @@ internal static class Anchors
         }
 
         var all = announcements.Concat(leaves).Concat(containers).ToList();
-        var stable = all.Where(anchor => IsAlert(anchor) || !IsVolatile(anchor, count => routeMoved || otherShapes.Contains(CountShape(count)))).ToList();
-        return (stable.Count > 0 ? stable : all).Take(Max).ToList();
+        return new DeltaSide(
+            all,
+            all.Where(anchor => IsAlert(anchor) || !IsVolatile(anchor, count => routeMoved || otherShapes.Contains(CountShape(count))))
+                .ToList(),
+            all.Where(anchor => IsAlert(anchor) || !IsTextVolatile(anchor)).ToList());
     }
 
     /// <summary>
@@ -223,17 +241,22 @@ internal static class Anchors
     /// </summary>
     private static bool IsVolatile(RecordedTarget anchor, Func<RecordedTarget, bool> countIsData)
     {
-        var texts = new[] { anchor.Text, anchor.Name, anchor.Value }.OfType<string>().ToList();
+        return IsTextVolatile(anchor) || (AnchorTexts(anchor).Any(text => CountText.Any(pattern => pattern.IsMatch(text))) && countIsData(anchor));
+    }
+
+    /// <summary>Whether an anchor is a clock, date, minted id or bare number: never a step's result, whatever the other side shows.</summary>
+    private static bool IsTextVolatile(RecordedTarget anchor)
+    {
         var label = anchor.Name ?? anchor.Text;
         var bare = label is not null && BareNumber.IsMatch(label) && anchor.TestId is null
             && (anchor.Name is null || anchor.Text is null || anchor.Name == anchor.Text);
-        if (bare || Relocate.DescriptorTiers(anchor).Any(tier => tier.Kind == DescriptorTierKind.Shape) || texts.Any(text => VolatileSpans.Any(pattern => pattern.IsMatch(text))))
-        {
-            return true;
-        }
-
-        return texts.Any(text => CountText.Any(pattern => pattern.IsMatch(text))) && countIsData(anchor);
+        return bare
+            || Relocate.DescriptorTiers(anchor).Any(tier => tier.Kind == DescriptorTierKind.Shape)
+            || AnchorTexts(anchor).Any(text => VolatileSpans.Any(pattern => pattern.IsMatch(text)));
     }
+
+    /// <summary>The texts an anchor can say its text in: its text, name and value.</summary>
+    private static List<string> AnchorTexts(RecordedTarget anchor) => new[] { anchor.Text, anchor.Name, anchor.Value }.OfType<string>().ToList();
 
     /// <summary>An anchor's key with every digit run read as one placeholder: the text a running count keeps while its numbers move.</summary>
     private static string CountShape(RecordedTarget anchor)

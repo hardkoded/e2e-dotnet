@@ -268,9 +268,12 @@ lines you changed:
   tool's timeout kills) saves nothing, so give the command a timeout longer
   than the test. A replay's end check skips text that reads differently on
   every run (an id, a duration, a date, an ISO 8601 instant, a clock time)
-  while a stable change exists, and reads it in an alert as one placeholder,
+  while a stable change exists on either side of the step's delta (something
+  appeared or disappeared), and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
-  are the same alert. A run summary would count the cache by step in a
+  are the same alert. A count that names what it counts (`3 records imported`)
+  is dropped only from a side that has a stable change of its own, so it stays
+  even when the opposite side has one. A run summary would count the cache by step in a
   `Cache  4 replayed · 1 handed off · 1 missed · 1 not saved` row (not saved: steps of
   passing and flaky tests whose cache write is `Unconfirmed`, `NoChange`, or
   `NotWritten` in the attempt that passed); the port's internal
