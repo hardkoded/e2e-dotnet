@@ -132,13 +132,13 @@ public sealed record MobileOptions
     public SnapshotMode Snapshot { get; init; } = SnapshotMode.Full;
 
     /// <summary>
-    /// How long the UI must hold still after a tap, fill, screen scroll, or back before the action counts as
-    /// landed, in milliseconds; <see cref="Settle"/> false skips the wait. The wait keeps the observation that follows
-    /// an action off a transition frame; the runner's own polling (<c>Expect</c>, actions waiting for their node) covers
+    /// How long the UI must hold still after a tap, fill, screen scroll, or back before the agent observes
+    /// again, in milliseconds; <see cref="Settle"/> false skips the wait. The wait keeps that observation
+    /// off a transition frame; the runner's own polling (<c>Expect</c>, actions waiting for their node) covers
     /// the rest, so a short window suffices. Default 150. Every frame of a running animation changes the tree, so a
     /// 150 ms window still catches a transition in flight; raise it for slow devices or apps that settle in stages, or
     /// lower it to 0 to keep only the first re-observation. A negative value is <c>INVALID_CONFIG</c>. The agent's
-    /// actions and <c>Device.BackAsync</c> carry the wait; a test's own steps do not, and rely on <see cref="TransitionMilliseconds"/> and polling.
+    /// actions and <c>Device.BackAsync</c> carry the wait; a test's steps do not settle, and <c>Expect</c> verifies their outcome; they rely on <see cref="TransitionMilliseconds"/> and polling.
     /// </summary>
     public int SettleMilliseconds { get; init; } = DefaultSettleMilliseconds;
 

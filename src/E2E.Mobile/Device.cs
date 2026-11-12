@@ -271,11 +271,19 @@ public sealed class Device
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) =>
         RunAsync("device.fold", pose switch { FoldPose.Closed => "closed", FoldPose.HalfOpen => "half-open", _ => "open" }, () => _session.FoldAsync(pose, cancellationToken));
 
-    /// <summary>Simulates one biometric attempt on the open app.</summary>
+    /// <summary>
+    /// Simulates one biometric attempt on the open app. <c>faceid</c> and <c>touchid</c> work on an iOS simulator;
+    /// <c>fingerprint</c> works on an Android emulator and on a phone that exposes <c>cmd fingerprint</c>. Any other
+    /// pair is <c>UNSUPPORTED_CAPABILITY</c>. An Android app's prompt reads the touch only once the device has a
+    /// screen lock and an enrolled fingerprint, which <see cref="EnrollBiometricsAsync"/> cannot set up.
+    /// </summary>
     public Task SetBiometricsAsync(BiometricSensor sensor, BiometricResult result, CancellationToken cancellationToken = default) =>
         RunAsync("device.setBiometrics", "", () => Setting("device.setBiometrics", sensor.WireName(), result == BiometricResult.Match ? "match" : "nonmatch", cancellationToken));
 
-    /// <summary>Enrolls or unenrolls the simulator's Face ID or Touch ID.</summary>
+    /// <summary>
+    /// Enrolls or unenrolls the simulator's Face ID or Touch ID. On Android or a physical iOS device it is
+    /// <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
     public Task EnrollBiometricsAsync(BiometricSensor sensor, bool enrolled, CancellationToken cancellationToken = default) =>
         RunAsync("device.enrollBiometrics", "", () => sensor == BiometricSensor.Fingerprint
             ? Task.FromException(new TestException("INVALID_ARGUMENT", "enrollBiometrics takes the simulator's Face ID or Touch ID"))
