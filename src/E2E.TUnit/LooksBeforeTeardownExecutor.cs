@@ -4,8 +4,8 @@
 
 using System.Runtime.CompilerServices;
 using TUnit.Core;
-using TUnitContext = global::TUnit.Core.TestContext;
 using TUnit.Core.Interfaces;
+using TUnitContext = global::TUnit.Core.TestContext;
 
 namespace E2E.TUnit;
 

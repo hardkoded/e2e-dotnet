@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using TUnit.Core;
+using TUnit.Core.Exceptions;
 using TUnit.Core.Executors;
 using TUnitContext = global::TUnit.Core.TestContext;
-using TUnit.Core.Exceptions;
 
 namespace E2E.TUnit;
 

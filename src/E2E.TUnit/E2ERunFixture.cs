@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
-using ReflectionAssembly = System.Reflection.Assembly;
 using TUnit.Core;
+using ReflectionAssembly = System.Reflection.Assembly;
 
 namespace E2E.TUnit;
 
