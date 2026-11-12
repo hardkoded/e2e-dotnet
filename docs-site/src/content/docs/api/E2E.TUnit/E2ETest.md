@@ -119,7 +119,7 @@ can be changed by an attribute or shortened for long arguments.
 
 
 ```csharp
-[After(HookType.Test, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ETest.cs", 74)]
+[After(HookType.Test)]
 public Task FinishE2ESessionAsync(TestContext context, CancellationToken cancellationToken)
 ```
 
@@ -166,7 +166,7 @@ failures', or the result's own, and then the session is completed and disposed.
 
 
 ```csharp
-[Before(HookType.Test, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ETest.cs", 50)]
+[Before(HookType.Test)]
 public Task StartE2ESessionAsync(TestContext context, CancellationToken cancellationToken)
 ```
 

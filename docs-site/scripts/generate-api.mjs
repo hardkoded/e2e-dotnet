@@ -442,11 +442,17 @@ function modifiers(item) {
     return [];
 }
 
+// TUnit's [Before]/[After] take [CallerFilePath] and [CallerLineNumber] arguments, which the compiler fills in
+// with the build machine's path. Docfx prints them, so drop them to show what the source says.
+function withoutCallerInfo(text) {
+    return text.replace(/(\[(?:Before|After)\(HookType\.\w+), "[^"]*", \d+\)\]/g, "$1)]");
+}
+
 function syntaxText(item) {
     const syntax = item.syntax;
     if (!syntax) return "";
-    if (typeof syntax.content === "string") return syntax.content.trim();
-    if (typeof syntax["content.csharp"] === "string") return syntax["content.csharp"].trim();
+    if (typeof syntax.content === "string") return withoutCallerInfo(syntax.content.trim());
+    if (typeof syntax["content.csharp"] === "string") return withoutCallerInfo(syntax["content.csharp"].trim());
     return "";
 }
 
