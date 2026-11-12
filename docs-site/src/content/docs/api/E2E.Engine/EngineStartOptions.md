@@ -1,6 +1,6 @@
 ---
 title: "EngineStartOptions"
-description: "Passed to CancellationToken) once per test attempt."
+description: "Passed to StartAsync once per test attempt."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class EngineStartOptions
 ```
 
 
-Passed to `CancellationToken)` once per test attempt.
+Passed to `StartAsync` once per test attempt.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L71)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Properties
 
@@ -39,8 +39,6 @@ public TimeSpan ActionTimeout { get; init; }
 
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L75)
 
 <a id="E2E_Engine_EngineStartOptions_AppLog_"></a>
 <a id="E2E_Engine_EngineStartOptions_AppLog"></a>
@@ -59,7 +57,20 @@ step records; the harness redacts and bounds each line, and a sink that throws n
 
 **Value:** [Action&lt;AppLogEntry&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L124)
+<a id="E2E_Engine_EngineStartOptions_AppPath_"></a>
+<a id="E2E_Engine_EngineStartOptions_AppPath"></a>
+
+### AppPath
+
+
+```csharp
+public string? AppPath { get; init; }
+```
+
+
+The build to install, as the target declared it, relative to [ProjectRoot](#E2E_Engine_EngineStartOptions_ProjectRoot) (upstream's `EngineAppInfo.appPath`).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir_"></a>
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir"></a>
@@ -77,8 +88,6 @@ The attempt's artifact directory: where a recording of the attempt is written, u
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L103)
-
 <a id="E2E_Engine_EngineStartOptions_AttemptId_"></a>
 <a id="E2E_Engine_EngineStartOptions_AttemptId"></a>
 
@@ -91,11 +100,10 @@ public string? AttemptId { get; init; }
 
 
 The attempt's id, for naming what an engine leases for it at a hosted service. Defaults to a new one per start.
-Upstream's `EngineAttemptContext.attemptId`.
+Upstream's `EngineAttemptContext.attemptId`. [E2ESession](/api/E2E/E2ESession/) sets it, and the same id is the [AttemptId](/api/E2E.Engine/OperationContext/#E2E_Engine_OperationContext_AttemptId)
+of every call that takes a context.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L90)
 
 <a id="E2E_Engine_EngineStartOptions_BaseUrl_"></a>
 <a id="E2E_Engine_EngineStartOptions_BaseUrl"></a>
@@ -110,7 +118,20 @@ public string? BaseUrl { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L73)
+<a id="E2E_Engine_EngineStartOptions_BundleId_"></a>
+<a id="E2E_Engine_EngineStartOptions_BundleId"></a>
+
+### BundleId
+
+
+```csharp
+public string? BundleId { get; init; }
+```
+
+
+The installed app to launch, as the target declared it (upstream's `EngineAppInfo.bundleId`). Unset for a target without one.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineStartOptions_Env_"></a>
 <a id="E2E_Engine_EngineStartOptions_Env"></a>
@@ -129,8 +150,6 @@ to the process environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L97)
-
 <a id="E2E_Engine_EngineStartOptions_Environment_"></a>
 <a id="E2E_Engine_EngineStartOptions_Environment"></a>
 
@@ -148,7 +167,20 @@ fails the attempt for it.
 
 **Value:** [Action&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L117)
+<a id="E2E_Engine_EngineStartOptions_LaunchArguments_"></a>
+<a id="E2E_Engine_EngineStartOptions_LaunchArguments"></a>
+
+### LaunchArguments
+
+
+```csharp
+public IReadOnlyList<string>? LaunchArguments { get; init; }
+```
+
+
+Arguments every fresh launch passes the app (upstream's `EngineAppInfo.launchArguments`).
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_Engine_EngineStartOptions_Navigation_"></a>
 <a id="E2E_Engine_EngineStartOptions_Navigation"></a>
@@ -166,7 +198,21 @@ Upstream's `EngineAttemptContext.navigation`. A navigation the engine started it
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L130)
+<a id="E2E_Engine_EngineStartOptions_Permissions_"></a>
+<a id="E2E_Engine_EngineStartOptions_Permissions"></a>
+
+### Permissions
+
+
+```csharp
+public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+```
+
+
+The permissions the app holds, by name: the target's `app.permissions` (upstream's `EngineAppInfo.permissions`). What each
+state means is the engine's. A browser grants each name to every page of the attempt and takes `grant` only.
+
+**Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
 <a id="E2E_Engine_EngineStartOptions_ProjectRoot_"></a>
 <a id="E2E_Engine_EngineStartOptions_ProjectRoot"></a>
@@ -183,7 +229,20 @@ Anchors the files the engine options name, such as an init script's `Path`. Defa
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L78)
+<a id="E2E_Engine_EngineStartOptions_RunId_"></a>
+<a id="E2E_Engine_EngineStartOptions_RunId"></a>
+
+### RunId
+
+
+```csharp
+public string? RunId { get; init; }
+```
+
+
+The id of the run the attempt belongs to. Upstream's `EngineAttemptContext.runId`. [E2ESession](/api/E2E/E2ESession/) sets it; the same id is the [RunId](/api/E2E.Engine/OperationContext/#E2E_Engine_OperationContext_RunId) of every call that takes a context.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_Engine_EngineStartOptions_Screen_"></a>
 <a id="E2E_Engine_EngineStartOptions_Screen"></a>
@@ -202,4 +261,17 @@ fails the action for it, and a sink that throws never fails the attempt.
 
 **Value:** [Action&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L110)
+<a id="E2E_Engine_EngineStartOptions_TargetName_"></a>
+<a id="E2E_Engine_EngineStartOptions_TargetName"></a>
+
+### TargetName
+
+
+```csharp
+public string? TargetName { get; init; }
+```
+
+
+The target's name, for the errors an engine raises about its `app`. Upstream's `EngineInitContext.targetName`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

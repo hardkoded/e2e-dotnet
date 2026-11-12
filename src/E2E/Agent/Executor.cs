@@ -40,6 +40,12 @@ public interface IStepExecutor
     IAgentModel? Judge => null;
 
     /// <summary>
+    /// Whether the executor honors <see cref="AssertOptions.Vision"/>: the mode reaches it as <see cref="ExecutorStep.Vision"/>. Without
+    /// this, the option fails the call with <c>UNSUPPORTED_CAPABILITY</c>, since only the executor decides what its model sees. Upstream's <c>vision</c>.
+    /// </summary>
+    bool Vision => false;
+
+    /// <summary>
     /// Runs one step. <paramref name="cancellationToken"/> ends when the test is cancelled, when the step deadline
     /// passes, or on any other hard stop. Stop promptly: the runtime settles the step at the hard stop either way, so
     /// a late verdict is never trusted over it.
@@ -98,13 +104,6 @@ public class StepExecutorContext
 
     public required IExecutorActions Actions { get; init; }
 
-    /// <summary>
-    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels from the model for the rest of it. An
-    /// executor reads it when it assembles its vocabulary, to leave screenshot tools out rather than offer tools that can
-    /// only decline.
-    /// </summary>
-    public virtual bool PixelsTainted => false;
-
     /// <summary>What the built-in executor reads of the runtime beyond the public context. Null for a context a test built, which the built-in executor cannot drive.</summary>
     internal ActHost? Host { get; init; }
 
@@ -136,9 +135,9 @@ public class StepExecutorContext
     }
 
     /// <summary>
-    /// Keeps pixels the executor or one of its tools observed as a screenshot of the step in progress, and returns the
-    /// path of the file, relative to the project root. The file is named by <paramref name="label"/> and lands in the
-    /// attempt's results directory. For a tool with evidence worth keeping.
+    /// Keeps pixels the executor or one of its tools observed as a <c>screenshot</c> artifact of the step in progress, and
+    /// returns the artifact's report id. The file is named by <paramref name="label"/> and lands in the attempt's results
+    /// directory, and the report's artifact records it like every screenshot the runner takes. For a tool with evidence worth keeping.
     /// </summary>
     public virtual Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("This context does not keep screenshots.");
@@ -166,6 +165,12 @@ public sealed class ExecutorStep
 
     /// <summary>The secrets declared in the params, which <see cref="IExecutorActions.TypeSecretAsync"/> may fill.</summary>
     public IReadOnlyList<ExecutorSecret> Secrets { get; init; } = [];
+
+    /// <summary>
+    /// Assert only: the <see cref="AssertOptions.Vision"/> the call asked for, set only for an executor whose <see cref="IStepExecutor.Vision"/> is true.
+    /// <see cref="VisionMode.On"/> shows pixels beside the tree, <see cref="VisionMode.Only"/> pixels alone; null when the call passed none.
+    /// </summary>
+    public VisionMode? Vision { get; init; }
 }
 
 /// <summary>Upstream's <c>ExecutorStep.kind</c>.</summary>
@@ -223,7 +228,7 @@ public sealed class ExecutorTargetInfo
 
     public IReadOnlySet<ExecutorVerb> Verbs { get; init; } = new HashSet<ExecutorVerb>();
 
-    /// <summary>True when <see cref="IExecutorActions.TapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> and <see cref="IExecutorActions.DoubleTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
+    /// <summary>True when <see cref="IExecutorActions.TapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/>, <see cref="IExecutorActions.DoubleTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/>, and <see cref="IExecutorActions.SecondaryTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
     public bool TapModifiers { get; init; }
 }
 
@@ -232,6 +237,10 @@ public enum ExecutorVerb
 {
     Tap,
     DoubleTap,
+    LongPress,
+    SecondaryTap,
+    Hover,
+    Drag,
     Type,
     TypeSecret,
     Clear,
@@ -243,6 +252,28 @@ public enum ExecutorVerb
     Scroll,
     Navigate,
     Back,
+    Upload,
+
+    /// <summary>Upstream's <c>tapAt</c>: <see cref="IExecutorActions.TapAtAsync"/>, with the engine's <c>tap</c> pointer kind.</summary>
+    TapAt,
+
+    /// <summary>Upstream's <c>hoverAt</c>: <see cref="IExecutorActions.HoverAtAsync"/>, with the engine's <c>hover</c> pointer kind.</summary>
+    HoverAt,
+
+    /// <summary>Upstream's <c>dragAt</c>: <see cref="IExecutorActions.DragAtAsync"/>, with the engine's <c>dragTo</c> pointer kind.</summary>
+    DragAt,
+
+    /// <summary>Upstream's <c>typeText</c>: <see cref="IExecutorActions.TypeTextAsync"/>, with an engine that declares <see cref="EngineCapabilities.Keyboard"/>.</summary>
+    TypeText,
+
+    /// <summary>Upstream's <c>pressKey</c>: <see cref="IExecutorActions.PressKeyAsync"/>, with an engine that declares <see cref="EngineCapabilities.Keyboard"/>.</summary>
+    PressKey,
+
+    /// <summary>Upstream's <c>dismissKeyboard</c>: <see cref="IExecutorActions.DismissKeyboardAsync"/>, with an engine whose <see cref="IEngineSession.CanDismissKeyboard"/> is true.</summary>
+    DismissKeyboard,
+
+    /// <summary>Upstream's <c>resize</c>: <see cref="IExecutorActions.ResizeAsync"/>, with an engine that declares <see cref="EngineCapabilities.Resize"/>.</summary>
+    Resize,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -253,7 +284,7 @@ public sealed class ExecutorObserveOptions
 
     /// <summary>
     /// Includes the masked pixels as <see cref="ExecutorObservation.Pixels"/>. They are granted only when the engine
-    /// captures pixels, its masking is proven, and no secret was filled in this attempt. Otherwise
+    /// captures pixels and its masking is proven. Otherwise
     /// <see cref="ExecutorObservation.PixelsWithheld"/> says why.
     /// </summary>
     public bool Pixels { get; init; }
@@ -261,7 +292,7 @@ public sealed class ExecutorObserveOptions
 
 /// <summary>
 /// One node of the redacted semantic tree. Names, text, values, and attribute values are secret-redacted, and a secure
-/// node carries no value at all. <see cref="Id"/> is the node's ref in the observation, which an action names it by.
+/// node carries no value at all. <see cref="Id"/> is the node's id in the observation, which an action names it by.
 /// </summary>
 public sealed class ExecutorNode
 {
@@ -285,6 +316,9 @@ public sealed class ExecutorNode
 
     public BoundingBox? Rect { get; init; }
 
+    /// <summary>The enclosing nested-document chain as selectors of each boundary node, outermost first. Null for a node in the main document.</summary>
+    public IReadOnlyList<string>? FramePath { get; init; }
+
     public IReadOnlyList<ExecutorNode> Children { get; init; } = [];
 }
 
@@ -298,7 +332,7 @@ public sealed class ExecutorNode
 public sealed record ExecutorPixels(byte[] Data, string MediaType, int Width, int Height, double Scale, int MaskedRegionCount);
 
 /// <summary>A redacted, size-bounded observation an executor may show its model.</summary>
-/// <param name="Text">The screen as the model reads it, already secret-redacted.</param>
+/// <param name="Text">One node per line as <c>#id role "name" ...</c>, already secret-redacted.</param>
 public sealed record ExecutorObservation(string Text)
 {
     /// <summary>Semantic capture failed: use the accompanying pixels, and never read the listing as evidence of absence.</summary>
@@ -313,8 +347,16 @@ public sealed record ExecutorObservation(string Text)
     /// </summary>
     public bool? KeyboardVisible { get; init; }
 
-    /// <summary>The location of the screen, redacted, when the engine reports one. Null on an engine without one.</summary>
+    /// <summary>
+    /// Where the screen is, redacted (upstream's <c>path</c>): the path, query and fragment of the engine's <see cref="Observation.Location"/>
+    /// (a secret marker inside the query reads percent-encoded, <c>%3Csecret:NAME%3E</c>), or the location as it is when it is not a URL.
+    /// An engine that reports only a route (<see cref="Observation.Route"/>) gives that route, redacted. Null on a screen the executor
+    /// reads without either.
+    /// </summary>
     public string? Path { get; init; }
+
+    /// <summary>The revision of the capture (<see cref="Observation.Revision"/>), <c>b&lt;n&gt;</c> for the attempt's n-th. Null when the capture carries none. Upstream's <c>revision</c>.</summary>
+    public string? Revision { get; init; }
 
     /// <summary>The redacted node tree. Present when the call asked for it with <see cref="ExecutorObserveOptions.Tree"/>.</summary>
     public IReadOnlyList<ExecutorNode>? Tree { get; init; }
@@ -324,18 +366,14 @@ public sealed record ExecutorObservation(string Text)
 
     /// <summary>Why requested pixels were withheld.</summary>
     public VisionDegradation? PixelsWithheld { get; init; }
-}
 
-/// <summary>What a tap-family action takes. Upstream's <c>ClickOptions</c>, of which the port has the <c>modifiers</c>.</summary>
-public sealed class ClickOptions
-{
-    /// <summary>Keys held for the click, distinct. An empty list holds nothing.</summary>
-    public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
+    /// <summary>The viewport of the capture, which a point on its screenshot is scaled into (upstream's <c>viewport</c>). Set on the listed view only.</summary>
+    internal TraceViewport? Viewport { get; init; }
 }
 
 /// <summary>
-/// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's ref in the text and in
-/// <see cref="ExecutorNode.Id"/>. A ref the screen no longer lists fails the action instead of acting on the wrong node.
+/// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's id after the <c>#</c> in the text and in
+/// <see cref="ExecutorNode.Id"/>. An id the screen no longer lists fails the action instead of acting on the wrong node.
 /// </summary>
 public sealed class ExecutorTarget
 {
@@ -388,20 +426,67 @@ public interface IExecutorActions
     /// <summary>Double-taps one node, holding no keys.</summary>
     Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => DoubleTapAsync(target, null, cancellationToken);
 
+    /// <summary>Holds one node pressed, as a touch long press does. Needs <see cref="ExecutorVerb.LongPress"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
+    Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Taps one node with the secondary button, a right-click. Takes the tap's <paramref name="options"/>. Needs
+    /// <see cref="ExecutorVerb.SecondaryTap"/> in <see cref="ExecutorTargetInfo.Verbs"/>.
+    /// </summary>
+    Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
+
+    /// <summary>Right-clicks one node, holding no keys.</summary>
+    Task SecondaryTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => SecondaryTapAsync(target, null, cancellationToken);
+
+    /// <summary>Moves the pointer over one node, as a hover that reveals a menu or a tooltip. Needs <see cref="ExecutorVerb.Hover"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
+    Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Drags one node onto another. Both are named by their ids from the newest observation and found on one look, so the drag
+    /// never joins a source from one screen to a destination from another. Needs <see cref="ExecutorVerb.Drag"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>.
+    /// </summary>
+    Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default);
+
     Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Fills one secret declared in the step's params into an input. The runtime authorizes the fill (a secret the step
     /// declared and the attempt knows, an enabled editable sink, and a password field for a password) and hands the
     /// plaintext straight to the engine: it never passes through the executor or any model. A refusal is
-    /// <c>POLICY_DENIED</c>. Pixel evidence is tainted from here on.
+    /// <c>POLICY_DENIED</c>.
     /// </summary>
     Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default);
 
     Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
 
-    /// <summary>Presses <paramref name="key"/> on <paramref name="target"/>, or on the focused control when there is none.</summary>
+    /// <summary>
+    /// Presses <paramref name="key"/> on <paramref name="target"/>, or on the focused control when there is none, which is
+    /// <see cref="PressKeyAsync"/>.
+    /// </summary>
     Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Keyboard input to whatever holds focus. No node is resolved, so none is recorded: the trace keeps the value and replays it as given
+    /// after the actions that gave the field focus. An engine that finds nothing that takes text focused refuses with
+    /// <c>NOT_ACTIONABLE</c>, which reaches the executor as an ordinary failed action to read and work around. Needs
+    /// <see cref="ExecutorVerb.TypeText"/> in <see cref="ExecutorTargetInfo.Verbs"/>. Upstream's <c>typeText</c>.
+    /// </summary>
+    Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends one key to whatever holds focus, with no node resolved. Needs <see cref="ExecutorVerb.PressKey"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. Upstream's <c>pressKey</c>.
+    /// </summary>
+    Task PressKeyAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hides an on-screen keyboard, so a control it covered can be reached. Needs <see cref="ExecutorVerb.DismissKeyboard"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. The default refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an executor
+    /// context written before the member compiling; the harness's own actions override it). Upstream's <c>dismissKeyboard</c>.
+    /// </summary>
+    Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "dismissKeyboard is not supported by this executor context."));
 
     Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 
@@ -410,6 +495,14 @@ public interface IExecutorActions
     /// is what tells this verb from a tap that flips whatever state it finds.
     /// </summary>
     Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attaches files to a file input, or to a control that opens a file chooser. Paths are taken relative to the project root and
+    /// authorized by the harness before the engine sees them: a file outside the project, under a hidden directory, or absent is refused
+    /// (<see cref="ExecutorVerb.Upload"/> in <see cref="ExecutorTargetInfo.Verbs"/>). A path the policy refuses is <c>POLICY_DENIED</c>,
+    /// and a missing file or a malformed list is <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
     /// <summary>Brings one listed node into the viewport.</summary>
     Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
@@ -429,7 +522,80 @@ public interface IExecutorActions
 
     /// <summary>Navigates back once.</summary>
     Task BackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the viewport to a size in whole CSS pixels, 200 to 4096 on each side, for this page and every page the attempt opens after
+    /// it. A size outside the limits is <c>INVALID_ARGUMENT</c>. Needs <see cref="ExecutorVerb.Resize"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. The default refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an executor
+    /// context written before the member compiling; the harness's own actions override it). Upstream's <c>resize</c>.
+    /// </summary>
+    Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "resize is not supported by this executor context."));
+
+    /// <summary>
+    /// Taps one viewport point, in the CSS pixels of the newest observation (<see cref="SemanticNode.Rect"/> space; a point read off
+    /// <see cref="ExecutorPixels"/> is divided by its <see cref="ExecutorPixels.Scale"/>). The engine gets the bare point when it takes the
+    /// <c>tap</c> pointer kind (<see cref="ExecutorVerb.TapAt"/> in <see cref="ExecutorTargetInfo.Verbs"/>), where the model aimed; an
+    /// engine that taps listed nodes only gets the enabled control whose box contains the point, tapped by its id like
+    /// <see cref="TapAsync(ExecutorTarget, CancellationToken)"/>, and fails when the point is on nothing listed. A point off the viewport
+    /// is clamped to its edge. Upstream's <c>tapAt</c>.
+    /// </summary>
+    Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hovers one viewport point the way <see cref="TapAtAsync"/> taps one: the bare point through the engine's <c>hover</c> pointer kind
+    /// (<see cref="ExecutorVerb.HoverAt"/>). Upstream's <c>hoverAt</c>.
+    /// </summary>
+    Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Drags from one viewport point to another, in the CSS pixels <see cref="TapAtAsync"/> takes, for a drag the tree does not list: a
+    /// shape on a canvas, a pin on a map, a card dropped on an empty spot. The engine gets the bare points through its <c>dragTo</c>
+    /// pointer kind (<see cref="ExecutorVerb.DragAt"/>), recorded with the viewport and each point's place inside the node under it. An
+    /// engine without it joins the two different enabled controls holding the ends, like a drag by id, and fails when the points do not
+    /// land on two such controls. Upstream's <c>dragAt</c>.
+    /// </summary>
+    Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// What the newest observation lists at one viewport point, in the same CSS pixels <see cref="TapAtAsync"/> takes: the innermost
+    /// enabled control whose box contains the point, and the innermost listed node of any role. What a point-addressed verb resolves its
+    /// target through before calling <see cref="TypeAsync"/>. Costs no action: the verb the executor calls with the result does.
+    /// Upstream's <c>hitTest</c>.
+    /// </summary>
+    Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// What <see cref="IExecutorActions.TypeTextAsync"/> is asked beside the value: upstream's <c>typing</c> argument of <c>typeText</c>, an
+/// inline object type there (.NET-only name).
+/// </summary>
+public sealed class TypeTextOptions
+{
+    /// <summary>Select all and delete before typing, for a field that visibly holds text to remove. Off, the value goes in at the caret.</summary>
+    public bool Replace { get; init; }
+}
+
+/// <summary>Upstream's <c>PointHit</c>: what one <see cref="IExecutorActions.HitTestAsync"/> found, for the executor to act on or relay.</summary>
+/// <param name="Point">Where the point landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Control">The innermost enabled control containing the point, if any is listed.</param>
+/// <param name="Under">The innermost listed node of any role containing the point, if any.</param>
+/// <param name="Summary">Prose for a model: the control the point is on, or what sits under it.</param>
+public sealed record PointHit(Point Point, ExecutorTarget? Control, ExecutorTarget? Under, string Summary);
+
+/// <summary>Upstream's <c>PointTapResult</c>: what one point action (<see cref="IExecutorActions.TapAtAsync"/>, <see cref="IExecutorActions.HoverAtAsync"/>) did, for the executor to relay to its model.</summary>
+/// <param name="Point">Where the point landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Target">The listed, enabled control containing the point, acted on by id or at the point; null when none is listed there.</param>
+/// <param name="Summary">Prose for a model: what was acted on, or what sits under a bare point.</param>
+public sealed record PointTapResult(Point Point, ExecutorTarget? Target, string Summary);
+
+/// <summary>Upstream's <c>PointDragResult</c>: what one <see cref="IExecutorActions.DragAtAsync"/> did, for the executor to relay to its model.</summary>
+/// <param name="From">Where the start landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="To">Where the end landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Source">The listed, enabled control holding the start, dragged by id or at the point; null when none is listed there.</param>
+/// <param name="Destination">The listed, enabled control holding the end; null when none is listed there.</param>
+/// <param name="Summary">Prose for a model: what was dragged where, or what sits under the bare points.</param>
+public sealed record PointDragResult(Point From, Point To, ExecutorTarget? Source, ExecutorTarget? Destination, string Summary);
 
 /// <summary>Step budgets, read and reported by the executor and enforced by the runtime.</summary>
 public interface IExecutorBudgets
@@ -481,7 +647,10 @@ public sealed class ExecutorModelCall
     /// <summary>The billed cost of the call in US dollars, when the provider reports one.</summary>
     public double? EstimatedCostUsd { get; init; }
 
-    /// <summary>The model's own reasoning for the turn, when it produced one.</summary>
+    /// <summary>
+    /// The model's own reasoning for the turn, when it produced one. Reported so the step's <c>model</c> event can show why the model
+    /// acted; the harness redacts and bounds the excerpt, and the AI trace keeps the full text.
+    /// </summary>
     public string? Reasoning { get; init; }
 }
 
@@ -510,6 +679,9 @@ public enum ReplayHandOffReason
     Gap,
     TargetNotFound,
     TargetAmbiguous,
+
+    /// <summary>A recorded bare-point action met a viewport of another size; the point would land elsewhere.</summary>
+    ViewportChanged,
     ActionFailed,
     ActionUncertain,
     EndMismatch,
@@ -525,6 +697,7 @@ internal static class ReplayHandOffReasons
         (ReplayHandOffReason.Gap, "gap"),
         (ReplayHandOffReason.TargetNotFound, "target-not-found"),
         (ReplayHandOffReason.TargetAmbiguous, "target-ambiguous"),
+        (ReplayHandOffReason.ViewportChanged, "viewport-changed"),
         (ReplayHandOffReason.ActionFailed, "action-failed"),
         (ReplayHandOffReason.ActionUncertain, "action-uncertain"),
         (ReplayHandOffReason.EndMismatch, "end-mismatch"),

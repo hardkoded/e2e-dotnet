@@ -10,7 +10,7 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class DeviceFixtureTests
 {
-    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), CancellationToken.None);
+    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
 
     private static Harness Android(string? bundleId = null, bool pinned = true) =>
         Harness.Create(
@@ -46,11 +46,28 @@ public sealed class DeviceFixtureTests
     }
 
     [Fact]
+    public async Task Gives_a_screen_swipe_the_remaining_transition_budget_after_an_alert_is_dismissed()
+    {
+        var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
+        var session = await OpenAttempt(h);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+        await RootOf(session);
+        await session.Device.AlertAsync(AlertAction.Accept);
+        var dismissedAt = h.Clock.GetUtcNow();
+        var screen = await RootOf(session);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(30));
+
+        await session.PerformAsync(screen, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(120), h.Clock.GetUtcNow() - dismissedAt);
+        JsonAssert.Args("""{"direction":"down","postGestureStabilization":false}""", h.Fake.LastArgs("interactions.scroll"));
+    }
+
+    [Fact]
     public async Task Counts_a_back_home_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await OpenAttempt(h);
-        session.Origin = ActionOrigin.Test;
         await Observed(session, "Back");
         var device = session.Device;
         Func<Task>[] changes =
@@ -498,6 +515,53 @@ public sealed class DeviceFixtureTests
             ("apps.open", """{"platform":"ios","app":"com.other"}"""));
     }
 
+    // Partial: upstream passes the name `notification` as a string key. DevicePermission is a closed enum, so the name is a cast number (`42`) here, which the
+    // refusal quotes in the same words: `device.openApp({ permissions }) has unknown key "42"`.
+    [Fact]
+    public async Task Partial_Refuses_an_openApp_permission_name_it_does_not_know_before_any_device_command()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        var refused = await Assert.ThrowsAsync<TestException>(() => device.OpenAppAsync(
+            "com.other",
+            new OpenAppOptions { Relaunch = true, Permissions = new Dictionary<DevicePermission, PermissionState> { [(DevicePermission)42] = PermissionState.Grant } }));
+        Assert.Equal("INVALID_ARGUMENT", refused.Code);
+        Assert.Contains("device.openApp({ permissions }) has unknown key \"42\"", refused.Message);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Refuses_a_setPermission_name_or_state_it_does_not_know_before_any_device_command_and_still_sends_a_valid_one()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+        // The non-string name: a cast number on the enum overload, as the typed API has no other way to pass one.
+        var number = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync((DevicePermission)42, PermissionState.Grant));
+        Assert.Equal("INVALID_ARGUMENT", number.Code);
+        Assert.Matches(@"^device\.setPermission permission must be one of camera, .*, got type number\z", number.Message);
+        var cast = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(DevicePermission.Camera, (PermissionState)42));
+        Assert.Equal("INVALID_ARGUMENT", cast.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got 42", cast.Message);
+        var typo = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camra", "grant"));
+        Assert.Equal("INVALID_ARGUMENT", typo.Code);
+        Assert.Equal("device.setPermission has unknown key \"camra\"; did you mean \"camera\"?", typo.Message);
+        var allow = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camera", "allow"));
+        Assert.Equal("INVALID_ARGUMENT", allow.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got \"allow\"", allow.Message);
+        var undefinedState = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync("camera", null));
+        Assert.Equal("INVALID_ARGUMENT", undefinedState.Code);
+        Assert.Equal("device.setPermission.camera must be one of grant, deny, reset, got undefined", undefinedState.Message);
+        var undefinedName = await Assert.ThrowsAsync<TestException>(() => device.SetPermissionAsync(null, "grant"));
+        Assert.Equal("device.setPermission permission must be one of camera, microphone, photos, contacts, notifications, calendar, location, reminders, motion, siri, media-library, got type undefined", undefinedName.Message);
+        Assert.Equal(before, h.Fake.Calls.Count);
+        await device.SetPermissionAsync("camera", "deny");
+        Assert.Equal(["settings.update"], h.Fake.Methods().Skip(before));
+    }
+
     [Fact]
     public async Task Switches_Wi_Fi_and_airplane_mode_on_Android_and_on_iOS_where_simctl_only_repaints_the_status_bar_refuses_going_offline_and_restores_with_no_device_command()
     {
@@ -565,5 +629,49 @@ public sealed class DeviceFixtureTests
         var count = android.Fake.Calls.Count;
         await androidSession.Device.FoldAsync(FoldPose.HalfOpen);
         JsonAssert.Calls(android.Fake.Calls, count, ("command.fold", """{"platform":"android","pose":"half-open"}"""));
+    }
+
+    // Upstream reads the labels off the declared `openApp`, `openLink`, and `setClipboard` operations. The port records each fixture call as a step, so the labels are read off the steps.
+    [Fact]
+    public async Task Labels_openApp_and_openLink_steps_without_the_link_query_and_setClipboard_by_length_so_a_token_never_enters_the_report()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var screen = new Screen(
+            session.ObserveAsync,
+            session.PerformAsync,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            locate: session.LocateAsync)
+        {
+            Steps = new StepRecorder("attempt"),
+        };
+        ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen));
+        var device = session.Device;
+
+        async Task<string> LabelOf(Func<Task> call, string? refusedAs = null)
+        {
+            // The labelled step is recorded whether or not the call reaches the device: a link is no app id, and a bare path no link.
+            var error = await Record.ExceptionAsync(call);
+            if (refusedAs is null)
+            {
+                Assert.Null(error);
+            }
+            else
+            {
+                Assert.Equal(refusedAs, Assert.IsType<TestException>(error).Code);
+            }
+
+            return screen.Steps!.All()[^1].Label;
+        }
+
+        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenAppAsync("https://app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
+        Assert.Equal("com.apple.Preferences", await LabelOf(() => device.OpenAppAsync("com.apple.Preferences")));
+        Assert.Equal("myapp://orders/42", await LabelOf(() => device.OpenLinkAsync("myapp://orders/42?ref=mail")));
+        Assert.Equal("verify", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
+        // Clipboard text is often a code or token the test copied, never a configured secret the ledger would redact.
+        Assert.Equal("6 chars", await LabelOf(() => device.SetClipboardAsync("482913")));
     }
 }

@@ -40,6 +40,16 @@ public sealed class WebConnectTests
         Assert.Contains("persistent context; timezoneId requires", Refused(new WebEngineOptions { Connect = connect, TimezoneId = "Europe/Berlin" }), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Rejects_connect_with_a_non_chromium_browser_as_INVALID_CONFIG()
+    {
+        foreach (var browser in new[] { BrowserName.Firefox, BrowserName.Webkit })
+        {
+            var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("ws://x") };
+            Assert.Contains("chromium-only", Refused(new WebEngineOptions { BrowserName = browser, Connect = connect }), StringComparison.Ordinal);
+        }
+    }
+
     private static string Refused(WebEngineOptions options)
     {
         var error = Assert.Throws<EngineException>(() => new WebEngine(options));

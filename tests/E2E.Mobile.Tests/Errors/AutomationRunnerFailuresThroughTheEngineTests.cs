@@ -59,11 +59,17 @@ public sealed class AutomationRunnerFailuresThroughTheEngineTests
             StringComparison.Ordinal);
         var again = await Assert.ThrowsAsync<EngineException>(() => h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None));
         Assert.Contains("npx agent-device daemon stop", again.Message, StringComparison.Ordinal);
-        Assert.Equal(["booting iPhone 17 Pro (1 of 1)", "booting iPhone 17 Pro (1 of 1)"], lines);
+        // A failed open is timed too: the step times are logged as the error propagates.
+        const string stepTimes = @"^iPhone 17 Pro: boot \d+\.\ds, iOS runner \d+\.\ds, open Settings \d+\.\ds$";
+        Assert.Equal(4, lines.Count);
+        Assert.Equal("booting iPhone 17 Pro (1 of 1)", lines[0]);
+        Assert.Matches(stepTimes, lines[1]);
+        Assert.Equal("booting iPhone 17 Pro (1 of 1)", lines[2]);
+        Assert.Matches(stepTimes, lines[3]);
 
         h.Fake.Respond(DeviceMethods.AppsOpen, _ => throw new InvalidOperationException("runner still installing"));
         await h.Engine.PrepareAsync(h.PrepareInfo(log: lines.Add), CancellationToken.None);
-        Assert.Matches(@"Settings did not open.*runner still installing", lines[3]);
+        Assert.Matches(@"Settings did not open.*runner still installing", lines[5]);
     }
 
     [Fact]

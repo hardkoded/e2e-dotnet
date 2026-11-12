@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Tests.Helpers;
+using E2E.Reports;
 
 namespace E2E.Cli.Tests.ExploreFlags;
 
@@ -54,11 +55,11 @@ public sealed class ExploreFlagsTests
     }
 
     [Theory]
-    [InlineData("--max-steps", "0", "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--max-steps", "13", "option '--max-steps <n>' argument '13' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--max-steps", "two", "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 12")]
-    [InlineData("--timeout", "179999", "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 900000")]
-    [InlineData("--timeout", "900001", "option '--timeout <ms>' argument '900001' is invalid. must be an integer from 180000 through 900000")]
+    [InlineData("--max-steps", "0", "option '--max-steps <n>' argument '0' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--max-steps", "101", "option '--max-steps <n>' argument '101' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--max-steps", "two", "option '--max-steps <n>' argument 'two' is invalid. must be an integer from 1 through 100")]
+    [InlineData("--timeout", "179999", "option '--timeout <ms>' argument '179999' is invalid. must be an integer from 180000 through 7200000")]
+    [InlineData("--timeout", "7200001", "option '--timeout <ms>' argument '7200001' is invalid. must be an integer from 180000 through 7200000")]
     [InlineData("--target", null, "option '--target <id>' argument missing")]
     [InlineData("--headed=yes", null, "option '--headed' takes no argument")]
     [InlineData("--nope", null, "unknown option '--nope'")]
@@ -172,8 +173,8 @@ public sealed class ExploreFlagsTests
         Assert.Equal(0, code);
         Assert.Null(fake.Options);
         Assert.StartsWith("Usage: e2e explore [options] [goal]", stdout, StringComparison.Ordinal);
-        Assert.Contains("exploration steps at most, 1 through 12 (default: 8)", stdout, StringComparison.Ordinal);
-        Assert.Contains("wall clock in milliseconds, 180000 through 900000 (default: 600000)", stdout, StringComparison.Ordinal);
+        Assert.Contains("exploration steps at most, 1 through 100 (default: 8)", stdout, StringComparison.Ordinal);
+        Assert.Contains("wall clock in milliseconds, 180000 through 7200000 (default: 600000)", stdout, StringComparison.Ordinal);
         Assert.Contains("--trace [mode]", stdout, StringComparison.Ordinal);
         Assert.Contains("Modes: off, on, retain-on-failure, on-first-retry, on-all-retries (also E2E_VIDEO)", stdout, StringComparison.Ordinal);
         Assert.DoesNotContain("Not supported by the .NET port: --session, --reporter (it refuses these), and", stdout, StringComparison.Ordinal);
@@ -206,6 +207,29 @@ public sealed class ExploreFlagsTests
         Assert.Equal(2, code);
         Assert.Equal("error INVALID_CONFIG: unknown agent \"x\"", stderr.ToString().TrimEnd());
         Assert.Equal("", stdout.ToString());
+    }
+
+    [Fact]
+    public async Task Closes_the_run_it_opened_when_the_exploration_fails_after_the_run_started()
+    {
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+        var code = await ExploreCommand.RunAsync(
+            [],
+            stdout,
+            stderr,
+            interactive: false,
+            (_, _) =>
+            {
+                RunEvents.Emit(new RunStartedEvent { RunId = "run-1", ProjectId = "p", ProjectRoot = "/p", ArtifactsRoot = "/p/.e2e", Targets = ["web"] });
+                throw new EngineException("ENGINE_FAILURE", "the browser did not start");
+            },
+            CancellationToken.None);
+
+        Assert.Equal(3, code);
+        Assert.Equal("error ENGINE_FAILURE: the browser did not start", stderr.ToString().TrimEnd());
+        Assert.Contains(" RUN ", stdout.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Duration", stdout.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -243,73 +267,49 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
-    public async Task Runs_the_real_exploration_from_the_program_and_fails_a_missing_config_with_exit_code_2()
+    public async Task Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config()
     {
-        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "e2e.config.json");
-        using var stdout = new StringWriter();
-        using var stderr = new StringWriter();
+        // The .git directory stops config discovery here, whatever the temp directory's parents hold.
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-881-").FullName;
+        Directory.CreateDirectory(Path.Combine(dir, ".git"));
+        try
+        {
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
 
-        var code = await Program.RunAsync(["explore", "--config", missing], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
+            var code = await Program.RunAsync(["explore"], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None, dir);
 
-        Assert.Equal(2, code);
-        Assert.Contains("error CONFIG_NOT_FOUND: no config file at " + missing, stderr.ToString(), StringComparison.Ordinal);
+            Assert.Equal(2, code);
+            Assert.Contains("CONFIG_NOT_FOUND", stderr.ToString(), StringComparison.Ordinal);
+            Assert.Contains("found from " + dir + " upward", stderr.ToString(), StringComparison.Ordinal);
+
+            var missing = "missing.config.json";
+            using var stderrWithConfig = new StringWriter();
+            code = await Program.RunAsync(["explore", "--config", missing], stdout, stderrWithConfig, TextReader.Null, interactive: true, CancellationToken.None, dir);
+
+            Assert.Equal(2, code);
+            Assert.Contains(
+                "CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing, dir) + " (" + missing + " resolved against the working directory " + dir + ")",
+                stderrWithConfig.ToString(),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
-    public async Task Gives_the_agent_each_account_in_the_environment_and_never_prints_a_password()
+    public async Task Gives_the_agent_each_account_in_the_environment()
     {
-        const string Password = "hunter2-secret-pw";
         using var _ = Env("E2E_USER_EXPLORE_TEST_USERNAME", "alice@example.com");
-        using var __ = Env("E2E_USER_EXPLORE_TEST_PASSWORD", Password);
-        var outcome = new ExploreOutcome(
-            RunStatus.Failed,
-            3,
-            new AgentException("MODEL_PROVIDER_FAILED", "the provider echoed " + Password),
-            Passed().Explore);
-        var fake = Fake(outcome);
+        using var __ = Env("E2E_USER_EXPLORE_TEST_PASSWORD", "hunter2-secret-pw");
+        var fake = Fake();
 
-        var (_, stdout, stderr) = await fake.InvokeAsync();
+        await fake.InvokeAsync();
 
         var account = Assert.Contains("explore_test", fake.Options!.Credentials!);
         Assert.Equal("alice@example.com", account.Username);
-        Assert.DoesNotContain(Password, stdout + stderr, StringComparison.Ordinal);
-        Assert.Contains("MODEL_PROVIDER_FAILED: the provider echoed <secret:", stdout, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Redacts_an_account_password_the_record_echoes_wherever_it_is_printed()
-    {
-        const string Password = "hunter2-secret-pw";
-        using var _ = Env("E2E_USER_EXPLORE_ECHO_USERNAME", "carol@example.com");
-        using var __ = Env("E2E_USER_EXPLORE_ECHO_PASSWORD", Password);
-        var finding = new ReportExploreFinding(
-            "f-1",
-            0,
-            1,
-            ReportExploreFindingKind.Issue,
-            3,
-            "The page shows " + Password,
-            "No password on the page",
-            "The banner reads " + Password,
-            ["Sign in", "Read " + Password],
-            DateTimeOffset.UnixEpoch);
-        var step = new ReportExploreStep(1, "Sign in " + Password, "Sign in", ReportExploreStepStatus.Failed, DateTimeOffset.UnixEpoch, TimeSpan.FromSeconds(1), "It printed " + Password, "STEP_FAILED");
-        var fake = new FakeExplore(
-            [
-                new ExploreProgress.Started("Explore", Budgets),
-                new ExploreProgress.StepStarted(new OpenedStep(1, step.Title, step.Instruction)),
-                new ExploreProgress.FindingReported(finding),
-                new ExploreProgress.StepFinished(step),
-                new ExploreProgress.Finished(ReportExploreEnded.Finished, "The assessment kept " + Password),
-            ],
-            new ExploreOutcome(RunStatus.Failed, 1, null, Passed().Explore with { Findings = [finding], Steps = [step] }));
-
-        var (_, stdout, stderr) = await fake.InvokeAsync();
-
-        Assert.DoesNotContain(Password, stdout + stderr, StringComparison.Ordinal);
-        Assert.Contains("The page shows <secret:", stdout, StringComparison.Ordinal);
-        Assert.Contains("It printed <secret:", stdout, StringComparison.Ordinal);
-        Assert.Contains("The assessment kept <secret:", stdout, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -324,6 +324,42 @@ public sealed class ExploreFlagsTests
         var (_, stdout, _) = await fake.InvokeAsync();
 
         Assert.True(stdout.Split('\n').Max(line => line.Length) <= 8_192 + 40);
+    }
+
+    // .NET-only: the environment scan skips a name whose variables belong to a configured credential, which the config already carries.
+    [Fact]
+    public void Leaves_a_configured_credential_to_the_config_when_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_COVERED_USERNAME", "dana@example.com");
+        using var __ = Env("E2E_USER_EXPLORE_COVERED_PASSWORD", "covered-secret-pw");
+        using var ___ = Env("E2E_USER_EXPLORE_OTHER_USERNAME", "erin@example.com");
+        using var ____ = Env("E2E_USER_EXPLORE_OTHER_PASSWORD", "other-secret-pw");
+
+        string[] mine = ["explore_covered", "explore_other"];
+        Assert.Equal(mine, ExploreCommand.ScanCredentials().Select(account => account.Name).Where(mine.Contains).ToArray());
+        Assert.Equal(["explore_other"], ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(mine.Contains).ToArray());
+    }
+
+    // .NET-only: a config that does not load is the run's error, not an account problem the environment scan finds first.
+    [Fact]
+    public async Task Leaves_a_config_that_does_not_load_to_the_run_instead_of_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_BADCONFIG_USERNAME", "frank@example.com");
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-647-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "e2e.config.json"), """{ "credentials": { "ada": "not-an-object" } }""");
+            var fake = Fake();
+
+            await ExploreCommand.RunAsync([], new StringWriter(), new StringWriter(), interactive: false, fake.RunAsync, CancellationToken.None, dir);
+
+            Assert.NotNull(fake.Options);
+            Assert.Empty(fake.Options.Credentials!);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]

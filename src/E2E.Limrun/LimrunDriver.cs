@@ -28,7 +28,8 @@ internal static class LimrunDriver
     public static async Task<LimrunBinding> AttachAsync(LimrunDriverRequest request, DeviceClientFactory connect, CancellationToken cancellationToken)
     {
         var platform = request.Platform.WireName();
-        var allocator = connect("default", new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
+        var session = LimrunSessions.LeaseSession(request.StateDirectory);
+        var allocator = connect(session, new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
         var lease = await allocator.CallAsync(
             DeviceMethods.LeasesAllocate,
             DeviceArgs.Of(
@@ -69,7 +70,7 @@ internal static class LimrunDriver
             return binding;
         }
 
-        var device = connect("default", new DeviceConnection { Client = client });
+        var device = connect(session, new DeviceConnection { Client = client });
         var installed = await device.CallAsync(
             DeviceMethods.AppsInstall,
             DeviceArgs.Of(

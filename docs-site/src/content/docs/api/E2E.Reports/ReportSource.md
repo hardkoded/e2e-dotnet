@@ -25,7 +25,7 @@ A line in a file of the project (upstream's `ReportSource`).
 
 **Implements:** [IEquatable&lt;ReportSource&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L110)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ One-based.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L119)
-
 <a id="E2E_Reports_ReportSource_File_"></a>
 <a id="E2E_Reports_ReportSource_File"></a>
 
@@ -61,8 +59,6 @@ Relative to the project root, with `/` separators.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L113)
-
 <a id="E2E_Reports_ReportSource_Line_"></a>
 <a id="E2E_Reports_ReportSource_Line"></a>
 
@@ -77,5 +73,3 @@ public int Line { get; init; }
 One-based.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L116)

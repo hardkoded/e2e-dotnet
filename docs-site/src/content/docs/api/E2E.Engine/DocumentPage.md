@@ -23,7 +23,7 @@ One in-memory screen. Builder methods append controls in reading order.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L387)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ Runs when the viewport scrolls, for a page that loads more as it is scrolled. Th
 
 **Value:** [Action&lt;ScrollDirection&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L397)
-
 <a id="E2E_Engine_DocumentPage_Path_"></a>
 <a id="E2E_Engine_DocumentPage_Path"></a>
 
@@ -56,8 +54,6 @@ public string Path { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L394)
 
 ## Methods
 
@@ -81,8 +77,6 @@ public DocumentElement Button(string name, Action? onTap = null)
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L406)
-
 <a id="E2E_Engine_DocumentPage_Checkbox_"></a>
 <a id="E2E_Engine_DocumentPage_Checkbox_System_String_System_Boolean_"></a>
 
@@ -102,8 +96,6 @@ public DocumentElement Checkbox(string name, bool isChecked = false)
 | `isChecked` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L438)
 
 <a id="E2E_Engine_DocumentPage_Heading_"></a>
 <a id="E2E_Engine_DocumentPage_Heading_System_String_System_Int32_"></a>
@@ -125,8 +117,6 @@ public DocumentElement Heading(string name, int level = 1)
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L401)
-
 <a id="E2E_Engine_DocumentPage_Link_"></a>
 <a id="E2E_Engine_DocumentPage_Link_System_String_System_String_"></a>
 
@@ -147,8 +137,6 @@ public DocumentElement Link(string name, string route)
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L433)
-
 <a id="E2E_Engine_DocumentPage_Paragraph_"></a>
 <a id="E2E_Engine_DocumentPage_Paragraph_System_String_"></a>
 
@@ -167,8 +155,6 @@ public DocumentElement Paragraph(string text)
 | `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L428)
 
 <a id="E2E_Engine_DocumentPage_Status_"></a>
 <a id="E2E_Engine_DocumentPage_Status_System_String_System_Boolean_"></a>
@@ -189,8 +175,6 @@ public DocumentElement Status(string name, bool hidden = false)
 | `hidden` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L411)
 
 <a id="E2E_Engine_DocumentPage_TestId_"></a>
 <a id="E2E_Engine_DocumentPage_TestId_System_String_System_String_System_String_"></a>
@@ -213,8 +197,6 @@ public DocumentElement TestId(string testId, string? role = null, string? name =
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L443)
-
 <a id="E2E_Engine_DocumentPage_Textbox_"></a>
 <a id="E2E_Engine_DocumentPage_Textbox_System_String_System_String_System_Boolean_"></a>
 
@@ -235,5 +217,3 @@ public DocumentElement Textbox(string name, string? value = null, bool secure = 
 | `secure` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [DocumentElement](/api/E2E.Engine/DocumentElement/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L416)

@@ -13,7 +13,7 @@ namespace E2E.Playground;
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
 /// the landing page, a plans page of copy with inline links and emphasis (unlisted in the nav), a todo list kept in localStorage, a checkout with one planted bug, a profile
 /// form, a sign-in form that sets a session cookie for the dashboard behind it, the workspace wizard, the swatches page that the screenshot tests compare,
-/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, the controls page, the browser fixture's own page, a counter for the speed floor, and the
+/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a counter for the speed floor, a scroll page of windowed rows (unlisted in the nav), and the
 /// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
@@ -30,6 +30,9 @@ internal static class Testbed
         ("/network", "Network"),
         ("/pointer", "Pointer"),
         ("/canvas", "Canvas"),
+        ("/canvas-flow", "Keypad"),
+        ("/canvas-wizard", "Canvas wizard"),
+        ("/canvas-form", "Canvas form"),
         ("/controls", "Controls"),
         ("/browser", "Browser"),
         ("/speed", "Speed"),
@@ -378,8 +381,22 @@ internal static class Testbed
                    <div id="pad" role="img" aria-label="Pointer pad" style="width: 320px; height: 200px; background: #e5e7eb; touch-action: none;"></div>
                    <output aria-label="Pad state">untouched</output>
                    <div aria-label="Hidden pad" hidden>never shown</div>
+                   <div id="diagram-node" style="position: relative; width: 200px; height: 80px; margin-top: 24px;">
+                     <svg width="200" height="80" style="position: absolute; inset: 0;">
+                       <path d="M1 1H199V79H1Z" fill="white" stroke="black" />
+                     </svg>
+                     <textarea aria-label="Edit label" readonly
+                       style="position: absolute; inset: 0; pointer-events: none; background: transparent;">Node</textarea>
+                   </div>
                    <script>
                      const pad = document.getElementById('pad');
+                     const node = document.getElementById('diagram-node');
+                     const label = node.querySelector('textarea');
+                     node.addEventListener('dblclick', () => {
+                       label.readOnly = false;
+                       label.style.pointerEvents = 'auto';
+                       label.focus();
+                     });
                      const padState = document.querySelector('output[aria-label="Pad state"]');
                      const local = (event) => {
                        const box = pad.getBoundingClientRect();
@@ -407,7 +424,6 @@ internal static class Testbed
 
         // A canvas surface with no accessibility semantics whatsoever: the pins and the bar chart exist only as pixels.
         // Nothing here is reachable through the semantic tree, so this page is what the vision judgment is run against.
-        // Upstream's other pages of this group (/canvas-flow, /canvas-wizard, /canvas-form) belong to the pixel tools, not ported.
         ["/canvas"] = ("Canvas map", """
             <h1>Canvas map</h1>
                    <p>Every control below is drawn, not marked up.</p>
@@ -444,6 +460,251 @@ internal static class Testbed
                        document.getElementById('picked').textContent = picked
                          ? 'picked the ' + picked.name + ' pin'
                          : 'missed at ' + Math.round(x) + ',' + Math.round(y);
+                     });
+                   </script>
+            """),
+
+        ["/canvas-flow"] = ("Drawn keypad", """
+            <h1>Drawn keypad</h1>
+            <p>Everything below is painted on a canvas; nothing is marked up.</p>
+            <canvas id="pad" width="420" height="560"></canvas>
+            <output id="result" role="status" aria-label="Result">waiting</output>
+            <script>
+              const canvas = document.getElementById('pad');
+              const context = canvas.getContext('2d');
+              const keys = [];
+              const labels = ['1','2','3','4','5','6','7','8','9','CLR','0','OK'];
+              labels.forEach((label, index) => {
+                const column = index % 3;
+                const row = Math.floor(index / 3);
+                keys.push({ label, x: 30 + column * 125, y: 120 + row * 105, w: 105, h: 85 });
+              });
+              let entered = '';
+              function draw() {
+                context.fillStyle = '#f4f4f5';
+                context.fillRect(0, 0, 420, 560);
+                context.fillStyle = '#111827';
+                context.fillRect(30, 30, 355, 60);
+                context.fillStyle = '#f9fafb';
+                context.font = '32px monospace';
+                context.textBaseline = 'middle';
+                context.textAlign = 'left';
+                context.fillText(entered === '' ? 'enter code' : entered, 45, 60);
+                for (const key of keys) {
+                  context.fillStyle = key.label === 'OK' ? '#15803d' : key.label === 'CLR' ? '#b45309' : '#e5e7eb';
+                  context.fillRect(key.x, key.y, key.w, key.h);
+                  context.fillStyle = key.label === 'OK' || key.label === 'CLR' ? '#ffffff' : '#111827';
+                  context.font = 'bold 30px sans-serif';
+                  context.textAlign = 'center';
+                  context.fillText(key.label, key.x + key.w / 2, key.y + key.h / 2);
+                }
+              }
+              draw();
+              canvas.addEventListener('click', (event) => {
+                const box = canvas.getBoundingClientRect();
+                const x = event.clientX - box.left;
+                const y = event.clientY - box.top;
+                const key = keys.find((k) => x >= k.x && x <= k.x + k.w && y >= k.y && y <= k.y + k.h);
+                if (!key) return;
+                if (key.label === 'CLR') entered = '';
+                else if (key.label === 'OK') {
+                  document.getElementById('result').textContent = 'code accepted: ' + entered;
+                } else if (entered.length < 12) entered += key.label;
+                draw();
+              });
+            </script>
+            """),
+
+        ["/canvas-wizard"] = ("Drawn wizard", """
+            <h1>Drawn wizard</h1>
+            <p>Eight drawn screens; nothing below is marked up.</p>
+            <canvas id="wiz" width="520" height="420"></canvas>
+            <output id="wizard-result" role="status" aria-label="Wizard result">in progress</output>
+            <script>
+              const canvas = document.getElementById('wiz');
+              const context = canvas.getContext('2d');
+              const shapes = [
+                { key: 'red-circle', color: '#d92b2b', kind: 'circle', label: 'red circle' },
+                { key: 'blue-square', color: '#2b56d9', kind: 'square', label: 'blue square' },
+                { key: 'green-triangle', color: '#15803d', kind: 'triangle', label: 'green triangle' },
+                { key: 'orange-diamond', color: '#ea580c', kind: 'diamond', label: 'orange diamond' },
+              ];
+              // Which shape each screen asks for, and where the four shapes sit on it
+              // (a rotation per screen, so a position memorised on one screen is wrong on the next).
+              const asks = [2, 0, 3, 1, 1, 3, 0, 2];
+              const slots = [ { x: 90, y: 200 }, { x: 210, y: 200 }, { x: 330, y: 200 }, { x: 450, y: 200 } ];
+              let screen = 0;
+              let picked = null;
+              const picks = [];
+              function order(index) { return shapes.map((_, i) => shapes[(i + index) % 4]); }
+              function draw() {
+                context.fillStyle = '#f4f4f5';
+                context.fillRect(0, 0, 520, 420);
+                context.fillStyle = '#111827';
+                context.font = 'bold 22px sans-serif';
+                context.textAlign = 'left';
+                context.textBaseline = 'middle';
+                context.fillText('Step ' + (screen + 1) + ' of 8: tap the ' + shapes[asks[screen]].label + ', then Next', 20, 40);
+                const arranged = order(screen);
+                arranged.forEach((shape, i) => {
+                  const { x, y } = slots[i];
+                  context.fillStyle = shape.color;
+                  context.beginPath();
+                  if (shape.kind === 'circle') context.arc(x, y, 36, 0, Math.PI * 2);
+                  else if (shape.kind === 'square') context.rect(x - 34, y - 34, 68, 68);
+                  else if (shape.kind === 'triangle') { context.moveTo(x, y - 38); context.lineTo(x + 40, y + 32); context.lineTo(x - 40, y + 32); context.closePath(); }
+                  else { context.moveTo(x, y - 40); context.lineTo(x + 40, y); context.lineTo(x, y + 40); context.lineTo(x - 40, y); context.closePath(); }
+                  context.fill();
+                  if (picked === shape.key) { context.lineWidth = 6; context.strokeStyle = '#111827'; context.stroke(); }
+                });
+                context.fillStyle = picked ? '#15803d' : '#9ca3af';
+                context.fillRect(380, 330, 120, 60);
+                context.fillStyle = '#ffffff';
+                context.font = 'bold 26px sans-serif';
+                context.textAlign = 'center';
+                context.fillText('Next', 440, 360);
+                context.fillStyle = '#374151';
+                context.font = '18px sans-serif';
+                context.textAlign = 'left';
+                context.fillText(picked ? 'Selected: ' + shapes.find((s) => s.key === picked).label : 'Nothing selected', 20, 360);
+              }
+              draw();
+              canvas.addEventListener('click', (event) => {
+                if (screen >= 8) return;
+                const box = canvas.getBoundingClientRect();
+                const x = event.clientX - box.left;
+                const y = event.clientY - box.top;
+                if (x >= 380 && x <= 500 && y >= 330 && y <= 390) {
+                  if (!picked) return;
+                  picks.push(picked === shapes[asks[screen]].key ? 'ok' : 'wrong');
+                  picked = null;
+                  screen += 1;
+                  if (screen === 8) {
+                    document.getElementById('wizard-result').textContent = 'wizard done: ' + picks.join(',');
+                    context.fillStyle = '#f4f4f5'; context.fillRect(0, 0, 520, 420);
+                    context.fillStyle = '#111827'; context.font = 'bold 24px sans-serif'; context.textAlign = 'left';
+                    context.fillText('All eight steps done.', 20, 40);
+                    return;
+                  }
+                  draw();
+                  return;
+                }
+                const arranged = order(screen);
+                const hit = arranged.findIndex((_, i) => Math.hypot(slots[i].x - x, slots[i].y - y) <= 42);
+                if (hit >= 0) { picked = arranged[hit].key; draw(); }
+              });
+            </script>
+            """),
+
+        ["/canvas-form"] = ("Drawn form", """
+            <h1>Drawn form</h1>
+            <p>Two fields and a button, all painted; nothing below is marked up.</p>
+            <canvas id="form" width="480" height="300" tabindex="0" style="outline:none"></canvas>
+            <output id="form-result" role="status" aria-label="Form result">unsubmitted</output>
+            <script>
+              const canvas = document.getElementById('form');
+              const context = canvas.getContext('2d');
+              const fields = [
+                { label: 'Name', value: '', x: 40, y: 60, w: 400, h: 44 },
+                { label: 'City', value: '', x: 40, y: 140, w: 400, h: 44 },
+              ];
+              const submit = { x: 40, y: 220, w: 160, h: 48 };
+              let active = -1;
+              function draw() {
+                context.fillStyle = '#f4f4f5';
+                context.fillRect(0, 0, 480, 300);
+                context.textBaseline = 'middle';
+                fields.forEach((field, index) => {
+                  context.fillStyle = '#111827';
+                  context.font = '16px sans-serif';
+                  context.textAlign = 'left';
+                  context.fillText(field.label, field.x, field.y - 14);
+                  context.fillStyle = '#ffffff';
+                  context.fillRect(field.x, field.y, field.w, field.h);
+                  context.lineWidth = index === active ? 3 : 1;
+                  context.strokeStyle = index === active ? '#2563eb' : '#9ca3af';
+                  context.strokeRect(field.x, field.y, field.w, field.h);
+                  context.fillStyle = '#111827';
+                  context.font = '20px monospace';
+                  context.fillText(field.value + (index === active ? '|' : ''), field.x + 10, field.y + field.h / 2);
+                });
+                context.fillStyle = '#15803d';
+                context.fillRect(submit.x, submit.y, submit.w, submit.h);
+                context.fillStyle = '#ffffff';
+                context.font = 'bold 18px sans-serif';
+                context.textAlign = 'center';
+                context.fillText('Submit', submit.x + submit.w / 2, submit.y + submit.h / 2);
+              }
+              function inside(box, x, y) { return x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h; }
+              function submitForm() {
+                document.getElementById('form-result').textContent =
+                  'submitted: name=' + fields[0].value + ' city=' + fields[1].value;
+              }
+              draw();
+              canvas.addEventListener('click', (event) => {
+                const box = canvas.getBoundingClientRect();
+                const x = event.clientX - box.left;
+                const y = event.clientY - box.top;
+                const index = fields.findIndex((field) => inside(field, x, y));
+                if (index >= 0) { active = index; canvas.focus(); }
+                else if (inside(submit, x, y)) submitForm();
+                draw();
+              });
+              let selected = false;
+              canvas.addEventListener('keydown', (event) => {
+                if (active < 0) return;
+                event.preventDefault();
+                const field = fields[active];
+                if (event.key === 'Enter') submitForm();
+                else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') selected = field.value !== '';
+                else if (event.metaKey || event.ctrlKey || event.altKey) return;
+                else if (event.key === 'Backspace' || event.key === 'Delete') {
+                  field.value = selected ? '' : field.value.slice(0, -1);
+                  selected = false;
+                } else if (event.key === 'Tab') { active = (active + 1) % fields.length; selected = false; }
+                else if (event.key.length === 1) {
+                  field.value = selected ? event.key : field.value + event.key;
+                  selected = false;
+                }
+                draw();
+              });
+              canvas.addEventListener('blur', () => { active = -1; draw(); });
+            </script>
+            """),
+
+        ["/board"] = ("Board", """
+            <h1>Board</h1>
+
+                   <div id="card-menu">Card actions</div>
+                   <button id="archive" hidden>Archive card</button>
+
+                   <ul aria-label="Todo column">
+                     <li id="card" draggable="true">Design review</li>
+                   </ul>
+                   <section id="done" aria-label="Done column">Done column</section>
+                   <output aria-label="Board state">Design review is in todo</output>
+
+                   <label for="attachment">Attachment</label>
+                   <input id="attachment" type="file" />
+                   <output aria-label="Attachment state">none</output>
+
+                   <script>
+                     const boardState = document.querySelector('output[aria-label="Board state"]');
+                     document.getElementById('card-menu').addEventListener('mouseenter', () => {
+                       document.getElementById('archive').hidden = false;
+                     });
+                     document.getElementById('archive').addEventListener('click', () => {
+                       boardState.textContent = 'Design review is archived';
+                     });
+                     const done = document.getElementById('done');
+                     done.addEventListener('dragover', (event) => event.preventDefault());
+                     done.addEventListener('drop', (event) => {
+                       event.preventDefault();
+                       boardState.textContent = 'Design review is done';
+                     });
+                     document.getElementById('attachment').addEventListener('change', (event) => {
+                       document.querySelector('output[aria-label="Attachment state"]').textContent =
+                         event.target.files[0] ? event.target.files[0].name : 'none';
                      });
                    </script>
             """),
@@ -669,23 +930,114 @@ internal static class Testbed
                      });
                    </script>
             """),
+
+        // A scroll pane of its own and a long page, each reporting its scroll offset: what scroll_to by text works against. Rows paint only
+        // once scrolled into their scroll root, as a windowed list renders. Unlisted in the nav, as the pages above.
+        ["/scroll"] = ("Scroll", $$"""
+            <h1>Scroll</h1>
+                   <output role="status" aria-label="Scroll position">0</output>
+                   <output role="status" aria-label="Pane position">0</output>
+                   <output role="status" aria-label="Picked row">none</output>
+                   <ul aria-label="Pane" style="height: 200px; overflow: auto; padding: 0; list-style: none">
+                     {{Slots(40, "Item", 40)}}
+                   </ul>
+                   <ul aria-label="Rows" style="padding: 0; list-style: none">
+                     {{Slots(120, "Row", 60)}}
+                   </ul>
+                   <script>
+                     const picked = document.querySelector('output[aria-label="Picked row"]');
+                     document.addEventListener('click', (event) => {
+                       if (event.target.tagName === 'BUTTON') picked.textContent = 'picked ' + event.target.textContent;
+                     });
+                     const position = document.querySelector('output[aria-label="Scroll position"]');
+                     addEventListener('scroll', () => {
+                       position.textContent = String(Math.round(scrollY));
+                     });
+                     const pane = document.querySelector('ul[aria-label="Pane"]');
+                     const panePosition = document.querySelector('output[aria-label="Pane position"]');
+                     pane.addEventListener('scroll', () => {
+                       panePosition.textContent = String(Math.round(pane.scrollTop));
+                     });
+                     const reveal = (list, root) => {
+                       const observer = new IntersectionObserver((entries) => {
+                         for (const entry of entries) {
+                           if (!entry.isIntersecting) continue;
+                           const button = document.createElement('button');
+                           button.textContent = entry.target.dataset.row;
+                           entry.target.replaceChildren(button);
+                           observer.unobserve(entry.target);
+                         }
+                       }, { root });
+                       for (const slot of list.children) observer.observe(slot);
+                     };
+                     reveal(pane, pane);
+                     reveal(document.querySelector('ul[aria-label="Rows"]'), null);
+                   </script>
+            """),
     };
+
+    // `count` fixed-height list slots labelled `label 1..count`; the scroll page's script paints each one's button once it is scrolled into view.
+    private static string Slots(int count, string label, int height) =>
+        string.Join("\n", Enumerable.Range(0, count).Select(index => $"<li style=\"height: {height}px\" data-row=\"{label} {index + 1}\"></li>"));
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>The base URL of the running playground, started on first use.</summary>
     public static string Url => Server.Value;
 
+    /// <summary>Whether the app also answers on <c>localhost</c>, the second origin of the cross-origin cases. Starts the app when it is not running yet.</summary>
+    public static bool CrossOriginAvailable => Url.Length > 0 && s_crossOrigin;
+
+    private static bool s_crossOrigin;
+
     private static string Start()
     {
-        var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        var url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
-        var listener = new HttpListener();
-        listener.Prefixes.Add(url);
-        listener.Start();
+        // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
+        string url;
+        HttpListener listener;
+        bool crossOrigin;
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
+            listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            listener.Prefixes.Add(url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal));
+            try
+            {
+                listener.Start();
+            }
+            catch (HttpListenerException)
+            {
+                listener.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
+            }
+
+            // The second origin of the cross-origin cases (upstream's CROSS), the same app under another host name. A host that cannot
+            // bind it (no mapping, no URL ACL) still serves the app; only the cross-origin tests skip themselves.
+            try
+            {
+                listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
+                crossOrigin = true;
+            }
+            catch (Exception ex) when (ex is HttpListenerException or System.Net.Sockets.SocketException or ArgumentException)
+            {
+                crossOrigin = false;
+            }
+
+            break;
+        }
+
+        s_crossOrigin = crossOrigin;
+
         _ = Task.Run(() => ListenAsync(listener));
         return url.TrimEnd('/');
     }
@@ -754,7 +1106,42 @@ internal static class Testbed
             }
             else
             {
-                response.StatusCode = 404;
+                // Its own task: a route that holds its response (upstream's /never) must not stall the other requests.
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await PlaywrightRoutes.HandleAsync(context).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                    {
+                        // The client went away.
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        // A route bug is a 500 the test can see, not an empty 200.
+                        try
+                        {
+                            response.StatusCode = 500;
+                        }
+                        catch (Exception inner) when (inner is InvalidOperationException or ObjectDisposedException or System.Net.ProtocolViolationException)
+                        {
+                            // The response was already sent.
+                        }
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            response.Close();
+                        }
+                        catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                        {
+                            // The response was aborted.
+                        }
+                    }
+                });
+                continue;
             }
 
             response.Close();

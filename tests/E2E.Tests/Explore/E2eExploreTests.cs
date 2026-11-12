@@ -17,7 +17,7 @@ namespace E2E.Tests.Explore;
 /// <c>e2e explore</c> end to end against the counter page, with one scripted model serving both surfaces: the planner's
 /// structured call and the explorer's tool loop. The port has no runner or report here, so these tests read the outcome
 /// <see cref="Explorer.ExploreAsync"/> returns where upstream's read the run's report. The tests of <c>--session</c>
-/// (runs only the setup, keeps the pixels of a tainted session, an agentic setup, an unknown session) are not ported: the port has no saved sessions.
+/// (runs only the setup, attaches a screenshot to the findings of a session whose setup filled a secret, an agentic setup, an unknown session) are not ported: the port has no saved sessions.
 /// </summary>
 public sealed class E2eExploreTests
 {
@@ -40,9 +40,10 @@ public sealed class E2eExploreTests
         Assert.Equal(
             new[] { "Counter starts at 0 with no label of what it counts", "Increment button has no accessible description" }.Order(StringComparer.Ordinal),
             record.Findings.Select(finding => finding.Title).Order(StringComparer.Ordinal));
-        var paths = record.Findings.Select(finding => finding.ArtifactId).ToList();
-        Assert.All(paths, path => Assert.True(path is not null && File.Exists(Path.Combine(root, path))));
-        Assert.Equal(2, paths.Distinct().Count());
+        var ids = record.Findings.Select(finding => finding.ArtifactId).ToList();
+        Assert.Equal(2, ids.Distinct().Count());
+        var paths = ids.Select(id => outcome.Artifacts.Single(artifact => artifact.Id == id).Path).ToList();
+        Assert.All(paths, path => Assert.True(path is not null && File.Exists(Path.Combine(outcome.ArtifactsRoot!, path))));
         Assert.Equal(["finding-1.png", "finding-2.png"], paths.Select(path => Path.GetFileName(path)![4..]).Order(StringComparer.Ordinal));
     }
 
@@ -166,10 +167,16 @@ public sealed class E2eExploreTests
         Assert.Equal(3, finding.Severity);
         Assert.Equal("Counter starts at 0 with no label of what it counts", finding.Title);
         Assert.Equal("/", finding.Path);
+        Assert.NotNull(finding.ObservationRevision);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
-        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
-        Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, finding.ArtifactId!)));
+        // The finding names a report artifact by its id, not a file by its path.
+        var artifact = Assert.Single(outcome.Artifacts, record => record.Id == finding.ArtifactId);
+        Assert.Equal(E2E.Reports.ArtifactKind.Screenshot, artifact.Kind);
+        Assert.Equal("image/png", artifact.MediaType);
+        Assert.Equal(E2E.Reports.ArtifactProducerKind.Step, artifact.Producer.Kind);
+        Assert.Equal(AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", artifact.Path);
+        Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(outcome.ArtifactsRoot!, artifact.Path!)));
 
         // The explorer's loop saw the finding tool beside the grammar.
         Assert.Contains(ExploreExecutor.FindingToolName, model.LoopCalls.First().Tools.Select(tool => tool.Name));
@@ -274,10 +281,10 @@ public sealed class E2eExploreTests
         }
     }
 
-    // Upstream also explores the first of several configured targets, with a notice that names it. The port's config declares
-    // one target. It also checks that a config that does not resolve is rejected, which it does through the run's own config load.
+    // Partial: the outcome carries no run report, so the test does not check the report's target id or its first step's api; the app being open
+    // when the explorer looked stands for the second. The config that does not resolve is rejected through the run's own config load.
     [Fact]
-    public async Task Explores_the_target_opening_its_app_first_and_rejects_a_config_that_does_not_resolve_before_anything_starts()
+    public async Task Partial_Explores_the_first_of_several_targets_the_target_opening_its_app_first_and_rejects_a_config_that_does_not_resolve_before_anything_starts()
     {
         var plans = 0;
         var model = Model(
@@ -285,18 +292,23 @@ public sealed class E2eExploreTests
             _ => ExploreModel.Done("passed", "unused"));
         var root = TempRoot();
         var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(root, model.Model, notices, goal: "Look around", maxSteps: 1));
+
+        // The first target leaves its name to the platform; the run must still explore exactly that one.
+        var several = E2EConfig.Parse(
+            "{ \"targets\": [{ \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }, { \"name\": \"second\", \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }], \"actionTimeout\": 10000 }",
+            root);
+        var outcome = await Explorer.ExploreAsync(Options(root, model.Model, notices, goal: "Look around", maxSteps: 1, config: several));
         Assert.Equal(RunStatus.Passed, outcome.Status);
-        Assert.Empty(notices);
+        Assert.Equal(["exploring target \"web\"; pass --target to explore another"], notices);
 
         // The app was open when the explorer looked.
         Assert.Contains("button \"Increment\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
 
         var configPath = Path.Combine(root, "bad.config.json");
-        await File.WriteAllTextAsync(configPath, """{ "targets": [{ "name": "web", "platform": "web" }], "reporters": ["json"] }""");
+        await File.WriteAllTextAsync(configPath, """{ "targets": [{ "name": "web", "platform": "web" }], "workers": 2 }""");
         var invalid = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(new ExploreOptions { Cwd = root, ConfigPath = configPath, Goal = "Look around" }));
         Assert.Equal("INVALID_CONFIG", invalid.Code);
-        Assert.Contains("config key \"reporters\" is not supported", invalid.Message, StringComparison.Ordinal);
+        Assert.Contains("config key \"workers\" is not supported", invalid.Message, StringComparison.Ordinal);
 
         var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], target: "nope")));
         Assert.Equal("UNKNOWN_TARGET", unknown.Code);
@@ -400,15 +412,15 @@ public sealed class E2eExploreTests
                 fillResult = call.LastToolResult;
                 return ExploreModel.Done("passed", "Filled the password");
             });
-        var credentials = new Dictionary<string, UserCredential> { ["ada"] = new("ada@example.test", Secret.Create("password", "bookworm")) };
+        var root = TempRoot();
         var outcome = await Explorer.ExploreAsync(Options(
-            TempRoot(),
+            root,
             model.Model,
             [],
             goal: "Sign in and look around",
             maxSteps: 1,
             engine: ExploreHarness.Engine(WorldWithAPassword(value => typed = value)),
-            credentials: credentials));
+            config: ExploreHarness.Config(root, "\"actionTimeout\": 10000, \"credentials\": { \"ada\": { \"username\": \"ada@example.test\", \"password\": \"bookworm\" } }")));
 
         Assert.Null(outcome.Error);
         Assert.Equal(RunStatus.Passed, outcome.Status);
@@ -443,9 +455,15 @@ public sealed class E2eExploreTests
         // A config that resolves, so only the option can be what rejects.
         var goal = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], goal: new string('x', 2_001))));
         Assert.Equal("INVALID_CONFIG", goal.Code);
-        var steps = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 13)));
+        var steps = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], maxSteps: 101)));
         Assert.Equal("INVALID_CONFIG", steps.Code);
-        Assert.Equal("maxSteps must be an integer from 1 through 12, got 13", steps.Message);
+        Assert.Equal("maxSteps must be an integer from 1 through 100, got 101", steps.Message);
+        var timeout = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], timeout: TimeSpan.FromMilliseconds(7_200_001))));
+        Assert.Equal("INVALID_CONFIG", timeout.Code);
+
+        // The largest budgets get past the options, to the missing model.
+        var largest = await Assert.ThrowsAsync<AgentException>(() => Explorer.ExploreAsync(Options(root, null, [], maxSteps: 100, timeout: TimeSpan.FromMilliseconds(7_200_000))));
+        Assert.Equal("MODEL_UNAVAILABLE", largest.Code);
 
         var credentials = Enumerable.Range(0, 400).ToDictionary(
             index => "account-" + index,

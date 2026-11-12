@@ -4,6 +4,7 @@
 
 using E2E.Cli.Mcp;
 using E2E.Cli.Tests.Helpers;
+using E2E.Engine;
 using static E2E.Cli.Tests.McpTools.ToolFixtures;
 
 namespace E2E.Cli.Tests.McpTools;
@@ -64,11 +65,27 @@ public sealed class InvokeToolTests
     }
 
     [Fact]
+    public async Task Says_why_a_repeated_press_has_no_line_through_the_session_tool()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
+        await Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("{}"), Extra);
+
+        var result = await Tools.InvokeToolAsync("press", catalog.Find("press")!, Json("""{ "target": "k-1", "key": "ArrowDown", "times": 3 }"""), Extra);
+
+        Assert.Contains(
+            "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
+            string.Join('\n', Parts(result).Select(part => part.Value)),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Refuses_an_argument_a_grammar_tool_does_not_declare_before_anything_is_dispatched()
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: []);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
@@ -81,7 +98,7 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: []);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
         var observe = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("""{ "verbose": true }"""), Extra));
         Assert.Equal("INVALID_ARGUMENT", observe.Code);
         Assert.Equal("call observe: Unrecognized key: \"verbose\"; tools {tool: \"observe\"} shows its arguments", observe.Message);

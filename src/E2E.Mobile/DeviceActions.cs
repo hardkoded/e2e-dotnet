@@ -7,32 +7,6 @@ using E2E.Engine;
 
 namespace E2E.Mobile;
 
-/// <summary>One pointer action at a screen point in logical pixels, the space every node's bounds are in, with no element resolved behind it.</summary>
-public abstract record PointerAction
-{
-    private PointerAction()
-    {
-    }
-
-    public sealed record Tap : PointerAction;
-
-    public sealed record DoubleTap : PointerAction;
-
-    /// <summary>A hold. Without a duration it holds <see cref="DeviceActions.DefaultLongPress"/>.</summary>
-    public sealed record LongPress(TimeSpan? Duration = null) : PointerAction;
-
-    /// <summary>A drag to another point. With a duration the finger takes that long to get there.</summary>
-    public sealed record SwipeTo(Point Target, TimeSpan? Duration = null) : PointerAction;
-
-    public sealed record SecondaryTap : PointerAction;
-
-    public sealed record Hover : PointerAction;
-
-    public sealed record DragTo(Point Target) : PointerAction;
-
-    public sealed record Swipe(ScrollDirection Direction) : PointerAction;
-}
-
 /// <summary>
 /// What a <see cref="DeviceSession"/> does for each action of the contract: the translation of a node and an action
 /// into agent-device commands, the transition wait a test's step makes, and the pointer dispatch that agrees with the
@@ -66,9 +40,13 @@ public sealed class DeviceActions : IDeviceActions
     /// </summary>
     public static IReadOnlyList<string> PointerActionKinds { get; } = ["tap", "doubleTap", "longPress", "swipeTo"];
 
-    public async Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
+    public Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+        PerformAsync(session, node, action, session.DefaultContext, cancellationToken);
+
+    public async Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(action);
 
@@ -86,11 +64,17 @@ public sealed class DeviceActions : IDeviceActions
                 throw DeviceSupport.NotActionable($"the screen root takes swipe only, not {KindOf(action)}; act on a node");
             }
 
-            await ScrollScreenAsync(session, screenSwipe.Direction, input, cancellationToken).ConfigureAwait(false);
+            await ScrollScreenAsync(session, screenSwipe.Direction, context, input, cancellationToken).ConfigureAwait(false);
             return;
         }
 
         var entry = session.Resolve(node);
+        var filling = action is LocatorAction.Fill or LocatorAction.Clear;
+        if (filling && !entry.TakesText)
+        {
+            throw RefuseFill(action, entry);
+        }
+
         var label = $"perform {KindOf(action)}";
 
         // A toggle already in the wanted state sends nothing, so it neither waits for a transition nor counts as an
@@ -102,20 +86,55 @@ public sealed class DeviceActions : IDeviceActions
             return;
         }
 
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         await session.ActAsync(
             label,
             async (client, token) =>
             {
-                var settle = session.ActionSettle();
-                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
-                await RunAsync(client, target, action, settle, input, token).ConfigureAwait(false);
+                var settle = session.ActionSettle(context);
+                NodeBinding target;
+                if (filling)
+                {
+                    // The field is read again before it is typed into, and what it reads as may have changed.
+                    if (context.Origin == OperationOrigin.Test)
+                    {
+                        await session.WaitForTransitionAsync(entry, input, token).ConfigureAwait(false);
+                    }
+
+                    target = await session.RelocatedAsync(entry, input, token, forInput: true).ConfigureAwait(false);
+                    if (context.Origin == OperationOrigin.Test)
+                    {
+                        target = await session.SteadiedAsync(target, input, token, forInput: true).ConfigureAwait(false);
+                    }
+
+                    if (!target.TakesText)
+                    {
+                        throw RefuseFill(action, target);
+                    }
+                }
+                else
+                {
+                    target = context.Origin == OperationOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
+                    if (context.Origin == OperationOrigin.Test)
+                    {
+                        target = await session.SteadiedAsync(target, input, token).ConfigureAwait(false);
+                    }
+                }
+
+                await RunAsync(session, client, target, action, settle, DeviceSession.GestureStabilization(context), input, token).ConfigureAwait(false);
+                if (action is LocatorAction.Swipe)
+                {
+                    session.NoteGesture(context);
+                }
             },
             cancellationToken).ConfigureAwait(false);
         session.MarkAction(before);
     }
 
-    private static async Task RunAsync(IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
+    private static EngineException RefuseFill(LocatorAction action, NodeBinding binding) =>
+        DeviceSupport.Unsupported($"agent-device can only {KindOf(action)} editable fields; node {binding.Id} is {binding.Node.Role ?? "unknown"}");
+
+    private static async Task RunAsync(DeviceSession session, IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, JsonObject stabilization, InputBudget input, CancellationToken cancellationToken)
     {
         switch (action)
         {
@@ -142,8 +161,8 @@ public sealed class DeviceActions : IDeviceActions
                 await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsFill, Args(settle, DeviceSession.ActionTarget(target), ("text", JsonValue.Create(""))), cancellationToken), cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Check or LocatorAction.Uncheck:
-                // A toggle whose state the tree does not expose (Android switches) cannot be set, only flipped.
-                // Flipping blind could undo a correct state.
+                // A toggle whose state the tree does not expose (a radio or checkbox the app gives no checked state)
+                // cannot be set, only flipped. Flipping blind could undo a correct state.
                 if (!target.States.TryGetValue("checked", out var isChecked))
                 {
                     throw DeviceSupport.Unsupported($"agent-device cannot read whether node {target.Id} is checked; tap it instead");
@@ -159,7 +178,16 @@ public sealed class DeviceActions : IDeviceActions
                 await PressKeyAsync(client, target, press.Key, settle, input, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Swipe swipe:
-                await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, input, cancellationToken).ConfigureAwait(false);
+                await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, stabilization, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.LongPress hold:
+                await LongPressNodeAsync(client, target, hold.Duration, settle, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.Hover:
+                await HoverNodeAsync(client, target, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.DragTo drag:
+                await DragNodeAsync(session, client, target, session.Resolve(drag.Target), input, cancellationToken).ConfigureAwait(false);
                 break;
             default:
                 // Not in NodeActionKinds, so the harness never sends them. A device has no touch equivalent.
@@ -169,23 +197,25 @@ public sealed class DeviceActions : IDeviceActions
 
     /// <summary>
     /// Keys on a touch surface, in the contract's key grammar: <c>Enter</c> submits through the soft keyboard,
-    /// <c>Space</c> and any single character are typed into the focused field. agent-device exposes no key event bus,
+    /// <c>Space</c> and any single character are typed into the focused field. A field that is not focused is tapped first. agent-device exposes no key event bus,
     /// so modifiers and the other named keys (<c>Escape</c>, <c>Tab</c>, <c>Backspace</c>, the arrows) have nothing to
     /// land on and are refused.
     /// </summary>
     private static async Task PressKeyAsync(IDeviceClient client, NodeBinding entry, string key, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
     {
         var typed = SoftKeyboardKey(key);
+
+        // A key reaches the field through the soft keyboard, which is up only while the field holds focus. Each command of the
+        // input is sent on its own, so no keystroke follows a focus tap that used the budget up.
+        if (entry.Node.Role == "textbox" && !(entry.States.TryGetValue("focused", out var focused) && focused))
+        {
+            await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, Args(settle, DeviceSession.ActionTarget(entry)), cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
+
         if (typed is null)
         {
             await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandKeyboard, DeviceArgs.Of(("action", JsonValue.Create("enter"))), cancellationToken), cancellationToken).ConfigureAwait(false);
             return;
-        }
-
-        // Each command of the input is sent on its own, so no keystroke follows a focus tap that used the budget up.
-        if (entry.Node.Role == "textbox" && !(entry.States.TryGetValue("focused", out var focused) && focused))
-        {
-            await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, Args(settle, DeviceSession.ActionTarget(entry)), cancellationToken), cancellationToken).ConfigureAwait(false);
         }
 
         await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsType, DeviceArgs.Of(("text", JsonValue.Create(typed))), cancellationToken), cancellationToken).ConfigureAwait(false);
@@ -197,8 +227,8 @@ public sealed class DeviceActions : IDeviceActions
     /// </summary>
     private static string? SoftKeyboardKey(string key)
     {
-        var parsed = DeviceKeys.Parse(key)
-            ?? throw DeviceSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", DeviceKeys.Names)}) or one character");
+        var parsed = KeyGrammar.ParseKey(key)
+            ?? throw DeviceSupport.Unsupported($"\"{key}\" is not a key: press takes one key in the form [Modifier+]...Key, a named key ({string.Join(", ", KeyGrammar.KeyNames)}) or one character");
         if (parsed.Modifiers.Count > 0)
         {
             throw DeviceSupport.Unsupported($"agent-device cannot hold {string.Join('+', parsed.Modifiers)} on a device surface; press the key alone");
@@ -213,7 +243,7 @@ public sealed class DeviceActions : IDeviceActions
         };
     }
 
-    private static async Task SwipeNodeAsync(IDeviceClient client, NodeBinding target, ScrollDirection direction, Momentum? momentum, InputBudget? input, CancellationToken cancellationToken)
+    private static async Task SwipeNodeAsync(IDeviceClient client, NodeBinding target, ScrollDirection direction, Momentum? momentum, JsonObject stabilization, InputBudget? input, CancellationToken cancellationToken)
     {
         if (target.Node.Rect is not { } rect)
         {
@@ -221,19 +251,26 @@ public sealed class DeviceActions : IDeviceActions
         }
 
         var (from, to) = DeviceSupport.SwipeWithin(new Rect(rect.X, rect.Y, rect.Width, rect.Height), direction, momentum);
-        await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))), cancellationToken), cancellationToken).ConfigureAwait(false);
+        await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, Args(stabilization, ("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))), cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, InputBudget? input, CancellationToken cancellationToken)
+    private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, OperationContext context, InputBudget? input, CancellationToken cancellationToken)
     {
-        var before = session.LatestIndex;
+        // A test's swipe of the screen waits out the transition the last action started, as a test's tap waits for its control.
+        if (context.Origin == OperationOrigin.Test)
+        {
+            await session.WaitOutTransitionAsync(input, cancellationToken).ConfigureAwait(false);
+        }
+
+        var before = session.LatestScreen;
         await session.CommandAsync(
             "swipe",
             (client, token) => DeviceSession.SendInputAsync(
                 input,
-                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(), ("direction", JsonValue.Create(DirectionName(direction)))), token),
+                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(context), DeviceSession.GestureStabilization(context), ("direction", JsonValue.Create(DirectionName(direction)))), token),
                 token),
             cancellationToken).ConfigureAwait(false);
+        session.NoteGesture(context);
         session.MarkAction(before);
     }
 
@@ -250,7 +287,7 @@ public sealed class DeviceActions : IDeviceActions
     private static async Task PressFocusedAsync(DeviceSession session, string key, InputBudget input, CancellationToken cancellationToken)
     {
         var typed = SoftKeyboardKey(key);
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         if (typed is null)
         {
             await session.CommandAsync(
@@ -269,58 +306,82 @@ public sealed class DeviceActions : IDeviceActions
         session.MarkAction(before);
     }
 
-    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken)
+    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken) =>
+        SwipeAsync(session, direction, session.DefaultContext, cancellationToken);
+
+    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return ScrollScreenAsync(session, direction, session.InputBudget("swipe"), cancellationToken);
+        ArgumentNullException.ThrowIfNull(context);
+        return ScrollScreenAsync(session, direction, context, session.InputBudget("swipe"), cancellationToken);
     }
 
     public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.MaskedScreenshotAsync(cancellationToken);
+        return session.MaskedScreenshotAsync(session.InputBudget("screenshot"), cancellationToken);
+    }
+
+    public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return session.MaskedScreenshotAsync(session.InputBudget("screenshot", timeout), cancellationToken);
     }
 
     // --- what the contract has no verb for ---
 
     /// <summary>A hold on a node. Without a duration it holds <see cref="DefaultLongPress"/>.</summary>
     internal static Task LongPressAsync(DeviceSession session, SemanticNode node, TimeSpan? duration, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "longPress", (client, target, settle, input, token) =>
-            DeviceSession.SendInputAsync(
-                input,
-                () => client.CallAsync(
-                    DeviceMethods.InteractionsLongPress,
-                    Args(settle, DeviceSession.ActionTarget(target), ("durationMs", JsonValue.Create((duration ?? DefaultLongPress).TotalMilliseconds))),
-                    token),
-                token,
-                hold: duration ?? DefaultLongPress),
-            cancellationToken);
+        RunNodeAsync(session, node, "longPress", (client, target, settle, input, token) => LongPressNodeAsync(client, target, duration, settle, input, token), cancellationToken);
+
+    private static Task LongPressNodeAsync(IDeviceClient client, NodeBinding target, TimeSpan? duration, JsonObject settle, InputBudget input, CancellationToken token) =>
+        DeviceSession.SendInputAsync(
+            input,
+            () => client.CallAsync(
+                DeviceMethods.InteractionsLongPress,
+                Args(settle, DeviceSession.ActionTarget(target), ("durationMs", JsonValue.Create((duration ?? DefaultLongPress).TotalMilliseconds))),
+                token),
+            token,
+            hold: duration ?? DefaultLongPress);
 
     /// <summary>A pointer hover over a node. agent-device sends no settle wait with it.</summary>
     internal static Task HoverAsync(DeviceSession session, SemanticNode node, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "hover", (client, target, _, input, token) =>
-            DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsHover, DeviceArgs.Of(DeviceSession.ActionTarget(target)), token), token), cancellationToken);
+        RunNodeAsync(session, node, "hover", (client, target, _, input, token) => HoverNodeAsync(client, target, input, token), cancellationToken);
+
+    private static Task HoverNodeAsync(IDeviceClient client, NodeBinding target, InputBudget input, CancellationToken token) =>
+        DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsHover, DeviceArgs.Of(DeviceSession.ActionTarget(target)), token), token);
 
     /// <summary>A drag from one node to another.</summary>
     internal static Task DragToAsync(DeviceSession session, SemanticNode node, SemanticNode destination, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) =>
-        {
-            var to = session.Resolve(destination);
-            return DeviceSession.SendInputAsync(
-                input,
-                () => client.CallAsync(
-                    DeviceMethods.InteractionsDrag,
-                    DeviceArgs.Of(("source", DeviceSession.ActionTarget(target).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
-                    token),
-                token);
-        }, cancellationToken);
+        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) => DragNodeAsync(session, client, target, session.Resolve(destination), input, token), cancellationToken);
+
+    private static Task DragNodeAsync(DeviceSession session, IDeviceClient client, NodeBinding target, NodeBinding destination, InputBudget input, CancellationToken token)
+    {
+        // A test locates the drop target in a capture of its own, after the source's; agent-device takes both refs
+        // from the newest one only.
+        var source = session.Current(target);
+        var to = session.Current(destination);
+        return DeviceSession.SendInputAsync(
+            input,
+            () => client.CallAsync(
+                DeviceMethods.InteractionsDrag,
+                DeviceArgs.Of(("source", DeviceSession.ActionTarget(source).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
+                token),
+            token);
+    }
 
     /// <summary>A swipe inside a node's bounds, as far as <paramref name="momentum"/> says.</summary>
     internal static Task SwipeAsync(DeviceSession session, SemanticNode node, ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) =>
         node.Ref == SnapshotProjection.RootId
-            ? ScrollScreenAsync(session, direction, session.InputBudget("swipe"), cancellationToken)
-            : RunNodeAsync(session, node, "swipe", (client, target, _, input, token) => SwipeNodeAsync(client, target, direction, momentum, input, token), cancellationToken);
+            ? ScrollScreenAsync(session, direction, OperationContext.Test, session.InputBudget("swipe"), cancellationToken)
+            : RunNodeAsync(session, node, "swipe", async (client, target, _, input, token) =>
+                {
+                    await SwipeNodeAsync(client, target, direction, momentum, DeviceSession.GestureStabilization(OperationContext.Test), input, token).ConfigureAwait(false);
+                    session.NoteGesture(OperationContext.Test);
+                },
+                cancellationToken);
 
+    /// <summary>One action the fixture methods above run: a test's own step, as upstream marks every action a test performs.</summary>
     private static async Task RunNodeAsync(
         DeviceSession session,
         SemanticNode node,
@@ -331,13 +392,14 @@ public sealed class DeviceActions : IDeviceActions
         var input = session.InputBudget(kind);
         var label = $"perform {kind}";
         var entry = session.Resolve(node);
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         await session.ActAsync(
             label,
             async (client, token) =>
             {
-                var settle = session.ActionSettle();
-                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
+                var settle = session.ActionSettle(OperationContext.Test);
+                var target = await session.SettledAsync(entry, input, token).ConfigureAwait(false);
+                target = await session.SteadiedAsync(target, input, token).ConfigureAwait(false);
                 await run(client, target, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
@@ -350,7 +412,7 @@ public sealed class DeviceActions : IDeviceActions
     /// press, while two presses in a row land about 285 ms apart. The kinds outside <see cref="PointerActionKinds"/> are
     /// refused here.
     /// </summary>
-    internal static Task<JsonNode?> PointerInteractionAsync(IDeviceClient client, Point point, PointerAction action, JsonObject settle, CancellationToken cancellationToken)
+    internal static Task<JsonNode?> PointerInteractionAsync(IDeviceClient client, Point point, PointerAction action, JsonObject settle, JsonObject stabilization, CancellationToken cancellationToken)
     {
         (string, JsonNode?)[] at = [("x", JsonValue.Create(point.X)), ("y", JsonValue.Create(point.Y))];
         switch (action)
@@ -375,7 +437,7 @@ public sealed class DeviceActions : IDeviceActions
                         ("durationMs", JsonValue.Create(duration.TotalMilliseconds))),
                     cancellationToken);
             case PointerAction.SwipeTo swipe:
-                return client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", DeviceSession.PointNode(point)), ("to", DeviceSession.PointNode(swipe.Target))), cancellationToken);
+                return client.CallAsync(DeviceMethods.InteractionsSwipe, Args(stabilization, ("from", DeviceSession.PointNode(point)), ("to", DeviceSession.PointNode(swipe.Target))), cancellationToken);
             default:
                 return Task.FromException<JsonNode?>(DeviceSupport.Unsupported($"agent-device cannot perform \"{PointerKindOf(action)}\" at a bare point"));
         }
@@ -397,14 +459,18 @@ public sealed class DeviceActions : IDeviceActions
         LocatorAction.DoubleTap => "doubleTap",
         LocatorAction.Fill => "fill",
         LocatorAction.Press => "press",
-        LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
+        LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",
         LocatorAction.Uncheck => "uncheck",
         LocatorAction.Clear => "clear",
         LocatorAction.Focus => "focus",
         LocatorAction.ScrollIntoView => "scrollIntoView",
         LocatorAction.Swipe => "swipe",
+        LocatorAction.SecondaryTap => "secondaryTap",
+        LocatorAction.LongPress => "longPress",
+        LocatorAction.Hover => "hover",
+        LocatorAction.DragTo => "dragTo",
         _ => action.GetType().Name,
     };
 
@@ -420,6 +486,18 @@ public sealed class DeviceActions : IDeviceActions
         PointerAction.Swipe => "swipe",
         _ => action.GetType().Name,
     };
+
+    /// <summary>The options of one command: the settle wait, the post-gesture stabilization, then the fields the action names.</summary>
+    private static JsonObject Args(JsonObject settle, JsonObject stabilization, params (string Key, JsonNode? Value)[] fields)
+    {
+        var args = Args(settle, fields);
+        foreach (var (key, value) in stabilization)
+        {
+            args[key] = value?.DeepClone();
+        }
+
+        return args;
+    }
 
     /// <summary>The options of one command: the settle wait, then the fields the action names.</summary>
     private static JsonObject Args(JsonObject settle, params (string Key, JsonNode? Value)[] fields)

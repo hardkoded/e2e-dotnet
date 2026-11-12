@@ -5,7 +5,7 @@
 namespace E2E.Tests.Config;
 
 /// <summary>
-/// <c>describe('command.log')</c> of <c>config.test.ts</c>. Not ported: "enters the config digest like cwd does", since the port has no config digest.
+/// <c>describe('command.log')</c> of <c>config.test.ts</c>.
 /// </summary>
 public sealed class CommandLogTests
 {
@@ -23,6 +23,14 @@ public sealed class CommandLogTests
         Assert.Equal(Path.Combine(".e2e", "app.log"), LogOf(Path.Combine(".e2e", "app.log")));
         var absolute = Path.Combine(root, ".e2e", "app.log");
         Assert.Equal(absolute, LogOf(absolute));
+    }
+
+    [Fact]
+    public void Enters_the_config_digest_like_cwd_does()
+    {
+        static string Of(string log) => ResolveConfigTests.Digest(ResolveConfigTests.App(Declare(log)));
+        Assert.NotEqual(Of("a.log"), Of("b.log"));
+        Assert.Equal(Of("a.log"), Of("a.log"));
     }
 
     [Fact]

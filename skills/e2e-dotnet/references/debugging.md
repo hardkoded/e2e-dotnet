@@ -28,13 +28,17 @@
    credentials, the environment, test setup, or the step's budget stopped
    the step rather than the app.
 2. A failed locator expectation says what it expected and the last value it
-   read, with the match count. Compare that value with the expectation
+   read, with the match count, one fact per line: `expect.toHaveText failed`
+   is followed by `locator: ...`, `expected: ...` and `observed: ... (match count 1)`.
+   Compare that value with the expectation
    before you change either. The exception's `Details` holds the same facts
    one per field: `Locator`, `Expected`, `Observed`, `Matches`, and for a locator
    `Role`, `Name`, `TestId`, and `WaitedMs` (how long it waited).
 3. A failed agent step carries the model's explanation. A passing act's
    `ActResult.Cache` tells whether the step replayed, and why a replay
-   missed.
+   missed. A run summary tallies those by step as `Cache  4 replayed · 1 handed
+   off · 1 missed · 1 not saved`; the port's internal `ListReporter` renders it, but only
+   `e2e explore` prints a run summary, so a test run does not show it.
 
 Fix from that evidence, never by walking the flow again from the start over
 MCP: the run already saw every screen up to the failure.
@@ -74,7 +78,15 @@ session is released, beside the `attempt-<n>` directories. A retry is its own
 attempt, and the page tells every attempt the test has had so far: it is
 written when any of them kept a trace, so a test that passed on a retry reads
 "Passed after 1 failed attempt" with the last failure, and one that failed every
-attempt says whether they failed the same way. Open the file; there is
+attempt says whether they failed the same way. The time comes from the
+attempt that decided the verdict (`Outcome.Verdict`): the last attempt that
+ended the way the result did, so a retry the run interrupted does not stand for
+a test that failed before it: a test that failed (or timed out) and whose retry
+was interrupted stays `failed` (or `timed-out`) in the report, as upstream's
+`retryVerdict` reads it, and a test whose first attempt was interrupted is
+`interrupted`. A failed or timed-out test tells the failure of
+that same attempt. A test that passed after a retry (flaky) tells the failure of
+its last failed attempt, and its time is the final attempt's. Open the file; there is
 no viewer. It tells, in this order:
 
 1. The title, the test file, the status, and how long the attempt took, then
@@ -89,7 +101,13 @@ no viewer. It tells, in this order:
    of an agent step, the hook the step ran in (`in beforeEach` for a step
    called from an NUnit `[SetUp]`, `in afterEach` from a `[TearDown]`, or from
    an xUnit `InitializeAsync` or `DisposeAsync`), and the offset into the
-   video (`, video 0:12`) when one is recorded. Under a step:
+   video (`, video 0:12`) when one is recorded. A `Browser` or `Device` call is
+   a step too, named for the call (`browser.goto` with the URL, `browser.route`
+   with the pattern, `device.openLink` with the link before its query,
+   `device.setNetwork` with `offline`), so a failure there points at the call,
+   and `browser.waitForURL` and `locator.waitFor` count as a verification. `ClickAsync` and
+   `DblClickAsync` are `locator.click` and `locator.dblclick` steps, not
+   `locator.tap` and `locator.doubleTap`. Under a step:
    - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
      or `✗` and its code), with `appeared after 340ms` when the node was not
      there at once;
@@ -100,6 +118,9 @@ no viewer. It tells, in this order:
      410ms "1 remaining"`) point at a race;
    - what the app logged meanwhile (`✗ network error: POST /api/save 500`,
      `✗ uncaught error: ...`, `⚠ console warning: ...`, `ℹ console: ...`);
+     the first 3 errors are also quoted in the failure block of the internal
+     list reporter and Markdown renderer (`× console error: ...`), but no command
+     prints either today and `trace.md` does not hold them;
    - where the page went (`↪ navigated to /login`, a new tab the app opened,
      a frame that loaded). A navigation the test asked for (`App.OpenAsync`,
      `Browser.GotoAsync`, `ReloadAsync`) is the step itself and is not listed;
@@ -136,7 +157,10 @@ no viewer. It tells, in this order:
 `Agent turns of step N` shows the last 12 turns the model took in the step
 that ended the attempt, oldest first: the tool calls (arguments cut to 200
 characters) and what came back (cut to 600), with the loop's own notes after
-them (`[loop] turn 2 made no tool call: asking for one`). The built-in agent and
+them (`[loop] turn 2 made no tool call: asking for one`). The loop-guard notes
+are among them: `[loop] loop guard warned before turn 5: ...` when the loop
+warned the model it was going in circles, and `[loop] the step was stopped
+before turn 7: ...` when it left the model only `done`. The built-in agent and
 any `ToolLoop.CreateToolLoopExecutor` executor record them. An executor of
 your own records them with `AttachTurns`.
 
@@ -165,7 +189,13 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
 
 `run.exitCode` is the worst exit code of the results: 1 for a failed test,
 or the category of an attempt error when that is worse (2 `configuration`, 3
-`infrastructure`, 4 `internal`), and 130 for an interruption. `run.status` is
+`infrastructure`, 4 `internal`), and 130 for an interruption, whatever the results say: a retry the run interrupted keeps its test `failed`, and the run exits 130. A test whose
+cleanup failed (an attempt with `cleanup: "failed"`, such as a required video
+that was not finalized or a session that did not close) adds the category of
+its `cleanup` secondary errors, usually 3, even when the test passed or
+skipped. A session marks the attempt's cleanup failed when its engine session
+does not close, or when a required video is not finalized, and adds the error
+as a `cleanup` secondary error; the test's own verdict stays. `run.status` is
 `passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
 A run is `blocked` instead when every failing result carries a blockable
 code. Its exit code is still the worst one: 2 for `AUTH_CREDENTIAL_UNAVAILABLE`,
@@ -192,7 +222,8 @@ in C# casing (`report.Run.Results[0].Attempts[0].Error`). It is a record the ses
 is the session's, not your runner's test-body verdict, and artifact paths are relative
 to the results directory, not the attempt's directory. It returns `null` before the
 session is disposed and when the trace page cannot be written. Use it, with
-`CloseSoftFailures()`, in a runner that owns its reporting.
+`CloseSoftFailures()`, in a runner that owns its reporting. A session from
+`E2EHost.OpenSessionAsync` also has `Steps()` and `CloseAsync()` (see [host.md](host.md)).
 
 Not in the port's report: serial groups (`run.serialGroups` is always empty),
 `carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the
@@ -205,6 +236,8 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | Code | Usual cause | Fix |
 | --- | --- | --- |
 | `MODEL_PROVIDER_FAILED` with a network error, 408, 409, 429, or 5xx | The provider failed after the transport retries: up to 5 per model call, honoring `retry-after`, within the step's remaining timeout | Check the provider's status and your quota, then run again (exit 3) |
+| `MODEL_PROVIDER_FAILED` with "the call ended on an error finish" | A custom model reported an `error` finish for the turn, whatever text came with it | Check the model's own logs, then run again (exit 3) |
+| `MODEL_PROVIDER_FAILED` with "the model did not answer within 1m" | An `e2e doctor --check-model` call got no answer in 1 minute (one retry included) | Check the provider's status |
 | `MODEL_PROVIDER_FAILED` with "no response within 120 seconds" | The provider sent no answer in 120 s. This failure is not retried | Check the provider's status, then run again (exit 3) |
 | `MODEL_PROVIDER_FAILED` with 401, "x-api-key header is required", or "You didn't provide an API key" | No key reached the provider | Set the provider's variable. Remove a stale `apiKeyEnv` |
 | `MODEL_PROVIDER_FAILED` with 400 "not scoped to a workspace" | An Anthropic user key (`sk-ant-usr-`) | Use a workspace key, or `provider: copilot` |
@@ -213,27 +246,35 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `MODEL_UNAVAILABLE` | No model is set and no replay finished the step, or GitHub Copilot does not serve the model to the account (`model_not_supported`, a plan or settings limit `e2e models` cannot show) | Set `agents.default.model`; for Copilot, pick an id the plan serves |
 | `INVALID_CONFIG` | Unknown key or bad value in `e2e.config.json` | Fix the key the message names |
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
-| `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |
-| `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` | Set both variables |
-| `LOCATOR_NOT_FOUND`, `NOT_FOUND` | Wrong role or name, inexact text, element off screen, page not open | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first |
-| `STRICT_MODE` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)` |
+| `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare, or the secret's provider returned less than 6 code points | Add it under `secrets`; fix the provider |
+| `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD`, or the password's provider returned less than 6 code points | Set both variables; fix the provider |
+| `LOCATOR_NOT_FOUND` | Wrong role or name, inexact text, element off screen, inside an iframe (a plain query never enters one), page not open, or a `locator.WaitForAsync` state that never held (`locator did not become <state>`) | Read the markup for the accessible name; `exact: false` or a `Regex`; `Browser.FrameLocator` for an iframe, and for one from another site, which the agent's tree leaves out, pixels too; `App.OpenAsync` first. For a filtered locator the message lists how many nodes each filter step left, counted after the failure |
+| `LOCATOR_AMBIGUOUS` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)`. For a filtered locator the message lists how many nodes each step left (`candidates left after each filter step, counted after the failure:`): the step where the count jumps or drops to 0 is the one to change |
 | `APP_NOT_OPEN` | A `Screen` call before `App.OpenAsync()` | Open the app first |
 | `ASSERTION_FAILED` | Wrong expectation, or the state settles later than 5 s; for `AssertAsync`, a false judgment | Compare with the actual text in the message; `timeout` on the matcher; rewrite the statement. Do not loosen it to pass |
 | `ASSERTION_INCONCLUSIVE` | The judge could not decide from what the screen shows | Reach the right screen first; make the statement concrete and visible. When the answer is in pixels (a chart, a canvas), pass `Vision = VisionMode.On` |
 | `MODEL_OUTPUT_INVALID` | An `ExtractAsync` or `AssertAsync` answer failed after one repair round | Simplify the type or the question; pick a stronger model |
 | `MODEL_REFUSED` | The model refused the prompt (finish reason `content-filter`). Exit 1 | Rephrase the prompt or instruction, or switch to a different model |
-| `NOT_ACTIONABLE` | The element is covered, disabled, or does not take that input. The message names the last blocker Playwright logged, such as `<div class="toast">…</div> intercepts pointer events` | `Expect` the condition first. Close the overlay the message names |
-| `NODE_STALE` | The element left the page, or Playwright found more than one element (a strict mode violation) before any input was sent. The step looks again | Usually nothing. If it repeats, make the locator match one element |
+| `ACTION_FAILED` | A locator action could not be done: the engine reported `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, or `OPERATION_TIMEOUT` (read `InnerException` for which). The message names the locator | The row of the engine code below |
+| `NOT_ACTIONABLE` | (Through a locator: the cause of `ACTION_FAILED`.) The element is covered, disabled, or does not take that input. The message names the last blocker Playwright logged, such as `<div class="toast">…</div> intercepts pointer events` | `Expect` the condition first. Close the overlay the message names |
+| `NODE_STALE` | The element left the page, or a locator that matched one element now matches a second (a strict mode violation) before any input was sent. The step looks again | Usually nothing. If it repeats, make the locator match one element |
 | `OPERATION_TIMEOUT` | A navigation or a page read (observe, `Browser.EvaluateAsync`, `Browser.TitleAsync`) did not finish within `actionTimeout`. A page stuck in a script fails here, not at the test timeout. On a device, an input the `actionTimeout` ran out before was never sent | Look for a script that never ends or a request that never answers. Raise `actionTimeout` only for a slow UI. A timeout stays `OPERATION_TIMEOUT` and is not retried, even when the call log mentions a detached element or a navigation |
+| `EVALUATE_FAILED` | `Browser.EvaluateAsync` threw inside the page, or the page deleted or replaced a JavaScript built-in (such as `Map`) that the engine needs, which fails later evaluates and locators | Fix the page code; do not replace built-ins the page shares with automation |
 | `ACTION_MAY_HAVE_COMMITTED` | An action, scroll, key press, typing, or mouse call timed out, or hit a strict mode violation, after its input may have reached the page. On a device, a tap, key, swipe, or `Back` the device did not answer within `actionTimeout`. It is never repeated | Check the page state before you retry by hand |
-| `TIMEOUT` | `locator.WaitForAsync` timed out | Check the state you wait for |
 | `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED` | Goal too big or ambiguous, or a slow provider | Split the goal, use on-screen wording, add vocabulary in `context`; raise `maxSteps` or `maxModelCalls`, `StepTimeout`, or `judgmentTimeout` |
-| `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Split the goal into smaller steps, or use a model with a larger context window |
-| `REPLAY_STALE` | `cache.strict` is on and a committed recording no longer replays, or the cache directory holds the step's recording under another key (the message names the file and what changed since it was recorded: the engine contract, the replay policy, the agent's context) | Re-run once in `read-write` mode without `cache.strict` to re-record, then commit the changed entry. Delete the old file once nothing replays it |
+| `STEP_NO_CONCLUSION` | The agent used every model turn without calling `done` (it kept acting, or answered in prose). A failed verdict, not a budget stop | Split the goal or raise `maxModelCalls`; read the step's turns to see what it kept doing |
+| `AUTHENTICATION_FAILED` | The agent concluded that signing in failed inside the app: a product verdict (test, exit 1). `AUTH_CREDENTIAL_INVALID` is the blocked counterpart, for a configured credential the app rejects (configuration, exit 2) | Sign in by hand with the same account and fix the app or the account's state. A rejected credential is `AUTH_CREDENTIAL_INVALID` instead |
+| `SESSION_UNAVAILABLE` (configuration, exit 2), `SESSION_CONTRACT` (test, exit 1) | A test restores a session no selected setup test saved. Or a setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | Add or fix the `[E2ESetup]` test; run the setup test with the tests that restore its sessions |
+| `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity (configuration, exit 2) | Run the setup test again in this run, and do not change the target, engine, or app between the setup test and the tests that restore it; a session lasts one run |
+| `SESSION_EXPIRED` | A stored session is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | Run the setup test again; for the second case, save a state with a later expiry |
+| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt | Delete `.e2e/sessions/<run id>` and run the setup test again |
+| `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Lower `agents.<name>.maxObservationBytes`, split the goal into smaller steps, or use a model with a larger context window |
+| `REPLAY_STALE` | `cache.strict` is on and a committed recording no longer replays, or the cache directory holds the step's recording under another key (the message names the file and what changed since it was recorded: the engine contract, the replay policy, the agent's context) | Re-run once in `read-write` mode without `cache.strict` to re-record, then commit the changed entry. Delete the old file once nothing replays it. The message ends with this advice and names the cache directory (or the configured `cache.store`) |
 | `AUTOMATION_UNSUPPORTED` | The step needs an action the agent's tools lack (hover, drag) | Do that step with `Screen` actions |
-| `ENVIRONMENT_UNAVAILABLE` with "Chromium is not installed" or "could not install Chromium" | The browser install was skipped or failed | Allow network access for the first run, or run `e2e install` and set `E2E_SKIP_BROWSER_INSTALL=1` |
+| `BROWSER_INSTALL_FAILED` | Browser download failed: the first-run install exited non-zero (infrastructure, exit 3) | Allow network access for the first run, or run `e2e install <names>` (`--with-deps` on bare Linux) and set `E2E_SKIP_BROWSER_INSTALL=1` |
+| `ENVIRONMENT_UNAVAILABLE` with "is not installed for Playwright" | The browser launch found no executable, for example because the install was skipped | Unset `E2E_SKIP_BROWSER_INSTALL`, or run `e2e install <name>` |
 | `INVALID_APP_URL` | `app.url` has userinfo, a query, a fragment, a non-http(s) scheme, or plain HTTP on a non-loopback host | Fix the URL; use `https://` or a loopback host |
-| `APP_UNREACHABLE` | The agent found the app down or not loading | Start the app, or fix `targets[].app.url` |
+| `APP_UNREACHABLE` | The agent found the app down or not loading, or `App.OpenAsync` met a connection nothing answered (refused, name not resolved, host unreachable, timed out): the message names the URL | Start the app there, point `targets[].app.url` at where it runs, or give the target an `app.command` so the runner starts it |
 | `POLICY_DENIED` | A URL whose scheme is not `http:` or `https:` (`file:`, `view-source:`, `data:`), from `OpenAsync`, the agent's navigate step, or `SetCookiesAsync`; a read or expectation of a password field's text, value, or attributes; `ToHaveScreenshotAsync` when the engine cannot prove every secure field on screen was masked | http(s) or `about:blank` only; assert the outcome, not the value; for a screenshot, use an engine that reports its masked regions, or leave the unmaskable field off the screen |
 | `UNSUPPORTED_CAPABILITY` | A `Browser` member on the document engine, or an action the engine lacks | Use `WebEngine`, or drop the call |
 | `UNSUPPORTED_ARTIFACT` | A `video` mode set on a target, or for a test, whose engine cannot record video | Drop it there, or set it at the config root or in `E2E_VIDEO`, which skip such an engine |
@@ -245,7 +286,12 @@ A replay miss is not a failure. The step runs live and records again.
 `ActResult.Cache.Reason` says why it missed: `no-entry` (nothing recorded
 yet), `invalid-entry` (an old or broken file, or a store that could not be
 read), `target-not-found` (the control's role or name changed),
-`target-ambiguous`, `wrong-context` (the page or path changed), or
+`target-ambiguous`, `action-failed` or `action-uncertain` (the first
+recorded action threw, or may have reached the app; a later action hands off
+instead), `truncated` (the recording hit a limit: more than 50 actions, a typed
+value or URL over 4,096 characters or one that holds a registered secret, or a
+control with no usable description; split the step or pass the secret as a
+`Secret`), `wrong-context` (the app was on another origin, path, or query), or
 `end-mismatch` (every action ran, but the recorded route, a control that
 should have appeared or gone away, or a recorded state did not come back;
 the outcome was already on screen before the replay; or the replay raised
@@ -272,7 +318,8 @@ in a fixture's `Video` property. The modes are `off`, `on`,
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
 page with Playwright's screencast. `MobileEngine` records the device screen to
 `video/video.mp4` (`MobileOptions.VideoTouches = false` hides the touch
-indicator).
+indicator, so agent-device skips the pass that draws it once the recording stops, which on a
+hosted daemon such as Expo Simulators' can outlast the attempt's `CleanupTimeout`).
 
 The screencast goes into its attempt's directory,
 `.e2e/results/<result>/attempt-<n>/video/`: `video.webm`, and one
@@ -283,6 +330,11 @@ own file (`replay.mp4`) into that directory, or a service that keeps the
 recording gives a link and no local file. `retain-on-failure` deletes the recording of an attempt that
 passed. `new WebEngineOptions { Screencast = ... }` sets the frame size and the
 JPEG quality.
+
+`App.StartRecordingAsync` and `App.StopRecordingAsync` record one span with the same recorder, into
+`recordings/001-<name>.<ext>` beside `video/`. The engine has one recorder, so a start fails with
+`UNSUPPORTED_CAPABILITY` while the attempt's `video` records. In the trace page a step's `, video 0:12` offset
+is read in the span only until the step that stopped it ends.
 
 A video masks nothing. It shows whatever the screen showed, secrets included,
 so keep `video` off unless you need it, and do not share the files. A mode set
@@ -297,6 +349,7 @@ the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 | `"cache": { "mode": "off" }` | Rule out a stale replay; one run, not every rerun. A failed run deletes the replay that ran into the failure and keeps the ones a check confirmed, so rerun with the cache on first. If the failure repeats after a replay the trace page shows as kept, and the `off` run passes, tighten the next check or wait after that goal (the arrange block's closing wait, or the assertions) so a stale replay fails it and is deleted |
 | `"actionTimeout": 5000` | While writing a test: a wrong locator fails in 5 s instead of 30 s (`assertionTimeout` for `Expect`). Keep it longer than the slowest screen takes to load |
 | `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
+| `App.StartRecordingAsync()`, then `await App.StopRecordingAsync()` | One transition as a video; fails while the test's `video` records |
 | `E2E_TRACE=on` | Keep a trace page for a passing attempt too |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |

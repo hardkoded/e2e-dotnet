@@ -116,4 +116,13 @@ public sealed class ProjectedSnapshot
     public required IReadOnlyList<ProjectedNode> Index { get; init; }
 
     public ViewportSize? Viewport { get; init; }
+
+    /// <summary>The agent-device capture the refs were issued from; null from one that reports none.</summary>
+    public long? RefsGeneration { get; init; }
+
+    /// <summary>
+    /// Whether the soft keyboard showed in the capture, kept with the projection across an action. Upstream's
+    /// <c>ProjectedScreen</c> (<c>ProjectedSnapshot &amp; { keyboardVisible }</c>), which C# has no intersection type for.
+    /// </summary>
+    internal bool KeyboardVisible { get; set; }
 }

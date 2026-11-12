@@ -5,6 +5,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Engine;
+using Microsoft.Playwright;
 
 namespace E2E.Tests.Routes;
 
@@ -12,7 +13,191 @@ namespace E2E.Tests.Routes;
 public sealed class BrowserRouteDecisionsTests
 {
     [Fact]
-    public Task Clears_every_test_route_keeps_configured_site_headers_and_can_register_again() => WithRoutesAsync(async routes =>
+    public Task Fetches_upstream_once_keeps_configured_headers_then_fulfills_an_amended_response() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/echo", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            Assert.Equal(200, upstream.Status);
+            Assert.Equal(routes.Site.Origin + "/echo", upstream.Url);
+            Assert.Contains("application/json", upstream.Headers["content-type"], StringComparison.Ordinal);
+            var echo = (await upstream.JsonAsync<Echo>())!;
+            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+            var text = JsonSerializer.Deserialize<Echo>(await upstream.TextAsync(), JsonOptions)!;
+            Assert.Equal(echo, text with { Headers = echo.Headers });
+            Assert.Equal(echo.Headers, text.Headers);
+            await route.FulfillAsync(new RouteFulfillResponse { Json = new { echo.Path, echo.Method, echo.Headers, echo.Body, amended = true } });
+        });
+        var amended = JsonDocument.Parse(await routes.FetchTextAsync(routes.Site.Origin + "/echo")).RootElement;
+        Assert.True(amended.GetProperty("amended").GetBoolean());
+        Assert.Equal(1, routes.Site.HitsOf("/echo"));
+    });
+
+    [Fact]
+    public async Task Keeps_upstream_metadata_when_the_native_API_response_body_is_unavailable()
+    {
+        await WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/echo", async route =>
+            {
+                var upstream = await route.FetchAsync();
+                Assert.Equal(200, upstream.Status);
+                Assert.Equal(routes.Site.Origin + "/echo", upstream.Url);
+                Assert.Contains("application/json", upstream.Headers["content-type"], StringComparison.Ordinal);
+                var text = await Assert.ThrowsAsync<TestException>(() => upstream.TextAsync());
+                Assert.Equal("ACTION_FAILED", text.Code);
+                Assert.Contains("route.fetch", text.Message, StringComparison.Ordinal);
+                var json = await Assert.ThrowsAsync<TestException>(() => upstream.JsonAsync<object>());
+                Assert.Equal("ACTION_FAILED", json.Code);
+                await route.FulfillAsync(new RouteFulfillResponse { Body = "safe fallback" });
+            });
+            Assert.Equal("safe fallback", await routes.FetchTextAsync(routes.Site.Origin + "/echo"));
+            Assert.Equal(1, routes.Site.HitsOf("/echo"));
+        }, async (route, options) =>
+        {
+            var response = await route.FetchAsync(options);
+            await response.DisposeAsync();
+            return response;
+        });
+    }
+
+    [Fact]
+    public Task Returns_an_upstream_redirect_without_following_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/redirect", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            Assert.Equal(302, upstream.Status);
+            Assert.Equal("/echo", upstream.Headers["location"]);
+            await route.FulfillAsync(new RouteFulfillResponse { Body = "inspected redirect" });
+        });
+        Assert.Equal("inspected redirect", await routes.FetchTextAsync(routes.Site.Origin + "/redirect"));
+        Assert.Equal(1, routes.Site.HitsOf("/redirect"));
+        Assert.Null(routes.Site.HitsOf("/echo"));
+    });
+
+    // Not portable, because the C# signature refuses them at compile time (upstream's tests/types/downloads.ts): a batch with no count,
+    // and a trigger that is not asynchronous.
+    // Partial: upstream hands a recording operation the timeouts and checks the budgets it was asked for (Infinity for 0). The port has no
+    // operation to record, so this runs real calls: 0 waits for the test deadline instead of failing, and a negative timeout is refused.
+    [Fact]
+    public Task Partial_Hands_timeout_0_to_the_operation_as_a_budget_only_the_test_deadline_caps_and_refuses_a_negative_one() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = TimeSpan.Zero });
+        await routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", TimeSpan.Zero);
+        var negative = TimeSpan.FromMilliseconds(-1);
+        foreach (var call in new Func<Task>[]
+        {
+            () => routes.Browser.GotoAsync(routes.Site.Origin + "/", new GotoOptions { Timeout = negative }),
+            () => routes.Browser.WaitForURLAsync(routes.Site.Origin + "/", negative),
+            () => routes.Browser.WaitForDownloadAsync(() => Task.CompletedTask, negative),
+        })
+        {
+            Assert.Equal("INVALID_ARGUMENT", (await Assert.ThrowsAsync<TestException>(call)).Code);
+        }
+    });
+
+    [Fact]
+    public Task Rejects_an_invalid_download_count_before_running_the_trigger() => WithRoutesAsync(async routes =>
+    {
+        var calls = 0;
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() =>
+        {
+            calls++;
+            return Task.CompletedTask;
+        }, 0));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Equal(0, calls);
+    });
+
+    [Fact]
+    public Task Removes_a_multi_download_listener_after_an_incomplete_trigger_times_out() => WithRoutesAsync(async routes =>
+    {
+        var listeners = routes.DownloadListeners();
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() => Task.CompletedTask, 2, TimeSpan.FromMilliseconds(30)));
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Contains("0 of 2 downloads", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(listeners, routes.DownloadListeners());
+    });
+
+    [Theory]
+    [InlineData("waitForDownload")]
+    [InlineData("waitForDownloads")]
+    public Task Bounds_saving_a_download_whose_HTTP_body_never_finishes(string method) => WithRoutesAsync(async routes =>
+    {
+        await routes.AddLinkAsync("/stream-download", "Stream");
+        var baseline = routes.DownloadListeners();
+        var started = routes.NextDownload();
+        Task Trigger() => routes.ClickLinkAsync();
+        var work = routes.Collect(method, Trigger, TimeSpan.FromMilliseconds(500));
+        try
+        {
+            var result = await Task.WhenAny(work, Task.Delay(1500));
+            Assert.True(started.IsCompleted);
+            Assert.Same(work, result);
+            var failure = await Assert.ThrowsAsync<TestException>(() => work);
+            Assert.Equal("ACTION_FAILED", failure.Code);
+            Assert.Contains("did not finish", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(baseline, routes.DownloadListeners());
+        }
+        finally
+        {
+            routes.Site.CloseAllConnections();
+            await CancelAsync(started);
+            await Settle(work);
+        }
+    });
+
+    [Theory]
+    [InlineData("waitForDownload")]
+    [InlineData("waitForDownloads")]
+    public Task Closes_started_downloads_while_its_trigger_is_still_pending(string method) => WithRoutesAsync(async routes =>
+    {
+        await routes.AddLinkAsync("/stream-download", "Pending");
+        var listeners = routes.DownloadListeners();
+        var started = routes.NextDownload();
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task Trigger()
+        {
+            await routes.ClickLinkAsync();
+            await pending.Task;
+        }
+
+        var work = routes.Collect(method, Trigger, TimeSpan.FromMilliseconds(500));
+        try
+        {
+            var result = await Task.WhenAny(work, Task.Delay(1500));
+            Assert.Same(work, result);
+            var failure = await Assert.ThrowsAsync<TestException>(() => work);
+            Assert.Equal("ACTION_FAILED", failure.Code);
+            var download = await started.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(listeners, routes.DownloadListeners());
+            Assert.Contains("cancel", (await download.FailureAsync())!, StringComparison.Ordinal);
+            pending.TrySetResult();
+            await Settle(work);
+            Assert.Empty(routes.Attached);
+        }
+        finally
+        {
+            pending.TrySetResult();
+            routes.Site.CloseAllConnections();
+            await CancelAsync(started);
+            await Settle(work);
+        }
+    });
+
+    [Fact]
+    public Task Keeps_a_trigger_error_and_removes_the_multi_download_listener_immediately() => WithRoutesAsync(async routes =>
+    {
+        var listeners = routes.DownloadListeners();
+        var failure = new TestException("ASSERTION_FAILED", "trigger assertion");
+        var thrown = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() => throw failure, 2, TimeSpan.FromMilliseconds(30)));
+        Assert.Same(failure, thrown);
+        Assert.Equal(listeners, routes.DownloadListeners());
+    });
+
+    [Fact]
+    public Task Clears_every_test_route_keeps_configured_headers_and_can_register_again() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/**", route => route.FulfillAsync(new RouteFulfillResponse { Body = "mock-api" }));
         await routes.Browser.RouteAsync(new Regex(@"/echo\z"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new { intercepted = true } }));
@@ -25,6 +210,33 @@ public sealed class BrowserRouteDecisionsTests
         Assert.Equal("new-mock", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
         await routes.Browser.UnrouteAsync("**/api/quote");
         Assert.Equal("network:/api/quote", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+    });
+
+    [Fact]
+    public Task Routes_real_native_dialogs_by_kind_even_when_their_messages_are_identical() => WithRoutesAsync(async routes =>
+    {
+        var kinds = new List<E2E.Engine.DialogType>();
+        var off = await routes.Browser.OnDialogAsync((DialogHandler)(Func<E2E.Engine.Dialog, Task>)(async dialog =>
+        {
+            kinds.Add(dialog.Type);
+            if (dialog.Type == E2E.Engine.DialogType.Prompt)
+            {
+                await dialog.AcceptAsync("typed answer");
+            }
+            else if (dialog.Type == E2E.Engine.DialogType.Confirm)
+            {
+                await dialog.DismissAsync();
+            }
+            else
+            {
+                await dialog.AcceptAsync();
+            }
+        }));
+        var answers = (await routes.Browser.EvaluateAsync<DialogAnswers>(
+            "() => { window.alert('same message'); return { confirmed: window.confirm('same message'), prompt: window.prompt('same message') }; }"))!;
+        Assert.Equal([E2E.Engine.DialogType.Alert, E2E.Engine.DialogType.Confirm, E2E.Engine.DialogType.Prompt], kinds);
+        Assert.Equal(new DialogAnswers(false, "typed answer"), answers);
+        await off();
     });
 
     [Fact]
@@ -63,7 +275,7 @@ public sealed class BrowserRouteDecisionsTests
     [Theory]
     [InlineData("continue")]
     [InlineData("fallback")]
-    public Task Keeps_the_configured_site_header_through(string name) => WithRoutesAsync(async routes =>
+    public Task Keeps_the_configured_header_through(string name) => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/echo", route => name == "continue" ? route.ContinueAsync() : route.FallbackAsync());
         var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
@@ -71,7 +283,7 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
-    public Task Continue_replaces_the_request_headers_and_adds_the_site_header_on_top() => WithRoutesAsync(async routes =>
+    public Task Continue_replaces_the_request_headers_and_adds_the_configured_header_on_top() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/echo", route => route.ContinueAsync(new RouteContinueOverrides
         {
@@ -79,6 +291,26 @@ public sealed class BrowserRouteDecisionsTests
         }));
         var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
         Assert.Equal("yes", echo.Headers["x-added"]);
+        Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+    });
+
+    [Theory]
+    [InlineData("the request", "/echo")]
+    [InlineData("a redirect", "/redirect")]
+    public Task Continue_drops_a_header_set_to_undefined_on(string name, string target) => WithRoutesAsync(async routes =>
+    {
+        _ = name;
+        await routes.Browser.RouteAsync("**" + target, route => route.ContinueAsync(new RouteContinueOverrides
+        {
+            Headers = new Dictionary<string, string>(route.Request.Headers) { ["x-keep"] = "yes" },
+            DropHeaders = ["x-drop"],
+        }));
+        var echo = JsonSerializer.Deserialize<Echo>(
+            (await routes.Browser.EvaluateAsync<string>("(url) => fetch(url, { headers: { 'x-drop': 'a' } }).then((reply) => reply.text())", routes.Site.Origin + target))!,
+            JsonOptions)!;
+        Assert.Equal("/echo", echo.Path);
+        Assert.False(echo.Headers.ContainsKey("x-drop"));
+        Assert.Equal("yes", echo.Headers["x-keep"]);
         Assert.Equal("open-sesame", echo.Headers["x-gate"]);
     });
 
@@ -94,7 +326,38 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
-    public Task Continue_to_another_site_leaves_the_site_header_behind() => WithRoutesAsync(async routes =>
+    public Task Continue_to_another_port_on_the_same_host_leaves_the_configured_header_behind_and_to_a_listed_origin_keeps_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/api/unlisted", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Unlisted.Origin + "/echo" }));
+        await routes.Browser.RouteAsync("**/api/listed", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Listed.Origin + "/echo" }));
+        Assert.False((await routes.FetchEchoAsync(routes.Site.Origin + "/api/unlisted")).Headers.ContainsKey("x-gate"));
+        Assert.Equal("open-sesame", (await routes.FetchEchoAsync(routes.Site.Origin + "/api/listed")).Headers["x-gate"]);
+    });
+
+    [Fact]
+    public Task Fetch_sends_the_configured_header_to_a_listed_origin_not_another_port_on_the_same_host() => WithRoutesAsync(async routes =>
+    {
+        var sent = new System.Collections.Concurrent.ConcurrentDictionary<string, string?>(StringComparer.Ordinal);
+        await routes.Browser.RouteAsync("**/echo", async route =>
+        {
+            var echo = (await (await route.FetchAsync()).JsonAsync<Echo>())!;
+            sent[new Uri(route.Request.Url).GetLeftPart(UriPartial.Authority)] = echo.Headers.GetValueOrDefault("x-gate");
+            await route.FulfillAsync(new RouteFulfillResponse { Body = "" });
+        });
+
+        // Cross-origin from the page, so the fulfilled reply fails CORS; the route has already read the echo.
+        foreach (var target in new[] { routes.Unlisted.Origin, routes.Listed.Origin })
+        {
+            await routes.Page.EvaluateAsync("(url) => fetch(url).then(() => undefined, () => undefined)", target + "/echo");
+        }
+
+        Assert.Equal(
+            new Dictionary<string, string?> { [routes.Unlisted.Origin] = null, [routes.Listed.Origin] = "open-sesame" }.OrderBy(pair => pair.Key),
+            sent.OrderBy(pair => pair.Key));
+    });
+
+    [Fact]
+    public Task Continue_to_another_origin_leaves_the_configured_header_behind() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/quote", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Site.OtherSite + "/echo" }));
         var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/api/quote");
@@ -126,6 +389,41 @@ public sealed class BrowserRouteDecisionsTests
         Assert.Null(routes.Site.HitsOf("/api/quote"));
     });
 
+    [Theory]
+    [InlineData("a Buffer")]
+    [InlineData("a Uint8Array view")]
+    public Task Partial_Fulfills_the_body_byte_for_byte(string name) => WithRoutesAsync(async routes =>
+    {
+        // Partial: a byte[] is the one kind of bytes in C#, so the view case is a slice of a larger array, copied out, not a view over it.
+        var body = name == "a Buffer" ? CountingSite.AllBytes : new byte[] { 0xff }.Concat(CountingSite.AllBytes).Concat(new byte[] { 0xff }).ToArray()[1..257];
+        await routes.Browser.RouteAsync("**/api/quote", route => route.FulfillAsync(new RouteFulfillResponse { BodyBytes = body }));
+        Assert.Equal(CountingSite.AllBytes, await routes.FetchBytesAsync(routes.Site.Origin + "/api/quote"));
+    });
+
+    [Fact]
+    public Task Fetches_upstream_bytes_and_fulfills_them_unchanged() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/binary", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            await route.FulfillAsync(new RouteFulfillResponse { Headers = upstream.Headers, BodyBytes = await upstream.BodyAsync() });
+        });
+        Assert.Equal(CountingSite.AllBytes, await routes.FetchBytesAsync(routes.Site.Origin + "/binary"));
+    });
+
+    [Fact]
+    public Task Fulfills_a_newline_joined_set_cookie_as_one_cookie_per_line() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/api/quote", route => route.FulfillAsync(new RouteFulfillResponse
+        {
+            Headers = new Dictionary<string, string> { ["Set-Cookie"] = "a=b\nc=d; Path=/" },
+            Body = "",
+        }));
+        await routes.FetchTextAsync(routes.Site.Origin + "/api/quote");
+        var cookies = (await routes.Browser.CookiesAsync()).Select(cookie => cookie.Name + "=" + cookie.Value).Order().ToList();
+        Assert.Equal(["a=b", "c=d"], cookies);
+    });
+
     [Fact]
     public Task Fulfills_under_the_given_contentType_or_a_content_type_header() => WithRoutesAsync(async routes =>
     {
@@ -140,14 +438,17 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     // Not portable, because the C# types refuse them at compile time: an unknown
-    // fulfill key, an unknown continue key, non-string continue headers, and an
-    // abort error code.
+    // fulfill key, an unknown continue key, non-string continue headers, an
+    // abort error code, an undefined fulfill header, and a fulfill body that is
+    // neither text nor bytes.
     [Theory]
     [InlineData("two fulfill sources")]
     [InlineData("a missing fulfill file")]
     [InlineData("a fulfill status out of range")]
     [InlineData("a continue header name outside the token grammar")]
     [InlineData("a line break in a fulfill header value")]
+    [InlineData("a carriage return in a set-cookie line")]
+    [InlineData("a line break in a continue header value")]
     public Task Rejects_before_deciding_and_aborts_the_request(string name) => WithRoutesAsync(async routes =>
     {
         var (decide, message) = name switch
@@ -164,9 +465,15 @@ public sealed class BrowserRouteDecisionsTests
             "a continue header name outside the token grammar" => (
                 route => route.ContinueAsync(new RouteContinueOverrides { Headers = new Dictionary<string, string> { ["x a"] = "b" } }),
                 "route.continue has an invalid header name: \"x a\""),
-            _ => (
+            "a line break in a fulfill header value" => (
                 (Func<WebRoute, Task>)(route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["x-a"] = "b\r\nset-cookie: c=d" } })),
                 "route.fulfill header \"x-a\" must not contain a control character"),
+            "a carriage return in a set-cookie line" => (
+                route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["set-cookie"] = "a=b\r\nx-a: c" } }),
+                "route.fulfill header \"set-cookie\" must not contain a control character"),
+            _ => (
+                route => route.ContinueAsync(new RouteContinueOverrides { Headers = new Dictionary<string, string> { ["set-cookie"] = "a=b\nc=d" } }),
+                "route.continue header \"set-cookie\" must not contain a control character"),
         };
         await routes.Browser.RouteAsync("**/api/quote", decide);
         Assert.Equal("failed", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
@@ -201,6 +508,25 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
+    public Task Fails_a_navigation_its_route_aborted_as_an_action_failure_not_an_engine_fault() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/aborted", route => route.AbortAsync());
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/aborted"));
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Contains("navigation failed: a route aborted the request for " + routes.Site.Origin + "/aborted", failure.Message, StringComparison.Ordinal);
+    });
+
+    [Fact]
+    public Task Fails_a_navigation_with_the_route_error_that_aborted_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/refused", route => route.FulfillAsync(new RouteFulfillResponse { Headers = new Dictionary<string, string> { ["bad name"] = "x" } }));
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.GotoAsync(routes.Site.Origin + "/refused"));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("invalid header name: \"bad name\"", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(routes.Site.Origin + "/", await routes.Browser.UrlAsync());
+    });
+
+    [Fact]
     public Task Takes_the_decision_the_moment_fulfill_is_called_awaited_or_not() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/quote", route =>
@@ -228,12 +554,15 @@ public sealed class BrowserRouteDecisionsTests
 
     /// <summary>
     /// Runs <paramref name="body"/> against a counting server, in a session whose app
-    /// is that server, with a configured site header and a project root that holds
+    /// is that server, with a configured header and a project root that holds
     /// <c>quote.json</c>. The page is open on the server's root.
     /// </summary>
-    private static async Task WithRoutesAsync(Func<RouteSession, Task> body)
+    private static async Task WithRoutesAsync(Func<RouteSession, Task> body, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>>? fetchRoute = null)
     {
         using var site = CountingSite.Start();
+        // Another port on the app's host: the same site, another origin. Not listed, then listed.
+        using var unlisted = CountingSite.Start();
+        using var listed = CountingSite.Start();
         var projectRoot = Directory.CreateTempSubdirectory("e2e-routes-").FullName;
         try
         {
@@ -244,7 +573,11 @@ public sealed class BrowserRouteDecisionsTests
                 {
                     Headless = true,
                     Headers = new Dictionary<string, string> { ["X-Gate"] = "open-sesame" },
-                }),
+                    CredentialOrigins = [listed.Origin],
+                })
+                {
+                    FetchRoute = fetchRoute ?? ((route, options) => route.FetchAsync(options)),
+                },
                 BaseUrl = site.Origin + "/",
                 ProjectRoot = projectRoot,
                 TestTitle = "browser.route decisions",
@@ -255,7 +588,14 @@ public sealed class BrowserRouteDecisionsTests
             {
                 await session.App.OpenAsync("/");
                 site.Hits.Clear();
-                await body(new RouteSession(site, session.Browser, projectRoot));
+                var attached = new List<string>();
+                var attach = session.Browser.Attach;
+                session.Browser.Attach = (kind, relative) =>
+                {
+                    attached.Add(relative);
+                    attach(kind, relative);
+                };
+                await body(new RouteSession(site, unlisted, listed, session.Browser, projectRoot, WebEngine.SurfaceOf(session.Engine)!.Page(), attached));
             });
         }
         finally
@@ -264,15 +604,81 @@ public sealed class BrowserRouteDecisionsTests
         }
     }
 
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     private sealed record Reply(string? ContentType, string Body);
+
+    private sealed record DialogAnswers(bool Confirmed, string? Prompt);
 
     private sealed record Echo(string Path, string Method, Dictionary<string, string> Headers, string Body);
 
-    private sealed record RouteSession(CountingSite Site, Browser Browser, string ProjectRoot)
+    /// <summary>Cancels a download the test caught, once it arrived, so a body that never finishes does not outlive the test.</summary>
+    private static async Task CancelAsync(Task<IDownload> started)
     {
+        if (started.IsCompletedSuccessfully)
+        {
+            await started.Result.CancelAsync();
+        }
+    }
+
+    /// <summary>Waits for a call whose outcome the test has already checked, whatever it ends with.</summary>
+    private static async Task Settle(Task work)
+    {
+        try
+        {
+            await work;
+        }
+        catch (Exception)
+        {
+            // Checked by the test.
+        }
+    }
+
+    private sealed record RouteSession(CountingSite Site, CountingSite Unlisted, CountingSite Listed, Browser Browser, string ProjectRoot, IPage Page, List<string> Attached)
+    {
+        /// <summary>How many handlers listen for the page's <c>download</c> event.</summary>
+        public int DownloadListeners()
+        {
+            // A renamed field must fail the test, not read as no listener.
+            var field = Page.GetType().GetField("Download", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("the Playwright page keeps no field for its download event");
+            return (field.GetValue(Page) as Delegate)?.GetInvocationList().Length ?? 0;
+        }
+
+        /// <summary>Adds the page's only link, to <paramref name="href"/>.</summary>
+        public Task AddLinkAsync(string href, string text) => Page.EvaluateAsync(
+            "([href, text]) => { const link = document.createElement('a'); link.href = href; link.textContent = text; document.body.append(link); }",
+            new[] { href, text });
+
+        /// <summary>Clicks the link from the page's own script.</summary>
+        public Task ClickLinkAsync() => Page.EvaluateAsync("() => document.querySelector('a').click()");
+
+        /// <summary>The next download the page starts, caught by a listener that removes itself.</summary>
+        public Task<IDownload> NextDownload()
+        {
+            var next = new TaskCompletionSource<IDownload>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<IDownload>? handler = null;
+            handler = (_, value) =>
+            {
+                Page.Download -= handler;
+                next.TrySetResult(value);
+            };
+            Page.Download += handler;
+            return next.Task;
+        }
+
+        /// <summary>One download through <c>waitForDownload</c>, or through <c>waitForDownloads</c> with a count of one.</summary>
+        public Task Collect(string method, Func<Task> trigger, TimeSpan timeout) => method == "waitForDownload"
+            ? Browser.WaitForDownloadAsync(trigger, timeout)
+            : Browser.WaitForDownloadsAsync(trigger, 1, timeout);
+
         /// <summary>Fetches <paramref name="url"/> from the page; a failed fetch reads as <c>failed</c>.</summary>
         public async Task<string> FetchTextAsync(string url) =>
             (await Browser.EvaluateAsync<string>("(target) => fetch(target).then((reply) => reply.text(), () => 'failed')", url))!;
+
+        /// <summary>Fetches <paramref name="url"/> from the page and returns its body bytes.</summary>
+        public async Task<byte[]> FetchBytesAsync(string url) =>
+            (await Browser.EvaluateAsync<int[]>("(target) => fetch(target).then(async (reply) => [...new Uint8Array(await reply.arrayBuffer())])", url))!.Select(value => (byte)value).ToArray();
 
         /// <summary>Fetches <paramref name="url"/> from the page and returns its content type and body.</summary>
         public async Task<Reply> FetchReplyAsync(string url) =>

@@ -37,7 +37,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         ModelEndpoint.Authorize(message, _options.ResolveApiKey(), _options.ApiKeyHeader);
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
         var folded = ResponsesStream.Fold(body);
         if (folded.Error is not null)
         {
@@ -124,10 +124,20 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             ["model"] = _options.Model,
             ["instructions"] = request.System,
             ["input"] = input,
-            ["tools"] = tools,
-            ["tool_choice"] = "auto",
             ["store"] = false,
         };
+
+        // A request that asks for structured output offers no tool, and a server rejects an empty tool list.
+        if (tools.Count > 0)
+        {
+            payload["tools"] = tools;
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["name"] = request.ToolChoice.ToolName },
+                _ => "auto",
+            };
+        }
 
         // A reasoning model hands its reasoning back encrypted only when asked. The AI SDK asks every model but the chat ones.
         if (IsReasoningModel(_options.Model))
@@ -142,7 +152,23 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                 : ModelHttp.PromptCacheKey(request.System);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions", "tool_choice");
+
+        // The format joins the text options a provider option may have set (verbosity). Not strict: strict mode refuses keywords
+        // such as maxLength, and the agent validates the answer itself.
+        if (request.Schema is { } schema)
+        {
+            var text = payload["text"] as JsonObject ?? [];
+            text["format"] = new JsonObject
+            {
+                ["type"] = "json_schema",
+                ["name"] = request.SchemaName ?? "response",
+                ["schema"] = JsonNode.Parse(schema.GetRawText()),
+                ["strict"] = false,
+            };
+            payload["text"] = text;
+        }
+
         return payload;
     }
 
@@ -193,11 +219,18 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var item in root.GetProperty("output").EnumerateArray())
         {
             var type = item.TryGetProperty("type", out var kind) ? kind.GetString() : null;
             if (type == "reasoning")
             {
+                // The summary parts are the reasoning text the model shows; the encrypted content is what it takes back.
+                if (item.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array)
+                {
+                    reasoningText.AddRange(summary.EnumerateArray().Select(part => ModelHttp.OptionalString(part, "text") ?? ""));
+                }
+
                 // Without encrypted content the item cannot be replayed: its id means nothing to a backend that stored nothing.
                 if (item.TryGetProperty("encrypted_content", out var encrypted) && encrypted.ValueKind == JsonValueKind.String)
                 {
@@ -225,10 +258,10 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),
@@ -243,6 +276,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(incomplete, "content_filter"),
             RawFinishReason = incomplete,
         };

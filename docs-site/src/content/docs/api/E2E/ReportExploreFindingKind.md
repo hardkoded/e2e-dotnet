@@ -21,7 +21,7 @@ public enum ReportExploreFindingKind
 
 Whether a finding fails the exploration.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ A defect a user would hit. It fails the run.
 
 **Value:** [ReportExploreFindingKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L11)
-
 <a id="E2E_ReportExploreFindingKind_Warning"></a>
 
 ### Warning
@@ -54,5 +52,3 @@ Warning = 1
 Cosmetic or polish. It is recorded and does not fail the run.
 
 **Value:** [ReportExploreFindingKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L14)

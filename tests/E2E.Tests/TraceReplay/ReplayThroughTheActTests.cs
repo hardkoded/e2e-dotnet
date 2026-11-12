@@ -60,6 +60,37 @@ public sealed class ReplayThroughTheActTests
         Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
     }
 
+    /// <summary>Partial: the act records the list's share of the viewport and replays without the list; the replay's own checks are <c>ReplayTraceBarePointTapsTests</c>.</summary>
+    [Fact]
+    public async Task Partial_Scrolls_the_viewport_when_a_list_that_filled_the_screen_cannot_be_re_found()
+    {
+        var directory = CoreTests.TempCache();
+        var next = 0;
+        ModelResponse[] steps = [ModelResponses.Call("scroll", new { role = "group", name = "Rows 1 to 12", direction = "down", times = 2 })];
+        DocumentWorld World(bool list) => new DocumentWorld().Map("/plan", page =>
+        {
+            var scrolls = 0;
+            var status = page.Status("Scrolled 0");
+            if (list)
+            {
+                page.Roots.Add(new DocumentElement { Role = "group", Name = "Rows 1 to 12", Rect = new BoundingBox(0, 0, 1280, 720), OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls });
+            }
+
+            page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
+        });
+
+        var recorded = await ActAsync(World(list: true), directory, new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")));
+        Assert.Equal("missed", recorded.Mode);
+        var scroll = Assert.Single(ScrollTests.ReadEntry(directory).Actions);
+        Assert.Equal((2, 1.0), (scroll.Times, scroll.Spans));
+        // The recording keeps how long the app took to show its end state after the last action, plus the margin a replay waits.
+        Assert.InRange(ScrollTests.ReadEntry(directory).EndWaitMs ?? -1, 10_000, 15_000);
+
+        // The list is gone from the page, but it covered the screen: the viewport takes its scrolls.
+        var replayed = await ActAsync(World(list: false), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
+        Assert.Equal("self-finalized", replayed.Mode);
+    }
+
     [Fact]
     public async Task Partial_Repeats_a_folded_viewport_scroll_as_many_times_as_recorded_with_a_settled_look_between_repeats()
     {
@@ -110,6 +141,62 @@ public sealed class ReplayThroughTheActTests
 
         Assert.Equal(("missed", "target-ambiguous", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
         Assert.Equal(0, tapped);
+    }
+
+    [Fact]
+    public async Task A_first_action_that_fails_is_a_miss_not_a_hand_off()
+    {
+        var failing = false;
+        DocumentWorld World() => new DocumentWorld().Map("/home", page =>
+        {
+            var status = page.Status("Idle");
+            page.Button("Upgrade", () =>
+            {
+                if (failing)
+                {
+                    throw new EngineException("ACTION_FAILED", "element detached");
+                }
+
+                status.Name = status.Text = "Upgraded";
+            });
+        });
+        var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
+        failing = true;
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
+
+        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("missed", "action-failed", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_first_action_that_may_have_committed_is_a_miss_not_a_hand_off()
+    {
+        var uncertain = false;
+        DocumentWorld World() => new DocumentWorld().Map("/home", page =>
+        {
+            var status = page.Status("Idle");
+            page.Button("Upgrade", () =>
+            {
+                if (uncertain)
+                {
+                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
+                }
+
+                status.Name = status.Text = "Upgraded";
+            });
+        });
+        var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
+        uncertain = true;
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
+
+        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("missed", "action-uncertain", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -166,7 +253,7 @@ public sealed class ReplayThroughTheActTests
         Assert.Equal(("agent-concluded", "action-uncertain", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
         Assert.Contains("tap button \"Upgrade\"", replay.Cache?.Detail, StringComparison.Ordinal);
         var opening = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Replay stopped (action-uncertain) after these actions:", opening, StringComparison.Ordinal);
+        Assert.Contains("Replay stopped (action-uncertain) after 1 of 2 recorded actions.", opening, StringComparison.Ordinal);
         Assert.Contains("WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state", opening, StringComparison.Ordinal);
     }
 
@@ -223,7 +310,7 @@ public sealed class ReplayThroughTheActTests
     private static DocumentWorld Signup() => new DocumentWorld().Map("/signup", page => page.Textbox("Email"));
 
     private static ScriptedModel FillsEmail(string email) => new(request =>
-        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("filled", StringComparison.Ordinal)
+        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("Typed into", StringComparison.Ordinal)
             ? ModelResponses.Done("passed", "filled")
             : ModelResponses.Fill("textbox", "Email", email));
 
@@ -269,7 +356,7 @@ public sealed class ReplayThroughTheActTests
     }
 
     [Fact]
-    public async Task A_secret_marker_the_step_did_not_declare_hands_off_as_action_failed()
+    public async Task A_secret_marker_the_step_did_not_declare_misses_as_action_failed()
     {
         var directory = CoreTests.TempCache();
         IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email) };
@@ -284,8 +371,8 @@ public sealed class ReplayThroughTheActTests
         }, Params("<secret:absent>"));
 
         Assert.Null(second.Error);
-        Assert.Equal(("agent-concluded", "action-failed"), (cache?.Mode, cache?.Reason));
-        Assert.Contains("Replay needs secret 'absent'", cache?.Detail, StringComparison.Ordinal);
+        Assert.Equal(("missed", "action-failed"), (cache?.Mode, cache?.Reason));
+        Assert.Contains("secret \"absent\" was not declared in this step's params", cache?.Detail, StringComparison.Ordinal);
     }
 
     [Theory]

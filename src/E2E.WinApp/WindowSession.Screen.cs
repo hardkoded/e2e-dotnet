@@ -51,6 +51,7 @@ public sealed partial class WindowSession
         {
             Route = Route,
             Roots = [UiaProjection.ScreenRoot(roots, viewport)],
+            Viewport = viewport.Width >= 0.5 && viewport.Height >= 0.5 ? new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)) : null,
             Truncated = truncated,
             KeyboardVisible = null,
         };

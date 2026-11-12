@@ -15,6 +15,7 @@ Namespace: [E2E.XUnit.V3](/api/E2E.XUnit.V3/)
 
 
 ```csharp
+[TestMethodOrderer(typeof(SetupTestMethodOrderer))]
 public abstract class E2ETest : E2EFixture, IAsyncLifetime, IAsyncDisposable
 ```
 
@@ -32,7 +33,7 @@ Settings come from [E2EFixture](/api/E2E/E2EFixture/).
 
 **Implements:** `IAsyncLifetime`, [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs)
 
 ## Methods
 
@@ -60,8 +61,6 @@ is not used, because xUnit shortens long arguments in it and a display setting c
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L34)
-
 <a id="E2E_XUnit_V3_E2ETest_DisposeAsync_"></a>
 <a id="E2E_XUnit_V3_E2ETest_DisposeAsync"></a>
 
@@ -78,8 +77,6 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L94)
-
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync_"></a>
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync"></a>
 
@@ -94,5 +91,3 @@ public virtual ValueTask InitializeAsync()
 Called immediately after the class has been created, before it is used.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L67)

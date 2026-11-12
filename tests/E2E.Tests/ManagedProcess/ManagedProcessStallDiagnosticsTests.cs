@@ -88,14 +88,155 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
         Assert.Empty(notices);
     }
 
+    /// <summary>The app prints each line as its own line, so the quote's lines are the lines printed.</summary>
+    private static string[] Printed(IEnumerable<string> lines) => ["print", "stay", .. lines];
+
     [Fact]
-    public async Task Keeps_the_last_20_lines_only()
+    public async Task Quotes_every_line_the_command_appended_when_the_log_since_it_started_fits_both_windows()
     {
         var lines = Enumerable.Range(1, 25).Select(i => "line " + i).ToArray();
-        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(["print", "stay", .. lines], Log), _dir, Readiness.WaitForExit);
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
         var failure = await FailureOf(app, "line 25");
         var quoted = failure.Message.Split('\n').Skip(2).ToArray();
-        Assert.Equal(lines.Skip(5).Select(line => "  " + line), quoted);
+        Assert.Equal(lines.Select(line => "  " + line), quoted);
+    }
+
+    [Fact]
+    public async Task Quotes_the_first_and_last_20_lines_and_only_those_of_a_log_longer_than_both_windows()
+    {
+        var lines = Enumerable.Range(1, 300).Select(i => $"line {i:D3} {new string('x', 40)}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1]);
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal(41, quoted.Length);
+        Assert.Equal(lines.Take(20).Select(line => "  " + line), quoted.Take(20));
+        Assert.Equal("  [startup output omitted]", quoted[20]);
+        Assert.Equal(lines.TakeLast(20).Select(line => "  " + line), quoted.Skip(21));
+    }
+
+    [Fact]
+    public async Task Quotes_whole_lines_only_when_the_windows_cut_inside_a_line_at_either_edge()
+    {
+        // Long lines come back as one long command line, so the child builds them.
+        var lines = Enumerable.Range(1, 60).Select(i => $"line {i:D2} {new string('y', 280)}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1]);
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        var printed = quoted.Where(line => line != "  [startup output omitted]").Select(line => line[2..]).ToArray();
+        foreach (var line in printed)
+        {
+            Assert.Contains(line, lines);
+        }
+
+        Assert.Contains("  [startup output omitted]", quoted);
+        Assert.Equal(lines[0], printed[0]);
+        Assert.Equal(lines[^1], printed[^1]);
+    }
+
+    [Fact]
+    public async Task Keeps_the_complete_line_before_a_whitespace_fragment_the_head_window_cut_into()
+    {
+        // The head window ends a few bytes into this line's indent, so the fragment it cut is whitespace alone: filtering empty lines first
+        // would drop it, and the pop that removes the fragment would then take the fatal line above it.
+        var fatal = "fatal: " + new string('x', 4_080);
+        var lines = new[] { fatal, "            at Object.<anonymous> (/app/server.js:12:3)" }
+            .Concat(Enumerable.Range(1, 200).Select(i => $"watcher: rebuilt module {i}"))
+            .ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1]);
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal("  " + fatal, quoted[0]);
+    }
+
+    [Fact]
+    public async Task Leaves_an_earlier_run_out_when_the_tail_window_reaches_back_into_it()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "out"));
+        var earlier = Enumerable.Range(1, 200).Select(i => $"earlier run: line {i}");
+        await File.WriteAllTextAsync(Path.Combine(_dir, Log), string.Join('\n', earlier) + "\n");
+        var lines = Enumerable.Range(1, 40).Select(i => $"added {i}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, "added 40");
+        Assert.Equal(lines.Select(line => "  " + line), failure.Message.Split('\n').Skip(2));
+    }
+
+    [Fact]
+    public async Task Quotes_the_first_and_last_20_lines_of_a_log_that_fits_the_byte_window_but_not_the_line_budget()
+    {
+        var lines = Enumerable.Range(1, 50).Select(i => $"line {i}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, "line 50");
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal(41, quoted.Length);
+        Assert.Equal(lines.Take(20).Select(line => "  " + line), quoted.Take(20));
+        Assert.Equal("  [startup output omitted]", quoted[20]);
+        Assert.Equal(lines.TakeLast(20).Select(line => "  " + line), quoted.Skip(21));
+    }
+
+    [Fact]
+    public async Task Keeps_whole_lines_at_both_window_edges_when_the_cut_lands_exactly_between_two_lines()
+    {
+        // Each line with its newline is 256 bytes, so the 4 KiB window edges fall on line boundaries at both ends, whatever the newline is.
+        var pad = new string('z', 256 - "line 01 ".Length - Environment.NewLine.Length);
+        var lines = Enumerable.Range(1, 60).Select(i => $"line {i:D2} {pad}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1]);
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal(33, quoted.Length);
+        Assert.Equal(lines.Take(16).Select(line => "  " + line), quoted.Take(16));
+        Assert.Equal("  [startup output omitted]", quoted[16]);
+        Assert.Equal(lines.TakeLast(16).Select(line => "  " + line), quoted.Skip(17));
+    }
+
+    [Fact]
+    public async Task Keeps_the_marker_when_the_head_window_sits_inside_one_huge_first_line()
+    {
+        var lines = new[] { "fatal: " + new string('x', 5_000) }
+            .Concat(Enumerable.Range(1, 400).Select(i => $"watcher: rebuilt module {i}"))
+            .ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, "watcher: rebuilt module 400");
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal(21, quoted.Length);
+        Assert.Equal("  [startup output omitted]", quoted[0]);
+        Assert.Equal("  watcher: rebuilt module 400", quoted[20]);
+    }
+
+    [Fact]
+    public async Task Quotes_a_log_of_25_long_lines_whole_while_it_stays_inside_the_byte_window()
+    {
+        var lines = Enumerable.Range(1, 25).Select(i => $"line {i:D2} {new string('w', 241)}").ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1]);
+        Assert.Equal(lines.Select(line => "  " + line), failure.Message.Split('\n').Skip(2));
+    }
+
+    [Fact]
+    public async Task Quotes_whole_lines_around_the_marker_when_a_short_log_has_lines_longer_than_the_byte_window()
+    {
+        var lines = Enumerable.Range(1, 10).Select(i =>
+        {
+            var prefix = $"line {i} ";
+            return prefix + new string('v', 1_024 - prefix.Length);
+        }).ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, lines[^1][..24]);
+        var quoted = failure.Message.Split('\n').Skip(2).ToArray();
+        Assert.Equal(7, quoted.Length);
+        Assert.Equal(lines.Take(3).Select(line => "  " + line), quoted.Take(3));
+        Assert.Equal("  [startup output omitted]", quoted[3]);
+        Assert.Equal(lines.TakeLast(3).Select(line => "  " + line), quoted.Skip(4));
+    }
+
+    [Fact]
+    public async Task Keeps_the_first_line_the_command_wrote_when_the_log_it_appends_to_did_not_end_with_one()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "out"));
+        await File.WriteAllTextAsync(Path.Combine(_dir, Log), "from an earlier run that never finished its line");
+        var lines = new[] { "fatal: EADDRINUSE" }.Concat(Enumerable.Range(1, 400).Select(i => $"watcher: rebuilt module {i}")).ToArray();
+        var app = new ManagedProcessUnderTest("service \"compose\"", Stalled(Printed(lines), Log), _dir, Readiness.WaitForExit);
+        var failure = await FailureOf(app, "watcher: rebuilt module 400");
+        Assert.Equal("  fatal: EADDRINUSE", failure.Message.Split('\n').Skip(2).First());
     }
 
     [Fact]

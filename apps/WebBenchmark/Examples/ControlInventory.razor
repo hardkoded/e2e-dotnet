@@ -1,0 +1,427 @@
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@* Upstream's app/src/Examples/ControlInventory.tsx: the deterministic contract surface. Plain controls with every state exposed, one exercise per
+   agent verb: a checkbox and a radio to set, a radio the pick replaces with its summary, a long press and a double click to tell from a tap,
+   a context menu that opens on right-click only, a file input, the browser history, and a footnote to scroll into view. Each control reports
+   its state in a status line, and the success message shows once every exercise is done. Not a hard surface.
+   Hold timing, the right-click listener, the history listener and the footnote observer run in the page script below, in the browser the way
+   upstream's handlers do: a round trip to the server would distort the 500ms long press and the scroll state. *@
+<div style="@Container">
+    @if (Done)
+    {
+        <p data-testid="success-message" style="@SuccessText">All exercises done</p>
+    }
+    <p style="@Hint">
+        Plain controls, one exercise each. Agree to the terms and pick the Medium size; pick Express delivery; hold the Hold me button, then double-click the Double-click me button; rename report.pdf to summary.pdf through its context menu, which opens on right-click only; attach a file; open the details and return with the browser history; bring the footnote at the bottom into view.
+    </p>
+
+    <dl style="@StatusList" aria-label="Exercise states">
+        <dt style="@StatusTerm">Toggles</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Toggles state">@ToggleSummary</output>
+        </dd>
+        <dt style="@StatusTerm">Delivery</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Delivery state">@(_delivery ?? "unset")</output>
+        </dd>
+        <dt style="@StatusTerm">Hold</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Hold state">@_holdState</output>
+        </dd>
+        <dt style="@StatusTerm">Double-click</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Double-click state">@_doubleClickState</output>
+        </dd>
+        <dt style="@StatusTerm">File</dt>
+        <dd style="@StatusValue">
+            <output aria-label="File state">@_fileState</output>
+        </dd>
+        <dt style="@StatusTerm">Attachments</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Attachments state">@(_attachments.Count == 0 ? "none" : string.Join(", ", _attachments))</output>
+        </dd>
+        <dt style="@StatusTerm">Navigation</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Navigation state">@(_view == View.Details ? "on details" : _returned ? "back on the inventory" : "not opened")</output>
+        </dd>
+        <dt style="@StatusTerm">Scroll</dt>
+        <dd style="@StatusValue">
+            <output aria-label="Footnote state">@(_footnoteInView ? "in view" : "out of view")</output>
+        </dd>
+    </dl>
+
+    @if (_view == View.Details)
+    {
+        <section aria-label="Details" style="@Section">
+            <h2 style="@SectionTitle">Details</h2>
+            <p style="@Text">The inventory is one history entry back. This view has no link of its own.</p>
+        </section>
+    }
+    else
+    {
+        <section aria-label="Toggles" style="@Section">
+            <h2 style="@SectionTitle">Toggles</h2>
+            <label style="@CheckRow">
+                <input type="checkbox" @bind="_agreed" />
+                Agree to terms
+            </label>
+            <fieldset style="@Fieldset">
+                <legend style="@Legend">Size</legend>
+                @foreach (var option in Sizes)
+                {
+                    var size = option;
+                    <label style="@CheckRow">
+                        <input type="radio" name="size" value="@size" checked="@(_size == size)" @onchange="() => _size = size" />
+                        @size
+                    </label>
+                }
+            </fieldset>
+            @if (_delivery is null)
+            {
+                <fieldset style="@Fieldset">
+                    <legend style="@Legend">Delivery</legend>
+                    @foreach (var option in Deliveries)
+                    {
+                        var delivery = option;
+                        <label style="@CheckRow">
+                            <input type="radio" name="delivery" value="@delivery" @onchange="() => _delivery = delivery" />
+                            @delivery
+                        </label>
+                    }
+                </fieldset>
+            }
+            else
+            {
+                <div style="@CheckRow">
+                    <span style="@Text">@($"{_delivery} delivery selected")</span>
+                    <button type="button" style="@Button" @onclick="() => _delivery = null">Change delivery</button>
+                </div>
+            }
+        </section>
+
+        <section aria-label="Gestures" style="@Section">
+            <h2 style="@SectionTitle">Gestures</h2>
+            <div style="@ButtonRow">
+                <button type="button" data-hold-button style="@Button">Hold me</button>
+                <button type="button" style="@Button" @onclick="HandleSingleClick"
+                        @ondblclick="HandleDoubleClick">
+                    Double-click me
+                </button>
+            </div>
+        </section>
+
+        <section aria-label="Files" style="@Section">
+            <h2 style="@SectionTitle">Files</h2>
+            <ul style="@FileList">
+                @foreach (var file in _files)
+                {
+                    var current = file;
+                    <li @key="current" style="@FileRow">
+                        <span style="@FileName"
+                              @onclick="HandleFileClick"
+                              @oncontextmenu="() => OpenMenu(current)"
+                              @oncontextmenu:preventDefault="true">
+                            @current
+                        </span>
+                        @if (_menuFor == current)
+                        {
+                            <div role="menu" aria-label="@($"{current} actions")" style="@Menu">
+                                @foreach (var action in MenuActions)
+                                {
+                                    var chosen = action;
+                                    <button type="button" role="menuitem" style="@MenuItem" @onclick="() => HandleMenuAction(current, chosen)">@chosen</button>
+                                }
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+            <label style="@CheckRow">
+                Attachments
+                <InputFile multiple OnChange="HandleAttachments" />
+            </label>
+        </section>
+
+        <section aria-label="Navigation" style="@Section">
+            <h2 style="@SectionTitle">Navigation</h2>
+            <button type="button" style="@Button" @onclick="OpenDetailsAsync">Open details</button>
+        </section>
+
+        <p @ref="_footnote" style="@Footnote">Footnote</p>
+    }
+</div>
+
+@code {
+    private static readonly string[] Sizes = ["Small", "Medium", "Large"];
+    private static readonly string[] Deliveries = ["Standard", "Express"];
+    private static readonly string[] MenuActions = ["Rename", "Duplicate", "Delete"];
+    private const string TargetFile = "report.pdf";
+    private const string RenamedFile = "summary.pdf";
+    private const double LongPressMs = 500;
+    private const string DetailsQuery = "view=details";
+
+    /// <summary>
+    /// The page script (upstream's pointer, context menu, history and scroll handling, as .NET-only glue). Installed once per page with eval,
+    /// because a Razor component cannot ship a script file. Hold timing starts on pointerdown over the hold button and ends on pointerup over it,
+    /// as React's onPointerDown and onPointerUp do.
+    /// </summary>
+    private const string PageScript = """
+        window.webBenchmarkControlInventory ??= (() => {
+          let self = null;
+          let heldAt = 0;
+          let footnoteObserver = null;
+          const onPointerDown = (event) => {
+            if (event.target.closest?.("[data-hold-button]")) heldAt = performance.now();
+          };
+          const onPointerUp = (event) => {
+            if (event.target.closest?.("[data-hold-button]")) self.invokeMethodAsync("HandleHoldRelease", performance.now() - heldAt);
+          };
+          const onPopState = () => self.invokeMethodAsync("HandleLocation", window.location.search);
+          const unobserve = () => {
+            footnoteObserver?.disconnect();
+            footnoteObserver = null;
+          };
+          const api = {
+            listen(reference) {
+              api.unlisten();
+              self = reference;
+              document.addEventListener("pointerdown", onPointerDown, true);
+              document.addEventListener("pointerup", onPointerUp, true);
+              window.addEventListener("popstate", onPopState);
+              return window.location.search;
+            },
+            observe(footnote) {
+              unobserve();
+              footnoteObserver = new IntersectionObserver((entries) => {
+                self.invokeMethodAsync("HandleFootnote", entries[0]?.isIntersecting === true);
+              });
+              footnoteObserver.observe(footnote);
+            },
+            unobserve,
+            unlisten() {
+              document.removeEventListener("pointerdown", onPointerDown, true);
+              document.removeEventListener("pointerup", onPointerUp, true);
+              window.removeEventListener("popstate", onPopState);
+              unobserve();
+              self = null;
+            },
+          };
+          return api;
+        })();
+        """;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; margin: 0; line-height: 1.5;";
+    private const string SuccessText = "font-size: 18px; font-weight: 700; color: #0a7a2f; margin: 0;";
+    private const string StatusList = "display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 4px; margin: 0; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 13px;";
+    private const string StatusTerm = "color: #666;";
+    private const string StatusValue = "margin: 0; color: #111;";
+    private const string Section = "display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #e5e5e5; border-radius: 8px;";
+    private const string SectionTitle = "font-size: 15px; font-weight: 600; margin: 0;";
+    private const string Text = "font-size: 14px; color: #333; margin: 0;";
+    private const string CheckRow = "display: flex; align-items: center; gap: 8px; font-size: 14px;";
+    private const string Fieldset = "display: flex; gap: 16px; border: none; margin: 0; padding: 0;";
+    private const string Legend = "font-size: 13px; color: #666; padding: 0;";
+    private const string ButtonRow = "display: flex; gap: 12px;";
+    private const string Button = "font-size: 14px; padding: 8px 14px; border-radius: 6px; border: 1px solid #ccc; background-color: #fafafa; cursor: pointer;";
+    private const string FileList = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;";
+    private const string FileRow = "position: relative; display: flex; align-items: center;";
+    private const string FileName = "font-size: 14px; padding: 6px 8px; border-radius: 6px; cursor: default; user-select: none;";
+    private const string Menu = "position: absolute; top: 100%; left: 0; z-index: 10; display: flex; flex-direction: column; min-width: 140px; background-color: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 4px;";
+    private const string MenuItem = "font-size: 14px; text-align: left; padding: 8px 10px; border-radius: 6px; border: none; background-color: transparent; cursor: pointer;";
+    private const string Footnote = "margin-top: 1600px; font-size: 13px; color: #666;";
+
+    private enum View
+    {
+        Inventory,
+        Details,
+    }
+
+    private bool _agreed;
+    private string? _size;
+    private string? _delivery;
+    private string _holdState = "none";
+    private bool _longPressed;
+    private string _doubleClickState = "none";
+    private bool _doubleClicked;
+    private readonly List<string> _files = ["quarterly-report.pdf", TargetFile, "notes.txt"];
+    private string? _menuFor;
+    private string _fileState = "no menu open";
+    private List<string> _attachments = [];
+    private View _view = View.Inventory;
+    private bool _returned;
+    private bool _footnoteInView;
+    private bool _footnoteSeen;
+    private bool _openedDetails;
+    private bool _observingFootnote;
+    private bool _listening;
+    private ElementReference _footnote;
+    private DotNetObjectReference<ControlInventory>? _self;
+
+    private string ToggleSummary => $"{(_agreed ? "terms agreed" : "terms not agreed")}, size {_size ?? "unset"}";
+
+    private bool Renamed =>_files.Contains(RenamedFile) && !_files.Contains(TargetFile);
+
+    private bool Done =>
+        _agreed &&
+        _size == "Medium" &&
+        _delivery == "Express" &&
+        _longPressed &&
+        _doubleClicked &&
+        Renamed &&
+        _attachments.Count > 0 &&
+        _returned &&
+        _footnoteSeen;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _self = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("eval", PageScript);
+            // The view follows the URL once after mount, so a details link opens on details.
+            var search = await JS.InvokeAsync<string>("webBenchmarkControlInventory.listen", _self);
+            _listening = true;
+            ApplyLocation(search);
+            StateHasChanged();
+        }
+
+        // The footnote is only in the inventory view, so it is observed while that view is shown, as upstream's effect on the view does.
+        if (_view == View.Inventory && !_observingFootnote)
+        {
+            await JS.InvokeVoidAsync("webBenchmarkControlInventory.observe", _footnote);
+            _observingFootnote = true;
+        }
+        else if (_view == View.Details && _observingFootnote)
+        {
+            await JS.InvokeVoidAsync("webBenchmarkControlInventory.unobserve");
+            _observingFootnote = false;
+        }
+    }
+
+    /// <summary>Reads the view the URL names, the way the popstate listener does: once after mount and on every history move.</summary>
+    [JSInvokable]
+    public void HandleLocation(string search)
+    {
+        ApplyLocation(search);
+        StateHasChanged();
+    }
+
+    private void ApplyLocation(string search)
+    {
+        var next = search.Contains(DetailsQuery, StringComparison.Ordinal) ? View.Details : View.Inventory;
+        _view = next;
+        if (next == View.Inventory && _openedDetails)
+        {
+            _returned = true;
+        }
+    }
+
+    [JSInvokable]
+    public void HandleHoldRelease(double heldMs)
+    {
+        if (heldMs >= LongPressMs)
+        {
+            _holdState = "long-pressed";
+            _longPressed = true;
+        }
+        else
+        {
+            _holdState = "tapped";
+        }
+
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void HandleFootnote(bool visible)
+    {
+        _footnoteInView = visible;
+        if (visible)
+        {
+            _footnoteSeen = true;
+        }
+
+        StateHasChanged();
+    }
+
+    private void HandleSingleClick() => _doubleClickState = "clicked once";
+
+    private void HandleFileClick() => _fileState = "a click selects nothing; the menu opens on right-click";
+
+    private void HandleDoubleClick()
+    {
+        _doubleClickState = "double-clicked";
+        _doubleClicked = true;
+    }
+
+    private void OpenMenu(string file)
+    {
+        _menuFor = file;
+        _fileState = $"menu open for {file}";
+    }
+
+    private void HandleMenuAction(string file, string action)
+    {
+        _menuFor = null;
+        if (action != "Rename")
+        {
+            _fileState = "that is not the action";
+            return;
+        }
+
+        if (file != TargetFile)
+        {
+            _fileState = "that is not the file";
+            return;
+        }
+
+        _files[_files.IndexOf(file)] = RenamedFile;
+        _fileState = $"{TargetFile} renamed to {RenamedFile}";
+    }
+
+    private async Task OpenDetailsAsync()
+    {
+        _openedDetails = true;
+        try
+        {
+            // The App shell sets <base href="/">, so a bare "?view=details" would resolve against "/". Push the page's own path.
+            var path = new Uri(Navigation.Uri).GetLeftPart(UriPartial.Path);
+            await JS.InvokeVoidAsync("history.pushState", new { }, "", $"{path}?{DetailsQuery}");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit went away: there is no page left to navigate.
+            return;
+        }
+
+        _view = View.Details;
+    }
+
+    private Task HandleAttachments(InputFileChangeEventArgs args)
+    {
+        _attachments = args.GetMultipleFiles(int.MaxValue).Select(file => file.Name).ToList();
+        return Task.CompletedTask;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening)
+            {
+                await JS.InvokeVoidAsync("webBenchmarkControlInventory.unlisten");
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, so the window is gone with it.
+        }
+        finally
+        {
+            _self?.Dispose();
+        }
+    }
+}

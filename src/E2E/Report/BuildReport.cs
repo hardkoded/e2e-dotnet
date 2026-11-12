@@ -9,13 +9,16 @@ using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
 
-/// <summary>What <see cref="BuildReport.Build"/> reads (upstream's <c>BuildReportOptions</c>). The port has no resolved config, so the pieces of it the report reads are here.</summary>
+/// <summary>What <see cref="BuildReport.Build"/> reads (upstream's <c>BuildReportOptions</c>). The port has no resolver, so the pieces of the resolved config the report reads are here, and <see cref="Config"/> holds the digest.</summary>
 internal sealed record BuildReportOptions
 {
     public required string RunId { get; init; }
 
     /// <summary>The project's root: sources are reported relative to it. Null keeps them as they are.</summary>
     public string? ProjectRoot { get; init; }
+
+    /// <summary>The resolved config the run ran with (upstream's <c>config</c>); the report's <c>project.configDigest</c> reads it. Null reads as a run that failed before the config resolved.</summary>
+    public ResolvedConfig? Config { get; init; }
 
     public IReadOnlyList<TargetConfig> Targets { get; init; } = [];
 
@@ -52,6 +55,9 @@ internal sealed record BuildReportOptions
 
     public bool Ci { get; init; }
 
+    /// <summary>The run's resolved limits (upstream's <c>config.limits</c>); the defaults when null (upstream's <c>DEFAULT_LIMITS</c>).</summary>
+    public ReportLimits? Limits { get; init; }
+
     /// <summary>When the run finished; the time of the build when null (upstream's <c>timestamp()</c>).</summary>
     public DateTimeOffset? FinishedAt { get; init; }
 }
@@ -59,10 +65,14 @@ internal sealed record BuildReportOptions
 /// <summary>
 /// The run-level blocks of the report document (upstream's <c>report/build.ts</c>): the targets, the summary, the status, the usage, and
 /// the document that holds them. Not ported: serial groups, <c>carried</c> (a <c>--last-failed</c> rerun), and
-/// <c>failOnSkippedFailure</c>, since the port has no serial-suite feature, no rerun, and no such config key.
+/// <c>failOnSkippedFailure</c>, since the port has no serial-suite feature, no rerun, and no runner to act on that config key.
 /// </summary>
 internal static class BuildReport
 {
+    /// <summary>Report order of two tests: by file, then by declaration within it (upstream's <c>compareTests</c>).</summary>
+    public static int CompareTests(CollectedTest a, CollectedTest b) =>
+        a.File != b.File ? string.CompareOrdinal(a.File, b.File) : a.DeclarationIndex.CompareTo(b.DeclarationIndex);
+
     /// <summary>Upstream's <c>ENGINE_SPI_VERSION</c>.</summary>
     internal const int EngineSpiVersion = 1;
 
@@ -71,17 +81,18 @@ internal static class BuildReport
     /// without an engine is agent-tools-only and honestly reports no capabilities (upstream's <c>describeTarget</c>).
     /// </summary>
     /// <remarks>
-    /// .NET-only mapping: the port's <see cref="IEngine"/> has no name, so the name is its <see cref="IEngine.Platform"/>; its
-    /// capabilities are flags, so each is spelled in camel case as upstream spells its capability names; and it has no state hooks, so
-    /// <c>stateCapability</c> is false.
+    /// .NET-only mapping: the engine's name is <see cref="IEngine.Name"/>, which defaults to its <see cref="IEngine.Platform"/>; its
+    /// capabilities are flags, so each is spelled in camel case as upstream spells its capability names; and
+    /// <c>stateCapability</c> is whether it declares <see cref="EngineCapabilities.State"/> (upstream's <c>engine?.state !== undefined</c>),
+    /// which the <c>capabilities</c> list leaves out.
     /// </remarks>
     public static TargetProvenance DescribeTarget(IEngine? engine) =>
         engine is null
             ? new TargetProvenance(new ReportEngine("none", "unversioned", EngineSpiVersion), [], [], false)
-            : DescribeTarget(engine.Platform, engine.Version, engine.Capabilities);
+            : DescribeTarget(engine.Name, engine.Version, engine.Capabilities);
 
-    /// <summary>The description of an engine known by its platform, version, and capabilities.</summary>
-    public static TargetProvenance DescribeTarget(string platform, string version, EngineCapabilities capabilities)
+    /// <summary>The description of an engine known by its name, version, and capabilities.</summary>
+    public static TargetProvenance DescribeTarget(string name, string version, EngineCapabilities capabilities)
     {
         var artifacts = new List<string>();
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
@@ -95,10 +106,10 @@ internal static class BuildReport
         }
 
         return new TargetProvenance(
-            new ReportEngine(platform, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
-            [.. Enum.GetValues<EngineCapabilities>().Where(each => each != EngineCapabilities.None && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
+            new ReportEngine(name, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
+            [.. Enum.GetValues<EngineCapabilities>().Where(each => each is not (EngineCapabilities.None or EngineCapabilities.State) && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
             artifacts,
-            false);
+            capabilities.HasFlag(EngineCapabilities.State));
     }
 
     /// <summary>
@@ -234,10 +245,10 @@ internal static class BuildReport
                     continue;
                 }
 
-                modelTokens += (long)model.InputTokens + model.OutputTokens;
+                modelTokens = Math.Min(ModelUsage.MaxSafeInteger, modelTokens + model.InputTokens + model.OutputTokens);
                 if (model.CacheReadTokens is { } cacheRead)
                 {
-                    cachedTokens = (cachedTokens ?? 0) + cacheRead;
+                    cachedTokens = Math.Min(ModelUsage.MaxSafeInteger, (cachedTokens ?? 0) + cacheRead);
                 }
 
                 if (model.EstimatedCostUsd is { } estimated)
@@ -310,12 +321,13 @@ internal static class BuildReport
             Status = DeriveRunStatus(options.Status, options.Results, options.RunErrors),
             ExitCode = options.ExitCode,
             StartedAt = options.StartedAt,
+            Project = options.Config is { ConfigDigest.Length: 64 } config ? ReportProject.Unknown with { ConfigDigest = config.ConfigDigest } : ReportProject.Unknown,
             FinishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow,
             Environment = new ReportEnvironment(options.Ci, false, OperatingSystemName() + " " + OsRelease(), ArchitectureName(), RuntimeInformation.FrameworkDescription),
             Vcs = options.Vcs,
             Errors = options.RunErrors,
             Summary = summary,
-            Limits = ReportLimits.Default,
+            Limits = options.Limits ?? ReportLimits.Default,
             Usage = ComputeUsage(options.Results, summary.Discovered),
             Changes = options.Changes,
             Filters = options.Filters,

@@ -9,7 +9,8 @@ namespace E2E.Tests.ToolLoopOverflow;
 
 /// <summary>
 /// The port has no project tools, so upstream's read-only <c>peek</c> has no port: a tap on a button the page does not
-/// have gives the first turn a short result to spend.
+/// have gives the first turn of an act a short result to spend, and the assertion loop has a <c>peek</c> tool of its own. Upstream's closing
+/// <c>it</c> outside its <c>describe</c> is in <see cref="ToolLoopOverflowTests"/>.
 /// </summary>
 public sealed class ToolLoopContextOverflowTests
 {
@@ -20,16 +21,45 @@ public sealed class ToolLoopContextOverflowTests
     /// <summary>A screen whose text is far longer than the overflow clip, as a dense page is.</summary>
     private static DocumentWorld BigScreen() => new DocumentWorld().Map("/big", page =>
     {
+        var rows = new List<DocumentElement>();
         for (var i = 0; i < 600; i++)
         {
-            page.Paragraph("row " + i + " " + new string('x', 40));
+            rows.Add(page.Paragraph("row " + i + " " + new string('x', 40)));
         }
+
+        // Every line changes with each tap, so the screen after it goes out whole (the presenter sends changes otherwise).
+        var variant = 0;
+        page.Button("Flip", () =>
+        {
+            variant++;
+            for (var i = 0; i < rows.Count; i++)
+            {
+                rows[i].Text = "v" + variant + " row " + i + " " + new string('x', 40);
+            }
+        });
     });
 
     private static DocumentWorld EmptyScreen() => new DocumentWorld().Map("/empty", _ => { });
 
-    [Fact]
-    public async Task Shrinks_the_history_and_retries_once_when_the_provider_refuses_the_request_as_too_large()
+    /// <summary>An assertion loop of its own, which keeps the chassis's overflow recovery: the grammar's read-only tools and the screen as its prompt.</summary>
+    private static IStepExecutor AssertionLoop(bool inconclusiveOnOverflow = false) =>
+        ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
+        {
+            Name = inconclusiveOnOverflow ? "evidence-keeping-loop" : "custom-loop",
+            InconclusiveOnOverflow = inconclusiveOnOverflow,
+            Tools = (context, _) => [.. AgentTools.CreateGrammarTools(context), Peek],
+            BuildPrompt = async context => (await context.ObserveAsync()).Text,
+        });
+
+    // Upstream's read-only `peek`: a short result for a turn to spend.
+    private static readonly ToolLoopTool Peek = new(
+        new ModelTool { Name = "peek", Description = "Look at something small", Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object", "properties": {} }""").RootElement },
+        (_, _) => Task.FromResult(new ToolLoopResult("looked")));
+
+    [Theory]
+    [InlineData("act")]
+    [InlineData("assert")]
+    public async Task Shrinks_overflow_history_for_a_loop_unless_InconclusiveOnOverflow_is_set(string kind)
     {
         var requests = new List<List<string?>>();
         var model = new ScriptedModel(request =>
@@ -37,37 +67,44 @@ public sealed class ToolLoopContextOverflowTests
             requests.Add(request.Messages.Select(message => message.Content).ToList());
             return requests.Count switch
             {
-                1 => ModelResponses.Tap("button", "Peek"),
+                1 => kind == "act" ? ModelResponses.Tap("button", "Peek") : ModelResponses.Call("peek", new { }),
                 2 => throw Refusal(),
                 _ => ModelResponses.Done("passed", "read the rows"),
             };
         });
-        ActResult? result = null;
         var attempt = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/big");
-                result = await ctx.Agent.ActAsync("read the big output");
+                if (kind == "act")
+                {
+                    await ctx.Agent.ActAsync("read the big output");
+                }
+                else
+                {
+                    await ctx.Agent.AssertAsync("read the big output");
+                }
             },
             BigScreen(),
-            model);
+            model,
+            executor: kind == "assert" ? AssertionLoop() : null);
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
-        // The second request carried the whole opening screen; the retried request carries its head and a notice,
-        // and the tool result it follows is unchanged.
+        // The tool answers with the unchanged screen, a short result, so the second request carried the whole opening screen; the retried
+        // request carries its head and a notice, and the tool result it follows is unchanged.
         Assert.True(requests[1][0]!.Length > 16_384);
         Assert.True(requests[2][0]!.Length < 16_384 + 200);
         Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][0], StringComparison.Ordinal);
         Assert.Equal(requests[1][^1], requests[2][^1]);
         // The refused request never answered, so it is not a model call the step paid for.
-        Assert.Equal(2, result!.ModelCalls);
+        Assert.Equal(2, attempt.ModelCalls);
     }
 
     /// <summary>
     /// Partial port of upstream's "shrinks a pixel-mode history, where every screen rides a result with its screenshot, and
-    /// retries", so it carries another name. The port has no screenshots, so no result carries an image beside its screen. And it has no cache-friendly
-    /// budget that elides superseded screens before a refusal, so every earlier screen is still whole in the refused request.
+    /// retries", so it carries another name. Its results carry no image beside the screen, so it does not read a screenshot; the
+    /// image turn of the port's pixel mode is covered by the pixel tests.
     /// </summary>
     [Fact]
     public async Task Elides_the_superseded_screens_and_clips_the_newest_one_at_a_refusal_and_retries()
@@ -78,7 +115,7 @@ public sealed class ToolLoopContextOverflowTests
             requests.Add(request.Messages.Select(message => message.Content).ToList());
             return requests.Count switch
             {
-                <= 2 => ModelResponses.Call("observe", new { }),
+                <= 2 => ModelResponses.Tap("button", "Flip"),
                 3 => throw Refusal(),
                 _ => ModelResponses.Done("passed", "read the rows"),
             };

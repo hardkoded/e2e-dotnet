@@ -21,7 +21,7 @@ public enum StepEventKind
 
 What kind of thing a step event records.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L785)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Engine = 5
 
 **Value:** [StepEventKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L792)
-
 <a id="E2E_Reports_StepEventKind_Model"></a>
 
 ### Model
@@ -50,8 +48,6 @@ Model = 2
 
 
 **Value:** [StepEventKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L789)
 
 <a id="E2E_Reports_StepEventKind_Navigation"></a>
 
@@ -65,8 +61,6 @@ Navigation = 7
 
 **Value:** [StepEventKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L794)
-
 <a id="E2E_Reports_StepEventKind_Observation"></a>
 
 ### Observation
@@ -78,8 +72,6 @@ Observation = 1
 
 
 **Value:** [StepEventKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L788)
 
 <a id="E2E_Reports_StepEventKind_Policy"></a>
 
@@ -93,8 +85,6 @@ Policy = 4
 
 **Value:** [StepEventKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L791)
-
 <a id="E2E_Reports_StepEventKind_Poll"></a>
 
 ### Poll
@@ -106,8 +96,6 @@ Poll = 0
 
 
 **Value:** [StepEventKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L787)
 
 <a id="E2E_Reports_StepEventKind_Schema"></a>
 
@@ -121,8 +109,6 @@ Schema = 6
 
 **Value:** [StepEventKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L793)
-
 <a id="E2E_Reports_StepEventKind_ToolProposal"></a>
 
 ### ToolProposal
@@ -134,5 +120,3 @@ ToolProposal = 3
 
 
 **Value:** [StepEventKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L790)

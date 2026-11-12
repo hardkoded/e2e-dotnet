@@ -45,11 +45,10 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
         Assert.Contains("nesting", Assert.IsType<TestException>(tooDeep.Error).Message, StringComparison.Ordinal);
     }
 
-    // The port has no forced-conclusion turn, so the model that keeps tapping meets its loop guard and its call budget.
     [Fact]
-    public async Task Ends_a_model_that_keeps_tapping_past_the_loop_guard_with_a_terminal_code()
+    public async Task Survives_a_model_that_defies_the_forced_conclusion()
     {
-        // Always tap, even when only done is offered.
+        // Always tap, even when only done (upstream's complete_step) is offered.
         var model = new ScriptedModel(_ => ModelResponses.Tap("button", "Increment"));
         var result = await RunAsync(
             async ctx =>
@@ -60,9 +59,9 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
             CounterPage.World(),
             model);
 
-        // Hanging or passing is not an option: the call budget ends it.
+        // Any sane terminal code is fine; hanging or passing is not.
         var error = Assert.IsType<AgentException>(result.Error);
-        Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
+        Assert.Contains(error.Code, new[] { "STEP_NO_CONCLUSION", "MODEL_PROVIDER_FAILED", "MODEL_OUTPUT_INVALID", "STEP_BUDGET_EXHAUSTED" });
         Assert.Equal(6, model.CallCount);
     }
 

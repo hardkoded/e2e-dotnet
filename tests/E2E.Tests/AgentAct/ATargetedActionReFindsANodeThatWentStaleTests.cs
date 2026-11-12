@@ -120,7 +120,7 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
     private static string ButtonRef(ModelRequest request)
     {
         var text = string.Join('\n', request.Messages.Select(message => message.Content));
-        return Regex.Matches(text, @"button ""Tap me"" \[ref=(e\d+)\]")[^1].Groups[1].Value;
+        return Regex.Matches(text, @"#(e\d+) button ""Tap me""")[^1].Groups[1].Value;
     }
 
     private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(TinySite site, ScriptedModel model)
@@ -152,6 +152,6 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
 
         session.Complete(error);
         Assert.Null(error);
-        return (result!, session.Steps);
+        return (result!, session.StepRecords);
     }
 }

@@ -32,7 +32,7 @@ internal sealed record FailureEvidenceOptions
     public required string AttemptDir { get; init; }
 
     /// <summary>Bytes of text the screen lists before it is cut.</summary>
-    public int MaxObservationBytes { get; init; } = StepScreens.DefaultObservationBytes;
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
 }
 
 /// <summary>
@@ -72,8 +72,8 @@ internal sealed partial record FailureEvidence
 
     private const string EngineTruncationMarker = "[observation truncated: the engine stopped listing nodes at its limit]";
 
-    // The codes of a locator that matched nothing or too much: the port's, and upstream's that an agent action raises.
-    private static readonly HashSet<string> LocatorCodes = new(["NOT_FOUND", "STRICT_MODE", "TIMEOUT", "LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS"], StringComparer.Ordinal);
+    // The codes of a locator that matched nothing or too much.
+    private static readonly HashSet<string> LocatorCodes = new(["LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS"], StringComparer.Ordinal);
 
     private static readonly Regex NonWord = new(@"[^\p{L}\p{N}]+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
 
@@ -258,7 +258,7 @@ internal sealed partial record FailureEvidence
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             var nodeTestId = node.TestId is null ? null : redactor.Redact(node.TestId);
-            var roleMatched = role is not null && string.Equals(node.Role, role, StringComparison.OrdinalIgnoreCase);
+            var roleMatched = role is not null && node.Role is { } nodeRole && string.Equals(redactor.Redact(nodeRole), role, StringComparison.OrdinalIgnoreCase);
             var testIdMatched = testId is not null && nodeTestId is not null && (nodeTestId == testId || nodeTestId.Contains(testId, StringComparison.Ordinal) || testId.Contains(nodeTestId, StringComparison.Ordinal));
             var placeholder = node.Placeholder ?? (node.Attributes.TryGetValue("placeholder", out var attribute) ? attribute : null);
             var own = Tokens(redactor.Redact((node.Name ?? "") + " " + (node.Text ?? "") + " " + (placeholder ?? ""))).ToHashSet(StringComparer.Ordinal);

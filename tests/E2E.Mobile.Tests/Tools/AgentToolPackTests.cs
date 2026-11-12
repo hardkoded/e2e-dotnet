@@ -80,4 +80,72 @@ public sealed class AgentToolPackTests
         Assert.Equal("Opened com.apple.Preferences.", await Run(tools, "open_app", """{"app":"com.apple.Preferences"}"""));
         JsonAssert.Args("""{"app":"com.apple.Preferences","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
     }
+
+    private static async Task<(Harness Harness, Func<string, Task<string>> Open)> AttemptTools(Func<MobileApp, MobileApp>? app = null, bool pinned = true)
+    {
+        var h = Harness.Create(pinned: pinned, app: app);
+        await h.Boot("ios");
+        var tools = MobileTools.Create(h.Engine);
+        return (h, input => Run(tools, "open_app", input));
+    }
+
+    [Fact]
+    public async Task Returns_to_the_app_under_test_when_open_app_names_no_app()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ => new JsonObject { ["appBundleId"] = "dev.e2e.benchmark" });
+        Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("{}"));
+        JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
+        Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("""{"relaunch":true}"""));
+        JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
+    }
+
+    [Fact]
+    public async Task Asks_for_an_app_when_the_target_pins_none()
+    {
+        var (h, open) = await AttemptTools(pinned: false);
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<EngineException>(() => open("{}"));
+        Assert.Equal("INVALID_STATE", failure.Code);
+        Assert.Contains("needs the app", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
+
+    [Fact]
+    public async Task Points_a_name_no_installed_app_matches_at_the_app_under_test_without_CLI_advice()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(
+            DeviceMethods.AppsOpen,
+            _ => throw new AgentDeviceError(
+                "APP_NOT_INSTALLED",
+                "No app found matching \"e2eBenchmark\"",
+                new Dictionary<string, object?> { ["hint"] = "Run apps to discover the exact installed package or bundle id, or install the app before open." }));
+        var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":"e2eBenchmark"}"""));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Contains("Omit app to return to the app under test", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run apps", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Keeps_the_device_error_when_the_app_under_test_is_not_installed()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        h.Fake.Respond(
+            DeviceMethods.AppsOpen,
+            _ => throw new AgentDeviceError("APP_NOT_INSTALLED", "No app found matching \"dev.e2e.benchmark\""));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => open("{}"));
+        Assert.Contains("No app found matching \"dev.e2e.benchmark\"", failure.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Omit app", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Rejects_an_explicit_null_app_instead_of_returning_to_the_app_under_test()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":null,"relaunch":true}"""));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
 }

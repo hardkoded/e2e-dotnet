@@ -26,7 +26,7 @@ How [FulfillAsync(RouteFulfillResponse)](/api/E2E/WebRoute/#E2E_WebRoute_Fulfill
 
 **Implements:** [IEquatable&lt;RouteFulfillResponse&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L214)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 ## Properties
 
@@ -43,7 +43,21 @@ public string? Body { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L227)
+<a id="E2E_Engine_RouteFulfillResponse_BodyBytes_"></a>
+<a id="E2E_Engine_RouteFulfillResponse_BodyBytes"></a>
+
+### BodyBytes
+
+
+```csharp
+public byte[]? BodyBytes { get; init; }
+```
+
+
+A body of bytes, sent unchanged (upstream's `body` as a `Buffer` or `Uint8Array`). .NET-only name: C# has no
+string-or-bytes union, so [Body](#E2E_Engine_RouteFulfillResponse_Body) stays the text and this holds the bytes. Give at most one of the two.
+
+**Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
 
 <a id="E2E_Engine_RouteFulfillResponse_ContentType_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_ContentType"></a>
@@ -60,8 +74,6 @@ Sets the `Content-Type` response header.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L222)
-
 <a id="E2E_Engine_RouteFulfillResponse_Headers_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Headers"></a>
 
@@ -73,9 +85,9 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 ```
 
 
-**Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+Response headers; `set-cookie` may join several cookies with `\n`, as `route.fetch()` reports them.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L219)
+**Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
 <a id="E2E_Engine_RouteFulfillResponse_Json_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Json"></a>
@@ -92,8 +104,6 @@ A JSON-safe value, sent serialized as `application/json` unless [ContentType](#E
 
 **Value:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L225)
-
 <a id="E2E_Engine_RouteFulfillResponse_Path_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Path"></a>
 
@@ -109,8 +119,6 @@ A file relative to the project root. Its `Content-Type` follows its extension un
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L230)
-
 <a id="E2E_Engine_RouteFulfillResponse_Status_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Status"></a>
 
@@ -125,5 +133,3 @@ public int? Status { get; init; }
 HTTP status from 100 to 599. Defaults to 200.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L217)

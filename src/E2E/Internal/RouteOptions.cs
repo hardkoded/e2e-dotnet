@@ -31,7 +31,7 @@ internal static partial class RouteOptions
             throw Invalid("route.fulfill takes an options object");
         }
 
-        var sources = new[] { ("json", response.Json is not null), ("body", response.Body is not null), ("path", response.Path is not null) }
+        var sources = new[] { ("json", response.Json is not null), ("body", response.Body is not null || response.BodyBytes is not null), ("path", response.Path is not null) }
             .Where(source => source.Item2)
             .Select(source => source.Item1)
             .ToList();
@@ -45,6 +45,12 @@ internal static partial class RouteOptions
             throw Invalid("route.fulfill status must be an integer from 100 to 599");
         }
 
+        if (response.Body is not null && response.BodyBytes is not null)
+        {
+            // .NET-only: upstream's body is one value, a string or bytes.
+            throw Invalid("route.fulfill takes one of body or bodyBytes; got both");
+        }
+
         var body = response.Json is null ? response.Body : SerializeJson(response.Json);
         var file = response.Path is null ? null : resolvePath(RequireString("route.fulfill", "path", response.Path, nonempty: true));
         if (file is not null && !File.Exists(file))
@@ -52,7 +58,7 @@ internal static partial class RouteOptions
             throw Invalid("route.fulfill path is not a readable file: " + file);
         }
 
-        var headers = RequireHeaders("route.fulfill", response.Headers) ?? new Dictionary<string, string>();
+        var headers = RequireHeaders("route.fulfill", response.Headers, response: true) ?? new Dictionary<string, string>();
         var type = response.ContentType is null
             ? headers.FirstOrDefault(header => string.Equals(header.Key, "content-type", StringComparison.OrdinalIgnoreCase)).Value
             : RequireString("route.fulfill", "contentType", response.ContentType, nonempty: true);
@@ -61,7 +67,8 @@ internal static partial class RouteOptions
             Status = response.Status ?? 200,
             Headers = headers,
             ContentType = type ?? (response.Json is null ? null : "application/json"),
-            Body = file is null ? body ?? "" : null,
+            Body = file is null && response.BodyBytes is null ? body ?? "" : null,
+            BodyBytes = file is null ? response.BodyBytes : null,
             Path = file,
         };
     }
@@ -91,7 +98,8 @@ internal static partial class RouteOptions
         {
             Url = target,
             Method = overrides.Method is null ? null : RequireString("route.continue", "method", overrides.Method, nonempty: true),
-            Headers = RequireHeaders("route.continue", overrides.Headers),
+            Headers = RequireHeaders("route.continue", overrides.Headers, response: false),
+            DropHeaders = RequireDropHeaders(overrides.DropHeaders),
             PostData = overrides.PostData,
         };
     }
@@ -129,7 +137,12 @@ internal static partial class RouteOptions
         }
     }
 
-    private static Dictionary<string, string>? RequireHeaders(string api, IReadOnlyDictionary<string, string>? headers)
+    /// <summary>
+    /// A header map the browser can send, or null when none was given. A response <c>set-cookie</c> may join several cookies with
+    /// <c>\n</c>, the way Playwright reports them, and each line is checked as its own value; any other line break is refused as
+    /// header injection.
+    /// </summary>
+    private static Dictionary<string, string>? RequireHeaders(string api, IReadOnlyDictionary<string, string>? headers, bool response)
     {
         if (headers is null)
         {
@@ -138,13 +151,38 @@ internal static partial class RouteOptions
 
         foreach (var (name, value) in headers)
         {
-            if (HeaderProblem(name, value) is { } problem)
+            var lines = response && string.Equals(name, "set-cookie", StringComparison.OrdinalIgnoreCase)
+                ? value.Split('\n')
+                : [value];
+            foreach (var line in lines)
             {
-                throw Invalid(api + " " + problem);
+                if (HeaderProblem(name, line) is { } problem)
+                {
+                    throw Invalid(api + " " + problem);
+                }
             }
         }
 
         return new Dictionary<string, string>(headers, StringComparer.Ordinal);
+    }
+
+    /// <summary>The names of the request headers to drop, checked as header names, or null when none were given.</summary>
+    private static List<string>? RequireDropHeaders(IReadOnlyCollection<string>? names)
+    {
+        if (names is null)
+        {
+            return null;
+        }
+
+        foreach (var name in names)
+        {
+            if (HeaderProblem(name, "") is { } problem)
+            {
+                throw Invalid("route.continue " + problem);
+            }
+        }
+
+        return [.. names];
     }
 
     private static string RequireString(string api, string key, string value, bool nonempty)

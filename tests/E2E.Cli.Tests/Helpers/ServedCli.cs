@@ -81,7 +81,7 @@ internal sealed partial class ServedCli : IAsyncDisposable
         return InvokeAsync("call", arguments);
     }
 
-    /// <summary>The ref of the first observation line matching <paramref name="pattern"/>.</summary>
+    /// <summary>The node id of the first observation line matching <paramref name="pattern"/>.</summary>
     public static string RefOf(string text, string pattern)
     {
         var line = text.Split('\n').FirstOrDefault(candidate => Regex.IsMatch(candidate, pattern, RegexOptions.None, TimeSpan.FromSeconds(5)))
@@ -100,7 +100,7 @@ internal sealed partial class ServedCli : IAsyncDisposable
         await Client.DisposeAsync();
     }
 
-    [GeneratedRegex(@"\[ref=([^\]]+)\]")]
+    [GeneratedRegex(@"^\s*#(\S+)")]
     private static partial Regex Ref();
 
     [GeneratedRegex(@"^- (\S+?)(?: \{|:)")]

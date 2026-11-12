@@ -1,6 +1,6 @@
 ---
 title: "SoftBrowserExpect"
-description: "The browser matchers of BrowserExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
+description: "The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
 editUrl: false
 prev: false
 next: false
@@ -24,7 +24,7 @@ The browser matchers of [BrowserExpect](/api/E2E/BrowserExpect/), but an
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public SoftBrowserExpect Not { get; }
 Inverts the matcher, as [Not](/api/E2E/BrowserExpect/#E2E_BrowserExpect_Not). A failure is still kept, not thrown.
 
 **Value:** [SoftBrowserExpect](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L89)
 
 ## Methods
 
@@ -69,8 +67,6 @@ public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeo
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L97)
-
 <a id="E2E_SoftBrowserExpect_ToHaveTitleAsync_"></a>
 <a id="E2E_SoftBrowserExpect_ToHaveTitleAsync_E2E_TextMatch_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -91,8 +87,6 @@ public Task ToHaveTitleAsync(TextMatch expected, TimeSpan? timeout = null, Cance
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L95)
 
 <a id="E2E_SoftBrowserExpect_ToHaveURLAsync_"></a>
 <a id="E2E_SoftBrowserExpect_ToHaveURLAsync_System_String_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -116,8 +110,6 @@ public Task ToHaveURLAsync(string expected, bool? ignoreCase = null, TimeSpan? t
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L91)
-
 <a id="E2E_SoftBrowserExpect_ToHaveURLAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### ToHaveURLAsync(Regex, bool?, TimeSpan?, CancellationToken)
@@ -138,5 +130,3 @@ public Task ToHaveURLAsync(Regex expected, bool? ignoreCase = null, TimeSpan? ti
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L93)

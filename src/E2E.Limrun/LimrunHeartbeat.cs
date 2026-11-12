@@ -26,12 +26,15 @@ internal static class LimrunHeartbeat
         Func<TimeSpan, CancellationToken, Task> delay,
         CancellationToken cancellationToken)
     {
-        var leaseId = binding.Client["leaseId"] is JsonValue value && value.TryGetValue<string>(out var id) && id.Length > 0
-            ? id
-            : throw new InvalidOperationException("Limrun driver returned no agent-device lease id");
-
         // The lease's own stateDir selects the local daemon, whatever remote daemon the environment names.
-        var client = connect("default", new DeviceConnection { Client = binding.Client });
+        var leaseId = binding.Client["leaseId"] is JsonValue value && value.TryGetValue<string>(out var id) ? id : null;
+        var stateDirectory = binding.Client["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) ? path : null;
+        if (string.IsNullOrEmpty(stateDirectory) || string.IsNullOrEmpty(leaseId))
+        {
+            throw new InvalidOperationException("Limrun driver returned no agent-device state directory or lease id");
+        }
+
+        var client = connect(LimrunSessions.LeaseSession(stateDirectory), new DeviceConnection { Client = binding.Client });
         var stopping = new CancellationTokenSource();
 
         async Task BeatAsync(CancellationToken outer)

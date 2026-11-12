@@ -9,9 +9,6 @@ namespace E2E.Mobile;
 /// <summary>Screenshot masking policy; PNG parsing and encoding belong to <see cref="ImageOps"/>.</summary>
 public static class ScreenshotMasking
 {
-    /// <summary>The empty <c>IEND</c> chunk every PNG ends with: its length, its type, and its CRC.</summary>
-    private static ReadOnlySpan<byte> IendChunk => [0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82];
-
     /// <summary>
     /// Paints each requested rectangle opaque black, rounding outward and clipping to the image. Returns
     /// <paramref name="bytes"/> itself when there is nothing to mask. Throws <see cref="InvalidDataException"/>
@@ -22,12 +19,6 @@ public static class ScreenshotMasking
         if (rects.Count == 0)
         {
             return bytes;
-        }
-
-        // The decoder paints what a cut-short file holds; a screenshot with no end chunk is not a whole one.
-        if (!bytes.AsSpan().EndsWith(IendChunk))
-        {
-            throw new InvalidDataException("the PNG is cut short: it has no end chunk");
         }
 
         var image = ImageOps.DecodePng(bytes);

@@ -1,0 +1,52 @@
+@* Upstream's app/src/Examples/ProductReviews.tsx. *@
+<div style="@Container">
+    <div style="@ProductCard">
+        <h2 style="@ProductName">Peak Trail Running Shoes</h2>
+        <p style="@ProductMeta">$139.00 - Sizes 6 to 13 - Ships in 2 days</p>
+        <p style="@ProductDescription">
+            Lightweight trail runners with a grippy outsole and a breathable knit upper. Built for
+            long runs on rocky terrain.
+        </p>
+    </div>
+    <section>
+        <h3 style="@ReviewsTitle">
+            Customer reviews <span style="@RatingStyle">4.7 out of 5</span>
+        </h3>
+        <ul data-testid="review-list" style="@List">
+            @foreach (var review in Reviews)
+            {
+                <li @key="review.Id" data-testid="@review.Id" style="@ReviewCard">
+                    <p style="@ReviewHeader">
+                        <strong>@review.Author</strong> @(new string('★', review.Rating))
+                    </p>
+                    <p style="@ReviewText">@review.Text</p>
+                </li>
+            }
+        </ul>
+    </section>
+</div>
+
+@code {
+    private sealed record Review(string Id, string Author, int Rating, string Text);
+
+    // PLANTED BUG (do not fix): every review on this running-shoe page is clearly
+    // about a coffee grinder - wrong product's reviews are wired to the page.
+    private static readonly Review[] Reviews =
+    [
+        new("rev-1", "Marta", 5, "Grinds beans perfectly evenly - my espresso has never tasted better."),
+        new("rev-2", "Deon", 5, "Quiet enough to use before the family wakes up. The burrs feel very solid."),
+        new("rev-3", "Priya", 4, "Hopper could be bigger, but the grind settings are precise. Great for pour over."),
+    ];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 20px; padding: 24px 0;";
+    private const string ProductCard = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px;";
+    private const string ProductName = "font-size: 18px; font-weight: 700; margin: 0 0 4px;";
+    private const string ProductMeta = "font-size: 13px; color: #666; margin: 0 0 8px;";
+    private const string ProductDescription = "font-size: 14px; color: #333; margin: 0; line-height: 1.5;";
+    private const string ReviewsTitle = "font-size: 15px; font-weight: 600; margin: 0 0 10px;";
+    private const string RatingStyle = "font-weight: 400; font-size: 13px; color: #666; margin-left: 8px;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px;";
+    private const string ReviewCard = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;";
+    private const string ReviewHeader = "font-size: 14px; margin: 0 0 6px;";
+    private const string ReviewText = "font-size: 14px; color: #333; margin: 0; line-height: 1.5;";
+}

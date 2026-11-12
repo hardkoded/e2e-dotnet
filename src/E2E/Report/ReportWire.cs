@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
@@ -147,16 +148,20 @@ internal static partial class ReportWire
         return result;
     }
 
-    private static JsonObject Event(StepEvent step) => Compose(
+    internal static JsonObject Event(StepEvent step) => Compose(
         ("kind", step.Kind.ToString().ToLowerInvariant()),
         ("startedAt", Timestamp(step.StartedAt)),
         ("durationMs", Math.Max(0, step.DurationMs)),
         ("status", step.Status.ToString().ToLowerInvariant()),
         ("name", ClipOrNull(step.Name, 256)),
         ("count", step.Count),
+        ("inputTokens", step.InputTokens),
+        ("outputTokens", step.OutputTokens),
         ("bytes", step.Bytes),
+        ("decision", step.Decision?.ToString().ToLowerInvariant()),
         ("code", ClipOrNull(step.Code, 128)),
-        ("detail", ClipOrNull(step.Detail, 300)));
+        ("detail", ClipOrNull(step.Detail, 300)),
+        ("reasoning", ClipOrNull(step.Reasoning, ModelUsage.MaxReasoningChars)));
 
     private static JsonObject Compose(params (string Name, object? Value)[] fields)
     {
@@ -197,8 +202,8 @@ internal static partial class ReportWire
             ("adapterVersion", ModelHttp.PackageVersion()),
             ("policyVersion", "unversioned"),
             ("calls", Math.Max(1, model.Calls)),
-            ("tokenAccounting", "provider"),
-            ("peakTokensPerCall", 0),
+            ("tokenAccounting", model.TokenAccounting == E2E.Reports.TokenAccounting.AdapterUpperBound ? "adapter-upper-bound" : "provider"),
+            ("peakTokensPerCall", model.PeakTokensPerCall),
             ("inputTokens", Math.Max(0, model.InputTokens)),
             ("outputTokens", Math.Max(0, model.OutputTokens)),
             ("cacheReadTokens", model.CacheReadTokens),
@@ -215,6 +220,7 @@ internal static partial class ReportWire
             ("mode", cache.Mode),
             ("recordedBy", recordedBy),
             ("reason", cache.Reason),
+            ("derived", cache.Derived is { } derived ? JsonSerializer.SerializeToNode(derived, JsonDefaults.Options) : null),
             ("notRecorded", cache.NotRecorded),
             ("replayedActions", Math.Max(0, cache.ReplayedActions)),
             ("totalActions", Math.Max(0, cache.TotalActions)),
@@ -237,7 +243,8 @@ internal static partial class ReportWire
         ("actionSteps", Math.Max(0, metrics?.ActionSteps ?? 0)),
         ("observationBytes", Math.Max(0, metrics?.ObservationBytes ?? 0)),
         ("contextBytes", Math.Max(0, metrics?.ContextBytes ?? 0)),
-        ("ledgerBytes", Math.Max(0, metrics?.LedgerBytes ?? 0)));
+        ("ledgerBytes", Math.Max(0, metrics?.LedgerBytes ?? 0)),
+        ("pixelBytes", metrics?.PixelBytes is { } pixelBytes ? Math.Max(0, pixelBytes) : null));
 
     /// <summary>Upstream's <c>serializeStep</c>.</summary>
     public static JsonObject Step(StepRecord step)
@@ -277,6 +284,20 @@ internal static partial class ReportWire
         if (step.ObservationTruncated == true)
         {
             result["observationTruncated"] = true;
+        }
+
+        if (step.VisionInput == true)
+        {
+            result["visionInput"] = true;
+        }
+
+        if (step.VisionDegraded is { } degraded)
+        {
+            result["visionDegraded"] = degraded switch
+            {
+                VisionDegradation.MaskingUnproven => "MASKING_UNPROVEN",
+                _ => "UNSUPPORTED_CAPABILITY",
+            };
         }
 
         if (step.Viewport is { Width: >= 1, Height: >= 1, Scale: > 0 } viewport && double.IsFinite(viewport.Scale))
@@ -366,6 +387,7 @@ internal static partial class ReportWire
             ("url", artifact.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https" && url.Length <= 2048 ? url : null),
             ("size", size ?? artifact.Size),
             ("sha256", digest),
+            ("ref", string.IsNullOrEmpty(artifact.Ref) ? null : artifact.Ref),
             ("startedAt", artifact.StartedAt is { } startedAt ? Timestamp(startedAt) : null),
             ("redaction", complete ? "complete" : "incomplete"),
             ("producer", stepId is null ? new JsonObject { ["kind"] = "attempt" } : new JsonObject { ["kind"] = "step", ["stepId"] = stepId }));
@@ -395,7 +417,7 @@ internal static partial class ReportWire
         _ => "failed",
     };
 
-    private static string ResultStatusName(ResultStatus status) => status switch
+    internal static string ResultStatusName(ResultStatus status) => status switch
     {
         ResultStatus.Passed => "passed",
         ResultStatus.Flaky => "flaky",
@@ -459,11 +481,10 @@ internal static partial class ReportWire
     /// <summary>Upstream's <c>serializeResult</c>. <paramref name="platform"/> is the platform of the result's target when the result names none.</summary>
     public static JsonObject Result(ReportResult result, string platform, string resultsRoot)
     {
-        var title = result.TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", result.TitlePath);
         var skipped = result.Status == ResultStatus.Skipped;
         var wire = Compose(
             ("id", Sha256Pattern().IsMatch(result.Id) ? result.Id : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(result.Id)))),
-            ("testId", AttemptReport.TestId(result.File, title)),
+            ("testId", result.TestId),
             ("kind", "test"),
             ("declarationIndex", Math.Max(0, result.DeclarationIndex)),
             ("titlePath", Strings(result.TitlePath.Count == 0 ? ["(untitled)"] : result.TitlePath.Select(part => part.Length == 0 ? "(untitled)" : part), int.MaxValue)),
@@ -479,7 +500,7 @@ internal static partial class ReportWire
         if (skipped)
         {
             var reason = result.Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped);
-            wire["skip"] = Skip(reason?.Skip ?? new ReportSkip("explicit", reason?.Error?.Message ?? "skipped"));
+            wire["skip"] = Skip(result.Skip ?? new ReportSkip("explicit", reason?.Error?.Message ?? "skipped"));
         }
 
         wire["attempts"] = new JsonArray([.. result.Attempts.Select((attempt, index) => (JsonNode?)Attempt(attempt, index, resultsRoot))]);
@@ -522,7 +543,9 @@ internal static partial class ReportWire
             ("actual", Clip(finding.Actual, 2000)),
             ("reproduction", Strings(finding.Reproduction.Take(20), 500)),
             ("path", ClipOrNull(finding.Path, 2048)),
-            ("reportedAt", Timestamp(finding.ReportedAt))))])));
+            ("observationRevision", ClipOrNull(finding.ObservationRevision, 256)),
+            ("reportedAt", Timestamp(finding.ReportedAt)),
+            ("artifactId", ClipOrNull(finding.ArtifactId, 2048))))])));
 
     /// <summary>The document with every result serialized now, for a caller that keeps none.</summary>
     public static JsonObject Document(Report1Document document, string resultsRoot) =>

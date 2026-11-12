@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllDocuments } from "yaml";
 import { redirectHtml } from "./redirect.mjs";
+import { decode, plainText } from "./text.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const yamlDir = path.join(root, ".api-yaml");
@@ -196,7 +197,7 @@ function renderType(type) {
     const lines = [
         frontmatter({
             title: displayName(type),
-            description: truncate(summary || `${displayName(type)} in ${type.namespace}.`, 160),
+            description: truncate(decode(summary) || `${displayName(type)} in ${type.namespace}.`, 160),
             editUrl: false,
             prev: false,
             next: false,
@@ -269,8 +270,6 @@ function renderMember(member, pageId) {
     pushBlock(parts, renderReturns(member, pageId, valueLabel));
     pushBlock(parts, renderExceptions(member, pageId));
     pushBlock(parts, renderExtra(member, pageId));
-    const source = sourceHref(member);
-    if (source) parts.push(`[View source](${source})`, "");
     return parts.join("\n");
 }
 
@@ -368,13 +367,21 @@ function hrefBetween(fromId, toId, hash = "") {
     return `/${toId}/${hash}`;
 }
 
+function decodeUid(uid) {
+    try {
+        return decodeURIComponent(uid);
+    } catch {
+        return uid;
+    }
+}
+
 function labelFor(uid) {
     const ref = refs.get(uid);
     if (ref?.name) return ref.name;
     const item = byUid.get(uid);
     if (item) return displayName(item);
-    const short = uid.split(".").pop() || uid;
-    return short.replace(/`(\d+)/g, "<T>");
+    const short = decodeUid(uid).replace(/\(.*$/, "").split(".").pop() || uid;
+    return short.replace(/`+(\d+)/g, "<T>");
 }
 
 function displayName(item) {
@@ -408,7 +415,14 @@ function isDocumentedType(item) {
 function isVisibleMember(item, parent) {
     if (String(item.uid).endsWith("*")) return false;
     if (parent?.type === "Enum" && item.type === "Field") return true;
-    return isVisible(item, parent);
+    // docfx reports no modifier on interface members; they are public when the interface is.
+    if (parent?.type === "Interface" && !typeKinds.has(item.type) && !isHiddenByModifier(item)) return true;
+    return isVisible(item);
+}
+
+function isHiddenByModifier(item) {
+    const mods = modifiers(item);
+    return mods.includes("private") || mods.includes("internal");
 }
 
 function isVisible(item) {
@@ -452,9 +466,8 @@ function sourceHref(item) {
     const repo = String(source.remote?.repo || "https://github.com/hardkoded/e2e-dotnet.git").replace(/\.git$/, "");
     // Metadata records the branch DocFX ran on. Published links stay on main after that branch is gone.
     const branch = "main";
-    let href = `${repo}/blob/${branch}/${file.replace(/^\//, "")}`;
-    if (typeof source.startLine === "number") href += `#L${source.startLine + 1}`;
-    return href;
+    // No line anchor: a line number changes with every edit above it and churns unrelated pages.
+    return `${repo}/blob/${branch}/${file.replace(/^\//, "")}`;
 }
 
 function renderComment(value, fromId) {
@@ -491,17 +504,6 @@ function escapeAnglesOutsideCode(markdown) {
     return parts.map((part, index) => (index % 2 === 1 ? part : part.replace(/</g, "&lt;").replace(/>/g, "&gt;"))).join("");
 }
 
-function decode(value) {
-    return String(value)
-        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-}
-
 function asText(value) {
     if (value == null) return "";
     if (Array.isArray(value)) return value.map(asText).filter(Boolean).join("\n\n");
@@ -510,15 +512,7 @@ function asText(value) {
 }
 
 function plain(value) {
-    return renderComment(value, "api")
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-        .replace(/<a\s+id="[^"]+"><\/a>/g, "")
-        .replace(/[`*_]/g, "")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/\s+/g, " ")
-        .trim();
+    return plainText(renderComment(value, "api"));
 }
 
 function tableCell(value) {

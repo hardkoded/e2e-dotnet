@@ -5,19 +5,30 @@
 using E2E.Internal;
 using E2E.Tests.Traces;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
+using FailedStep = E2E.Reports.FailedStep;
+using FailureText = E2E.Reports.FailureText;
 
 namespace E2E.Tests.ReportFailureText;
 
 /// <summary>Upstream's <c>describe('failedStepOf')</c> (<c>tests/unit/report-failure-text.test.ts</c>).</summary>
 public sealed class FailedStepOfTests
 {
-    private static readonly StepRecord Caught = Step(1, api: "locator.waitFor", status: StepStatus.Failed, error: ReportBuilders.Error("LOCATOR_NOT_FOUND"));
+    private static E2E.Reports.ReportStep Step(
+        int index,
+        StepKind kind = StepKind.Locator,
+        string api = "locator.tap",
+        StepStatus status = StepStatus.Passed,
+        ReportError? error = null,
+        SourceLocation? source = null,
+        StepPhase? phase = null) => ReportBuilders.Public(FailureTextKit.Step(index, kind, api, status, error, source, phase));
 
-    private static readonly StepRecord Ended = Step(3, api: "expect.toHaveCount", status: StepStatus.Failed, error: ReportBuilders.Error("ASSERTION_FAILED"));
+    private static readonly E2E.Reports.ReportStep Caught = Step(1, api: "locator.waitFor", status: StepStatus.Failed, error: ReportBuilders.Error("LOCATOR_NOT_FOUND"));
 
-    private static readonly StepRecord[] Steps = [Step(0), Caught, Step(2), Ended];
+    private static readonly E2E.Reports.ReportStep Ended = Step(3, api: "expect.toHaveCount", status: StepStatus.Failed, error: ReportBuilders.Error("ASSERTION_FAILED"));
 
-    private static ReportAttempt Attempt(IReadOnlyList<StepRecord> steps, ReportError? error) => new() { Steps = steps, Error = error };
+    private static readonly E2E.Reports.ReportStep[] Steps = [Step(0), Caught, Step(2), Ended];
+
+    private static E2E.Reports.ReportAttempt Attempt(IReadOnlyList<E2E.Reports.ReportStep> steps, ReportError? error) => new() { Steps = steps, Error = error is null ? null : ReportBuilders.Public(error) };
 
     private static SourceLocation At(int line) => new("tests/a.e2e.ts", line, 3);
 

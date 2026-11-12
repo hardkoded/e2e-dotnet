@@ -1,0 +1,162 @@
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@* Upstream's app/src/Examples/IframeForm.tsx.
+   The coupon code sits in one iframe (srcdoc) and the form that applies it in another. The checkout frame posts its code to the parent, and the
+   parent accepts only messages from that frame's own window. Blazor has no window listener, so the script below attaches it, as upstream does in
+   an effect. *@
+@if (_applied)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">Coupon applied</p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Read the coupon code from the first frame and apply it in the second.</p>
+        <iframe title="coupon-frame" srcdoc="@CouponFrameSrcDoc" style="@CouponFrame"></iframe>
+        <iframe title="checkout-frame" srcdoc="@CheckoutFrameSrcDoc" style="@CheckoutFrame" @ref="_checkoutFrame"></iframe>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">@_error</p>
+        }
+    </div>
+}
+
+@code {
+    private const string CouponCode = "SAVE-1234";
+
+    private const string CouponFrameSrcDoc = """
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f6f6f6;">
+            <p style="font-size:18px;font-weight:600;color:#111;margin:0;">
+              Your coupon code: <span style="font-family:monospace;">SAVE-1234</span>
+            </p>
+          </body>
+        </html>
+        """;
+
+    private const string CheckoutFrameSrcDoc = """
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;font-family:sans-serif;padding:16px;">
+            <form style="display:flex;flex-direction:column;gap:12px;" onsubmit="return false;">
+              <label style="font-size:13px;color:#666;">Apply your coupon at checkout</label>
+              <input
+                id="coupon"
+                placeholder="Coupon code"
+                style="border:1px solid #ccc;border-radius:8px;padding:10px 12px;font-size:16px;"
+              />
+              <button
+                type="button"
+                id="apply"
+                style="background:#111;color:#fff;border:none;border-radius:8px;padding:12px 16px;font-size:16px;font-weight:600;cursor:pointer;"
+              >
+                Apply
+              </button>
+            </form>
+            <script>
+              document.getElementById("apply").addEventListener("click", function () {
+                var value = document.getElementById("coupon").value;
+                window.parent.postMessage({ type: "apply-coupon", code: value }, "*");
+              });
+            </script>
+          </body>
+        </html>
+        """;
+
+    /// <summary>
+    /// Listens for the checkout frame's <c>apply-coupon</c> message and hands its code to .NET, only when the message comes from that frame's own
+    /// window. Upstream's <c>handleMessage</c> effect.
+    /// </summary>
+    private const string ListenScript = """
+        window.webBenchmarkIframeForm = {
+          listen(checkoutFrame, callback) {
+            window.webBenchmarkIframeFormListener = (event) => {
+              if (event.source !== checkoutFrame.contentWindow) {
+                return;
+              }
+
+              const data = event.data;
+              if (typeof data !== "object" || data === null || data.type !== "apply-coupon") {
+                return;
+              }
+
+              if (typeof data.code !== "string") {
+                return;
+              }
+
+              callback.invokeMethodAsync("HandleApplyCoupon", data.code);
+            };
+            window.addEventListener("message", window.webBenchmarkIframeFormListener);
+          },
+          unlisten() {
+            window.removeEventListener("message", window.webBenchmarkIframeFormListener);
+          },
+        };
+        """;
+
+    private ElementReference _checkoutFrame;
+    private DotNetObjectReference<IframeForm>? _callback;
+    private bool _listening;
+    private string? _error;
+    private bool _applied;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("eval", ListenScript);
+        _callback = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("webBenchmarkIframeForm.listen", _checkoutFrame, _callback);
+        _listening = true;
+    }
+
+    /// <summary>Validates the coupon code the checkout frame applied; upstream's <c>handleMessage</c> decision.</summary>
+    [JSInvokable]
+    public void HandleApplyCoupon(string code)
+    {
+        if (code.Trim() == CouponCode)
+        {
+            _error = null;
+            _applied = true;
+        }
+        else
+        {
+            _error = "Invalid coupon code";
+        }
+
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listening)
+            {
+                await JS.InvokeVoidAsync("webBenchmarkIframeForm.unlisten");
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, so the window is gone with it.
+        }
+        finally
+        {
+            _callback?.Dispose();
+        }
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string CouponFrame = "width: 100%; height: 140px; border: 1px solid #ccc; border-radius: 8px;";
+    private const string CheckoutFrame = "width: 100%; height: 220px; border: 1px solid #ccc; border-radius: 8px;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0 0 16px;";
+}

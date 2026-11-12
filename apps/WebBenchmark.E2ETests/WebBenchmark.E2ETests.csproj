@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- The Web SDK, not the plain one: the tests host WebBenchmark in process, and only a Web project gets the static
+       web assets manifest that serves the app's _framework/blazor.web.js. -->
+  <PropertyGroup>
+    <RootNamespace>WebBenchmark.E2ETests</RootNamespace>
+    <!-- .NET SDK 11 gives every Debug Web SDK project a Blazor hot reload JS asset. This project and WebBenchmark both define it, and the build fails on the conflict. The tests need no hot reload. -->
+    <EnableHotReloadInRuntimeConfigDevFile>false</EnableHotReloadInRuntimeConfigDevFile>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NUnit" Version="5.0.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="E2E" />
+    <Using Include="E2E.NUnit" />
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+  <!-- The file-input scenarios pass these paths to setInputFiles, which resolves them from the output folder (the project root). -->
+  <ItemGroup>
+    <None Include="Fixtures\*.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\E2E.NUnit\E2E.NUnit.csproj" />
+    <ProjectReference Include="..\WebBenchmark\WebBenchmark.csproj" />
+  </ItemGroup>
+</Project>

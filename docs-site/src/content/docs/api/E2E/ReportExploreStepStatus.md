@@ -21,7 +21,7 @@ public enum ReportExploreStepStatus
 
 How an exploration step ended.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Blocked = 2
 
 **Value:** [ReportExploreStepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L24)
-
 <a id="E2E_ReportExploreStepStatus_Exhausted"></a>
 
 ### Exhausted
@@ -53,8 +51,6 @@ The step ended at its action or time budget, which is not a failure.
 
 **Value:** [ReportExploreStepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L27)
-
 <a id="E2E_ReportExploreStepStatus_Failed"></a>
 
 ### Failed
@@ -67,8 +63,6 @@ Failed = 1
 
 **Value:** [ReportExploreStepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L22)
-
 <a id="E2E_ReportExploreStepStatus_Passed"></a>
 
 ### Passed
@@ -80,5 +74,3 @@ Passed = 0
 
 
 **Value:** [ReportExploreStepStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L20)

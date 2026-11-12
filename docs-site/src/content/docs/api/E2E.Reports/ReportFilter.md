@@ -25,7 +25,7 @@ One test filter the run applied, in order (upstream's `ReportFilter`).
 
 **Implements:** [IEquatable&lt;ReportFilter&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L931)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ How many tests it was given.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L937)
-
 <a id="E2E_Reports_ReportFilter_Excluded_"></a>
 <a id="E2E_Reports_ReportFilter_Excluded"></a>
 
@@ -60,8 +58,6 @@ public int Excluded { get; init; }
 How many tests the run left out on its word.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L940)
 
 <a id="E2E_Reports_ReportFilter_Name_"></a>
 <a id="E2E_Reports_ReportFilter_Name"></a>
@@ -78,8 +74,6 @@ The filter's name.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L934)
-
 <a id="E2E_Reports_ReportFilter_Note_"></a>
 <a id="E2E_Reports_ReportFilter_Note"></a>
 
@@ -95,8 +89,6 @@ The filter's note, redacted; for a filter that failed or timed out, the warning 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L943)
-
 <a id="E2E_Reports_ReportFilter_Outcome_"></a>
 <a id="E2E_Reports_ReportFilter_Outcome"></a>
 
@@ -111,5 +103,3 @@ public FilterOutcome? Outcome { get; init; }
 Set when the filter left nothing out because the call did not answer; null when it answered.
 
 **Value:** `FilterOutcome?`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L946)

@@ -21,7 +21,7 @@ public enum CacheNotRecorded
 
 Why a recording was not kept.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L687)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -36,5 +36,3 @@ ParamCollision = 0
 
 
 **Value:** [CacheNotRecorded](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L689)

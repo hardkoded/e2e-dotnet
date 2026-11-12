@@ -36,7 +36,7 @@ internal sealed class TestLineHarness
 {
     private int _resolves;
 
-    public TestLineHarness(IReadOnlyList<Fake> screen, IReadOnlyList<Fake>? live = null, bool observed = true)
+    public TestLineHarness(IReadOnlyList<Fake> screen, IReadOnlyList<Fake>? live = null, bool observed = true, string? testRan = null)
     {
         var listed = new Fake("root", "document", "Page", Children: [.. screen]).ToNode();
         var seen = new Observation { Route = "/", Roots = [new Fake("root", "document", "Page", Children: [.. live ?? screen]).ToNode()] };
@@ -45,7 +45,8 @@ internal sealed class TestLineHarness
             Newest = () => observed ? [listed] : null,
             Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
             AppBase = new Uri("http://127.0.0.1:4100/"),
-            Secrets = ["apiKey"],
+            Fills = new TestLineFills([new TestLineCredential("admin", "ada@example.test", "admin.password")], ["apiKey"]),
+            TestRan = testRan,
             Resolve = () => (expression, _) =>
             {
                 _resolves++;

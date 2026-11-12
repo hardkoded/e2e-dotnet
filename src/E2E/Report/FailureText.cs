@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Internal;
 using static E2E.MarkdownText;
 
-namespace E2E;
+namespace E2E.Reports;
 
 /// <summary>What a trace page needs to know about where it is read and what is beside it. Upstream's <c>TracePageOptions</c>.</summary>
 internal sealed record TracePageOptions
@@ -26,10 +27,13 @@ internal sealed record TracePageOptions
 
     /// <summary>The replay cache directory as the reader should see it; a step's entry is named as a file there.</summary>
     public string? CacheDir { get; init; }
+
+    /// <summary>The page is the whole record of a hosted session: there is no <c>report.json</c> to point at.</summary>
+    public bool Standalone { get; init; }
 }
 
 /// <summary>A step that did not pass, with its position on the page.</summary>
-internal sealed record FailedStep(int Index, StepRecord Step);
+internal sealed record FailedStep(int Index, ReportStep Step);
 
 /// <summary>
 /// A failed test as text (upstream's <c>report/failure-text.ts</c>): the page that tells the whole story, with every step and the
@@ -53,6 +57,15 @@ internal static partial class FailureText
 
     /// <summary>Events a page lists under one step before saying how many more there were.</summary>
     private const int MaxStepEvents = 20;
+
+    /// <summary>Turns shown under a failed agent step on the run page; the trace page shows every kept turn.</summary>
+    private const int MaxSummaryTurns = 3;
+
+    /// <summary>Candidate nodes named on the run page; the trace page lists every one.</summary>
+    private const int MaxSummaryCandidates = 3;
+
+    /// <summary>App errors a failure block quotes; the trace page lists every one.</summary>
+    private const int MaxSummaryAppErrors = 3;
 
     /// <summary>App log lines the page lists in its own section; errors and warnings take the slots first, then the latest of the rest.</summary>
     private const int MaxAppLogLines = 50;
@@ -133,7 +146,7 @@ internal static partial class FailureText
     }
 
     /// <summary>A step's label as the reader should see it: an agent step's is a sentence the author wrote, quoted; any other step's is the locator or value it was called with, which reads as code.</summary>
-    public static string StepLabel(StepRecord step, int max = MaxLabelChars)
+    public static string StepLabel(ReportStep step, int max = MaxLabelChars)
     {
         if (step.Label.Length == 0)
         {
@@ -144,8 +157,8 @@ internal static partial class FailureText
     }
 
     /// <summary>
-    /// The attempt whose story a page tells: a flaky test's last failure; for a failed or timed-out test, the last attempt that
-    /// reached that verdict, so a retry the run interrupted tells nothing; otherwise the final one.
+    /// The attempt whose story a page tells: a flaky test's last failure; otherwise the outcome's verdict attempt, so a retry the
+    /// run interrupted tells nothing.
     /// </summary>
     public static ReportAttempt ToldAttempt(ReportResult result, Outcome final)
     {
@@ -154,12 +167,7 @@ internal static partial class FailureText
             return final.LastFailed ?? final.Final;
         }
 
-        if (result.Status is ResultStatus.Failed or ResultStatus.TimedOut)
-        {
-            return final.Attempts.LastOrDefault(attempt => attempt.Status is AttemptStatus.Failed or AttemptStatus.TimedOut) ?? final.Final;
-        }
-
-        return final.Final;
+        return final.Verdict;
     }
 
     /// <summary>
@@ -175,7 +183,7 @@ internal static partial class FailureText
 
         var candidates = attempt.Steps
             .Select((step, index) => new FailedStep(index, step))
-            .Where(item => item.Step.Status != StepStatus.Passed && (error.Phase is null || string.Equals(PhaseName(item.Step.Phase), error.Phase, StringComparison.Ordinal)))
+            .Where(item => item.Step.Status != StepStatus.Passed && (error.Phase is null || PhaseOf(item.Step.Phase) == error.Phase))
             .ToList();
         var alike = candidates.Where(item => string.Equals(item.Step.Error?.Code, error.Code, StringComparison.Ordinal)).ToList();
         if (error.Source is { } line && alike.Count > 0)
@@ -196,7 +204,7 @@ internal static partial class FailureText
         // An attempt that recorded nothing for this test, or one the run interrupted, says nothing about how the test fails.
         var failed = final.Attempts
             .Where(attempt => attempt.Status is not (AttemptStatus.Passed or AttemptStatus.Skipped or AttemptStatus.Interrupted) && (attempt.Error is not null || attempt.Steps.Count > 0))
-            .Select(attempt => (Code: Cell(attempt.Error?.Code ?? AttemptStatusName(attempt.Status), 128), Step: FailedStepOf(attempt)?.Index))
+            .Select(attempt => (Code: Cell(attempt.Error?.Code ?? KebabName(attempt.Status), 128), Step: FailedStepOf(attempt)?.Index))
             .ToList();
         if (failed.Count == 0 || final.Attempts.Count < 2 || failed.Count < 2)
         {
@@ -238,21 +246,24 @@ internal static partial class FailureText
     }
 
     /// <summary>The line to look at: the one the failure unwound through when the stack named it, else the failing step's own call, else the test's declaration.</summary>
-    public static SourceLocation FailureSource(ReportResult result, ReportAttempt told)
+    public static ReportSource FailureSource(ReportResult result, ReportAttempt told)
     {
         if (told.Error?.Source is { } fromError)
         {
             return fromError;
         }
 
-        return FailedStepOf(told)?.Step.Source ?? result.Source;
+        return FailedStepOf(told)?.Step is { Source.File: not UnknownSource } step ? step.Source : result.Source;
     }
 
+    /// <summary>What a step that names no line in the project reports as its file (upstream's <c>UNKNOWN_STEP_SOURCE</c>).</summary>
+    private const string UnknownSource = "unknown";
+
     /// <summary>Artifacts of the told attempt by id, the failure's own first, one per kind.</summary>
-    public static IReadOnlyList<ReportArtifact> EvidenceOf(ReportAttempt told)
+    public static IReadOnlyList<ArtifactRecord> EvidenceOf(ReportAttempt told)
     {
         var byId = told.Artifacts.GroupBy(artifact => artifact.Id).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-        List<ReportArtifact> own = [];
+        List<ArtifactRecord> own = [];
         foreach (var id in new[] { told.Failure?.Screenshot, told.Failure?.Screen })
         {
             if (id is not null && byId.TryGetValue(id, out var artifact))
@@ -262,11 +273,11 @@ internal static partial class FailureText
         }
 
         HashSet<string> seen = [.. own.Select(artifact => artifact.Id)];
-        HashSet<string> kinds = [];
-        List<ReportArtifact> rest = [];
+        HashSet<ArtifactKind> kinds = [];
+        List<ArtifactRecord> rest = [];
         foreach (var artifact in told.Artifacts)
         {
-            if (seen.Contains(artifact.Id) || kinds.Contains(artifact.Kind) || string.Equals(artifact.Kind, "log", StringComparison.Ordinal))
+            if (seen.Contains(artifact.Id) || kinds.Contains(artifact.Kind) || artifact.Kind == ArtifactKind.Log)
             {
                 continue;
             }
@@ -276,6 +287,111 @@ internal static partial class FailureText
         }
 
         return [.. own, .. rest];
+    }
+
+    /// <summary>Where an app log line came from, as the page names it (upstream's <c>APP_SOURCE_TEXT</c>).</summary>
+    private static string AppSourceText(AppLogSource source) => source switch { AppLogSource.Console => "console", AppLogSource.Error => "uncaught", AppLogSource.Network => "network", _ => "system" };
+
+    /// <summary>A loopback URL cannot be opened by anyone reading the page, so its path is the whole of what it says; any other URL is kept whole.</summary>
+    private static string ScreenUrl(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) && Urls.IsLoopbackHost(parsed.Host) ? parsed.PathAndQuery + parsed.Fragment : url;
+
+    /// <summary><c>file:line</c>, linked to the commit when known, else in backticks.</summary>
+    public static string SourceText(ReportSource source, Func<string, int, string>? sourceUrl)
+    {
+        var text = source.File + ":" + source.Line.ToString(CultureInfo.InvariantCulture);
+        return sourceUrl is null ? Code(text) : Link(Cell(text), sourceUrl(source.File, source.Line));
+    }
+
+    /// <summary>One turn on one line: its calls, then the first line of what came back.</summary>
+    private static string TurnLine(StepTurn turn, int max = MaxDetailChars)
+    {
+        var calls = turn.Calls.Count == 0 ? "no tool call" : string.Join(", ", turn.Calls.Select(call => Code(call, MaxLabelChars * 2)));
+        var outcome = turn.Outcome.Split('\n').FirstOrDefault(line => line.Trim().Length > 0) ?? "";
+        return "Turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + ": " + calls + (outcome.Length == 0 ? "" : " → " + Cell(outcome, max));
+    }
+
+    /// <summary><c>Turn 4: tap(...) → ...</c>, one line per kept turn, the last few of a failed agent step, for the run page.</summary>
+    public static List<string> LastTurnLines(ReportStep? step)
+    {
+        // The verdict turn repeats the explanation the block already quotes.
+        if (step?.Turns is not { } turns)
+        {
+            return [];
+        }
+
+        return [.. turns
+            .Where(turn => !(turn.Calls.Count > 0 && turn.Calls.All(call => call.StartsWith("complete_step(", StringComparison.Ordinal))))
+            .TakeLast(MaxSummaryTurns)
+            .Select(turn => TurnLine(turn, 160))];
+    }
+
+    /// <summary><c>Screen: /path</c> and <c>Closest to the locator: ...</c>, for the run page.</summary>
+    public static List<string> ScreenLines(ReportAttempt told)
+    {
+        if (told.Failure is not { } failure)
+        {
+            return [];
+        }
+
+        List<string> lines = [];
+        if (failure.Url is not null)
+        {
+            lines.Add("Screen: " + Code(ScreenUrl(failure.Url), MaxPathChars));
+        }
+
+        var candidates = failure.Candidates ?? [];
+        if (candidates.Count > 0)
+        {
+            var shown = candidates.Take(MaxSummaryCandidates).Select(line => Code(line, MaxCellChars)).ToList();
+            if (candidates.Count > shown.Count)
+            {
+                shown.Add("and " + (candidates.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
+            }
+
+            lines.Add("Closest to the locator: " + string.Join(", ", shown));
+        }
+
+        return lines;
+    }
+
+    /// <summary>The errors the app logged during an attempt, as a failure block quotes them (upstream's <c>AppErrors</c>).</summary>
+    /// <param name="Count">How many it logged.</param>
+    /// <param name="Shown">The first few, oldest first: where each came from (<c>console error</c>) and its text, loopback origins dropped.</param>
+    /// <param name="More"><c>2 more app errors logged</c>, when the block leaves some out.</param>
+    public sealed record AppErrors(int Count, IReadOnlyList<(string Label, string Text)> Shown, string? More);
+
+    /// <summary>
+    /// The errors a failure block quotes: the first few, oldest first, since a later error is often fallout of an earlier one. Each is
+    /// redacted and clipped already, as the trace page shows it.
+    /// </summary>
+    public static AppErrors AppErrorsOf(IReadOnlyList<AppLogRecord> appLog)
+    {
+        var errors = appLog.Where(entry => entry.Level == AppLogLevel.Error).OrderBy(entry => entry.At).ToList();
+        var shown = errors.Take(MaxSummaryAppErrors).Select(entry => (Label: AppSourceText(entry.Source) + " error", Text: ShortenLoopback(entry.Text))).ToList();
+        var left = errors.Count - shown.Count;
+        return new AppErrors(errors.Count, shown, left == 0 ? null : Plural(left, "more app error") + " logged");
+    }
+
+    /// <summary>
+    /// The same over the log of an attempt the list reporter holds while the run is live, as run records. .NET-only: upstream's reporters read
+    /// one record type; the port's live events carry the run's own.
+    /// </summary>
+    public static AppErrors AppErrorsOf(IReadOnlyList<E2E.AppLogRecord> appLog) =>
+        AppErrorsOf([.. appLog.Select(entry => new AppLogRecord
+        {
+            Source = Enum.Parse<AppLogSource>(entry.Source.ToString()),
+            Level = Enum.Parse<AppLogLevel>(entry.Level.ToString()),
+            Text = entry.Text,
+            At = entry.At,
+            Step = entry.Step,
+        })]);
+
+    /// <summary><c>App console error: `...`</c>, one line per error the run page quotes, then how many it left out.</summary>
+    public static List<string> AppErrorLines(ReportAttempt told)
+    {
+        var (_, shown, more) = AppErrorsOf(told.AppLog ?? []);
+        return [.. shown.Select(error => "App " + error.Label + ": " + Code(error.Text, MaxDetailChars)), .. more is null ? [] : new[] { more }];
     }
 
     /// <summary>A turn's outcome as the page quotes it: the first result lines, then every loop note, which come last and say why the step ended.</summary>
@@ -318,7 +434,7 @@ internal static partial class FailureText
     {
         var glyph = entry.Level switch { AppLogLevel.Error => "✗", AppLogLevel.Warning => "⚠", _ => "ℹ" };
         var text = Code(ShortenLoopback(entry.Text), MaxDetailChars);
-        var source = entry.Source switch { AppLogSource.Console => "console", AppLogSource.Error => "uncaught", AppLogSource.Network => "network", _ => "system" };
+        var source = AppSourceText(entry.Source);
         return entry.Level == AppLogLevel.Info
             ? glyph + " " + source + ": " + text
             : glyph + " " + source + " " + (entry.Level == AppLogLevel.Error ? "error" : "warning") + ": " + text;
@@ -329,12 +445,12 @@ internal static partial class FailureText
     /// node it landed on), each poll that waited or failed (the values it read in order), where the app went, and every line the app
     /// logged while it ran.
     /// </summary>
-    private static List<string> StepDetailLines(StepRecord step, IReadOnlyList<AppLogRecord> appLog, string? cacheDir)
+    private static List<string> StepDetailLines(ReportStep step, IReadOnlyList<AppLogRecord> appLog, string? cacheDir)
     {
         List<string> lines = [];
         if (step.Cache is { } cache)
         {
-            lines.Add(CacheLine(cache, step.CacheWrite, cacheDir));
+            lines.Add(CacheLine(cache, cacheDir));
         }
 
         var items = step.Events
@@ -357,7 +473,7 @@ internal static partial class FailureText
     /// step's number on the page, so a reader finds the log in one place rather than spread across steps. Past the cap, errors and
     /// warnings take the slots first, and a line counts what was left out.
     /// </summary>
-    private static List<string> AppLogLines(IReadOnlyList<StepRecord> steps, IReadOnlyList<AppLogRecord> appLog)
+    private static List<string> AppLogLines(IReadOnlyList<ReportStep> steps, IReadOnlyList<AppLogRecord> appLog)
     {
         var numbers = steps.Select((step, position) => (step.Index, Number: position + 1)).ToDictionary(item => item.Index, item => item.Number);
         var items = appLog.Select(entry =>
@@ -369,24 +485,24 @@ internal static partial class FailureText
         return [.. left == 0 ? [] : new[] { left.ToString(CultureInfo.InvariantCulture) + " " + (left == 1 ? "line" : "lines") + " left out" }, .. shown.Select(item => item.Line)];
     }
 
-    private static string CacheLine(CacheInfo cache, CacheWrite? write, string? cacheDir)
+    private static string CacheLine(StepCacheRecord cache, string? cacheDir)
     {
-        string Reason(string? reason, string fallback)
+        string Reason(CacheMissReason? reason, CacheMissReason fallback)
         {
-            var token = reason ?? fallback;
+            var token = KebabName(reason ?? fallback);
             return CacheReasonText.TryGetValue(token, out var text) ? text : token;
         }
 
         var how = cache.Mode switch
         {
-            "self-finalized" => "replayed all " + Plural(cache.TotalActions, "recorded action") + ", no model call",
-            "agent-concluded" => "replayed " + cache.ReplayedActions.ToString(CultureInfo.InvariantCulture) + " of " + Plural(cache.TotalActions, "recorded action") + ", then the agent took over: " + Reason(cache.Reason, "action-failed"),
-            _ => "no replay: " + Reason(cache.Reason, "no-entry"),
+            CacheMode.SelfFinalized => "replayed all " + Plural(cache.TotalActions, "recorded action") + ", no model call",
+            CacheMode.AgentConcluded => "replayed " + cache.ReplayedActions.ToString(CultureInfo.InvariantCulture) + " of " + Plural(cache.TotalActions, "recorded action") + ", then the agent took over: " + Reason(cache.Reason, CacheMissReason.ActionFailed),
+            _ => "no replay: " + Reason(cache.Reason, CacheMissReason.NoEntry),
         };
         List<string> parts = ["cache: " + how];
-        if (cache.RecordedBy is not null)
+        if (cache.RecordedBy is { } recordedBy)
         {
-            parts.Add("recorded with " + Code(cache.RecordedBy, MaxDetailChars));
+            parts.Add("recorded with " + Code(recordedBy.Provider + "/" + recordedBy.Model, MaxDetailChars));
         }
 
         if (cache.Detail is not null)
@@ -394,12 +510,12 @@ internal static partial class FailureText
             parts.Add(Cell(cache.Detail, MaxDetailChars));
         }
 
-        if (write is { } written)
+        if (cache.Write is { } written)
         {
             parts.Add(CacheWriteText[written]);
         }
 
-        if (string.Equals(cache.NotRecorded, "param-collision", StringComparison.Ordinal))
+        if (cache.NotRecorded == CacheNotRecorded.ParamCollision)
         {
             parts.Add("nothing recorded: a unique() value collides with another param");
         }
@@ -420,7 +536,7 @@ internal static partial class FailureText
                 var verb = item.Status == StepEventStatus.Passed ? "passed after" : "gave up after";
                 return (item.Name is null ? "poll" : Cell(item.Name, MaxIdChars)) + " " + verb + " " + Plural(item.Count ?? 1, "read") + " in " + FormatDuration(item.DurationMs) + (detail is null ? "" : ": " + detail);
             default:
-                var what = detail ?? Cell(item.Name ?? EventKindName(item.Kind), MaxIdChars);
+                var what = detail ?? Cell(item.Name ?? KebabName(item.Kind), MaxIdChars);
                 if (item.Status == StepEventStatus.Passed)
                 {
                     return what + " (" + FormatDuration(item.DurationMs) + ")";
@@ -465,28 +581,55 @@ internal static partial class FailureText
     /// <summary>Drops a loopback origin from the URLs in a line: nobody reading the page can open it, and the path says the rest.</summary>
     private static string ShortenLoopback(string text) => LoopbackOrigin().Replace(text, "");
 
+    /// <summary>A video artifact with the span it covers; a recording a step stopped (<c>app.StopRecordingAsync</c>) ends with that step (upstream's <c>TimedVideo</c>).</summary>
+    private sealed record TimedVideo(ArtifactRecord Artifact, DateTimeOffset StartsAt, DateTimeOffset? EndsAt);
+
+    /// <summary>The attempt's videos in the order they began, each with the span it covers (upstream's <c>timedVideos</c>).</summary>
+    private static List<TimedVideo> TimedVideos(ReportAttempt told)
+    {
+        var ends = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        foreach (var step in told.Steps)
+        {
+            ends[step.Id] = step.StartedAt.AddMilliseconds(step.DurationMs);
+        }
+
+        return
+        [
+            .. told.Artifacts
+                .Where(artifact => artifact.Kind == ArtifactKind.Video && artifact.StartedAt is not null)
+                .Select(artifact => new TimedVideo(
+                    artifact,
+                    artifact.StartedAt!.Value,
+                    artifact.Producer is { Kind: ArtifactProducerKind.Step, StepId: { } stepId } && ends.TryGetValue(stepId, out var end) ? end : null))
+                .OrderBy(video => video.StartsAt),
+        ];
+    }
+
     /// <summary>
     /// <c>, video 0:12</c>: where the step starts in the recording that was running then, the last segment that began before it. An
-    /// attempt cut into several segments (a restart opens a new page) names the segment too: <c>, video-part2 0:03</c>. Nothing
-    /// without a recording.
+    /// attempt cut into several segments (a restart opens a new page) names the segment too: <c>, video-part2 0:03</c>. A step before the
+    /// attempt's video began is at 0:00; one outside every recording a step stopped gets nothing.
     /// </summary>
-    private static string VideoOffset(StepRecord step, IReadOnlyList<ReportArtifact> videos)
+    private static string VideoOffset(ReportStep step, IReadOnlyList<TimedVideo> videos)
     {
-        if (videos.Count == 0)
+        var at = step.StartedAt;
+        var timed = videos.LastOrDefault(candidate => candidate.StartsAt <= at && (candidate.EndsAt is not { } end || at < end))
+            ?? videos.FirstOrDefault(candidate => candidate.EndsAt is null && at < candidate.StartsAt);
+        if (timed is null)
         {
             return "";
         }
 
-        var video = videos.LastOrDefault(candidate => candidate.StartedAt <= step.StartedAt) ?? videos[0];
-        var seconds = Math.Max(0, (long)Math.Floor((step.StartedAt - video.StartedAt!.Value).TotalSeconds));
+        var video = timed.Artifact;
+        var seconds = Math.Max(0, (long)Math.Floor((at - timed.StartsAt).TotalSeconds));
         var name = videos.Count > 1 && video.Path is not null ? System.IO.Path.GetFileNameWithoutExtension(video.Path) : "video";
         return ", " + name + " " + (seconds / 60).ToString(CultureInfo.InvariantCulture) + ":" + (seconds % 60).ToString("00", CultureInfo.InvariantCulture);
     }
 
     /// <summary>The kind (or <paramref name="label"/>) of an artifact, linked from the page when it is at hand, and the file's path so the reader finds it.</summary>
-    private static string ArtifactPath(ReportArtifact artifact, TracePageOptions options, string? label = null)
+    private static string ArtifactPath(ArtifactRecord artifact, TracePageOptions options, string? label = null)
     {
-        var kind = Cell(label ?? artifact.Kind, MaxIdChars);
+        var kind = Cell(label ?? KebabName(artifact.Kind), MaxIdChars);
 
         // A video a hosted service keeps is its own link, wherever the run's files are.
         if (artifact.Url is not null)
@@ -521,12 +664,6 @@ internal static partial class FailureText
         _ => "skipped",
     };
 
-    private static string AttemptStatusName(AttemptStatus status) => status switch
-    {
-        AttemptStatus.TimedOut => "timed-out",
-        _ => status.ToString().ToLowerInvariant(),
-    };
-
     private static string StepGlyph(StepStatus status) => status switch
     {
         StepStatus.Passed => "✓",
@@ -534,18 +671,23 @@ internal static partial class FailureText
         _ => "✗",
     };
 
-    /// <summary>A step's hook as upstream spells it: <c>beforeEach</c>, <c>afterEach</c>, <c>body</c> for the test itself.</summary>
-    private static string PhaseName(StepPhase? phase) => phase switch
+    /// <summary>The error phase a step's hook stands for: <c>beforeEach</c>, <c>afterEach</c>, <c>body</c> for the test itself.</summary>
+    private static ErrorPhase PhaseOf(StepPhase? phase) => phase switch
     {
-        StepPhase.BeforeEach => "beforeEach",
-        StepPhase.AfterEach => "afterEach",
-        _ => "body",
+        StepPhase.BeforeEach => ErrorPhase.BeforeEach,
+        StepPhase.AfterEach => ErrorPhase.AfterEach,
+        _ => ErrorPhase.Body,
     };
 
-    private static string EventKindName(StepEventKind kind) => kind.ToString().ToLowerInvariant();
+    /// <summary>A phase as the schema spells it: <c>beforeEach</c>.</summary>
+    internal static string PhaseText(ErrorPhase phase) => JsonNamingPolicy.CamelCase.ConvertName(phase.ToString());
+
+    /// <summary>An enum value as the schema spells most of them: <c>timed-out</c>.</summary>
+    internal static string KebabName<T>(T value)
+        where T : struct, Enum => JsonNamingPolicy.KebabCaseLower.ConvertName(value.ToString());
 
     /// <summary>Renders one traced result as its own markdown page: a failed or flaky one tells its failure, a passing one its steps.</summary>
-    public static string RenderTracePage(Report1Document report, ReportResult result, Outcome final, TracePageOptions? options = null)
+    public static string RenderTracePage(Report report, ReportResult result, Outcome final, TracePageOptions? options = null)
     {
         options ??= new TracePageOptions();
         var run = report.Run;
@@ -571,7 +713,7 @@ internal static partial class FailureText
 
         if (told.Error is { } error)
         {
-            var phase = error.Phase is null or "body" ? "" : " in " + Cell(error.Phase, MaxIdChars);
+            var phase = error.Phase is null or ErrorPhase.Body ? "" : " in " + Cell(PhaseText(error.Phase.Value), MaxIdChars);
             lines.AddRange(["**" + Cell(error.Code, 128) + "**" + phase, "", "```text", error.Message.Replace("```", "'''", StringComparison.Ordinal), "```", ""]);
 
             // An assertion's message already spells out expected and observed; the facts line would repeat the block above it.
@@ -617,15 +759,15 @@ internal static partial class FailureText
         var at = FailedStepOf(told);
         if (told.Steps.Count > 0)
         {
-            var videos = told.Artifacts.Where(artifact => string.Equals(artifact.Kind, "video", StringComparison.Ordinal) && artifact.StartedAt is not null).OrderBy(artifact => artifact.StartedAt).ToList();
+            var videos = TimedVideos(told);
             lines.AddRange(["## Steps", ""]);
             for (var index = 0; index < told.Steps.Count; index++)
             {
                 var step = told.Steps[index];
-                var own = step.Source is { } location ? " — " + Code(location.File + ":" + location.Line.ToString(CultureInfo.InvariantCulture), MaxPathChars) : "";
+                var own = step.Source.File == UnknownSource ? "" : " — " + Code(step.Source.File + ":" + step.Source.Line.ToString(CultureInfo.InvariantCulture), MaxPathChars);
                 var calls = step.Metrics is null or { ModelCalls: 0 } ? "" : ", " + Plural(step.Metrics.ModelCalls, "model call");
-                var failed = step.Status == StepStatus.Passed ? "" : " — **" + Cell(step.Error?.Code ?? StepNames.Of(step.Status), 128) + "**";
-                var hook = step.Phase is { } phase ? " in " + PhaseName(phase) : "";
+                var failed = step.Status == StepStatus.Passed ? "" : " — **" + Cell(step.Error?.Code ?? KebabName(step.Status), 128) + "**";
+                var hook = step.Phase is { } phase ? " in " + PhaseText(PhaseOf(phase)) : "";
                 var label = StepLabel(step, MaxCellChars);
                 lines.Add(
                     (index + 1).ToString(CultureInfo.InvariantCulture) + ". " + StepGlyph(step.Status) + " " + Code(step.Api, MaxIdChars) + (label.Length == 0 ? "" : " " + label)
@@ -635,10 +777,10 @@ internal static partial class FailureText
                     lines.Add("   > " + Cell(step.Explanation, MaxDetailChars));
                 }
 
-                lines.AddRange(StepDetailLines(step, told.AppLog, options.CacheDir).Select(line => "   - " + line));
+                lines.AddRange(StepDetailLines(step, told.AppLog ?? [], options.CacheDir).Select(line => "   - " + line));
                 foreach (var artifact in told.Artifacts)
                 {
-                    if (string.Equals(artifact.Kind, "screenshot", StringComparison.Ordinal) && step.Artifacts.Contains(artifact.Id))
+                    if (artifact.Kind == ArtifactKind.Screenshot && step.Artifacts.Contains(artifact.Id))
                     {
                         lines.Add("   - " + ArtifactPath(artifact, options));
                     }
@@ -650,7 +792,7 @@ internal static partial class FailureText
             lines.Add("");
         }
 
-        var appLog = AppLogLines(told.Steps, told.AppLog);
+        var appLog = AppLogLines(told.Steps, told.AppLog ?? []);
         if (appLog.Count > 0)
         {
             lines.AddRange(["## App log", "", "What the app logged, oldest first, with the step it happened in.", ""]);
@@ -683,7 +825,7 @@ internal static partial class FailureText
             lines.AddRange(["## Also failed", ""]);
             foreach (var secondary in told.SecondaryErrors)
             {
-                var phase = secondary.Phase is null ? "" : " in " + Cell(secondary.Phase, MaxIdChars);
+                var phase = secondary.Phase is null ? "" : " in " + Cell(PhaseText(secondary.Phase.Value), MaxIdChars);
                 lines.Add("- **" + Cell(secondary.Code, 128) + "**" + phase + ": " + Cell(secondary.Message, MaxDetailChars));
             }
 
@@ -694,11 +836,12 @@ internal static partial class FailureText
         if (evidence.Count > 0)
         {
             lines.AddRange(["## Evidence", ""]);
-            lines.AddRange(evidence.Select(artifact => "- " + ArtifactPath(artifact, options, string.Equals(artifact.Id, told.Failure?.Screen, StringComparison.Ordinal) ? "screen" : artifact.Kind)));
+            lines.AddRange(evidence.Select(artifact => "- " + ArtifactPath(artifact, options, string.Equals(artifact.Id, told.Failure?.Screen, StringComparison.Ordinal) ? "screen" : KebabName(artifact.Kind))));
             lines.Add("");
         }
 
-        lines.Add("<sub>e2e " + Cell(run.RunnerVersion, MaxIdChars) + " · run " + Code(run.Id, MaxIdChars) + "</sub>");
+        var footer = "e2e " + Cell(run.Runner.Version, MaxIdChars) + " · run " + Code(run.Id, MaxIdChars);
+        lines.Add("<sub>" + (options.Standalone ? footer : footer + " · the whole run is in `report.json`") + "</sub>");
         return string.Join('\n', lines) + "\n";
     }
 

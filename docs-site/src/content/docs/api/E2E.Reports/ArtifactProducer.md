@@ -25,7 +25,7 @@ Who made an artifact (upstream's `ArtifactRecord['producer']`).
 
 **Implements:** [IEquatable&lt;ArtifactProducer&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L442)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public ArtifactProducerKind Kind { get; init; }
 
 **Value:** [ArtifactProducerKind](/api/E2E.Reports/ArtifactProducerKind/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L444)
-
 <a id="E2E_Reports_ArtifactProducer_StepId_"></a>
 <a id="E2E_Reports_ArtifactProducer_StepId"></a>
 
@@ -58,5 +56,3 @@ public string? StepId { get; init; }
 The step's id, when a step made it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L447)

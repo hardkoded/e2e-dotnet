@@ -1,0 +1,104 @@
+---
+title: Test filters
+description: Run only the tests a change can affect, with --changed-since style filters in an NUnit or xUnit v3 run.
+---
+
+A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit and xUnit v3.
+
+## Turn it on
+
+Derive the run fixture, as in [setup](/docs/), and override `Filters`:
+
+```csharp
+// Outside any namespace, so it covers the whole assembly.
+[SetUpFixture]
+public sealed class AppCommands : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
+```
+
+With xUnit v3, derive the assembly fixture and register that type in place of `E2ERunFixture`:
+
+```csharp
+public sealed class Filtered : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
+
+[assembly: AssemblyFixture(typeof(Filtered))]
+```
+
+The filters run once, before the first test, and only when a base ref is set:
+
+- `ChangedSince` on the fixture, or
+- the `E2E_CHANGED_SINCE` environment variable (for example `E2E_CHANGED_SINCE=origin/main dotnet test`).
+
+With no base ref, every test runs. A session that `e2e mcp` opens on a named test (`open_session {test}`) is never filtered. With a base ref and no filter, every test runs and a warning says so.
+
+A filter's name keys the report and errors, so the fixture checks the list when it resolves the config. A name follows the target name rules (ASCII letters, numbers, `_`, `-`, or `.`, and not only dots), is at most 256 characters, and is unique in the list. A null item is refused. Each refusal is a `ConfigurationException` with the code `INVALID_CONFIG`.
+
+In GitLab CI/CD, set `E2E_CHANGED_SINCE` to the merge request's base: see [Run only affected tests](/integrations/gitlab/#run-only-affected-tests).
+
+## Rerun what failed
+
+Set `E2E_LAST_FAILED=1` (or `true`), or override `protected virtual bool LastFailed` on the run fixture, to run only the tests the last run did not pass. The fixture reads the previous `report.json` from the output folder. Without one, the run stops with `NO_LAST_RUN`: run once without the flag first. A rerun removes the files in `results/` that the previous report does not name, and writes its own attempts to `results/<test>/rerun-<n>/attempt-<n>`. The evidence of the attempt it reruns, its video included, stays, even when the rerun passes.
+
+- A test that failed, timed out, was interrupted, or was skipped by a setup, a predecessor, the worker, or a limit runs again. Every other test skips itself with `did not fail in the last run`.
+- If a base ref is also set, the filters are not asked: a filter cannot turn a real failure green.
+- What the last run owed and this run did not run is kept in `run.carried` of the new `report.json`, until a session runs it.
+- Reporters get the previous report as `FinishedRun.LastRun`. The GitHub reporter folds the rerun into it.
+- When nothing is owed, every test skips itself. Upstream ends that run with `NO_TESTS`.
+
+## What happens
+
+1. The fixture finds the tests of the assembly by reflection: every public method of a non-abstract `E2ETest` that has `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]` (NUnit), or `[Fact]` or `[Theory]` (xUnit v3). `[Explicit]` classes and methods are not judged. A parameterized method is one test.
+2. It asks git for the files changed since the base ref (the merge base, uncommitted and untracked files included).
+3. Each filter gets the tests the earlier filters kept, in order, and returns the ones to leave out with a reason.
+4. A left-out test skips itself at its start: `Assert.Ignore(reason)` in NUnit, a skip with the reason in xUnit v3.
+5. The run's `report.json` gets the part upstream's runner adds (see below).
+
+A filter that throws, answers with something invalid, or runs past 5 minutes leaves nothing out, with a warning. Notes go to the NUnit progress output, and to the standard error stream in xUnit v3.
+
+## In the report
+
+`report.json` tells what the filters did:
+
+- `run.changes` holds the base commit and how many files changed, or `skipped` with the reason no filter ran (for example, no files changed).
+- `run.filters` lists each filter with the tests it judged (`candidates`), the tests it left out (`excluded`), its note, and an `outcome` when it failed or timed out.
+- Each test left out is a result with status `skipped`, `selected: false`, and `skip: { cause: "filtered", reason, filter }`. It has no attempts, and the summary's `selected` does not count it.
+
+The reporters read these from the report. The markdown reporter prints the filter lines and a "left out by filters" section. A run in which every test is left out still writes `report.json`. Nothing is written when no filter had a say (no base ref).
+
+## Writing a filter
+
+```csharp
+public sealed class ChangedFilesFilter : ITestFilter
+{
+    public string Name => "changed-files";
+
+    public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
+        Task.FromResult(new TestFilterResult
+        {
+            Exclude = tests
+                .Where(test => !context.Changes.Files.Contains(test.File))
+                .ToDictionary(test => test.Id, test => $"{test.File} did not change"),
+        });
+}
+```
+
+Each `TestFilterCandidate` has `Id`, `File`, `TitlePath`, and `Tags`. `Tags` are the `[Category]` values (NUnit) or the `TestCategory` trait values (xUnit v3, `[Trait("TestCategory", "Slow")]`) of the method, its class, its enclosing classes, and the assembly.
+
+## Where a test's file comes from
+
+Reflection does not name a source file. The fixture guesses it from the layout: the file is `<TypeName>.cs` (the outermost class for a nested one) in a folder that follows the namespace. Of the files with that name under the project root (the folder of `e2e.config.json`), the one whose folders match the most trailing namespace parts wins. With none, the namespace folders themselves are the guess.
+
+This is a convention. It is wrong when a class lives in a file with another name, or when several classes share one file. Name files after their class, or check `test.File` in your filter.
+
+## Mobile and Windows apps
+
+`MobileAppTest` and `WinAppTest` (NUnit and xUnit v3) derive from `E2ETest`, so the run fixture finds their tests and leaves out the same way. A left-out test never installs or opens the app. In xUnit v3 it is also skipped before the run leases a hosted device. In NUnit, `MobileAppTest` leases the device once per run, even when every test of its fixture is left out.
+
+## Not included yet
+
+- `filters` in `e2e.config.json`, `--changed-since` and `--no-filter` flags, and `e2e list` and `e2e run` output: the port has no runner or CLI for them. A filter is code, so it is given on the run fixture.

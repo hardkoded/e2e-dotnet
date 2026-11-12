@@ -22,7 +22,7 @@ public enum EngineCapabilities
 
 Capabilities the harness reads off an engine. An engine never calls a model.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Fields
 
@@ -38,8 +38,6 @@ Actions = 2
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L13)
-
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
 ### History
@@ -54,8 +52,6 @@ History = 32
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L21)
-
 <a id="E2E_Engine_EngineCapabilities_Keyboard"></a>
 
 ### Keyboard
@@ -67,8 +63,6 @@ Keyboard = 8
 
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L15)
 
 <a id="E2E_Engine_EngineCapabilities_Location"></a>
 
@@ -82,8 +76,6 @@ Location = 4
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L14)
-
 <a id="E2E_Engine_EngineCapabilities_None"></a>
 
 ### None
@@ -95,8 +87,6 @@ None = 0
 
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L11)
 
 <a id="E2E_Engine_EngineCapabilities_Observation"></a>
 
@@ -110,8 +100,6 @@ Observation = 1
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L12)
-
 <a id="E2E_Engine_EngineCapabilities_PinnedApp"></a>
 
 ### PinnedApp
@@ -122,12 +110,26 @@ PinnedApp = 512
 ```
 
 
-The engine opens no URL: `CancellationToken)` relaunches the app the target pins. .NET-only name for upstream's
+The engine opens no URL: `OpenAsync` relaunches the app the target pins. .NET-only name for upstream's
 `launchesPinnedApp`, which tests for a session with a `restart` and no `open`; the port's `OpenAsync` is not optional.
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L36)
+<a id="E2E_Engine_EngineCapabilities_Resize"></a>
+
+### Resize
+
+
+```csharp
+Resize = 4096
+```
+
+
+`ResizeAsync`: the engine sets the viewport size, which the
+agent's `resize_viewport` tool needs. .NET-only name for upstream's optional `session.resize`, whose being defined lists the
+`resize` verb; C# has no optional member to test, so this declares it.
+
+**Value:** [EngineCapabilities](./)
 
 <a id="E2E_Engine_EngineCapabilities_Screenshot"></a>
 
@@ -143,8 +145,6 @@ Screenshot = 64
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L24)
-
 <a id="E2E_Engine_EngineCapabilities_Scroll"></a>
 
 ### Scroll
@@ -159,7 +159,21 @@ The viewport swipe, [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/),
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L18)
+<a id="E2E_Engine_EngineCapabilities_State"></a>
+
+### State
+
+
+```csharp
+State = 2048
+```
+
+
+[CaptureStateAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_CaptureStateAsync_System_Threading_CancellationToken_) and `RestoreStateAsync`: the engine saves and restores the
+app's state, which a saved session needs. .NET-only name for upstream's optional `engine.state`, which the report records as
+`stateCapability`; the report's `capabilities` does not list it.
+
+**Value:** [EngineCapabilities](./)
 
 <a id="E2E_Engine_EngineCapabilities_TapModifiers"></a>
 
@@ -175,7 +189,20 @@ The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L27)
+<a id="E2E_Engine_EngineCapabilities_Upload"></a>
+
+### Upload
+
+
+```csharp
+Upload = 1024
+```
+
+
+[LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/): the engine attaches files to a file input, or to a control that opens a file chooser. .NET-only
+name for the `upload` verb an upstream engine lists in its `verbs`.
+
+**Value:** [EngineCapabilities](./)
 
 <a id="E2E_Engine_EngineCapabilities_Video"></a>
 
@@ -190,5 +217,3 @@ Video = 256
 [StartVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StartVideoAsync_System_Threading_CancellationToken_) and [StopVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StopVideoAsync_System_Threading_CancellationToken_): the engine can record the attempt as video.
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L30)

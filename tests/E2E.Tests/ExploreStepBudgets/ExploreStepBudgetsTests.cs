@@ -7,7 +7,8 @@ using Explorer = E2E.Explore;
 namespace E2E.Tests.ExploreStepBudgets;
 
 // .NET-only: upstream has no test for this. It reads `maxSteps ?? DEFAULT_STEP_BUDGET` where the config entry may leave the key out;
-// the port keeps that "left out" as null, since an int cannot tell an absent key from an explicit 25.
+// the port keeps that "left out" as null, since an int cannot tell an absent key from an explicit 25. The last test is .NET-only too: it checks
+// how `WithStepBudgets` joins the signed-in sentence into the context (upstream sets it as the test's `agentContext`).
 public sealed class ExploreStepBudgetsTests
 {
     private static readonly string Root = Path.GetTempPath();
@@ -53,5 +54,17 @@ public sealed class ExploreStepBudgetsTests
         Assert.Equal(25, explorer.MaxSteps);
         Assert.Equal(25, explorer.MaxModelCalls);
         Assert.Equal(40, Explorer.WithStepBudgets(new AgentOptions()).MaxSteps);
+    }
+
+    [Fact]
+    public void Adds_the_signed_in_sentence_to_the_context_of_an_exploration_from_a_session()
+    {
+        var config = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1", "context": "Be brief." } } }""", Root, _ => null);
+
+        var explorer = Explorer.WithStepBudgets(config.Agent.CreateOptions(), "admin");
+        var plain = Explorer.WithStepBudgets(config.Agent.CreateOptions());
+
+        Assert.Equal("Be brief.\n" + global::E2E.ExplorePlan.SignedInContext("admin"), explorer.Context);
+        Assert.Equal("Be brief.", plain.Context);
     }
 }

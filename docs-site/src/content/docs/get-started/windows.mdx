@@ -3,13 +3,11 @@ title: Windows
 description: Drive a WinUI, WPF, WinForms, or Win32 app with WinAppEngine.
 ---
 
-import { CardGrid, LinkCard } from '@astrojs/starlight/components';
-
 `WinAppEngine` drives a Windows app through Windows UI Automation. WinUI 3, WPF, WinForms, and Win32 apps all expose it. The engine runs on Windows only and needs no other tool installed.
 
 ## Prerequisites
 
-- Windows 10 or 11 and the .NET 10 SDK.
+- Windows 10 or 11 and the .NET 10 or 11 SDK.
 - An unlocked, interactive desktop. Keys, clicks, and the wheel go to the window in the foreground, so a locked screen or a CI runner without a desktop session fails them with `NOT_ACTIONABLE`.
 - An app the engine can start: an unpackaged build, such as WinUI 3 with `WindowsPackageType` set to `None`, WPF, or WinForms.
 
@@ -96,16 +94,10 @@ Roles follow the browser vocabulary: a `Button` is `button`, an edit is `textbox
 ## 4. Run
 
 ```bash
-dotnet test --project .
-dotnet test --project . --filter "TestCategory!=RealModel"   # no model
+dotnet test
+dotnet test --filter "TestCategory!=RealModel"  # no model
 ```
 
 ## Known limits
 
-No video, `App.BackAsync` is `UNSUPPORTED_CAPABILITY` (tap the app's own Back button), and a screenshot is the main window only.
-
-## Next
-
-<CardGrid>
-  <LinkCard title="WinApp benchmark" href={`${import.meta.env.BASE_URL}samples/winapp-benchmark/`} description="A WinUI 3 app of hard scenarios and its tests." />
-</CardGrid>
+No video, `App.BackAsync` is `UNSUPPORTED_CAPABILITY` (tap the app's own Back button), and a screenshot is the main window only. A screenshot masks secure fields only, after a secret fill too, so a value shown anywhere else reaches your model provider: use test credentials.

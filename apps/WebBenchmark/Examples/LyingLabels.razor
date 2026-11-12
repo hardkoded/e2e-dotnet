@@ -1,0 +1,85 @@
+@* Upstream's app/src/Examples/LyingLabels.tsx.
+   The accessibility tree actively lies: every button carries an aria-label that belongs to a different button, hidden screen-reader-only text
+   warns against the correct control, and in the second step the two inputs have their aria-labels and placeholders swapped relative to their
+   visible labels. The visible text is the only source of truth. *@
+<div style="@Container">
+    @if (_step == Step.Done)
+    {
+        <p data-testid="success-message" style="@SuccessText">Payment sent</p>
+    }
+    else if (_step == Step.Choose)
+    {
+        <p style="@Hint">Click the button that visibly says Pay now.</p>
+        <button type="button" aria-label="Cancel order" style="@Button" @onclick="() => HandleChoice(true)"><span style="@SrOnly">Do not press this button</span>Pay now</button>
+        <button type="button" aria-label="Pay now" style="@Button" @onclick="() => HandleChoice(false)"><span style="@SrOnly">Pay now safely</span>Cancel order</button>
+        <button type="button" aria-label="Confirm payment" style="@Button" @onclick="() => HandleChoice(false)">Contact support</button>
+    }
+    else
+    {
+        <p style="@Hint">Type @Amount into the field visibly labeled Amount, leave Reference empty, then submit.</p>
+        <div style="@FieldRow">
+            <span style="@FieldLabel">Amount</span>
+            <input aria-label="Reference" placeholder="Reference" style="@Input" @bind="_amountValue" @bind:event="oninput" />
+        </div>
+        <div style="@FieldRow">
+            <span style="@FieldLabel">Reference</span>
+            <input aria-label="Amount" placeholder="Amount" style="@Input" @bind="_referenceValue" @bind:event="oninput" />
+        </div>
+        <button type="button" aria-label="Discard draft" style="@Button" @onclick="HandleSubmit">Submit payment</button>
+    }
+    @if (_error is not null)
+    {
+        <p data-testid="error-message" style="@ErrorText">@_error</p>
+    }
+</div>
+
+@code {
+    private const string Amount = "42.50";
+
+    private enum Step
+    {
+        Choose,
+        Form,
+        Done,
+    }
+
+    private Step _step = Step.Choose;
+    private string? _error;
+    private string _amountValue = "";
+    private string _referenceValue = "";
+
+    private void HandleChoice(bool correct)
+    {
+        if (!correct)
+        {
+            _error = "You clicked the wrong action";
+            return;
+        }
+
+        _error = null;
+        _step = Step.Form;
+    }
+
+    /// <summary>Validates that the amount landed in the field visibly labeled Amount (whose aria-label falsely says Reference) and the other field is empty.</summary>
+    private void HandleSubmit()
+    {
+        if (_amountValue.Trim() != Amount || _referenceValue.Trim() != "")
+        {
+            _error = $"Type {Amount} into the field visibly labeled Amount, leave Reference empty";
+            return;
+        }
+
+        _error = null;
+        _step = Step.Done;
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string FieldRow = "display: flex; align-items: center; gap: 12px;";
+    private const string FieldLabel = "width: 90px; font-size: 14px;";
+    private const string Input = "flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string SrOnly = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+}

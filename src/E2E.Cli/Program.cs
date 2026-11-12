@@ -26,8 +26,11 @@ public static partial class Program
           e2e guide [topic]
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
+          e2e init [directory] [--yes] [--example <name>] [--framework <id>] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>] [--install | --no-install]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
+          e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json]
+          e2e cache <ls|clear|stats> [--config <path>] [--cache-dir <dir>]
 
         e2e install downloads browsers for the Playwright version E2E runs. It installs chromium when no browser is named.
 
@@ -37,10 +40,17 @@ public static partial class Program
           opencode-console  OpenCode Console workspace (OpenCode Zen and Go)
           spacexai          SuperGrok or X Premium+
 
+        e2e init scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
+        It asks the questions no flag answered; --yes takes the defaults instead. e2e init --help lists its flags.
+
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
 
+        e2e doctor checks that e2e explore and e2e mcp can start here, without starting anything: the runtime, the config, each target's engine, and each agent's model. e2e doctor --help lists its options.
+
+        e2e cache reads the replay cache the runs write: ls lists the cached traces, stats prints the entry count and size, and clear deletes them. e2e cache --help lists its options.
+
         e2e mcp serves a coding agent such as Claude Code over MCP (stdio): the fixed tools and the guide
-        resources. Register it with: claude mcp add e2e -- e2e mcp
+        resources. Each action prints the test line that repeats it, or says why it has none, so the agent writes a test while it walks the real app. Register it with: claude mcp add e2e -- e2e mcp
 
         Credentials live in $XDG_CONFIG_HOME/e2e/oauth.json (or ~/.config/e2e/oauth.json).
         E2E_OAUTH_CREDENTIALS holding the same JSON stands in for the file. Use API keys in CI.
@@ -68,7 +78,11 @@ public static partial class Program
     }
 
     /// <summary>Runs one command. The writers and reader are test seams.</summary>
-    public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    public static Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken) =>
+        RunAsync(args, stdout, stderr, stdin, interactive, cancellationToken, cwd: null);
+
+    /// <summary>Runs one command. <paramref name="cwd"/> is the working directory <c>explore</c> searches for its config from; the process's by default.</summary>
+    internal static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken, string? cwd)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -86,7 +100,22 @@ public static partial class Program
 
         if (args[0] == "explore")
         {
-            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken).ConfigureAwait(false);
+            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken, cwd).ConfigureAwait(false);
+        }
+
+        if (args[0] == "doctor")
+        {
+            return await DoctorCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, cancellationToken, cwd).ConfigureAwait(false);
+        }
+
+        if (args[0] == "cache")
+        {
+            return CacheCommand.Run(args.Skip(1), stdout, stderr, interactive, cwd);
+        }
+
+        if (args[0] == "init")
+        {
+            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive, cancellationToken).ConfigureAwait(false);
         }
 
         if (args[0] == "install")
@@ -109,6 +138,33 @@ public static partial class Program
             default:
                 await stderr.WriteLineAsync("unknown command \"" + args[0] + "\"\n\n" + Usage).ConfigureAwait(false);
                 return 1;
+        }
+    }
+
+    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    {
+        if (args.Contains("--help") || args.Contains("-h"))
+        {
+            await stdout.WriteLineAsync(InitFlags.Usage).ConfigureAwait(false);
+            return 0;
+        }
+
+        var (options, error) = InitFlags.Parse(args);
+        if (options is null)
+        {
+            await stderr.WriteLineAsync(error + "\n\n" + InitFlags.Usage).ConfigureAwait(false);
+            return 2;
+        }
+
+        var root = Path.GetFullPath(options.Directory ?? Environment.CurrentDirectory);
+        try
+        {
+            return (await Init.RunAsync(root, options with { Interactive = interactive, Prompts = new ConsolePrompts(stdin, stdout) }, stdout, cancellationToken).ConfigureAwait(false)).ExitCode;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            await stderr.WriteLineAsync("error: " + Clean(ex.Message)).ConfigureAwait(false);
+            return 2;
         }
     }
 

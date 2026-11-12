@@ -36,6 +36,8 @@ public static class DeviceCommands
                 return new DeviceCommand("boot", [], flags);
             case DeviceMethods.CommandPrepare:
                 return new DeviceCommand("prepare", Take(flags, "action"), flags);
+            case DeviceMethods.CommandDoctor:
+                return new DeviceCommand("doctor", [], flags);
             case DeviceMethods.CommandBack:
                 return new DeviceCommand("back", [], flags);
             case DeviceMethods.AppsOpen:
@@ -46,6 +48,10 @@ public static class DeviceCommands
                 return new DeviceCommand("install", Take(flags, "app", "appPath"), flags);
             case DeviceMethods.AppsReinstall:
                 return new DeviceCommand("reinstall", Take(flags, "app", "appPath"), flags);
+            case DeviceMethods.AppsList:
+                return new DeviceCommand("apps", [], flags);
+            case DeviceMethods.AppsUninstall:
+                return new DeviceCommand("uninstall", Take(flags, "app"), flags);
             case DeviceMethods.SessionsList:
                 return new DeviceCommand("session_list", [], flags);
             case DeviceMethods.SessionsClose:
@@ -84,6 +90,8 @@ public static class DeviceCommands
                 return new DeviceCommand("keyboard", Take(flags, "action"), flags);
             case DeviceMethods.CommandAlert:
                 return new DeviceCommand("alert", Take(flags, "action"), flags);
+            case DeviceMethods.CommandHardwareButton:
+                return new DeviceCommand("hardware-button", Take(flags, "button"), flags);
             case DeviceMethods.CommandHome:
                 return new DeviceCommand("home", [], flags);
             case DeviceMethods.CommandOrientation:
@@ -113,10 +121,10 @@ public static class DeviceCommands
     /// The params of a lease request, as the client's lease writer sends them. Each field is the call's option, else the
     /// client configuration's: <c>tenant</c> is <c>tenantId</c> on the wire and <c>leaseBackend</c> is <c>backend</c>.
     /// Allocate carries the lease's life (<c>ttlMs</c>, <c>retainOnClose</c>) and its backend, heartbeat and release the
-    /// lease id, heartbeat also <c>ttlMs</c>. No session is named, so the daemon takes <c>default</c>, as it does for the
-    /// upstream client the engine hands no session to.
+    /// lease id, heartbeat also <c>ttlMs</c>. Each names the client's <paramref name="session"/>, which agent-device
+    /// requires of a provider lease.
     /// </summary>
-    public static JsonObject LeaseParameters(DeviceCommand command, JsonObject settings)
+    public static JsonObject LeaseParameters(DeviceCommand command, JsonObject settings, string session)
     {
         JsonNode? Field(string name) => command.Flags[name] ?? settings[name];
 
@@ -129,6 +137,7 @@ public static class DeviceCommands
             }
         }
 
+        parameters["session"] = session;
         Put("tenantId", Field("tenant"));
         Put("runId", Field("runId"));
         Put("leaseProvider", Field("leaseProvider"));
@@ -140,6 +149,7 @@ public static class DeviceCommands
                 Put("ttlMs", command.Flags["ttlMs"]);
                 Put("retainOnClose", command.Flags["retainOnClose"]);
                 Put("backend", Field("leaseBackend"));
+                PutSelectors(command.Flags, parameters);
                 break;
             case "lease_heartbeat":
                 Put("leaseId", Field("leaseId"));
@@ -151,6 +161,32 @@ public static class DeviceCommands
         }
 
         return parameters;
+    }
+
+    /// <summary>
+    /// The flags the daemon reads as the device a lease asks for (<c>platform</c>, <c>device</c>, the <c>provider*</c> capabilities, and
+    /// the device spec), which agent-device's client spreads into an allocate request's params. Read from agent-device 0.21.35.
+    /// </summary>
+    private static readonly string[] LeaseSelectorKeys =
+    [
+        "platform", "target", "device", "udid", "serial", "iosSimulatorDeviceSet", "androidDeviceAllowlist",
+        "providerApp", "providerOsVersion", "providerDeviceType", "providerProject", "providerBuild", "providerSessionName",
+        "providerDeviceOrientation", "providerGeoLocation", "providerTimezone", "providerAppiumVersion", "providerLanguage",
+        "providerLocale", "providerNetworkProfile", "providerCustomNetwork", "providerNoResignApp", "providerNetworkLogs",
+        "providerNetworkHosts", "awsProjectArn", "awsDeviceArn", "awsAppArn", "awsRegion", "awsInteractionMode",
+        "osVersion", "imageTag", "physical",
+    ];
+
+    /// <summary>Copies the string and boolean selectors of an allocate call's flags into its params, as agent-device's client does.</summary>
+    private static void PutSelectors(JsonObject flags, JsonObject parameters)
+    {
+        foreach (var key in LeaseSelectorKeys)
+        {
+            if (flags[key] is JsonValue value && (value.TryGetValue<string>(out _) || value.TryGetValue<bool>(out _)))
+            {
+                parameters[key] = value.DeepClone();
+            }
+        }
     }
 
     /// <summary>Moves the named options out of the flags, in order, as positional arguments. A missing one is skipped.</summary>
@@ -255,7 +291,7 @@ public static class DeviceCommands
                 return ["reset-keychain", .. Take(flags, "state")];
             case "location":
                 return ["location", .. Take(flags, "state"), .. Number(flags, "latitude"), .. Number(flags, "longitude")];
-            case "wifi" or "airplane" or "appearance" or "faceid" or "touchid" or "fingerprint":
+            case "wifi" or "airplane" or "appearance" or "text-size" or "animations" or "faceid" or "touchid" or "fingerprint":
                 return [setting[0], .. Take(flags, "state")];
             default:
                 throw new NotSupportedException($"The device client does not support the {setting[0]} setting yet.");

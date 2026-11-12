@@ -41,10 +41,6 @@ const sectionRedirects = [
     ["get-started/mobile.html", "/get-started/mobile/"],
     ["get-started/maui.html", "/get-started/maui/"],
     ["get-started/windows.html", "/get-started/windows/"],
-    ["samples/dariten.html", "/samples/dariten/"],
-    ["samples/todomvc.html", "/samples/todomvc/"],
-    ["samples/mobile-app.html", "/samples/mobile-app/"],
-    ["samples/winapp-benchmark.html", "/samples/winapp-benchmark/"],
     ["toc.html", "/"],
 ];
 

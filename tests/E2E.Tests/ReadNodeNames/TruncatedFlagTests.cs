@@ -2,10 +2,16 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Net;
 using E2E.Engine;
 
 namespace E2E.Tests.ReadNodeNames;
 
+/// <remarks>
+/// Partial: <c>Partial_Does_not_count_an_off_site_frame...</c> checks the frame is left out and not truncated, with the port's real
+/// budget filled by the page (the port's observation has no budget argument), and not upstream's exact node count of 3, which the
+/// observation does not expose.
+/// </remarks>
 [Collection(BrowserCollection.Name)]
 public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
@@ -46,5 +52,60 @@ public sealed class TruncatedFlagTests(ChromiumPage chromium) : IClassFixture<Ch
             Assert.True(observation.Truncated);
             Assert.DoesNotContain(WebSemanticsTests.Flatten(observation.Roots), node => node.Name == "Inside");
         }
+    }
+
+    [Fact]
+    public async Task Partial_Does_not_count_an_off_site_frame_it_leaves_out_by_design_even_with_no_budget_left()
+    {
+        // With the app on one site, a data: document is never entered: it has an opaque origin, not the app's.
+        const string Ad = "<button>One</button><iframe src=\"data:text/html,<button>Ad</button>\"></iframe>";
+        var filler = string.Concat(Enumerable.Repeat("<button>Fill</button>", ObservationLimits.Nodes - 2));
+
+        using var whole = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{Ad}</body></html>");
+        await using (var session = await WebSemanticsTests.OpenAsync(whole.Url, new WebEngineOptions { Headless = true }))
+        {
+            var observation = await session.ObserveAsync(CancellationToken.None);
+            Assert.False(observation.Truncated);
+            Assert.DoesNotContain(WebSemanticsTests.Flatten(observation.Roots), node => node.Name == "Ad");
+        }
+
+        // The page lists exactly the budget in nodes: the frame's button is the one a walk that entered the frame would be cut short of.
+        using var cut = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{Ad}{filler}</body></html>");
+        await using (var session = await WebSemanticsTests.OpenAsync(cut.Url, new WebEngineOptions { Headless = true }))
+        {
+            var observation = await session.ObserveAsync(CancellationToken.None);
+            Assert.False(observation.Truncated);
+            Assert.DoesNotContain(WebSemanticsTests.Flatten(observation.Roots), node => node.Name == "Ad");
+        }
+    }
+
+    [Fact]
+    public async Task Reports_an_on_site_frame_past_the_depth_limit_as_truncation()
+    {
+        // Nest same-origin srcdoc frames one deeper than the capture follows.
+        using var within = await TinySite.StartAsync(NestedFrames(4));
+        await using (var session = await WebSemanticsTests.OpenAsync(within.Url, new WebEngineOptions { Headless = true }))
+        {
+            var observation = await session.ObserveAsync(CancellationToken.None);
+            Assert.False(observation.Truncated);
+            Assert.Contains(WebSemanticsTests.Flatten(observation.Roots), node => node.Name == "Level 4");
+        }
+
+        using var beyond = await TinySite.StartAsync(NestedFrames(5));
+        await using (var session = await WebSemanticsTests.OpenAsync(beyond.Url, new WebEngineOptions { Headless = true }))
+        {
+            var observation = await session.ObserveAsync(CancellationToken.None);
+            Assert.True(observation.Truncated);
+            Assert.DoesNotContain(WebSemanticsTests.Flatten(observation.Roots), node => node.Name == "Level 5");
+        }
+    }
+
+    /// <summary>A page whose frames nest <paramref name="depth"/> levels deep; level N's frame holds level N+1's.</summary>
+    private static string NestedFrames(int depth)
+    {
+        static string Level(int level, int deepest) =>
+            $"<button>Level {level}</button>" + (level < deepest ? $"<iframe srcdoc=\"{WebUtility.HtmlEncode(Level(level + 1, deepest))}\"></iframe>" : "");
+
+        return $"<!DOCTYPE html><html><body><button>Top</button><iframe srcdoc=\"{WebUtility.HtmlEncode(Level(1, depth))}\"></iframe></body></html>";
     }
 }

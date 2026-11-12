@@ -21,7 +21,7 @@ public sealed class CacheConfig
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L886)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 ## Properties
 
@@ -36,11 +36,9 @@ public string Directory { get; init; }
 ```
 
 
-Absolute cache directory. `cache.dir` resolves against the config directory; the default is `.e2e/cache`. A non-blank `E2E_CACHE_DIR` replaces both.
+Absolute cache directory. `cache.dir` resolves against the config directory; the default is `.e2e/cache`. `--cache-dir` (the environment variable `E2E_CACHE_DIR_OVERRIDE`), else a non-blank `E2E_CACHE_DIR`, replaces both.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L892)
 
 <a id="E2E_CacheConfig_Mode_"></a>
 <a id="E2E_CacheConfig_Mode"></a>
@@ -57,7 +55,21 @@ Unset, it is [ReadWrite](/api/E2E/CacheMode/#E2E_CacheMode_ReadWrite), or [ReadO
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L889)
+<a id="E2E_CacheConfig_Store_"></a>
+<a id="E2E_CacheConfig_Store"></a>
+
+### Store
+
+
+```csharp
+public IStepCache? Store { get; init; }
+```
+
+
+The store that replaces the file store at [Directory](#E2E_CacheConfig_Directory) (upstream's `cache.store`), or null. Set it with
+[WithCacheStore(IStepCache)](/api/E2E/E2EConfig/#E2E_E2EConfig_WithCacheStore_E2E_IStepCache_): the config file cannot name one.
+
+**Value:** [IStepCache](/api/E2E/IStepCache/)
 
 <a id="E2E_CacheConfig_Strict_"></a>
 <a id="E2E_CacheConfig_Strict"></a>
@@ -73,5 +85,3 @@ public bool Strict { get; init; }
 When true, a recording that no longer matches fails with `REPLAY_STALE` instead of running live.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L895)

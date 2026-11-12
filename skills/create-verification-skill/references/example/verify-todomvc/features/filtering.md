@@ -29,7 +29,7 @@ and the completed row is hidden. `Completed` shows the reverse.
 ## Charters
 
 ```
-filter-navigation|todomvc|Starting at /todomvc with one active and one completed todo, switch filters, reload the page on each, and use the browser Back button; report a list that disagrees with the URL hash
+filter-navigation|todomvc|skeptic|Starting at /todomvc with one active and one completed todo, switch filters, reload the page on each, and use the browser Back button; report a list that disagrees with the URL hash
 ```
 
 ## Gotchas

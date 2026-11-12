@@ -1,0 +1,109 @@
+@implements IAsyncDisposable
+@* Upstream's app/src/Examples/StaleDom.tsx.
+   Stale-element gate: every second the generation counter increments, which remounts every row under a fresh key and rotates the row order by
+   one slot. Any element handle captured before a tick points at a detached node, and the target's on-screen position keeps moving. *@
+<div style="@Container">
+    <p style="@Hint">Click Tap me 3 times; the list rebuilds itself every second.</p>
+    <p data-testid="progress" style="@ProgressText">Progress: @_progress / @RequiredClicks</p>
+    @if (_error is not null)
+    {
+        <p data-testid="error-message" style="@ErrorText">@_error</p>
+    }
+    @if (_progress >= RequiredClicks)
+    {
+        <p data-testid="success-message" style="@SuccessText">Target clicked @RequiredClicks times</p>
+    }
+    else
+    {
+        <div style="@List">
+            @for (var position = 0; position < RowCount; position++)
+            {
+                var row = (position + _generation) % RowCount;
+                var isTarget = row == TargetRow;
+                <div @key="(_generation, row)" style="@Row">
+                    <span style="@RowLabel">Slot @(position + 1)</span>
+                    @if (isTarget)
+                    {
+                        <button type="button" data-testid="target-button" style="@Button" @onclick="() => HandleRowClick(row)">Tap me</button>
+                    }
+                    else
+                    {
+                        <button type="button" data-testid="decoy-button" style="@Button" @onclick="() => HandleRowClick(row)">Decoy</button>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int RequiredClicks = 3;
+    private const int RowCount = 6;
+    private const int TargetRow = 2;
+    private static readonly TimeSpan GenerationInterval = TimeSpan.FromSeconds(1);
+
+    private PeriodicTimer? _timer;
+    private int _generation;
+    private int _progress;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _timer = new PeriodicTimer(GenerationInterval);
+        _ = TickGenerationsAsync(_timer);
+    }
+
+    /// <summary>Starts the next generation every interval until the timer is disposed, which happens once the target is clicked enough times.</summary>
+    private async Task TickGenerationsAsync(PeriodicTimer timer)
+    {
+        while (await timer.WaitForNextTickAsync())
+        {
+            await InvokeAsync(() =>
+            {
+                _generation++;
+                StateHasChanged();
+            });
+        }
+    }
+
+    /// <summary>Advances progress on a target click; a decoy click surfaces a recoverable error and resets progress to zero.</summary>
+    private void HandleRowClick(int row)
+    {
+        if (row == TargetRow)
+        {
+            _error = null;
+            _progress = Math.Min(_progress + 1, RequiredClicks);
+            if (_progress == RequiredClicks)
+            {
+                StopGenerations();
+            }
+
+            return;
+        }
+
+        _error = "That was a decoy - progress reset";
+        _progress = 0;
+    }
+
+    private void StopGenerations()
+    {
+        _timer?.Dispose();
+        _timer = null;
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        StopGenerations();
+        return ValueTask.CompletedTask;
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string ProgressText = "font-size: 15px; font-weight: 600; text-align: center; margin: 0;";
+    private const string List = "display: flex; flex-direction: column; gap: 8px; border: 1px solid #e5e5e5; border-radius: 8px; padding: 12px;";
+    private const string Row = "display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid #f0f0f0; border-radius: 8px;";
+    private const string RowLabel = "font-size: 14px; color: #444;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; text-align: center; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+}

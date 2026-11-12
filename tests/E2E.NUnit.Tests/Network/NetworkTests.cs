@@ -7,7 +7,9 @@ namespace E2E.NUnit.Tests.Network;
 /// <summary>
 /// The tests of upstream's <c>apps/testbed/tests/network.e2e.ts</c> outside its <c>network</c>
 /// <c>describe</c>, against the playground's <c>/network</c> page.
+/// The class carries the <c>network</c> category (upstream's <c>tags: ['network']</c>).
 /// </summary>
+[Category("network")]
 public sealed class NetworkTests : E2ETest
 {
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
@@ -30,5 +32,15 @@ public sealed class NetworkTests : E2ETest
         Assert.That(response.Headers["content-type"], Does.Contain("text/html"));
         Assert.That(await response.TextAsync(), Does.Contain("<title>Network</title>"));
         await Expect.That(Screen.GetByRole("heading", "Network")).ToBeVisibleAsync();
+    }
+
+    [Test]
+    public async Task Calls_the_API_at_a_path_joined_onto_app_baseUrl()
+    {
+        using var http = new HttpClient();
+        using var response = await http.GetAsync($"{App.BaseUrl}/api/users");
+        Assert.That((int)response.StatusCode, Is.EqualTo(200));
+        using var users = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.That(users.RootElement.GetArrayLength(), Is.EqualTo(3));
     }
 }

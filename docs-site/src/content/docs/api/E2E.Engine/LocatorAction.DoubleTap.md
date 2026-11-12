@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.DoubleTap"
-description: "A double tap. <code class=\"paramref\">Modifiers</code> are held for both clicks, as for LocatorAction.Tap."
+description: "A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap."
 editUrl: false
 prev: false
 next: false
@@ -25,7 +25,7 @@ A double tap. &lt;code class="paramref"&gt;Modifiers&lt;/code&gt; are held for b
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.DoubleTap&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -48,8 +48,6 @@ A double tap. &lt;code class="paramref"&gt;Modifiers&lt;/code&gt; are held for b
 | --- | --- | --- |
 | `Modifiers` | [IReadOnlyList&lt;KeyModifier&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L18)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_DoubleTap_Modifiers_"></a>
@@ -64,5 +62,3 @@ public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;KeyModifier&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L18)

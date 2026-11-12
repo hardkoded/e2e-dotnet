@@ -6,7 +6,9 @@ using E2E.Tests.CacheModelProvenance;
 
 namespace E2E.Tests.StepCache;
 
-/// <summary>"leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.</summary>
+/// <summary>
+/// "says a confirmed recording the store did not write was not written, rather than saved" runs <c>E2ESession.Flush</c> (upstream's <c>settleStagedTraces</c>) over a file store with a 16-byte cap.
+/// </summary>
 public sealed class FlushPipelineTests
 {
     [Fact]
@@ -47,6 +49,71 @@ public sealed class FlushPipelineTests
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(replaced, "\"kind\":\\s*\"tap\""));
     }
 
+    [Fact]
+    public async Task Leaves_an_entry_untouched_when_only_the_rule_that_flagged_a_typed_value_differs()
+    {
+        var directory = BillingSession.TempCache();
+        var key = new string('d', 64);
+
+        CacheEntry Recording(DerivedReason? derived) => new()
+        {
+            Test = "tests/a.e2e.ts::a",
+            Instruction = "apply the coupon",
+            Engine = "web",
+            ParamsDigest = new string('d', 64),
+            CallIndex = 0,
+            Agent = "default",
+            Route = "/e/iframe-form",
+            EndRoute = "/e/iframe-form",
+            Actions =
+            [
+                new RecordedAction { Kind = "tool", Text = "type (run-time value)", Derived = derived },
+                new RecordedAction { Kind = "tap", Role = "button", Name = "Apply" },
+            ],
+        };
+
+        void Flush(DerivedReason? derived) => E2ESession.Flush(
+            new FileStepCache(directory, FileStepCache.MaxCacheWireBytes, true),
+            [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = Recording(derived) }],
+            preserve: false);
+
+        // An entry recorded before gaps carried their rule, then live runs whose agent read the value off pixels once and off a node
+        // the next time: a replay stops at the gap whatever the rule, so none of them is a new flow.
+        Flush(null);
+        var file = Assert.Single(BillingSession.Entries(directory));
+        var written = await File.ReadAllTextAsync(file);
+        Flush(DerivedReason.Pixels);
+        Flush(DerivedReason.MintedToken);
+
+        Assert.Equal(written, await File.ReadAllTextAsync(file));
+    }
+
+    [Fact]
+    public void Says_a_confirmed_recording_the_store_did_not_write_was_not_written_rather_than_saved()
+    {
+        var directory = BillingSession.TempCache();
+        var key = new string('e', 64);
+        var recording = new CacheEntry
+        {
+            Test = "tests/a.e2e.ts::a",
+            Instruction = "tap Save",
+            Engine = "web",
+            ParamsDigest = new string('e', 64),
+            CallIndex = 0,
+            Agent = "default",
+            Route = "/",
+            EndRoute = "/",
+            Actions = [new RecordedAction { Kind = "tap", Role = "button", Name = "Save" }],
+        };
+
+        CacheWrite? Outcome(int maxBytes) => E2ESession
+            .Flush(new FileStepCache(directory, maxBytes, true), [new PendingAct { Key = key, StepIndex = 0, Completed = true, Verified = true, Entry = recording }], preserve: false)
+            .GetValueOrDefault(0);
+
+        Assert.Equal(CacheWrite.NotWritten, Outcome(16));
+        Assert.Equal(CacheWrite.Saved, Outcome(FileStepCache.MaxCacheWireBytes));
+    }
+
     /// <summary>A model that taps Upgrade to Pro twice before it concludes, and passes the judgment.</summary>
     private static ScriptedModel TapsTwice()
     {
@@ -58,7 +125,7 @@ public sealed class FlushPipelineTests
                 return ModelResponses.Done("passed", "The invoice is prorated.");
             }
 
-            var taps = request.Messages.Count(message => message.Role == "tool" && (message.Content ?? "").StartsWith("tapped", StringComparison.Ordinal));
+            var taps = request.Messages.Count(message => message.Role == "tool" && (message.Content ?? "").StartsWith("Tapped", StringComparison.Ordinal));
             return taps >= 2 ? ModelResponses.Done("passed", "Upgraded to Pro.") : ModelResponses.Tap("button", "Upgrade to Pro");
         });
     }

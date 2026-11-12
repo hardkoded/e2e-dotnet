@@ -1,0 +1,667 @@
+---
+title: Engine contract
+description: Build an engine with observations, actions, lifecycle hooks, and fixtures.
+sidebar:
+  label: Engine contract
+---
+
+This page ports upstream's `docs/reference/engine.mdx` (`e2e/engine`). `E2E.Engine` is the contract an engine implements to drive a user interface, such as a browser or simulator. An engine implements `IEngine` and `IEngineSession` and shares types for nodes, locators, actions, and errors. The test base class asks its `CreateEngine()` for the engine. The tables below say where the port differs from upstream; [Not in the port](#not-in-the-port) lists what upstream has and the port lacks. The generated [API pages](/api/E2E.Engine/) have every member.
+
+A sketch of the smallest engine (the [guide](/docs/writing-an-engine/) builds a fuller one):
+
+```csharp
+public sealed class KioskEngine(string host) : IEngine
+{
+    public string Platform => "kiosk";
+
+    public string Version => "1.0.0";
+
+    public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions;
+
+    public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+        new KioskSession(await KioskClient.ConnectAsync(host, cancellationToken));
+}
+
+public sealed class KioskSession(KioskClient client) : IEngineSession
+{
+    public string Route => "";
+
+    public IReadOnlyCollection<string> ActionKinds => ["tap"];
+
+    public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    {
+        var screen = await client.SnapshotAsync(cancellationToken);
+        return new Observation { Route = "", Roots = screen.Nodes, Viewport = new TraceViewport(screen.Width, screen.Height) };
+    }
+
+    public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+        client.TapAsync(node.Ref, cancellationToken);
+
+    public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public ValueTask DisposeAsync() => client.DisposeAsync();
+}
+```
+
+```csharp
+public class CheckoutTests : E2E.NUnit.E2ETest
+{
+    protected override IEngine CreateEngine() => new KioskEngine("kiosk.local");
+}
+```
+
+## Reference
+
+### IEngine
+
+The body of one target. Upstream's `Engine`, without the members that belong to a session or to an optional hook interface.
+
+| Member | Type | Upstream |
+| --- | --- | --- |
+| `Name` | `string`. Defaults to `Platform` | `name` |
+| `Platform` | `string` | `platform` |
+| `Version` | `string` | `version` |
+| `Capabilities` | `EngineCapabilities` | the computed `capabilities` |
+| `StartAsync(options, cancellationToken)` | `Task<IEngineSession>` | `init` and `startAttempt` |
+| `IPreparableEngine.PrepareAsync`, `FinishAsync` | [hooks](#prepare-and-finish) | `prepare`, `finish` |
+| `IDoctorEngine.DoctorAsync` | [hook](#doctor) | `doctor` |
+
+`Name` is what the report records in `run.targets[].engine` and what the replay cache keys on. `Version` is recorded in reports and sessions: a saved session never restores across engine versions, and a cached trace replays across them and re-finds its nodes.
+
+`EngineManifest.DefineEngine` is upstream's `defineEngine`. It checks the spec when it is built (`SpiVersion` must be `1`, `Version` is required, and each declared member needs the members it depends on) and returns an `EngineHandle` with the declared `Capabilities`. `EngineSessions.CreateEngineSession` is upstream's `createEngineSession`: it wraps a handle as an `ITargetSession`, mints revisions for observed refs, and routes each verb to the member that implements it. `Workers` is validated and copied onto the handle, but no worker pool enforces it. The `E2E.NUnit` and `E2E.XUnit.V3` test classes, `OpenHostOptions.EngineFactory`, and `ExploreOptions.Engine` take an `IEngine` directly; the agent and the test runner still run an `IEngine`, and the SPI layer sits beside it.
+
+#### IEngineSession
+
+One attempt's session with the app, disposed at the end of the attempt after `afterEach`. Members with a default implementation are optional.
+
+| Member | Needs | Upstream |
+| --- | --- | --- |
+| `Route` | always | `location` of the observation |
+| `OpenAsync(url, ct)` | always | `session.open` |
+| `ObserveAsync(ct)`, `ObserveAsync(timeout, ct)`, `ObserveAsync(options, timeout, ct)` | `Observation` | `observe` |
+| `PerformAsync(node, action, ct)`, `PerformAsync(node, action, context, ct)` | `Actions` | `perform` |
+| `ActionKinds` | `Actions`. Defaults to every kind | `actions` |
+| `PerformAtAsync(point, action, ct)`, `PerformAtAsync(point, action, context, ct)` | pointer kinds | `performAt` |
+| `PointerActionKinds` | defaults to none | `pointerActions` |
+| `PressAsync(key, ct)` | always | `keyboard.press` |
+| `TypeTextAsync(text, replace, ct)` | `Keyboard` | `keyboard.type` |
+| `CanDismissKeyboard`, `DismissKeyboardAsync(ct)` | `Keyboard` | `keyboard.dismiss` |
+| `CanLocate`, `LocateAsync(expression, timeout, ct)` | `Location` | `locate` |
+| `SwipeAsync(direction, ct)`, `(direction, momentum, ct)`, `(direction, momentum, context, ct)` | `Scroll` | `perform(root, swipe)` |
+| `BackAsync(ct)`, `BackAsync(context, ct)` | `History` | `session.back` |
+| `ResizeAsync(size, context, ct)` | `Resize` | `session.resize` |
+| `RestartAsync(ct)`, `ClearStateAsync(ct)` | | `session.restart`, `session.reset` |
+| `ScreenshotAsync(ct)`, `ScreenshotAsync(timeout, ct)` | `Screenshot` | `observe` pixels for `toHaveScreenshot` |
+| `ScreenshotArtifactAsync(label, ct)`, `(label, timeout, ct)` | | `artifacts.screenshot` |
+| `StartVideoAsync(ct)`, `StopVideoAsync(ct)` | `Video` | `artifacts.startVideo`, `stopVideo` |
+| `CaptureStateAsync(ct)`, `RestoreStateAsync(state, ct)` | `State` | `state.capture`, `state.restore` |
+| `SettleAttemptAsync(timeout, ct)` | | `settleAttempt` |
+| `DisposeAsync()` | always | `endAttempt` and `dispose` |
+
+The overloads without a `timeout` or a `context` are the ones an engine must write. The longer overloads default to calling the shorter one, so an engine that ignores the budget or the origin keeps compiling. That default is .NET-only; upstream passes one `OperationContext` to every call, and the runtime now calls the overload that takes one for every session call (`OpenAsync`, `ObserveAsync`, `PressAsync`, `TypeTextAsync`, `DismissKeyboardAsync`, `LocateAsync`, the screenshot, video, and state members, `RestartAsync`, `ClearStateAsync`, `SettleAttemptAsync`).
+
+#### OperationContext
+
+```csharp
+public sealed record OperationContext(OperationOrigin Origin)
+{
+    public TimeSpan? Timeout { get; init; } // upstream's timeoutMs: the time the call has
+    public string RunId { get; init; }      // "" on OperationContext.Test and .Agent; the runtime fills it in
+    public string AttemptId { get; init; }  // the same
+}
+
+public enum OperationOrigin { Test, Agent }
+```
+
+`Origin`, `RunId`, and `AttemptId` are members, and only the overloads that take a context receive it. `OperationContext.Test` and `OperationContext.Agent` are the two values; they are shared, so they carry no ids, and the runtime hands the engine a copy with `RunId` and `AttemptId` set.
+
+| Upstream field | In the port |
+| --- | --- |
+| `signal` | The `CancellationToken` every call takes. It cancels when the attempt, or the hook running the call, ends. It does not cancel at the budget: bound each call by its budget yourself. |
+| `timeoutMs` | The `TimeSpan timeout` of `ObserveAsync`, `LocateAsync`, `ScreenshotAsync`, and `ScreenshotArtifactAsync`, which is the `Timeout` of the context those overloads pass on. A waiting call's last locate or read can get more than its deadline leaves, as long as the slowest read it has seen, within the test timeout. The action timeout of `PerformAsync` and `PerformAtAsync` is the next row. |
+| `timeoutMs` | `OperationContext.Timeout` on `PerformAsync` and `PerformAtAsync`: the time left of the action's deadline, at least 1 ms. The web engine uses it as the Playwright `timeout` of the action, so a call's `timeout` option bounds the engine. Null leaves the engine its own action timeout. |
+| `runId`, `attemptId` | `OperationContext.RunId` and `OperationContext.AttemptId` on every call that takes a context, and `EngineStartOptions.RunId` and `EngineStartOptions.AttemptId` at `StartAsync`. A session sets both, and the id of a call is the id it started with. |
+| `origin` | `OperationContext.Origin`. A deterministic step verifies its outcome with `Expect`, so an engine may act as soon as the target holds still. An agent reads the screen right after acting, so an engine may wait for the transition to end first. |
+
+### Capabilities
+
+`IEngine.Capabilities` is a `[Flags]` `EngineCapabilities` that the engine declares. A `Screen`, `Locator`, or `App` call that needs a missing one fails with `UNSUPPORTED_CAPABILITY`. Three gaps end differently:
+
+- A video mode set on a target or a test, on an engine without `Video`, fails the session start with `UNSUPPORTED_ARTIFACT`. A mode from the config root or `E2E_VIDEO` skips the engine and records no video. (Upstream prints a notice for the second case and fails the first the same way.)
+- A saved session on an engine without `State` fails with a configuration error `UNSUPPORTED_CAPABILITY` before the restore.
+- A test that `requires` a capability the engine lacks is skipped (`capability-unavailable`) in the selection core. The test attributes expose no `requires`: see [Not in the port](#not-in-the-port).
+
+| Flag | Needs | Unlocks |
+| --- | --- | --- |
+| `Observation` | `ObserveAsync` | The judgment tier, prompt snapshots, trace replay. |
+| `Actions` | `PerformAsync`, `ActionKinds` | Node actions of the declared kinds. |
+| `Location` | `CanLocate`, `LocateAsync` | Locator resolution by the engine. Without `CanLocate` the harness resolves queries in core over `ObserveAsync`. |
+| `Keyboard` | `TypeTextAsync`; `PressAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target. |
+| `Scroll` | `SwipeAsync` | The viewport swipe, `LocatorAction.Swipe`, `LocatorAction.ScrollIntoView`; the agent's `scroll` and `scroll_to`. |
+| `History` | `BackAsync` | `App.BackAsync()`, the agent's `back`. |
+| `Screenshot` | `ScreenshotAsync` | `ToHaveScreenshotAsync`. |
+| `TapModifiers` | `PerformAsync` | `Modifiers` on `Tap`, `DoubleTap`, and `SecondaryTap`. |
+| `Video` | `StartVideoAsync`, `StopVideoAsync` | Every `video` mode but `off`, and `App.StartRecordingAsync()`. |
+| `PinnedApp` | `RestartAsync` | A target with no app URL: `App.OpenAsync()` calls `RestartAsync`. .NET-only name for upstream's `launchesPinnedApp`. |
+| `Upload` | `PerformAsync` with `SetInputFiles` | The agent's `upload` tool. .NET-only name. |
+| `State` | `CaptureStateAsync`, `RestoreStateAsync` | Saved sessions. .NET-only name for the optional `state` capability. |
+| `Resize` | `ResizeAsync` | The agent's `resize_viewport`. .NET-only name for the optional `session.resize`. |
+
+Selection also grades a target by the kind of app it declares: a target with `app.url` has `browser`, and one with `bundleId` or `appPath` has `native-app`.
+
+The port has no computed capability set: nothing checks that the flags match the members you implemented, and a flag set without its member fails at the first call with `UNSUPPORTED_CAPABILITY` (the member's default).
+
+#### Agent verbs
+
+The agent offers the model only the verbs the engine's declarations unlock. A verb the engine leaves out is absent from the toolset, so the model never sees a tool it could only be refused on. The built-in agent's tool names are `fill` and `fill_secret` where this table says `type` and `type_secret`, and `uncheck` is a tool of its own beside `check`.
+
+| Verb | Needs |
+| --- | --- |
+| `tap` | the `tap` kind in `ActionKinds` |
+| `double_tap` | `doubleTap` |
+| `long_press` | `longPress` |
+| `right_click` | `secondaryTap` |
+| `hover` | `hover` |
+| `drag` | `dragTo` |
+| `type` | `fill`, or `Keyboard` without a target |
+| `type_secret` | `fill` |
+| `press` | `press`, or `Keyboard` without a target |
+| `select` | `selectOption` |
+| `check` and `uncheck` | both `check` and `uncheck` |
+| `clear` | `clear` (the port's own verb; upstream has none) |
+| `scroll`, `scroll_to` | `Scroll` |
+| `upload` | `Upload` |
+| `navigate` | always offered |
+| `back` | `History` |
+| `resize_viewport` | `Resize` |
+| `dismiss_keyboard` | `Keyboard` and `CanDismissKeyboard` |
+| `tap_at` | the `tap` kind in `PointerActionKinds`, or the `tap` verb |
+| `hover_at` | `hover` in `PointerActionKinds`, or the `hover` verb |
+| `drag_at` | `dragTo` in `PointerActionKinds`, or the `drag` verb |
+| `type_at` | the `type` verb, or `Keyboard` |
+| `press_at` | the `press` verb, or `Keyboard` |
+| `select_at` | the `select` verb |
+
+An engine that declares no `ActionKinds` of its own gets every kind of `EngineActionKinds.Locator`. One that narrows the list loses the tools of the kinds it left out: a device that declares no `selectOption` gets no `select` and no `select_at`. With a keyboard, `type` and `press` take no target when the engine declares no `fill` or `press`, and an optional one when it declares both. A point tool is offered with its own pointer kind or with the node verb it falls back to: `tap_at` and `hover_at` act on the bare point where the engine takes it, and on the listed control under the point by id where it does not; `drag_at` joins two points that land on two different listed controls; `type_at`, `press_at`, and `select_at` act on a listed control under the point by id, and with a keyboard `type_at` and `press_at` tap a point on nothing listed to focus it and go through the keyboard.
+
+The scroll verbs, `upload`, `navigate`, and `back` follow `EngineCapabilities` where upstream derives them from the `swipe`, `scrollIntoView`, and `setInputFiles` kinds and the `open` and `back` hooks ([#1437](https://github.com/hardkoded/e2e-dotnet/issues/1437)).
+
+#### Test APIs
+
+| API | Needs |
+| --- | --- |
+| `Screen`, `Locator`, `Expect.That(locator)` | `Observation`, or `CanLocate` |
+| `Screen` and `Locator` actions | `PerformAsync`, each only for a kind in `ActionKinds` |
+| `Screen.SwipeAsync(SwipeOptions)` | `Scroll` |
+| `Modifiers` on a tap | `TapModifiers`; the keys are held for the click |
+| `Screen.TapAtAsync`, a tap's `Position` | `PerformAtAsync` with the `tap` pointer kind |
+| `Screen.DoubleTapAtAsync` | `PerformAtAsync` with the `doubleTap` pointer kind |
+| `Screen.SwipeAsync(SwipePathOptions)` | `PerformAtAsync` with the `swipeTo` pointer kind |
+| `Locator.PressSequentiallyAsync` | the `focus` kind in `ActionKinds` and `Keyboard`; the harness composes a `Focus` action and `TypeTextAsync` |
+| `ToHaveScreenshotAsync` | `Screenshot` |
+| saved sessions | `State` |
+| `App.ScreenshotAsync()` | `ScreenshotArtifactAsync` |
+| every `video` mode but `off` | `Video` |
+| `App.OpenAsync()` | `OpenAsync`; on a target with no app URL, `RestartAsync` when `PinnedApp` |
+| `App.BackAsync()` | `BackAsync` |
+| `App.RestartAsync()` | `RestartAsync` |
+| `App.ClearStateAsync()` | `ClearStateAsync` |
+
+A call for an undeclared kind, or one with `Modifiers` and no `TapModifiers`, fails with `UNSUPPORTED_CAPABILITY` before it reaches the engine.
+
+#### Keyboard
+
+Upstream's `EngineKeyboard` is three members of `IEngineSession`:
+
+- `TypeTextAsync(text, replace, ct)` types `text` into the focused field as a person typing would, through the platform's keyboard path: a browser dispatches the key events of each character, a device sends the text through its keyboard. Setting the value without keystrokes is not compliant. With `replace` the field is cleared first (select all and delete on a keyboard surface; the platform's clear on a device). Throw `NOT_ACTIONABLE` when nothing that accepts text has focus. The default refuses with `UNSUPPORTED_CAPABILITY`.
+- `PressAsync(key, ct)` sends one key of the [key grammar](#keys) to whatever holds focus. The harness has validated the key's shape; refuse with `UNSUPPORTED_CAPABILITY` a key the surface cannot deliver. It is not optional in C#; an engine with no keyboard throws.
+- `DismissKeyboardAsync(ct)` hides an on-screen keyboard. `CanDismissKeyboard` says whether the engine has it, because C# has no optional member to test.
+
+### Lifecycle
+
+The hooks the harness calls around an attempt. Upstream's per-worker `init`, per-attempt `startAttempt` and `endAttempt`, and per-worker `dispose` are `StartAsync` and `DisposeAsync`: the port has no worker pool, so an engine starts and is disposed for each session.
+
+| Hook | Runs |
+| --- | --- |
+| [`PrepareAsync(info, ct)`](#prepare-and-finish) | Once per target, before any worker, in a host that calls it |
+| [`FinishAsync(info, ct)`](#prepare-and-finish) | After the target's last worker is gone |
+| [`DoctorAsync(info, ct)`](#doctor) | Once per target in `e2e doctor`, never in a run |
+| [`StartAsync(options, ct)`](#startasync) | Once per attempt, within `LaunchTimeout` |
+| [`SettleAttemptAsync(timeout, ct)`](#settleattemptasync) | After the body and after teardown |
+| [`DisposeAsync()`](#disposeasync) | After each attempt, within `CleanupTimeout` |
+
+`StartAsync` runs within the launch timeout, 60 seconds by default. A start that exceeds it cancels its token and fails with `ENVIRONMENT_UNAVAILABLE`. `FinishAsync` and `SettleAttemptAsync` run within the cleanup timeout, 30 seconds by default.
+
+#### Prepare and finish
+
+`IPreparableEngine` adds `PrepareAsync` and `FinishAsync`. `Runner.RunAsync` and the xUnit and NUnit run fixtures prepare each engine once and finish it when the run ends. A host that starts the engine on its own, as `e2e explore` and `e2e mcp` do, calls them around the one attempt, prepare when the session opens and finish when it closes. `WebEngine` does not implement it, because it leases for the attempt it starts.
+
+```csharp
+public async Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
+{
+    info.Log("booting devices");
+    var devices = await pool.BootAsync(info.Slots, cancellationToken);
+    return new EnginePrepareResult { Workers = devices.Count, Env = new Dictionary<string, string> { ["KIOSK_DEVICES"] = string.Join(',', devices) } };
+}
+```
+
+A failure of `PrepareAsync` ends the run before any test:
+
+| Thrown | Becomes |
+| --- | --- |
+| An `E2EException`, such as a `ConfigurationException` | The same code. |
+| A cancel when the token asked for it | `CANCELLED`. |
+| Any other exception | Infrastructure `ENGINE_FAILURE`. |
+
+`EnginePrepareInfo` carries `RunId`, `TargetName`, `Slots`, `Env`, `ProjectRoot`, and `Log`. Upstream's `app`, `signal` (the call's token), and `headed` are not members. `EnginePrepareResult.Workers` lowers the worker cap (`1` to `Slots`) and `Env` is handed to every start in `EngineStartOptions.Env`; the port has no runner to apply `Workers`. The run's own variables win on a clash.
+
+`FinishAsync` runs once per run and target after every worker is gone, on every exit path, whenever prepare was called, within `EngineFinishInfo.CleanupTimeout`. It is never cancelled by an interrupt, because an interrupted run is exactly when a leased device must still be released. A failure is a cleanup error. The finish hooks of all prepared targets share one cleanup timeout, and a hook that ignores its token is abandoned at the deadline with `CLEANUP_TIMEOUT`.
+
+#### Doctor
+
+`IDoctorEngine.DoctorAsync` runs once per target when `e2e doctor` checks the project, never during a run. Report what a run on this machine needs and whether it's there. Without the hook the target gets one `engine` check with status `skip`.
+
+```csharp
+public Task<IReadOnlyList<EngineDoctorCheck>> DoctorAsync(EngineDoctorInfo info, CancellationToken cancellationToken) =>
+    Task.FromResult<IReadOnlyList<EngineDoctorCheck>>([new EngineDoctorCheck("toolchain", EngineDoctorStatus.Pass, "toolchain 4.1")]);
+```
+
+`e2e doctor` gives the call 30 seconds and cancels its token then, or when interrupted. A throw becomes one failed `engine` check. `EngineDoctorCheck(Id, Status, Message)` takes an id in kebab case (`browser`, `toolchain`; `node`, `config`, `runtime`, `engine`, and `model` are `e2e doctor`'s own) and an `EngineDoctorStatus` of `Pass`, `Warn` (something a run handles on its own, slower), `Fail`, or `Skip`. `EngineDoctorInfo` carries `TargetName`, `ProjectRoot`, `App` (an `EngineAppInfo`), `Env`, `Headed`, and `Log`.
+
+#### StartAsync
+
+Runs once per attempt, within the launch timeout. Boot devices and set up per-test isolation here. On failure or timeout the token cancels and nothing is returned, so release what the start acquired before it throws.
+
+```csharp
+public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
+{
+    var client = await HyperdriveClient.BootAsync(device, cancellationToken);
+    options.Environment?.Invoke(new Dictionary<string, string> { ["device"] = "Kiosk 2", ["os"] = "KioskOS 4.1" });
+    return new HyperdriveSession(client);
+}
+```
+
+`EngineStartOptions`:
+
+| Member | Upstream | Use |
+| --- | --- | --- |
+| `BaseUrl` | the app URL, given to `session.open` | The target's base URL, normalized. Null when the target declares none. |
+| `TargetName` | `targetName` | For the errors an engine raises about its app. |
+| `Permissions` | `app.permissions` | By name: `Grant`, `Deny`, `Reset`. What each means is the engine's. |
+| `ActionTimeout` | the action timeout | The configured action timeout. |
+| `ProjectRoot` | `projectRoot` | Anchors files an engine option names. Defaults to the working directory. |
+| `Env` | `info.env` | The run's environment with what prepare left in it. Defaults to the process environment. |
+| `AttemptId` | `attemptId` | For naming what an engine leases for the attempt. |
+| `ArtifactsDir` | `artifactsDir` | Where a recording is written, under `video`. |
+| `Screen` | `screen` | Takes the screen an action left, for the trace. Null when the attempt keeps no trace. A read after an action is on the action's path: bound it. It never fails the action. |
+| `Environment` | `environment` | Takes facts such as the browser and its user agent for the trace page. |
+| `AppLog` | `appLog` | Takes an `AppLogEntry(Source, Level, Text)`: a console line, an uncaught exception, a failed request, or a system log. The harness redacts and bounds it. |
+| `Navigation` | `navigation` | Takes one line saying where the app went on its own. |
+
+`ResolveSecret` is `internal`: see [Not in the port](#not-in-the-port). `EngineInitInfo` (`RunId`, `TargetName`, `WorkerSlot`, `Env`, `Log`) exists for the web engine's browser provider leases; no engine hook receives it.
+
+#### SettleAttemptAsync
+
+Runs after the body has settled, and again after teardown, before the verdict, within the cleanup timeout. Report a failure that landed on a path no step awaited (a callback the session ran for the test: a request interceptor, a native dialog handler). Wait for one still running, then throw its error. The attempt fails with it the way a step would, an error already classified keeping its code. Report each failure once. The default does nothing.
+
+```csharp
+public async Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
+{
+    var running = _dialogHandlers.ToArray();
+    _dialogHandlers.Clear();
+    await Task.WhenAll(running);
+}
+```
+
+#### DisposeAsync
+
+Runs after each attempt, within the cleanup timeout, and tears down what `StartAsync` set up. It takes no token and no budget: the harness waits for it up to the cleanup timeout and then abandons it with an `ENVIRONMENT_UNAVAILABLE` cleanup error, so a hook that cannot finish in time should bound itself. A failure marks cleanup failed; the test keeps its status.
+
+Upstream's `EngineDisposeContext` is in the port with `ReuseSignal` in place of `reuseSignal`: a live (not canceled) `CancellationToken` permits the engine to leave its run-owned resources for a replacement worker, until the token is canceled or the dispose settles. `IDisposableEngine` is the optional `dispose` hook; the mobile engine implements it. The scheduler that grants a signal to a worker is not in the port, so the run grants none.
+
+### ValidateApp
+
+`ValidateApp` checks the app a target declares against what the engine can drive, at config load: it throws `INVALID_CONFIG` naming `EngineAppCheckInfo.TargetName` for a field the platform needs and the target left out (a URL, a bundle id), or one it cannot drive. Upstream's `validateApp(app, { targetName })`. The default checks nothing. The harness calls it once per target, before any session starts (`TargetEngines.Create`), and the app it passes is the `EngineAppDeclaration` the target declared: `Url`, `Site`, `BundleId`, `AppPath`, `LaunchArguments`, and `Permissions`.
+
+```csharp
+void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+{
+    if (app.Url is null)
+    {
+        throw new ConfigurationException("INVALID_CONFIG", $"target \"{info.TargetName}\" needs app.url");
+    }
+}
+```
+
+### Observation
+
+`ObserveAsync` returns one fresh `Observation` of the surface under test.
+
+| Field | Type | Upstream |
+| --- | --- | --- |
+| `Route` | `string` | Required. A path, query, and fragment without the origin; empty when the platform has no current location. .NET-only: upstream derives this path from `location`. |
+| `Location` | `string?` | `location`. Where the surface is: the page's address on the web. Null on a platform with none. The agent's `ExecutorObservation.Path` is the path, query, and fragment of its redacted value (a secret marker in the query is percent-encoded), as upstream's `observationPath`; without a `Location` it is the redacted `Route`. |
+| `Roots` | `IReadOnlyList<SemanticNode>` | `root`. A list of roots where upstream has one root. |
+| `Viewport` | `TraceViewport?` | `viewport`. The viewport `SemanticNode.Rect` and `Point` are measured in, in CSS pixels. Null when the engine did not measure it. |
+| `Truncated` | `bool` | `truncated` |
+| `KeyboardVisible` | `bool?` | `keyboardVisible` |
+| `TreeUnavailable` | `bool` | `treeUnavailable` |
+| `Pixels` | `EngineScreenshot?` | `pixels` and `maskedRegionCount` |
+| `Revision` | `string` | Stamped by the harness as the observation reaches the agent. Leave it empty. |
+
+Return the surface as it is right now. `ObserveOptions.Pixels` asks for the screen's pixels with the tree, taken under the same budget; `Comparable` holds system chrome (a status bar's clock and battery) in a fixed state; `PixelFallback` lets the engine answer a screen whose semantic read failed with a pixel-only observation. An engine that takes none returns the tree alone, which is what the default overload does.
+
+`EngineScreenshot(Png, Scale, MaskedRegionCount)` is the image with every secure field covered, the image pixels per CSS pixel, and how many regions the engine covered, so a caller can prove the image is at least as redacted as the tree (null when the engine cannot say).
+
+#### Truncated trees
+
+Set `Truncated` when a node limit or an inaccessible subtree leaves content out. The harness tells the model the listing is incomplete and never calls such a screen unchanged. Scrolling brings the cut nodes in. `ObservationLimits.Nodes` (3000) is the cap one web observation lists, across every frame.
+
+#### Pixel fallback
+
+When a semantic read fails, an engine may return masked pixels in place of the tree, but only when `PixelFallback` is true and it can prove screenshot masking without that read. Return `TreeUnavailable = true`, fresh `Pixels`, and empty `Roots`. The flag tells missing semantic evidence from a valid empty tree. Never infer absence from it. Node refs of earlier observations name nothing, and a step that saw such a screen records no replay. Without permission, pixels, or independent masking proof, propagate the failure. `WebEngine` does this when the read ends in `OPERATION_TIMEOUT` and `PixelFallback` is true: it keeps the lesser of 2 seconds and a quarter of the budget back for a fresh screenshot, masks every secure field of every frame, and fails with the timeout when it cannot count each mask probe (`POLICY_DENIED`, a cancel, and a screenshot failure propagate). Upstream's runtime checks of the fallback's shape (`UNSUPPORTED_CAPABILITY` and `INVALID_STATE`) are not in the port.
+
+### Actions
+
+`PerformAsync` carries out one `LocatorAction` on a node; `PerformAtAsync` carries out one `PointerAction` at a viewport `Point`. An engine declares the kinds it honors in `ActionKinds` and `PointerActionKinds`, by upstream's kind names (`EngineActionKinds.Locator` and `EngineActionKinds.Pointer`, upstream's `LOCATOR_ACTION_KINDS` and `POINTER_ACTION_KINDS`).
+
+| Kind | `LocatorAction` | `ActionKinds` | `PointerActionKinds` |
+| --- | --- | --- | --- |
+| `tap` | `Tap(Modifiers?)` | yes | yes |
+| `doubleTap` | `DoubleTap(Modifiers?)` | yes | yes |
+| `secondaryTap` | `SecondaryTap(Modifiers?)` | yes | yes |
+| `longPress` | `LongPress(Duration?)` | yes | yes |
+| `fill` | `Fill(Value, Sensitive)` | yes | - |
+| `clear` | `Clear` | yes | - |
+| `press` | `Press(Key)` | yes | - |
+| `check`, `uncheck` | `Check`, `Uncheck` | yes | - |
+| `focus` | `Focus` | yes | - |
+| `hover` | `Hover` | yes | yes |
+| `scrollIntoView` | `ScrollIntoView` | yes | - |
+| `selectOption` | `Select(Text, Option)` | yes | - |
+| `setInputFiles` | `SetInputFiles(Paths)`, absolute; empty clears the input | yes | - |
+| `dragTo` | `DragTo(Target)`: a node; `PointerAction.DragTo(Target)`: a `Point` | yes | yes |
+| `swipe` | `Swipe(Direction, Momentum?)` | yes | yes |
+| `swipeTo` | - | - | `SwipeTo(Target, Duration?)` |
+
+The grammar is closed. `Momentum` is `None`, `Slow`, or `Fast`: how far a swipe travels. `ScrollDirection` is `Up`, `Down`, `Left`, or `Right`, and `Down` reveals what is below. The default `ActionKinds` declares every kind, so narrow it to what the node actions honor.
+
+#### Locator actions
+
+```csharp
+public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => action switch
+{
+    LocatorAction.Tap => client.TapAsync(node.Ref, cancellationToken),
+    LocatorAction.Swipe swipe => client.ScrollAsync(node.Ref, swipe.Direction, cancellationToken),
+    _ => throw new EngineException(EngineErrorCodes.UnsupportedCapability, "kiosk cannot " + EngineActionKinds.Of(action)),
+};
+```
+
+The viewport swipe is `SwipeAsync`, not `PerformAsync(root, swipe)` as upstream has it: the agent's `scroll` and `Screen.SwipeAsync(SwipeOptions)` both arrive there, so a surface implements scrolling once. `PerformAsync` should throw a retryable `NODE_STALE` when a ref no longer binds, and `ACTION_MAY_HAVE_COMMITTED` when input may have reached the app. The harness never repeats an action that may have committed. `LocatorAction.Select` carries a string that matches an option value or label, or a `SelectOption` with exactly one of `Label`, `Value`, or `Index`.
+
+#### Pointer actions
+
+Pointer actions use viewport coordinates when no semantic node is available. `DragTo` ends at another point. `Swipe` starts a scroll gesture at the given point. `SwipeTo` is the one kind with no node form: the finger's path from the point to its target, a touch swipe on a device and a pointer drag on a document platform. It differs from `DragTo`, where a platform holds before it drags. Dispatch the pointer at the point as given; the harness has clamped an agent's point to the viewport and validated a test's. Throw `UNSUPPORTED_CAPABILITY` for a declared kind the surface cannot deliver at this point.
+
+#### Keys
+
+The key grammar of `press`, shared by every engine, is zero or more modifiers and one key, joined by `+`.
+
+- Modifiers: `Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta` (Control on Windows and Linux, Meta on macOS). `KeyModifier` and `KeyModifiers.Names` list them.
+- Named keys: `Enter`, `Escape`, `Tab`, `Backspace`, `Delete`, `Insert`, `Space`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `Home`, `End`, `PageUp`, `PageDown`, `F1` to `F12`.
+- Any single printable character (`a`, `A`, `1`, `$`), typed as itself. A trailing `+` is the key: `Shift++` presses `+` with Shift held.
+
+`Control+a`, `Shift+Tab`, `Enter`, `$`. `Ctrl+a` is outside the grammar. A platform without a key maps it or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling. The parser (upstream's `parseKey`, `KeyGrammar.Parse`) and its `KEY_NAMES` are `internal` to the `E2E` assembly, so an engine outside it cannot call them; the harness rejects a key outside the grammar with `INVALID_ARGUMENT` before `PressAsync` or `LocatorAction.Press` reaches the engine, and an engine receives only valid spellings.
+
+### App
+
+The app under test is declared on the target (`targets[].app`); an engine only drives it.
+
+| Target field | Reaches the engine as |
+| --- | --- |
+| `url` | `EngineStartOptions.BaseUrl`, and each `OpenAsync(url)` the harness resolved. |
+| `permissions` | `EngineStartOptions.Permissions`. |
+| `bundleId`, `appPath`, `launchArguments` | The port's `MobileEngine` and `WinAppEngine` take them from their own options; a custom engine's options carry them. They are not on `EngineStartOptions`. |
+| `command`, `readyUrl` | Never. The host starts the app. |
+
+`EngineAppInfo` (`Site`, `BundleId`, `AppPath`, `LaunchArguments`, `Permissions`) is what `EngineDoctorInfo.App` carries; `Site` is the registrable domain of the app URL. `AppPermissionState` is `Grant`, `Deny`, or `Reset`: held, refused, or not asked for yet, so the OS asks again.
+
+Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEngine`. `WebEngine.ValidateApp`, `MobileEngine.ValidateApp`, and `WinAppEngine.ValidateApp` check their app at configuration time from their target engines; throw `ConfigurationException` `INVALID_CONFIG` naming the target.
+
+### Session steering
+
+Steering hooks behind the universal `App` fixture and the agent's `navigate`, `back`, and `resize_viewport` verbs.
+
+| Hook | Behind |
+| --- | --- |
+| `OpenAsync(url, ct)` | `App.OpenAsync()`, the agent's `navigate`, the reopen after `RestartAsync` and `ClearStateAsync`. The URL is resolved against the base URL and the origin policy. |
+| `BackAsync(ct)` | `App.BackAsync()`, the agent's `back`. With no earlier entry it does nothing. |
+| `ResizeAsync(size, context, ct)` | the agent's `resize_viewport`; `size` is a `TraceViewport` in CSS pixels and holds for this page and every page the attempt opens after it. |
+| `RestartAsync(ct)` | `App.RestartAsync()`: recreates the execution context, keeping persisted state. |
+| `ClearStateAsync(ct)` | `App.ClearStateAsync()`: clears persisted client state and recreates the execution context. |
+
+`RestartAsync` and `ClearStateAsync` open nothing on an addressable surface: they end at a fresh surface with no location shown, and the harness reopens the app through `OpenAsync` when the target has a base URL. A surface therefore never needs to know the app's URL. A surface with no URL (a device with a pinned app) relaunches the app inside `RestartAsync` and `ClearStateAsync` itself, since nothing else will, and declares `PinnedApp`.
+
+Upstream makes `open` optional and detects a pinned app from a session with `restart` and no `open`. In the port `OpenAsync` is required, and `PinnedApp` says the engine opens no URL.
+
+### Errors
+
+An engine throws `EngineException` with one code of a closed set (`EngineErrorCodes`). The harness maps each code to the error a test sees (`ErrorSerializer.TranslateEngineError`).
+
+| Code | Harness mapping | Retryable |
+| --- | --- | --- |
+| `NODE_STALE` | re-resolve, then `LOCATOR_NOT_FOUND` | yes |
+| `FRAME_NOT_FOUND` | re-resolve, then `LOCATOR_NOT_FOUND` | yes |
+| `FRAME_AMBIGUOUS` | `LOCATOR_AMBIGUOUS` | no |
+| `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, `OPERATION_TIMEOUT` | `ACTION_FAILED` | no |
+| `CANCELLED` | infrastructure `CANCELLED` | no |
+| `UNSUPPORTED_CAPABILITY` | configuration `UNSUPPORTED_CAPABILITY` | no |
+| `INVALID_STATE` | `APP_NOT_OPEN` | no |
+| `ENGINE_FAILURE`, any other exception | infrastructure `ENGINE_FAILURE` | no |
+
+#### EngineException
+
+```csharp
+throw new EngineException(EngineErrorCodes.NodeStale, $"node {node.Ref} is gone", retryable: true);
+```
+
+`EngineException.Code` is the code and `Retryable` says whether the harness may re-resolve and retry. Only `EngineErrorCodes.IsRetryable` codes (`NODE_STALE` and `FRAME_NOT_FOUND`) can be retryable: both describe a repeatable read. Any other retryable claim is coerced to a non-retryable `ENGINE_FAILURE`, so an engine can never ask for an action that may have committed to run again. `EngineErrorCodes` holds the codes as constants; there is no `ENGINE_ERROR_CODES` list.
+
+A caller's cancellation surfaces as `OperationCanceledException`, which `TranslateEngineError` returns as it is.
+
+#### Timeouts at a deadline
+
+An `OPERATION_TIMEOUT` on a locate or read that started with under one poll tick, or under its slowest completed locate or read, of a waiting call's deadline left, after one that completed, ends the wait instead:
+
+| Waiting call | Fails with |
+| --- | --- |
+| an action, `WaitForAsync` | `LOCATOR_NOT_FOUND`, with the timeout as its cause |
+| an assertion | `ASSERTION_FAILED`, with the timeout as its cause |
+
+A negated assertion passes there if its negation had held long enough by the time the read was cut off. The harness polls every 50 ms for locators and 100 ms for screenshots, where upstream polls every 100 ms. See [Compatibility](/compatibility/).
+
+#### Harness error classes
+
+An `EngineException` a fixture method throws is mapped by the table above. A method can also fail a step with the harness's own `TestException`, `ConfigurationException`, or `AgentException`, all `E2EException`s with a stable `Code`.
+
+### Shared semantics
+
+Upstream exports helpers that keep behavior consistent across engines. The port makes them public, so a third-party engine imports them instead of carrying a copy:
+
+| Upstream export | In the port |
+| --- | --- |
+| `parseKey`, `KEY_NAMES`, `KEY_MODIFIERS` | `KeyGrammar.ParseKey`, `KeyGrammar.KeyNames`, `KeyGrammar.KeyModifiers`. `ParseKey` returns a `ParsedKey` (`Modifiers`, `Name`, `Character`), or null for a key outside the grammar. |
+| `resolveExpression` | `ExpressionResolution.ResolveExpression(expression, nodes, options)`, over the tree `ObserveAsync` returns. `ResolveExpressionOptions.Selector` answers a `selector` query; without it a selector is `UNSUPPORTED_CAPABILITY`. `text` and `label` answer with the innermost match when a container echoes a descendant's text; a `union` matches either branch in document order without duplicate nodes. |
+| `matchesText`, `toTextPattern`, `describePattern` | `TextRules.MatchesText(actual, TextMatch, exact)`. A `TextMatch` is the pattern, so `toTextPattern` and `describePattern` have no counterpart. |
+| `urlMatches`, `siteOf`, `sameSite` | `Urls.UrlMatches` (a string or a `Regex`), `Urls.SiteOf`, and `Urls.SameSite`. |
+| `pollCondition`, `Deadline`, `withTimeout`, `withinCleanupBudget` | `Time.PollConditionAsync(PollConditionOptions)`, `Deadline`, `Time.WithTimeout`, and `Time.WithinCleanupBudget`. |
+| `raceAbort` | `Timing.RaceAbortAsync`. |
+| `isSecret` | `Secret.IsSecret(object?)`. |
+| `validateJsonValue` | `JsonValueValidation.ValidateJsonValue(value, label, JsonValueRules?)`. It refuses a non-finite number, a cycle, a container that is not a plain dictionary or list, and a `Secret`, with `POLICY_DENIED` unless `JsonValueRules.OnSecret` throws. |
+| `rejectUnknownKeys`, `rejectUnknownOptions`, `obj` | Not in the port: typed options need no key check. |
+| `isProviderRecording`, `stopProviderRecording` | `ProviderRecordings.StopProviderRecordingAsync`, public. See [Provider recordings](#provider-recordings). |
+
+An engine with no `CanLocate` needs none of these: set `CanLocate` to `false` and the harness resolves queries over the tree `ObserveAsync` returns, with the same rules the first-party engines use.
+
+### State
+
+Platform-neutral state capture and restore, behind saved sessions (`[E2ESetup]`, `[E2ESession]`).
+
+| Member | Does |
+| --- | --- |
+| `CaptureStateAsync(ct)` | Captures the surface's persisted state as an `EngineState`. |
+| `RestoreStateAsync(state, ct)` | Replaces the surface's whole persisted state with `state`. |
+
+```csharp
+public async Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) =>
+    new("kiosk-storage", 1, await client.ExportStorageAsync(cancellationToken));
+
+public Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) =>
+    client.ReplaceStorageAsync(state.Data, cancellationToken);
+```
+
+Snapshots are credentials: cookies, tokens, and storage that authenticate the app under test. An engine must not persist, cache, or log a snapshot on its own, must not echo snapshot contents in an error message, and must treat `RestoreStateAsync` as a replacement, never a merge, so a restored session cannot leak into the next attempt.
+
+`EngineState(Format, Version, Data, ExpiresAt)` is an opaque, versioned payload. `Data` is a `JsonNode` the harness never inspects, and it is mutable, so a caller must not change it between capture and restore. `Format` and `Version` let an engine reject a snapshot it can no longer read. `ExpiresAt` is an RFC 3339 timestamp after which the state must not be restored.
+
+### Artifacts
+
+Evidence capture: screenshots under the attempt directory, and videos there or at a provider.
+
+| Member | Returns |
+| --- | --- |
+| `ScreenshotArtifactAsync(label, ct)` | `Task<string>`, the artifact-relative path, `screenshots/NNN-label.png` |
+| [`StartVideoAsync(ct)`](#videos) | `Task` |
+| [`StopVideoAsync(ct)`](#videos) | `Task<IReadOnlyList<VideoSegment>>` |
+
+`ScreenshotArtifactAsync` captures a redacted screenshot into the attempt's artifact directory and returns its path. Every secure field is covered before the file is written. The label comes from test code (the harness redacts it first): never let it become part of the path unchecked. An engine that keeps none fails with `UNSUPPORTED_CAPABILITY`. Upstream groups the three under one `artifacts` object, and `artifacts.screenshot` is required with it; in the port each is a session member with a default that refuses.
+
+#### Videos
+
+The harness calls `StartVideoAsync` for an attempt whose video mode records, and for each `App.StartRecordingAsync()`, so one attempt may start and stop several times. It moves the files a stop returns before the next start, and never starts while a recording runs.
+
+- `StartVideoAsync` runs after `StartAsync` and any session restore, within the launch timeout.
+- `StopVideoAsync` runs before `DisposeAsync`, within the cleanup timeout.
+- When the video mode is set on a target or a test, a start that fails fails the launch and a stop that fails fails cleanup. With a default mode, a failure of either drops the video quietly.
+- The harness decides which recordings are kept and deletes a file an attempt does not keep.
+
+```csharp
+public abstract record VideoSegment { public required string StartedAt { get; init; } }
+public sealed record VideoFile : VideoSegment { public required string Path { get; init; } }
+public sealed record VideoLink : VideoSegment { public required string Url { get; init; } public required string MediaType { get; init; } }
+```
+
+A `VideoFile` is a path relative to the attempt artifact directory, and a `VideoLink` is a recording a hosted service keeps: an `http(s)` URL with a media type (`video/mp4`, or `text/html` for a player page). `StartedAt` is an ISO timestamp; the first frame is at or just after it. A link must be an `http(s)` URL of at most 2048 characters, or the cleanup fails once every other recording is kept.
+
+#### Provider recordings
+
+An engine that leases its browser or device from a hosted service can let the service record the attempt in place of its own capture, as `IBrowserProvider.RecordAsync` and `IDeviceProvider.RecordAsync` do. `ProviderRecordings.StopProviderRecordingAsync(recording, target, ct)` turns a provider's recording into a `VideoSegment` the same way for every engine.
+
+```csharp
+public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
+    _recording is null
+        ? []
+        : [await ProviderRecordings.StopProviderRecordingAsync(_recording, new ProviderRecordingTarget { ArtifactsDir = _artifactsDir, Provider = "browser provider \"kernel\"", LeaseId = _leaseId }, cancellationToken)];
+```
+
+- `ProviderRecording` is an abstract class with `StartedAt` and `StopAsync(ProviderRecordingStopContext, ct)`. The stop context carries `Dir`, the directory already created; a `ProviderRecordingResult` names a `File` written into it, or a `Url` and `MediaType`.
+- `StopProviderRecordingAsync` creates the attempt's `video` directory. A file must be a plain name that exists in that directory; a link must be an `http(s)` URL with a media type. It returns a `VideoFile` with `video/<file>`, or a `VideoLink`.
+- Upstream's `isProviderRecording` guard is not needed: the type system holds the shape. A recording that is not a `ProviderRecording` is a compile error.
+- The target argument is `ProviderRecordingTarget` (`ArtifactsDir`, `Provider`, `LeaseId`). Upstream's target also carries a `signal`, which is the call's token here.
+
+| Throws | When |
+| --- | --- |
+| `ENGINE_FAILURE` | `StopAsync` throws, or returns anything else. The message names the provider and the lease. |
+
+`ProviderRecordContext` (`RunId`, `TargetName`, `AttemptId`, `Env`) is what a provider's `RecordAsync` receives once per attempt that records video. Upstream's `signal` is the call's token.
+
+#### Redaction
+
+- Videos are unmasked and keep what the screen showed, secrets included.
+- A text download an engine attaches is the app's bytes. When the session knows a secret value, the harness rescans a text one before reporting.
+- Every other download keeps its bytes.
+
+### Contributed fixtures
+
+Upstream lets an engine contribute named surfaces to the test fixtures through `fixtures`, built by `EngineFixtureFactory` functions given an `EngineFixtureContext` and recorded through `context.fixture(name, surface, operations)`. The port's seam is smaller:
+
+- A session that implements `IEngineFixtureHost` receives its `EngineFixtureContext` through `CreateFixtures(context)` once per attempt, after it starts.
+- The context's public member is `Locator(LocatorExpression)`, which mints a public `Locator` from a raw expression (a platform selector, say). Its other members, including the step recording `RunOperationAsync`, are `internal`.
+- The first-party fixtures (`Device`, `Window`) are built over those internals.
+
+An engine outside the `E2E` assembly can build and expose its own fixture type through the test class, but it cannot record its methods as steps, attach artifacts to the step, or add `expect(fixture)` matchers. `fixture`, `operation(timeoutMs)`, `attachArtifact`, `attachViewport`, `screen(scope)`, `expectable`, `resolveUrl`, `timeouts`, `signal`, the `FixtureOperation` policy, and `requires: ['<name>']` have no port: see [Not in the port](#not-in-the-port).
+
+## Types
+
+### Exported names
+
+`E2E.Engine` exports `IEngine`, `IEngineSession`, `IEngineFixtureHost`, `IPreparableEngine`, `IDoctorEngine`, `EngineCapabilities`, `EngineStartOptions`, `EngineFixtureContext`, `EngineScreenshot`, `EnginePrepareInfo`, `EnginePrepareResult`, `EngineFinishInfo`, `EngineInitInfo`, `EngineDoctorInfo`, `EngineDoctorCheck`, `EngineDoctorStatus`, `EngineAppInfo`, `OperationContext`, `OperationOrigin`, `Observation`, `ObserveOptions`, `SemanticNode`, `NodeStates`, `BoundingBox`, `TraceViewport`, `Point`, `LocatorAction`, `PointerAction`, `EngineActionKinds`, `ScrollDirection`, `Momentum`, `KeyModifier`, `KeyModifiers`, `ObservationLimits`, `AppLogEntry`, `ProviderRecording`, `ProviderRecordings`, `ProviderRecordingTarget`, `ProviderRecordContext`, `ProviderRecordingStopContext`, `ProviderRecordingResult`, `VideoSegment`, `VideoFile`, and `VideoLink`. `E2E` exports `AppLogSource`, `AppLogLevel`, `EngineException`, `EngineErrorCodes`, `EngineState`, `LocatorExpression`, `TextMatch`, `SelectOption`, `Secret`, `AppPermissionState`, `E2EException`, `TestException`, and `ConfigurationException`. `TraceViewport` is the port's name for upstream's `ViewportSize`, and `Point` for `ViewportPoint`.
+
+Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
+
+### SemanticNode
+
+One node of an observation tree. `Ref` is valid only for the observation it came from.
+
+| Member | Meaning |
+| --- | --- |
+| `Ref` | Node reference. Required. A string, where upstream's `NodeRef` is `{ id, revision }`; the harness stamps the revision on the observation, not on the ref. |
+| `Role` | Semantic role. |
+| `Name` | Accessible name, by the accname rules Playwright follows. Cut at `ObservationLimits.Name`. |
+| `Text` | Rendered text, which locator reads and text queries use. Cut at `ObservationLimits.Text`. |
+| `OwnText` | The text the node owns, read as a line, with its listed children's text left out. |
+| `Value` | Current input value; never reported for a secure field. |
+| `Selection` | Text selected inside the focused field or editing host; null for a caret, an unfocused field, or a secure one. |
+| `TestId` | The node's test id, when the platform gives it one: a document attribute, an iOS accessibility identifier, an Android resource id, or a desktop automation id. The test id query resolves against this field. |
+| `Placeholder` | The field's placeholder. |
+| `InputPurpose` | What a field takes, deciding which secrets may fill it: `username`, `password`, `one-time-code`, `generic-secret`, or `none`. |
+| `Level` | Heading level of a heading node. |
+| `States` | `NodeStates`: `Checked`, `Disabled`, `Expanded`, `Focused`, `Hidden`, `AriaHidden`, `Secure`, `Selected`, `Pressed`, and the .NET-only `CheckedReported`, `ExpandedAbsent`, `Mixed`, `EmptyBox`. `Secure` marks a field whose value is never observed. |
+| `Attributes` | Platform attributes by name, what `GetAttributeAsync` reads. A secure field never reports its value. |
+| `Rect` | The node's `BoundingBox` in the top-level viewport's CSS pixels, including nodes inside nested documents. |
+| `Origin` | The `Point` an offset into the node is measured from, when it is not `Rect`'s top-left corner. |
+| `Selector` | Platform selector that addresses the node within its own document, when the platform has one. It is structural, not semantic: it survives the content changes that rename a node, and a runner may store it to re-find the node cheaply on a later run. It is never part of the node's identity, so whatever it resolves to is still checked before it is used. It should be anchored on an attribute naming the node or one of its ancestors, and absent rather than positional all the way to the document root, since such a path is shifted by anything inserted above the node. Redacted like every string field; it stays out of the executor tree. The web engine does not fill it yet. |
+| `FramePath` | The enclosing nested-document chain as selectors of each boundary node, outermost first. Null in the main document. Each selector is redacted, and the executor tree carries the chain (`ExecutorNode.FramePath`). The web engine does not fill it yet: it keeps its own frame placement. |
+| `Children` | Child nodes. |
+
+### Observed field limits
+
+| Constant | Value | Cuts |
+| --- | --- | --- |
+| `ObservationLimits.Name` | 256 | `Name` |
+| `ObservationLimits.Text` | 512 | `Text`, and any `Value` or `Selection` the engine cuts |
+| `ObservationLimits.Nodes` | 3000 | The nodes one web observation lists. .NET-only |
+
+- An engine that cuts an observed field cuts it at exactly its limit. A field exactly at its limit may have been cut; a shorter one, or a longer one the engine left whole, is complete.
+- Keep the start and cut the end: the harness redacts the leading part of a secret that a field exactly at its limit ends with, which a whole-value match cannot see.
+- Single-node reads are unbounded and always carry the full value.
+
+The harness does not cut for you: `ObservationLimits` are constants for engines to apply.
+
+### Queries
+
+`LocatorExpression` carries a query: its `Kind` is `role`, `label`, `placeholder`, `text`, `displayValue`, `testid`, `filter`, `index`, `union`, `selector`, or `frame`. `selector` carries a platform-native selector string (`Selector`); `frame` scopes `Source` into the nested document `Selector` names. A `union` matches either branch in document order, each node once.
+
+A query with `Visible` set must match only nodes whose `States.Hidden` is false. Use the same predicate the engine reports on `SemanticNode`, so `GetByText(..., Visible)` and `ToBeVisibleAsync()` never disagree. Apply it wherever the query sits in the expression, under a scope, filter, or index too.
+
+## Not in the port
+
+| Upstream | Why |
+| --- | --- |
+| `workers`, `EngineInitInfo.workerSlot` at a hook | No worker pool or runner. |
+| `EngineDisposeContext.reuseSignal` | `EngineDisposeContext.ReuseSignal`, honored by `IDisposableEngine` on the mobile engine. No scheduler in the port grants it. |
+| `EngineAttemptContext.resolveSecret`, `ResolveSecretOptions` | `EngineStartOptions.ResolveSecret` is `internal`; the harness resolves only a secret in `IEngine.Secrets` and fails any other with `SECRET_UNAVAILABLE`. [#1246](https://github.com/hardkoded/e2e-dotnet/issues/1246) tracks making it public. |
+| `Engine.fixtures`, `EngineFixtureContext.fixture`, `FixtureOperation`, `expectable`, `requires` | [#1197](https://github.com/hardkoded/e2e-dotnet/issues/1197) and [#1185](https://github.com/hardkoded/e2e-dotnet/issues/1185). |
+| `timeoutMs` on `SwipeAsync`, `BackAsync`, `ResizeAsync` and the session hooks | `OperationContext.Timeout` on the agent's swipe, back and resize (what is left of the step's budget), and on the app's open, back, restart, clear-state and screenshot (the browser's budget, bounded by the test). The web engine bounds `OpenAsync`, `BackAsync`, `RestartAsync`, `ClearStateAsync`, `ResizeAsync`, `PressAsync`, `TypeTextAsync`, `ScreenshotAsync`, `ScreenshotArtifactAsync`, `CaptureStateAsync`, `RestoreStateAsync`, and the video start and stop by it. The other engines carry it. The agent's perform calls carry the step's budget too, and so does a replayed recorded action. ([#1366](https://github.com/hardkoded/e2e-dotnet/issues/1366)) |
+| `artifacts.startTrace`, `stopTrace` | Removed upstream. |
+| The engine protocol (`serveEngine`, `connectEngine`, `spawnTransport`) | [#873](https://github.com/hardkoded/e2e-dotnet/issues/873). |
+| `RETRYABLE_ENGINE_ERROR_CODES` as an exported set, `rejectUnknownKeys` | `EngineErrorCodes.IsRetryable`, and typed options need no key check. |
+| `ObservationPixels` | The port's `Observation.Pixels` is an `EngineScreenshot`. |
+
+## Related
+
+- [Writing an engine](/docs/writing-an-engine/) walks through a complete engine.
+- [Compatibility](/compatibility/) lists every difference from upstream.
+- The first-party engines implement this contract: `WebEngine` and `DocumentEngine` ([browser guide](/features/browser/)), `MobileEngine` ([mobile guide](/get-started/mobile/)), and `WinAppEngine` ([Windows guide](/get-started/windows/)).

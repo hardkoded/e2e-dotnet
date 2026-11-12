@@ -86,6 +86,28 @@ public sealed class VideoTests : IDisposable
         Assert.Equal(2, Records(h));
     }
 
+    [Fact]
+    public async Task Records_again_in_the_same_attempt_once_the_runner_moved_the_previous_file_away()
+    {
+        var h = Harness.Create();
+        Recorder(h);
+        var session = await OpenAttempt(h, _artifactsDir);
+        foreach (var moved in new[] { "first.mp4", "second.mp4" })
+        {
+            await session.StartVideoAsync(CancellationToken.None);
+            var segment = Assert.IsType<VideoFile>(Assert.Single(await session.StopVideoAsync(CancellationToken.None)));
+            Assert.Equal("video/video.mp4", segment.Path);
+            Assert.True(DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
+            File.Move(VideoPath, Path.Combine(_artifactsDir, moved));
+        }
+
+        Assert.Equal(4, Records(h));
+
+        // Nothing is left recording for the attempt's end to stop.
+        await session.DisposeAsync();
+        Assert.Equal(4, Records(h));
+    }
+
     [Theory]
     [InlineData(MobilePlatform.Ios, "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6", """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}""")]
     [InlineData(MobilePlatform.Android, "emulator-5554", """{"platform":"android","serial":"emulator-5554"}""")]
@@ -135,6 +157,104 @@ public sealed class VideoTests : IDisposable
         await next.DisposeAsync();
         Assert.Equal(before + 1, Records(h));
         AssertStop(h, """{"platform":"ios"}""");
+    }
+
+    [Fact]
+    public async Task Shares_a_pending_recording_stop_with_another_caller_and_attempt_cleanup_after_cancellation()
+    {
+        var h = Harness.Create();
+        var finalizing = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.RecordingRecord, (options, _) =>
+            options!["action"]!.GetValue<string>() == "start" ? Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" }) : finalizing.Task);
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        var first = session.StopVideoAsync(controller.Token);
+        await WaitFor(() => Records(h) == 2);
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => first);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+
+        var second = session.StopVideoAsync(CancellationToken.None);
+        var ending = session.DisposeAsync().AsTask();
+        File.WriteAllText(VideoPath, "mp4 bytes");
+        finalizing.SetResult(new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true });
+        var segment = Assert.IsType<VideoFile>(Assert.Single(await second));
+        Assert.Equal("video/video.mp4", segment.Path);
+        Assert.False(string.IsNullOrEmpty(segment.StartedAt));
+        await ending;
+        Assert.Equal(2, Records(h));
+
+        // A confirmed stop leaves nothing for the next attempt to stop.
+        var next = await OpenAttempt(h, _artifactsDir);
+        await next.StartVideoAsync(CancellationToken.None);
+        await next.DisposeAsync();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public async Task Retries_a_stop_that_rejects_promise_turns_before_cleanup_after_its_first_caller_cancels(int turns)
+    {
+        var h = Harness.Create();
+        var failing = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stops = 0;
+        h.Fake.RespondAsync(DeviceMethods.RecordingRecord, (options, _) =>
+        {
+            if (options!["action"]!.GetValue<string>() == "start")
+            {
+                return Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "started" });
+            }
+
+            return Interlocked.Increment(ref stops) == 1
+                ? failing.Task
+                : Task.FromResult<JsonNode?>(new JsonObject { ["recording"] = "stopped", ["recordOnlySession"] = true });
+        });
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        var first = session.StopVideoAsync(controller.Token);
+        await WaitFor(() => Volatile.Read(ref stops) == 1);
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => first);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+
+        failing.SetException(new InvalidOperationException("recorder busy"));
+
+        // Cleanup may start after the device rejects, before the session processes it.
+        for (var i = 0; i < turns; i++)
+        {
+            await Task.Yield();
+        }
+
+        await session.DisposeAsync();
+        Assert.Equal(2, Volatile.Read(ref stops));
+    }
+
+    [Fact]
+    public async Task Does_not_send_a_new_recording_stop_for_a_caller_that_was_already_cancelled()
+    {
+        var h = Harness.Create();
+        Recorder(h);
+        var session = await OpenAttempt(h, _artifactsDir);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var controller = new CancellationTokenSource();
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(controller.Token));
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+        Assert.Equal(1, Records(h));
+        Assert.Single(await session.StopVideoAsync(CancellationToken.None));
+        Assert.Equal(2, Records(h));
+    }
+
+    private static async Task WaitFor(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "condition not reached");
+            await Task.Delay(5);
+        }
     }
 
     [Fact]

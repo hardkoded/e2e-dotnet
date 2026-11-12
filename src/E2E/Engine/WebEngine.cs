@@ -2,9 +2,11 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
 using Microsoft.Playwright;
@@ -105,6 +107,9 @@ public sealed class WebInitScript
 
     public static implicit operator WebInitScript(string source) => FromSource(source);
 
+    /// <summary>The step label of this script (upstream's <c>initScriptLabel</c>): the file a path names, else its kind, never its source.</summary>
+    internal string Label() => Path ?? (Function is null ? "source" : "function");
+
     /// <summary>Why this script cannot run, or <see langword="null"/>.</summary>
     internal string? Problem() => Path is { Length: 0 } ? "path must be a non-empty string" : null;
 
@@ -181,16 +186,29 @@ public sealed class WebEngineOptions
     public string TestIdAttribute { get; init; } = "data-testid";
 
     /// <summary>
-    /// Headers added to every request bound for the app's host (the host of the
-    /// session's base URL). Requests to any other host never carry them, so a
-    /// secret header stays with the app it unlocks. Names are case-insensitive
+    /// Headers added to every request the browser starts at the app's origin (the
+    /// scheme, host, and port of the session's base URL) or one in
+    /// <see cref="CredentialOrigins"/>. A request that starts at any other origin (another port
+    /// on the same host, a sibling subdomain, a CDN) goes without them. Playwright keeps a
+    /// request's headers through its redirects, so a redirect from the app to an identity
+    /// provider carries them there. Names are case-insensitive
     /// and replace a header the page already sends under the same name.
     /// Routing every request turns the browser's HTTP cache off.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
-    /// <summary>Basic-auth credentials the browser answers a challenge with, wherever one is issued.</summary>
+    /// <summary>
+    /// Basic-auth credentials the browser answers a challenge from the app's origin, or one in <see cref="CredentialOrigins"/>,
+    /// with, and no other. WebKit cannot scope a credential to an origin on its scheme's default port or with an IPv6 host, so
+    /// when one of those origins is such an origin, WebKit answers every origin's challenge.
+    /// </summary>
     public WebBasicAuth? BasicAuth { get; init; }
+
+    /// <summary>
+    /// More origins that receive <see cref="Headers"/> and <see cref="BasicAuth"/>, beyond the app's own: an API host or a redirect
+    /// target behind the same gate. Exact origins, such as <c>https://api.example.com</c>; requires headers or basic auth.
+    /// </summary>
+    public IReadOnlyList<string>? CredentialOrigins { get; init; }
 
     /// <summary>The <c>User-Agent</c> the browser sends and <c>navigator.userAgent</c> reports. Defaults to the browser's own.</summary>
     public string? UserAgent { get; init; }
@@ -233,6 +251,13 @@ public sealed class WebEngineOptions
     /// </summary>
     public WebScreencastOptions? Screencast { get; init; }
 
+    /// <summary>
+    /// The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
+    /// <c>browser</c> option, which is a name or a provider: the name is here and the provider is <see cref="Browser"/>.
+    /// <see cref="Connect"/> and a provider attach over CDP, so they need Chromium.
+    /// </summary>
+    public BrowserName BrowserName { get; init; } = BrowserName.Chromium;
+
     /// <summary>Attach to a remote Chromium over CDP instead of launching a local one.</summary>
     public WebConnectOptions? Connect { get; init; }
 
@@ -247,10 +272,10 @@ public sealed class WebEngineOptions
 }
 
 /// <summary>
-/// Browser engine for the web target. It drives Chromium through Playwright,
+/// Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright,
 /// reads a semantic tree (role, name, text, test id, state), and performs the
 /// same node actions the document engine does. Install browsers once with
-/// <c>playwright.ps1 install chromium</c> from this project's build output.
+/// <c>playwright.ps1 install chromium</c> (or <c>firefox</c>, <c>webkit</c>) from this project's build output.
 /// </summary>
 public sealed partial class WebEngine : IEngine
 {
@@ -261,14 +286,14 @@ public sealed partial class WebEngine : IEngine
     private const string SkipBrowserGcVariable = "PLAYWRIGHT_SKIP_BROWSER_GC";
 
     // Playwright's install is a no-op when the build is already there; one run per mode serves every session in the process.
-    private static readonly Lazy<Task<int>> HeadlessChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: false, Microsoft.Playwright.Program.Main)));
-    private static readonly Lazy<Task<int>> HeadedChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: true, Microsoft.Playwright.Program.Main)));
+    // One install per browser and window mode for the process: a download is never charged against a launch timeout or run twice.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(BrowserName Name, bool Headed), Lazy<Task<int>>> BrowserInstalls = new();
 
     private readonly WebEngineOptions _options;
     private readonly bool _headless;
 
     /// <summary>The configured headers, names lower-cased so they replace the browser's own; null when none are set.</summary>
-    private readonly Dictionary<string, string>? _siteHeaders;
+    private readonly Dictionary<string, string>? _configuredHeaders;
 
     // The default contexts earlier attempts rode, so a cdpEndpoint that hands one back is refused.
     // Process-wide: a test fixture creates an engine for each attempt, retries included.
@@ -285,7 +310,7 @@ public sealed partial class WebEngine : IEngine
         Validate(options);
         _options = options;
         _leases = options.Browser is { } provider ? new LeasedBrowsers(provider) : null;
-        _siteHeaders = options.Headers is { Count: > 0 } headers
+        _configuredHeaders = options.Headers is { Count: > 0 } headers
             ? headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal)
             : null;
         if (options.Headless is bool chosen)
@@ -301,8 +326,14 @@ public sealed partial class WebEngine : IEngine
 
     public string Platform => "web";
 
+    /// <summary>The secret the options hold: the <see cref="WebBasicAuth"/> password when it is a <see cref="Secret"/>. Upstream's <c>web()</c> declares it as <c>secrets</c>.</summary>
+    public IReadOnlyList<Secret> Secrets => _options.BasicAuth?.Password is Secret password ? [password] : [];
+
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
+
+    /// <summary>Registers the selector engines in a CDP default context (upstream <c>registerCdpSelectors</c>); .NET-only seam, so tests that stand in for the remote browser with a fake context replace it.</summary>
+    internal Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors { get; init; } = CdpSelectors.RegisterCdpSelectorsAsync;
 
     /// <summary>Attaches to a Playwright-protocol endpoint (.NET-only); tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectPlaywright { get; init; } = BrowserConnection.ConnectPlaywrightAsync;
@@ -313,7 +344,19 @@ public sealed partial class WebEngine : IEngine
     /// <summary>The clock operation budgets read; tests replace it to control elapsed time.</summary>
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
+    /// <summary>What reads a route's upstream response; tests replace it to hand the harness a response whose body is gone.</summary>
+    internal Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute { get; init; } = static (route, options) => route.FetchAsync(options);
+
+    /// <summary>What captures the page for an artifact screenshot; tests replace it as upstream's tests spy on <c>page.screenshot</c>.</summary>
+    internal Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage { get; init; } = static (page, options) => page.ScreenshotAsync(options);
+
+    /// <summary>What runs the page's reader in a frame (upstream's <c>captureDocument</c> on the page's <c>evaluateHandle</c>); .NET-only seam, so tests that stall or fail the semantic read replace it as upstream's spy on <c>page.evaluateHandle</c>.</summary>
+    internal Func<IFrame, object, Task<IJSHandle>> ReadFrame { get; init; } = static (frame, arguments) => frame.EvaluateHandleAsync(PageScript.Collect, arguments);
+
     public string Version => EngineVersion;
+
+    // Upstream's STATE_FORMAT (web/src/surface.ts): the format of the state a web session captures.
+    private const string StateFormat = "playwright-storage-state";
 
     public EngineCapabilities Capabilities =>
         EngineCapabilities.Observation
@@ -324,27 +367,120 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.History
         | EngineCapabilities.Screenshot
         | EngineCapabilities.TapModifiers
-        | EngineCapabilities.Video;
+        | EngineCapabilities.Video
+        | EngineCapabilities.Resize
+        | EngineCapabilities.Upload
+        | EngineCapabilities.State;
+
+    /// <summary>
+    /// A web target opens the app at <c>app.url</c>, so the URL is required, and the fields that describe an installed device app
+    /// (<c>bundleId</c>, <c>appPath</c>, <c>launchArguments</c>) have nothing to act on. <c>app.permissions</c> must be ones the browser
+    /// grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chromium's names. Upstream's <c>validateApp</c> in
+    /// <c>web/src/engine.ts</c>.
+    /// </summary>
+    void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(info);
+        var targetName = info.TargetName;
+        foreach (var (key, declared) in new[]
+        {
+            ("bundleId", app.BundleId is not null),
+            ("appPath", app.AppPath is not null),
+            ("launchArguments", app.LaunchArguments is not null),
+        })
+        {
+            if (declared)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{targetName}\" declares app.{key}, which describes an installed device app; a web() target opens app.url");
+            }
+        }
+
+        if (app.Url is null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{targetName}\" needs app.url: a web() target opens the app at a URL, targets: [{{ engine: web(), app: {{ url: 'http://localhost:3000' }} }}]");
+        }
+
+        if (app.Permissions is { } permissions)
+        {
+            WebPermissions.ValidatePermissions(targetName, PermissionBrowser(_options.Connect), permissions);
+        }
+    }
+
+    // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
+    private BrowserName PermissionBrowser(WebConnectOptions? connect) =>
+        connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium;
+
+    // Upstream's `attempt` of the web engine: one attempt at a time, held from startAttempt until its session is disposed (endAttempt).
+    private readonly object _attemptGate = new();
+    private bool _attemptOpen;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
-        if (_leases is null)
-        {
-            return await StartSessionAsync(options, _options.Connect, UsedContexts, null, cancellationToken).ConfigureAwait(false);
-        }
 
-        // A leased browser is given back on every path: here when the start fails, and by the session when it ends.
-        var lease = await OpenLeaseAsync(options, cancellationToken).ConfigureAwait(false);
+        // Refused before anything is leased or launched, so the attempt that is running keeps its browser.
+        ReserveAttempt();
         try
         {
-            return await StartSessionAsync(options, lease.Connect, lease.UsedContexts, lease, cancellationToken).ConfigureAwait(false);
+            IEngineSession session;
+            if (_leases is null)
+            {
+                session = await StartSessionAsync(options, _options.Connect, UsedContexts, null, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                // A leased browser is given back on every path: here when the start fails, and by the session when it ends.
+                var lease = await OpenLeaseAsync(options, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    session = await StartSessionAsync(options, lease.Connect, lease.UsedContexts, lease, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    await lease.CloseAsync(connected: false).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    throw;
+                }
+            }
+
+            // The attempt holds the engine until its session is disposed.
+            if (session is WebSession web)
+            {
+                web.Retired = ReleaseAttempt;
+            }
+
+            return session;
         }
         catch
         {
-            await lease.CloseAsync(connected: false).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            ReleaseAttempt();
             throw;
+        }
+    }
+
+    private void ReserveAttempt()
+    {
+        lock (_attemptGate)
+        {
+            if (_attemptOpen)
+            {
+                throw new EngineException("INVALID_STATE", "an attempt is already running");
+            }
+
+            _attemptOpen = true;
+        }
+    }
+
+    private void ReleaseAttempt()
+    {
+        lock (_attemptGate)
+        {
+            _attemptOpen = false;
         }
     }
 
@@ -353,14 +489,29 @@ public sealed partial class WebEngine : IEngine
         try
         {
             var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
+
+            // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
+            if (options.Permissions is { } permissions)
+            {
+                WebPermissions.ValidatePermissions(options.TargetName ?? "web", PermissionBrowser(connect), permissions);
+            }
+
             if (connect is null)
             {
-                await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
+                await EnsureBrowserAsync(_options.BrowserName, !_headless, cancellationToken).ConfigureAwait(false);
+            }
+
+            var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
+            var origins = ProtectedApp.CredentialOrigins(ProtectedApp.OriginOf(app), _options.CredentialOrigins);
+
+            // Without the app's origin the credentials would go nowhere; fail rather than send them nowhere (upstream's `init` check).
+            if (origins.Count == 0 && (_options.Headers is not null || _options.BasicAuth is not null))
+            {
+                throw new EngineException("INVALID_CONFIG", "web({ headers, basicAuth }) needs the app's origin: declare the target's app.url");
             }
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
-            var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
-            var seams = new SessionSeams(Clock, ConnectCdp);
+            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute, CapturePage, ReadFrame);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 var persistentSession = await WebSession.StartPersistentAsync(
@@ -369,8 +520,9 @@ public sealed partial class WebEngine : IEngine
                     options.ActionTimeout,
                     _options,
                     initScripts,
-                    context => InstallSiteHeadersAsync(context, app),
-                    url => SiteHeadersFor(url, app),
+                    context => SetUpContextAsync(context, origins, options.Permissions),
+                    url => ConfiguredHeadersFor(url, origins),
+                    SiteOf(app),
                     seams,
                     lease,
                     VideoSetupOf(options, lease),
@@ -384,7 +536,7 @@ public sealed partial class WebEngine : IEngine
             {
                 await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 var credentials = _options.BasicAuth is { } basicAuth
-                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
+                    ? await HttpCredentialsAsync(basicAuth, origins, _options.BrowserName, options.ResolveSecret ?? (async (secret, _) => (await secret.ResolveAsync(cancellationToken).ConfigureAwait(false)).Value)).ConfigureAwait(false)
                     : null;
                 if (connect is not null)
                 {
@@ -396,10 +548,10 @@ public sealed partial class WebEngine : IEngine
                 }
                 else
                 {
-                    browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
+                    browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, origins, options.Permissions), url => ConfiguredHeadersFor(url, origins), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir, Site = SiteOf(app) };
                 session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
@@ -436,7 +588,7 @@ public sealed partial class WebEngine : IEngine
         {
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
-                "Chromium is not installed for Playwright. Unset " + SkipInstallVariable + " to install it on launch, or from the build output run: playwright.ps1 install chromium",
+                _options.BrowserName + " is not installed for Playwright. Unset " + SkipInstallVariable + " to install it on launch, or from the build output run: playwright.ps1 install " + BrowserConnection.NameOf(_options.BrowserName),
                 ex);
         }
         catch (Exception ex) when (WebErrors.IsPlaywright(ex))
@@ -447,10 +599,15 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>
     /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
-    /// them. Every secure-field mask needs them.
+    /// them. Every locator and secure-field mask needs them.
     /// </summary>
-    private static Task RegisterSelectorEnginesAsync(IPlaywright playwright) =>
-        playwright.Selectors.RegisterAsync(PageScript.ClosedShadowSelectorEngine, new SelectorsRegisterOptions { Script = "(" + PageScript.ClosedShadowSelectorEngineSource + ")()" });
+    private static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
+    {
+        foreach (var (name, source) in SelectorEngines.All)
+        {
+            await playwright.Selectors.RegisterAsync(name, new SelectorsRegisterOptions { Script = "(" + source + ")()" }).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
@@ -473,18 +630,35 @@ public sealed partial class WebEngine : IEngine
             : endpoint;
     }
 
-    /// <summary>True when <paramref name="url"/> is bound for the app's host, the only requests the configured headers ride.</summary>
-    internal static bool IsAppRequest(string url, Uri app)
+    /// <summary>The app's site: the registrable domain of its URL's host, as upstream's <c>app.site</c>. Null without an app URL.</summary>
+    internal static string? SiteOf(Uri? app) => app is null ? null : Urls.SiteOf(app.Host);
+
+    /// <summary>
+    /// True when a child frame's document is on the app's site (upstream's <c>isOnSiteFrame</c>). <c>about:blank</c> and <c>srcdoc</c>
+    /// documents inherit their parent's origin, so they are the app's own content and always admitted. A <c>data:</c> document is not,
+    /// since its origin is opaque. Without a site no other frame is admitted.
+    /// </summary>
+    internal static bool IsOnSiteFrame(string url, string? site)
     {
+        if (url is "" or "about:blank" or "about:srcdoc") return true;
+        if (site is null) return false;
         return Uri.TryCreate(url, UriKind.Absolute, out var target)
-            && (target.Scheme == Uri.UriSchemeHttp || target.Scheme == Uri.UriSchemeHttps)
-            && string.Equals(target.Host, app.Host, StringComparison.OrdinalIgnoreCase);
+            && target.Scheme != Uri.UriSchemeFile
+            && target.Scheme != "data"
+            && Urls.SiteOf(target.Host) == site;
     }
 
     /// <summary>The <c>playwright install</c> arguments for Chromium: <c>--only-shell</c> on a headless run, which launches the headless shell.</summary>
     internal static string[] InstallArgs(bool headed)
     {
-        return headed ? ["chromium"] : ["--only-shell", "chromium"];
+        return InstallArgs([BrowserName.Chromium], headed);
+    }
+
+    /// <summary>The <c>playwright install</c> arguments for <paramref name="names"/> (upstream <c>installArgs</c>): <c>--only-shell</c> on a headless run that installs Chromium.</summary>
+    internal static string[] InstallArgs(IReadOnlyList<BrowserName> names, bool headed)
+    {
+        var browsers = names.Select(BrowserConnection.NameOf);
+        return headed || !names.Contains(BrowserName.Chromium) ? [.. browsers] : ["--only-shell", .. browsers];
     }
 
     /// <summary>
@@ -493,7 +667,13 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
-        return RunPlaywrightCli(["install", .. InstallArgs(headed)], install);
+        return RunBrowserInstall(BrowserName.Chromium, headed, install);
+    }
+
+    /// <summary>Runs <paramref name="install"/> with the install arguments for <paramref name="name"/>, as <see cref="RunChromiumInstall"/> does for Chromium.</summary>
+    internal static int RunBrowserInstall(BrowserName name, bool headed, Func<string[], int> install)
+    {
+        return RunPlaywrightCli(["install", .. InstallArgs([name], headed)], install);
     }
 
     /// <summary>
@@ -508,7 +688,13 @@ public sealed partial class WebEngine : IEngine
         return (playwright ?? Microsoft.Playwright.Program.Main)(args);
     }
 
-    internal static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
+    internal static Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
+    {
+        return EnsureBrowserAsync(BrowserName.Chromium, headed, cancellationToken);
+    }
+
+    /// <summary>Installs <paramref name="name"/> once per process unless <see cref="SkipInstallVariable"/> is set (upstream <c>ensureBrowsersInstalled</c>).</summary>
+    internal static async Task EnsureBrowserAsync(BrowserName name, bool headed, CancellationToken cancellationToken)
     {
         var skip = Environment.GetEnvironmentVariable(SkipInstallVariable);
         if (string.Equals(skip, "1", StringComparison.Ordinal) || string.Equals(skip, "true", StringComparison.OrdinalIgnoreCase))
@@ -516,13 +702,35 @@ public sealed partial class WebEngine : IEngine
             return;
         }
 
-        var install = headed ? HeadedChromiumInstall : HeadlessChromiumInstall;
+        var install = BrowserInstalls.GetOrAdd((name, headed), key => new Lazy<Task<int>>(() => InstallBrowserAsync(key)));
         var exitCode = await install.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (exitCode != 0)
         {
             throw new EngineException(
-                "ENVIRONMENT_UNAVAILABLE",
-                "Playwright could not install Chromium (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
+                "BROWSER_INSTALL_FAILED",
+                "Playwright could not install " + BrowserConnection.NameOf(name) + " (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
+        }
+    }
+
+    /// <summary>
+    /// Runs the install behind <see cref="BrowserInstalls"/>. A failed install removes its own entry here, not in a waiter, so it
+    /// is not cached even when every waiter was cancelled before it finished: a later session retries it.
+    /// </summary>
+    private static async Task<int> InstallBrowserAsync((BrowserName Name, bool Headed) key)
+    {
+        var failed = true;
+        try
+        {
+            var exitCode = await Task.Run(() => RunBrowserInstall(key.Name, key.Headed, Microsoft.Playwright.Program.Main)).ConfigureAwait(false);
+            failed = exitCode != 0;
+            return exitCode;
+        }
+        finally
+        {
+            if (failed)
+            {
+                BrowserInstalls.TryRemove(key, out _);
+            }
         }
     }
 
@@ -531,6 +739,12 @@ public sealed partial class WebEngine : IEngine
         if (options.Browser is { } browser)
         {
             ValidateProvider(browser, options.Connect);
+        }
+
+        if ((options.Connect is not null || options.Browser is not null) && options.BrowserName != BrowserName.Chromium)
+        {
+            var source = options.Connect is not null ? "WebEngineOptions.Connect" : "WebEngineOptions.Browser";
+            throw new EngineException("INVALID_CONFIG", source + " requires the chromium browser; CDP attach is chromium-only, got \"" + BrowserConnection.NameOf(options.BrowserName) + "\".");
         }
 
         if (!AttributeNamePattern().IsMatch(options.TestIdAttribute ?? ""))
@@ -566,6 +780,22 @@ public sealed partial class WebEngine : IEngine
             if (auth.Username.Contains(':', StringComparison.Ordinal))
             {
                 throw new EngineException("INVALID_CONFIG", "basicAuth username must not contain \":\".");
+            }
+        }
+
+        if (options.CredentialOrigins is { } credentialOrigins)
+        {
+            if (options.Headers is null && options.BasicAuth is null)
+            {
+                throw new EngineException("INVALID_CONFIG", "web({ CredentialOrigins }) requires headers or basicAuth: it lists more origins that receive them");
+            }
+
+            for (var index = 0; index < credentialOrigins.Count; index++)
+            {
+                if (ProtectedApp.OriginProblem(credentialOrigins[index]) is { } problem)
+                {
+                    throw new EngineException("INVALID_CONFIG", "web({ CredentialOrigins })[" + index + "] " + problem);
+                }
             }
         }
 
@@ -721,10 +951,17 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>The live page and context behind a web session, for tests that drive the browser out of band; null for any other session.</summary>
     internal static LiveSurface? SurfaceOf(IEngineSession session) =>
-        session is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
+        EngineSession.Unwrap(session) is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
+
+    /// <summary>Runs <paramref name="work"/> through the operation entry of a web session (upstream's <c>surface.guard</c>); for tests.</summary>
+    internal static Task<T> Guard<T>(IEngineSession session, string label, CancellationToken cancellationToken, Func<Task<T>> work) =>
+        ((WebSession)EngineSession.Unwrap(session)).GuardAsync(label, cancellationToken, work);
+
+    /// <summary>Latches an error on a web session as a handler nobody awaits would (upstream's <c>surface.latch.latch</c>); for tests.</summary>
+    internal static void Latch(IEngineSession session, Exception error) => ((WebSession)EngineSession.Unwrap(session)).Latch(error);
 
     // Refuses a locale that is not a BCP 47 tag, and one an accept-language
-    // header would override on the app's host while navigator.language kept
+    // header would override on the app's origin while navigator.language kept
     // reporting it.
     private static void ValidateLocale(string locale, IReadOnlyDictionary<string, string>? headers)
     {
@@ -747,10 +984,49 @@ public sealed partial class WebEngine : IEngine
     // database file. Links (US/Eastern, GMT) are both.
     private static bool IsTimeZone(string timezoneId)
     {
-        return TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone)
-            && zone.HasIanaId
-            && (TimeZoneInfo.TryConvertIanaIdToWindowsId(timezoneId, out _) || IsZoneInfoName(timezoneId));
+        return TimeZoneLinks.Contains(timezoneId)
+            || (TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone)
+                && zone.HasIanaId
+                && (TimeZoneInfo.TryConvertIanaIdToWindowsId(timezoneId, out _) || IsZoneInfoName(timezoneId)));
     }
+
+    // The link names of the tz database (its "backward" file: US/Eastern,
+    // Asia/Calcutta, GMT). Distributions split them into a legacy package
+    // (tzdata-legacy on Ubuntu 26.04), so the host directory may lack them,
+    // while Chromium, which carries its own ICU data, still takes them.
+    // The last row is the names tzdata 2024b turned into links (EST, MST, HST,
+    // the EST5EDT family, CET, EET, MET, WET); a host built from the IANA
+    // source may lack their files, while 2026e as Debian ships it keeps them
+    // as zones.
+    // .NET-only: upstream asks Node's Intl, which embeds this data.
+    private static readonly FrozenSet<string> TimeZoneLinks = new[]
+    {
+        "Africa/Asmera", "Africa/Timbuktu", "America/Argentina/ComodRivadavia", "America/Atka", "America/Buenos_Aires",
+        "America/Catamarca", "America/Coral_Harbour", "America/Cordoba", "America/Ensenada", "America/Fort_Wayne",
+        "America/Godthab", "America/Indianapolis", "America/Jujuy", "America/Knox_IN", "America/Kralendijk",
+        "America/Louisville", "America/Lower_Princes", "America/Marigot", "America/Mendoza", "America/Montreal",
+        "America/Nipigon", "America/Pangnirtung", "America/Porto_Acre", "America/Rainy_River", "America/Rosario",
+        "America/Santa_Isabel", "America/Shiprock", "America/St_Barthelemy", "America/Thunder_Bay", "America/Virgin",
+        "America/Yellowknife", "Antarctica/South_Pole", "Arctic/Longyearbyen", "Asia/Ashkhabad", "Asia/Calcutta",
+        "Asia/Choibalsan", "Asia/Chongqing", "Asia/Chungking", "Asia/Dacca", "Asia/Harbin", "Asia/Istanbul",
+        "Asia/Kashgar", "Asia/Katmandu", "Asia/Macao", "Asia/Rangoon", "Asia/Saigon", "Asia/Tel_Aviv", "Asia/Thimbu",
+        "Asia/Ujung_Pandang", "Asia/Ulan_Bator", "Atlantic/Faeroe", "Atlantic/Jan_Mayen", "Australia/ACT",
+        "Australia/Canberra", "Australia/Currie", "Australia/LHI", "Australia/NSW", "Australia/North",
+        "Australia/Queensland", "Australia/South", "Australia/Tasmania", "Australia/Victoria", "Australia/West",
+        "Australia/Yancowinna", "Brazil/Acre", "Brazil/DeNoronha", "Brazil/East", "Brazil/West", "Canada/Atlantic",
+        "Canada/Central", "Canada/Eastern", "Canada/Mountain", "Canada/Newfoundland", "Canada/Pacific",
+        "Canada/Saskatchewan", "Canada/Yukon", "Chile/Continental", "Chile/EasterIsland", "Cuba", "Egypt", "Eire",
+        "Etc/GMT+0", "Etc/GMT-0", "Etc/GMT0", "Etc/Greenwich", "Etc/UCT", "Etc/Universal", "Etc/Zulu", "Europe/Belfast",
+        "Europe/Bratislava", "Europe/Busingen", "Europe/Kiev", "Europe/Mariehamn", "Europe/Nicosia", "Europe/Podgorica",
+        "Europe/San_Marino", "Europe/Tiraspol", "Europe/Uzhgorod", "Europe/Vatican", "Europe/Zaporozhye", "GB",
+        "GB-Eire", "GMT", "GMT+0", "GMT-0", "GMT0", "Greenwich", "Hongkong", "Iceland", "Iran", "Israel", "Jamaica",
+        "Japan", "Kwajalein", "Libya", "Mexico/BajaNorte", "Mexico/BajaSur", "Mexico/General", "NZ", "NZ-CHAT",
+        "Navajo", "PRC", "Pacific/Enderbury", "Pacific/Johnston", "Pacific/Ponape", "Pacific/Samoa", "Pacific/Truk",
+        "Pacific/Yap", "Poland", "Portugal", "ROC", "ROK", "Singapore", "Turkey", "UCT", "US/Alaska", "US/Aleutian",
+        "US/Arizona", "US/Central", "US/East-Indiana", "US/Eastern", "US/Hawaii", "US/Indiana-Starke", "US/Michigan",
+        "US/Mountain", "US/Pacific", "US/Samoa", "UTC", "Universal", "W-SU", "Zulu",
+        "CET", "CST6CDT", "EET", "EST", "EST5EDT", "HST", "MET", "MST", "MST7MDT", "PST8PDT", "WET",
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     // True when each segment of the name is an entry of the tz database
     // directory the runtime reads on Unix, matched with its own case. ICU
@@ -782,21 +1058,26 @@ public sealed partial class WebEngine : IEngine
     private static partial Regex LanguageTagPattern();
 
     /// <summary>
-    /// The basic-auth credentials a context answers a challenge with, as Playwright's own <c>HttpCredentials</c> does:
-    /// on a <c>401</c> from any origin. A <see cref="Secret"/> password resolves through the attempt, which registers the
-    /// value for redaction, and the <c>Authorization</c> credential Playwright sends with it too: a page that echoes its
-    /// request headers shows that, not the password.
+    /// The basic-auth credentials a context answers a challenge with: one Playwright <c>HttpCredentials</c> entry per origin
+    /// in <paramref name="origins"/>, so a <c>401</c> from any other origin goes unanswered. WebKit is the exception: it never
+    /// matches a scoped credential to an origin on its scheme's default port or with an IPv6 host, so when one of
+    /// <paramref name="origins"/> is such an origin, WebKit gets one unscoped credential that answers every origin, as
+    /// Playwright's own default does. A <see cref="Secret"/> password resolves through the attempt, which registers the value
+    /// for redaction, and the <c>Authorization</c> credential Playwright sends with it too: a page that echoes its request
+    /// headers shows that, not the password.
     /// </summary>
-    internal static async Task<HttpCredentials> HttpCredentialsAsync(WebBasicAuth basicAuth, Func<Secret, ResolveSecretOptions?, Task<string>> resolveSecret)
+    internal static async Task<IReadOnlyList<HttpCredentials>> HttpCredentialsAsync(WebBasicAuth basicAuth, IReadOnlySet<string> origins, BrowserName browser, Func<Secret, ResolveSecretOptions?, Task<string>> resolveSecret)
     {
         var username = basicAuth.Username;
-        if (basicAuth.Password is string password)
+        var plaintext = basicAuth.Password is string password
+            ? password
+            : await resolveSecret((Secret)basicAuth.Password, new ResolveSecretOptions { Derived = value => BasicCredentials(username, value) }).ConfigureAwait(false);
+        if (browser == BrowserName.Webkit && origins.Any(ProtectedApp.WebkitCannotScope))
         {
-            return new HttpCredentials { Username = username, Password = password };
+            return [new HttpCredentials { Username = username, Password = plaintext }];
         }
 
-        var resolved = await resolveSecret((Secret)basicAuth.Password, new ResolveSecretOptions { Derived = plaintext => BasicCredentials(username, plaintext) }).ConfigureAwait(false);
-        return new HttpCredentials { Username = username, Password = resolved };
+        return [.. origins.Select(origin => new HttpCredentials { Username = username, Password = plaintext, Origin = origin })];
     }
 
     /// <summary>
@@ -813,7 +1094,7 @@ public sealed partial class WebEngine : IEngine
 
     // A clean context: the viewport the session holds now (setViewport
     // outlives restart and clearState), or no emulation when there is none.
-    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport, HttpCredentials? credentials)
+    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport, IReadOnlyList<HttpCredentials>? credentials)
     {
         var context = new BrowserNewContextOptions
         {
@@ -829,7 +1110,7 @@ public sealed partial class WebEngine : IEngine
             context.UserAgent = options.UserAgent;
         }
 
-        context.HttpCredentials = credentials;
+        context.HttpCredentialsList = credentials is null ? null : [.. credentials];
 
         // Routing never sees a service worker's requests, so a worker would skip the headers.
         if (options.Headers is not null)
@@ -844,27 +1125,43 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>
     /// The configured headers, names lower-cased, that a request to <paramref name="url"/>
-    /// carries: all of them for the app's host, none for any other host or when there is no app.
+    /// carries: all of them when its origin is one of the allowed origins, none otherwise.
     /// </summary>
-    private IReadOnlyDictionary<string, string>? SiteHeadersFor(string url, Uri? app)
+    private IReadOnlyDictionary<string, string>? ConfiguredHeadersFor(string url, IReadOnlySet<string> origins)
     {
-        return app is not null && IsAppRequest(url, app) ? _siteHeaders : null;
+        return ProtectedApp.ConfiguredHeadersFor(url, origins, _configuredHeaders);
     }
 
     /// <summary>
-    /// Adds the configured headers to every request bound for the app's host, through a
+    /// What every context of the attempt is set up with before its first page: the configured headers, then the permissions the target
+    /// grants (upstream's <c>setUpContext</c> hook).
+    /// </summary>
+    private async Task SetUpContextAsync(IBrowserContext context, IReadOnlySet<string> origins, IReadOnlyDictionary<string, AppPermissionState>? permissions)
+    {
+        await InstallConfiguredHeadersAsync(context, origins).ConfigureAwait(false);
+
+        // ValidatePermissions admitted only grants.
+        if (permissions is { Count: > 0 })
+        {
+            await context.GrantPermissionsAsync([.. permissions.Keys]).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Adds the configured headers to every request bound for an allowed origin, through a
     /// context route that falls back to the network. Registered before any test route,
     /// so it runs last: a test route's fallback reaches it, and a continue, which skips
-    /// it, merges the same headers itself.
+    /// it, merges the same headers itself. Redirect hops are never routed: Playwright carries a routed request's headers
+    /// onto them, whatever origin they name, and a request that started elsewhere stays without them.
     /// </summary>
-    private async Task InstallSiteHeadersAsync(IBrowserContext context, Uri? app)
+    private async Task InstallConfiguredHeadersAsync(IBrowserContext context, IReadOnlySet<string> origins)
     {
-        if (_siteHeaders is not { } headers || app is null)
+        if (_configuredHeaders is not { } headers || origins.Count == 0)
         {
             return;
         }
 
-        await context.RouteAsync(url => IsAppRequest(url, app), async route =>
+        await context.RouteAsync(url => ProtectedApp.ConfiguredHeadersFor(url, origins, headers) is not null, async route =>
         {
             var merged = new Dictionary<string, string>(route.Request.Headers, StringComparer.Ordinal);
             foreach (var (name, value) in headers)
@@ -885,19 +1182,13 @@ public sealed partial class WebEngine : IEngine
 
     private sealed partial class WebSession : IBrowserSession
     {
-        // The fields the page script marks secure.
-        private const string SecureFieldSelector = "input[type=password i], input[autocomplete=current-password]";
-
-        // The same fields inside the closed shadow roots Playwright's own selectors stop at.
-        private const string ClosedSecureFieldSelector = PageScript.ClosedShadowSelectorEngine + "=" + SecureFieldSelector;
-
         private readonly IPlaywright _playwright;
         private readonly TimeSpan _actionTimeout;
         private readonly string _testIdAttribute;
-        private readonly HttpCredentials? _credentials;
+        private readonly IReadOnlyList<HttpCredentials>? _credentials;
         private readonly WebEngineOptions _options;
         private readonly Func<IBrowserContext, Task> _setUpContext;
-        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _configuredHeaders;
         private readonly SessionSeams _seams;
         private readonly PersistentConnect? _persistent;
 
@@ -923,6 +1214,9 @@ public sealed partial class WebEngine : IEngine
 
         /// <summary>The attempt's artifact directory (<see cref="EngineStartOptions.ArtifactsDir"/>); null when the session started without one.</summary>
         public string? ArtifactsDir { get; init; }
+
+        /// <summary>The app's site (its registrable domain). A child frame off it is left out of the observation; null admits no child frame (upstream's <c>app.site</c>).</summary>
+        public string? Site { get; init; }
         private IPage? _page;
         private readonly object _pageLock = new();
         private Task<IPage>? _pendingPage;
@@ -933,11 +1227,13 @@ public sealed partial class WebEngine : IEngine
 
         // The emulation each page got as it appeared, so the attempt's own page is ready before it shows.
         private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IPage, Task> _emulated = new();
-        private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
-        private int _nextRef = 1;
 
-        // How many nodes shared each ref's role, name, and test id when the ref was first observed.
-        private Dictionary<string, int> _twins = new(StringComparer.Ordinal);
+        // The refs of the attempt: minted ids, and the generation of observed nodes behind the latest observation.
+        private readonly RefRegistry _refs = new();
+
+        // The locator that matched each located node alone, the way upstream keeps a single match on the strict Playwright locator.
+        // Keyed by the node a locate returned, so a node the observation listed (same ref) is never strict.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SemanticNode, LocatorExpression> _strict = new();
         private IBrowser _browser;
 
         // Persistent recovery: the remote default context and page the attempt rides,
@@ -951,7 +1247,7 @@ public sealed partial class WebEngine : IEngine
         private bool _firstPage = true;
         private bool _disposed;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null, LeaseScope? lease = null)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders, SessionSeams seams, PersistentConnect? persistent = null, IReadOnlyList<HttpCredentials>? credentials = null, LeaseScope? lease = null)
         {
             _lease = lease;
             _dialogs = new DialogRouter(_latch);
@@ -960,7 +1256,7 @@ public sealed partial class WebEngine : IEngine
             _browser = browser;
             _options = options;
             _setUpContext = setUpContext;
-            _siteHeaders = siteHeaders;
+            _configuredHeaders = configuredHeaders;
             _seams = seams;
             _persistent = persistent;
             _testIdAttribute = options.TestIdAttribute;
@@ -987,20 +1283,26 @@ public sealed partial class WebEngine : IEngine
 
         public string Route => Routes.LocationOf(Page.Url);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("navigation", cancellationToken, () => NavigatingAsync(async () =>
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => OpenAsync(url, OperationContext.Test, cancellationToken);
+
+        // The operation's timeout bounds the navigation (upstream's open(url, operation)); a context with none leaves the action timeout.
+        public Task OpenAsync(string url, OperationContext operation, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("navigation", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await EnsurePageAsync().ConfigureAwait(false);
-
-                // The budget is the navigation's: opening the first page does not spend it.
-                var budget = Budget("navigate to " + url, cancellationToken);
-                await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions
+                await NavigatingAsync(async () =>
                 {
-                    WaitUntil = WaitUntilState.Load,
-                    Timeout = budget.PlaywrightTimeout,
-                })).ConfigureAwait(false);
+                    await EnsurePageAsync().ConfigureAwait(false);
+
+                    // The budget is the navigation's: opening the first page does not spend it.
+                    var budget = Budget("navigate to " + url, cancellationToken, operation.Timeout);
+                    await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions
+                    {
+                        WaitUntil = WaitUntilState.Load,
+                        Timeout = budget.PlaywrightTimeout,
+                    })).ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
             catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {
@@ -1011,149 +1313,351 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.Translate(ex, "navigate to " + url);
             }
 
-        })));
+        }));
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(cancellationToken, null);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(null, _actionTimeout, cancellationToken);
+
+        public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
 
         // The least a locate's read is given, so the last poll of a wait at its deadline still reads the page and the wait fails on what it saw.
         private static readonly TimeSpan MinLocateRead = TimeSpan.FromMilliseconds(500);
 
-        // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
-        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
+        // Leave time for a fresh masked screenshot after semantic capture expires (upstream's PIXEL_FALLBACK_RESERVE_MS).
+        private static readonly TimeSpan PixelFallbackReserve = TimeSpan.FromSeconds(2);
+
+        /// <summary>
+        /// One atomic semantic observation (upstream's <c>observe</c> in <c>surface.ts</c>), within <paramref name="timeout"/>, the operation
+        /// budget. With <see cref="ObserveOptions.Pixels"/>, masked viewport pixels are captured alongside the tree rather than after it, so
+        /// the image and the node geometry describe the page as closely in time as two engine calls can.
+        /// </summary>
+        public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("observe", cancellationToken, async () =>
         {
-            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
-            var walk = new FrameWalk();
-            List<WebNode> roots;
+            var budget = Budget("observe", cancellationToken, timeout);
+            return await ObserveInTurnAsync(budget, () => CaptureObservationAsync(options, budget)).ConfigureAwait(false);
+        });
+
+        /// <summary>
+        /// One observation transaction: semantic capture, masked pixels, and staged refs (upstream's <c>captureObservation</c> in
+        /// <c>observation-capture.ts</c>, published as <c>captureInTurn</c> in <c>surface.ts</c> does). A screen whose semantic read timed
+        /// out is answered with fresh masked pixels alone when <see cref="ObserveOptions.PixelFallback"/> allows it. Callers hold their turn
+        /// (<see cref="ObserveInTurnAsync"/>).
+        /// </summary>
+        private async Task<Observation> CaptureObservationAsync(ObserveOptions? options, OperationBudget budget)
+        {
+            var page = Page;
+            var capture = _refs.BeginCapture();
+            var walk = new FrameWalk { Site = Site };
             try
             {
-                roots = await CollectAsync(Page.MainFrame, walk, budget).ConfigureAwait(false);
+                var fallback = options?.PixelFallback == true;
+                var semantic = fallback ? budget.WithTimeout(budget.Left - TimeSpan.FromTicks(Math.Min(PixelFallbackReserve.Ticks, budget.Left.Ticks / 4))) : budget;
+
+                // The initial image is independent of the reader. A fallback always takes a fresh one.
+                var pixelCapture = options?.Pixels == true ? InitialPixelsAsync(page, semantic) : Task.FromResult<PixelCapture?>(null);
+                // A cancel that ends the image after the read failed has nobody awaiting it.
+                _ = pixelCapture.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                Observation observation;
+                try
+                {
+                    var roots = await CollectAsync(page.MainFrame, walk, semantic, framePath: []).ConfigureAwait(false);
+                    var pixels = await pixelCapture.ConfigureAwait(false);
+                    var url = page.Url;
+                    observation = new Observation
+                    {
+                        Route = Routes.LocationOf(url),
+                        Location = url,
+                        Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(),
+                        Truncated = walk.Truncated,
+                        ScrollPosition = walk.Scroll,
+                        Viewport = walk.Viewport,
+                        Pixels = pixels?.Pixels,
+                    };
+                }
+                catch (EngineException cause) when (fallback && cause.Code == EngineErrorCodes.OperationTimeout)
+                {
+                    walk.Release();
+                    await pixelCapture.ConfigureAwait(false);
+                    var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
+                    var pixels = await WebObserve.CapturePixelsAsync(page, budget, viewport, _seams.CapturePage).ConfigureAwait(false);
+                    if (!pixels.MaskingProven)
+                    {
+                        throw;
+                    }
+
+                    var url = page.Url;
+                    observation = new Observation
+                    {
+                        Route = Routes.LocationOf(url),
+                        Location = url,
+                        Roots = [],
+                        Truncated = true,
+                        TreeUnavailable = true,
+                        Viewport = new TraceViewport(viewport.Width, viewport.Height),
+                        Pixels = pixels.Pixels,
+                    };
+                }
+
+                // A page replaced while the capture ran owns none of the refs it read (upstream's `requirePage() !== page` in `captureInTurn`).
+                if (!ReferenceEquals(_page, page))
+                {
+                    throw new EngineException(EngineErrorCodes.NodeStale, "observation page was replaced", retryable: true);
+                }
+
+                _refs.Publish(capture, new CapturedObservation(observation, walk.Generation));
+                _observed = true;
+                return observation;
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
+                walk.Release();
                 throw WebErrors.NavigationStaleOr(ex, "observe");
             }
+            catch
+            {
+                // A read that failed leaves no reachable ids behind.
+                walk.Release();
+                throw;
+            }
+        }
 
-            _frames = walk.Frames;
-            _observed = true;
-            _twins = TwinsOf(roots, _twins);
-            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
-        });
+        // The pixels taken with the semantic read, best effort: a screenshot that cannot be taken costs the observation its image, not the
+        // step (upstream's `.catch(() => undefined)`). A cancel is not swallowed: it surfaces when the capture awaits them.
+        private async Task<PixelCapture?> InitialPixelsAsync(IPage page, OperationBudget budget)
+        {
+            try
+            {
+                var viewport = await WebSupport.CurrentViewportAsync(page, budget).ConfigureAwait(false);
+                return await WebObserve.CapturePixelsAsync(page, budget, viewport, _seams.CapturePage).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return null;
+            }
+        }
+
+        // Settles when the latest observation in line has finished; never faults.
+        private Task _observing = Task.CompletedTask;
+        private readonly object _observingLock = new();
+
+        /// <summary>
+        /// Runs one observation after every earlier one has finished, so each publishes its refs in turn instead of the later one
+        /// superseding a capture still in flight (upstream's <c>observeInTurn</c> in <c>attempt-session.ts</c>). Time spent waiting comes
+        /// out of the operation's budget, which was started before the wait.
+        /// </summary>
+        private async Task<T> ObserveInTurnAsync<T>(OperationBudget budget, Func<Task<T>> capture)
+        {
+            var mine = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            Task before;
+            lock (_observingLock)
+            {
+                before = _observing;
+                _observing = Task.WhenAll(before, mine.Task);
+            }
+
+            try
+            {
+                await budget.WithinAsync(before).ConfigureAwait(false);
+                return await capture().ConfigureAwait(false);
+            }
+            finally
+            {
+                mine.SetResult();
+            }
+        }
 
         public bool CanLocate => true;
 
         /// <summary>
-        /// Resolves a locator against the page as it is now, in the engine: it reads the semantic tree and resolves the expression over
-        /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
-        /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
-        /// resolve is the tree's, and only a <c>selector</c> or <c>frame</c> expression asks Playwright which elements it names
-        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken)"/>). <paramref name="timeout"/> is the budget left for the
-        /// wait: the read runs under it, or under the action timeout when that is shorter.
+        /// Resolves a locator against the page as it is now, in the engine: it projects the expression onto a Playwright locator over the
+        /// selector engines (<see cref="WebLocators.ProjectExpression"/>) and reads every match, fully, in one in-page round trip (upstream's
+        /// <c>locate</c> in <c>surface.ts</c>). Each match is read by the <c>e2e-read</c> engine in the task that finds it
+        /// (<see cref="ReadSelector"/>), so a page that replaces it a frame later cannot detach it before the read. A <c>displayValue</c> query
+        /// is filtered here by the value each element reported, so no per-node calls are needed; any <c>first</c>/<c>last</c>/<c>nth</c>
+        /// on such a query then selects among those matches, and a filter placed after a position is checked on the selected element. A
+        /// <c>visible</c> query drops the candidates whose hidden state the same read reported before either of those, so a position is among
+        /// shown matches. <paramref name="timeout"/> is the budget left for the wait: the read runs under it, or under the action timeout
+        /// when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
-            var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
-            _trace?.ShowScreen(observation);
-            var projected = WebLocators.NeedsPage(expression)
-                ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
-                : expression;
-            return LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
-        }
-
-        /// <summary>
-        /// The expression with every <c>selector</c> and <c>frame</c> in it replaced by the nodes Playwright says it names, as <c>refs</c>:
-        /// the elements the page script listed in the observation just taken, which is every element that has a ref. An element the tree
-        /// leaves out (no role, test id, or text of its own) matches nothing, and so does the content of a frame it does not show.
-        /// Upstream's <c>project</c> (<c>locators.ts</c>) and <c>frameBox</c> (<c>surface.ts</c>), over the tree.
-        /// </summary>
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
-        {
-            WebLocators.FrameSelectors(expression);
-            var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
             try
             {
-                return await ProjectAsync(expression, budget).ConfigureAwait(false);
+                return await GuardAsync("locate", cancellationToken, () => LocateNowAsync(expression, timeout, cancellationToken)).ConfigureAwait(false);
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.EngineFailure && ex.InnerException is PlaywrightException cause)
+            {
+                // Upstream's pageScriptFailure around locate: a page that replaced a built-in the in-page code needs fails the test, not the engine.
+                var pageFailure = await WebErrors.PageScriptFailureAsync(Page, cause, "locate", (float)timeout.TotalMilliseconds).ConfigureAwait(false);
+                throw pageFailure is null ? ex : pageFailure;
+            }
+        }
+
+        /// <summary>The body of <see cref="LocateAsync"/>, inside its guard (upstream's <c>locateNow</c>).</summary>
+        private async Task<IReadOnlyList<SemanticNode>> LocateNowAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
+            // Handles a predicate query pins, disposed on every path that hands none of them out.
+            IReadOnlyList<IElementHandle>? handles = null;
+            var handed = false;
+            try
+            {
+                RefuseCaptures(expression);
+                var frame = await FrameOfAsync(WebLocators.FrameSelectors(expression), budget).ConfigureAwait(false);
+                var projected = WebLocators.ProjectExpression(Page, expression, new ProjectionOptions(_testIdAttribute, frame.Hidden, expression.IncludeHidden));
+                // Every match is read by the `e2e-read` selector engine in the task that finds it, so a page that replaces it a frame later
+                // cannot detach it before the read. A predicate-filtered match is one element among many candidates (every input with a
+                // value, every control the label engine kept). Re-resolving it by position at action time would act on a neighbor whenever
+                // the page inserted or removed an element in between, so such matches are pinned to the handles of the elements the query
+                // returned, and their reads are taken back from those very handles: what was read and what is acted on are one set of
+                // elements by construction.
+                var read = ReadSelector.Create(_testIdAttribute, ReadNode.SecureFieldSelector);
+                var reading = projected.Locator.Locator(read.Selector);
+                if (projected.DisplayValue is not null || projected.Name is not null)
+                {
+                    handles = await budget.WithinAsync(reading.ElementHandlesAsync()).ConfigureAwait(false);
+                }
+
+                // The reads are data: a missing one is a null in the array, which only a typed read turns into a node.
+                var json = handles is null
+                    ? await budget.WithinAsync(reading.EvaluateAllAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = read.Token })).ConfigureAwait(false)
+                    : handles.Count == 0
+                        ? default
+                        : await budget.WithinAsync(handles[0].EvaluateAsync<System.Text.Json.JsonElement>(ReadSelector.TakeReadsFunction, new { token = read.Token, elements = handles })).ConfigureAwait(false);
+                var taken = json.ValueKind == System.Text.Json.JsonValueKind.Array
+                    ? System.Text.Json.JsonSerializer.Deserialize<WebNode?[]>(json, JsonDefaults.Options)!
+                    : [];
+                if (taken.Any(raw => raw is null))
+                {
+                    throw new TestException("INVALID_LOCATOR", "a selector that captures with * (*css=article >> text=Hello) is not supported: use Filter(Locator) instead");
+                }
+
+                var reads = taken.Select(raw => raw!).ToList();
+                foreach (var raw in reads)
+                {
+                    if (frame.Hidden)
+                    {
+                        raw.Hidden = true;
+                    }
+
+                    if (frame.InFrame)
+                    {
+                        // A node read in a frame is in the top-level viewport's space, as the observation tree reports it.
+                        Place([raw], frame.Content);
+                    }
+                }
+
+                var nodes = reads.Select(raw => ToNode(raw, _testIdAttribute)).ToList();
+                var candidates = nodes
+                    .Select((node, index) => (Node: node, Index: index))
+                    .Where(candidate => !(projected.Visible && !LocatorEngine.IsNodeVisible(candidate.Node)))
+                    .ToList();
+
+                // An exact label query matches any of the control's labels as the reader names them, so text a label marks aria-hidden (a
+                // required-field marker) never hides a field, and an aria-label override or a second label does not either.
+                Func<SemanticNode, bool>? predicate = projected switch
+                {
+                    { DisplayValue: { } value } => node => value.Match.Matches(node.Value ?? "", value.Exact),
+                    { Name: { } name } => node => node.Labels is { } labels && labels.Any(label => name.Match.Matches(label, name.Exact)),
+                    _ => null,
+                };
+                var matches = predicate is null
+                    ? candidates
+                    : await WebLocators.ApplyPostSteps(
+                        candidates.Where(candidate => predicate(candidate.Node)).ToList(),
+                        projected.Steps,
+                        // A filter after a position runs on that one element alone.
+                        async (candidate, options) => await budget.WithinAsync(projected.Locator.Nth(candidate.Index).Filter(options).CountAsync()).ConfigureAwait(false) > 0).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (handles is not null)
+                {
+                    // Only the matches keep their handles; the rest would otherwise live until the page goes.
+                    var kept = matches.Select(match => match.Index).ToHashSet();
+                    for (var index = 0; index < handles.Count; index++)
+                    {
+                        if (!kept.Contains(index))
+                        {
+                            WebSupport.DisposeQuietly(handles[index]);
+                        }
+                    }
+                }
+
+                var located = new List<SemanticNode>(matches.Count);
+                foreach (var (node, index) in matches)
+                {
+                    // A single match keeps the strict locator, so a ref that turns ambiguous between locate and perform is stale instead of
+                    // acting on whichever element is first.
+                    ActionTarget target = handles is not null
+                        ? new ElementTarget(handles[index])
+                        : new LocatorTarget(reads.Count == 1 ? projected.Locator : projected.Locator.Nth(index));
+                    var id = _refs.StoreLocated(target);
+                    reads[index].Ref = id;
+                    var stored = ToNode(reads[index], _testIdAttribute);
+                    if (handles is null && reads.Count == 1)
+                    {
+                        _strict.AddOrUpdate(stored, expression);
+                    }
+
+                    located.Add(stored);
+                }
+
+                handed = true;
+                return located;
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.StaleOr(ex, "locate");
             }
-        }
-
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, OperationBudget budget)
-        {
-            switch (expression.Kind)
+            finally
             {
-                case "union":
-                    return expression with { Left = await ProjectAsync(expression.Left!, budget).ConfigureAwait(false), Right = await ProjectAsync(expression.Right!, budget).ConfigureAwait(false) };
-                case "filter":
-                    return expression with
+                if (!handed)
+                {
+                    foreach (var handle in handles ?? [])
                     {
-                        Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false),
-                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!), budget).ConfigureAwait(false),
-                    };
-                case "index":
-                    return expression with { Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false) };
-                case "selector":
-                    return Named(await RefsOfAsync([], expression.Selector!, budget).ConfigureAwait(false));
-                case "frame":
-                    {
-                        var frames = new List<string>();
-                        var leaf = expression;
-                        while (leaf.Kind == "frame")
-                        {
-                            frames.Add(leaf.Selector!);
-                            leaf = leaf.Source!;
-                        }
-
-                        var frame = await FrameAsync(frames, budget).ConfigureAwait(false);
-                        return leaf.Kind switch
-                        {
-                            "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget).ConfigureAwait(false)),
-                            "role" or "text" or "label" or "testid" or "placeholder" or "displayValue" when leaf.Parent is null => leaf with { Parent = Named([frame]) },
-                            _ => throw new EngineException("UNSUPPORTED_CAPABILITY", "a frame scopes a query or a selector, not " + leaf.Kind, retryable: false),
-                        };
+                        WebSupport.DisposeQuietly(handle);
                     }
-
-                default:
-                    return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget).ConfigureAwait(false) };
+                }
             }
         }
 
-        /// <summary>
-        /// A <c>has</c> filter resolves inside each match of its source, so a frame the two share is already the source's: the frame's
-        /// iframe would otherwise scope the filter to descendants of the iframe, which the match is not one of. A <c>has</c> in another
-        /// document cannot be joined to its source.
-        /// </summary>
-        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source)
+        /// <summary>Refuses a <c>selector</c> that captures with <c>*</c>, wherever the expression holds one.</summary>
+        private static void RefuseCaptures(LocatorExpression expression)
         {
-            if (!WebLocators.FrameSelectors(has).SequenceEqual(WebLocators.FrameSelectors(source), StringComparer.Ordinal))
+            if (expression.Kind == "selector")
             {
-                throw new EngineException("UNSUPPORTED_CAPABILITY", "locator.filter({ has }) requires both locators in the same document", retryable: false);
+                WebLocators.RefuseCapture(expression.Selector!);
             }
 
-            return WebLocators.WithoutFrameScopes(has);
+            foreach (var inner in new[] { expression.Parent, expression.Source, expression.Left, expression.Right, expression.Has, expression.HasNot })
+            {
+                if (inner is not null)
+                {
+                    RefuseCaptures(inner);
+                }
+            }
         }
-
-        private static LocatorExpression Named(IEnumerable<string> refs) => new() { Kind = "refs", Refs = new HashSet<string>(refs, StringComparer.Ordinal) };
 
         /// <summary>
         /// Checks that every frame selector along <paramref name="frames"/> matches exactly one element, each counted inside the frame
-        /// before it (upstream's <c>frameBox</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
-        /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns the ref the innermost iframe node has in the observation. An iframe the
-        /// tree does not list, because it is hidden, is no frame either.
+        /// before it (upstream's <c>frameOf</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
+        /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns whether a frame along the chain is hidden: a frame element's own hidden state,
+        /// read in the document around it, so a cross-origin frame reads too. Every node in a hidden frame is hidden, and so are the frames
+        /// under it. Also returns the innermost frame's content box in the top-level viewport, where its document's viewport starts (null for
+        /// a frame with no box); <see cref="FrameScope.InFrame"/> is false for an expression in the main document.
         /// </summary>
-        private async Task<string> FrameAsync(IReadOnlyList<string> frames, OperationBudget budget)
+        private async Task<FrameScope> FrameOfAsync(IReadOnlyList<string> frames, OperationBudget budget)
         {
             ILocator? element = null;
             IFrameLocator? scope = null;
+            var hidden = false;
             foreach (var selector in frames)
             {
                 element = scope is null ? Page.Locator(selector) : scope.Locator(selector);
                 var count = await budget.WithinAsync(element.CountAsync()).ConfigureAwait(false);
                 if (count == 0)
                 {
-                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+                    throw NoFrame(selector);
                 }
 
                 if (count > 1)
@@ -1161,75 +1665,79 @@ public sealed partial class WebEngine : IEngine
                     throw new EngineException(EngineErrorCodes.FrameAmbiguous, $"{count} frames match {selector}", retryable: false);
                 }
 
+                if (!hidden)
+                {
+                    hidden = await budget.WithinAsync(element.Locator(ShownSelector.Selector).CountAsync()).ConfigureAwait(false) == 0;
+                }
+
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
-            // A selector counts one element; only an iframe is a frame boundary.
-            if (!await budget.WithinAsync(element!.EvaluateAsync<bool>(PageScript.IsFrameElement, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false))
+            if (element is null)
+            {
+                return new FrameScope(Hidden: false, InFrame: false, Content: null);
+            }
+
+            // A selector counts one element; only an iframe is a frame boundary. Read without waiting for the element: an iframe that went since the count is no frame, not an element to wait for.
+            var isFrame = await budget.WithinAsync(element.EvaluateAllAsync<bool[]>(PageScript.AreFrameElements)).ConfigureAwait(false);
+            if (isFrame.Length == 0)
+            {
+                throw NoFrame(frames[^1]);
+            }
+
+            if (!isFrame[0])
             {
                 throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
             }
 
-            var node = await budget.WithinAsync(element.EvaluateAsync<string?>(PageScript.RefOf, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
-            return node ?? throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: it is hidden, or the page changed after it", retryable: true);
-        }
-
-        /// <summary>The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page.</summary>
-        private async Task<List<string>> RefsOfAsync(IReadOnlyList<string> frames, string selector, OperationBudget budget)
-        {
-            WebLocators.RefuseCapture(selector);
-            IFrameLocator? scope = null;
-            foreach (var frame in frames)
+            var border = await budget.WithinAsync(element.BoundingBoxAsync(new LocatorBoundingBoxOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+            WebRect? content = null;
+            if (border is not null)
             {
-                scope = scope is null ? Page.FrameLocator(frame) : scope.FrameLocator(frame);
+                var inset = await budget.WithinAsync(element.EvaluateAsync<WebRect>(PageScript.FrameInset, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                content = new WebRect { X = border.X + inset.X, Y = border.Y + inset.Y, Width = inset.Width, Height = inset.Height };
             }
 
-            var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
-            // One round trip for every match: an element the observation did not list has no ref, and is no node.
-            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>("els => els.map(" + PageScript.RefOf.Trim() + ")")).ConfigureAwait(false);
-            return found.OfType<string>().ToList();
+            return new FrameScope(hidden, InFrame: true, content);
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
+        /// <summary>What <see cref="FrameOfAsync"/> found: whether a frame on the way is hidden, and the content box of the innermost one (null for a frame with no box).</summary>
+        private sealed record FrameScope(bool Hidden, bool InFrame, WebRect? Content);
+
+        private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => PerformAsync(node, action, OperationContext.Test, cancellationToken);
+
+        /// <summary>
+        /// <see cref="PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> within <paramref name="context"/>'s timeout, the Playwright
+        /// <c>timeout</c> of the action (upstream's <c>operation.timeoutMs</c> in <c>actions.ts</c>); the action timeout when it carries none.
+        /// </summary>
+        public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, async () =>
         {
+            ArgumentNullException.ThrowIfNull(context);
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
-            RequireObservation();
-            var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
+
+            // An action on a node needs no observation after a recovery, as upstream's: a ref from before it is retired, and one a locate
+            // stored after it names an element of the page now.
+            var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken, context.Timeout);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
-            var frame = _frames.GetValueOrDefault(node.Ref) ?? Page.MainFrame;
-            if (frame.IsDetached)
-            {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
-            }
+            var (element, pin) = await FindElementAsync(node, action, budget).ConfigureAwait(false);
 
-            IJSHandle handle;
+            // The lists behind both nodes stay alive until the action ends, whatever observation publishes meanwhile.
+            using var keepElement = pin;
             try
             {
-                handle = await budget.WithinAsync(frame.EvaluateHandleAsync(PageScript.Find, node.Ref)).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-            {
-                throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
-            }
-            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
-            {
-                // As upstream, the deadline cutting off any part of an action is the action's cut-off.
-                throw WebErrors.ClassifyAction(ex, action);
-            }
+                if (action is LocatorAction.DragTo drag)
+                {
+                    // The drop target is a node of the same observation, found like the source. As upstream's locator drag resolves its
+                    // target after the press, the twin check of a located target runs after it, in DragAsync.
+                    var (drop, dropPin) = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
+                    using var keepDrop = dropPin;
+                    await budget.WithinAsync(DragAsync(element, drop, drag.Target, budget)).ConfigureAwait(false);
+                    return;
+                }
 
-            // A frame's handle to a missing ref is a plain JSHandle, which
-            // AsElement rejects instead of returning null.
-            var element = handle as IElementHandle;
-            if (element is null)
-            {
-                await handle.DisposeAsync().ConfigureAwait(false);
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
-            }
-
-            await using var disposeElement = element.ConfigureAwait(false);
-            try
-            {
                 await budget.WithinAsync(DispatchAsync(element, action, budget)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
@@ -1238,58 +1746,358 @@ public sealed partial class WebEngine : IEngine
             }
         }));
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.press", cancellationToken, () =>
+        /// <summary>
+        /// The page's element for a located or observed node, or <c>NODE_STALE</c> when the page no longer has it. The list that made an
+        /// observed one owns the handle: it stays valid until the next observation replaces the generation. A located node's locator is
+        /// resolved now (upstream's <c>dispatchLocatorAction</c> acts through it), and its handle is released with the pin.
+        /// </summary>
+        private async Task<(IElementHandle Element, IDisposable Pin)> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
         {
-            RequireObservation();
-            return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
-        }));
-
-        // Direct test input: it needs no observation, so it stays available after a reconnect.
-        public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
-            InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
-
-        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("back", cancellationToken, () => NavigatingAsync(async () =>
-        {
-            var budget = Budget("back", cancellationToken);
+            var lookup = _refs.LookupPinnedAsync(node.Ref);
             try
             {
-                await budget.WithinAsync(Page.GoBackAsync(new PageGoBackOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                var (target, pin) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                if (target is LocatorTarget located)
+                {
+                    var resolving = located.Locator.ElementHandleAsync(new LocatorElementHandleOptions { Timeout = budget.PlaywrightTimeout });
+                    try
+                    {
+                        var handle = await budget.WithinAsync(resolving).ConfigureAwait(false);
+                        return (handle, new HandlePin(handle));
+                    }
+                    catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+                    {
+                        WebSupport.DisposeWhenSettled(resolving);
+                        throw WebErrors.ClassifyAction(ex, action);
+                    }
+                    catch
+                    {
+                        WebSupport.DisposeWhenSettled(resolving);
+                        throw;
+                    }
+                }
+
+                return (((ElementTarget)target).Element, pin);
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+            {
+                // A lookup the deadline abandoned still pins its list when it settles.
+                WebSupport.DisposePinWhenSettled(lookup);
+
+                // As upstream, the deadline cutting off any part of an action is the action's cut-off.
+                throw WebErrors.ClassifyAction(ex, action);
+            }
+            catch
+            {
+                WebSupport.DisposePinWhenSettled(lookup);
+                throw;
+            }
+        }
+
+        /// <summary>Releases the element handle a located node's locator resolved to, when the action that used it ends. .NET-only: upstream's locator actions hold no handle.</summary>
+        private sealed class HandlePin(IElementHandle handle) : IDisposable
+        {
+            public void Dispose() => WebSupport.DisposeQuietly(handle);
+        }
+
+        /// <summary>A pointer drag between two elements, as Playwright's <c>dragTo</c> does it: hover the source, press, hover the target, release.</summary>
+        private async Task DragAsync(IElementHandle source, IElementHandle target, SemanticNode dropNode, OperationBudget budget)
+        {
+            await source.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            await Page.Mouse.DownAsync().ConfigureAwait(false);
+            try
+            {
+                // Upstream's locator drag resolves the drop locator after the press: a second match then is a strict mode violation the
+                // input has already gone out for, so possibly committed (retryable: false), not stale.
+                try
+                {
+                    await RequireNoNewTwinAsync(dropNode, budget).ConfigureAwait(false);
+                }
+                catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
+                {
+                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "dragTo matched more than one element after its input was dispatched: " + ex.Message, retryable: false, ex);
+                }
+
+                await target.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            }
+            catch
+            {
+                // The release is best effort once the drag has failed: its own failure must not replace the error that tells the caller
+                // the press went out.
+                try
+                {
+                    await Page.Mouse.UpAsync().ConfigureAwait(false);
+                }
+                catch (Exception releaseFailure) when (WebErrors.IsPlaywright(releaseFailure))
+                {
+                }
+
+                throw;
+            }
+
+            await Page.Mouse.UpAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
+        public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
+
+        /// <summary>
+        /// One pointer action at a viewport point in CSS pixels, with nothing resolved behind it: no actionability wait, because there is no
+        /// element to wait on, and the page decides what the gesture lands on, as it does for a person. Upstream's <c>performAt</c> and
+        /// <c>dispatchPointerAction</c>.
+        /// </summary>
+        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => PerformAtAsync(point, action, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="PerformAtAsync(Point, PointerAction, CancellationToken)"/> within <paramref name="context"/>'s timeout (upstream's <c>performAt(point, action, operation)</c>).</summary>
+        public Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("perform", cancellationToken, () =>
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            ArgumentNullException.ThrowIfNull(context);
+            RequireObservation();
+            var label = EngineActionKinds.Of(action) + " at point";
+            if (action is PointerAction.SwipeTo or PointerAction.DragTo)
+            {
+                return DragAtPointAsync(point, action, label, cancellationToken, context.Timeout);
+            }
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), label, cancellationToken, context.Timeout);
+        }));
+
+        /// <summary>
+        /// A pointer drag under the operation's budget (upstream's <c>dispatchPointerAction</c> takes the operation's signal). The drag ends with
+        /// its budget or with a cancel, so it never keeps moving after the call fails. The call does not wait for the drag's mouse release, as
+        /// upstream's <c>performAt</c> does not: the drag's <c>finally</c> releases the button after the call has failed. The token linking is
+        /// .NET-only: the .NET engine links the drag's token itself, where upstream passes the operation's signal.
+        /// </summary>
+        private async Task DragAtPointAsync(Point point, PointerAction action, string label, CancellationToken cancellationToken, TimeSpan? timeout)
+        {
+            var budget = Budget(label, cancellationToken, timeout);
+            using var ended = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var drag = DispatchPointerActionAsync(point, action, ended.Token);
+            Exception failure;
+            try
+            {
+                await budget.WithinAsync(drag).ConfigureAwait(false);
+                return;
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+
+            // The budget or the caller abandoned the drag: cancel it. Its release runs after this call has failed, as upstream's does.
+            ended.Cancel();
+            if (WebErrors.IsPlaywright(failure) || failure is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                throw WebErrors.ClassifyInput(failure, label);
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+
+        private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
+        {
+            var mouse = Page.Mouse;
+            var x = (float)Math.Round(at.X, MidpointRounding.AwayFromZero);
+            var y = (float)Math.Round(at.Y, MidpointRounding.AwayFromZero);
+            switch (action)
+            {
+                case PointerAction.Tap:
+                    await mouse.ClickAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.DoubleTap:
+                    await mouse.DblClickAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.SecondaryTap:
+                    await mouse.ClickAsync(x, y, new MouseClickOptions { Button = MouseButton.Right }).ConfigureAwait(false);
+                    break;
+                case PointerAction.LongPress press:
+                    await mouse.ClickAsync(x, y, new MouseClickOptions { Delay = (float)(press.Duration ?? DefaultLongPress).TotalMilliseconds }).ConfigureAwait(false);
+                    break;
+                case PointerAction.Hover:
+                    await mouse.MoveAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.DragTo drag:
+                    await PerformPointDragAsync(x, y, drag.Target, null, cancellationToken).ConfigureAwait(false);
+                    break;
+                case PointerAction.SwipeTo swipe:
+                    // A swipe along a path is a pointer drag on a document platform.
+                    await PerformPointDragAsync(x, y, swipe.Target, swipe.Duration, cancellationToken).ConfigureAwait(false);
+                    break;
+                case PointerAction.Swipe swipe:
+                    // The pointer moves to the point first so the scrollable under it receives the wheel.
+                    await mouse.MoveAsync(x, y).ConfigureAwait(false);
+                    await PerformViewportSwipeAsync(swipe.Direction, swipe.Momentum ?? Momentum.None).ConfigureAwait(false);
+                    break;
+                default:
+                    throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
+            }
+        }
+
+        /// <summary>
+        /// Upstream's <c>performPointDrag</c>: a pointer drag from one viewport point to another, on whole pixels, with an intermediate move
+        /// so drag handlers see motion; paced over <paramref name="duration"/> when given.
+        /// </summary>
+        private async Task PerformPointDragAsync(float fromX, float fromY, Point end, TimeSpan? duration, CancellationToken cancellationToken)
+        {
+            var mouse = Page.Mouse;
+            var toX = (float)Math.Round(end.X, MidpointRounding.AwayFromZero);
+            var toY = (float)Math.Round(end.Y, MidpointRounding.AwayFromZero);
+            await mouse.MoveAsync(fromX, fromY).ConfigureAwait(false);
+            await mouse.DownAsync().ConfigureAwait(false);
+            try
+            {
+                if (duration is { } length)
+                {
+                    var steps = Math.Max(2, (int)Math.Round(length.TotalMilliseconds / 16, MidpointRounding.AwayFromZero));
+                    var started = Stopwatch.GetTimestamp();
+                    for (var step = 1; step <= steps; step++)
+                    {
+                        var due = TimeSpan.FromTicks(length.Ticks * step / steps);
+                        // Awaited on every step, also when the drag is behind its schedule, so an abort is seen even at no wait (upstream's setTimeout with a signal).
+                        var wait = due - Stopwatch.GetElapsedTime(started);
+                        await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+
+                        await mouse.MoveAsync(step == steps ? toX : fromX + ((toX - fromX) * step / steps), step == steps ? toY : fromY + ((toY - fromY) * step / steps)).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    await mouse.MoveAsync((float)Math.Round((fromX + toX) / 2.0, MidpointRounding.AwayFromZero), (float)Math.Round((fromY + toY) / 2.0, MidpointRounding.AwayFromZero)).ConfigureAwait(false);
+                    await mouse.MoveAsync(toX, toY).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                await mouse.UpAsync().ConfigureAwait(false);
+            }
+        }
+
+        public Task PressAsync(string key, CancellationToken cancellationToken) => PressAsync(key, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="PressAsync(string, CancellationToken)"/> within <paramref name="context"/>'s timeout: upstream's <c>keyboard.press</c>.</summary>
+        public Task PressAsync(string key, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.press", cancellationToken, () =>
+        {
+            RequireObservation();
+            return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken, context.Timeout);
+        }));
+
+        /// <summary>
+        /// Types into whatever holds focus. Keystrokes into a document body are accepted by the browser and lost, so the focused element is
+        /// checked for editability first and the call refuses rather than "typing" into nothing. <paramref name="replace"/> clears with
+        /// select-all and delete: the only locator-free clear, scoped by the browser to the whole editing host, so it is opt-in. Upstream's
+        /// <c>typeText</c> of the web surface (<c>keyboard.type</c>).
+        /// </summary>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => TypeTextAsync(text, replace, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="TypeTextAsync(string, bool, CancellationToken)"/> within <paramref name="context"/>'s timeout: upstream's <c>keyboard.type</c>.</summary>
+        public Task TypeTextAsync(string text, bool replace, OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("keyboard.type", cancellationToken, async () =>
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            RequireObservation();
+            await InputAsync(() => RequireEditableFocusAsync(), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
+            if (replace)
+            {
+                await InputAsync(() => Page.Keyboard.PressAsync("ControlOrMeta+A"), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
+                await InputAsync(() => Page.Keyboard.PressAsync("Delete"), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
+            }
+
+            await InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken, context.Timeout).ConfigureAwait(false);
+        }));
+
+        /// <summary>
+        /// Refuses focused typing when nothing that takes keystrokes has focus, in any frame of the page. Text fields and contenteditable
+        /// hosts take them; so does any other focusable element the app made focusable (a canvas, a widget with a tabindex and its own key
+        /// handling), because focusing it is how the app opted into keys. Focus on the body, a button, a link, a select, or a non-text
+        /// input means the keystrokes would be discarded. Upstream's <c>requireEditableFocus</c>.
+        /// </summary>
+        private async Task RequireEditableFocusAsync()
+        {
+            foreach (var frame in Page.Frames)
+            {
+                bool editable;
+                try
+                {
+                    editable = await frame.EvaluateAsync<bool>(PageScript.HasEditableFocus).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    // A frame that cannot be read has nothing the typed text could reach.
+                    continue;
+                }
+
+                if (editable)
+                {
+                    return;
+                }
+            }
+
+            throw new EngineException(
+                EngineErrorCodes.NotActionable,
+                "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.",
+                retryable: false);
+        }
+
+        // Direct test input: it needs no observation, so it stays available after a reconnect.
+        public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.press", cancellationToken, () =>
+            InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
+
+        public Task BackAsync(CancellationToken cancellationToken) => BackAsync(OperationContext.Test, cancellationToken);
+
+        // The context's timeout bounds the navigation (upstream's back(operation)); a context with none leaves the action timeout.
+        public Task BackAsync(OperationContext context, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("back", cancellationToken, async () =>
+        {
+            try
+            {
+                await NavigatingAsync(async () =>
+                {
+                    var budget = Budget("back", cancellationToken, context.Timeout);
+                    await budget.WithinAsync(Page.GoBackAsync(new PageGoBackOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.Translate(ex, "back");
             }
 
-        })));
+        }));
 
-        public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, () => NavigatingAsync(async () =>
+        // Upstream's PlaywrightSurface.resize: the viewport `Browser.SetViewportAsync` sets, then the screen after it.
+        public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
+            ActedAsync(cancellationToken, () => SetViewportAsync(size.Width, size.Height, context, cancellationToken));
+
+        public Task ForwardAsync(CancellationToken cancellationToken) => GuardAsync("forward", cancellationToken, async () =>
         {
-            var budget = Budget("forward", cancellationToken);
             try
             {
-                await budget.WithinAsync(Page.GoForwardAsync(new PageGoForwardOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                await NavigatingAsync(async () =>
+                {
+                    var budget = Budget("forward", cancellationToken);
+                    await budget.WithinAsync(Page.GoForwardAsync(new PageGoForwardOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.Translate(ex, "forward");
             }
-        }));
+        });
 
-        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("goto", cancellationToken, () => NavigatingAsync(async () =>
+        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("goto", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await EnsurePageAsync().ConfigureAwait(false);
-
-                var budget = Budget("goto " + url, cancellationToken, timeout);
-                var until = waitUntil switch
+                await NavigatingAsync(async () =>
                 {
-                    GotoWaitUntil.DomContentLoaded => WaitUntilState.DOMContentLoaded,
-                    GotoWaitUntil.NetworkIdle => WaitUntilState.NetworkIdle,
-                    _ => WaitUntilState.Load,
-                };
-                await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions { WaitUntil = until, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                    await EnsurePageAsync().ConfigureAwait(false);
+
+                    var budget = Budget("goto " + url, cancellationToken, timeout);
+                    var until = waitUntil switch
+                    {
+                        GotoWaitUntil.DomContentLoaded => WaitUntilState.DOMContentLoaded,
+                        GotoWaitUntil.NetworkIdle => WaitUntilState.NetworkIdle,
+                        _ => WaitUntilState.Load,
+                    };
+                    await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions { WaitUntil = until, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
             catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
             {
@@ -1299,36 +2107,48 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "goto " + url);
             }
-        }));
+        });
 
-        public Task ReloadAsync(CancellationToken cancellationToken) => RunAsync("reload", cancellationToken, () => NavigatingAsync(async () =>
+        public Task ReloadAsync(CancellationToken cancellationToken) => GuardAsync("reload", cancellationToken, async () =>
         {
-            var budget = Budget("reload", cancellationToken);
             try
             {
-                await budget.WithinAsync(Page.ReloadAsync(new PageReloadOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                await NavigatingAsync(async () =>
+                {
+                    var budget = Budget("reload", cancellationToken);
+                    await budget.WithinAsync(Page.ReloadAsync(new PageReloadOptions { WaitUntil = WaitUntilState.Load, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                }).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.Translate(ex, "reload");
             }
-        }));
+        });
 
-        public Task RestartAsync(CancellationToken cancellationToken) => RunAsync("restart", cancellationToken, async () =>
+        public Task RestartAsync(CancellationToken cancellationToken) => RestartAsync(OperationContext.Test, cancellationToken);
+
+        // The operation's timeout bounds closing the old page and opening the new one (upstream's restart(operation)).
+        public Task RestartAsync(OperationContext operation, CancellationToken cancellationToken) => GuardAsync("restart", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
+            var budget = Budget("restart", cancellationToken, operation.Timeout);
             await VideoPageClosingAsync().ConfigureAwait(false);
+
+            // The old page's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             foreach (var page in context.Pages.ToList())
             {
-                await page.CloseAsync().ConfigureAwait(false);
+                await Within(budget, page.CloseAsync()).ConfigureAwait(false);
             }
 
-            await NewPageAsync(context).ConfigureAwait(false);
+            await Within(budget, NewPageAsync(context)).ConfigureAwait(false);
         });
 
-        public async Task ClearStateAsync(CancellationToken cancellationToken)
+        public Task ClearStateAsync(CancellationToken cancellationToken) => ClearStateAsync(OperationContext.Test, cancellationToken);
+
+        public async Task ClearStateAsync(OperationContext context, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (_persistent is not null)
@@ -1340,61 +2160,140 @@ public sealed partial class WebEngine : IEngine
                     $"app.clearState() is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context{remedy}");
             }
 
+            await ReplaceContextAsync(null, Budget("app.clearState", cancellationToken, context.Timeout)).ConfigureAwait(false);
+        }
+
+        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one. A restore and app.clearState() bound each wait
+        // by its operation budget (upstream's transition budget); app.clearState() takes one too, as upstream's guard does.
+        private async Task ReplaceContextAsync(string? storageState, OperationBudget? budget = null)
+        {
             ThrowPending();
             await VideoPageClosingAsync().ConfigureAwait(false);
             var context = _context;
             _context = null;
+
+            // The old context's nodes are gone with it: refs observed there read as stale, not as a closed target.
+            _refs.Clear();
             _page = null;
             if (context is not null)
             {
-                await context.CloseAsync().ConfigureAwait(false);
+                await Within(budget, context.CloseAsync()).ConfigureAwait(false);
             }
 
-            await NewContextAsync().ConfigureAwait(false);
-            await NewPageAsync(_context!).ConfigureAwait(false);
+            await Within(budget, NewContextAsync(storageState)).ConfigureAwait(false);
+            await Within(budget, NewPageAsync(_context!)).ConfigureAwait(false);
         }
 
-        public Task<string> GetUrlAsync(CancellationToken cancellationToken) => RunAsync("url", cancellationToken, () =>
+        private static Task Within(OperationBudget? budget, Task call) => budget is null ? call : budget.WithinAsync(call);
+
+        /// <summary>Upstream's <c>captureState</c>: the context's cookies, local storage, and IndexedDB, as a Playwright storage state.</summary>
+        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => CaptureStateAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>state.capture</c> within <paramref name="context"/>'s timeout.</summary>
+        public Task<EngineState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("state capture", cancellationToken, async () =>
+        {
+            var budget = Budget("state capture", cancellationToken, context.Timeout);
+            try
+            {
+                var storageState = await budget.WithinAsync(RequireContext().StorageStateAsync(new BrowserContextStorageStateOptions { IndexedDB = true })).ConfigureAwait(false);
+                return new EngineState(StateFormat, 1, JsonNode.Parse(storageState));
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "state capture");
+            }
+        });
+
+        /// <summary>Upstream's <c>restoreState</c>: replaces the attempt's context with one seeded from the storage state.</summary>
+        public Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) => RestoreStateAsync(state, OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>state.restore</c> within <paramref name="context"/>'s timeout.</summary>
+        public async Task RestoreStateAsync(EngineState state, OperationContext context, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(state);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (state.Format != StateFormat || state.Version != 1)
+            {
+                throw new EngineException(EngineErrorCodes.InvalidState, $"unsupported state format {state.Format}@{state.Version}", retryable: false);
+            }
+
+            // A string here would be read by Playwright as a file path; a session envelope must never be able to point the browser at the filesystem.
+            if (state.Data is not JsonObject data || data["cookies"] is not JsonArray || data["origins"] is not JsonArray)
+            {
+                throw new EngineException(EngineErrorCodes.InvalidState, "state data must be a storage-state object", retryable: false);
+            }
+
+            if (_persistent is not null)
+            {
+                throw new EngineException(
+                    EngineErrorCodes.UnsupportedCapability,
+                    $"restoring a state is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context");
+            }
+
+            var budget = Budget("state restore", cancellationToken, context.Timeout);
+            try
+            {
+                await ReplaceContextAsync(data.ToJsonString(), budget).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "state restore");
+            }
+        }
+
+        public Task<string> GetUrlAsync(CancellationToken cancellationToken) => GuardAsync("url", cancellationToken, () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(Page.Url);
         });
 
-        public Task<string> GetTitleAsync(CancellationToken cancellationToken) => RunAsync("title", cancellationToken, () =>
+        public Task<string> GetTitleAsync(CancellationToken cancellationToken) => GuardAsync("title", cancellationToken, () =>
         {
             return Budget("title", cancellationToken).WithinAsync(Page.TitleAsync());
         });
 
-        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
+        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => GuardAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
         {
             var budget = Budget("evaluate", cancellationToken);
-            System.Text.Json.JsonElement? outcome;
+            string? report;
             try
             {
-                outcome = await budget.WithinAsync(Page.EvaluateAsync<System.Text.Json.JsonElement?>(Evaluation.CompileEvaluation(expression, hasArg), arg)).ConfigureAwait(false);
+                // A handle, not a value: the boundary resolves to a string, which Playwright keeps out of its in-page serializer when it is taken back from a handle.
+                var handle = await budget.WithinAsync(Page.EvaluateHandleAsync(Evaluation.CompileEvaluation(expression, hasArg), arg)).ConfigureAwait(false);
+                try
+                {
+                    report = await budget.WithinAsync(handle.JsonValueAsync<string>()).ConfigureAwait(false);
+                }
+                finally
+                {
+                    try
+                    {
+                        await handle.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (PlaywrightException)
+                    {
+                        // Best effort: a page that navigated or closed took the handle with it, and the read's own failure is the one to report.
+                    }
+                }
             }
             catch (PlaywrightException ex) when (ex.Message.StartsWith("SyntaxError", StringComparison.Ordinal))
             {
                 throw new TestException("EVALUATE_FAILED", PageMessage(ex), ex);
             }
-            catch (PlaywrightException ex)
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
-                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result.
-                throw WebErrors.Translate(ex, "evaluate");
+                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result. Unless the page
+                // broke the engine's own in-page code, which is the test's to fix.
+                var pageFailure = await WebErrors.PageScriptFailureAsync(Page, ex, "evaluate", budget.PlaywrightTimeout).ConfigureAwait(false);
+                throw pageFailure is null ? WebErrors.Translate(ex, "evaluate") : pageFailure;
             }
             catch (ArgumentException ex)
             {
-                // Playwright cannot carry a result that is not JSON, such as Infinity or NaN.
-                throw new TestException("INVALID_ARGUMENT", "evaluate argument or result is not JSON: " + ex.Message, ex);
+                // Playwright cannot carry an argument that is not JSON, such as Infinity or NaN.
+                throw new TestException("INVALID_ARGUMENT", "evaluate argument is not JSON: " + ex.Message, ex);
             }
 
-            var result = outcome!.Value;
-            if (result.GetProperty("ok").GetBoolean())
-            {
-                return result.TryGetProperty("value", out var value) ? value : default(System.Text.Json.JsonElement?);
-            }
-
-            throw new TestException("EVALUATE_FAILED", result.GetProperty("message").GetString()!);
+            return Evaluation.DecodeEvaluation(report);
         });
 
         // What the page code threw, without the stack Playwright appends or the "Error: " it prefixes to an Error's message.
@@ -1410,7 +2309,7 @@ public sealed partial class WebEngine : IEngine
             return message.StartsWith("Error: ", StringComparison.Ordinal) ? message["Error: ".Length..] : message;
         }
 
-        public Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("waitForResponse", cancellationToken, async () =>
+        public Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("waitForResponse", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             IResponse response;
@@ -1433,12 +2332,14 @@ public sealed partial class WebEngine : IEngine
             // only by the caller's body read on a budget of its own: the timeout
             // bounds the match, never a body still streaming in behind headers
             // that already arrived.
+            var bytes = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure);
             return new BrowserResponse
             {
                 Url = response.Url,
                 Status = response.Status,
                 Headers = response.Headers,
-                Body = ReadBodyAsync(response),
+                Body = AsText(bytes),
+                BodyBytes = bytes,
             };
         });
 
@@ -1474,16 +2375,22 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("route", cancellationToken, async () =>
+        public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => GuardAsync("route", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
-            Func<IRoute, Task> playwrightHandler = route => HandleRouteAsync(route, handler);
+            // Tracked so the attempt end waits for a handler still running and collects what it latched.
+            Func<IRoute, Task> playwrightHandler = route =>
+            {
+                var work = HandleRouteAsync(route, handler);
+                _latch.Track("route", work);
+                return work;
+            };
             await context.RouteAsync(matches, playwrightHandler).ConfigureAwait(false);
             _routes.Add((matches, playwrightHandler, handler));
         });
 
-        public Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("unroute", cancellationToken, async () =>
+        public Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => GuardAsync("unroute", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -1521,69 +2428,188 @@ public sealed partial class WebEngine : IEngine
             return (relative, absolute);
         }
 
-        public Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("download", cancellationToken, async () =>
+        public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
+            (await GuardAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, 1, timeout, "browser.waitForDownload", cancellationToken)).ConfigureAwait(false))[0];
+
+        public Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
+            GuardAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, count, timeout, "browser.waitForDownloads", cancellationToken));
+
+        /// <summary>
+        /// Runs <paramref name="trigger"/> once and saves the first <paramref name="count"/> downloads it starts, in start order (upstream's
+        /// <c>collectDownloads</c>). One budget bounds the start, completion and save of every file; on failure the unfinished downloads are
+        /// canceled and the listener is gone, so late work saves nothing more.
+        /// </summary>
+        private async Task<IReadOnlyList<BrowserDownload>> CollectDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, string api, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var budget = Budget("download", cancellationToken, timeout);
+            var waitMs = (long)budget.PlaywrightTimeout;
+            using var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var started = new List<IDownload>();
+            var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             Exception? triggerFailure = null;
-            (TimeSpan Wait, TimeSpan Trigger)? awaiting = null;
+            long? triggerMs = null;
+            var closed = false;
+            var finished = false;
+            IPage? page = null;
+            EventHandler<IDownload>? onDownload = null;
+
+            int StartedCount()
+            {
+                lock (started)
+                {
+                    return started.Count;
+                }
+            }
+
+            TestException TimedOut(Exception inner) => new(
+                "ACTION_FAILED",
+                triggerMs is null
+                    ? $"{api} exceeded its timeout of {waitMs}ms"
+                    : StartedCount() < count
+                        ? $"{(count == 1 ? "no download" : $"{StartedCount()} of {count} downloads")} started within {waitMs}ms; the trigger resolved after {triggerMs}ms"
+                        : $"{(count == 1 ? "the download" : $"{count} downloads")} did not finish within {waitMs}ms",
+                inner);
+
+            async Task RunTriggerAsync()
+            {
+                var begun = _seams.Clock.GetTimestamp();
+                try
+                {
+                    await trigger().ConfigureAwait(false);
+                }
+                catch (Exception cause)
+                {
+                    triggerFailure = cause;
+                    throw;
+                }
+
+                triggerMs = (long)_seams.Clock.GetElapsedTime(begun).TotalMilliseconds;
+            }
+
             try
             {
                 var remote = _lease?.Downloads();
                 if (remote is not null)
                 {
-                    await budget.WithinAsync(Downloads.SaveDownloadsToAsync(Page, remote.Dir)).ConfigureAwait(false);
+                    await budget.WithinAsync(Downloads.SaveDownloadsToAsync(Page, remote.Dir, scope.Token)).ConfigureAwait(false);
                 }
 
-                var waitFor = TimeSpan.FromMilliseconds(budget.PlaywrightTimeout);
-                var download = await budget.WithinAsync(Page.RunAndWaitForDownloadAsync(
-                    async () =>
+                budget.ThrowIfExpired();
+                page = Page;
+                onDownload = (_, download) =>
+                {
+                    lock (started)
                     {
-                        var started = _seams.Clock.GetTimestamp();
-                        try
+                        if (closed || started.Count == count)
                         {
-                            await trigger().ConfigureAwait(false);
-                        }
-                        catch (Exception cause)
-                        {
-                            triggerFailure = cause;
-                            throw;
+                            return;
                         }
 
-                        awaiting = (waitFor, _seams.Clock.GetElapsedTime(started));
-                    },
-                    new PageRunAndWaitForDownloadOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
-                awaiting = null;
-                var suggested = download.SuggestedFilename;
-                var (relative, absolute) = ArtifactPath("downloads", suggested, "");
-                await budget.WithinAsync(remote is null
-                    ? Downloads.SaveLocallyAsync(download, absolute, _lease?.UnservedDownloads())
-                    : Downloads.SaveFromBrowserAsync(download, remote, absolute, cancellationToken)).ConfigureAwait(false);
-                return new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested };
+                        started.Add(download);
+                        if (started.Count == count)
+                        {
+                            allStarted.TrySetResult();
+                        }
+                    }
+                };
+                page.Download += onDownload;
+                var running = RunTriggerAsync();
+
+                // A trigger abandoned at the deadline that fails later is already reported as the timeout.
+                ObserveFault(running);
+                await budget.WithinAsync(running).ConfigureAwait(false);
+                await budget.WithinAsync(allStarted.Task).ConfigureAwait(false);
+                IDownload[] snapshot;
+                lock (started)
+                {
+                    snapshot = [.. started];
+                }
+
+                var files = new List<BrowserDownload>();
+                foreach (var download in snapshot)
+                {
+                    var suggested = download.SuggestedFilename;
+                    var (relative, absolute) = ArtifactPath("downloads", suggested, "");
+                    var save = remote is null
+                        ? Downloads.SaveLocallyAsync(download, absolute, _lease?.UnservedDownloads())
+                        : Downloads.SaveFromBrowserAsync(download, remote, absolute, scope.Token);
+
+                    // An abandoned save that fails later is already reported as the timeout.
+                    ObserveFault(save);
+                    await budget.WithinAsync(save).ConfigureAwait(false);
+                    files.Add(new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested });
+                }
+
+                finished = true;
+                return files;
             }
             catch (Exception cause) when (triggerFailure is not null && ReferenceEquals(cause, triggerFailure))
             {
                 // The trigger is test code, so its errors keep their original classification.
                 throw;
             }
-            catch (Exception cause) when (WebErrors.IsPlaywright(cause) || cause is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
-                var translated = WebErrors.Translate(cause, "download");
-
-                // The waiter's clock starts before the trigger runs, so the message names both.
-                if (awaiting is { } waited && translated.Code == EngineErrorCodes.OperationTimeout)
+                throw TimedOut(ex);
+            }
+            catch (Exception cause) when (WebErrors.IsPlaywright(cause))
+            {
+                throw WebErrors.Translate(cause, "download");
+            }
+            finally
+            {
+                // The owner closes even when a trigger never settles; late work cannot start another save.
+                lock (started)
                 {
-                    throw new TestException(
-                        "ACTION_FAILED",
-                        $"no download started within {(long)waited.Wait.TotalMilliseconds}ms; the trigger resolved after {(long)waited.Trigger.TotalMilliseconds}ms",
-                        cause);
+                    closed = true;
                 }
 
-                throw translated;
-            }
-        });
+                try
+                {
+                    await scope.CancelAsync().ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (page is not null && onDownload is not null)
+                    {
+                        page.Download -= onDownload;
+                    }
 
-        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => RunAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
+                    if (!finished)
+                    {
+                        IDownload[] unfinished;
+                        lock (started)
+                        {
+                            unfinished = [.. started];
+                        }
+
+                        foreach (var download in unfinished)
+                        {
+                            _ = CancelQuietlyAsync(download);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>Observes the failure of a task the caller abandoned, which the caller already reported as a timeout.</summary>
+        private static void ObserveFault(Task task) =>
+            _ = task.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        private static async Task CancelQuietlyAsync(IDownload download)
+        {
+            try
+            {
+                await download.CancelAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // The download already finished or its page is gone.
+            }
+        }
+
+        public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => GuardAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var cookies = await RequireContext().CookiesAsync().ConfigureAwait(false);
@@ -1600,7 +2626,7 @@ public sealed partial class WebEngine : IEngine
             }).ToList();
         });
 
-        public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken) => RunAsync("cookies", cancellationToken, () =>
+        public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken) => GuardAsync("cookies", cancellationToken, () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(cookies);
@@ -1624,14 +2650,31 @@ public sealed partial class WebEngine : IEngine
             }));
         });
 
-        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => RunAsync("setViewport", cancellationToken, async () =>
+        public Task ClearCookiesAsync(CookieFilter? options, CancellationToken cancellationToken) => GuardAsync("clearCookies", cancellationToken, () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return RequireContext().ClearCookiesAsync(options is null ? null : new BrowserContextClearCookiesOptions
+            {
+                Name = options.Name?.Text,
+                NameRegex = options.Name?.Pattern,
+                Domain = options.Domain?.Text,
+                DomainRegex = options.Domain?.Pattern,
+                Path = options.Path?.Text,
+                PathRegex = options.Path?.Pattern,
+            });
+        });
+
+        public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => SetViewportAsync(width, height, OperationContext.Test, cancellationToken);
+
+        /// <summary><see cref="SetViewportAsync(int, int, CancellationToken)"/> within <paramref name="context"/>'s timeout: the viewport change upstream's <c>resize</c> bounds by its guard.</summary>
+        public Task SetViewportAsync(int width, int height, OperationContext context, CancellationToken cancellationToken) => GuardAsync("setViewport", cancellationToken, async () =>
         {
             if (width < 0 || height < 0)
             {
                 throw new ArgumentOutOfRangeException(width < 0 ? nameof(width) : nameof(height), "the viewport needs whole, non-negative pixels, got " + width.ToString(System.Globalization.CultureInfo.InvariantCulture) + "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture));
             }
 
-            var budget = Budget("setViewport", cancellationToken);
+            var budget = Budget("setViewport", cancellationToken, context.Timeout);
             _viewport = new ViewportSize { Width = width, Height = height };
             if (_page is not null)
             {
@@ -1639,7 +2682,7 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
-        public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) => RunAsync("emulateMedia", cancellationToken, async () =>
+        public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) => GuardAsync("emulateMedia", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(media);
             var context = RequireContext();
@@ -1697,7 +2740,7 @@ public sealed partial class WebEngine : IEngine
             };
         }
 
-        public Task AddInitScriptAsync(string source, CancellationToken cancellationToken) => RunAsync("addInitScript", cancellationToken, async () =>
+        public Task AddInitScriptAsync(string source, CancellationToken cancellationToken) => GuardAsync("addInitScript", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
@@ -1705,44 +2748,46 @@ public sealed partial class WebEngine : IEngine
             _initScripts.Add(source);
         });
 
-        public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) => RunAsync("keyboard.type", cancellationToken, () =>
+        public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) => GuardAsync("keyboard.type", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken));
 
-        public Task KeyboardDownAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.down", cancellationToken, () =>
+        public Task KeyboardDownAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.down", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.DownAsync(key), "keyboard.down " + key, cancellationToken));
 
-        public Task KeyboardUpAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.up", cancellationToken, () =>
+        public Task KeyboardUpAsync(string key, CancellationToken cancellationToken) => GuardAsync("keyboard.up", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.UpAsync(key), "keyboard.up " + key, cancellationToken));
 
-        public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken) => RunAsync("mouse.move", cancellationToken, () =>
+        public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken) => GuardAsync("mouse.move", cancellationToken, () =>
             InputAsync(() => Page.Mouse.MoveAsync(x, y), "mouse.move", cancellationToken));
 
-        public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken) => RunAsync("mouse.wheel", cancellationToken, () =>
+        public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken) => GuardAsync("mouse.wheel", cancellationToken, () =>
             InputAsync(() => Page.Mouse.WheelAsync(deltaX, deltaY), "mouse.wheel", cancellationToken));
 
-        public Task MouseDownAsync(CancellationToken cancellationToken) => RunAsync("mouse.down", cancellationToken, () =>
+        public Task MouseDownAsync(CancellationToken cancellationToken) => GuardAsync("mouse.down", cancellationToken, () =>
             InputAsync(() => Page.Mouse.DownAsync(), "mouse.down", cancellationToken));
 
-        public Task MouseUpAsync(CancellationToken cancellationToken) => RunAsync("mouse.up", cancellationToken, () =>
+        public Task MouseUpAsync(CancellationToken cancellationToken) => GuardAsync("mouse.up", cancellationToken, () =>
             InputAsync(() => Page.Mouse.UpAsync(), "mouse.up", cancellationToken));
 
         /// <summary>Opens a clean context at the current viewport. Its first page opens on the first navigation.</summary>
-        public async Task NewContextAsync()
+        public async Task NewContextAsync(string? storageState = null)
         {
-            var context = await _browser.NewContextAsync(ContextOptions(_options, _viewport, _credentials)).ConfigureAwait(false);
+            var options = ContextOptions(_options, _viewport, _credentials);
+            options.StorageState = storageState;
+            var context = await _browser.NewContextAsync(options).ConfigureAwait(false);
             await ConfigureAsync(context).ConfigureAwait(false);
             _context = context;
         }
 
         public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => SwipeAsync(direction, null, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("scroll", cancellationToken, async () =>
+        public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => GuardAsync("scroll", cancellationToken, async () =>
         {
             RequireObservation();
             var budget = Budget("scroll", cancellationToken);
             try
             {
-                await budget.WithinAsync(Page.EvaluateAsync(PageScript.ScrollViewport, new object[] { Direction(direction), Stride(momentum) })).ConfigureAwait(false);
+                await budget.WithinAsync(PerformViewportSwipeAsync(direction, momentum)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1755,37 +2800,76 @@ public sealed partial class WebEngine : IEngine
             }
         }));
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
+        /// <summary>Upstream's <c>performViewportSwipe</c>: a wheel gesture of the viewport's extent, sized by the momentum.</summary>
+        private async Task PerformViewportSwipeAsync(ScrollDirection direction, Momentum? momentum)
         {
-            var budget = Budget("screenshot", cancellationToken);
+            var viewport = await VideoRecorder.CurrentViewportAsync(Page).ConfigureAwait(false);
+            var distance = SwipeDistance(direction is ScrollDirection.Up or ScrollDirection.Down ? viewport.Height : viewport.Width, momentum);
+            var (deltaX, deltaY) = WheelDelta(direction, distance);
+            await WheelRenderedAsync(deltaX, deltaY).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Upstream's <c>performElementSwipe</c>: a wheel gesture over the node, sized by its own box. A node the pointer
+        /// already hovers takes the wheel where it is; one hit at its centre takes it there; otherwise hover waits for it to
+        /// be actionable, scrolls it into view, and reports whatever intercepts the pointer.
+        /// </summary>
+        private async Task PerformElementSwipeAsync(IElementHandle element, LocatorAction.Swipe swipe, OperationBudget budget)
+        {
+            var aimed = await element.EvaluateAsync<WheelAimDto>(PageScript.WheelAim).ConfigureAwait(false);
+            if (aimed.Aim == "blocked")
+            {
+                await element.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            }
+
+            budget.ThrowIfExpired();
+            var box = aimed.Aim == "blocked"
+                ? await element.BoundingBoxAsync().ConfigureAwait(false) is { } hovered ? new WebRect { X = hovered.X, Y = hovered.Y, Width = hovered.Width, Height = hovered.Height } : null
+                : aimed.Box;
+            if (box is null)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "element has no visible bounding box", retryable: false);
+            }
+
+            var distance = SwipeDistance(swipe.Direction is ScrollDirection.Up or ScrollDirection.Down ? box.Height : box.Width, swipe.Momentum);
+            var (deltaX, deltaY) = WheelDelta(swipe.Direction, distance);
+            if (aimed.Aim == "centre")
+            {
+                await Page.Mouse.MoveAsync((float)(box.X + box.Width / 2), (float)(box.Y + box.Height / 2)).ConfigureAwait(false);
+            }
+
+            await WheelRenderedAsync(deltaX, deltaY).ConfigureAwait(false);
+        }
+
+        /// <summary>Wheels the page and resolves once a frame rendered the scroll it caused, since the scroll reaches script on the next frame.</summary>
+        private async Task WheelRenderedAsync(double deltaX, double deltaY)
+        {
+            await Page.Mouse.WheelAsync((float)deltaX, (float)deltaY).ConfigureAwait(false);
+            await Page.EvaluateAsync(PageScript.NextRenderedFrame).ConfigureAwait(false);
+        }
+
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(OperationContext.Test, cancellationToken);
+
+        /// <summary>Upstream's <c>artifacts.screenshot</c> bounded by <paramref name="context"/>'s timeout.</summary>
+        public Task<EngineScreenshot> ScreenshotAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
+        {
+            var budget = Budget("screenshot", cancellationToken, context.Timeout);
             try
             {
                 var page = Page;
-                // Every secure field of every frame is covered before the image leaves the engine: two locators per
-                // frame, one through light DOM and open shadow roots, one through the closed roots.
-                var masks = page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
-                var masked = 0;
-                foreach (var mask in masks)
-                {
-                    try
-                    {
-                        masked += await budget.WithinAsync(mask.CountAsync()).ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-                    {
-                        // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.
-                    }
-                }
+                var masks = await budget.WithinAsync(WebObserve.SecureFieldMasksAsync(page)).ConfigureAwait(false);
+                var masked = await CountMasksAsync(masks, budget).ConfigureAwait(false);
 
-                var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
+                // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
+                var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
                     Animations = ScreenshotAnimations.Disabled,
-                    Caret = ScreenshotCaret.Hide,
+                    Caret = Microsoft.Playwright.ScreenshotCaret.Initial,
                     Mask = masks,
                     MaskColor = "#000000",
                     Timeout = budget.PlaywrightTimeout,
-                })).ConfigureAwait(false);
+                }))).ConfigureAwait(false);
                 var scale = await budget.WithinAsync(page.EvaluateAsync<double>("() => window.devicePixelRatio")).ConfigureAwait(false);
                 return new EngineScreenshot(png, scale > 0 ? scale : 1, masked);
             }
@@ -1794,6 +2878,172 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.NavigationStaleOr(ex, "screenshot");
             }
         });
+
+        // How many regions the masks cover, which a caller proves the image is at least as redacted as the tree with.
+        private static async Task<int> CountMasksAsync(List<ILocator> masks, OperationBudget budget)
+        {
+            var masked = 0;
+            foreach (var mask in masks)
+            {
+                try
+                {
+                    masked += await budget.WithinAsync(mask.CountAsync()).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.
+                }
+            }
+
+            return masked;
+        }
+
+        /// <summary>
+        /// A redacted screenshot artifact: secure fields in every frame are masked at the source, as in observation pixels. The file is
+        /// written through a unique temporary name and moved into place (upstream's <c>screenshot</c> in <c>web/src/surface.ts</c>).
+        /// </summary>
+        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, OperationContext.Test, cancellationToken);
+
+        public Task<string> ScreenshotArtifactAsync(string? label, OperationContext context, CancellationToken cancellationToken) => GuardAsync("screenshot", cancellationToken, async () =>
+        {
+            var budget = Budget("screenshot", cancellationToken, context.Timeout);
+            var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
+
+            // The masks are resolved in the document showing when the capture starts. A capture that fails while the page replaces that
+            // document is taken of the replacing one, masked by the same rule, within the step's own deadline.
+            byte[] png;
+            for (; ; )
+            {
+                var page = Page;
+                using var documents = new DocumentWatch(page);
+                try
+                {
+                    // As upstream's artifact capture, the locators go straight to the screenshot call: no count to spend the budget on.
+                    var masks = await budget.WithinAsync(WebObserve.SecureFieldMasksAsync(page)).ConfigureAwait(false);
+                    png = await budget.WithinAsync(_seams.CapturePage(page, new PageScreenshotOptions
+                    {
+                        Type = ScreenshotType.Png,
+                        Mask = masks,
+                        MaskColor = "#000000",
+                        Timeout = budget.PlaywrightTimeout,
+                    })).ConfigureAwait(false);
+                    break;
+                }
+                catch (Exception ex) when (ex is not (System.TimeoutException or OperationCanceledException) && !cancellationToken.IsCancellationRequested)
+                {
+                    // The destroyed context is reported before the frame's new document is announced: one round trip to the page lets
+                    // the announcement land (upstream's caret cleanup is that round trip).
+                    await SettleDocumentEventsAsync(page, documents, budget).ConfigureAwait(false);
+
+                    // The capture can reject before FrameNavigated is delivered. The event is already in flight when the context was
+                    // destroyed, so a short wait tells a real navigation from an error that only looks like one.
+                    if (!documents.Replaced && WebErrors.IsNavigationRace(ex) && ex is not System.TimeoutException)
+                    {
+                        var grace = TimeSpan.FromMilliseconds(Math.Min(NavigationEventGraceMs, Math.Max(0, budget.Remaining().TotalMilliseconds)));
+                        await documents.WhenReplacedAsync(grace, cancellationToken).ConfigureAwait(false);
+                    }
+
+                    if (!documents.Replaced)
+                    {
+                        throw WebErrors.IsPlaywright(ex) ? WebErrors.Translate(ex, "screenshot") : ex;
+                    }
+
+                    if (budget.Expired)
+                    {
+                        throw new EngineException(EngineErrorCodes.OperationTimeout, $"screenshot timed out: the page replaced its document during every capture for {budget.TimeoutMs}ms", retryable: false, ex);
+                    }
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    throw WebErrors.Translate(ex, "screenshot");
+                }
+            }
+
+            var temporary = absolute + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                await File.WriteAllBytesAsync(temporary, png, cancellationToken).ConfigureAwait(false);
+                File.Move(temporary, absolute, overwrite: true);
+            }
+            finally
+            {
+                File.Delete(temporary);
+            }
+
+            return relative;
+        });
+
+        /// <summary>How long a screenshot waits for the navigation event after Playwright has already reported the document's context destroyed (upstream's <c>NAVIGATION_EVENT_GRACE_MS</c>).</summary>
+        private const int NavigationEventGraceMs = 250;
+
+        // Round trips to the page until one is answered or the watch heard of a new document: a page mid-navigation fails them too, until its new document is announced.
+        private static async Task SettleDocumentEventsAsync(IPage page, DocumentWatch documents, OperationBudget budget)
+        {
+            for (var attempt = 0; attempt < 5 && !documents.Replaced; attempt++)
+            {
+                try
+                {
+                    await budget.WithinAsync(page.EvaluateAsync("0")).ConfigureAwait(false);
+                    return;
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException)
+                {
+                    await Task.Delay(10).ConfigureAwait(false);
+                }
+            }
+        }
+
+        /// <summary>Watches a page until disposed for a frame that commits a new document or detaches, either of which replaces a document a capture is reading (upstream's <c>watchDocuments</c>).</summary>
+        private sealed class DocumentWatch : IDisposable
+        {
+            private readonly IPage _page;
+            private volatile bool _replaced;
+            private readonly TaskCompletionSource _signal = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public DocumentWatch(IPage page)
+            {
+                _page = page;
+                page.FrameNavigated += Mark;
+                page.FrameDetached += Mark;
+            }
+
+            public bool Replaced => _replaced;
+
+            /// <summary>Completes when a document has been replaced, or after <paramref name="timeout"/> if none was.</summary>
+            public async Task WhenReplacedAsync(TimeSpan timeout, CancellationToken cancellationToken)
+            {
+                if (_replaced || timeout <= TimeSpan.Zero)
+                {
+                    return;
+                }
+
+                try
+                {
+                    await _signal.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (System.TimeoutException)
+                {
+                }
+            }
+
+            public void Dispose()
+            {
+                _page.FrameNavigated -= Mark;
+                _page.FrameDetached -= Mark;
+            }
+
+            private void Mark(object? sender, IFrame frame)
+            {
+                _replaced = true;
+                _signal.TrySetResult();
+            }
+        }
+
+        /// <summary>
+        /// Waits for a route or dialog handler still running, then rethrows the error one of them latched after the last step, so it fails
+        /// this attempt instead of the next one's first operation.
+        /// </summary>
+        public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) => _latch.SettleAsync(timeout, cancellationToken);
 
         public async ValueTask DisposeAsync()
         {
@@ -1804,6 +3054,7 @@ public sealed partial class WebEngine : IEngine
 
             // Late recovery and page work can only reach this retired session.
             _disposed = true;
+            _refs.Clear();
             var connected = _lease is not null && _browser.IsConnected;
             await _lifetime.CancelAsync().ConfigureAwait(false);
             try
@@ -1829,17 +3080,28 @@ public sealed partial class WebEngine : IEngine
                 }
                 finally
                 {
-                    _playwright.Dispose();
-                    _lifetime.Dispose();
-
-                    // A leased browser is released after its connection closes, whether or not the close succeeded.
-                    if (_lease is not null)
+                    try
                     {
-                        await _lease.CloseAsync(connected).ConfigureAwait(false);
+                        _playwright.Dispose();
+                        _lifetime.Dispose();
+
+                        // A leased browser is released after its connection closes, whether or not the close succeeded.
+                        if (_lease is not null)
+                        {
+                            await _lease.CloseAsync(connected).ConfigureAwait(false);
+                        }
+                    }
+                    finally
+                    {
+                        // The engine may start its next attempt only once this one has closed everything it owned.
+                        Retired?.Invoke();
                     }
                 }
             }
         }
+
+        /// <summary>Runs once, when this session is disposed: the engine uses it to end the attempt it held (upstream's <c>endAttempt</c>). .NET-only: upstream's engine tracks its attempt itself.</summary>
+        internal Action? Retired { get; set; }
 
         /// <summary>
         /// Runs a close that finds its target already gone: a grid that dropped the session before the connection noticed answers the close with
@@ -1857,12 +3119,18 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>Nested iframe capture depth (upstream's <c>MAX_FRAME_DEPTH</c>); a child document deeper than this stays a boundary node and marks the walk truncated.</summary>
+        private const int MaxFrameDepth = 4;
+
         /// <summary>
         /// Reads one frame's document, then each child frame's into the iframe
         /// node that owns it, sharing one node budget across all of them. A
         /// frame that detaches or navigates mid-read is left empty.
+        ///
+        /// <paramref name="framePath"/> is the selector of each iframe that encloses <paramref name="frame"/>, outermost first (upstream's
+        /// <c>framePath</c>): empty for the page's main frame. Every node the frame's document reads carries it as its <c>FramePath</c>.
         /// </summary>
-        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget)
+        private async Task<List<WebNode>> CollectAsync(IFrame frame, FrameWalk walk, OperationBudget budget, List<string> framePath)
         {
             if (walk.Remaining <= 0)
             {
@@ -1870,48 +3138,104 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            // A read the budget abandons keeps minting refs in the page. The trace's read reserves the most it can mint up front,
-            // so the next read never starts from a number the abandoned one is still handing out.
-            var seed = _nextRef;
-            if (!walk.Publish)
-            {
-                _nextRef = seed + walk.Remaining;
-            }
+            // A read the budget abandons keeps minting refs in the page, so the ids it can mint are reserved before it starts: the next
+            // read never starts from a number the abandoned one is still handing out.
+            var seed = _refs.ReserveIds(walk.Remaining);
 
-            System.Text.Json.JsonElement json;
+            WebObservation? dto;
+            ElementList? list;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish })).ConfigureAwait(false);
+                (dto, list) = await ReadDocumentAsync(frame, walk, seed, budget).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
                 return [];
             }
 
-            var dto = System.Text.Json.JsonSerializer.Deserialize<WebObservation>(json, JsonDefaults.Options);
             if (dto is null)
             {
                 return [];
             }
 
-            _nextRef = Math.Max(_nextRef, dto.Next);
+            // The reader may stamp more refs than the walk reserved (an inline text node has a ref of its own and counts against no budget), so what it minted past the
+            // reservation is taken too: the next document never starts inside this one's range. Port only; upstream reserves the budget alone.
+            var overrun = dto.Next - (seed + walk.Remaining);
+            if (overrun > 0)
+            {
+                _refs.ReserveIds(overrun);
+            }
+
+            if (list is not null)
+            {
+                if (dto.Ids is not { Count: > 0 })
+                {
+                    // A document that listed nothing leaves no id to reach its array by.
+                    list.Dispose();
+                }
+                else
+                {
+                    walk.Lists.Add(list);
+                    for (var index = 0; index < dto.Ids.Count; index++)
+                    {
+                        walk.Generation[dto.Ids[index]] = new ListedTarget(list, index);
+                    }
+                }
+            }
+
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
             if (frame.ParentFrame is null)
             {
                 walk.Scroll = dto.Scroll;
+                walk.Viewport = dto.Viewport is { Width: > 0, Height: > 0 } size ? new TraceViewport(size.Width, size.Height) : null;
             }
 
             var roots = dto.Roots ?? [];
+            // Every node this document read is in its frame: before any child frame attaches, so only this document's nodes are stamped.
+            SetFramePath(roots, framePath);
             var owners = new Dictionary<string, WebNode>(StringComparer.Ordinal);
-            Index(roots, frame, walk, owners);
+            Index(roots, owners);
             foreach (var child in frame.ChildFrames.ToArray())
             {
+                // Only frames on the app's site enter the observation. A third-party frame (an ad, a tracker, an embed) stays a boundary
+                // node and is left out by design: leaving it out is not truncation, and it costs no budget (upstream's isOnSiteFrame).
+                // Checked before the owner lookup, so a skipped frame costs no round trip.
+                if (!IsOnSiteFrame(child.Url, walk.Site))
+                {
+                    continue;
+                }
+
                 var (owner, inset) = await budget.WithinAsync(OwnerOfAsync(child)).ConfigureAwait(false);
                 if (owner is not null && owners.TryGetValue(owner, out var node))
                 {
+                    // A frame whose navigation has not committed shows nothing yet.
+                    if (!await budget.WithinAsync(FrameDocument.HasReadableDocumentAsync(child)).ConfigureAwait(false))
+                    {
+                        continue;
+                    }
+
+                    // A document past the depth limit is content the model should see but the walk does not read, so the snapshot says it is cut.
+                    if (framePath.Count >= MaxFrameDepth)
+                    {
+                        walk.Truncated = true;
+                        continue;
+                    }
+
                     // The child measured its nodes against its own viewport. Every box in the tree is in the top-level viewport's CSS pixels.
-                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget).ConfigureAwait(false), node.Rect, inset);
+                    // The selector is read only for a frame that is read, and a frame whose selector cannot be read is left out as one whose element is gone.
+                    var selector = await budget.WithinAsync(SelectorOfAsync(child, _testIdAttribute)).ConfigureAwait(false);
+                    if (selector is null)
+                    {
+                        continue;
+                    }
+
+                    node.Children = PlaceInFrame(await CollectAsync(child, walk, budget, [.. framePath, selector]).ConfigureAwait(false), node.Rect, inset);
+                    if (node.Hidden)
+                    {
+                        // The frame element's own hidden state, read in the document around it, counts for every node in its document.
+                        HideAll(node.Children);
+                    }
                 }
             }
 
@@ -1919,59 +3243,29 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// Counts the nodes that share each node's role, name, and test id. A ref keeps the count it had
-        /// when first observed: a later observation does not raise it.
-        /// </summary>
-        private static Dictionary<string, int> TwinsOf(List<WebNode> roots, Dictionary<string, int> known)
-        {
-            var nodes = Flatten(roots);
-            var twins = nodes.GroupBy(node => Likeness(node.Role, node.Name, node.TestId)).ToDictionary(group => group.Key, group => group.Count());
-            return nodes.ToDictionary(node => node.Ref, node => known.TryGetValue(node.Ref, out var first) ? first : twins[Likeness(node.Role, node.Name, node.TestId)], StringComparer.Ordinal);
-        }
-
-        private static List<WebNode> Flatten(List<WebNode> roots)
-        {
-            var nodes = new List<WebNode>();
-            var pending = new Stack<WebNode>(roots.AsEnumerable().Reverse());
-            while (pending.TryPop(out var node))
-            {
-                nodes.Add(node);
-                foreach (var child in (node.Children ?? []).AsEnumerable().Reverse())
-                {
-                    pending.Push(child);
-                }
-            }
-
-            return nodes;
-        }
-
-        private static string Likeness(string? role, string? name, string? testId) => string.Join('\0', role, name, testId);
-
-        /// <summary>
-        /// A ref names one element. When a second element now matches it as the first did, the ref is
-        /// ambiguous: acting could hit the wrong element, so it is stale.
+        /// A node located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
+        /// it, the node is ambiguous: acting could hit the wrong element, so it is stale. A node the observation listed, or one of several
+        /// matches, names its own element and is never ambiguous.
         /// </summary>
         private async Task RequireNoNewTwinAsync(SemanticNode node, OperationBudget budget)
         {
-            if (!_twins.TryGetValue(node.Ref, out var first))
+            if (!_strict.TryGetValue(node, out var expression))
             {
                 return;
             }
 
-            List<WebNode> roots;
             try
             {
-                roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                // As upstream's strict locator: the locator is counted in the page, and a second match is a twin.
+                var projected = WebLocators.ProjectExpression(Page, expression, new ProjectionOptions(_testIdAttribute, FrameHidden: false, expression.IncludeHidden));
+                if (await budget.WithinAsync(projected.Locator.CountAsync()).ConfigureAwait(false) > 1)
+                {
+                    throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
+                }
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
-            }
-
-            var likeness = Likeness(node.Role, node.Name, node.TestId);
-            if (Flatten(roots).Count(each => Likeness(each.Role, each.Name, each.TestId) == likeness) > first)
-            {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
             }
         }
 
@@ -1980,9 +3274,9 @@ public sealed partial class WebEngine : IEngine
             new(timeout ?? _actionTimeout, label, cancellationToken, _seams.Clock, _operationStart.Value);
 
         /// <summary>Sends one keystroke or pointer event, with no element behind it, within its budget, and classifies its failure.</summary>
-        private async Task InputAsync(Func<Task> input, string label, CancellationToken cancellationToken)
+        private async Task InputAsync(Func<Task> input, string label, CancellationToken cancellationToken, TimeSpan? timeout = null)
         {
-            var budget = Budget(label, cancellationToken);
+            var budget = Budget(label, cancellationToken, timeout);
             try
             {
                 await budget.WithinAsync(input()).ConfigureAwait(false);
@@ -1999,10 +3293,19 @@ public sealed partial class WebEngine : IEngine
             switch (action)
             {
                 case LocatorAction.Tap tap:
-                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(tap.Modifiers) }).ConfigureAwait(false);
+                    await ClickControlAsync(element, "tap", budget, Held(tap.Modifiers)).ConfigureAwait(false);
                     break;
                 case LocatorAction.DoubleTap doubleTap:
                     await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(doubleTap.Modifiers) }).ConfigureAwait(false);
+                    break;
+                case LocatorAction.SecondaryTap secondary:
+                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Button = MouseButton.Right, Modifiers = Held(secondary.Modifiers) }).ConfigureAwait(false);
+                    break;
+                case LocatorAction.LongPress press:
+                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Delay = (float)(press.Duration ?? DefaultLongPress).TotalMilliseconds }).ConfigureAwait(false);
+                    break;
+                case LocatorAction.Hover:
+                    await element.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Fill fill:
                     await element.FillAsync(fill.Value, new ElementHandleFillOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
@@ -2010,18 +3313,20 @@ public sealed partial class WebEngine : IEngine
                 case LocatorAction.Press press:
                     await element.PressAsync(press.Key, new ElementHandlePressOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
-                case LocatorAction.PressSequentially typed:
-                    await element.FocusAsync().ConfigureAwait(false);
-
-                    // A focus the deadline cut off must not type later, into whatever holds focus then.
-                    budget.ThrowIfExpired();
-                    await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
-                    {
-                        Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
-                    }).ConfigureAwait(false);
-                    break;
                 case LocatorAction.Select select:
-                    await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                    var chosen = new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout };
+                    if (select.Option is { } form)
+                    {
+                        await element.SelectOptionAsync([new SelectOptionValue { Label = form.Label, Value = form.Value, Index = form.Index }], chosen).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await element.SelectOptionAsync(select.Text!, chosen).ConfigureAwait(false);
+                    }
+
+                    break;
+                case LocatorAction.SetInputFiles files:
+                    await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);
                     break;
                 case LocatorAction.Check:
                     await SetCheckedAsync(element, true, budget).ConfigureAwait(false);
@@ -2039,7 +3344,7 @@ public sealed partial class WebEngine : IEngine
                     await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Swipe swipe:
-                    await element.EvaluateAsync(PageScript.ScrollElement, new object[] { Direction(swipe.Direction), Stride(swipe.Momentum) }).ConfigureAwait(false);
+                    await PerformElementSwipeAsync(element, swipe, budget).ConfigureAwait(false);
                     break;
                 default:
                     throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
@@ -2061,6 +3366,32 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>The selector that re-enters a frame (upstream's <c>frameSelector</c>), or null when the frame element is gone.</summary>
+        private static async Task<string?> SelectorOfAsync(IFrame frame, string testIdAttribute)
+        {
+            try
+            {
+                var element = await frame.FrameElementAsync().ConfigureAwait(false);
+                await using var dispose = element.ConfigureAwait(false);
+                return await element.EvaluateAsync<string?>(PageScript.FrameSelector, testIdAttribute).ConfigureAwait(false);
+            }
+            catch (PlaywrightException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Stamps every node of a document, and of the inline text under it, with the frame chain it is read in (upstream's <c>framePath</c>); none for the main document.</summary>
+        private static void SetFramePath(List<WebNode>? nodes, List<string> framePath)
+        {
+            foreach (var node in nodes ?? [])
+            {
+                node.FramePath = framePath.Count > 0 ? framePath : null;
+                SetFramePath(node.Inline, framePath);
+                SetFramePath(node.Children, framePath);
+            }
+        }
+
         /// <summary>
         /// Moves a child document's boxes into the top-level viewport's space: shifted by the frame element's content box
         /// and clipped to it, so a node that overflows its frame claims no point of the page around it. A box left empty
@@ -2075,37 +3406,107 @@ public sealed partial class WebEngine : IEngine
             return nodes;
         }
 
+        /// <summary>Reads every node of a hidden frame's document as hidden, the frames nested in it included.</summary>
+        private static void HideAll(List<WebNode>? nodes)
+        {
+            foreach (var node in nodes ?? [])
+            {
+                node.Hidden = true;
+                HideAll(node.Children);
+                HideAll(node.Inline);
+            }
+        }
+
         private static void Place(List<WebNode>? nodes, WebRect? content)
         {
             foreach (var node in nodes ?? [])
             {
-                node.Rect = content is null || node.Rect is null ? null : Clip(node.Rect, content);
+                if (content is null || node.Rect is not { } rect)
+                {
+                    node.Rect = null;
+                    node.Origin = null;
+                }
+                else
+                {
+                    var (placed, origin) = FramePlacement.PlaceBoxInFrame(
+                        new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height),
+                        node.Origin is { } corner ? new Point(corner.X, corner.Y) : null,
+                        new BoundingBox(content.X, content.Y, content.Width, content.Height));
+                    node.Rect = placed is { } box ? new WebRect { X = box.X, Y = box.Y, Width = box.Width, Height = box.Height } : null;
+                    node.Origin = origin is { } at ? new WebPoint { X = at.X, Y = at.Y } : null;
+                }
+
                 Place(node.Children, content);
                 Place(node.Inline, content);
             }
         }
 
-        private static WebRect? Clip(WebRect rect, WebRect frame)
-        {
-            var x0 = Math.Max(rect.X + frame.X, frame.X);
-            var y0 = Math.Max(rect.Y + frame.Y, frame.Y);
-            var x1 = Math.Min(rect.X + frame.X + rect.Width, frame.X + frame.Width);
-            var y1 = Math.Min(rect.Y + frame.Y + rect.Height, frame.Y + frame.Height);
-            return x1 > x0 && y1 > y0 ? new WebRect { X = x0, Y = y0, Width = x1 - x0, Height = y1 - y0 } : null;
-        }
-
-        private static void Index(List<WebNode> nodes, IFrame frame, FrameWalk walk, Dictionary<string, WebNode> owners)
+        private static void Index(List<WebNode> nodes, Dictionary<string, WebNode> owners)
         {
             foreach (var node in nodes)
             {
-                walk.Frames[node.Ref] = frame;
                 if (node.Frame)
                 {
                     owners[node.Ref] = node;
                 }
 
-                Index(node.Children ?? [], frame, walk, owners);
-                Index(node.Inline ?? [], frame, walk, owners);
+                Index(node.Children ?? [], owners);
+                Index(node.Inline ?? [], owners);
+            }
+        }
+
+        /// <summary>
+        /// Runs the reader on one document. A publishing read leaves its elements in one in-page array, kept behind the returned
+        /// <see cref="ElementList"/>; a handle abandoned by the deadline is released when it arrives.
+        /// </summary>
+        private async Task<(WebObservation? Observation, ElementList? List)> ReadDocumentAsync(IFrame frame, FrameWalk walk, int seed, OperationBudget budget)
+        {
+            var pending = _seams.ReadFrame(frame, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish });
+            IJSHandle result;
+            try
+            {
+                result = await budget.WithinAsync(pending).ConfigureAwait(false);
+            }
+            catch
+            {
+                WebSupport.DisposeWhenSettled(pending);
+                throw;
+            }
+
+            IJSHandle? elements = null;
+            try
+            {
+                // The metadata is data and the elements are handles: reading them apart keeps a property handle from outliving the result.
+                var json = await budget.WithinAsync(result.EvaluateAsync<System.Text.Json.JsonElement>("(read) => ({ ...read, elements: undefined })")).ConfigureAwait(false);
+                var dto = System.Text.Json.JsonSerializer.Deserialize<WebObservation>(json, JsonDefaults.Options);
+                if (dto is null || !walk.Publish)
+                {
+                    return (dto, null);
+                }
+
+                var reading = result.GetPropertyAsync("elements");
+                try
+                {
+                    elements = await budget.WithinAsync(reading).ConfigureAwait(false);
+                }
+                catch
+                {
+                    WebSupport.DisposeWhenSettled(reading);
+                    throw;
+                }
+
+                var list = new ElementList(elements);
+                elements = null;
+                return (dto, list);
+            }
+            finally
+            {
+                if (elements is not null)
+                {
+                    WebSupport.DisposeQuietly(elements);
+                }
+
+                WebSupport.DisposeQuietly(result);
             }
         }
 
@@ -2185,7 +3586,7 @@ public sealed partial class WebEngine : IEngine
 
         /// <summary>
         /// Installs what every context of the attempt carries: the closed-root hook, the
-        /// init scripts configured then added, the site headers, and the test's routes.
+        /// init scripts configured then added, the configured headers, and the test's routes.
         /// </summary>
         private async Task ConfigureAsync(IBrowserContext context)
         {
@@ -2223,7 +3624,8 @@ public sealed partial class WebEngine : IEngine
             WebEngineOptions options,
             List<string> initScripts,
             Func<IBrowserContext, Task> setUpContext,
-            Func<string, IReadOnlyDictionary<string, string>?> siteHeaders,
+            Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders,
+            string? site,
             SessionSeams seams,
             LeaseScope? lease,
             VideoSetup video,
@@ -2243,7 +3645,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir };
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, configuredHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir, Site = site };
             try
             {
                 if (!persistent.Claim(binding.ContextId))
@@ -2272,24 +3674,56 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private Task RunAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
-            _persistent is null
-                ? work()
-                : RunPersistentAsync(label, cancellationToken, async () =>
-                {
-                    await work().ConfigureAwait(false);
-                    return true;
-                });
+        private Task GuardAsync(string label, CancellationToken cancellationToken, Func<Task> work) =>
+            GuardAsync(label, cancellationToken, async () =>
+            {
+                await work().ConfigureAwait(false);
+                return true;
+            });
 
         /// <summary>
-        /// Runs one operation. On a persistent context whose transport dropped, it
-        /// first shares one reconnect, then dispatches once with the time that remains.
-        /// An operation is never retried.
+        /// The single entry of every operation (upstream's <c>PlaywrightSurface.guard</c>): rethrows an error latched on
+        /// an unawaited path before it runs anything, refuses a cancelled operation, and stops waiting on the call once the
+        /// operation aborts, so an abort mid-call surfaces as <c>CANCELLED</c> instead of waiting out Playwright. On a
+        /// persistent context whose transport dropped, it first shares one reconnect, then dispatches once with the time
+        /// that remains. An operation is never retried.
         /// </summary>
-        private Task<T> RunAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
+        internal async Task<T> GuardAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
         {
-            return _persistent is null ? work() : RunPersistentAsync(label, cancellationToken, work);
+            ThrowPending();
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var running = _persistent is null ? work() : RunPersistentAsync(label, cancellationToken, work);
+                try
+                {
+                    return await running.WaitAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested && !running.IsCompleted)
+                {
+                    // .NET-only: work that honours the token gets a moment to undo itself (a drag releases the button) before
+                    // the step reports; work that does not is left behind, its failure observed.
+                    _ = running.ContinueWith(static task => task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                    await Task.WhenAny(running, Task.Delay(CancelGrace, CancellationToken.None)).ConfigureAwait(false);
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                // A handler error latched while the operation ran is its cause: a route that refused its own arguments
+                // aborts the request the step waited on.
+                ThrowPending();
+                // A persistent context keeps the port's OperationCanceledException for a caller's cancel (see COMPATIBILITY.md).
+                if (_persistent is null && ex is OperationCanceledException && cancellationToken.IsCancellationRequested)
+                {
+                    throw new EngineException(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false, ex);
+                }
+
+                throw;
+            }
         }
+
+        private static readonly TimeSpan CancelGrace = TimeSpan.FromSeconds(1);
 
         private async Task<T> RunPersistentAsync<T>(string label, CancellationToken cancellationToken, Func<Task<T>> work)
         {
@@ -2346,8 +3780,8 @@ public sealed partial class WebEngine : IEngine
             var previous = (_contextId!, _target);
             var size = _page?.ViewportSize is { } current ? new ViewportSize { Width = current.Width, Height = current.Height } : _viewport;
             _observed = false;
-            _frames = new(StringComparer.Ordinal);
-            _twins = new(StringComparer.Ordinal);
+            _refs.Clear();
+            _strict.Clear();
             try
             {
                 await VideoPageClosingAsync().ConfigureAwait(false);
@@ -2510,6 +3944,10 @@ public sealed partial class WebEngine : IEngine
                     throw RecoveryFailed("reconnectEndpoint returned a different browser");
                 }
 
+                // Playwright seeds custom selectors only in new contexts, so the default context a CDP attach rides needs its own.
+                await seams.RegisterCdpSelectors(context, remaining(), token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+
                 if (previous?.Target is not { } original)
                 {
                     token.ThrowIfCancellationRequested();
@@ -2619,13 +4057,16 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private void ThrowPending() => _latch.ThrowPending();
 
+        /// <summary>Latches an error as a handler nobody awaits would; for tests that drive the operation entry.</summary>
+        internal void Latch(Exception error) => _latch.Latch(error);
+
         /// <summary>
         /// Runs one handler on one request. The error is kept before an undecided
         /// request is aborted, so the step after the page saw the failure reports it.
         /// </summary>
         private async Task HandleRouteAsync(IRoute route, Func<IBrowserRoute, Task> handler)
         {
-            var decision = new PlaywrightRoute(route, _siteHeaders);
+            var decision = new PlaywrightRoute(route, _configuredHeaders, _seams.FetchRoute, NoteRouteAbort);
             try
             {
                 await handler(decision).ConfigureAwait(false);
@@ -2635,7 +4076,7 @@ public sealed partial class WebEngine : IEngine
                 _latch.Latch(ex);
                 if (!decision.Decided)
                 {
-                    await PlaywrightRoute.AbortQuietlyAsync(route).ConfigureAwait(false);
+                    await decision.AbortQuietlyAsync().ConfigureAwait(false);
                 }
             }
         }
@@ -2648,16 +4089,129 @@ public sealed partial class WebEngine : IEngine
         /// declared length), and the error behind the read is the fallback, as for
         /// a redirect, whose body the browser never keeps.
         /// </summary>
-        private static async Task<string> ReadBodyAsync(IResponse response)
+        internal static async Task<byte[]> ReadResponseBodyAsync(string api, Func<Task<byte[]>> body, Func<string?> failure)
         {
             try
             {
-                return System.Text.Encoding.UTF8.GetString(await response.BodyAsync().ConfigureAwait(false));
+                return await body().ConfigureAwait(false);
             }
             catch (PlaywrightException ex)
             {
-                var reason = response.Request.Failure ?? WebErrors.Message(ex);
-                throw new TestException("ACTION_FAILED", "waitForResponse: response body could not be read: " + reason, ex);
+                throw new TestException("ACTION_FAILED", api + ": response body could not be read: " + (failure() ?? WebErrors.Message(ex)), ex);
+            }
+        }
+
+        /// <summary>The body read as UTF-8 text; a body that faults faults the text the same way, and the fault is observed here so an unread text does not report it again.</summary>
+        internal static Task<string> AsText(Task<byte[]> bytes)
+        {
+            var text = bytes.ContinueWith(static done => Encoding.UTF8.GetString(done.GetAwaiter().GetResult()), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            _ = text.ContinueWith(static done => _ = done.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return text;
+        }
+
+        /// <summary>
+        /// Attaches files to a file input, or to a control that opens a native file chooser when clicked, such as a button over a
+        /// hidden input (upstream's <c>uploadFiles</c>, <c>actions.ts</c>). A file input, or a node inside a <c>&lt;label&gt;</c> for
+        /// one, takes the files directly, as Playwright retargets a label to its control. Anything else is clicked with the chooser
+        /// already awaited, and fails <c>NOT_ACTIONABLE</c> if no chooser opens. Every step shares the operation's deadline, and a
+        /// cancelled operation sets no files, even when its chooser opens after the cancel.
+        /// </summary>
+        private async Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget)
+        {
+            if (await element.EvaluateAsync<bool>(PageScript.IsFileInput).ConfigureAwait(false))
+            {
+                budget.ThrowIfExpired();
+                await element.SetInputFilesAsync(paths, new ElementHandleSetInputFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                return;
+            }
+
+            budget.ThrowIfExpired();
+            var opened = Page.WaitForFileChooserAsync(new PageWaitForFileChooserOptions { Timeout = budget.PlaywrightTimeout });
+
+            // A click that fails first leaves this wait to time out on its own; nothing awaits it then, so its failure is observed here.
+            _ = opened.ContinueWith(static wait => _ = wait.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            IFileChooser chooser;
+            try
+            {
+                // On a loaded machine the deadline that wraps this upload can fire together with Playwright's timeout, which is the lead sooner.
+                // Upstream's earlier timer always wins that race; here that deadline gives the same answer.
+                chooser = await budget.AwaitingAsync(opened, () => NoFileChooser(null)).ConfigureAwait(false);
+            }
+            catch (System.TimeoutException ex)
+            {
+                throw NoFileChooser(ex);
+            }
+
+            budget.ThrowIfExpired();
+            await chooser.SetFilesAsync(paths, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+        }
+
+        private static EngineException NoFileChooser(Exception? cause) =>
+            new(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, cause);
+
+        /// <summary>What the page throws while a checkbox or radio and every one of its labels are unrendered, so a click could reach none of them yet (upstream's <c>UNRENDERED</c>).</summary>
+        private const string Unrendered = "the control and its labels are not visible";
+
+        /// <summary>
+        /// Clicks a control with Playwright's actionability checks, through its own label when <c>PageScript.PickStandIn</c> names one
+        /// (upstream's <c>clickControl</c>, <c>actions.ts</c>). The checks then run on the label, so anything else on top, such as a modal,
+        /// still fails <c>NOT_ACTIONABLE</c>. The choice is read again until the control or a label renders, within the deadline.
+        /// </summary>
+        private static async Task ClickControlAsync(IElementHandle element, string verb, OperationBudget budget, IEnumerable<KeyboardModifier>? modifiers)
+        {
+            IElementHandle? label = null;
+            while (true)
+            {
+                // A cancelled operation reads and clicks nothing.
+                budget.ThrowIfExpired();
+                try
+                {
+                    var picked = await element.EvaluateHandleAsync(PageScript.PickStandIn, Unrendered).ConfigureAwait(false);
+                    label = picked as IElementHandle;
+                    if (label is null)
+                    {
+                        WebSupport.DisposeQuietly(picked);
+                    }
+
+                    break;
+                }
+                catch (PlaywrightException ex) when (WebErrors.Message(ex).Contains(Unrendered, StringComparison.Ordinal))
+                {
+                    var left = budget.PollWindowLeft;
+                    if (left <= TimeSpan.Zero)
+                    {
+                        throw new EngineException(EngineErrorCodes.NotActionable, verb + " did not become actionable in time: " + Unrendered, retryable: false);
+                    }
+
+                    var wait = TimeSpan.FromMilliseconds(Math.Ceiling(left.TotalMilliseconds));
+                    await budget.DelayAsync(wait < CheckPollInterval ? wait : CheckPollInterval).ConfigureAwait(false);
+                }
+            }
+
+            if (label is null)
+            {
+                // The operation abandons this call when cancelled; a read still in flight then must not lead to a click (upstream's signal.throwIfAborted()).
+                budget.ThrowIfExpired();
+                await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = modifiers }).ConfigureAwait(false);
+                return;
+            }
+
+            try
+            {
+                var point = await label.EvaluateAsync<System.Text.Json.JsonElement?>(PageScript.ControlPoint).ConfigureAwait(false);
+                budget.ThrowIfExpired();
+                var options = new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = modifiers };
+                if (point is { ValueKind: System.Text.Json.JsonValueKind.Object } position)
+                {
+                    options.Position = new Position { X = (float)position.GetProperty("x").GetDouble(), Y = (float)position.GetProperty("y").GetDouble() };
+                }
+
+                await label.ClickAsync(options).ConfigureAwait(false);
+            }
+            finally
+            {
+                WebSupport.DisposeQuietly(label);
             }
         }
 
@@ -2686,14 +4240,16 @@ public sealed partial class WebEngine : IEngine
                 return;
             }
 
-            if (!@checked && await element.EvaluateAsync<bool>(PageScript.IsRadio).ConfigureAwait(false))
+            var radio = @checked ? null : await element.EvaluateAsync<string?>(PageScript.RadioKind).ConfigureAwait(false);
+            if (radio == "native")
             {
                 throw new EngineException(EngineErrorCodes.NotActionable, "uncheck cannot clear a radio button; select another radio in its group", retryable: false);
             }
 
-            await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            await ClickControlAsync(element, verb, budget, null).ConfigureAwait(false);
+            var hint = radio == "aria" ? "; a radio usually clears only when another radio in its group is selected" : "";
             EngineException Unchanged(string detail = "") =>
-                new(EngineErrorCodes.NotActionable, verb + " clicked the control but its checked state did not change" + detail, retryable: false);
+                new(EngineErrorCodes.NotActionable, verb + " clicked the control but its checked state did not change" + detail + hint, retryable: false);
             var firstRead = true;
             while (true)
             {
@@ -2729,6 +4285,9 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        // How long a long press holds the button when the action names no duration, as upstream's DEFAULT_LONG_PRESS_MS.
+        private static readonly TimeSpan DefaultLongPress = TimeSpan.FromMilliseconds(500);
+
         // The keys Playwright holds for a click. Null holds none.
         private static IEnumerable<KeyboardModifier>? Held(IReadOnlyList<KeyModifier>? modifiers) =>
             modifiers?.Select(modifier => modifier switch
@@ -2740,25 +4299,23 @@ public sealed partial class WebEngine : IEngine
                 _ => KeyboardModifier.ControlOrMeta,
             });
 
-        // The share of the extent a swipe moves, as upstream's swipeDistance ratios: none half, slow three quarters, fast one and a half.
+        // Upstream's swipeDistance: none half the extent, slow three quarters, fast one and a half.
         // A swipe naming no momentum keeps the port's three quarters.
-        private static double Stride(Momentum? momentum) => momentum switch
+        private static double SwipeDistance(double extent, Momentum? momentum) => Math.Round(extent * momentum switch
         {
             Momentum.None => 0.5,
             Momentum.Fast => 1.5,
             _ => 0.75,
-        };
+        }, MidpointRounding.AwayFromZero);
 
-        private static string Direction(ScrollDirection direction)
+        // Upstream's wheelDelta.
+        private static (double X, double Y) WheelDelta(ScrollDirection direction, double distance) => direction switch
         {
-            return direction switch
-            {
-                ScrollDirection.Up => "up",
-                ScrollDirection.Left => "left",
-                ScrollDirection.Right => "right",
-                _ => "down",
-            };
-        }
+            ScrollDirection.Up => (0, -distance),
+            ScrollDirection.Left => (-distance, 0),
+            ScrollDirection.Right => (distance, 0),
+            _ => (0, distance),
+        };
 
         private static SemanticNode ToNode(WebNode dto, string testIdAttribute)
         {
@@ -2770,6 +4327,8 @@ public sealed partial class WebEngine : IEngine
                 Text = dto.Text,
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 OwnText = dto.OwnText,
+                DomText = dto.DomText,
+                Labels = dto.Labels,
                 Value = dto.Secure ? null : dto.Value,
                 Selection = dto.Secure ? null : dto.Selection,
                 TestId = dto.TestId,
@@ -2777,11 +4336,17 @@ public sealed partial class WebEngine : IEngine
                 Placeholder = dto.Placeholder,
                 InputPurpose = dto.InputPurpose,
                 Level = dto.Level,
+                Frame = dto.Frame,
+                FramePath = dto.FramePath,
                 States = new NodeStates
                 {
                     Checked = dto.Checked,
+                    CheckedReported = dto.CheckedReported,
                     Disabled = dto.Disabled,
                     Expanded = dto.Expanded,
+                    ExpandedAbsent = dto.ExpandedAbsent,
+                    Mixed = dto.Mixed,
+                    EmptyBox = dto.EmptyBox,
                     Focused = dto.Focused,
                     Hidden = dto.Hidden,
                     AriaHidden = dto.AriaHidden,
@@ -2792,6 +4357,7 @@ public sealed partial class WebEngine : IEngine
                 Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
                 WholeHref = dto.WholeHref,
                 Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
+                Origin = dto.Origin is { } origin ? new Point(origin.X, origin.Y) : null,
                 Children = dto.Children?.Select(child => ToNode(child, testIdAttribute)).ToList() ?? [],
             };
         }
@@ -2801,12 +4367,17 @@ public sealed partial class WebEngine : IEngine
     private sealed class PlaywrightRoute : IBrowserRoute
     {
         private readonly IRoute _route;
-        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _configuredHeaders;
+        private readonly Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> _fetch;
 
-        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders)
+        private readonly Action<IRequest> _noteAbort;
+
+        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> fetch, Action<IRequest> noteAbort)
         {
             _route = route;
-            _siteHeaders = siteHeaders;
+            _configuredHeaders = configuredHeaders;
+            _fetch = fetch;
+            _noteAbort = noteAbort;
             var request = route.Request;
             Request = new WebRouteRequest
             {
@@ -2822,11 +4393,18 @@ public sealed partial class WebEngine : IEngine
         /// <summary>Set the moment a decision starts, before it reaches Playwright.</summary>
         public bool Decided { get; private set; }
 
-        public static async Task AbortQuietlyAsync(IRoute route)
+        // Noted before the abort, so a navigation it fails reads as aborted by the test.
+        private Task AbortAsyncCore()
+        {
+            _noteAbort(_route.Request);
+            return _route.AbortAsync();
+        }
+
+        public async Task AbortQuietlyAsync()
         {
             try
             {
-                await route.AbortAsync().ConfigureAwait(false);
+                await AbortAsyncCore().ConfigureAwait(false);
             }
             catch (PlaywrightException)
             {
@@ -2841,6 +4419,7 @@ public sealed partial class WebEngine : IEngine
                 Headers = response.Headers,
                 ContentType = response.ContentType,
                 Body = response.Body,
+                BodyBytes = response.BodyBytes,
                 Path = response.Path,
             }));
 
@@ -2848,14 +4427,20 @@ public sealed partial class WebEngine : IEngine
         {
             // Continue skips every route registered before this one, the site-header
             // route included, so it merges those headers itself.
-            var site = _siteHeaders(overrides.Url ?? Request.Url);
+            var site = _configuredHeaders(overrides.Url ?? Request.Url);
             Dictionary<string, string>? headers = null;
-            if (overrides.Headers is not null || site is not null)
+            if (overrides.Headers is not null || overrides.DropHeaders is { Count: > 0 } || site is not null)
             {
                 headers = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (var (name, value) in overrides.Headers ?? Request.Headers)
                 {
                     headers[name.ToLowerInvariant()] = value;
+                }
+
+                // Dropped before the site's headers go on top, which stay.
+                foreach (var name in overrides.DropHeaders ?? [])
+                {
+                    headers.Remove(name.ToLowerInvariant());
                 }
 
                 foreach (var (name, value) in site ?? Enumerable.Empty<KeyValuePair<string, string>>())
@@ -2873,9 +4458,80 @@ public sealed partial class WebEngine : IEngine
             }));
         }
 
+        public async Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            // The fetch skips every route registered before this one, the site-header
+            // route included, so it merges those headers itself.
+            var headers = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (name, value) in Request.Headers)
+            {
+                headers[name.ToLowerInvariant()] = value;
+            }
+
+            foreach (var (name, value) in _configuredHeaders(Request.Url) ?? Enumerable.Empty<KeyValuePair<string, string>>())
+            {
+                headers[name] = value;
+            }
+
+            var deadline = Stopwatch.StartNew();
+            IAPIResponse response;
+            var fetching = _fetch(_route, new RouteFetchOptions
+            {
+                Headers = headers,
+                Timeout = (float)timeout.TotalMilliseconds,
+                MaxRedirects = 0,
+            });
+            try
+            {
+                response = await fetching.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The caller gave up: release the response when the fetch still lands.
+                _ = fetching.ContinueWith(
+                    static done => done.IsCompletedSuccessfully ? done.Result.DisposeAsync().AsTask() : Task.CompletedTask,
+                    TaskScheduler.Default);
+                throw;
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "route.fetch");
+            }
+
+            try
+            {
+                // Read before the response is disposed; a failed read stays in the task, so every read of
+                // the body faults and the metadata stays readable.
+                var body = WebSession.ReadResponseBodyAsync("route.fetch", response.BodyAsync, () => null);
+                try
+                {
+                    // Bounded like the fetch: a body that never finishes must not hold the handler back from the metadata.
+                    await Task.WhenAny(body).WaitAsync(timeout > deadline.Elapsed ? timeout - deadline.Elapsed : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    var budget = ((long)timeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    body = Task.FromException<byte[]>(new TestException("ACTION_FAILED", "route.fetch: response body did not finish within " + budget + "ms"));
+                }
+
+                return new BrowserResponse
+                {
+                    Url = response.Url,
+                    Status = response.Status,
+                    Headers = response.Headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal),
+                    Body = WebSession.AsText(body),
+                    BodyBytes = body,
+                };
+            }
+            finally
+            {
+                await response.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
         public Task FallbackAsync() => DecideAsync("route.fallback", () => _route.FallbackAsync());
 
-        public Task AbortAsync() => DecideAsync("route.abort", () => _route.AbortAsync());
+        public Task AbortAsync() => DecideAsync("route.abort", AbortAsyncCore);
 
         // A Playwright call that fails after the decision aborts the request rather
         // than leaving the page's request pending.
@@ -2888,14 +4544,14 @@ public sealed partial class WebEngine : IEngine
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
-                await AbortQuietlyAsync(_route).ConfigureAwait(false);
+                await AbortQuietlyAsync().ConfigureAwait(false);
                 throw WebErrors.Translate(ex, label);
             }
         }
     }
 
-    /// <summary>What tests replace: the clock budgets read, and the CDP attach.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp);
+    /// <summary>What tests replace: the clock budgets read, the CDP attach, the selector registration in its context, and the read of a route's upstream response.</summary>
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute, Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage, Func<IFrame, object, Task<IJSHandle>> ReadFrame);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(
@@ -2923,24 +4579,56 @@ public sealed partial class WebEngine : IEngine
         /// <summary>False for a read that must leave the page's element map as the last observation set it: the trace's.</summary>
         public bool Publish { get; init; } = true;
 
+        /// <summary>The app's site. A child frame whose document is not on it is left out, and does not count toward truncation.</summary>
+        public string? Site { get; init; }
+
         public int Remaining { get; set; } = ObservationLimits.Nodes;
 
         public bool Truncated { get; set; }
 
         public string? Scroll { get; set; }
 
-        public Dictionary<string, IFrame> Frames { get; } = new(StringComparer.Ordinal);
+        public TraceViewport? Viewport { get; set; }
+
+        /// <summary>The observed nodes of every document the walk read, by ref: the generation a publishing read hands the registry.</summary>
+        public Dictionary<string, ListedTarget> Generation { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The element lists the walk made, one per document read.</summary>
+        public List<ElementList> Lists { get; } = [];
+
+        /// <summary>Releases every list the walk made; safe to call again.</summary>
+        public void Release()
+        {
+            foreach (var list in Lists)
+            {
+                list.Dispose();
+            }
+
+            Generation.Clear();
+        }
+    }
+
+    private sealed class WebViewportDto
+    {
+        public int Width { get; set; }
+
+        public int Height { get; set; }
     }
 
     private sealed class WebObservation
     {
         public int Next { get; set; }
 
+        /// <summary>The ref of each element in the in-page array, in order (upstream's <c>ids</c>).</summary>
+        public List<string>? Ids { get; set; }
+
         public int Count { get; set; }
 
         public bool Truncated { get; set; }
 
         public string? Scroll { get; set; }
+
+        public WebViewportDto? Viewport { get; set; }
 
         public List<WebNode>? Roots { get; set; }
     }
@@ -2956,6 +4644,10 @@ public sealed partial class WebEngine : IEngine
         public string? Text { get; set; }
 
         public string? OwnText { get; set; }
+
+        public string? DomText { get; set; }
+
+        public List<string>? Labels { get; set; }
 
         public string? Value { get; set; }
 
@@ -2973,7 +4665,15 @@ public sealed partial class WebEngine : IEngine
 
         public bool Checked { get; set; }
 
+        public bool CheckedReported { get; set; }
+
         public bool Expanded { get; set; }
+
+        public bool ExpandedAbsent { get; set; }
+
+        public bool Mixed { get; set; }
+
+        public bool EmptyBox { get; set; }
 
         public bool Selected { get; set; }
 
@@ -2995,9 +4695,28 @@ public sealed partial class WebEngine : IEngine
 
         public WebRect? Rect { get; set; }
 
+        public WebPoint? Origin { get; set; }
+
         public List<WebNode>? Inline { get; set; }
 
         public List<WebNode>? Children { get; set; }
+
+        /// <summary>The iframe selectors enclosing this node's document, outermost first; null for the main document.</summary>
+        public List<string>? FramePath { get; set; }
+    }
+
+    private sealed class WheelAimDto
+    {
+        public string Aim { get; set; } = "blocked";
+
+        public WebRect? Box { get; set; }
+    }
+
+    private sealed class WebPoint
+    {
+        public double X { get; set; }
+
+        public double Y { get; set; }
     }
 
     private sealed class WebRect
@@ -3041,6 +4760,7 @@ internal sealed class OperationBudget
     private readonly string _label;
     private readonly CancellationToken _cancellationToken;
     private readonly TimeProvider _clock;
+    private volatile Func<EngineException>? _atDeadline;
 
     // startedAt is when the operation began, on the clock, when engine work such as a reconnect already spent part of its budget.
     public OperationBudget(TimeSpan timeout, string label, CancellationToken cancellationToken, TimeProvider? clock = null, long? startedAt = null)
@@ -3063,9 +4783,34 @@ internal sealed class OperationBudget
         }
     }
 
+    /// <summary>
+    /// Awaits a call whose own timeout is the lead ahead of the deadline. If the deadline passes first, because both fired in one stall
+    /// of a loaded machine, the deadline that wraps this call (<see cref="WithinAsync(Task)"/>) ends it as <paramref name="atDeadline"/>
+    /// answers, not as <c>OPERATION_TIMEOUT</c>. The answer stays when the call fails on its timeout, and goes on success or another
+    /// failure, so a later deadline is a plain timeout again.
+    /// </summary>
+    public async Task<T> AwaitingAsync<T>(Task<T> call, Func<EngineException> atDeadline)
+    {
+        _atDeadline = atDeadline;
+        try
+        {
+            var result = await call.ConfigureAwait(false);
+            _atDeadline = null;
+            return result;
+        }
+        catch (Exception ex) when (ex is not System.TimeoutException)
+        {
+            // Another failure ends the operation on its own answer; a deadline after it is a plain timeout.
+            _atDeadline = null;
+            throw;
+        }
+    }
+
     /// <summary>Waits for <paramref name="call"/> until the deadline, then abandons it as <c>OPERATION_TIMEOUT</c>.</summary>
     public async Task WithinAsync(Task call)
     {
+        // A call abandoned at the deadline or a cancel may still fault later, with nobody awaiting it: observe that fault.
+        _ = call.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         try
         {
             await call.WaitAsync(Remaining(), _clock, _cancellationToken).ConfigureAwait(false);
@@ -3083,6 +4828,28 @@ internal sealed class OperationBudget
         await WithinAsync((Task)call).ConfigureAwait(false);
         return await call.ConfigureAwait(false);
     }
+
+    /// <summary>The budget in milliseconds, as the messages that name it.</summary>
+    public long TimeoutMs => (long)_timeout.TotalMilliseconds;
+
+    /// <summary>The time left before the deadline, zero once it has passed. Unlike the other members it does not throw at the deadline.</summary>
+    public TimeSpan Left
+    {
+        get
+        {
+            var left = _timeout - _clock.GetElapsedTime(_startedAt);
+            return left > TimeSpan.Zero ? left : TimeSpan.Zero;
+        }
+    }
+
+    /// <summary>
+    /// A budget of its own deadline, <paramref name="timeout"/> from now, that ends on the same cancellation (.NET-only: upstream spreads the
+    /// operation with a new <c>timeoutMs</c>, as <c>{ ...operation, timeoutMs }</c> in <c>captureObservation</c>).
+    /// </summary>
+    public OperationBudget WithTimeout(TimeSpan timeout) => new(timeout, _label, _cancellationToken, _clock);
+
+    /// <summary>Whether the deadline has passed.</summary>
+    public bool Expired => _clock.GetElapsedTime(_startedAt) >= _timeout;
 
     /// <summary>Throws <c>OPERATION_TIMEOUT</c> once the deadline has passed, before a call that takes no timeout of its own.</summary>
     public void ThrowIfExpired() => Remaining();
@@ -3107,14 +4874,14 @@ internal sealed class OperationBudget
     /// <summary>Sleeps on the budget's clock, ending early when the operation is cancelled.</summary>
     public Task DelayAsync(TimeSpan delay) => Task.Delay(delay, _clock, _cancellationToken);
 
-    private TimeSpan Remaining()
+    public TimeSpan Remaining()
     {
         _cancellationToken.ThrowIfCancellationRequested();
         var left = _timeout - _clock.GetElapsedTime(_startedAt);
         return left > TimeSpan.Zero ? left : throw Timeout();
     }
 
-    private EngineException Timeout() => new(EngineErrorCodes.OperationTimeout, _label + " timed out", retryable: false);
+    private EngineException Timeout() => _atDeadline?.Invoke() ?? new(EngineErrorCodes.OperationTimeout, _label + " timed out", retryable: false);
 }
 
 /// <summary>
@@ -3147,6 +4914,72 @@ internal static partial class WebErrors
         return cause is System.TimeoutException
             ? new EngineException(EngineErrorCodes.OperationTimeout, text, cause)
             : new EngineException(EngineErrorCodes.EngineFailure, text, cause);
+    }
+
+    /// <summary>
+    /// The failure of an operation whose in-page code the page's own scripts broke, as <c>EVALUATE_FAILED</c>, or null when something else
+    /// failed (upstream's <c>pageScriptFailure</c>). A page that deletes or replaces a JavaScript built-in (<c>Map</c>, <c>Object</c>) breaks
+    /// every script Playwright runs in its main world. Told apart by asking the frame in both worlds: Playwright's utility world still reads
+    /// the document before and after a main-world query that runs no e2e code fails, so the frame lives throughout and e2e's own code is not
+    /// the cause. The port probes the top frame (.NET-only: upstream follows the frame selectors of the locator).
+    /// </summary>
+    public static Task<TestException?> PageScriptFailureAsync(IPage page, Exception cause, string operation, float timeoutMs)
+    {
+        var root = page.Locator(":root");
+        return PageScriptFailureAsync(
+            () => root.CountAsync(),
+            () => root.EvaluateAsync("() => 0", null, new LocatorEvaluateOptions { Timeout = Math.Max(timeoutMs, 1) }),
+            cause,
+            operation);
+    }
+
+    /// <summary>The probes of <see cref="PageScriptFailureAsync(IPage, Exception, string, float)"/> as delegates: the utility-world count and the main-world evaluate (.NET-only seam: the tests have no page to mock).</summary>
+    public static async Task<TestException?> PageScriptFailureAsync(Func<Task> count, Func<Task> evaluate, Exception cause, string operation)
+    {
+        if (cause is E2EException || cause is System.TimeoutException || IsNavigationRace(cause))
+        {
+            return null;
+        }
+
+        async Task<bool> Alive()
+        {
+            try
+            {
+                await count().ConfigureAwait(false);
+                return true;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                return false;
+            }
+        }
+
+        if (!await Alive().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        try
+        {
+            await evaluate().ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception probe) when (probe is System.TimeoutException || IsNavigationRace(probe))
+        {
+            return null;
+        }
+        catch (Exception probe) when (probe is not OperationCanceledException)
+        {
+            // The main world failed, as the page's own replaced built-in would make it: the case this method classifies.
+        }
+
+        // A crash or a closed target between the two probes fails this read too.
+        if (!await Alive().ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new TestException("EVALUATE_FAILED", $"{operation} failed: the page deleted or replaced a JavaScript built-in that in-page automation code needs: {Message(cause)}", cause);
     }
 
     /// <summary>Whether Playwright's words for <paramref name="cause"/> say the element left the DOM.</summary>

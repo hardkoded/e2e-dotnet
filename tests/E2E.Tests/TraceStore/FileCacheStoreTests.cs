@@ -4,13 +4,6 @@
 
 namespace E2E.Tests.TraceStore;
 
-/// <summary>
-/// Partial: "misses on an absent entry and rejects a malformed key hash" (a malformed key throws <c>INVALID_ARGUMENT</c>
-/// where upstream answers <c>invalid</c> or writes nothing), "fails closed on unreadable and oversized entries" (the
-/// size cap is fixed at 1 MiB, not an option), and "evicts an entry on delete, tolerating absence" (the store has no
-/// read-only mode). Not ported: "refuses to write an entry over its byte cap" and "never writes when not writable" (the
-/// port's store has no byte cap and no <c>writable</c> flag; read-only is a session mode).
-/// </summary>
 public sealed class FileCacheStoreTests : IDisposable
 {
     private static readonly string Key = new('a', 64);
@@ -41,7 +34,7 @@ public sealed class FileCacheStoreTests : IDisposable
     [Fact]
     public void Round_trips_one_entry_under_the_key_digest()
     {
-        _store.Write(Key, Payload());
+        Assert.True(_store.Write(Key, Payload()) > 0);
         Assert.Equal([Key + ".json"], Directory.GetFiles(_directory).Select(Path.GetFileName));
         var read = _store.Read(Key).Entry;
         Assert.NotNull(read);
@@ -52,35 +45,59 @@ public sealed class FileCacheStoreTests : IDisposable
     }
 
     [Fact]
-    public void Misses_on_an_absent_entry_and_throws_on_a_malformed_key_hash()
+    public void Misses_on_an_absent_entry_and_rejects_a_malformed_key_hash()
     {
         var miss = _store.Read(Key);
         Assert.Null(miss.Entry);
         Assert.Equal("no-entry", miss.Reason);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => _store.Read("../escape")).Code);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => _store.Write("../escape", Payload())).Code);
+        var malformed = _store.Read("../escape");
+        Assert.Null(malformed.Entry);
+        Assert.Equal("invalid-entry", malformed.Reason);
+        Assert.Null(_store.Write("../escape", Payload()));
+        Assert.False(Directory.Exists(_directory) && Directory.GetFiles(_directory).Length > 0);
+        Assert.False(File.Exists(Path.Combine(_directory, "..", "escape.json")));
     }
 
     [Fact]
-    public void Fails_closed_on_unreadable_entries_and_entries_over_one_MiB()
+    public void Fails_closed_on_unreadable_and_oversized_entries()
     {
+        var store = new FileStepCache(_directory, 4_096, true);
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, Key + ".json");
         File.WriteAllText(path, "{ torn");
-        Assert.Equal("invalid-entry", _store.Read(Key).Reason);
-        File.WriteAllText(path, "{\"pad\":\"" + new string('x', 1024 * 1024 + 1) + "\"}");
-        var oversized = _store.Read(Key);
+        Assert.Equal("invalid-entry", store.Read(Key).Reason);
+        File.WriteAllText(path, "{\"pad\":\"" + new string('x', 8_192) + "\"}");
+        var oversized = store.Read(Key);
         Assert.Null(oversized.Entry);
         Assert.Equal("invalid-entry", oversized.Reason);
     }
 
     [Fact]
-    public void Evicts_an_entry_on_delete_tolerating_absence()
+    public void Refuses_to_write_an_entry_over_its_byte_cap()
+    {
+        var store = new FileStepCache(_directory, 64, true);
+        Assert.Null(store.Write(Key, Payload()));
+        Assert.Equal("no-entry", store.Read(Key).Reason);
+    }
+
+    [Fact]
+    public void Never_writes_when_not_writable()
+    {
+        var store = new FileStepCache(_directory, FileStepCache.MaxCacheWireBytes, false);
+        Assert.Null(store.Write(Key, Payload()));
+        Assert.False(Directory.Exists(_directory) && Directory.GetFiles(_directory).Length > 0);
+    }
+
+    [Fact]
+    public void Evicts_an_entry_on_delete_tolerating_absence_and_read_only_mode()
     {
         _store.Write(Key, Payload());
         _store.Delete(Key);
         Assert.Empty(Directory.GetFiles(_directory));
         _store.Delete(Key);
-        Assert.Empty(Directory.GetFiles(_directory));
+        var readOnly = new FileStepCache(_directory, FileStepCache.MaxCacheWireBytes, false);
+        _store.Write(Key, Payload());
+        readOnly.Delete(Key);
+        Assert.Equal([Key + ".json"], Directory.GetFiles(_directory).Select(Path.GetFileName));
     }
 }

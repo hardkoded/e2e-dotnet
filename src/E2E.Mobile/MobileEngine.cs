@@ -15,11 +15,30 @@ public interface IDeviceActions
 {
     Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, CancellationToken)"/> with <paramref name="context"/>, who acts
+    /// (upstream's <c>operation.origin</c>). The default drops the context (.NET-only), so an implementation that defines only the member
+    /// without one keeps compiling.
+    /// </summary>
+    Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
+        PerformAsync(session, node, action, cancellationToken);
+
     Task PressAsync(DeviceSession session, string key, CancellationToken cancellationToken);
 
     Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken);
 
+    /// <summary><see cref="SwipeAsync(DeviceSession, ScrollDirection, CancellationToken)"/> with <paramref name="context"/>. The default drops it, as <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.</summary>
+    Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken) =>
+        SwipeAsync(session, direction, cancellationToken);
+
     Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <see cref="ScreenshotAsync(DeviceSession, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot
+    /// and capture share (upstream's <c>operation.timeoutMs</c>). The default drops the budget (.NET-only), so an implementation that
+    /// defines only the member without a timeout keeps compiling.
+    /// </summary>
+    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(session, cancellationToken);
 }
 
 /// <summary>What a worker's start is given: which target and worker slot it serves, and the environment <c>prepare</c> left.</summary>
@@ -60,7 +79,7 @@ public sealed record MobileStartInfo
 /// fresh launch of the pinned app. The device is a simulator, an emulator, or a connected phone, named by the options,
 /// discovered, or leased from an <see cref="IDeviceProvider"/>.
 /// </summary>
-public sealed class MobileEngine : IPreparableEngine
+public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine, IDoctorEngine
 {
     /// <summary>The version of the engine, as upstream's <c>@e2e-dev/mobile</c> numbers the surface this one follows.</summary>
     public const string EngineVersion = "0.11.0";
@@ -126,11 +145,79 @@ public sealed class MobileEngine : IPreparableEngine
         }
     }
 
-    internal void Unregister(DeviceSession session)
+    /// <summary>Takes a session off <see cref="ActiveSessions"/>. True when it was one of them, so only the call that removed it frees the slot it held.</summary>
+    internal bool Unregister(DeviceSession session)
     {
         lock (_sessions)
         {
-            _sessions.Remove(session);
+            return _sessions.Remove(session);
+        }
+    }
+
+    // .NET-only: upstream's surface holds one `client`, `bound`, and `recording` for its worker. The port's attempt is a DeviceSession, so the
+    // engine keeps the device of each worker slot here, across the attempts that run on it, until the worker is disposed.
+    private readonly Lock _workersGate = new();
+    private readonly Dictionary<(string Target, int Slot), DeviceWorker> _workers = [];
+
+    /// <summary>The worker of a slot the engine keeps, or a new one for the binding when it has none (upstream's surface, one per worker).</summary>
+    internal DeviceWorker WorkerOf(string targetName, int slot, SlotBinding? binding)
+    {
+        lock (_workersGate)
+        {
+            if (!_workers.TryGetValue((targetName, slot), out var worker))
+            {
+                _workers[(targetName, slot)] = worker = new DeviceWorker { Binding = binding };
+            }
+
+            return worker;
+        }
+    }
+
+    /// <summary>Forgets a worker the engine disposed, if it still holds that one for the slot.</summary>
+    internal void DropWorker((string Target, int Slot) slot, DeviceWorker worker)
+    {
+        lock (_workersGate)
+        {
+            if (_workers.TryGetValue(slot, out var held) && ReferenceEquals(held, worker))
+            {
+                _workers.Remove(slot);
+            }
+        }
+    }
+
+    /// <summary>Takes every worker the engine keeps, so each is disposed once.</summary>
+    private List<(string Target, int Slot, DeviceWorker Worker)> TakeWorkers()
+    {
+        lock (_workersGate)
+        {
+            var taken = _workers.Select(pair => (pair.Key.Target, pair.Key.Slot, pair.Value)).ToList();
+            _workers.Clear();
+            return taken;
+        }
+    }
+
+    // .NET-only: upstream's worker holds one `attempt`; this engine serves several slots, so the claims are per slot, under their own lock.
+    private readonly Lock _slotsGate = new();
+    private readonly HashSet<(string Target, int Slot)> _claimedSlots = [];
+
+    /// <summary>Claims one worker slot for an attempt. Upstream's <c>startAttempt</c> refuses one while <c>this.attempt</c> is set.</summary>
+    internal void ClaimSlot(string targetName, int workerSlot)
+    {
+        lock (_slotsGate)
+        {
+            if (!_claimedSlots.Add((targetName, workerSlot)))
+            {
+                throw DeviceSupport.InvalidState("an attempt is already running on this agent-device engine");
+            }
+        }
+    }
+
+    /// <summary>Frees the worker slot an attempt held. A slot nobody holds stays free.</summary>
+    internal void ReleaseSlot(string targetName, int workerSlot)
+    {
+        lock (_slotsGate)
+        {
+            _claimedSlots.Remove((targetName, workerSlot));
         }
     }
 
@@ -157,6 +244,8 @@ public sealed class MobileEngine : IPreparableEngine
     /// <summary>The wait between two attempts at a sparse snapshot. Tests replace it to spend no time.</summary>
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
 
+    public string Name => "mobile";
+
     public string Platform => Options.Platform.WireName();
 
     public string Version => EngineVersion;
@@ -177,7 +266,19 @@ public sealed class MobileEngine : IPreparableEngine
     /// (a website in the device's browser) is not supported yet, and a link as the bundle id is a mistake: a test opens
     /// one with <c>device.openLink</c>.
     /// </summary>
-    public static void ValidateApp(MobileApp app, string? url, string targetName, MobilePlatform platform)
+    void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(info);
+        ValidateApp(
+            new MobileApp { BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments },
+            app.Url,
+            info.TargetName,
+            Options.Platform);
+    }
+
+    /// <summary>The device-app checks of <see cref="IEngine.ValidateApp"/>, over the target's app and URL.</summary>
+    internal static void ValidateApp(MobileApp app, string? url, string targetName, MobilePlatform platform)
     {
         ArgumentNullException.ThrowIfNull(app);
         var where = $"target \"{targetName}\"";
@@ -210,9 +311,20 @@ public sealed class MobileEngine : IPreparableEngine
     public Task<MobilePrepareResult> PrepareAsync(MobilePrepareInfo info, CancellationToken cancellationToken) =>
         Pool.PrepareAsync(info, cancellationToken);
 
-    /// <summary>Closes the sessions prepare opened and releases the leases, once per run and target.</summary>
-    public Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken) =>
-        Pool.FinishAsync(info, cancellationToken);
+    /// <summary>
+    /// Closes the sessions the run kept open across its attempts, then the sessions prepare opened, and releases the leases, once per run and
+    /// target. The kept workers close first, each within the finish's cleanup budget; a close that outlives it is abandoned, as a hung hook is, and the release follows.
+    /// </summary>
+    public async Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+
+        // Together, as upstream's pool finish runs its session closes beside the source release under the one budget: a hung close does
+        // not delay the release.
+        await Task.WhenAll(
+            DisposeAsync(info.CleanupTimeout, null, cancellationToken),
+            Pool.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+    }
 
     /// <summary>The core hook of upstream's <c>prepare</c>: <see cref="PrepareAsync(MobilePrepareInfo, CancellationToken)"/> for this engine's app.</summary>
     async Task<EnginePrepareResult> IPreparableEngine.PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
@@ -231,6 +343,18 @@ public sealed class MobileEngine : IPreparableEngine
             },
             cancellationToken).ConfigureAwait(false);
         return new EnginePrepareResult { Workers = prepared.Workers, Env = prepared.Env };
+    }
+
+    /// <summary>
+    /// The core hook of upstream's <c>dispose</c>: <see cref="DisposeAsync(TimeSpan, CancellationToken?, CancellationToken)"/> with the reuse permission
+    /// of <see cref="EngineDisposeContext.ReuseSignal"/>. A live signal keeps each worker's run-owned lease for a replacement, which the run's finish
+    /// releases; a null or canceled signal closes the worker's session, as the run's own finish does.
+    /// </summary>
+    Task IDisposableEngine.DisposeAsync(EngineDisposeContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        CancellationToken? reuse = context.ReuseSignal is { IsCancellationRequested: false } live ? live : null;
+        return DisposeAsync(context.CleanupTimeout, reuse, cancellationToken);
     }
 
     /// <summary>The core hook of upstream's <c>finish</c>: <see cref="FinishAsync(MobileFinishInfo, CancellationToken)"/>.</summary>
@@ -273,6 +397,40 @@ public sealed class MobileEngine : IPreparableEngine
         return await DeviceSession.StartAsync(this, info, _createClient, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Ends the attempts running on this engine, within the cleanup budget: each one's dangling recording is stopped and its slot freed. The
+    /// workers stay booted for the next attempt on their slot. Upstream's worker-level <c>endAttempt</c>. Cold, with no attempt running, it is a
+    /// no-op.
+    /// </summary>
+    public async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        // Together, so one budget bounds the lot and one failing close does not leave the others running.
+        await Task.WhenAll(ActiveSessions.Select(session => session.EndAttemptAsync(timeout, cancellationToken))).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Closes the sessions this engine started, within the cleanup budget. Upstream's worker-level <c>dispose</c> without reuse. Cold, with no
+    /// attempt running, it is a no-op.
+    /// </summary>
+    public Task DisposeAsync(TimeSpan timeout, CancellationToken cancellationToken) => DisposeAsync(timeout, null, cancellationToken);
+
+    /// <summary>
+    /// Disposes every worker this engine keeps and ends the attempts still running. Upstream's worker-level <c>dispose</c>: with a <paramref name="reuse"/>
+    /// signal that is not revoked, a leased device keeps its session for a replacement worker, and the lease is left to the run's finish.
+    /// </summary>
+    internal async Task DisposeAsync(TimeSpan timeout, CancellationToken? reuse, CancellationToken cancellationToken)
+    {
+        foreach (var session in ActiveSessions)
+        {
+            if (Unregister(session))
+            {
+                ReleaseSlot(session.Slot.Target, session.Slot.Slot);
+            }
+        }
+
+        await Task.WhenAll(TakeWorkers().Select(entry => DeviceSession.DisposeWorkerAsync(this, (entry.Target, entry.Slot), entry.Worker, timeout, reuse, cancellationToken))).ConfigureAwait(false);
+    }
+
     private static DeviceClientFactory ClientsOf(MobileOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -303,9 +461,5 @@ public sealed class MobileEngine : IPreparableEngine
             throw new ConfigurationException("INVALID_CONFIG", "mobile: `transition` must be a non-negative integer of milliseconds");
         }
 
-        if (options.Device is not null && options.Device.Length == 0)
-        {
-            throw new ConfigurationException("INVALID_CONFIG", "mobile: `device` is an empty name; name a simulator or emulator, or omit it to use every booted one");
-        }
     }
 }

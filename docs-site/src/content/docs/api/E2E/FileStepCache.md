@@ -1,6 +1,6 @@
 ---
 title: "FileStepCache"
-description: "JSON files in a directory, one per cache key. Entries over 1 MiB are ignored."
+description: "JSON files in a directory, one per cache key. An entry over the byte cap is ignored on read and not written."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed class FileStepCache : IStepCache
 ```
 
 
-JSON files in a directory, one per cache key. Entries over 1 MiB are ignored.
+JSON files in a directory, one per cache key. An entry over the byte cap is ignored on read and not written.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IStepCache](/api/E2E/IStepCache/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L200)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 ## Constructors
 
@@ -46,9 +46,42 @@ public FileStepCache(string directory)
 | --- | --- | --- |
 | `directory` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L209)
+<a id="E2E_FileStepCache__ctor_System_String_System_Int32_System_Boolean_"></a>
+
+### FileStepCache(string, int, bool)
+
+
+```csharp
+public FileStepCache(string directory, int maxBytes, bool writable)
+```
+
+
+Upstream's `FileCacheStoreOptions` as arguments: &lt;code class="paramref"&gt;maxBytes&lt;/code&gt; is the entry size cap for tests (production passes
+the wire ceiling, which clamps it); a store that is not &lt;code class="paramref"&gt;writable&lt;/code&gt; never writes and never deletes.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `directory` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `maxBytes` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `writable` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 ## Fields
+
+<a id="E2E_FileStepCache_MaxCacheWireBytes"></a>
+
+### MaxCacheWireBytes
+
+
+```csharp
+public const int MaxCacheWireBytes = 1048576
+```
+
+
+Hard wire ceiling on one entry, on both the read and the write path (upstream's `MAX_CACHE_WIRE_BYTES`).
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
 <a id="E2E_FileStepCache_SchemaVersion"></a>
 
@@ -62,7 +95,22 @@ public const int SchemaVersion = 1
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L202)
+## Properties
+
+<a id="E2E_FileStepCache_Writable_"></a>
+<a id="E2E_FileStepCache_Writable"></a>
+
+### Writable
+
+
+```csharp
+public bool Writable { get; }
+```
+
+
+False when the store never writes or deletes (upstream's `FileCacheStore.writable`).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 ## Methods
 
@@ -85,8 +133,6 @@ Returns when the entry is absent; throws when deletion fails, so the best-effort
 | --- | --- | --- |
 | `key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L259)
-
 <a id="E2E_FileStepCache_Read_"></a>
 <a id="E2E_FileStepCache_Read_System_String_"></a>
 
@@ -106,8 +152,6 @@ public CacheLookup Read(string key)
 
 **Returns:** [CacheLookup](/api/E2E/CacheLookup/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L218)
-
 <a id="E2E_FileStepCache_Write_"></a>
 <a id="E2E_FileStepCache_Write_System_String_E2E_CacheEntry_"></a>
 
@@ -115,9 +159,11 @@ public CacheLookup Read(string key)
 
 
 ```csharp
-public void Write(string key, CacheEntry entry)
+public int? Write(string key, CacheEntry entry)
 ```
 
+
+Persists one entry, returning its size in bytes, or null when not written: the store is not writable, or the entry is over the byte cap.
 
 **Parameters**
 
@@ -126,4 +172,4 @@ public void Write(string key, CacheEntry entry)
 | `key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `entry` | [CacheEntry](/api/E2E/CacheEntry/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L252)
+**Returns:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)

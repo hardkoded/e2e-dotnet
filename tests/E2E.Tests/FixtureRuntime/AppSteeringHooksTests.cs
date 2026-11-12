@@ -20,6 +20,29 @@ public sealed class AppSteeringHooksTests
     }
 
     [Fact]
+    public async Task BaseUrl_has_no_trailing_slash_so_a_template_joins_a_path_onto_it_app_open_still_resolves_against_the_base_path()
+    {
+        await using (var origin = await StartAsync([], "http://127.0.0.1:4599"))
+        {
+            Assert.Equal("http://127.0.0.1:4599", origin.App.BaseUrl);
+            origin.Complete();
+        }
+
+        var calls = new List<string>();
+        await using var nested = await StartAsync(calls, "http://127.0.0.1:4599/app/");
+        Assert.Equal("http://127.0.0.1:4599/app", nested.App.BaseUrl);
+        Assert.Equal("http://127.0.0.1:4599/app/api/hooks", $"{nested.App.BaseUrl}/api/hooks");
+        await nested.App.OpenAsync();
+        await nested.App.OpenAsync("settings");
+        Assert.Equal(["open http://127.0.0.1:4599/app/", "open http://127.0.0.1:4599/app/settings"], calls);
+        nested.Complete();
+
+        await using var none = await StartAsync([], baseUrl: null);
+        Assert.Null(none.App.BaseUrl);
+        none.Complete();
+    }
+
+    [Fact]
     public async Task Reopen_nothing_on_a_surface_without_an_address()
     {
         var calls = new List<string>();
@@ -37,7 +60,7 @@ public sealed class AppSteeringHooksTests
         await using var session = await StartAsync(calls, baseUrl: null, device: true);
         await session.App.OpenAsync();
         Assert.Equal(["restart"], calls);
-        Assert.Equal([("app.open", StepStatus.Passed)], session.Steps.Select(step => (step.Api, step.Status)));
+        Assert.Equal([("app.open", StepStatus.Passed)], session.StepRecords.Select(step => (step.Api, step.Status)));
         session.Complete();
     }
 
@@ -60,7 +83,7 @@ public sealed class AppSteeringHooksTests
     {
         const string Reason = "launching the app needs the build installed first with device.installApp()";
         await using var session = await StartAsync([], baseUrl: null, device: true, restartFailure: new EngineException("UNSUPPORTED_CAPABILITY", Reason));
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.App.OpenAsync());
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
         Assert.Equal(Reason, error.Message);
         session.Complete();

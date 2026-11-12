@@ -21,7 +21,7 @@ public enum CacheMode
 
 How an agent step used the cache.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L653)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ AgentConcluded = 1
 
 **Value:** [CacheMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L656)
-
 <a id="E2E_Reports_CacheMode_Missed"></a>
 
 ### Missed
@@ -51,8 +49,6 @@ Missed = 2
 
 **Value:** [CacheMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L657)
-
 <a id="E2E_Reports_CacheMode_SelfFinalized"></a>
 
 ### SelfFinalized
@@ -64,5 +60,3 @@ SelfFinalized = 0
 
 
 **Value:** [CacheMode](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L655)
