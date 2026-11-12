@@ -381,7 +381,7 @@ lines you changed:
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
   visibly. On a device, a node whose centre the soft keyboard covers is hidden, so the
-  scroll goes on past it and `ToBeVisibleAsync` fails on it (topic `mobile`). A tap
+  scroll goes on past it and `ToBeVisibleAsync` fails on it. The keyboard's own keys and dock, the focused field, and a container with a child still showing stay visible (topic `mobile`). A tap
   agent-device refuses because the keyboard or an overlay covers the target fails
   `ACTION_FAILED` with a message that names the cover. On a locator
   (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,

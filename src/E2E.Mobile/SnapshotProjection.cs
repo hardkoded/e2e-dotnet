@@ -413,7 +413,7 @@ public static partial class SnapshotProjection
             return frame;
         }
 
-        if (kind is "absent" or "tree-rejected" || (kind == "visibility-only" && visible == false))
+        if (kind is "absent" or "tree-rejected" || (kind == "visibility-only" && visible != true))
         {
             return null;
         }

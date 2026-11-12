@@ -126,7 +126,7 @@ public sealed class ErrorTranslationTests
         "tap_keyboard_occludes_target",
         "@e12 is behind the visible keyboard and cannot be tapped safely",
         "The visible keyboard covers this target, so the tap would land on a key instead of on it. End editing first: tap the app's own Done/Cancel/close control.")]
-    public void Fails_a_tap_agent_device_refused_as_covered_with_NOT_ACTIONABLE_and_its_hint(string reason, string text, string hint)
+    public void Fails_a_tap_agent_device_refused_as_the_reason_with_NOT_ACTIONABLE_and_its_hint(string reason, string text, string hint)
     {
         var refused = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "no")));
         var failure = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
