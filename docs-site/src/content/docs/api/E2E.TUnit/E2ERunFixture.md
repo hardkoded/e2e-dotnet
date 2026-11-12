@@ -111,7 +111,7 @@ Whether to run only the tests the previous run did not pass (upstream's `--last-
 
 
 ```csharp
-[Before(HookType.TestSession, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ERunFixture.cs", 49)]
+[Before(HookType.TestSession)]
 public static Task SelectTestsAsync(CancellationToken cancellationToken)
 ```
 
@@ -133,7 +133,7 @@ Creates the run fixtures the test assembly declares and starts each, before the 
 
 
 ```csharp
-[After(HookType.TestSession, "C:\\Source\\hardkoded\\e2e-dotnet-tunit\\src\\E2E.TUnit\\E2ERunFixture.cs", 65)]
+[After(HookType.TestSession)]
 public static Task StopAppCommandsAsync()
 ```
 
