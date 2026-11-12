@@ -132,8 +132,11 @@ public sealed record MobileOptions
     public SnapshotMode Snapshot { get; init; } = SnapshotMode.Full;
 
     /// <summary>
-    /// How long the UI must hold still after a tap, fill, screen scroll, or back before the action counts as
-    /// landed, in milliseconds. Default 150. Zero keeps only the first re-observation.
+    /// How long the UI must hold still after a tap, fill, screen scroll, or back before the agent observes again,
+    /// in milliseconds. The wait keeps that observation off a transition frame; the runner's own polling
+    /// (<c>Expect</c>, actions waiting for their node) covers the rest, so a short window suffices. Default 150.
+    /// Zero keeps only the first re-observation. A test's steps do not settle, except <c>device.Back()</c>:
+    /// <c>Expect</c> verifies their outcome, and <c>TransitionMilliseconds</c> covers a control that is still arriving.
     /// </summary>
     public int SettleMilliseconds { get; init; } = DefaultSettleMilliseconds;
 
