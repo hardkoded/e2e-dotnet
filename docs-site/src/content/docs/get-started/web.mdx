@@ -17,10 +17,10 @@ Run `e2e init MyApp.E2ETests` to scaffold the project, an example test, and the 
 dotnet new nunit -n MyApp.E2ETests
 cd MyApp.E2ETests
 dotnet add package E2E
-dotnet add package E2E.NUnit          # or E2E.XUnit.V3 for xUnit v3, E2E.TUnit for TUnit
+dotnet add package E2E.NUnit
 ```
 
-The [NUnit](/testing-frameworks/nunit/), [xUnit v3](/testing-frameworks/xunit/), and [TUnit](/testing-frameworks/tunit/) pages have the project properties each framework needs.
+These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), follow that page instead: each creates the project the framework needs and names the package to add (`E2E.XUnit.V3` or `E2E.TUnit`). The [NUnit](/testing-frameworks/nunit/) page has the NUnit project properties.
 
 Add `E2E` to the implicit usings, so tests need no `using E2E;`:
 

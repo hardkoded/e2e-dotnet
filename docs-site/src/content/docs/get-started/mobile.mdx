@@ -21,10 +21,10 @@ Run `e2e init MyApp.MobileTests --engine mobile` to scaffold the project, an exa
 ```bash
 dotnet new nunit -n MyApp.MobileTests
 cd MyApp.MobileTests
-dotnet add package E2E.Mobile.NUnit      # or E2E.Mobile.XUnit.V3, E2E.Mobile.TUnit
+dotnet add package E2E.Mobile.NUnit
 ```
 
-See [NUnit](/testing-frameworks/nunit/), [xUnit v3](/testing-frameworks/xunit/), and [TUnit](/testing-frameworks/tunit/) for the project setup of each framework.
+These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), create the project as that page says, then add `E2E.Mobile.XUnit.V3` or `E2E.Mobile.TUnit` in place of `E2E.Mobile.NUnit`. The [NUnit](/testing-frameworks/nunit/) page has the NUnit project properties.
 
 ## 2. Point at your app
 
