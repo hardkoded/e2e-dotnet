@@ -49,6 +49,17 @@ public sealed class JudgedFixture : E2E.TUnit.E2ETest
     }
 }
 
+/// <summary>A fixture the filters left out in its own process: the exclusion is made before the class runs, as a run fixture makes it before the first test.</summary>
+public sealed class LeftOutByTheFiltersFixture : E2E.TUnit.E2ETest
+{
+    [Before(HookType.Class)]
+    public static void LeaveOut() =>
+        E2E.TUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutByTheFiltersFixture).FullName}.{nameof(Is_left_out)}"] = "login.cs did not change" });
+
+    [Test, Explicit]
+    public void Is_left_out() => Console.Out.WriteLine("body-ran");
+}
+
 /// <summary>A fixture whose test would start a session if the filters did not stop it; it only runs when asked for, and the tests call its setup by hand.</summary>
 public sealed class LeftOutFixture : E2E.TUnit.E2ETest
 {
@@ -165,6 +176,15 @@ public sealed class RunSelectionTests
         {
             E2E.TUnit.RunSelection.Set(new Dictionary<string, string>());
         }
+    }
+
+    [Test]
+    public async Task TUnit_skips_a_test_the_filters_left_out_without_running_its_body()
+    {
+        var (results, output) = await NestedSessionRun.RunAsync(typeof(LeftOutByTheFiltersFixture));
+
+        await Assert.That(results["Is_left_out"].Result).IsEqualTo("Skipped");
+        await Assert.That(output).DoesNotContain("body-ran");
     }
 
     private sealed class LeaveOutJudged(string root, string? changedSince) : E2ERunFixture
