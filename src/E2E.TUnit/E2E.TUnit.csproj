@@ -12,5 +12,6 @@
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <PackageReference Include="TUnit.Core" Version="1.83.8" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.TUnit.Tests" />
   </ItemGroup>
 </Project>

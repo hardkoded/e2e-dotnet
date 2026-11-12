@@ -43,6 +43,8 @@ public abstract class E2ETest : E2EFixture
     {
         ArgumentNullException.ThrowIfNull(context);
         var details = context.Metadata.TestDetails;
+        RunSelection.SkipIfLeftOut(GetType(), details.MethodName);
+        RunSelection.SkipIfSetupRan(GetType(), details.MethodName);
         await StartSessionAsync(
             CacheTitle(context),
             context.Execution.CurrentRetryAttempt + 1,
@@ -64,9 +66,30 @@ public abstract class E2ETest : E2EFixture
 
         var soft = session.CloseSoftFailures();
         var outcome = LooksBeforeTeardownExecutor.OutcomeOf(context);
+
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        Exception? late = null;
+        if (outcome is { Failure: null, Skipped: null } && soft is null)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                late = ex;
+            }
+        }
+
         try
         {
-            session.Complete(ErrorForCache(outcome, soft), cancellationToken);
+            session.Complete(ErrorForCache(outcome, soft) ?? late, cancellationToken);
         }
         finally
         {
@@ -76,6 +99,11 @@ public abstract class E2ETest : E2EFixture
         if (soft is not null)
         {
             throw soft;
+        }
+
+        if (late is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(late);
         }
     }
 
