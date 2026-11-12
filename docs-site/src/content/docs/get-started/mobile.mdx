@@ -201,7 +201,8 @@ using E2E.Mobile.NUnit;
 
 public sealed class PhotoPickerTests : MobileAppTest
 {
-    // Put a JPEG named receipt.jpg beside this test.
+    // Add a JPEG named receipt.jpg to the test project and copy it to the output directory:
+    // <None Include="receipt.jpg" CopyToOutputDirectory="PreserveNewest" />
     private static readonly string Receipt = Path.Combine(AppContext.BaseDirectory, "receipt.jpg");
 
     private static string Simctl(params string[] arguments)
