@@ -10,6 +10,7 @@ Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, eac
 - Test ids by framework
 - A test
 - Roles
+- Visibility
 - Device controls
 - Choosing a device
 - Video
@@ -134,6 +135,14 @@ In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `
 React Native writes a role the platform has no type for into the accessibility value on iOS (`checkbox, unchecked`) and into the role description on Android (`Tab List`). A node with one of these descriptions takes the role in place of its type's. The description and the role it gives: `alert` is `alert`, `checkbox` is `checkbox`, `combo box` is `combobox`, `menu` is `menu`, `menu bar` is `menubar`, `menu item` is `menuitem`, `progress bar` is `progressbar`, `radio button` is `radio`, `radio group` is `radiogroup`, `scroll bar` is `scrollbar`, `spin button` is `spinbutton`, `switch` is `switch`, `tab` is `tab`, `tab list` is `tablist`, `timer` is `timer`, and `tool bar` is `toolbar`. Match the role, not the description: `GetByRole("radio")` finds a `radio button`. On Android a node flagged as a heading is a `heading` even when its description says `checkbox`; on iOS the description in the value wins over the type. On iOS only an `Other` carries one, and the state words after the role set `checked` and `expanded` (`checked`, `unchecked`, `expanded`, `collapsed`). `mixed` and `busy` set no state and stay in the value, so `checkbox, busy, checked, ready` has the value `busy, ready`; the rest after the state words is the node's value.
 
 `StaticText` and `Text` on iOS and `TextView` on Android are `text`, and an Android `WebView` is `document`. Find text with `GetByText`.
+
+## Visibility
+
+A device node is hidden when the platform reports it off screen, or when the soft keyboard covers its centre. So `ToBeVisibleAsync`, `ScrollUntilVisibleAsync`, and `GetByRole` treat a field under the keyboard like a field scrolled out of view. The keyboard's own keys, suggestion bar, and dock stay visible, and so does the focused field.
+
+- The keyboard's area is the frame agent-device measures. When a capture has no frame, the area runs from the top of the keyboard in the tree to the bottom of the screen.
+- A container whose centre is under the keyboard stays visible while one of its children shows above it.
+- A node under another view, such as a footer the keyboard lifts, is not hidden. A tap on it fails with `ACTION_FAILED` when agent-device finds the cover, and the message names the cover. A tap under the keyboard fails the same way. Dismiss the cover, or scroll the target clear of it.
 
 ## Device controls
 

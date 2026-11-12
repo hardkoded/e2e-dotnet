@@ -291,7 +291,8 @@ its own scroll container pages without the pointer hovering it first. `Timeout` 
 default of 30 seconds, not the action timeout, and bounds the whole scroll, each swipe
 included. `Momentum` is the stride of each step; a longer one must not carry the target
 past the surface unseen, as a virtualized list does. The target must come from the same
-screen, else `INVALID_LOCATOR`.
+screen, else `INVALID_LOCATOR`. It stops at the first match that is not hidden. On a device, a
+node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "Visibility").
 
 ## Expect
 

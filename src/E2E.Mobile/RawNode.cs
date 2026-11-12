@@ -71,6 +71,9 @@ public sealed record RawNode
 
     public bool? Hittable { get; init; }
 
+    /// <summary>Whether agent-device marked the node as the soft keyboard's own (its suggestion bar, its dock); null when the capture does not say.</summary>
+    public bool? KeyboardOwned { get; init; }
+
     public string? BundleId { get; init; }
 
     public string? AppName { get; init; }
