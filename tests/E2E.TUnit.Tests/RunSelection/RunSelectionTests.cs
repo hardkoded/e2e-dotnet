@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Text.Json.Nodes;
+using E2E.TUnit.Tests.EngineContract;
 using TUnit.Core.Exceptions;
 using TUnitContext = global::TUnit.Core.TestContext;
 
@@ -228,8 +229,17 @@ public sealed class RunSelectionTests
     public async Task A_project_with_no_run_fixture_runs_none_of_the_hook()
     {
         // The hook of a library runs for every project that references it, so it is opt-in: only a public class derived from E2ERunFixture
-        // with a public parameterless constructor takes part. This assembly derives one with constructor arguments (<c>LeaveOutJudged</c>, private), which does not.
-        await Assert.That(E2ERunFixture.DeclaredIn(typeof(RunSelectionTests).Assembly)).IsEmpty();
+        // with a public parameterless constructor takes part. LeaveOutJudged has constructor arguments, so it does not.
+        await Assert.That(E2ERunFixture.DeclaredIn(typeof(E2ERunFixture).Assembly)).IsEmpty();
+        await Assert.That(E2ERunFixture.DeclaredIn(typeof(RunSelectionTests).Assembly).Select(fixture => fixture.GetType())).IsEquivalentTo([typeof(RunHookProbe)]);
+    }
+
+    [Test]
+    public async Task The_hook_starts_the_run_fixture_a_project_declares()
+    {
+        var (_, output) = await NestedSessionRun.RunAsync(typeof(RunHookProbeTests));
+
+        await Assert.That(output).Contains("run-fixture-started");
     }
 
     private static string FeatureRepo()
@@ -273,4 +283,28 @@ public sealed class RunSelectionTests
             throw new InvalidOperationException($"git {string.Join(' ', args)} exited with {process.ExitCode}");
         }
     }
+}
+
+/// <summary>The one run fixture this project declares. It does nothing but note, in a nested run, that the hook started it.</summary>
+public sealed class RunHookProbe : E2ERunFixture
+{
+    protected override E2EConfig Config
+    {
+        get
+        {
+            if (Environment.GetEnvironmentVariable(NestedSessionRun.ExitFileVariable) is { Length: > 0 } file)
+            {
+                File.AppendAllText(file, "run-fixture-started" + Environment.NewLine);
+            }
+
+            return E2EConfig.Parse("{}", AppContext.BaseDirectory, _ => null);
+        }
+    }
+}
+
+/// <summary>A test with no session, for the nested run that checks the run fixture starts.</summary>
+public sealed class RunHookProbeTests
+{
+    [Test, Explicit]
+    public Task Runs() => Task.CompletedTask;
 }
