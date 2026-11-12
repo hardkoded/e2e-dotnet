@@ -36,6 +36,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private readonly Action<Observation>? _screenSink;
     private readonly InflightCommands _inflight;
     private IDeviceClient? _client;
+
+    private BoundDevice? _bound;
     private int _idCounter;
     private string? _appIdentity;
 
@@ -111,6 +113,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
     internal IDeviceClient Client => _client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+
+    /// <summary>The agent-device session this worker drives and the device agent-device booted for it, or <c>INVALID_STATE</c> before the boot and after the close. Upstream's <c>boundDevice</c>.</summary>
+    internal BoundDevice BoundDevice => _bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
@@ -218,7 +223,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private async Task BootAsync(CancellationToken cancellationToken)
     {
-        await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
+        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
+        _bound = new BoundDevice(_name, booted?["id"]?.GetValue<string>() ?? "", booted?["device"]?.GetValue<string>() ?? "");
 
         // Nothing is installed here: a device provider that installed the build from appPath says so on the binding,
         // and otherwise the suite installs it where it wants to, with device.installApp().
@@ -310,6 +316,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var client = _client;
         var dangling = _recording;
         _client = null;
+        _bound = null;
         _recording = null;
         _engine.Unregister(this);
         _appIdentity = null;

@@ -60,6 +60,46 @@ public sealed record ForegroundApp(string Name, string? BundleId = null);
 /// <summary>A simulated location.</summary>
 public readonly record struct Coordinates(double Latitude, double Longitude);
 
+/// <summary>The agent-device session a worker drives, and the device agent-device booted for it. Upstream's <c>BoundDevice</c>, in <c>surface.ts</c>.</summary>
+internal sealed record BoundDevice(string Session, string DeviceId, string DeviceName);
+
+/// <summary>
+/// The raw driver session behind <see cref="Device.UnstableRaw"/>. Upstream's <c>DeviceSession</c> interface; the port's
+/// <see cref="DeviceSession"/> is the engine's session (upstream's <c>AgentDeviceSurface</c>), so this one carries the name <c>RawDeviceSession</c>.
+/// </summary>
+public sealed class RawDeviceSession
+{
+    private readonly DeviceSession _surface;
+
+    internal RawDeviceSession(DeviceSession surface, BoundDevice bound)
+    {
+        _surface = surface;
+        Platform = surface.Options.Platform;
+        Session = bound.Session;
+        DeviceId = bound.DeviceId;
+        DeviceName = bound.DeviceName;
+        Selection = surface.Selection;
+    }
+
+    /// <summary>The platform the session drives.</summary>
+    public MobilePlatform Platform { get; }
+
+    /// <summary>The raw driver session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c>, or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
+    public string Session { get; }
+
+    /// <summary>The device id: a simulator UDID or an Android serial.</summary>
+    public string DeviceId { get; }
+
+    /// <summary>The device's name.</summary>
+    public string DeviceName { get; }
+
+    /// <summary>The device selection the engine passes commands; spread it into a call that can run before <c>app.open()</c>.</summary>
+    public DeviceSelection Selection { get; }
+
+    /// <summary>The raw driver client, bound to this session. <c>INVALID_STATE</c> once the worker disposed the session. Its operations are unstable and can change in any release.</summary>
+    public IDeviceClient Client => _surface.Client;
+}
+
 /// <summary>The names agent-device knows the fixture's arguments by.</summary>
 internal static class DeviceFixtureNames
 {
@@ -96,10 +136,22 @@ public sealed class Device
 
     private readonly DeviceSession _session;
 
+    /// <summary>The raw driver session a surface is bound to: <c>device.UnstableRaw</c>, and what <c>MobileTools.UnstableDeviceSession</c> hands a custom tool. Upstream's <c>rawSession</c>.</summary>
+    internal static RawDeviceSession RawSession(DeviceSession surface) => new(surface, surface.BoundDevice);
+
     internal Device(DeviceSession session)
     {
         _session = session;
     }
+
+    /// <summary>
+    /// The raw driver session this test drives, for what the methods here do not cover. Calls through
+    /// <see cref="RawDeviceSession.Client"/> bypass e2e: they are not steps, so the report and trace leave them out, the agent's cache
+    /// does not replay them, their arguments reach the driver unredacted, and nothing waits for the screen to settle after one.
+    /// After the worker disposes the session, reading this or <see cref="RawDeviceSession.Client"/> is <c>INVALID_STATE</c>.
+    /// Unstable: it may change or go away in any release. Upstream's <c>unstable_raw</c>.
+    /// </summary>
+    public RawDeviceSession UnstableRaw => RawSession(_session);
 
     /// <summary>
     /// A locator from an agent-device selector (<c>"id=SW_VERSION_SPECIFIER"</c>, <c>"role=text label=\"26.2\""</c>), for nodes the closed
