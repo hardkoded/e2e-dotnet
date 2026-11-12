@@ -29,7 +29,7 @@ succeeded is remembered: when it could not be read, that call goes over the fall
 
 **Derived:** [CopilotModel](/api/E2E.OAuth/CopilotModel/), [OpenCodeConsoleModel](/api/E2E.OAuth/OpenCodeConsoleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Constructors
 
@@ -51,8 +51,6 @@ protected DelegatingModel(string name, HttpClient http)
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `http` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L23)
-
 ## Properties
 
 <a id="E2E_OAuth_DelegatingModel_Fallback_"></a>
@@ -70,8 +68,6 @@ The model to use until a lookup succeeds.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L95)
-
 <a id="E2E_OAuth_DelegatingModel_Http_"></a>
 <a id="E2E_OAuth_DelegatingModel_Http"></a>
 
@@ -84,8 +80,6 @@ protected HttpClient Http { get; }
 
 
 **Value:** [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L31)
 
 <a id="E2E_OAuth_DelegatingModel_Name_"></a>
 <a id="E2E_OAuth_DelegatingModel_Name"></a>
@@ -101,8 +95,6 @@ public string Name { get; }
 Provider and model id, printed in the run summary. Changing it does not miss the replay cache.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L29)
 
 ## Methods
 
@@ -126,8 +118,6 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L33)
-
 <a id="E2E_OAuth_DelegatingModel_Dispose_"></a>
 <a id="E2E_OAuth_DelegatingModel_Dispose"></a>
 
@@ -140,8 +130,6 @@ public void Dispose()
 
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L58)
 
 <a id="E2E_OAuth_DelegatingModel_Refusal_"></a>
 <a id="E2E_OAuth_DelegatingModel_Refusal_E2E_AgentException_"></a>
@@ -164,8 +152,6 @@ Why the account cannot use the model, when &lt;code class="paramref"&gt;failure&
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L92)
-
 <a id="E2E_OAuth_DelegatingModel_ResolveAsync_"></a>
 <a id="E2E_OAuth_DelegatingModel_ResolveAsync_System_Threading_CancellationToken_"></a>
 
@@ -186,5 +172,3 @@ The model for the looked-up protocol, or null when the lookup could not be read.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IAgentModel&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L98)

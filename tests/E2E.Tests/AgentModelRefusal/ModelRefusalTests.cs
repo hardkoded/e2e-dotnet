@@ -75,7 +75,7 @@ public sealed class ModelRefusalTests
 
         Assert.Equal("MODEL_REFUSED", error.Code);
         Assert.Equal(1, model.CallCount);
-        var step = session.Steps.Last(candidate => candidate.Api == "agent.act");
+        var step = session.StepRecords.Last(candidate => candidate.Api == "agent.act");
         Assert.Equal(StepStatus.Failed, step.Status);
         Assert.Equal("MODEL_REFUSED", step.Error?.Code);
     }

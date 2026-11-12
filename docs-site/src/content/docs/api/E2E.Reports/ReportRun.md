@@ -25,9 +25,24 @@ The run of a report: its id, the targets it ran on, the results, and the counts 
 
 **Implements:** [IEquatable&lt;ReportRun&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
+
+<a id="E2E_Reports_ReportRun_Carried_"></a>
+<a id="E2E_Reports_ReportRun_Carried"></a>
+
+### Carried
+
+
+```csharp
+public ReportCarried? Carried { get; init; }
+```
+
+
+What earlier runs left unresolved that a `--last-failed` rerun did not run again. Null when nothing is carried.
+
+**Value:** [ReportCarried](/api/E2E.Reports/ReportCarried/)
 
 <a id="E2E_Reports_ReportRun_Changes_"></a>
 <a id="E2E_Reports_ReportRun_Changes"></a>
@@ -44,8 +59,6 @@ The change the test filters judged, or why none ran. Null when the run has no fi
 
 **Value:** [ReportChanges](/api/E2E.Reports/ReportChanges/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L61)
-
 <a id="E2E_Reports_ReportRun_Environment_"></a>
 <a id="E2E_Reports_ReportRun_Environment"></a>
 
@@ -58,8 +71,6 @@ public ReportEnvironment Environment { get; init; }
 
 
 **Value:** [ReportEnvironment](/api/E2E.Reports/ReportEnvironment/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L42)
 
 <a id="E2E_Reports_ReportRun_Errors_"></a>
 <a id="E2E_Reports_ReportRun_Errors"></a>
@@ -76,8 +87,6 @@ The errors of the run itself, such as a report that could not be written.
 
 **Value:** [IReadOnlyList&lt;ReportError&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L52)
-
 <a id="E2E_Reports_ReportRun_ExitCode_"></a>
 <a id="E2E_Reports_ReportRun_ExitCode"></a>
 
@@ -89,11 +98,9 @@ public int ExitCode { get; init; }
 ```
 
 
-0, 1, 2, 3, 4, or 130.
+0, 1, 2, 3, 4, or 130. A test that failed or timed out and whose retry was interrupted keeps that verdict and the exit code of its failure, not 130, since the port has no run-level interrupt flag.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L34)
 
 <a id="E2E_Reports_ReportRun_Explore_"></a>
 <a id="E2E_Reports_ReportRun_Explore"></a>
@@ -110,8 +117,6 @@ What an exploration asked, did, and found. Null on a run that did not explore.
 
 **Value:** [ReportExplore](/api/E2E/ReportExplore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L67)
-
 <a id="E2E_Reports_ReportRun_Filters_"></a>
 <a id="E2E_Reports_ReportRun_Filters"></a>
 
@@ -127,8 +132,6 @@ The test filters the run applied, in order. Null when none ran.
 
 **Value:** [IReadOnlyList&lt;ReportFilter&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L64)
-
 <a id="E2E_Reports_ReportRun_FinishedAt_"></a>
 <a id="E2E_Reports_ReportRun_FinishedAt"></a>
 
@@ -141,8 +144,6 @@ public DateTimeOffset? FinishedAt { get; init; }
 
 
 **Value:** [DateTimeOffset?](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L38)
 
 <a id="E2E_Reports_ReportRun_Id_"></a>
 <a id="E2E_Reports_ReportRun_Id"></a>
@@ -157,8 +158,6 @@ public string Id { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L24)
-
 <a id="E2E_Reports_ReportRun_Limits_"></a>
 <a id="E2E_Reports_ReportRun_Limits"></a>
 
@@ -171,8 +170,6 @@ public ReportLimits Limits { get; init; }
 
 
 **Value:** [ReportLimits](/api/E2E.Reports/ReportLimits/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L56)
 
 <a id="E2E_Reports_ReportRun_Project_"></a>
 <a id="E2E_Reports_ReportRun_Project"></a>
@@ -187,8 +184,6 @@ public ReportProject Project { get; init; }
 
 **Value:** [ReportProject](/api/E2E.Reports/ReportProject/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L40)
-
 <a id="E2E_Reports_ReportRun_Results_"></a>
 <a id="E2E_Reports_ReportRun_Results"></a>
 
@@ -202,8 +197,6 @@ public IReadOnlyList<ReportResult> Results { get; init; }
 
 **Value:** [IReadOnlyList&lt;ReportResult&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L49)
-
 <a id="E2E_Reports_ReportRun_Runner_"></a>
 <a id="E2E_Reports_ReportRun_Runner"></a>
 
@@ -216,8 +209,6 @@ public ReportRunner Runner { get; init; }
 
 
 **Value:** [ReportRunner](/api/E2E.Reports/ReportRunner/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L29)
 
 <a id="E2E_Reports_ReportRun_SpecVersion_"></a>
 <a id="E2E_Reports_ReportRun_SpecVersion"></a>
@@ -234,8 +225,6 @@ Always `0.1`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L27)
-
 <a id="E2E_Reports_ReportRun_StartedAt_"></a>
 <a id="E2E_Reports_ReportRun_StartedAt"></a>
 
@@ -248,8 +237,6 @@ public DateTimeOffset StartedAt { get; init; }
 
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L36)
 
 <a id="E2E_Reports_ReportRun_Status_"></a>
 <a id="E2E_Reports_ReportRun_Status"></a>
@@ -264,8 +251,6 @@ public ReportRunStatus Status { get; init; }
 
 **Value:** [ReportRunStatus](/api/E2E/ReportRunStatus/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L31)
-
 <a id="E2E_Reports_ReportRun_Summary_"></a>
 <a id="E2E_Reports_ReportRun_Summary"></a>
 
@@ -278,8 +263,6 @@ public ReportSummary Summary { get; init; }
 
 
 **Value:** [ReportSummary](/api/E2E.Reports/ReportSummary/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L54)
 
 <a id="E2E_Reports_ReportRun_Targets_"></a>
 <a id="E2E_Reports_ReportRun_Targets"></a>
@@ -294,8 +277,6 @@ public IReadOnlyList<ReportTarget> Targets { get; init; }
 
 **Value:** [IReadOnlyList&lt;ReportTarget&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L47)
-
 <a id="E2E_Reports_ReportRun_Usage_"></a>
 <a id="E2E_Reports_ReportRun_Usage"></a>
 
@@ -308,8 +289,6 @@ public ReportUsage Usage { get; init; }
 
 
 **Value:** [ReportUsage](/api/E2E.Reports/ReportUsage/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L58)
 
 <a id="E2E_Reports_ReportRun_Vcs_"></a>
 <a id="E2E_Reports_ReportRun_Vcs"></a>
@@ -325,5 +304,3 @@ public VcsInfo? Vcs { get; init; }
 The commit, branch, and cleanliness of the checkout the run tested. Null outside git and CI.
 
 **Value:** [VcsInfo](/api/E2E.Reports/VcsInfo/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L45)

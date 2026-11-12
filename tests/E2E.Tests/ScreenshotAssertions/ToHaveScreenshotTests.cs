@@ -11,7 +11,8 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// <c>ToHaveScreenshotAsync</c> through a session over a fake engine, so what is tested is the engine-neutral
 /// path: pixels from the engine, scaled to the viewport, cut to a locator's box, masked, compared against the
 /// PNG stored beside the test file, and rewritten under update. Ported from upstream's
-/// <c>screenshot-assertions.test.ts</c>. Not ported: "reports the mismatch
+/// <c>screenshot-assertions.test.ts</c>. The port polls every 100 ms like upstream, so the timings of the two capture-timeout tests are
+/// upstream's. Not ported: "reports the mismatch
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
 /// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
 /// invalid-argument table (the type forbids it). The first test is renamed because the port has no
@@ -109,7 +110,7 @@ public sealed class ToHaveScreenshotTests
         using var project = new ScreenProject(engine);
         static async Task Body(Screen screen)
         {
-            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = OneSecond });
+            await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixels = 800, Timeout = TimeSpan.Zero });
             await Expect.That(screen).ToHaveScreenshotAsync("home", new ScreenshotOptions { MaxDiffPixelRatio = 0.001, Timeout = OneSecond });
             await Expect.That(screen).Not.ToHaveScreenshotAsync("home", Quick);
         }
@@ -233,36 +234,92 @@ public sealed class ToHaveScreenshotTests
         var threshold = await project.RunAsync("edges", "threshold", Threshold, newRun: false);
         Assert.Contains(ButtonPixels + " pixels", threshold!.Message, StringComparison.Ordinal);
 
-        // One capture outlasts the whole 1 s budget.
-        engine.BeforeCapture = () => Task.Delay(1100);
+        // One capture outlasts the whole 1 s budget, on a clock the test moves so a loaded runner cannot shift it.
+        var clock = new SteppingTime();
+        engine.BeforeCapture = () => Task.Delay(TimeSpan.FromMilliseconds(1100), clock);
         using var late = new ScreenProject(engine);
-        var timedOut = await late.RunAsync("late", "home", Home);
-        Assert.Contains("took 1 screenshot before the timeout", timedOut!.Message, StringComparison.Ordinal);
+        await using var open = await late.OpenScreenAsync("late", "home", clock);
+        var matching = Home(open.Screen);
+        await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+        var timedOut = Assert.IsAssignableFrom<E2EException>(await Record.ExceptionAsync(() => matching));
+        Assert.Contains("took 1 screenshot before the timeout", timedOut.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Reports_the_mismatch_it_saw_when_a_later_capture_runs_past_the_deadline_and_times_out()
+    public async Task Reports_the_mismatch_it_saw_when_the_deadline_cuts_off_a_later_capture_and_a_capture_that_hung_as_a_timeout()
+    {
+        var engine = new ScreenEngine();
+        using var project = new ScreenProject(engine);
+        await project.RunAsync("home", "home", Home);
+        var captures = 0;
+        var hangsAt = 3;
+        engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+
+        // The captures and the polls wait on a clock the test moves, as upstream's fake timers do: with real waits, a loaded runner
+        // starts the capture that must be cut off by the deadline, or the one that must hang with budget left, at the wrong time.
+        var clock = new SteppingTime();
+        engine.BeforeCapture = async () =>
+        {
+            if (++captures != hangsAt)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(1200), clock);
+            throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
+        };
+
+        async Task<E2EException?> RunHomeAsync()
+        {
+            await using var open = await project.OpenScreenAsync("home", "home", clock);
+            var matching = Home(open.Screen);
+            await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+            return await Record.ExceptionAsync(() => matching) as E2EException;
+        }
+
+        var error = await RunHomeAsync();
+        Assert.Equal("ASSERTION_FAILED", error?.Code);
+        Assert.Contains(ButtonPixels + " pixels", error!.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(project.ResultsOf("home"), "screenshots", "home-diff.png")));
+
+        // The second capture starts with most of the budget left and never answers: that is a hang, not the deadline.
+        captures = 0;
+        hangsAt = 2;
+        var hung = await RunHomeAsync();
+        Assert.Equal("ACTION_FAILED", hung?.Code);
+        Assert.Contains("timed out", hung!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Passes_a_not_whose_screen_differed_long_enough_when_its_last_capture_runs_past_the_deadline()
     {
         var engine = new ScreenEngine();
         using var project = new ScreenProject(engine);
         await project.RunAsync("home", "home", Home);
         var captures = 0;
         engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+
+        // The captures and the polls wait on a clock the test moves, as upstream's fake timers do. The 1 s budget is also the negation
+        // grace, and the third capture must start in the last 300 ms of it, a window a loaded runner misses when the waits are real.
+        var clock = new SteppingTime();
         engine.BeforeCapture = async () =>
         {
-            if (++captures != 2)
+            captures++;
+            await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
+            if (captures < 3)
             {
                 return;
             }
 
-            // The second capture starts inside the 1 s budget and ends past it, as a slow engine's does.
-            await Task.Delay(1200);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
             throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
         };
-        var error = await project.RunAsync("home", "home", Home);
-        Assert.Equal("ASSERTION_FAILED", error?.Code);
-        Assert.Contains(ButtonPixels + " pixels", error!.Message, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(project.ResultsOf("home"), "screenshots", "home-diff.png")));
+        await using var open = await project.OpenScreenAsync("home", "home", clock);
+        var matching = Expect.That(open.Screen).Not.ToHaveScreenshotAsync("home.png", Quick);
+        await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+        Assert.Null(await Record.ExceptionAsync(() => matching));
+        Assert.Equal(3, captures);
     }
 
     [Fact]
@@ -287,6 +344,10 @@ public sealed class ToHaveScreenshotTests
     [Fact]
     public Task Refuses_a_threshold_above_1_before_it_reads_the_screen() =>
         RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Threshold = 2 }, "threshold must be a number from 0 to 1");
+
+    [Fact]
+    public Task Refuses_a_negative_timeout_before_it_reads_the_screen() =>
+        RefusesBeforeItReadsTheScreen("home", new ScreenshotOptions { Timeout = TimeSpan.FromMilliseconds(-1) }, "timeout must be a finite number of milliseconds, 0 or more");
 
     [Fact]
     public Task Refuses_a_mask_that_is_not_a_locator_before_it_reads_the_screen() =>

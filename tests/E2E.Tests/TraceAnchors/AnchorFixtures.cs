@@ -24,7 +24,8 @@ internal static class AnchorFixtures
         string? value = null,
         NodeStates? states = null,
         string? testId = null,
-        IReadOnlyList<SemanticNode>? children = null)
+        IReadOnlyList<SemanticNode>? children = null,
+        string? selector = null)
     {
         return new SemanticNode
         {
@@ -34,6 +35,7 @@ internal static class AnchorFixtures
             Text = text,
             Value = value,
             TestId = testId,
+            Selector = selector,
             States = states ?? new NodeStates(),
             Children = children ?? [],
         };
@@ -46,7 +48,7 @@ internal static class AnchorFixtures
 
     internal static List<AnchorNode> Project(IEnumerable<SemanticNode> nodes, Func<string, string>? record = null)
     {
-        return Anchors.Project(new Observation { Route = "/", Roots = nodes.ToList() }, _ => false, record ?? (value => value), value => value);
+        return Anchors.Project(LocatorResolver.Walk(nodes.ToList()).ToDictionary(node => node.Ref, StringComparer.Ordinal), record ?? (value => value), value => value);
     }
 
     internal static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(IEnumerable<SemanticNode> start, IEnumerable<SemanticNode> end, bool routeMoved = false)

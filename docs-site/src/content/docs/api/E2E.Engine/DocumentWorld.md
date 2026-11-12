@@ -23,7 +23,7 @@ Routes a [DocumentEngine](/api/E2E.Engine/DocumentEngine/) can open. Each open b
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L357)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Methods
 
@@ -46,5 +46,3 @@ public DocumentWorld Map(string route, Action<DocumentPage> build)
 | `build` | [Action&lt;DocumentPage&gt;](https://learn.microsoft.com/dotnet/api/system.action-1) |  |
 
 **Returns:** [DocumentWorld](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L361)

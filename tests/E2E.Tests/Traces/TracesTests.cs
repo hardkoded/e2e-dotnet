@@ -41,7 +41,7 @@ public sealed class TracesTests : IDisposable
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
             var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
 
-            var (open, tap, count) = (session.Steps[0], session.Steps[1], session.Steps[2]);
+            var (open, tap, count) = (session.StepRecords[0], session.StepRecords[1], session.StepRecords[2]);
             Assert.Equal(("app.open", StepPhase.BeforeEach), (open.Api, open.Phase));
             Assert.Empty(open.Events);
             Assert.Null(tap.Phase);
@@ -90,7 +90,7 @@ public sealed class TracesTests : IDisposable
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
 
             Assert.Equal(new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" }, session.Environment);
-            var steps = session.Steps;
+            var steps = session.StepRecords;
             var first = steps[1].Screen!;
             var second = steps[2].Screen!;
             Assert.Equal(2, first.Nodes);
@@ -111,8 +111,8 @@ public sealed class TracesTests : IDisposable
         await off.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
 
         Assert.False(untraced.AskedForScreens);
-        Assert.NotEmpty(off.Steps);
-        Assert.All(off.Steps, step => Assert.Null(step.Screen));
+        Assert.NotEmpty(off.StepRecords);
+        Assert.All(off.StepRecords, step => Assert.Null(step.Screen));
     }
 
     // Partial: upstream also reads the lead of the run's summary, which the port has no reporter for.
@@ -141,9 +141,9 @@ public sealed class TracesTests : IDisposable
             Assert.Equal("ASSERTION_FAILED", ended.Code);
             Assert.Equal(
                 [("app.open", StepStatus.Passed), ("locator.waitFor", StepStatus.Failed), ("locator.tap", StepStatus.Passed), ("expect.toHaveCount", StepStatus.Failed)],
-                session.Steps.Select(step => (step.Api, step.Status)));
-            waitFor = session.Steps[1];
-            count = session.Steps[3];
+                session.StepRecords.Select(step => (step.Api, step.Status)));
+            waitFor = session.StepRecords[1];
+            count = session.StepRecords[3];
             session.Complete(ended);
         }
 
@@ -165,7 +165,7 @@ public sealed class TracesTests : IDisposable
         var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button", new() { Name = "Submit" }))
             .ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
 
-        var count = session.Steps[1];
+        var count = session.StepRecords[1];
         var error = ErrorSerializer.Serialize(failure, ProjectRoot());
         Assert.Equal(error.Source, count.Error?.Source);
         Assert.NotEqual(error.Source?.Line, count.Source?.Line);

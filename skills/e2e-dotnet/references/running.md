@@ -24,6 +24,8 @@ e2e login|logout|models [provider]                   # subscription logins: open
                                                      # github-copilot, opencode-console, spacexai
 e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
+e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json] # can explore and mcp start: runtime,
+                                                     # config, engine setup, models; --json for a host, exit 2 on a failed check
 e2e explore [goal] [--max-steps <n>] [--timeout <ms>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
 ```
 
@@ -35,7 +37,7 @@ otherwise runs every agent step live (SKILL.md, "Rerunning a test while you fix 
 fixture instance among its tests, so a test class with `ParallelScope.Children`
 or `All` fails at setup unless it also has
 `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,
-`e2e init`, `e2e cache`, or `e2e feedback`.
+or `e2e feedback`. `e2e init` only scaffolds (topic `setup`).
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
@@ -69,12 +71,25 @@ Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key
 (`<64 hex digits>.json`), relative to the config file. `E2E_CACHE_DIR` replaces `cache.dir`, so worktrees can share one directory;
 it resolves from the config file's directory, a leading `~` or `~/` is the
 home directory, a blank value is ignored, and the mode stays as configured.
+`E2E_NO_CACHE=1` (or `true`) is upstream's `--no-cache`: it runs with the cache
+`off` whatever the config says, in CI too, so every step runs on the live agent
+and nothing is recorded or evicted. Use it to evaluate a new model, or for the
+one live run after a test passes.
+`E2E_CACHE_DIR_OVERRIDE` is upstream's `--cache-dir` for one run: it wins over
+`E2E_CACHE_DIR` and `cache.dir`, `~` is the home directory, a blank value is
+an error (`--cache-dir must be a non-empty path`), it is refused beside a
+`cache.store`, and an `output` that overlaps the directory is refused. The name
+is .NET-only; `e2e cache --cache-dir` is the flag itself.
 Parallel runs can share the directory: each write replaces its entry file
 atomically, and two runs that write one key leave the last write. On Windows,
 a write that the file system refuses while another write replaces the same
 entry, or while a reader holds it open, is retried for a moment before it
-counts as not written. There are no `cache` commands; delete the
-directory to clear it. The modes are `read-write`, `read-only`, and `off`.
+counts as not written. `e2e cache ls` prints one row per entry (`TEST`, `TARGET`,
+`INSTRUCTION` digest prefix, `AGE`, `ACTIONS`), `e2e cache stats` the directory,
+entry count and size, and `e2e cache clear` deletes the entries and the
+directory; files the runner never wrote stay. `--config <path>` and
+`--cache-dir <dir>` pick the store (`--cache-dir`, else `E2E_CACHE_DIR`, else
+`cache.dir`). A row's `AGE` is the file's last write time. The modes are `read-write`, `read-only`, and `off`.
 Topic `agent` explains what is recorded. Secret values never enter cache
 entries: a secret an act received in `Params` that shows in a control's name,
 text, value, placeholder, or test id is stored as `<secret:name>`, and the
@@ -113,7 +128,12 @@ changed when the entry recorded its key context (`the engine contract (1 -> 2)`,
 checked this way. A step never recorded (a new or edited instruction or
 params) and a retry still run live. Re-record with a `read-write` run
 without `cache.strict`, commit the changed entry, and delete the old file
-once nothing replays it.
+once nothing replays it. The error message ends with that advice: it names
+`cache.strict` as the knob to turn off and the cache directory (from `cache.dir`
+or `E2E_CACHE_DIR`) relative to the project, as the place to commit the changed
+entry. A cache directory outside the project is named by its absolute path with
+no commit to ask for, and a custom `cache.store` is named as the place the new
+entry is written.
 
 Each entry records the step it was made for: the test title, the engine,
 the instruction, a params digest, the repeat index, and the agent name. A
@@ -140,11 +160,21 @@ Use the test runner's loggers, such as
 `dotnet test` exits 0 when every test passed or was skipped, and 1
 otherwise. `run.exitCode` in `report.json` is finer: it follows the error category
 of a failed test (2 `configuration`, such as a blocked agent step that lacks a
-credential; 3 `infrastructure`; 4 `internal`) and is 130 when interrupted. The `e2e` tool exits 0 on success and 1 on an error or an unknown
+credential; 3 `infrastructure`; 4 `internal`) and is 130 once any attempt of the run was interrupted by the user (the run's interrupt flag). A test that failed and
+whose retry was interrupted keeps its `failed` verdict, and the run still exits 130. Under the xUnit and NUnit adapters a test that ends with a cancellation (an OperationCanceledException or TaskCanceledException) while the runner's token is cancelled counts as interrupted; one that ends with a cancellation while the token is not cancelled (an HTTP timeout) is a failure. An
+attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even
+when the test passed. A session marks its attempt that way when its engine session
+does not close or a required video is not finalized. The `e2e` tool exits 0 on success and 1 on an error or an unknown
 command. `e2e guide` exits 2 on an unknown topic, and `e2e mcp` and `e2e
 explore` exit 2 on a bad flag. `e2e explore` exits 0 when it reported no
 issue, 1 when it reported one, 3 for an engine or model provider failure, and
-130 when interrupted.
+130 when interrupted. `e2e doctor` starts nothing and calls no model unless `--check-model` is given: it
+exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when
+one did, and 130 when interrupted. `e2e doctor --json` prints only the
+`doctor-1` report (`schema/doctor-v1.schema.json`) to stdout, and an engine's
+progress lines go to stderr. A model on an `e2e login` is checked on the stored
+login; any other model is `unknown` unless `--check-model` calls it once (one retry, 1 minute; agents with the
+same model, provider options, and `MaxInputTokens` share the call).
 
 ## Continuous integration
 
@@ -170,6 +200,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet build -c Release
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
       - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"
         env:
@@ -181,6 +215,10 @@ jobs:
 
 - Install the browser in its own step, so the download stays out of the
   launch timeout.
+- The cache step keeps the Playwright browsers between runs (`~/.cache/ms-playwright` is the Linux path; macOS and Windows runners use another, see `PLAYWRIGHT_BROWSERS_PATH`), so the install
+  step skips the download until a project file or the package versions
+  change. Playwright's pinned version comes with the `E2E` package, so the
+  key hashes the files that set it.
 - Let `app.command` start the app (topic `setup`), or start it before `dotnet test`.
 - Agent steps run in the same job: pass the provider's API key from the CI
   secrets, and commit `.e2e/cache/` so recorded acts replay with no model
@@ -188,4 +226,6 @@ jobs:
 
 ## Test filters
 
-Upstream leaves out the tests a pull request cannot affect with `filters` and `e2e run --changed-since <ref>`. The .NET port has neither: `dotnet test` selects tests (`--filter`, categories), and nothing in `E2ETest` calls a filter, so a pull request runs every test. The pieces a custom host would build on are public: `ITestFilter` (`Name`, `FilterAsync`), `TestFilterCandidate`, `TestFilterChanges`, `TestFilterContext` (`ProjectRoot`, `Changes`, `ConfigFile`, `Signal`, `Log`, `Redact`), and `TestFilterResult` (`Exclude` by test id with a reason, `Note`). A report of such a host carries `run.changes`, `run.filters`, and a `filtered` skip with its `filter`. See COMPATIBILITY.md, "Test filters".
+`--last-failed` is `E2E_LAST_FAILED=1` (or `true`) or `protected virtual bool LastFailed` on the run fixture: only the tests the last run did not pass run, the rest skip with `did not fail in the last run`. No previous `report.json` is `NO_LAST_RUN`. The rerun removes the files of `results/` that the previous report does not name, and files its attempts in `results/<test>/rerun-<n>/attempt-<n>`, so the evidence of the failed attempt (its video included) stays. The new report carries what is still owed in `run.carried`, and reporters read the previous report as `FinishedRun.LastRun`.
+
+Upstream leaves out the tests a pull request cannot affect with `filters` and `e2e run --changed-since <ref>`. In an NUnit run, give the run fixture the filters (`E2ERunFixture`, `[SetUpFixture]` outside any namespace); in an xUnit v3 run, derive `E2ERunFixture` (no longer sealed) and register the derived type with `[assembly: AssemblyFixture(typeof(...))]`: override `protected virtual IReadOnlyList<ITestFilter> Filters` (empty by default) and, optionally, `protected virtual string? ChangedSince`. Unset, `ChangedSince` is the `E2E_CHANGED_SINCE` environment variable (`E2E_CHANGED_SINCE=origin/main dotnet test`). With no base ref no filter runs, and none runs for a session `e2e mcp` opens on a named test; with one and no filter, a warning says every test runs. Once, before the first test, the fixture finds the assembly's tests by reflection (every public `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]` method (xUnit v3: `[Fact]` or `[Theory]`) of a concrete `E2ETest`; `[Explicit]` ones are not judged; a parameterized method is one test), asks git for the files changed since the ref, and calls the filters in order. A test a filter leaves out ends at its start as ignored (NUnit, `Assert.Ignore`) or skipped (xUnit v3) with the filter's reason. A candidate's `File` is a guess from the layout, `<TypeName>.cs` in folders that follow the namespace, found under the folder of `e2e.config.json`; it is wrong when a class lives in a file of another name or shares a file. `Tags` are the `[Category]` values (xUnit v3: `TestCategory` trait values) of the method, its class, and the assembly. The filter types are public: `ITestFilter` (`Name`, `FilterAsync`), `TestFilterCandidate`, `TestFilterChanges`, `TestFilterContext` (`ProjectRoot`, `Changes`, `ConfigFile`, `Signal`, `Log`, `Redact`), and `TestFilterResult` (`Exclude` by test id with a reason, `Note`). `report.json` then has `run.changes` (the base commit and the number of files, or why no filter ran), `run.filters` (each filter's `candidates` and `excluded`), and one `skipped`, unselected result per left-out test with `skip: { cause: "filtered", reason, filter }` and no attempts; the markdown reporter prints them. The mobile and Windows adapters (`MobileAppTest`, `WinAppTest`; NUnit and xUnit v3) take part: they derive from `E2ETest`, so the same fixtures and skips apply, and a left-out xUnit v3 mobile test is skipped before it leases a hosted device. The NUnit `MobileAppTest` leases the device once per run in `[OneTimeSetUp]` even when every test of the fixture is left out. See COMPATIBILITY.md, "Test filters".

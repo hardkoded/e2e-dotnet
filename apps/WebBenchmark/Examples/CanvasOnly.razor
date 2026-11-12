@@ -1,0 +1,175 @@
+@using System.Text.Json
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/CanvasOnly.tsx.
+   ADVERSARIAL: simulates canvas-rendered apps (Flutter web, game engines) where everything is painted onto a single canvas element.
+   There are no test ids, no accessible roles, and the canvas is aria-hidden - DOM and accessibility tooling see nothing. The agent must
+   use pure vision to read the painted instructions and click the shapes at their pixel coordinates in the required order: square, then
+   circle, then diamond.
+   The painting is done by the page script installed below (a .NET port has no canvas API): C# builds the same draw calls upstream's
+   redraw makes, and the script runs them on the 2D context. *@
+@inject IJSRuntime JS
+<div style="@Container">
+    <canvas @ref="_canvas" width="480" height="360" aria-hidden="true" role="presentation" style="@CanvasStyle" @onclick="HandleClick"></canvas>
+</div>
+
+@code {
+    private const int CanvasWidth = 480;
+    private const int CanvasHeight = 360;
+
+    /// <summary>Upstream's SHAPE_SEQUENCE: the order the shapes must be clicked in.</summary>
+    private static readonly string[] ShapeSequence = ["square", "circle", "diamond"];
+
+    /// <summary>Upstream's SHAPE_RECTS, in the order its Object.keys walks them.</summary>
+    private static readonly (string Name, Rect Rect)[] ShapeRects =
+    [
+        ("square", new Rect(50, 170, 80, 80)),
+        ("circle", new Rect(200, 170, 80, 80)),
+        ("diamond", new Rect(350, 170, 80, 80)),
+    ];
+
+    /// <summary>
+    /// The page script (upstream's canvas painting and rect read, as .NET-only glue): a generic player for the draw calls C# builds, and the
+    /// element box. Installed once per page with eval, because a Razor component cannot ship a script file.
+    /// </summary>
+    private const string PageScript = """
+        window.__benchPaint = (canvas, ops) => {
+          const context = canvas.getContext("2d");
+          for (const op of ops) {
+            if (op.set) Object.assign(context, op.set);
+            else context[op.call](...op.args);
+          }
+        };
+        window.__benchRect = (element) => {
+          const box = element.getBoundingClientRect();
+          return { left: box.left, top: box.top, width: box.width, height: box.height };
+        };
+        """;
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string CanvasStyle = "width: 480px; max-width: 100%; border: 1px solid #ccc; border-radius: 8px;";
+
+    private ElementReference _canvas;
+    private Rect? _box;
+    private int _progress;
+    private Status _status = Status.Idle;
+
+    private enum Status { Idle, Wrong, Done }
+
+    private sealed record Rect(double Left, double Top, double Width, double Height);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("eval", PageScript);
+        }
+
+        _box = await JS.InvokeAsync<Rect>("__benchRect", _canvas);
+        await JS.InvokeVoidAsync("__benchPaint", _canvas, BuildScene());
+    }
+
+    /// <summary>
+    /// Maps the click position from CSS pixels to canvas pixels, hit-tests the fixed shape rects, and advances or resets the sequence
+    /// accordingly.
+    /// </summary>
+    private void HandleClick(MouseEventArgs args)
+    {
+        if (_status == Status.Done || _box is null)
+        {
+            return;
+        }
+
+        var x = (args.ClientX - _box.Left) * CanvasWidth / _box.Width;
+        var y = (args.ClientY - _box.Top) * CanvasHeight / _box.Height;
+
+        string? clicked = null;
+        foreach (var (name, shape) in ShapeRects)
+        {
+            if (x >= shape.Left && x <= shape.Left + shape.Width && y >= shape.Top && y <= shape.Top + shape.Height)
+            {
+                clicked = name;
+                break;
+            }
+        }
+
+        if (clicked is null)
+        {
+            return;
+        }
+
+        if (clicked != ShapeSequence[_progress])
+        {
+            _progress = 0;
+            _status = Status.Wrong;
+            return;
+        }
+
+        var next = _progress + 1;
+        if (next == ShapeSequence.Length)
+        {
+            _progress = next;
+            _status = Status.Done;
+            return;
+        }
+
+        _progress = next;
+        _status = Status.Idle;
+    }
+
+    /// <summary>Upstream's redraw: repaints the whole scene from state.</summary>
+    private object[] BuildScene()
+    {
+        var ops = new List<object>
+        {
+            Call("clearRect", 0, 0, CanvasWidth, CanvasHeight),
+            Set("fillStyle", "#fff"),
+            Call("fillRect", 0, 0, CanvasWidth, CanvasHeight),
+            Set("fillStyle", "#111"),
+            Set("font", "600 18px sans-serif"),
+            Set("textAlign", "center"),
+            Call("fillText", "Click: square, then circle, then diamond", CanvasWidth / 2, 50),
+            Set("fillStyle", "#444"),
+            Call("fillRect", 50, 170, 80, 80),
+            Call("beginPath"),
+            Call("arc", 240, 210, 40, 0, Math.PI * 2),
+            Call("fill"),
+            Call("beginPath"),
+            Call("moveTo", 390, 170),
+            Call("lineTo", 430, 210),
+            Call("lineTo", 390, 250),
+            Call("lineTo", 350, 210),
+            Call("closePath"),
+            Call("fill"),
+        };
+
+        for (var index = 0; index < ShapeSequence.Length; index++)
+        {
+            ops.Add(Call("beginPath"));
+            ops.Add(Call("arc", CanvasWidth / 2 - 30 + index * 30, 100, 8, 0, Math.PI * 2));
+            ops.Add(Set("fillStyle", index < _progress ? "#0a0" : "#ccc"));
+            ops.Add(Call("fill"));
+        }
+
+        if (_status == Status.Wrong)
+        {
+            ops.Add(Set("fillStyle", "#c00"));
+            ops.Add(Set("font", "600 16px sans-serif"));
+            ops.Add(Call("fillText", "Wrong shape, try again", CanvasWidth / 2, 320));
+        }
+
+        if (_status == Status.Done)
+        {
+            ops.Add(Set("fillStyle", "#0a0"));
+            ops.Add(Set("font", "600 20px sans-serif"));
+            ops.Add(Call("fillText", "Sequence complete", CanvasWidth / 2, 320));
+        }
+
+        return ops.ToArray();
+    }
+
+    /// <summary>A canvas property assignment for the page script to apply.</summary>
+    private static object Set(string property, object value) => new { set = new Dictionary<string, object> { [property] = value } };
+
+    /// <summary>A canvas method call for the page script to make.</summary>
+    private static object Call(string method, params object[] args) => new { call = method, args };
+}

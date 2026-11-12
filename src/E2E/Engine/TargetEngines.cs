@@ -16,7 +16,12 @@ internal static class TargetEngines
     public static IEngine Create(TargetConfig target, bool? headless, Func<TargetConfig, IEngine>? mobile, Func<TargetConfig, IEngine>? windows = null)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return target.Platform switch
+        if (target.Engine is { } held)
+        {
+            return held;
+        }
+
+        IEngine engine = target.Platform switch
         {
             "web" => new WebEngine(headless),
             "ios" or "android" => (mobile ?? throw new ConfigurationException(
@@ -27,6 +32,10 @@ internal static class TargetEngines
                 $"target \"{target.Name}\" has platform windows, but this host has no Windows app engine; use the e2e tool on Windows, or set ExploreOptions.Engine.")).Invoke(target),
             _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, or windows"),
         };
+
+        // Config load: the harness checks the target's app against the engine that will drive it (upstream's validateApp, run once per target).
+        engine.ValidateApp(TargetApps.EngineAppDeclarationOf(target.App), new EngineAppCheckInfo { TargetName = target.Name });
+        return engine;
     }
 
     /// <summary>

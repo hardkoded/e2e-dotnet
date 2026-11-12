@@ -24,7 +24,7 @@ Opens and resets the app under test. A relative URL is resolved against
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
 
 ## Properties
 
@@ -39,11 +39,11 @@ public string? BaseUrl { get; }
 ```
 
 
-The target base URL relative URLs resolve against, or null when the test declares none.
+The resolved base URL of the target's app, with the port the run allocated when `app.url` declared port 0 and no trailing
+slash, so `$"{BaseUrl}/api/users"` joins with one slash; null when the test declares none. `OpenAsync` still
+resolves a relative URL against `app.url` as declared: a base path that ends in `/` is kept, and one without it is replaced.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L35)
 
 ## Methods
 
@@ -68,8 +68,6 @@ Goes back one entry in the history. With no earlier entry it does nothing.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L73)
-
 <a id="E2E_App_ClearStateAsync_"></a>
 <a id="E2E_App_ClearStateAsync_System_Threading_CancellationToken_"></a>
 
@@ -81,7 +79,8 @@ public Task ClearStateAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_App_BaseUrl).
+Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_App_BaseUrl). The reopen, which happens when a base URL is set, throws
+`APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
 
 **Parameters**
 
@@ -90,8 +89,6 @@ Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_Ap
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L85)
 
 <a id="E2E_App_OpenAsync_"></a>
 <a id="E2E_App_OpenAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -106,7 +103,9 @@ public Task OpenAsync(string? url = null, CancellationToken cancellationToken = 
 
 Opens a path or URL, resolved against the base URL. No URL opens the base URL itself.
 Throws `APP_URL_REQUIRED` for a relative URL when the test declares no base URL, and `POLICY_DENIED`
-for a malformed URL or a scheme other than `http:` or `https:` (the exact `about:blank` is admitted).
+for a malformed URL or a scheme other than `http:` or `https:` (the exact `about:blank` is admitted). Throws
+`APP_UNREACHABLE`, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
+name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is `ENGINE_FAILURE`.
 
 **Parameters**
 
@@ -116,8 +115,6 @@ for a malformed URL or a scheme other than `http:` or `https:` (the exact `about
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L42)
 
 <a id="E2E_App_RestartAsync_"></a>
 <a id="E2E_App_RestartAsync_System_Threading_CancellationToken_"></a>
@@ -130,7 +127,8 @@ public Task RestartAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). Cookies and storage are kept.
+Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). Cookies and storage are kept. The reopen, which
+happens when a base URL is set, throws `APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
 
 **Parameters**
 
@@ -140,4 +138,78 @@ Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L79)
+<a id="E2E_App_ScreenshotAsync_"></a>
+<a id="E2E_App_ScreenshotAsync_System_String_System_Threading_CancellationToken_"></a>
+
+### ScreenshotAsync(string?, CancellationToken)
+
+
+```csharp
+public Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
+```
+
+
+Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
+`screenshots/`, and the returned path is absolute (upstream's `app.screenshot`, `createApp` in `run/fixtures.ts`).
+A screenshot taken while the page navigates captures the document showing.
+Throws `UNSUPPORTED_CAPABILITY` on an engine that keeps no screenshots.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `label` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Names the step and joins the file name. |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the capture. |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_App_StartRecordingAsync_"></a>
+<a id="E2E_App_StartRecordingAsync_E2E_RecordingOptions_System_Threading_CancellationToken_"></a>
+
+### StartRecordingAsync(RecordingOptions?, CancellationToken)
+
+
+```csharp
+public Task StartRecordingAsync(RecordingOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Starts recording the screen, until [StopRecordingAsync(CancellationToken)](#E2E_App_StopRecordingAsync_System_Threading_CancellationToken_). One recording at a time, and none while the test's
+`video` records, since the engine has one recorder: set the test's video to `off`. A recording still running when the
+test ends is stopped and kept. Like the test's video, a recording masks nothing. Upstream's `app.startRecording`.
+Throws `UNSUPPORTED_CAPABILITY` while the test's video records or when the engine records no video, and
+`INVALID_ARGUMENT` when another recording is running.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [RecordingOptions](/api/E2E/RecordingOptions/) | Names the file: `recordings/001-<name>.<ext>`. |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the start. |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_App_StopRecordingAsync_"></a>
+<a id="E2E_App_StopRecordingAsync_System_Threading_CancellationToken_"></a>
+
+### StopRecordingAsync(CancellationToken)
+
+
+```csharp
+public Task<IReadOnlyList<RecordedVideo>> StopRecordingAsync(CancellationToken cancellationToken = default)
+```
+
+
+Stops the recording and returns its videos, in play order: a file (absolute `Path`) under the attempt's `recordings/`,
+named `001-<name>.<ext>`, or a link when a hosted browser or device keeps the recording. There is one video, except on
+the web when the page was replaced while it recorded (`app.RestartAsync()`, `app.ClearStateAsync()`): then one per page.
+The step links each video in the trace. Never empty. Upstream's `app.stopRecording`. Throws `INVALID_ARGUMENT` when no
+recording is running and `ENGINE_FAILURE` when the engine wrote no video.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the stop. |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;RecordedVideo&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

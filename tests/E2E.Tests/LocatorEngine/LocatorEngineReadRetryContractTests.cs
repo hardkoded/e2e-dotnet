@@ -9,7 +9,7 @@ namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
 /// The port reads a locator over one observation per try and has no engine <c>read</c> by reference, so the count of
-/// resolves is the count of observations, and the code is the port's NOT_FOUND (COMPATIBILITY, Web engine). The other
+/// resolves is the count of observations. The other
 /// upstream its of this describe are not ported: the shared deadline after a stale read, the re-resolve of a superseded
 /// ref, and the non-retryable stale read all need the engine reference API the port does not have.
 /// </summary>
@@ -49,7 +49,7 @@ public sealed class LocatorEngineReadRetryContractTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("status").TextContentAsync());
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(300), "failed after " + watch.Elapsed);
     }
 }

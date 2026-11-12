@@ -21,7 +21,7 @@ public sealed class ModelResponse
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L103)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 ## Fields
 
@@ -39,7 +39,19 @@ The finish reason of a turn the provider refused (upstream's `content-filter`).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L121)
+<a id="E2E_ModelResponse_ErrorFinish"></a>
+
+### ErrorFinish
+
+
+```csharp
+public const string ErrorFinish = "error"
+```
+
+
+The finish reason of a turn the provider ended on an error (upstream's `error`), whatever text came with it. No built-in provider reports it; a custom [IAgentModel](/api/E2E/IAgentModel/) may.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 ## Properties
 
@@ -56,8 +68,6 @@ public string? Content { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L105)
-
 <a id="E2E_ModelResponse_FinishReason_"></a>
 <a id="E2E_ModelResponse_FinishReason"></a>
 
@@ -69,11 +79,26 @@ public string? FinishReason { get; init; }
 ```
 
 
-The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelResponse_ContentFilter) when the provider stopped the turn because it refused the request. Null for any other turn.
+The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelResponse_ContentFilter) when the provider stopped the turn because it refused the request, or [ErrorFinish](#E2E_ModelResponse_ErrorFinish) when it ended on an error. Null for any other turn.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L115)
+<a id="E2E_ModelResponse_ProviderMetadata_"></a>
+<a id="E2E_ModelResponse_ProviderMetadata"></a>
+
+### ProviderMetadata
+
+
+```csharp
+public IReadOnlyDictionary<string, JsonElement>? ProviderMetadata { get; init; }
+```
+
+
+What the provider attached to the whole turn, keyed by provider (such as `gateway`: `{ "cost": "0.0001" }`), as upstream's
+`StepResult.providerMetadata`. The step's trace carries it as `providerMetadata` of the step end, redacted. null when the
+provider attached none.
+
+**Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
 <a id="E2E_ModelResponse_RawFinishReason_"></a>
 <a id="E2E_ModelResponse_RawFinishReason"></a>
@@ -90,8 +115,6 @@ The provider's own word for the stop, such as `refusal`, when it sent one. Provi
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L118)
-
 <a id="E2E_ModelResponse_ReasoningItems_"></a>
 <a id="E2E_ModelResponse_ReasoningItems"></a>
 
@@ -107,7 +130,21 @@ The reasoning of the turn that the model can take back, to replay on the next tu
 
 **Value:** [IReadOnlyList&lt;JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L112)
+<a id="E2E_ModelResponse_ReasoningText_"></a>
+<a id="E2E_ModelResponse_ReasoningText"></a>
+
+### ReasoningText
+
+
+```csharp
+public string? ReasoningText { get; init; }
+```
+
+
+The reasoning text of the turn (upstream's `StepResult.reasoningText`), null when the model gave none. Provider text: the
+step's `model` event carries it only after the redactor and a 600-character bound.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_ModelResponse_ToolCalls_"></a>
 <a id="E2E_ModelResponse_ToolCalls"></a>
@@ -122,8 +159,6 @@ public IReadOnlyList<ModelToolCall> ToolCalls { get; init; }
 
 **Value:** [IReadOnlyList&lt;ModelToolCall&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L107)
-
 <a id="E2E_ModelResponse_Usage_"></a>
 <a id="E2E_ModelResponse_Usage"></a>
 
@@ -131,10 +166,23 @@ public IReadOnlyList<ModelToolCall> ToolCalls { get; init; }
 
 
 ```csharp
-public ModelUsage? Usage { get; init; }
+public ModelCallUsage? Usage { get; init; }
 ```
 
 
-**Value:** [ModelUsage](/api/E2E/ModelUsage/)
+**Value:** [ModelCallUsage](/api/E2E/ModelCallUsage/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L109)
+<a id="E2E_ModelResponse_Warnings_"></a>
+<a id="E2E_ModelResponse_Warnings"></a>
+
+### Warnings
+
+
+```csharp
+public IReadOnlyList<ModelWarning> Warnings { get; init; }
+```
+
+
+Upstream's call `warnings` (`StepResult.warnings`): what the provider changed in the request without failing it. Empty when it changed nothing.
+
+**Value:** [IReadOnlyList&lt;ModelWarning&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)

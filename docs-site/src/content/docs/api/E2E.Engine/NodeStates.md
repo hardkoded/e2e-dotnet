@@ -23,7 +23,7 @@ Boolean states a platform can report for one node.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ The node, or an ancestor, is `aria-hidden`. It may still paint, so it can be vis
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L32)
-
 <a id="E2E_Engine_NodeStates_Checked_"></a>
 <a id="E2E_Engine_NodeStates_Checked"></a>
 
@@ -57,7 +55,22 @@ public bool Checked { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L20)
+<a id="E2E_Engine_NodeStates_CheckedReported_"></a>
+<a id="E2E_Engine_NodeStates_CheckedReported"></a>
+
+### CheckedReported
+
+
+```csharp
+public bool CheckedReported { get; init; }
+```
+
+
+The platform reported a checked state for the node, true or false. Setting [Checked](#E2E_Engine_NodeStates_Checked) reports it; a node with none
+(a button, a heading) leaves it false, and `IsChecked` fails on it unless its role carries a checked state. List it after
+[Checked](#E2E_Engine_NodeStates_Checked) in an initializer to override that (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_NodeStates_Disabled_"></a>
 <a id="E2E_Engine_NodeStates_Disabled"></a>
@@ -72,7 +85,20 @@ public bool Disabled { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L22)
+<a id="E2E_Engine_NodeStates_EmptyBox_"></a>
+<a id="E2E_Engine_NodeStates_EmptyBox"></a>
+
+### EmptyBox
+
+
+```csharp
+public bool EmptyBox { get; init; }
+```
+
+
+The node renders a box with no width or no height. It is not visible, though role queries and the agent still read it (.NET-only; upstream puts this in its `hidden` state). Web only.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_NodeStates_Expanded_"></a>
 <a id="E2E_Engine_NodeStates_Expanded"></a>
@@ -87,7 +113,20 @@ public bool Expanded { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L24)
+<a id="E2E_Engine_NodeStates_ExpandedAbsent_"></a>
+<a id="E2E_Engine_NodeStates_ExpandedAbsent"></a>
+
+### ExpandedAbsent
+
+
+```csharp
+public bool ExpandedAbsent { get; init; }
+```
+
+
+The node has no `aria-expanded` of true or false. A role query for `Expanded = false` skips it. Web only (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_NodeStates_Focused_"></a>
 <a id="E2E_Engine_NodeStates_Focused"></a>
@@ -101,8 +140,6 @@ public bool Focused { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L26)
 
 <a id="E2E_Engine_NodeStates_Hidden_"></a>
 <a id="E2E_Engine_NodeStates_Hidden"></a>
@@ -119,7 +156,20 @@ The node does not render: `display: none`, `visibility`, skipped content, a clos
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L29)
+<a id="E2E_Engine_NodeStates_Mixed_"></a>
+<a id="E2E_Engine_NodeStates_Mixed"></a>
+
+### Mixed
+
+
+```csharp
+public bool Mixed { get; init; }
+```
+
+
+The node is a checkbox or a button in the mixed state. A role query for `Checked` or `Pressed` of either value skips it. Web only (.NET-only; upstream reads the state as nullable).
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_NodeStates_Pressed_"></a>
 <a id="E2E_Engine_NodeStates_Pressed"></a>
@@ -134,8 +184,6 @@ public bool Pressed { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L38)
-
 <a id="E2E_Engine_NodeStates_Secure_"></a>
 <a id="E2E_Engine_NodeStates_Secure"></a>
 
@@ -149,8 +197,6 @@ public bool Secure { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L34)
-
 <a id="E2E_Engine_NodeStates_Selected_"></a>
 <a id="E2E_Engine_NodeStates_Selected"></a>
 
@@ -163,5 +209,3 @@ public bool Selected { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L36)

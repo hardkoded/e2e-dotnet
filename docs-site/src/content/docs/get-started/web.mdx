@@ -5,9 +5,13 @@ description: Drive Chromium with WebEngine and write a first web test.
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-`WebEngine` drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/). The first launch in a process installs the headless shell, so the first run needs network access. Set `E2E_SKIP_BROWSER_INSTALL=1` when the browser is already installed.
+`WebEngine` drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/); set `WebEngineOptions.BrowserName` to `BrowserName.Firefox` or `BrowserName.Webkit` to launch another browser, and install it with `e2e install firefox --with-deps` or `e2e install webkit --with-deps`. The first launch in a process installs the browser it launches (the headless shell for a headless Chromium run), so the first run needs network access. Set `E2E_SKIP_BROWSER_INSTALL=1` when the browser is already installed. An install that exits non-zero fails the run with `BROWSER_INSTALL_FAILED`, an infrastructure error (exit 3); run `e2e install <names>` yourself and set the variable.
+
+Run `e2e doctor` to check the setup before the first run. It reports the runtime, the config, whether the browser is installed (`pass`, or `warn` when the first run will download it), and the model, and it starts nothing. Add `--headed` to check for a headed run and `--json` for the `doctor-1` report. Its exit code is 2 when a check fails.
 
 ## 1. Create the test project
+
+Run `e2e init MyApp.E2ETests` to scaffold the project, an example test, and the config in one step (`--framework xunit` for xUnit v3, `--install` to restore). Or create it by hand:
 
 ```bash
 dotnet new nunit -n MyApp.E2ETests
@@ -51,11 +55,11 @@ Copy the file to the output folder:
 </ItemGroup>
 ```
 
-Start your app at that address before the run. `App.OpenAsync("/path")` opens a path on `app.url`.
+Start your app at that address before the run. `App.OpenAsync("/path")` opens a path on `app.url`. `App.BaseUrl` is that URL with the run's port and no trailing slash, so `$"{App.BaseUrl}/api/users"` joins with one slash.
 
 ## 3. Write a test
 
-The steps below are placeholders for a signup flow. Replace the headings, goals, and checks with your own app's. To run a finished web test right away, use the [Dariten sample](/samples/dariten/).
+The steps below are placeholders for a signup flow. Replace the headings, goals, and checks with your own app's. To run a finished web test right away, use the [Dariten sample](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.Sample).
 
 Derive from `E2ETest`. It starts a `WebEngine` session for each test.
 
@@ -68,6 +72,7 @@ public sealed class SignupTests : E2ETest
     public async Task The_home_page_opens()
     {
         await App.OpenAsync("/");
+
         await Expect.That(Screen.GetByRole("heading", "Welcome")).ToBeVisibleAsync();
     }
 
@@ -92,26 +97,105 @@ public sealed class SignupTests : E2ETest
 }
 ```
 
-- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders.
-- `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so pair each agent step with one.
+- Write one test class per feature and one test method per behavior, named for its outcome. Each test arranges the starting state, acts, then asserts, with every check last.
+- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders. Wrap a run-unique value in `Values.Unique(...)` so the replay cache fills in this run's value; the substitution also covers the value as a URL spells it (`Ada%20Lovelace` in a path, `Ada+Lovelace` in a query), as the slug an app derives for a record path (`ada-lovelace`), and a multi-line value as the screen shows it, on one line. A short value is never matched inside the slot written for a longer one. A recording with a `{{param:...}}` placeholder this call cannot fill is a miss, and a `Values.Unique` value cannot contain `{{param:`. The value may sit at any depth of `Params`, and the slot also stands for it in a target's name, in an upload path and in an end anchor (a status reading `Saved E2E-abc` is recorded as its slot and checked with this run's value). A step whose text spells `{{param:` is not recorded.
+- `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so end every test that runs an agent step with one.
 - Tag tests that call a model, for example `[Category("RealModel")]`, so CI can skip them with `--filter "TestCategory!=RealModel"`.
 
 ## 4. Run
 
+Run from the test project's folder. `dotnet test <path>` also works from elsewhere (for example `dotnet test tests/MyApp.E2ETests`) on the VSTest projects the NUnit and xUnit v3 setups here use. The `--project` switch is for projects on Microsoft.Testing.Platform.
+
 ```bash
-dotnet test --project .
-E2E_HEADLESS=0 dotnet test --project .      # watch the browser
+dotnet test
+E2E_HEADLESS=0 dotnet test      # watch the browser
 ```
 
-The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
+The first run asks the model to perform each `ActAsync`. A passing run records each step a later check or wait confirmed in `.e2e/cache`, and the next run replays it with no model call. The replay's end check skips text that differs on every run, such as an id, a date, or an ISO 8601 instant, while a stable change exists on either side of the step's delta (something appeared or disappeared), and reads one in an alert as a placeholder, so `Saved at 2026-10-24T15:41:27.955Z` matches a later `Saved at 2026-10-24T15:30:00Z`. A count that names what it counts, such as `3 records imported`, is dropped only from a side that has a stable change of its own, so it stays even when the opposite side has one.
 
-## Next
+When a replay hands off to the agent, the agent takes over from the live screen. The replay may have stopped partway or, after an `end-mismatch`, after every recorded action ran. Its first prompt lists the actions the replay already performed, numbered, then says why it stopped, for example `Replay stopped (target-not-found) after 1 of 2 recorded actions.`, and tells it to continue from the current screen without redoing them. After an `end-mismatch` (`after 2 of 2 recorded actions`) the prompt adds a warning to check that the step took effect. When the next action failed with an unknown commit state (`action-uncertain`), it adds a warning to verify the current state before doing anything like it again. A replay that stops before it performs any action is a miss, not a hand-off, whatever stopped it, including a first action that failed (`action-failed`) or may have reached the app (`action-uncertain`): outside `cache.strict` the agent runs the step from the top with no notice, and under `cache.strict` the step fails with `REPLAY_STALE` (except for `gap`). The replay's action budget always lets the first action run, so `action-budget` is never a stop before the first action. A custom executor gets the same hand-off in `StepExecutorContext.ReplayedPrefix`.
+
+A recording follows the app to another port or host that shares its `app.identity`. An eligible `NavigateAsync` to a full HTTP(S) URL on the app origin is recorded as its path, query, and fragment, so the step replays on the origin where the app runs then. A URL with credentials, or with a path that would not open the same destination once made relative, stays as given, and so does a URL on any other origin. An entry recorded earlier holds the full URL in its `navigate` action: re-record it to follow the app to another origin.
+
+A run summary counts the cache by step: replayed when the cache finished the step with no model call, handed off when the agent took over after a replay, missed when the step ran live from the start. It prints the counts under the `AI` row, as `Cache  4 replayed · 1 handed off · 1 missed · 1 not saved`, and leaves a zero count out. Not saved counts the steps of passing and flaky tests whose recording was not written: the step's cache write is `Unconfirmed`, `NoChange`, or `NotWritten` in the attempt that passed. The port's `ListReporter` (internal, in `E2E.Cli`) renders that row from run events. Only `e2e explore` feeds it a run (an exploration runs with its cache off, so its summary has no `Cache` row), so a test run does not print it. For a failed test, the same reporter quotes the app's first 3 errors (console errors, uncaught exceptions, failed requests, 5xx responses) under its `app N errors logged` row, oldest first, then counts the rest; that is not printed for a test run today either. Once a test run feeds it setup events (nothing does today), the same reporter prints a line for each app command once it is ready, with the URL it answers on (a free port filled in, no userinfo or query) and its wait, as `target "web" command at http://localhost:3000/ ready 1.20s`, and splits the waits of those commands out of `Duration` as `(startup 1.20s)`.
+
+## Granting browser permissions
+
+Headless Chromium refuses a permission the target doesn't grant, so `navigator.clipboard.writeText` fails even after a click. To let the app use the clipboard, grant it on the target:
+
+```json
+{
+  "targets": [{
+    "platform": "web",
+    "app": {
+      "url": "http://localhost:3000",
+      "permissions": { "clipboard-read": "grant", "clipboard-write": "grant" }
+    }
+  }]
+}
+```
+
+- Every page of every attempt holds the grant, on any origin.
+- A web target takes `grant` only. `deny` and `reset` are `INVALID_CONFIG`: leave the permission out instead.
+- The names are Playwright's, and each browser grants its own set:
+
+| Browser | Names |
+| --- | --- |
+| `chromium` | `accelerometer`, `ambient-light-sensor`, `background-sync`, `camera`, `clipboard-read`, `clipboard-write`, `geolocation`, `gyroscope`, `local-fonts`, `local-network-access`, `magnetometer`, `microphone`, `midi`, `midi-sysex`, `notifications`, `payment-handler`, `screen-wake-lock`, `storage-access` |
+| `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
+| `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
+
+A browser provider or `Connect` takes the `chromium` names; the engine drives `Connect` and a provider lease with `BrowserProtocol.Cdp` over CDP (a `BrowserProtocol.Playwright` lease uses Playwright's own protocol). With `ReconnectEndpoint` it rides the browser's default context and registers its selector engines there on every connect and reconnect, so screenshots mask secure fields there, including inside closed shadow roots.
+
+`WebEngine.ValidateApp(app, targetName)` checks a web target's `app` explicitly:
+
+- `app.url` is required.
+- `bundleId`, `appPath`, and `launchArguments` describe an installed device app and are refused.
+- `app.permissions` must name permissions the engine's browser grants, and only grants.
+
+Each failure is `INVALID_CONFIG`. Config loading does not run `ValidateApp`: a web target without `app.url` still loads. Attempt start validates `app.permissions` separately, through `WebPermissions.ValidatePermissions`.
+
+## Downloading files
+
+`Browser.WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the file it starts as `{ Path, AbsolutePath, SuggestedFilename }`. Each file is a `download` artifact of the step. Read it through `AbsolutePath`, which also works with a hosted browser whose provider serves `Downloads`.
+
+When one trigger starts several files, `Browser.WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and returns `count` files in start order, each its own artifact, under the same timeout:
+
+```csharp
+var files = await Browser.WaitForDownloadsAsync(
+    () => Screen.GetByRole("button", "Export all").TapAsync(), count: 2);
+```
+
+A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When fewer downloads start in time, the `ACTION_FAILED` error names both counts. Extra downloads are ignored. The timeout also bounds each file finishing and being saved, and a download still running at the timeout is canceled.
 
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
 
+## Screenshots and secrets
+
+A screenshot masks secure fields only, after a secret fill too. This holds for the evidence screenshots (`App.ScreenshotAsync`, assertions, failures) and for the screenshots a model sees (`Vision = VisionMode.On` or `Only`, the agent's own looks, `e2e mcp`, `e2e explore`). A generic `Secret` filled into a plain input, or a value the app shows outside a secure field (a show-password toggle, a toast), is in the image and reaches your model provider, so use test credentials. Secret values are still redacted from all text. An `ActAsync` step can ask for a masked screenshot with its `screenshot` tool. After the first one, every later action of the step answers with a fresh screenshot, and a screen with nothing to tap opens with one. For a target the screen does not list (a canvas, a map), the point tools `tap_at`, `hover_at`, `drag_at`, `type_at`, `press_at`, and `select_at` act at a point of the latest screenshot, in that image's pixels; the model is told to prefer ids. When an action leaves the listing as it was but changes the screenshot (a repaint the tree cannot list), the result says `listed nodes unchanged; the screenshot changed`, and it says the control `had no visible effect` only when the image stood still too. On the web engine, `type_at` and `press_at` on a point on nothing listed tap it to focus it and send the text or key through the keyboard, and `fill` with no target types into the focused field. The `e2e mcp` session offers the same point tools after its `screenshot`. The step report records `visionInput` and `pixelBytes`. The `e2e mcp` `screenshot` tool also takes an optional `path`: a `.png` inside the project, relative to its root. It saves the masked full-resolution capture there and returns the absolute path. A path outside the project, a hidden file, or one under a hidden directory (`.git`, `.e2e`) is `POLICY_DENIED`.
+
+## Checkboxes and radios under their label
+
+The agent also sees a checkbox or radio that a component library shrinks to no size under its own label, as Element Plus does, with its checked state. A tap on it clicks the label. When that label is or holds a link or another control, the agent sees the label's text and that control but not the checkbox, since a click on the label could land on the link. Locators still call that control hidden, as Playwright does, so check it with `ToBeCheckedAsync()`, not `ToBeVisibleAsync()`.
+
+## Inspecting upstream in a route
+
+`Browser.RouteAsync(pattern, handler)` intercepts requests. Inside the handler, `route.FetchAsync()` reads the upstream response without deciding the route, then the handler fulfills, continues, falls back, or aborts as usual:
+
+```csharp
+await Browser.RouteAsync("**/api/quote", async route =>
+{
+    var upstream = await route.FetchAsync();
+    var quote = await upstream.JsonAsync<Quote>();
+    await route.FulfillAsync(new RouteFulfillResponse { Json = quote with { Cents = 1 } });
+});
+```
+
+`FetchAsync()` returns `{ Url, Status, Headers, BodyAsync(), TextAsync(), JsonAsync<T>() }` with the configured headers sent when the request is for an allowed origin, under the action timeout. Hand a binary body on with `BodyAsync()`, never `TextAsync()`: `FulfillAsync(new RouteFulfillResponse { Headers = upstream.Headers, BodyBytes = await upstream.BodyAsync() })`. `ContinueAsync` drops the request headers named in `DropHeaders`, also on a redirect. It takes no options, and it does not follow redirects, which could take it past the navigation rule: a redirect comes back as its `3xx` status and `location` header. A body the browser could not read fails `BodyAsync`, `TextAsync`, and `JsonAsync` with `ACTION_FAILED` naming `route.fetch`, and the metadata stays readable.
+
+## Next
+
 <CardGrid>
-  <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />
-  <LinkCard title="TodoMVC sample" href={`${import.meta.env.BASE_URL}samples/todomvc/`} description="Playwright's TodoMVC suite rewritten as agent steps." />
   <LinkCard title="Hosted browsers" href={`${import.meta.env.BASE_URL}guide/#hosted-browsers`} description="CDP recovery, hosted browsers, video, and trace in the guide." />
 </CardGrid>

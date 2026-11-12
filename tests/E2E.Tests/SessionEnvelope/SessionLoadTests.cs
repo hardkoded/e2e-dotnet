@@ -39,8 +39,7 @@ public sealed class SessionLoadTests : SessionEnvelopeKit
 
             var loaded = await store.LoadAsync("member", Identity);
             Assert.True(JsonNode.DeepEquals(Cookies().Data, loaded.State.Data));
-            Assert.Empty(loaded.Secrecy.Secrets);
-            Assert.False(loaded.Secrecy.Tainted);
+            Assert.Empty(loaded.Secrets);
         }
         finally
         {
@@ -87,7 +86,7 @@ public sealed class SessionLoadTests : SessionEnvelopeKit
     }
 
     [Fact]
-    public async Task Refuses_a_session_whose_ciphertext_taint_or_expiry_was_edited_or_that_is_not_JSON()
+    public async Task Refuses_a_session_whose_ciphertext_secret_names_or_expiry_was_edited_or_that_is_not_JSON()
     {
         Action<JsonObject>[] edits =
         [
@@ -97,12 +96,12 @@ public sealed class SessionLoadTests : SessionEnvelopeKit
                 bytes[0] ^= 1;
                 envelope["state"]!["ciphertext"] = Convert.ToBase64String(bytes);
             },
-            envelope => envelope["secrecy"]!["tainted"] = false,
+            envelope => envelope["secrecy"]!["names"] = new JsonArray(),
             envelope => envelope["expiresAt"] = DateTimeOffset.Parse((string)envelope["expiresAt"]!, CultureInfo.InvariantCulture).AddDays(365).UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture),
         ];
         foreach (var edit in edits)
         {
-            var (store, _, file, _) = await SaveEnvelope(new SavedSecrecy([("token", SecretValue)], true));
+            var (store, _, file, _) = await SaveEnvelope([("token", SecretValue)]);
             try
             {
                 await Tamper(file, edit);

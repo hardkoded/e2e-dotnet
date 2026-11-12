@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -47,13 +48,43 @@ public abstract class E2ETest : E2EFixture
     public async Task StartE2ESessionAsync()
     {
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+        if (RunSelection.ReasonFor(GetType(), current.Test.MethodName) is { } leftOut)
+        {
+            Assert.Ignore(leftOut);
+        }
+
+        if (SetupDependencies.HasRun(GetType(), current.Test.MethodName))
+        {
+            Assert.Ignore("the setup test already ran for a test that restores its session");
+        }
+
         RejectParallelChildren(current.Test.MethodName);
+        if (IsSerial)
+        {
+            RejectInstancePerTest();
+            if (_serialFailure is not null)
+            {
+                Assert.Ignore("a previous test of the serial group failed");
+            }
+
+            if (HasSession)
+            {
+                return;
+            }
+        }
+
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
     }
 
     [TearDown]
     public async Task FinishE2ESessionAsync()
     {
+        if (IsSerial)
+        {
+            await FinishSerialMemberAsync().ConfigureAwait(false);
+            return;
+        }
+
         var session = TakeSession();
         if (session is null)
         {
@@ -62,17 +93,146 @@ public abstract class E2ETest : E2EFixture
 
         FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+
+        // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
+        Exception? late = null;
         try
         {
-            session.Complete(ErrorForCache(current.Result), current.CancellationToken);
+            await session.SettleAttemptAsync(current.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run was cancelled: the test's own result stands.
+        }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            late = ex;
+        }
+
+        // Upstream's enter('afterEach'): the rest of the teardown runs under a budget of its own, so a body its timeout
+        // cut short can still drive the session.
+        session.EnterTeardownBudget(current.CancellationToken);
+
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        if (current.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Passed)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                late ??= ex;
+            }
+        }
+
+        // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
+        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, session.VerdictOf(ErrorForCache(current.Result) ?? late, current.CancellationToken)))
+        {
+            return;
+        }
+
+        try
+        {
+            session.Complete(ErrorForCache(current.Result) ?? late, current.CancellationToken);
         }
         finally
         {
             await session.DisposeAsync().ConfigureAwait(false);
         }
+
+        // A test that failed already keeps its first failure as the verdict.
+        if (late is not null && current.Result.Outcome.Status != global::NUnit.Framework.Interfaces.TestStatus.Failed)
+        {
+            ExceptionDispatchInfo.Throw(late);
+        }
+    }
+
+    /// <summary>
+    /// Ends the serial group: completes the session the members shared with the first failure of the group, if any, and disposes it.
+    /// </summary>
+    [OneTimeTearDown]
+    public async Task FinishE2ESerialGroupAsync()
+    {
+        var session = TakeSession();
+        if (session is null)
+        {
+            return;
+        }
+
+        try
+        {
+            session.Complete(_serialFailure, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken);
+        }
+        finally
+        {
+            _serialFailure = null;
+            await session.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
+
+    internal Task SettleLate() => SettleAttemptAsync();
+
+    private Exception? _serialFailure;
+
+    private bool IsSerial => GetType().IsDefined(typeof(SerialAttribute), true);
+
+    // A member of a serial group settles its own attempt and leaves the session open for the next member; the first failure of the group is the verdict.
+    private async Task FinishSerialMemberAsync()
+    {
+        if (!HasSession)
+        {
+            return;
+        }
+
+        FailSkippedAfterSoftFailure();
+        var current = global::NUnit.Framework.TestContext.CurrentContext;
+        Exception? late = null;
+        try
+        {
+            await SettleAttemptAsync(current.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run was cancelled: the test's own result stands.
+        }
+#pragma warning disable CA1031 // Reported below, after the member is recorded.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            late = ex;
+        }
+
+        // A member that failed or errored ends the group: the later members skip, and the session commits as failed. A skip does not.
+        var memberError = ErrorForCache(current.Result) ?? late;
+        if (memberError is not null and not SkipException)
+        {
+            _serialFailure ??= memberError;
+        }
+
+        if (late is not null && current.Result.Outcome.Status != global::NUnit.Framework.Interfaces.TestStatus.Failed)
+        {
+            ExceptionDispatchInfo.Throw(late);
+        }
+    }
+
+    private void RejectInstancePerTest()
+    {
+        if (GetType().GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase))
+        {
+            throw new InvalidOperationException($"{GetType().Name} is [Serial], so its tests share one fixture instance and one session: remove [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
+        }
+    }
 
     // NUnit shares one fixture instance among its tests, and the session lives on that instance.
     // Tests that run in parallel on one instance would overwrite each other's session.

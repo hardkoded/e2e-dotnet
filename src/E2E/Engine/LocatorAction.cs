@@ -4,7 +4,7 @@
 
 namespace E2E.Engine;
 
-/// <summary>A deterministic action <see cref="IEngineSession.PerformAsync"/> carries out on one node.</summary>
+/// <summary>A deterministic action <see cref="IEngineSession.PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> carries out on one node.</summary>
 public abstract record LocatorAction
 {
     private LocatorAction()
@@ -17,14 +17,39 @@ public abstract record LocatorAction
     /// <summary>A double tap. <paramref name="Modifiers"/> are held for both clicks, as for <see cref="Tap"/>.</summary>
     public sealed record DoubleTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 
+    /// <summary>A right click, or the platform's equivalent. <paramref name="Modifiers"/> are held for the click, as for <see cref="Tap"/>.</summary>
+    public sealed record SecondaryTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
+
+    /// <summary>A press held on the node for <paramref name="Duration"/>, or for the engine's own default hold when it is null.</summary>
+    public sealed record LongPress(TimeSpan? Duration = null) : LocatorAction;
+
+    /// <summary>Moves the pointer over the node.</summary>
+    public sealed record Hover : LocatorAction;
+
+    /// <summary>Drags the node onto <paramref name="Target"/>, a node of the same observation.</summary>
+    public sealed record DragTo(SemanticNode Target) : LocatorAction;
+
     public sealed record Fill(string Value, bool Sensitive = false) : LocatorAction;
 
     public sealed record Press(string Key) : LocatorAction;
 
-    /// <summary>Focuses the node and types <paramref name="Text"/> one character at a time.</summary>
-    public sealed record PressSequentially(string Text, TimeSpan? Delay = null) : LocatorAction;
+    /// <summary>
+    /// Selects one option: the one whose value or label is <paramref name="Text"/>, or the one <paramref name="Option"/> names by its label,
+    /// its value, or its index. Exactly one of the two is set.
+    /// </summary>
+    public sealed record Select(string? Text, SelectOption? Option = null) : LocatorAction
+    {
+        public Select(SelectOption option)
+            : this(null, option)
+        {
+        }
+    }
 
-    public sealed record Select(string Value) : LocatorAction;
+    /// <summary>
+    /// Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input.
+    /// <paramref name="Paths"/> are absolute: the locator resolves them from the project root.
+    /// </summary>
+    public sealed record SetInputFiles(IReadOnlyList<string> Paths) : LocatorAction;
 
     public sealed record Check : LocatorAction;
 

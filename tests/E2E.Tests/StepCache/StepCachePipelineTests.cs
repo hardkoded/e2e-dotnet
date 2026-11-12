@@ -125,7 +125,7 @@ public sealed class StepCachePipelineTests
         {
             modelCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal) || text.Contains("end-mismatch", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal) || text.Contains("end-mismatch", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Submitted.")
                 : ModelResponses.Tap("button", "Submit");
         });
@@ -163,7 +163,7 @@ public sealed class StepCachePipelineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Copied.")
                 : ModelResponses.Tap("button", "Copy link");
         });
@@ -192,7 +192,7 @@ public sealed class StepCachePipelineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Deleted.")
                 : ModelResponses.Tap("button", "Delete");
         });
@@ -266,7 +266,7 @@ public sealed class StepCachePipelineTests
         var lost = false;
         var model = new ScriptedModel(request =>
         {
-            if (Text(request).Contains("tapped", StringComparison.Ordinal))
+            if (Text(request).Contains("Tapped", StringComparison.Ordinal))
             {
                 // The surface fails the look that reads the passing screen, once, then recovers.
                 lost = true;
@@ -302,7 +302,7 @@ public sealed class StepCachePipelineTests
         var lost = false;
         var model = new ScriptedModel(request =>
         {
-            if (Text(request).Contains("tapped", StringComparison.Ordinal))
+            if (Text(request).Contains("Tapped", StringComparison.Ordinal))
             {
                 lost = true;
                 return ModelResponses.Done("passed", "Saved.");
@@ -334,6 +334,37 @@ public sealed class StepCachePipelineTests
         // A call that did not mark the param cannot fill the slot: a miss, never a literal placeholder on screen.
         var unmarked = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", null, Script(), new Dictionary<string, object?> { ["name"] = "E2E-xyz", ["plan"] = "pro" });
         Assert.Equal(("missed", "no-entry"), (unmarked.Cache?.Mode, unmarked.Cache?.Reason));
+    }
+
+    /// <summary>
+    /// Partial port of "keys on the params with each unique() value as a placeholder, stages the recording with the slot, and
+    /// fills it from the next call": the end anchor that names the value is recorded as the slot, and the next call fills it.
+    /// </summary>
+    [Fact]
+    public async Task Partial_Records_an_end_anchor_that_names_a_unique_value_as_its_slot_and_fills_it_from_the_next_call_through_the_pipeline()
+    {
+        static DocumentWorld World(string name) => new DocumentWorld().Map("/storage", page =>
+        {
+            var saved = new DocumentElement { Role = "status", Name = "Saved " + name, Hidden = true };
+            page.Roots.Add(saved);
+            page.Button("Save marker", () => saved.Hidden = false);
+        });
+        static Dictionary<string, object?> Params(string name) => new() { ["name"] = Values.Unique(name) };
+
+        var directory = CoreTests.TempCache();
+        var recorded = await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
+        Assert.Null(recorded.Error);
+        Assert.Equal([("status", "Saved {{param:/name}}")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+
+        var replayed = await StepAsync(World("E2E-xyz"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        Assert.Equal(1, replayed.Replayed);
+        Assert.Equal("self-finalized", replayed.Cache?.Mode);
+
+        // The slot is filled with this run's value, so a page that shows another name does not hold the end state.
+        directory = CoreTests.TempCache();
+        await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
+        var drifted = await StepAsync(World("E2E-other"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        Assert.Equal(("agent-concluded", "end-mismatch"), (drifted.Cache?.Mode, drifted.Cache?.Reason));
     }
 
     [Fact]
@@ -456,7 +487,8 @@ public sealed class StepCachePipelineTests
 
         var step = await StepAsync(CustomersWorld(saved: false), new FileStepCache(directory), "/pricing", null, model);
 
-        Assert.Contains("Replay stopped (end-mismatch) after these actions:\n- navigate /customers\n", Text(model.Requests[0]), StringComparison.Ordinal);
+        var opening = Text(model.Requests[0]);
+        Assert.Contains("1. navigate to \"/customers\"\nReplay stopped (end-mismatch) after 1 of 1 recorded actions.\nEvery recorded action ran, but the screen does not show the recorded end state.", opening, StringComparison.Ordinal);
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), Info(step));
         Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker saved\"", step.Cache?.Detail);
     }
@@ -809,11 +841,11 @@ public sealed class StepCachePipelineTests
     /// <summary>A store whose every read rejects, as a store behind a network can.</summary>
     internal sealed class ThrowingCache : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => throw new InvalidOperationException("redis connection refused");
 
-        public void Write(string key, CacheEntry entry)
-        {
-        }
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {
@@ -823,11 +855,11 @@ public sealed class StepCachePipelineTests
     /// <summary>A store that hits with an entry whose actions are not a list.</summary>
     internal sealed class MalformedCache : IStepCache
     {
+        public bool Writable => true;
+
         public CacheLookup Read(string key) => new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
 
-        public void Write(string key, CacheEntry entry)
-        {
-        }
+        public int? Write(string key, CacheEntry entry) => 0;
 
         public void Delete(string key)
         {
@@ -845,16 +877,18 @@ public sealed class StepCachePipelineTests
 
         public int Deletes { get; private set; }
 
+        public bool Writable => true;
+
         public CacheLookup Read(string key)
         {
             Reads++;
             return _inner.Read(key);
         }
 
-        public void Write(string key, CacheEntry entry)
+        public int? Write(string key, CacheEntry entry)
         {
             Writes++;
-            _inner.Write(key, entry);
+            return _inner.Write(key, entry);
         }
 
         public void Delete(string key)

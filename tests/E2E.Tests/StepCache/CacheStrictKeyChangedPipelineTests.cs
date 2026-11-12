@@ -21,8 +21,8 @@ public sealed class CacheStrictKeyChangedPipelineTests
             await session.App.OpenAsync("/settings/billing");
             var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
             Assert.Equal("REPLAY_STALE", error.Code);
-            Assert.Contains("sits under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
-            Assert.EndsWith("re-record it without cache.strict.", error.Message, StringComparison.Ordinal);
+            Assert.Contains("holds it under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
+            Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
             Assert.Equal(1, session.Missed);
             session.Complete(error);
         }
@@ -105,11 +105,11 @@ public sealed class CacheStrictKeyChangedPipelineTests
     }
 
     [Fact]
-    public async Task Runs_live_when_the_only_recording_has_no_actions_or_records_no_step_through_the_pipeline()
+    public async Task Runs_live_when_the_only_recording_is_truncated_or_records_no_step_through_the_pipeline()
     {
-        // Upstream also runs live on a truncated recording; the port has no truncated entries.
         Action<CacheEntry>[] changes =
         [
+            entry => entry.Truncated = true,
             entry => entry.Actions = [],
             entry =>
             {

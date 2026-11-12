@@ -25,7 +25,7 @@ What an agent step used (upstream's `StepMetrics`).
 
 **Implements:** [IEquatable&lt;StepMetrics&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L623)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public int ActionSteps { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L627)
-
 <a id="E2E_Reports_StepMetrics_ContextBytes_"></a>
 <a id="E2E_Reports_StepMetrics_ContextBytes"></a>
 
@@ -56,8 +54,6 @@ public int ContextBytes { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L631)
 
 <a id="E2E_Reports_StepMetrics_LedgerBytes_"></a>
 <a id="E2E_Reports_StepMetrics_LedgerBytes"></a>
@@ -72,8 +68,6 @@ public int LedgerBytes { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L633)
-
 <a id="E2E_Reports_StepMetrics_ModelCalls_"></a>
 <a id="E2E_Reports_StepMetrics_ModelCalls"></a>
 
@@ -86,8 +80,6 @@ public int ModelCalls { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L625)
 
 <a id="E2E_Reports_StepMetrics_ObservationBytes_"></a>
 <a id="E2E_Reports_StepMetrics_ObservationBytes"></a>
@@ -102,8 +94,6 @@ public int ObservationBytes { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L629)
-
 <a id="E2E_Reports_StepMetrics_PixelBytes_"></a>
 <a id="E2E_Reports_StepMetrics_PixelBytes"></a>
 
@@ -116,5 +106,3 @@ public int? PixelBytes { get; init; }
 
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L635)

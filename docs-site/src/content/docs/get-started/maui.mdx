@@ -21,15 +21,15 @@ A .NET MAUI app runs on iOS and Android, so `MobileEngine` drives it like any ot
 
 ```bash
 dotnet workload install maui
-dotnet build MyApp -f net10.0-ios -r iossimulator-arm64      # iOS simulator
-dotnet build MyApp -f net10.0-android -t:SignAndroidPackage  # Android
+dotnet build MyApp -f net11.0-ios -r iossimulator-arm64      # iOS simulator
+dotnet build MyApp -f net11.0-android -t:SignAndroidPackage  # Android
 ```
 
-The iOS build writes `MyApp.app` under `bin/Debug/net10.0-ios/iossimulator-arm64/`. Build and install again after every app change: the tests do not build the app.
+The iOS build writes `MyApp.app` under `bin/Debug/net11.0-ios/iossimulator-arm64/`. Build and install again after every app change: the tests do not build the app.
 
 ## 3. Create the test project
 
-Keep it a plain `net10.0` project, so it builds on a machine without the MAUI workload.
+Keep it a plain `net10.0` or `net11.0` project, so it builds on a machine without the MAUI workload.
 
 ```bash
 dotnet new nunit -n MyApp.E2ETests
@@ -45,7 +45,7 @@ dotnet add package E2E.Mobile.NUnit
       "platform": "ios",
       "app": {
         "bundleId": "com.example.myapp",
-        "appPath": "../MyApp/bin/Debug/net10.0-ios/iossimulator-arm64/MyApp.app"
+        "appPath": "../MyApp/bin/Debug/net11.0-ios/iossimulator-arm64/MyApp.app"
       }
     }
   ],
@@ -82,7 +82,7 @@ public sealed class GreetingTests : MobileAppTest
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test --project .
+dotnet test
 ```
 
 For Android, boot an emulator and set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`.
@@ -100,8 +100,8 @@ builder.AddMauiDevFlowAgent();
 Launch the app, then run the tests against it:
 
 ```bash
-dotnet build MyApp -f net10.0-ios -r iossimulator-arm64 -t:Run
-E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test --project .
+dotnet build MyApp -f net11.0-ios -r iossimulator-arm64 -t:Run
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test
 ```
 
 The tests attach to the running app. Nothing is installed and the app is not relaunched between tests, so each test starts from the state the last one left. Tests that send the app to the background or relaunch it are inconclusive in this mode. Use `AttachesToRunningApp` in `Assume.That` to skip them. This mode is a preview and has not been run against a device yet.
@@ -109,6 +109,5 @@ The tests attach to the running app. Nothing is installed and the app is not rel
 ## Next
 
 <CardGrid>
-  <LinkCard title="Mobile app sample" href={`${import.meta.env.BASE_URL}samples/mobile-app/`} description="This setup, complete, in the repository." />
   <LinkCard title="Mobile" href={`${import.meta.env.BASE_URL}get-started/mobile/`} description="Device controls, device choice, and hosted devices." />
 </CardGrid>

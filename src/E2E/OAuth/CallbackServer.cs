@@ -42,6 +42,7 @@ internal sealed class CallbackServer : IDisposable
     /// <summary>Vendors register <c>localhost</c>, not the loopback address, as the redirect host.</summary>
     public string RedirectUri { get; }
 
+    /// <summary>Port 0 binds a port the OS picks; <see cref="RedirectUri"/> names the port that was bound.</summary>
     public static CallbackServer? TryStart(int port, string path, string state, string product, TimeSpan? requestTimeout = null)
     {
         var listener = new TcpListener(IPAddress.Loopback, port);
@@ -61,7 +62,7 @@ internal sealed class CallbackServer : IDisposable
             return null;
         }
 
-        var server = new CallbackServer(listener, port, path, state, product, requestTimeout ?? TimeSpan.FromSeconds(10));
+        var server = new CallbackServer(listener, ((IPEndPoint)listener.LocalEndpoint).Port, path, state, product, requestTimeout ?? TimeSpan.FromSeconds(10));
         _ = server.ServeAsync();
         return server;
     }

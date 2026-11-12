@@ -8,12 +8,15 @@ using E2E.Engine;
 namespace E2E.Mobile.Tests.Provider;
 
 /// <remarks>
-/// Upstream's <c>describe('device provider recording')</c> of <c>provider.test.ts</c>. The port's session is one attempt and
-/// closes its agent-device session when it ends, so the harness's <c>endAttempt</c> is the session's <c>DisposeAsync</c>.
+/// Upstream's <c>describe('device provider recording')</c> of <c>provider.test.ts</c>. Upstream's worker is the engine here, which keeps the device of
+/// its slot across the attempts that run on it: <c>startAttempt</c> is <see cref="Harness.Boot"/> (with the attempt's id), <c>endAttempt</c> is
+/// <see cref="MobileEngine.EndAttemptAsync"/>, and <c>dispose</c> with a <c>reuseSignal</c> is the internal <c>DisposeAsync</c> overload.
 /// </remarks>
 public sealed class DeviceProviderRecordingTests : IDisposable
 {
     private static readonly DateTimeOffset StartedAt = DateTimeOffset.Parse("2026-09-28T10:00:00.000Z", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static readonly TimeSpan Budget = TimeSpan.FromSeconds(5);
 
     private readonly string _artifactsDir = Directory.CreateTempSubdirectory("e2e-device-provider-").FullName;
 
@@ -22,6 +25,8 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     private Dictionary<string, string?> _workerEnv = [];
 
     private string VideoDir => Path.Combine(_artifactsDir, "video");
+
+    private string VideoPath => Path.Combine(VideoDir, "video.mp4");
 
     /// <summary>A lease with a field of the provider's own: it stays behind, and a recording gets only the declared ones.</summary>
     private sealed class KeptLease : DeviceLease
@@ -103,17 +108,49 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     private static readonly Dictionary<string, string?> Token = new() { ["DEVICE_SERVICE_TOKEN"] = "t" };
 
     /// <summary>Prepares one leased slot in the runner, then boots a worker on it from the environment prepare returned.</summary>
-    private async Task<(Harness Worker, DeviceSession Session)> LeasedWorker(IDeviceProvider provider)
+    private async Task<(Harness Worker, DeviceSession Session)> LeasedWorker(IDeviceProvider provider, string attemptId = "a1")
     {
         var runner = Over(provider);
         var result = await runner.Engine.PrepareAsync(runner.PrepareInfo(1, env: Token), CancellationToken.None);
         var worker = Over(provider);
         var env = Harness.WorkerEnv(result).Concat(Token).ToDictionary(pair => pair.Key, pair => pair.Value);
         _workerEnv = env;
-        return (worker, await worker.Boot("ios", 0, env, _artifactsDir));
+        return (worker, await worker.Boot("ios", 0, env, _artifactsDir, attemptId: attemptId));
     }
 
     private static int Records(Harness h) => h.Fake.Methods().Count(method => method == DeviceMethods.RecordingRecord);
+
+    private static IEnumerable<string> Dirs(RecordingCloud cloud) => cloud.Stopped.Select(stop => stop.Dir);
+
+    private static Func<ProviderRecordingStopContext, Task<ProviderRecordingResult>> Fails(string message) =>
+        _ => Task.FromException<ProviderRecordingResult>(new InvalidOperationException(message));
+
+    private static readonly ProviderRecordingResult Link = new() { Url = "https://toy.example/a1.mp4", MediaType = "video/mp4" };
+
+    /// <summary>The native recorder of a fake device: a start while one runs fails, and a stop fails while <paramref name="failStop"/> holds.</summary>
+    private static JsonNode? NativeRecording(JsonObject? args, ref bool active, bool failStop)
+    {
+        if (args!["action"]!.GetValue<string>() == "start")
+        {
+            if (active)
+            {
+                throw new InvalidOperationException("recording already active");
+            }
+
+            active = true;
+        }
+        else
+        {
+            if (failStop)
+            {
+                throw new InvalidOperationException("native recorder busy");
+            }
+
+            active = false;
+        }
+
+        return new JsonObject();
+    }
 
     [Fact]
     public async Task Records_through_the_provider_instead_of_agent_device_from_the_worker_with_the_lease_id_and_the_declared_lease_fields()
@@ -197,7 +234,7 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.StartVideoAsync(CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Equal("device provider \"toy-cloud\" could not start recording: recording quota exceeded for lease lease-0", failure.Message);
-        await session.DisposeAsync();
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         Assert.Empty(cloud.Stopped);
         Assert.Equal(0, Records(worker));
     }
@@ -207,14 +244,14 @@ public sealed class DeviceProviderRecordingTests : IDisposable
     {
         var arrive = new TaskCompletionSource();
         var cloud = new RecordingCloud(start: (_, _) => arrive.Task);
-        var (_, session) = await LeasedWorker(cloud);
+        var (worker, session) = await LeasedWorker(cloud);
         using var budget = new CancellationTokenSource();
         var starting = session.StartVideoAsync(budget.Token);
         await budget.CancelAsync();
         var failure = await Assert.ThrowsAsync<EngineException>(() => starting);
         Assert.Equal("CANCELLED", failure.Code);
         arrive.SetResult();
-        await session.DisposeAsync();
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
         Assert.Single(cloud.Stopped);
     }
 
@@ -230,17 +267,31 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         Assert.Empty(cloud.Recorded);
     }
 
-    // PARTIAL: upstream's worker keeps its leased session when it is disposed (reuseSignal), so the test checks that no agent-device
-    // command but the boot went out. The port's session is one attempt: it stops the recording and ends its agent-device session.
     [Fact]
-    public async Task Partial_Stops_a_provider_recording_when_the_worker_is_disposed_mid_attempt()
+    public async Task Stops_a_provider_recording_without_closing_its_leased_session_when_the_worker_is_disposed_mid_attempt()
     {
         var cloud = new RecordingCloud();
         var (worker, session) = await LeasedWorker(cloud);
         await session.StartVideoAsync(CancellationToken.None);
-        await session.DisposeAsync();
-        Assert.Equal([VideoDir], cloud.Stopped.Select(stop => stop.Dir));
-        Assert.Equal(0, Records(worker));
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        Assert.Equal([VideoDir], Dirs(cloud));
+        Assert.Equal([DeviceMethods.DevicesBoot], worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Keeps_a_reusable_leased_session_when_the_provider_recording_still_cannot_stop_during_disposal()
+    {
+        var cloud = new RecordingCloud(stop: Fails("stop unavailable"));
+        var (worker, session) = await LeasedWorker(cloud);
+        await session.StartVideoAsync(CancellationToken.None);
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
+        Assert.Contains("stop unavailable", failure.Message, StringComparison.Ordinal);
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
+        Assert.Equal([DeviceMethods.DevicesBoot], worker.Fake.Methods());
     }
 
     [Fact]
@@ -272,29 +323,314 @@ public sealed class DeviceProviderRecordingTests : IDisposable
         Assert.Equal(2, cloud.Stopped.Count);
     }
 
-    // PARTIAL: upstream ends the attempt and then disposes the worker, which keeps its session for reuse, and checks that only
-    // the boot reached agent-device. The port's one session ends once: its close stops nothing more once the stop was confirmed.
     [Fact]
-    public async Task Partial_Clears_a_confirmed_provider_stop_before_rejecting_its_invalid_artifact()
+    public async Task Finishes_a_retained_provider_recording_before_the_next_attempt_records_in_the_same_worker()
+    {
+        var stopped = new TaskCompletionSource<ProviderRecordingResult>();
+        var reached = new TaskCompletionSource();
+        var events = new List<string>();
+        var stops = 0;
+        var cloud = new RecordingCloud(
+            start: (_, context) =>
+            {
+                events.Add("record");
+                return Task.CompletedTask;
+            },
+            stop: async _ =>
+            {
+                if (++stops < 3)
+                {
+                    throw new InvalidOperationException("stop unavailable");
+                }
+
+                reached.TrySetResult();
+                var result = await stopped.Task;
+                events.Add("stopped");
+                return result;
+            });
+        var (worker, session) = await LeasedWorker(cloud, "a1");
+        await session.StartVideoAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        var nextDir = Path.Combine(_artifactsDir, "retry");
+        var starting = worker.Boot("ios", 0, _workerEnv, nextDir, attemptId: "a2");
+        try
+        {
+            await reached.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            // The next attempt does not start until the retained recording is stopped.
+            Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
+            Assert.Single(cloud.Recorded);
+            Assert.False(starting.IsCompleted);
+        }
+        finally
+        {
+            stopped.SetResult(Link);
+        }
+
+        var next = await starting;
+        await next.StartVideoAsync(CancellationToken.None);
+        Assert.Equal(["record", "stopped", "record"], events);
+        await next.StopVideoAsync(CancellationToken.None);
+        Assert.Equal(Path.Combine(nextDir, "video"), cloud.Stopped[^1].Dir);
+        Assert.Equal(0, Records(worker));
+    }
+
+    [Fact]
+    public async Task Blocks_the_next_attempt_while_its_retained_provider_recording_cannot_stop_and_preserves_its_owner()
+    {
+        var unavailable = true;
+        var cloud = new RecordingCloud(stop: _ => unavailable
+            ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
+            : Task.FromResult(Link));
+        var (worker, session) = await LeasedWorker(cloud, "a1");
+        await session.StartVideoAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        var nextDir = Path.Combine(_artifactsDir, "retry");
+        var blocked = await Assert.ThrowsAsync<EngineException>(() => worker.Boot("ios", 0, _workerEnv, nextDir, attemptId: "a2"));
+        Assert.Contains("stop unavailable", blocked.Message, StringComparison.Ordinal);
+        Assert.Single(cloud.Recorded);
+        Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
+
+        unavailable = false;
+        var next = await worker.Boot("ios", 0, _workerEnv, nextDir, attemptId: "a2");
+        Assert.Equal(Enumerable.Repeat(VideoDir, 4), Dirs(cloud));
+        await next.StartVideoAsync(CancellationToken.None);
+        await next.StopVideoAsync(CancellationToken.None);
+        Assert.Equal(["a1", "a2"], cloud.Recorded.Select(recorded => recorded.Context.AttemptId));
+    }
+
+    [Fact]
+    public async Task Does_not_begin_another_attempt_or_record_when_a_retained_provider_stop_wait_is_cancelled()
+    {
+        var stopped = new TaskCompletionSource<ProviderRecordingResult>();
+        var reached = new TaskCompletionSource();
+        var stops = 0;
+        var cloud = new RecordingCloud(stop: _ =>
+        {
+            if (++stops < 3)
+            {
+                return Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"));
+            }
+
+            reached.TrySetResult();
+            return stopped.Task;
+        });
+        var (worker, session) = await LeasedWorker(cloud);
+        await session.StartVideoAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        using var budget = new CancellationTokenSource();
+        var starting = worker.Boot("ios", 0, _workerEnv, Path.Combine(_artifactsDir, "retry"), cancellationToken: budget.Token, attemptId: "a2");
+        try
+        {
+            await reached.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await budget.CancelAsync();
+            var cancelled = await Assert.ThrowsAsync<EngineException>(() => starting);
+            Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+            Assert.Single(cloud.Recorded);
+            Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
+        }
+        finally
+        {
+            stopped.SetResult(Link);
+        }
+    }
+
+    [Fact]
+    public async Task Resets_a_leased_session_whose_native_recording_still_cannot_stop_after_endAttempt()
+    {
+        var (worker, session) = await LeasedWorker(new PlainCloud());
+        var active = false;
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args => NativeRecording(args, ref active, failStop: true));
+        worker.Fake.Respond(DeviceMethods.SessionsClose, _ =>
+        {
+            active = false;
+            return new JsonObject();
+        });
+        await session.StartVideoAsync(CancellationToken.None);
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => session.StopVideoAsync(CancellationToken.None));
+        Assert.Contains("native recorder busy", failure.Message, StringComparison.Ordinal);
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        Assert.Equal(DeviceMethods.SessionsClose, worker.Fake.Methods()[^1]);
+
+        var replacement = Over(new PlainCloud());
+        var replacementActive = false;
+        replacement.Fake.Respond(DeviceMethods.RecordingRecord, args => NativeRecording(args, ref replacementActive, failStop: false));
+        var booted = await replacement.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
+        await booted.StartVideoAsync(CancellationToken.None);
+        Assert.Empty(await booted.StopVideoAsync(CancellationToken.None));
+        JsonAssert.Args("""{"platform":"ios","device":"sim-0","action":"stop"}""", replacement.Fake.LastArgs(DeviceMethods.RecordingRecord));
+    }
+
+    [Fact]
+    public async Task Resets_an_unconfirmed_native_recording_before_another_attempt_in_the_same_worker()
+    {
+        var (worker, session) = await LeasedWorker(new PlainCloud());
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args => args!["action"]!.GetValue<string>() == "stop"
+            ? throw new InvalidOperationException("native recorder busy")
+            : new JsonObject());
+        await session.StartVideoAsync(CancellationToken.None);
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        var next = await worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
+        await next.StartVideoAsync(CancellationToken.None);
+        Assert.Equal(
+            [DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord, DeviceMethods.SessionsClose, DeviceMethods.RecordingRecord],
+            worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Fails_the_next_attempt_when_its_native_recording_reset_cannot_close_the_session()
+    {
+        var (worker, session) = await LeasedWorker(new PlainCloud());
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args => args!["action"]!.GetValue<string>() == "stop"
+            ? throw new InvalidOperationException("native recorder busy")
+            : new JsonObject());
+        worker.Fake.Respond(DeviceMethods.SessionsClose, _ => throw new InvalidOperationException("reset failed"));
+        await session.StartVideoAsync(CancellationToken.None);
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2"));
+        Assert.Contains("reset failed", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            [DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord, DeviceMethods.SessionsClose],
+            worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Keeps_an_unconfirmed_native_recording_after_its_stop_wait_was_cancelled()
+    {
+        var (worker, session) = await LeasedWorker(new PlainCloud());
+        var stopping = new TaskCompletionSource();
+        var stopped = new TaskCompletionSource<JsonNode?>();
+        worker.Fake.RespondAsync(DeviceMethods.RecordingRecord, (args, _) =>
+        {
+            if (args!["action"]!.GetValue<string>() != "stop")
+            {
+                return Task.FromResult<JsonNode?>(new JsonObject());
+            }
+
+            stopping.TrySetResult();
+            return stopped.Task;
+        });
+        await session.StartVideoAsync(CancellationToken.None);
+        using var budget = new CancellationTokenSource();
+        var pending = session.StopVideoAsync(budget.Token);
+        await stopping.Task;
+        await budget.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+        await worker.Engine.EndAttemptAsync(TimeSpan.Zero, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        try
+        {
+            await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+            Assert.Equal(DeviceMethods.SessionsClose, worker.Fake.Methods()[^1]);
+        }
+        finally
+        {
+            stopped.SetResult(new JsonObject());
+        }
+    }
+
+    [Fact]
+    public async Task Preserves_a_session_after_native_stop_succeeded_even_when_moving_its_artifact_fails()
+    {
+        var (worker, session) = await LeasedWorker(new PlainCloud());
+        var elsewhere = Path.Combine(_artifactsDir, "elsewhere.mp4");
+        worker.Fake.Respond(DeviceMethods.RecordingRecord, args =>
+        {
+            if (args!["action"]!.GetValue<string>() != "stop")
+            {
+                return new JsonObject();
+            }
+
+            File.WriteAllText(elsewhere, "video");
+            Directory.CreateDirectory(VideoPath);
+            return new JsonObject { ["outPath"] = elsewhere };
+        });
+        await session.StartVideoAsync(CancellationToken.None);
+        await Assert.ThrowsAnyAsync<Exception>(() => session.StopVideoAsync(CancellationToken.None));
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        Assert.Equal([DeviceMethods.DevicesBoot, DeviceMethods.RecordingRecord, DeviceMethods.RecordingRecord], worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Clears_a_confirmed_provider_stop_before_rejecting_its_invalid_artifact()
     {
         var stops = 0;
         var cloud = new RecordingCloud(stop: _ => Task.FromResult(++stops == 1
             ? new ProviderRecordingResult { File = "missing.mp4" }
             : new ProviderRecordingResult { Url = "https://toy.example/replay.mp4", MediaType = "video/mp4" }));
-        var (worker, session) = await LeasedWorker(cloud);
+        var (worker, session) = await LeasedWorker(cloud, "a1");
         await session.StartVideoAsync(CancellationToken.None);
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
         Assert.Contains("finished without naming a file", failure.Message, StringComparison.Ordinal);
-        await session.DisposeAsync();
-        Assert.Single(cloud.Stopped);
-
-        var next = await worker.Boot("ios", 0, _workerEnv, _artifactsDir);
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        var next = await worker.Boot("ios", 0, _workerEnv, _artifactsDir, attemptId: "a2");
         await next.StartVideoAsync(CancellationToken.None);
         Assert.Equal<VideoSegment>(
             [new VideoLink { Url = "https://toy.example/replay.mp4", MediaType = "video/mp4", StartedAt = "2026-09-28T10:00:00.000Z" }],
             await next.StopVideoAsync(CancellationToken.None));
-        await next.DisposeAsync();
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
         Assert.Equal(2, cloud.Stopped.Count);
-        Assert.Equal(0, Records(worker));
+        Assert.Equal([DeviceMethods.DevicesBoot], worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Retries_an_unconfirmed_provider_stop_after_endAttempt_during_disposal()
+    {
+        var stops = 0;
+        var cloud = new RecordingCloud(stop: _ => ++stops < 3
+            ? Task.FromException<ProviderRecordingResult>(new InvalidOperationException("stop unavailable"))
+            : Task.FromResult(Link));
+        var (worker, session) = await LeasedWorker(cloud);
+        await session.StartVideoAsync(CancellationToken.None);
+        await Assert.ThrowsAsync<EngineException>(() => session.StopVideoAsync(CancellationToken.None));
+        await worker.Engine.EndAttemptAsync(Budget, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        await worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        Assert.Equal(Enumerable.Repeat(VideoDir, 3), Dirs(cloud));
+        Assert.Equal([DeviceMethods.DevicesBoot], worker.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Shares_a_pending_provider_stop_and_closes_on_reuse_revocation_before_the_stop_resolves()
+    {
+        var stopping = new TaskCompletionSource();
+        var stopped = new TaskCompletionSource<ProviderRecordingResult>();
+        var cloud = new RecordingCloud(stop: _ =>
+        {
+            stopping.TrySetResult();
+            return stopped.Task;
+        });
+        var (worker, session) = await LeasedWorker(cloud);
+        await session.StartVideoAsync(CancellationToken.None);
+        using var budget = new CancellationTokenSource();
+        var pending = session.StopVideoAsync(budget.Token);
+        await stopping.Task;
+        await budget.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
+        Assert.Equal(EngineErrorCodes.Cancelled, cancelled.Code);
+        await worker.Engine.EndAttemptAsync(TimeSpan.Zero, CancellationToken.None);
+        using var reuse = new CancellationTokenSource();
+        var disposing = worker.Engine.DisposeAsync(Budget, reuse.Token, CancellationToken.None);
+        try
+        {
+            // Revoked before the stop resolves: the session closes at once, and the stop is not sent a second time.
+            reuse.Cancel();
+            Assert.Equal(DeviceMethods.SessionsClose, worker.Fake.Methods()[^1]);
+            Assert.Equal([VideoDir], Dirs(cloud));
+        }
+        finally
+        {
+            stopped.SetResult(Link);
+            await disposing;
+        }
     }
 }

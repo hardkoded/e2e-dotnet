@@ -197,7 +197,7 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
     /// The page's size in CSS pixels: the emulated viewport, else the window's, measured in the page, since a null
     /// viewport follows the window and Playwright then reports no size of its own. Upstream's <c>currentViewport</c>.
     /// </summary>
-    private static async Task<WebViewport> CurrentViewportAsync(IPage page)
+    internal static async Task<WebViewport> CurrentViewportAsync(IPage page)
     {
         if (page.ViewportSize is { } emulated)
         {

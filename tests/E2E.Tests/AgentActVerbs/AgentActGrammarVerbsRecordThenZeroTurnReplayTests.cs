@@ -4,14 +4,13 @@
 
 using E2E;
 using static E2E.Tests.AgentActVerbs.GesturesSession;
+using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E.Tests.AgentActVerbs;
 
 /// <summary>
 /// <c>agent.act</c> grammar verbs recorded on a first run, then replayed with no model call.
-/// Upstream's replay pass also runs hover, drag, upload, and two repeated-press flows. This
-/// port has no hover, drag, or upload tool, and its press tool takes no repeat count.
-/// The engine-name and policy-event lines are not ported: the port has no engine or policy events.
+/// The engine-name lines are not ported: a replay records no engine events. The upload policy line is.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGrammarVerbsRecordThenZeroTurnReplayTests.Runs runs)
@@ -20,7 +19,7 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
     private const string RoundTrip = "opens a page and comes back";
 
     [Fact]
-    public void Records_the_check_and_scroll_verbs_on_the_first_run()
+    public void Records_every_verb_on_the_first_run()
     {
         foreach (var flow in ReplayFlows)
         {
@@ -31,7 +30,7 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
     }
 
     [Fact]
-    public void Replays_check_and_scroll_without_a_model_call_and_runs_a_round_trip_that_changed_nothing_live()
+    public void Replays_hover_drag_check_upload_and_scroll_into_view_without_a_model_call_and_runs_a_round_trip_that_changed_nothing_live()
     {
         // Every second-run flow passed its check: RunFlowAsync fails the fixture otherwise.
         // A round trip leaves the screen and the route as it found them: nothing a
@@ -45,6 +44,10 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
             Assert.Equal("self-finalized", step.Cache?.Mode);
             Assert.Equal(0, step.ModelCalls);
         }
+
+        // The replay authorizes the recorded paths against the project root again.
+        var policy = Assert.Single(runs.SecondSteps[UploadFlow.Title].Single(step => step.Api == "agent.act").Events, item => item.Kind == StepEventKind.Policy);
+        Assert.Equal(("upload.path", PolicyDecision.Allowed), (policy.Name, policy.Decision));
     }
 
     /// <summary>Both passes over the replay flows, sharing one cache: the first records, the second replays.</summary>
@@ -56,6 +59,8 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
 
         public Dictionary<string, ActResult> Second { get; } = [];
 
+        internal Dictionary<string, IReadOnlyList<StepRecord>> SecondSteps { get; } = [];
+
         public async Task InitializeAsync()
         {
             using var site = await StartSiteAsync();
@@ -66,7 +71,7 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
 
             foreach (var flow in ReplayFlows)
             {
-                Second[flow.Title] = await RunFlowAsync(site, flow, ModelFor(flow), CacheDirectory);
+                (Second[flow.Title], SecondSteps[flow.Title]) = await RunFlowWithStepsAsync(site, flow, ModelFor(flow), CacheDirectory);
             }
         }
 

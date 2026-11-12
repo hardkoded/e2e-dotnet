@@ -21,7 +21,7 @@ public enum TargetEnvironment
 
 What the app a target tests is.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L141)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Production = 2
 
 **Value:** [TargetEnvironment](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L145)
-
 <a id="E2E_Reports_TargetEnvironment_Staging"></a>
 
 ### Staging
@@ -51,8 +49,6 @@ Staging = 1
 
 **Value:** [TargetEnvironment](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L144)
-
 <a id="E2E_Reports_TargetEnvironment_Test"></a>
 
 ### Test
@@ -64,5 +60,3 @@ Test = 0
 
 
 **Value:** [TargetEnvironment](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L143)

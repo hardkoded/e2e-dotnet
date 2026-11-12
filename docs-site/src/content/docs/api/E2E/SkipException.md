@@ -1,6 +1,6 @@
 ---
 title: "SkipException"
-description: "Thrown by String) when a test stops early and is reported skipped."
+description: "Thrown by Skip when a test stops early and is reported skipped."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed class SkipException : E2EException, ISerializable
 ```
 
 
-Thrown by `String)` when a test stops early and is reported skipped.
+Thrown by `Skip` when a test stops early and is reported skipped.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [Exception](https://learn.microsoft.com/dotnet/api/system.exception) → [E2EException](/api/E2E/E2EException/)
 
 **Implements:** [ISerializable](https://learn.microsoft.com/dotnet/api/system.runtime.serialization.iserializable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L201)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Constructors
 
@@ -45,5 +45,3 @@ public SkipException(string reason)
 | Name | Type | Description |
 | --- | --- | --- |
 | `reason` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L203)

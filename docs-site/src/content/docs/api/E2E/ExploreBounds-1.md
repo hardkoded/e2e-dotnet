@@ -31,7 +31,7 @@ The least, the most, and the default of a bound option. Upstream's inline `{ min
 
 **Implements:** [IEquatable&lt;ExploreBounds&lt;T&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Constructors
 
@@ -56,8 +56,6 @@ The least, the most, and the default of a bound option. Upstream's inline `{ min
 | `Max` | `T` |  |
 | `Default` | `T` |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L14)
-
 ## Properties
 
 <a id="E2E_ExploreBounds_1_Default_"></a>
@@ -73,8 +71,6 @@ public T Default { get; init; }
 
 **Value:** `T`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L14)
-
 <a id="E2E_ExploreBounds_1_Max_"></a>
 <a id="E2E_ExploreBounds_1_Max"></a>
 
@@ -88,8 +84,6 @@ public T Max { get; init; }
 
 **Value:** `T`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L14)
-
 <a id="E2E_ExploreBounds_1_Min_"></a>
 <a id="E2E_ExploreBounds_1_Min"></a>
 
@@ -102,5 +96,3 @@ public T Min { get; init; }
 
 
 **Value:** `T`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L14)

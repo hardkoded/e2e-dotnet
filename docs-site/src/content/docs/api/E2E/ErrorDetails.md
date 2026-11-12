@@ -27,7 +27,7 @@ for, and how long it waited. A report bounds the text fields.
 
 **Implements:** [IEquatable&lt;ErrorDetails&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L34)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Properties
 
@@ -46,8 +46,6 @@ What an assertion expected.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L40)
-
 <a id="E2E_ErrorDetails_Locator_"></a>
 <a id="E2E_ErrorDetails_Locator"></a>
 
@@ -62,8 +60,6 @@ public string? Locator { get; init; }
 The locator as written, such as `getByRole("button", "Save")`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L37)
 
 <a id="E2E_ErrorDetails_Matches_"></a>
 <a id="E2E_ErrorDetails_Matches"></a>
@@ -80,8 +76,6 @@ How many nodes the locator matched.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L46)
-
 <a id="E2E_ErrorDetails_Name_"></a>
 <a id="E2E_ErrorDetails_Name"></a>
 
@@ -96,8 +90,6 @@ public string? Name { get; init; }
 The name, or the text, a locator asked for.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L52)
 
 <a id="E2E_ErrorDetails_Observed_"></a>
 <a id="E2E_ErrorDetails_Observed"></a>
@@ -114,8 +106,6 @@ What an assertion observed.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L43)
-
 <a id="E2E_ErrorDetails_Role_"></a>
 <a id="E2E_ErrorDetails_Role"></a>
 
@@ -130,8 +120,6 @@ public string? Role { get; init; }
 The role a locator asked for.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L49)
 
 <a id="E2E_ErrorDetails_TestId_"></a>
 <a id="E2E_ErrorDetails_TestId"></a>
@@ -148,8 +136,6 @@ The test id a locator asked for.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L55)
-
 <a id="E2E_ErrorDetails_WaitedMs_"></a>
 <a id="E2E_ErrorDetails_WaitedMs"></a>
 
@@ -164,5 +150,3 @@ public long? WaitedMs { get; init; }
 How long the locator waited, in milliseconds.
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L58)

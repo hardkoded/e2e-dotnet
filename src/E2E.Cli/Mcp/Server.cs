@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using E2E.Internal;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -38,6 +39,12 @@ internal sealed class ServeOptions
 
     /// <summary>Diagnostics for the operator, normally stderr.</summary>
     public required Action<string> Log { get; init; }
+
+    /// <summary>What user code in this process prints: held while a config loads, and its unfinished lines released once no tool call is in flight.</summary>
+    public McpOutput? Output { get; init; }
+
+    /// <summary>Every secret value the process knows; the one <see cref="Output"/> redacts with.</summary>
+    public SecretLedger? Secrets { get; init; }
 }
 
 /// <summary>
@@ -48,11 +55,11 @@ internal sealed class ServeOptions
 /// </summary>
 internal static class Server
 {
-    public const string Instructions = """
+    public const string Instructions = $$"""
         e2e-dotnet is the .NET port of the e2e end-to-end test framework; this server drives an e2e project's app (its e2e.config.json) live.
         Call open_session (optionally with a target, a config path, and headed: true when the user wants to watch) to get a session, its tool catalog, and the first observation. Then call {tool, args} runs any catalog tool: observe, the grammar its engine honors (each action answers with the test line that repeats it), type_secret, locate, test_lines (those lines in order, as a draft test body), and screenshot; tools lists them, tools {tool} shows one tool's arguments. close_session when done.
         Several sessions can be open at once, each with its own browser or device, so parallel agents (subagents) each open their own: pass the session id from open_session to every tools, call, and close_session.
-        Write deterministic tests (E2ETest classes) from what you saw and run them with dotnet test. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
+        {{SessionHost.ReadWritingGuide}} Write the test (an E2ETest class, or MobileAppTest or WinAppTest for a mobile or Windows target) while you walk the flow, adding each step to the file as you take it, and run it with dotnet test. To fix a failing NUnit test, open_session {test: "Namespace.Class.Method"} runs it from the config's testAssembly in a session and stops on the screen where it failed. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
         """;
 
     private const string GuideUri = "e2e://guide";
@@ -73,6 +80,8 @@ internal static class Server
             Headed = options.Headed,
             DefaultTarget = options.Target,
             MaxSessions = options.MaxSessions,
+            Secrets = options.Secrets,
+            WithholdOutput = options.Output is { } output ? load => output.WithholdDuringAsync(load) : static load => load(),
             Log = (level, message) => Log(server, options, ParseLevel(level), message),
         });
         var specs = host.ToolSpecs();
@@ -84,7 +93,7 @@ internal static class Server
             Handlers = new McpServerHandlers
             {
                 ListToolsHandler = (_, _) => ValueTask.FromResult(new ListToolsResult { Tools = [.. specs.Select(ToTool)] }),
-                CallToolHandler = (request, cancel) => CallAsync(specs, request.Params, cancel),
+                CallToolHandler = (request, cancel) => CallAsync(specs, request.Params, options.Output, cancel),
                 ListResourcesHandler = (_, _) => ValueTask.FromResult(ListGuide()),
                 ListResourceTemplatesHandler = (_, _) => ValueTask.FromResult(ListGuideTemplates()),
                 ReadResourceHandler = (request, _) => ValueTask.FromResult(ReadGuide(request.Params?.Uri)),
@@ -175,7 +184,7 @@ internal static class Server
     /// Checks the arguments against the tool's closed schema, then runs it. A refusal or a failure is an error
     /// result the agent can react to. Only a tool the server does not have is a protocol error, as upstream.
     /// </summary>
-    private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, CancellationToken cancellationToken)
+    private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, McpOutput? output, CancellationToken cancellationToken)
     {
         var name = request?.Name ?? "";
         var spec = specs.FirstOrDefault(candidate => candidate.Name == name)
@@ -190,7 +199,9 @@ internal static class Server
 
         try
         {
-            return await spec.Call(args, cancellationToken).ConfigureAwait(false);
+            return output is null
+                ? await spec.Call(args, cancellationToken).ConfigureAwait(false)
+                : await output.DuringCallAsync(() => spec.Call(args, cancellationToken)).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Any failure is the agent's to read, as a test would have reported it.
         catch (Exception ex)

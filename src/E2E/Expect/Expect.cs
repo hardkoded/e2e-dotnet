@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -13,12 +14,81 @@ namespace E2E;
 
 /// <summary>
 /// Polling assertions for a <see cref="Locator"/>, <c>expect.soft</c>, and
-/// <c>expect.poll</c>. A passing locator assertion verifies the previous
-/// <c>agent.act</c>. Plain value matchers are not ported: use NUnit
-/// <c>Assert.That</c>, and <c>Assert.EnterMultipleScope</c> for soft value checks.
+/// <c>expect.poll</c>, and the value matchers of <c>expect(value)</c>
+/// (<c>Expect.That(value)</c>). A passing locator assertion verifies the previous
+/// <c>agent.act</c>.
 /// </summary>
 public static class Expect
 {
+    /// <summary>
+    /// Synchronous matchers over a plain value, such as <c>Expect.That(links, "the playground lists its pages").ToBeGreaterThanOrEqual(2)</c>.
+    /// <paramref name="message"/> opens every failure of the check.
+    /// </summary>
+    public static ValueExpectation<T> That<T>(T actual, string? message = null) => new(actual, negated: false, message);
+
+    /// <summary>
+    /// The value matchers, but a failure is kept on <paramref name="screen"/>'s session instead of thrown, as <see cref="Soft(Locator)"/>
+    /// keeps one. Upstream's <c>expect.soft(value)</c> finds the running attempt on its own; a .NET call has no ambient attempt, so it names the session
+    /// through its screen.
+    /// </summary>
+    public static SoftValueExpectation<T> Soft<T>(Screen screen, T actual, string? message = null)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        return new SoftValueExpectation<T>(new ValueExpectation<T>(actual, negated: false, message), screen.SoftFailures);
+    }
+
+    /// <summary>Matches any instance of <paramref name="sample"/> (any number type for a number type), inside <c>ToEqual</c> and the other structural matchers. <c>typeof(object)</c> also matches <c>null</c>, as upstream's <c>expect.any(Object)</c> does.</summary>
+    public static AsymmetricMatcher Any(Type sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new AnyMatcher(sample);
+    }
+
+    /// <summary>
+    /// JavaScript's <c>undefined</c>, as a value a test passes (.NET-only: C# has no <c>undefined</c>). <c>null</c> is only <c>null</c>:
+    /// <c>Expect.That(null).ToBeDefined()</c> passes, <c>Expect.That(Expect.Undefined).ToBeDefined()</c> fails, and <c>ToEqual</c> ignores a
+    /// member that holds it, as upstream ignores an <c>undefined</c> property.
+    /// </summary>
+    public static object Undefined => UndefinedValue.Instance;
+
+    /// <summary>Matches everything but <c>null</c> and <see cref="Undefined"/>.</summary>
+    public static AsymmetricMatcher Anything() => new AnythingMatcher();
+
+    /// <summary>Matches an object that has every member of <paramref name="sample"/>, equal by <c>ToEqual</c> rules.</summary>
+    public static AsymmetricMatcher ObjectContaining(object sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new ObjectContainingMatcher(sample);
+    }
+
+    /// <summary>Matches an array that holds every element of <paramref name="sample"/>, in any order.</summary>
+    public static AsymmetricMatcher ArrayContaining(IReadOnlyList<object?> sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new ArrayContainingMatcher([.. sample]);
+    }
+
+    /// <summary>Matches a string that contains <paramref name="sample"/>.</summary>
+    public static AsymmetricMatcher StringContaining(string sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringContainingMatcher(sample);
+    }
+
+    /// <summary>Matches a string that matches <paramref name="sample"/>, read as a regular expression.</summary>
+    public static AsymmetricMatcher StringMatching(string sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringMatchingMatcher(sample);
+    }
+
+    /// <summary>Matches a string that matches <paramref name="sample"/>.</summary>
+    public static AsymmetricMatcher StringMatching(Regex sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        return new StringMatchingMatcher(sample);
+    }
+
     public static LocatorExpect That(Locator locator)
     {
         ArgumentNullException.ThrowIfNull(locator);
@@ -50,6 +120,13 @@ public static class Expect
         return new SoftLocatorExpect(new LocatorExpect(locator, negated: false), locator.Screen.SoftFailures);
     }
 
+    /// <summary>The screen matcher, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
+    public static SoftScreenExpect Soft(Screen screen)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        return new SoftScreenExpect(new ScreenExpect(screen, negated: false), screen.SoftFailures);
+    }
+
     /// <summary>The browser matchers, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
     public static SoftBrowserExpect Soft(Browser browser)
     {
@@ -62,7 +139,7 @@ public static class Expect
     {
         ArgumentNullException.ThrowIfNull(read);
         options ??= new PollOptions();
-        PollExpectation<T>.Validate(options);
+        PollExpectation<T>.CheckOptions(options);
         return new PollExpectation<T>(read, options, negated: false);
     }
 
@@ -256,7 +333,7 @@ public sealed class LocatorExpect
                     return Verdict.Strict(matches.Count);
                 }
 
-                var shown = matches.Count == 1 && !matches[0].States.Hidden;
+                var shown = matches.Count == 1 && LocatorEngine.IsNodeVisible(matches[0]);
                 var observed = matches.Count switch
                 {
                     0 => "absent",
@@ -371,7 +448,7 @@ public sealed class LocatorExpect
 
     /// <summary>
     /// Polls until the condition holds, or, negated, until it has been false for the negation grace in a row
-    /// (see <see cref="Time.PollConditionAsync"/>). A sample that cannot answer resets the negation clock:
+    /// (see <see cref="Time.PollReadsAsync"/>). A sample that cannot answer resets the negation clock:
     /// <c>not.toBeChecked</c> on no node is not a pass.
     /// </summary>
     private Task PollAsync(
@@ -398,11 +475,6 @@ public sealed class LocatorExpect
         MissingFrame missingFrame,
         CancellationToken cancellationToken)
     {
-        if (timeout is { } budget)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(budget, TimeSpan.Zero, nameof(timeout));
-        }
-
         var token = _locator.Screen.Token(cancellationToken);
         var clock = _locator.Screen.Clock;
         Verdict last = default;
@@ -410,17 +482,18 @@ public sealed class LocatorExpect
         var samples = new SampleHistory("expect", _locator.Screen.Redact);
         try
         {
-            var deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock);
-            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollConditionAsync(new PollConditionOptions
+            var deadline = _locator.Screen.Engine.AssertionDeadlineFor(timeout, "expect." + (_negated ? "not." : "") + matcher);
+            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
             {
                 Deadline = deadline,
+                Reads = _locator.Screen.Reads(deadline),
                 Clock = clock,
                 Token = token,
                 Negated = _negated,
                 Interval = _locator.Screen.PollInterval,
-                Evaluate = async () =>
+                Evaluate = async reads =>
                 {
-                    var matches = await _locator.ResolveAsync(token, includeHidden, deadline, missingFrame).ConfigureAwait(false);
+                    var matches = await _locator.ResolveAsync(token, includeHidden, reads, missingFrame).ConfigureAwait(false);
                     last = evaluate(matches);
                     lastMatches = matches;
                     samples.Add(last.Observed + " (" + Number(matches.Count) + (matches.Count == 1 ? " match)" : " matches)"));
@@ -445,9 +518,13 @@ public sealed class LocatorExpect
     private TestException Failure(string matcher, string describeExpected, Verdict verdict, IReadOnlyList<SemanticNode> matches, Exception? cause = null)
     {
         var name = (_negated ? "not." : "") + matcher;
-        var code = verdict.StrictCount > 1 ? "STRICT_MODE" : "ASSERTION_FAILED";
-        var message = "expect(" + _locator.Query.Describe() + ")." + name + " failed: expected " + (_negated ? "not " : "") + describeExpected
-            + "; observed " + verdict.Observed + " (match count " + Number(matches.Count) + ")";
+        var code = verdict.StrictCount > 1 ? "LOCATOR_AMBIGUOUS" : "ASSERTION_FAILED";
+        var message = string.Join(
+            "\n",
+            "expect." + name + " failed",
+            "locator: " + _locator.Query.Describe(),
+            "expected: " + (_negated ? "not " : "") + describeExpected,
+            "observed: " + verdict.Observed + " (match count " + Number(matches.Count) + ")");
         // The same facts, one per field, for a reporter that lays them out.
         var details = new ErrorDetails
         {

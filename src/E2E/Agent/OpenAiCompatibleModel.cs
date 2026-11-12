@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -47,7 +48,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         ModelEndpoint.Authorize(message, _options.ResolveApiKey(), _options.ApiKeyHeader);
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
         return ModelHttp.Parse(body, Parse);
     }
 
@@ -145,9 +146,34 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         {
             ["model"] = _options.Model,
             ["messages"] = messages,
-            ["tools"] = tools,
-            ["tool_choice"] = "auto",
         };
+
+        // A request that asks for structured output offers no tool, and a server rejects an empty tool list.
+        if (tools.Count > 0)
+        {
+            payload["tools"] = tools;
+            payload["tool_choice"] = request.ToolChoice switch
+            {
+                { Type: "required" } => "required",
+                { Type: "tool" } => new JsonObject { ["type"] = "function", ["function"] = new JsonObject { ["name"] = request.ToolChoice.ToolName } },
+                _ => "auto",
+            };
+        }
+
+        // Not strict: strict mode refuses keywords such as maxLength, and the agent validates the answer itself.
+        if (request.Schema is { } schema && _options.JsonSchemaResponseFormat)
+        {
+            payload["response_format"] = new JsonObject
+            {
+                ["type"] = "json_schema",
+                ["json_schema"] = new JsonObject
+                {
+                    ["name"] = request.SchemaName ?? "response",
+                    ["schema"] = JsonNode.Parse(schema.GetRawText()),
+                    ["strict"] = false,
+                },
+            };
+        }
 
         // OpenAI caches prompt prefixes on its own and takes a routing key, one per system prompt. Nothing is stored.
         // Upstream sends this to Responses models and to openai/* models on the gateway, not to chat completions.
@@ -158,7 +184,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         }
 
         // Provider options ride the request body as given, so a field such as reasoning_effort reaches the server.
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "tool_choice");
 
         // The AI SDK spells the effort reasoningEffort and sends it as reasoning_effort.
         if (payload.Remove("reasoningEffort", out var effort))
@@ -184,7 +210,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         return string.Equals(_options.Provider, "gateway", StringComparison.Ordinal) && _options.Model.StartsWith("openai/", StringComparison.Ordinal);
     }
 
-    private static ModelResponse Parse(JsonElement root)
+    private ModelResponse Parse(JsonElement root)
     {
         var choice = root.GetProperty("choices")[0];
         var message = choice.GetProperty("message");
@@ -221,11 +247,11 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
             var details = ModelHttp.Details(usageElement, "prompt_tokens_details");
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "prompt_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "completion_tokens"),
@@ -242,8 +268,26 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = reasoning,
+            ReasoningText = ModelHttp.ReasoningText(reasoning.Select(item => item.GetString() ?? "")),
             FinishReason = ModelHttp.FinishReason(finish, "content_filter"),
             RawFinishReason = finish,
+            ProviderMetadata = CostMetadata(usage?.EstimatedCostUsd),
+        };
+    }
+
+    // The billed cost as the AI SDK's provider holds it: the gateway's { cost } string, OpenRouter's { usage: { cost } }.
+    private IReadOnlyDictionary<string, JsonElement>? CostMetadata(double? cost)
+    {
+        if (cost is not { } billed)
+        {
+            return null;
+        }
+
+        return _options.Provider switch
+        {
+            "gateway" => new Dictionary<string, JsonElement> { ["gateway"] = JsonSerializer.SerializeToElement(new { cost = billed.ToString("R", CultureInfo.InvariantCulture) }) },
+            "openrouter" => new Dictionary<string, JsonElement> { ["openrouter"] = JsonSerializer.SerializeToElement(new { usage = new { cost = billed } }) },
+            _ => null,
         };
     }
 }
@@ -285,6 +329,13 @@ public sealed class OpenAiCompatibleModelOptions
     /// <c>openai/*</c> models on the gateway, as upstream does; chat completions elsewhere get neither. Provider options win over both.
     /// </summary>
     public bool? PromptCacheHints { get; init; }
+
+    /// <summary>
+    /// Whether a request that asks for structured output sends <c>response_format</c> <c>json_schema</c>. On by default. .NET-only: a
+    /// server that rejects the field (some local servers and proxies answer 400) takes <c>false</c>, and the judge's prompt, which asks for
+    /// one JSON object, is the only thing that asks for the grammar; the agent validates the answer either way.
+    /// </summary>
+    public bool JsonSchemaResponseFormat { get; init; } = true;
 
     public string? ResolveApiKey()
     {

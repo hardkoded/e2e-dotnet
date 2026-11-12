@@ -27,7 +27,7 @@ assertion fails when the query matches more than one node. Narrow it with
 
 **Derived:** [FrameScreen](/api/E2E/FrameScreen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Methods
 
@@ -42,7 +42,7 @@ public Task DebugAsync(ActionOptions? options = null, CancellationToken cancella
 ```
 
 
-Prints `CancellationToken)` to [Out](https://learn.microsoft.com/dotnet/api/system.console.out), which NUnit and xUnit v2 capture into the test's output.
+Prints `TreeAsync` to [Out](https://learn.microsoft.com/dotnet/api/system.console.out), which NUnit and xUnit v2 capture into the test's output.
 xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 
 **Parameters**
@@ -54,7 +54,35 @@ xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L192)
+<a id="E2E_Screen_DoubleTapAtAsync_"></a>
+<a id="E2E_Screen_DoubleTapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### DoubleTapAtAsync(Point, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Double-taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the
+`doubleTap` pointer action; the web engine sends a primary-button double click. Upstream's `screen.doubleTapAt`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative. |
 
 <a id="E2E_Screen_GetByDisplayValue_"></a>
 <a id="E2E_Screen_GetByDisplayValue_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -78,8 +106,6 @@ Creates a lazy displayed-value query: the current value of an input, text area, 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L179)
-
 <a id="E2E_Screen_GetByDisplayValue_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByDisplayValue(TextMatch, bool)
@@ -101,8 +127,6 @@ Creates a lazy displayed-value query: the current value of an input, text area, 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L176)
-
 <a id="E2E_Screen_GetByLabel_"></a>
 <a id="E2E_Screen_GetByLabel_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
@@ -114,7 +138,7 @@ public Locator GetByLabel(TextMatch label, TextMatchOptions options)
 ```
 
 
-Creates a lazy accessible-label query: any node whose accessible name matches.
+Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose `aria-label`, `aria-labelledby` target, or `<label>` text matches.
 
 **Parameters**
 
@@ -124,8 +148,6 @@ Creates a lazy accessible-label query: any node whose accessible name matches.
 | `options` | [TextMatchOptions](/api/E2E/TextMatchOptions/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L157)
 
 <a id="E2E_Screen_GetByLabel_E2E_TextMatch_System_Boolean_"></a>
 
@@ -137,7 +159,7 @@ public Locator GetByLabel(TextMatch label, bool exact = true)
 ```
 
 
-Creates a lazy accessible-label query: any node whose accessible name matches.
+Creates a lazy accessible-label query: any node whose accessible name matches. On a web page, a node whose `aria-label`, `aria-labelledby` target, or `<label>` text matches.
 
 **Parameters**
 
@@ -147,8 +169,6 @@ Creates a lazy accessible-label query: any node whose accessible name matches.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L154)
 
 <a id="E2E_Screen_GetByPlaceholder_"></a>
 <a id="E2E_Screen_GetByPlaceholder_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -172,8 +192,6 @@ Creates a lazy placeholder query.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L173)
-
 <a id="E2E_Screen_GetByPlaceholder_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByPlaceholder(TextMatch, bool)
@@ -194,8 +212,6 @@ Creates a lazy placeholder query.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L170)
 
 <a id="E2E_Screen_GetByRole_"></a>
 <a id="E2E_Screen_GetByRole_System_String_E2E_RoleOptions_"></a>
@@ -219,8 +235,6 @@ Creates a lazy role query narrowed by name, states, or heading level.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L122)
-
 <a id="E2E_Screen_GetByRole_System_String_E2E_TextMatch_E2E_RoleOptions_"></a>
 
 ### GetByRole(string, TextMatch, RoleOptions)
@@ -242,8 +256,6 @@ Creates a lazy role query narrowed to an accessible name and the given options.
 | `options` | [RoleOptions](/api/E2E/RoleOptions/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L129)
 
 <a id="E2E_Screen_GetByRole_System_String_E2E_TextMatch_System_Boolean_"></a>
 
@@ -267,8 +279,6 @@ Creates a lazy role query. `img` is read as `image`. A role query never matches 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L116)
-
 <a id="E2E_Screen_GetByTestId_"></a>
 <a id="E2E_Screen_GetByTestId_E2E_TextMatch_"></a>
 
@@ -289,8 +299,6 @@ Creates a lazy test-id query. A string matches the whole id, case-sensitive.
 | `testId` | [TextMatch](/api/E2E/TextMatch/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L160)
 
 <a id="E2E_Screen_GetByTestId_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
@@ -313,8 +321,6 @@ Creates a lazy test-id query. A string matches the whole id, case-sensitive; [Ex
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L163)
-
 <a id="E2E_Screen_GetByText_"></a>
 <a id="E2E_Screen_GetByText_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
@@ -327,7 +333,7 @@ public Locator GetByText(TextMatch text, TextMatchOptions options)
 
 
 Creates a lazy visible-text query. It answers with the innermost match, such as a
-`<strong>` inside a paragraph. Text inside a control's label answers with the control.
+`<strong>` inside a paragraph. The text of a label answers with the label, not the control it names.
 
 **Parameters**
 
@@ -337,8 +343,6 @@ Creates a lazy visible-text query. It answers with the innermost match, such as 
 | `options` | [TextMatchOptions](/api/E2E/TextMatchOptions/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L151)
 
 <a id="E2E_Screen_GetByText_E2E_TextMatch_System_Boolean_"></a>
 
@@ -351,7 +355,7 @@ public Locator GetByText(TextMatch text, bool exact = true)
 
 
 Creates a lazy visible-text query. It answers with the innermost match, such as a
-`<strong>` inside a paragraph. Text inside a control's label answers with the control.
+`<strong>` inside a paragraph. The text of a label answers with the label, not the control it names.
 
 **Parameters**
 
@@ -361,8 +365,6 @@ Creates a lazy visible-text query. It answers with the innermost match, such as 
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L145)
 
 <a id="E2E_Screen_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Screen_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
@@ -395,7 +397,91 @@ action timeout. Upstream's `screen.scrollUntilVisible`.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `LOCATOR_NOT_FOUND` when the target did not become visible in time; `INVALID_LOCATOR` when it belongs to another screen or attempt. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L201)
+<a id="E2E_Screen_SwipeAsync_"></a>
+<a id="E2E_Screen_SwipeAsync_E2E_SwipeOptions_System_Threading_CancellationToken_"></a>
+
+### SwipeAsync(SwipeOptions, CancellationToken)
+
+
+```csharp
+public Task SwipeAsync(SwipeOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Scrolls the viewport in a direction, [Momentum](/api/E2E/SwipeOptions/#E2E_SwipeOptions_Momentum) deciding how far. Upstream's `screen.swipe({ direction })`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [SwipeOptions](/api/E2E/SwipeOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when [Timeout](/api/E2E/ActionOptions/#E2E_ActionOptions_Timeout) is set: a viewport swipe has none, as upstream's options have no `timeout` key. |
+
+<a id="E2E_Screen_SwipeAsync_E2E_SwipePathOptions_System_Threading_CancellationToken_"></a>
+
+### SwipeAsync(SwipePathOptions, CancellationToken)
+
+
+```csharp
+public Task SwipeAsync(SwipePathOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Swipes along a path between two viewport points: a touch swipe on a device, a pointer drag on a document platform. The engine has
+to declare the `swipeTo` pointer action. Upstream's `screen.swipe({ from, to })`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [SwipePathOptions](/api/E2E/SwipePathOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative, or a duration that is not a whole number of milliseconds from 16 through 10000. |
+
+<a id="E2E_Screen_TapAtAsync_"></a>
+<a id="E2E_Screen_TapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### TapAtAsync(Point, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the `tap` pointer
+action. Upstream's `screen.tapAt`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative. |
 
 <a id="E2E_Screen_TreeAsync_"></a>
 <a id="E2E_Screen_TreeAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -420,5 +506,3 @@ not show is left out. Use it to write a locator. Takes [Timeout](/api/E2E/Action
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L186)

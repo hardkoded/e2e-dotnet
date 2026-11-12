@@ -156,6 +156,13 @@ public sealed class EngineException : E2EException
     /// <summary>Whether the caller may observe again and repeat the operation.</summary>
     public bool Retryable { get; }
 
+    /// <summary>
+    /// True for an error the runner already named, such as <c>APP_UNREACHABLE</c>: <see cref="ErrorSerializer.TranslateEngineError"/> keeps it as it is.
+    /// .NET-only: upstream's runner throws these as <c>InfrastructureError</c>, which its <c>translateEngineError</c> does not touch, where the port's
+    /// <see cref="EngineException"/> is both that class and the engine's <c>EngineError</c>.
+    /// </summary>
+    internal bool Mapped { get; init; }
+
     private static string Coerce(string code, bool retryable)
     {
         return retryable && !EngineErrorCodes.IsRetryable(code) ? EngineErrorCodes.EngineFailure : code;

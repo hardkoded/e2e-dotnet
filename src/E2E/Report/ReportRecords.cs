@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using ArtifactProducer = E2E.Reports.ArtifactProducer;
 using ArtifactRedaction = E2E.Reports.ArtifactRedaction;
 using VcsInfo = E2E.Reports.VcsInfo;
 
@@ -107,7 +108,9 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="StartedAt">When a recording began; steps read their offset into it.</param>
 /// <param name="Size">The size of the file in bytes, when known; the run's <c>usage.artifactBytes</c> adds them up.</param>
 /// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null);
+/// <param name="Ref">The reference the host's <c>IArtifactStore</c> returned for the artifact; null when there is none.</param>
+/// <param name="Producer">Who made it; a recording a step stopped covers the video only until that step ends.</param>
+internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null, string? Ref = null, ArtifactProducer? Producer = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence
@@ -219,7 +222,28 @@ internal sealed record ReportResult
 
     public ResultStatus Status { get; init; } = ResultStatus.Passed;
 
+    /// <summary>
+    /// Why a skipped test skipped (upstream's <c>result.skip</c>). A test the selection left out ran no attempt to hold the reason, so it is
+    /// set here; a test that ran and skipped reads it from its last skipped attempt. Null for a test that did not skip.
+    /// </summary>
+    public ReportSkip? Skip
+    {
+        get => field ?? (Status == ResultStatus.Skipped ? Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped)?.Skip : null);
+        init;
+    }
+
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
+
+    /// <summary>
+    /// The id the test keeps over its targets, agents, and repeats (upstream's <c>testId</c>). Unset, it names the file and the title path. A .NET
+    /// test is named by its class and method (<see cref="Ids.TestId"/>), so every row of a parameterized test is one test, and the host
+    /// finds a test again by the class and method it discovered. That is what <c>--last-failed</c> reads back.
+    /// </summary>
+    public string TestId
+    {
+        get => field ?? Ids.TestId(File, [TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath)]);
+        init;
+    }
 
     /// <summary>
     /// The directory of the result under the results directory, when it is not the one <see cref="ArtifactPaths.ResultSegment"/> names. The
@@ -228,32 +252,12 @@ internal sealed record ReportResult
     public string? Directory { get; init; }
 }
 
-/// <summary>
-/// What one result left behind (upstream's <c>Outcome</c>, <c>report/outcome.ts</c>). The port has no serial groups, so a result always
-/// answers from its own attempts.
-/// </summary>
-/// <param name="DurationMs">The final attempt's duration.</param>
-/// <param name="Final">The final attempt: the verdict of a failed test, the passing retry of a flaky one.</param>
-/// <param name="LastFailed">The last attempt before the final one that did not pass, when there was one: what a flaky test hit.</param>
-/// <param name="Attempts">Every attempt in order, so a page can say whether they failed alike.</param>
-/// <param name="FailedAttempts">Attempts that did not pass before the final one; what a flaky pass cost.</param>
-internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttempt? LastFailed, IReadOnlyList<ReportAttempt> Attempts, int FailedAttempts)
+/// <summary>Helpers over the records of a run (upstream's <c>run/records.ts</c>).</summary>
+internal static class ReportRecords
 {
-    /// <summary>What a result that never ran an attempt reads as.</summary>
-    private static readonly ReportAttempt NoAttempt = new() { Status = AttemptStatus.Skipped };
-
-    /// <summary>Upstream's <c>outcome()</c>.</summary>
-    public static Outcome Of(ReportResult result)
-    {
-        var earlier = result.Attempts.Take(Math.Max(0, result.Attempts.Count - 1)).ToList();
-        var final = result.Attempts.LastOrDefault() ?? NoAttempt;
-        return new Outcome(
-            final.DurationMs,
-            final,
-            earlier.LastOrDefault(attempt => attempt.Status != AttemptStatus.Passed),
-            result.Attempts,
-            earlier.Count(attempt => attempt.Status != AttemptStatus.Passed));
-    }
+    /// <summary>The cleanup-phase secondary errors of attempts whose cleanup failed (upstream's <c>cleanupErrorsOf</c>).</summary>
+    public static IEnumerable<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
+        attempts.Where(attempt => attempt.Cleanup == AttemptCleanup.Failed).SelectMany(attempt => attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup"));
 }
 
 /// <summary>The engine a target runs on, as the report names it (upstream's <c>engine</c> block of a target).</summary>
@@ -283,7 +287,7 @@ internal sealed record ReportTarget(string Id, int Index, string Platform, Targe
 /// <param name="ConfigDigest">The digest of the resolved config.</param>
 internal sealed record ReportProject(string Id, string ConfigDigest)
 {
-    /// <summary>What upstream reports without a resolved config. The port has no project id or config digest.</summary>
+    /// <summary>What upstream reports without a resolved config. The port has no project id, and a run whose config was not resolved here has no config digest.</summary>
     public static ReportProject Unknown { get; } = new("unknown", new string('0', 64));
 }
 
@@ -302,10 +306,20 @@ internal sealed record ReportSummary(int Discovered, int Selected, int Executed,
 internal sealed record ReportLimits(int MaxAgentContextBytes, int MaxLedgerBytes, int MaxObservationBytes, int MaxEventsPerStep, int MaxModelTokensPerCall)
 {
     /// <summary>
-    /// Upstream's <c>DEFAULT_LIMITS</c>. The port has no per-agent <c>maxObservationBytes</c> or <c>maxInputTokens</c> (the config rejects
-    /// them), so every run reports the defaults, as upstream does for a run that failed before its config resolved.
+    /// Upstream's <c>DEFAULT_LIMITS</c>: the limits of a run no agent config has shaped, which is also what a run that failed before its
+    /// config resolved reports.
     /// </summary>
-    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, StepScreens.DefaultObservationBytes, 1_000, 64_000);
+    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, E2EDefaults.MaxObservationBytes, 1_000, E2EDefaults.MaxInputTokens);
+
+    /// <summary>
+    /// The limits of two runs merged: the per-agent ones at the largest either allowed, so the report does not read lower than what a step
+    /// could send. The port builds one report per test and merges them into the run's.
+    /// </summary>
+    public ReportLimits Max(ReportLimits other) => this with
+    {
+        MaxObservationBytes = Math.Max(MaxObservationBytes, other.MaxObservationBytes),
+        MaxModelTokensPerCall = Math.Max(MaxModelTokensPerCall, other.MaxModelTokensPerCall),
+    };
 }
 
 /// <summary>What the run used, against <see cref="ReportLimits"/> (upstream's <c>ReportUsage</c>).</summary>

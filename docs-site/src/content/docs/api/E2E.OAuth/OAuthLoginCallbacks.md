@@ -23,7 +23,7 @@ How a login flow talks to the terminal, or whatever hosts it.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L39)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ The URL to open and how to finish there. Called once per flow.
 
 **Value:** [Action&lt;OAuthAuthInfo&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L42)
-
 <a id="E2E_OAuth_OAuthLoginCallbacks_OnProgress_"></a>
 <a id="E2E_OAuth_OAuthLoginCallbacks_OnProgress"></a>
 
@@ -56,8 +54,6 @@ public Action<string>? OnProgress { get; init; }
 
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L47)
 
 <a id="E2E_OAuth_OAuthLoginCallbacks_OnPrompt_"></a>
 <a id="E2E_OAuth_OAuthLoginCallbacks_OnPrompt"></a>
@@ -73,5 +69,3 @@ public required Func<string, CancellationToken, Task<string>> OnPrompt { get; in
 Asks the user for text: the pasted code when the local callback never arrives.
 
 **Value:** [Func&lt;string, CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L45)

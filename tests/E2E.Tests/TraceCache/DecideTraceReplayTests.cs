@@ -3,16 +3,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cache;
+using E2E.Engine;
 
 namespace E2E.Tests.TraceCache;
 
 /// <summary>
-/// Upstream's <c>decideTraceReplay</c> describe of <c>trace-cache.test.ts</c>. "never replays a truncated trace" and "skips
-/// leading gaps when checking for the navigate opener" are not ported: the port records no truncated entry, and reads the
-/// first action as it is. The undefined current path is the null one.
+/// Upstream's <c>decideTraceReplay</c> describe of <c>trace-cache.test.ts</c>. The undefined current path is the null one.
 /// </summary>
 public sealed class DecideTraceReplayTests
 {
+    [Fact]
+    public void Never_replays_a_truncated_trace()
+    {
+        var entry = Entry("/settings", Tap());
+        entry.Truncated = true;
+
+        Assert.Equal(TraceReplayDecision.Miss("truncated"), Decide.DecideTraceReplay(entry, "/settings"));
+    }
+
     [Fact]
     public void Enforces_the_start_path_precondition_when_the_trace_does_not_open_with_navigate()
     {
@@ -40,6 +48,22 @@ public sealed class DecideTraceReplayTests
         var entry = Entry("/settings", Navigate(), Tap());
         Assert.Equal("replay", Decide.DecideTraceReplay(entry, "/other").Action);
         Assert.Equal("replay", Decide.DecideTraceReplay(entry, null).Action);
+    }
+
+    [Fact]
+    public void Skips_leading_gaps_when_checking_for_the_navigate_opener()
+    {
+        var gap = new RecordedAction { Kind = "tool", Text = "seed_cart" };
+
+        Assert.Equal("replay", Decide.DecideTraceReplay(Entry("/settings", gap, Navigate()), "/elsewhere").Action);
+    }
+
+    [Fact]
+    public void Skips_a_leading_resize_when_checking_for_the_navigate_opener()
+    {
+        var resize = new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) };
+        Assert.Equal("replay", Decide.DecideTraceReplay(Entry("/settings", resize, Navigate()), "/elsewhere").Action);
+        Assert.Equal(TraceReplayDecision.Miss("wrong-context"), Decide.DecideTraceReplay(Entry("/settings", resize, Tap()), "/elsewhere"));
     }
 
     [Fact]

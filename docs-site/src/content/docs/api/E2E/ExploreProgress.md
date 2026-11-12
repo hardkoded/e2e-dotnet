@@ -29,4 +29,4 @@ events, which its list reporter renders; the port has no run events, so [OnProgr
 
 **Derived:** [ExploreProgress.FindingReported](/api/E2E/ExploreProgress.FindingReported/), [ExploreProgress.Finished](/api/E2E/ExploreProgress.Finished/), [ExploreProgress.Planning](/api/E2E/ExploreProgress.Planning/), [ExploreProgress.Started](/api/E2E/ExploreProgress.Started/), [ExploreProgress.StepFinished](/api/E2E/ExploreProgress.StepFinished/), [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

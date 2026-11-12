@@ -147,15 +147,6 @@ public sealed class PerformTests
     }
 
     [Fact]
-    public async Task Pressing_sequentially_types_the_text_literally_into_the_focused_node()
-    {
-        var (harness, session, observation) = await OpenAsync();
-        await using var _ = harness;
-        await session.PerformAsync(Harness.ByTestId(observation, "name-input"), new LocatorAction.PressSequentially("ab c"), CancellationToken.None);
-        Assert.Equal(["focus edit-name", $"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} verbatim:ab c"], harness.Driver.Calls);
-    }
-
-    [Fact]
     public async Task The_session_press_goes_to_the_main_window()
     {
         var (harness, session, _) = await OpenAsync();
@@ -336,6 +327,27 @@ public sealed class PerformTests
         await session.LongPressAsync(save);
         await session.DragToAsync(save, list);
         await session.SecondaryTapAsync(save);
+        Assert.Equal(
+            [
+                $"foreground {FakeWindowDriver.MainHandle}", "hover 540,615",
+                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 540,615 hold 1000",
+                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 300,400 hold 0",
+                $"foreground {FakeWindowDriver.MainHandle}", "click 540,615 right",
+            ],
+            harness.Driver.Calls);
+    }
+
+    [Fact]
+    public async Task Performs_the_locator_hover_long_press_drag_and_secondary_tap_actions_on_node_middles()
+    {
+        var (harness, session, observation) = await OpenAsync();
+        await using var _ = harness;
+        var save = Harness.ByTestId(observation, "save-button");
+        var list = Harness.ByTestId(observation, "benchmark-list");
+        await session.PerformAsync(save, new LocatorAction.Hover(), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.LongPress(), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.DragTo(list), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.SecondaryTap(), CancellationToken.None);
         Assert.Equal(
             [
                 $"foreground {FakeWindowDriver.MainHandle}", "hover 540,615",

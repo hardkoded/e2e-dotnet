@@ -1,0 +1,107 @@
+@* Upstream's app/src/Examples/ContextMenuTrap.tsx.
+   Sabotage scenario: the app's copy steers users toward right-clicking, but the page has no contextmenu handler, so right-click
+   attempts produce nothing app-visible. The agent must ignore the right-click affordance and rename through the per-row menu.
+   Decoy menu items punish guessing. *@
+<div style="@Container">
+    <h2 style="@Title">My Files</h2>
+    <p style="@Hint">Tip: right-click a file to manage it.</p>
+    <div style="@FileList">
+        @foreach (var file in _files)
+        {
+            var current = file;
+            <div @key="current" style="@FileRow">
+                @if (_renaming == current)
+                {
+                    <input autofocus aria-label="New file name" value="@_draftName" @oninput="HandleDraftInput" style="@RenameInput" />
+                    <button type="button" style="@SaveButton" @onclick="() => HandleRenameSave(current)">Save</button>
+                }
+                else
+                {
+                    <span style="@FileName">@current</span>
+                    <div style="@MenuAnchor">
+                        <button type="button" aria-label="More actions for @current" style="@KebabButton" @onclick="() => ToggleMenu(current)">⋯</button>
+                        @if (_openMenuFor == current)
+                        {
+                            <div style="@Menu">
+                                @foreach (var action in MenuActions)
+                                {
+                                    var chosen = action;
+                                    <button type="button" style="@MenuItem" @onclick="() => HandleMenuAction(current, chosen)">@chosen</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+    @if (_notice is not null)
+    {
+        <p data-testid="notice-message" style="@NoticeText">@_notice</p>
+    }
+    @if (IsRenamed)
+    {
+        <p data-testid="success-message" style="@SuccessText">File renamed to @TargetName</p>
+    }
+</div>
+
+@code {
+    private const string TargetFile = "report.pdf";
+    private const string TargetName = "summary.pdf";
+    private static readonly string[] MenuActions = ["Rename", "Duplicate", "Delete"];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0; max-width: 420px; margin: 0 auto;";
+    private const string Title = "font-size: 18px; font-weight: 600; margin: 0;";
+    private const string Hint = "font-size: 13px; color: #666; margin: 0;";
+    private const string FileList = "display: flex; flex-direction: column; border: 1px solid #e5e5e5; border-radius: 8px;";
+    private const string FileRow = "display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #f0f0f0;";
+    private const string FileName = "font-size: 15px; color: #111;";
+    private const string MenuAnchor = "position: relative;";
+    private const string KebabButton = "font-size: 16px; line-height: 1; padding: 4px 8px; border: 1px solid #e5e5e5; border-radius: 6px; background-color: #fff; cursor: pointer;";
+    private const string Menu = "position: absolute; top: 100%; right: 0; z-index: 10; display: flex; flex-direction: column; min-width: 140px; background-color: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 4px;";
+    private const string MenuItem = "font-size: 14px; color: #333; padding: 8px 10px; border: none; border-radius: 6px; background-color: transparent; cursor: pointer; text-align: left;";
+    private const string RenameInput = "flex: 1; font-size: 14px; padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px;";
+    private const string SaveButton = "font-size: 14px; padding: 6px 12px; border: none; border-radius: 6px; background-color: #111; color: #fff; cursor: pointer;";
+    private const string NoticeText = "color: #c00; font-size: 14px; margin: 0;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private readonly List<string> _files = ["quarterly-report.pdf", TargetFile, "notes.txt"];
+    private string? _openMenuFor;
+    private string? _renaming;
+    private string _draftName = string.Empty;
+    private string? _notice;
+
+    private bool IsRenamed => _files.Contains(TargetName) && !_files.Contains(TargetFile);
+
+    private void ToggleMenu(string file) => _openMenuFor = _openMenuFor == file ? null : file;
+
+    private void HandleMenuAction(string file, string action)
+    {
+        _openMenuFor = null;
+        if (action == "Rename")
+        {
+            _renaming = file;
+            _draftName = file;
+            _notice = null;
+            return;
+        }
+
+        _notice = action == "Duplicate" ? "Duplicating is disabled for sample files" : "Sample files cannot be deleted";
+    }
+
+    private void HandleDraftInput(ChangeEventArgs args) => _draftName = args.Value?.ToString() ?? string.Empty;
+
+    private void HandleRenameSave(string file)
+    {
+        var nextName = _draftName.Trim();
+        if (nextName.Length == 0)
+        {
+            _notice = "Name cannot be empty";
+            return;
+        }
+
+        _files[_files.IndexOf(file)] = nextName;
+        _renaming = null;
+        _notice = null;
+    }
+}

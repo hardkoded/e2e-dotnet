@@ -23,7 +23,7 @@ Options of the browser engine: how it drives the app.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L169)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Properties
 
@@ -38,11 +38,11 @@ public WebBasicAuth? BasicAuth { get; init; }
 ```
 
 
-Basic-auth credentials the browser answers a challenge with, wherever one is issued.
+Basic-auth credentials the browser answers a challenge from the app's origin, or one in [CredentialOrigins](#E2E_Engine_WebEngineOptions_CredentialOrigins),
+with, and no other. WebKit cannot scope a credential to an origin on its scheme's default port or with an IPv6 host, so
+when one of those origins is such an origin, WebKit answers every origin's challenge.
 
 **Value:** [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L193)
 
 <a id="E2E_Engine_WebEngineOptions_Browser_"></a>
 <a id="E2E_Engine_WebEngineOptions_Browser"></a>
@@ -63,7 +63,22 @@ rides a persistent context, with the limits of [ReconnectEndpoint](/api/E2E.Engi
 
 **Value:** [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L246)
+<a id="E2E_Engine_WebEngineOptions_BrowserName_"></a>
+<a id="E2E_Engine_WebEngineOptions_BrowserName"></a>
+
+### BrowserName
+
+
+```csharp
+public BrowserName BrowserName { get; init; }
+```
+
+
+The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
+`browser` option, which is a name or a provider: the name is here and the provider is [Browser](#E2E_Engine_WebEngineOptions_Browser).
+[Connect](#E2E_Engine_WebEngineOptions_Connect) and a provider attach over CDP, so they need Chromium.
+
+**Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
 
 <a id="E2E_Engine_WebEngineOptions_ColorScheme_"></a>
 <a id="E2E_Engine_WebEngineOptions_ColorScheme"></a>
@@ -82,8 +97,6 @@ browser's own. `Browser.EmulateMediaAsync` changes it for the rest of one attemp
 
 **Value:** `WebColorScheme?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L217)
-
 <a id="E2E_Engine_WebEngineOptions_Connect_"></a>
 <a id="E2E_Engine_WebEngineOptions_Connect"></a>
 
@@ -99,7 +112,21 @@ Attach to a remote Chromium over CDP instead of launching a local one.
 
 **Value:** [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L237)
+<a id="E2E_Engine_WebEngineOptions_CredentialOrigins_"></a>
+<a id="E2E_Engine_WebEngineOptions_CredentialOrigins"></a>
+
+### CredentialOrigins
+
+
+```csharp
+public IReadOnlyList<string>? CredentialOrigins { get; init; }
+```
+
+
+More origins that receive [Headers](#E2E_Engine_WebEngineOptions_Headers) and [BasicAuth](#E2E_Engine_WebEngineOptions_BasicAuth), beyond the app's own: an API host or a redirect
+target behind the same gate. Exact origins, such as `https://api.example.com`; requires headers or basic auth.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
 <a id="E2E_Engine_WebEngineOptions_Headers_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headers"></a>
@@ -112,15 +139,16 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 ```
 
 
-Headers added to every request bound for the app's host (the host of the
-session's base URL). Requests to any other host never carry them, so a
-secret header stays with the app it unlocks. Names are case-insensitive
+Headers added to every request the browser starts at the app's origin (the
+scheme, host, and port of the session's base URL) or one in
+[CredentialOrigins](#E2E_Engine_WebEngineOptions_CredentialOrigins). A request that starts at any other origin (another port
+on the same host, a sibling subdomain, a CDN) goes without them. Playwright keeps a
+request's headers through its redirects, so a redirect from the app to an identity
+provider carries them there. Names are case-insensitive
 and replace a header the page already sends under the same name.
 Routing every request turns the browser's HTTP cache off.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L190)
 
 <a id="E2E_Engine_WebEngineOptions_Headless_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headless"></a>
@@ -137,8 +165,6 @@ Runs Chromium without a window. When unset, `E2E_HEADLESS=0` or `false` shows th
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L172)
-
 <a id="E2E_Engine_WebEngineOptions_InitScripts_"></a>
 <a id="E2E_Engine_WebEngineOptions_InitScripts"></a>
 
@@ -153,8 +179,6 @@ public IReadOnlyList<WebInitScript>? InitScripts { get; init; }
 Scripts every document runs before the page's own, in every tab and frame, in order.
 
 **Value:** [IReadOnlyList&lt;WebInitScript&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L228)
 
 <a id="E2E_Engine_WebEngineOptions_Locale_"></a>
 <a id="E2E_Engine_WebEngineOptions_Locale"></a>
@@ -174,8 +198,6 @@ header report. Defaults to the browser's own. An `accept-language` entry in
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L204)
-
 <a id="E2E_Engine_WebEngineOptions_ReducedMotion_"></a>
 <a id="E2E_Engine_WebEngineOptions_ReducedMotion"></a>
 
@@ -194,8 +216,6 @@ turn its animations off, so none races an assertion. Defaults to the browser's o
 
 **Value:** `WebReducedMotion?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L225)
-
 <a id="E2E_Engine_WebEngineOptions_Screencast_"></a>
 <a id="E2E_Engine_WebEngineOptions_Screencast"></a>
 
@@ -212,8 +232,6 @@ it. Which attempts record is the config's `video`.
 
 **Value:** [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L234)
-
 <a id="E2E_Engine_WebEngineOptions_TestIdAttribute_"></a>
 <a id="E2E_Engine_WebEngineOptions_TestIdAttribute"></a>
 
@@ -228,8 +246,6 @@ public string TestIdAttribute { get; init; }
 The attribute that carries an element's test id: what `GetByTestId` resolves and [TestId](/api/E2E.Engine/SemanticNode/#E2E_Engine_SemanticNode_TestId) reports.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L181)
 
 <a id="E2E_Engine_WebEngineOptions_TimezoneId_"></a>
 <a id="E2E_Engine_WebEngineOptions_TimezoneId"></a>
@@ -247,8 +263,6 @@ what `Date` and `Intl` resolve local time against. Defaults to the machine's.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L210)
-
 <a id="E2E_Engine_WebEngineOptions_UserAgent_"></a>
 <a id="E2E_Engine_WebEngineOptions_UserAgent"></a>
 
@@ -263,8 +277,6 @@ public string? UserAgent { get; init; }
 The `User-Agent` the browser sends and `navigator.userAgent` reports. Defaults to the browser's own.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L196)
 
 <a id="E2E_Engine_WebEngineOptions_Viewport_"></a>
 <a id="E2E_Engine_WebEngineOptions_Viewport"></a>
@@ -281,5 +293,3 @@ Initial viewport of every attempt's page; default 1280 by 720. &lt;a href="https
 emulates no size: the page fills the browser window, whatever size it has.
 
 **Value:** [WebViewport](/api/E2E.Engine/WebViewport/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L178)

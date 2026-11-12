@@ -28,7 +28,7 @@ One recorded video of an attempt: a file the engine wrote into the attempt artif
 
 **Derived:** [VideoFile](/api/E2E.Engine/VideoFile/), [VideoLink](/api/E2E.Engine/VideoLink/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
 
 ## Properties
 
@@ -46,5 +46,3 @@ public required string StartedAt { get; init; }
 When the segment started recording, as an ISO timestamp; its first frame is at or just after it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L76)

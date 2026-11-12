@@ -24,7 +24,8 @@ internal static class FailureTextKit
         string? label = null,
         string? explanation = null,
         IReadOnlyList<StepTurn>? turns = null,
-        IEnumerable<string>? artifacts = null)
+        IEnumerable<string>? artifacts = null,
+        DateTimeOffset? startedAt = null)
     {
         var step = new StepRecord
         {
@@ -35,7 +36,7 @@ internal static class FailureTextKit
             Label = label ?? "step " + index,
             Source = source,
             Status = status,
-            StartedAt = ReportBuilders.ReportAt,
+            StartedAt = startedAt ?? ReportBuilders.ReportAt,
             DurationMs = durationMs,
             Phase = phase,
             Error = error is null ? null : new SerializedError("test", error.Code, error.Message, false, error.Source, error.Details),

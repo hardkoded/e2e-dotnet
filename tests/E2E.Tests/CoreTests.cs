@@ -36,7 +36,7 @@ public sealed class CoreTests
         }, world);
 
         var error = Assert.IsType<TestException>(result.Error);
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class CoreTests
         });
 
         var error = Assert.IsType<TestException>(result.Error);
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.True(waited >= TimeSpan.FromMilliseconds(300));
     }
 
@@ -242,7 +242,7 @@ public sealed class CoreTests
                 }
 
                 actCalls++;
-                if (text.Contains("tapped", StringComparison.Ordinal))
+                if (text.Contains("Tapped", StringComparison.Ordinal))
                 {
                     return ModelResponses.Done("passed", "Upgraded to Pro.");
                 }
@@ -281,12 +281,12 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("pressed Enter", StringComparison.Ordinal))
+            if (text.Contains("Pressed Enter", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "Added.");
             }
 
-            return text.Contains("filled", StringComparison.Ordinal)
+            return text.Contains("Typed into", StringComparison.Ordinal)
                 ? ModelResponses.Call("press", new { key = "Enter" })
                 : ModelResponses.Fill("textbox", "New todo", "Buy milk");
         });
@@ -318,7 +318,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("pressed Enter", StringComparison.Ordinal)
+            return text.Contains("Pressed Enter", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Saved.")
                 : ModelResponses.Call("press", new { key = "Enter", testId = "save" });
         });
@@ -349,7 +349,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Added.")
                 : ModelResponses.Tap("button", "Add two");
         });
@@ -386,7 +386,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("double-tapped", StringComparison.Ordinal)
+            return text.Contains("Double-tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Editing.")
                 : ModelResponses.Call("double_tap", new { role = "button", name = "Buy milk" });
         });
@@ -434,7 +434,7 @@ public sealed class CoreTests
         {
             modelCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Upgraded to Pro.")
                 : ModelResponses.Tap("button", "Upgrade to Pro");
         });
@@ -451,7 +451,10 @@ public sealed class CoreTests
         modelCalls = 0;
 
         delay = TimeSpan.FromMilliseconds(50);
-        var second = await RunAsync(Body, world, model, directory);
+
+        // The state shows up when the delay's timer fires, which a loaded runner can hold up past the replay's usual 300 ms. The replay
+        // returns as soon as the state is there, so a wide window costs nothing when the machine is quiet.
+        var second = await RunAsync(Body, world, model, directory, actionTimeout: TimeSpan.FromSeconds(10));
         Assert.Null(second.Error);
         Assert.Equal(0, modelCalls);
         Assert.Equal(1, second.Replayed);
@@ -475,7 +478,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "done");
             }
@@ -595,7 +598,7 @@ public sealed class CoreTests
         ScriptedModel Model() => new(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("filled", StringComparison.Ordinal))
+            if (text.Contains("Typed into", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "filled");
             }
@@ -714,7 +717,7 @@ public sealed class CoreTests
         {
             actCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "advanced");
             }
@@ -882,7 +885,7 @@ public sealed class CoreTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("a\u0001b")]
+    [InlineData("a{{param:/b}}")]
     public void Unique_rejects_empty_and_marker_values(string value)
     {
         Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => Values.Unique(value)).Code);

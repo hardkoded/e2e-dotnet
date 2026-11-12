@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using E2E.Cache;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -20,12 +21,15 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private AttemptScope? _scope;
     private DateTimeOffset? _deadline;
     private TimeSpan _timeout;
+    private bool _replaying;
     private CancellationToken _cancellation;
     private CancellationTokenSource? _stop;
     private AgentException? _hardStop;
     private TraceRecorder? _recorder;
     private Action<RecordedAction>? _committed;
     private Func<string, Task>? _toolRan;
+    private Func<Task>? _beforeTool;
+    private Action<string>? _allowed;
     private int _prepaid;
     private bool _ended;
 
@@ -36,7 +40,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
     public int MaxModelCalls => maxModelCalls;
 
-    public TraceRecorder Recorder => LazyInitializer.EnsureInitialized(ref _recorder, () => new TraceRecorder(() => _scope?.Redactor ?? Redactor.None));
+    public TraceRecorder Recorder => LazyInitializer.EnsureInitialized(ref _recorder, () => new TraceRecorder(() => _scope?.Redactor ?? Redactor.None, maxActions: maxActions));
 
     /// <summary>The one queue the step's observations and actions run in, in call order.</summary>
     public OperationQueue Queue { get; } = new();
@@ -56,10 +60,12 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     /// Puts the step on a clock. <paramref name="stop"/> is cancelled on a hard stop other than a spent budget, so the executor
     /// and every engine operation of the step end with it. <paramref name="cancellation"/> is the caller's and the attempt's,
     /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap, and <paramref name="toolRan"/>
-    /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook.
+    /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook. <paramref name="beforeTool"/> runs the test's
+    /// <c>OnBeforeAction</c> hook once a mutating tool has its slot (upstream's <c>runTool</c> calls the dispatcher's <c>before</c>). <paramref name="allowed"/> refuses a mutating tool before it takes a slot, as an assertion does (upstream's <c>assertAllowed</c>).
     /// </summary>
-    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null)
+    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null, Func<Task>? beforeTool = null, Action<string>? allowed = null)
     {
+        _allowed = allowed;
         _scope = scope;
         _timeout = timeout;
         // A step with no timeout has no deadline.
@@ -68,7 +74,41 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         _stop = stop;
         _committed = committed;
         _toolRan = toolRan;
+        _beforeTool = beforeTool;
     }
+
+    /// <summary>Upstream's <c>MAX_TARGETED_ACTION_MS</c>: the longest one targeted action may run, whatever the action timeout is.</summary>
+    private static readonly TimeSpan MaxTargetedAction = TimeSpan.FromMilliseconds(15_000);
+
+    /// <summary>
+    /// Upstream's <c>operation()</c>: <paramref name="context"/> bounded by <paramref name="actionTimeout"/> and by the time the step has
+    /// left. Its origin is the test's while a recorded trace replays (<see cref="Replaying"/>), the agent's otherwise.
+    /// </summary>
+    internal OperationContext Operation(OperationContext context, TimeSpan actionTimeout) => Stamped(Bounded(context, actionTimeout));
+
+    /// <summary>Upstream's <c>actionOperation()</c>: as <see cref="Operation"/>, with the targeted action capped at <see cref="MaxTargetedAction"/>.</summary>
+    internal OperationContext ActionOperation(OperationContext context, TimeSpan actionTimeout) =>
+        Stamped(Bounded(context, actionTimeout < MaxTargetedAction ? actionTimeout : MaxTargetedAction));
+
+    /// <summary>True while a recorded trace replays: its actions are then the test's, not the model's (upstream's <c>replayingTrace</c>).</summary>
+    internal bool ReplayingTrace => _replaying;
+
+    /// <summary>Marks the span in which the step's actions come from a recorded trace (upstream's <c>replaying(active)</c>).</summary>
+    internal void Replaying(bool active) => _replaying = active;
+
+    // Upstream's boundedOperation: the timeout, or the time the step has left when that is shorter, at least 1 ms.
+    private OperationContext Bounded(OperationContext context, TimeSpan timeout)
+    {
+        var within = timeout;
+        if (_deadline is { } deadline && deadline - DateTimeOffset.UtcNow < within)
+        {
+            within = deadline - DateTimeOffset.UtcNow;
+        }
+
+        return context with { Timeout = Time.Between(within, TimeSpan.FromMilliseconds(1), Time.Unbounded) };
+    }
+
+    private OperationContext Stamped(OperationContext context) => _replaying ? context with { Origin = OperationOrigin.Test } : context;
 
     /// <summary>Whether the books are closed.</summary>
     public bool Closed => _ended;
@@ -120,21 +160,22 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         new("STEP_TIMEOUT", api + " exceeded its " + _timeout.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture) + " ms timeout", blocked: true);
 
     /// <summary>Fails when the step is cancelled, out of time, or already hard-stopped, and records the hard stop.</summary>
-    public void Checkpoint()
+    /// <param name="cause">The failure being handled when the clock is checked, which a timeout then carries (see <see cref="Phases.CheckStepClock"/>).</param>
+    public void Checkpoint(Exception? cause = null)
     {
         if (_hardStop is { } firstStop && (_stop?.IsCancellationRequested ?? false))
         {
             throw firstStop;
         }
 
-        if (_cancellation.IsCancellationRequested || (_scope?.Token().IsCancellationRequested ?? false))
+        var signal = _cancellation.IsCancellationRequested ? _cancellation : _scope?.Token() ?? CancellationToken.None;
+        try
         {
-            throw Fatalize(new AgentException("CANCELLED", "the step was cancelled"));
+            Phases.CheckStepClock(signal, new Deadline(_deadline ?? DateTimeOffset.MaxValue), api, (long)_timeout.TotalMilliseconds, cause);
         }
-
-        if (_deadline is { } deadline && DateTimeOffset.UtcNow >= deadline)
+        catch (AgentException error)
         {
-            throw Fatalize(TimedOut());
+            throw Fatalize(error);
         }
     }
 
@@ -164,6 +205,16 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
         _prepaid++;
         return true;
+    }
+
+    /// <summary>Gives back the prepaid slot if the dispatcher has not taken it, for a call upstream turns away before it takes one.</summary>
+    public void RefundPrepaid()
+    {
+        if (_prepaid > 0)
+        {
+            _prepaid = 0;
+            Used--;
+        }
     }
 
     /// <summary>Drops a slot the call never spent.</summary>
@@ -231,7 +282,13 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         // Mutations run one at a time with the grammar actions, in call order.
         return await Queue.RunAsync(async () =>
         {
+            _allowed?.Invoke("tool");
             Reserve();
+            if (_beforeTool is { } before)
+            {
+                await before().ConfigureAwait(false);
+            }
+
             var gap = Recorder.RecordGap(name);
             T value;
             try

@@ -7,8 +7,8 @@ using E2E.Cache;
 namespace E2E.Tests.TraceRoute;
 
 /// <summary>
-/// Routes: a location reduced to the screen it names, across the URL shapes apps use. The <c>appLocation</c> describe is
-/// not ported: the engines report a location without its origin, so the port has no app origin to relate it to.
+/// Routes: a location reduced to the screen it names, across the URL shapes apps use. The <c>appLocation</c> describe is in
+/// <see cref="AppLocationTests"/>.
 /// </summary>
 public sealed class RouteIdentityTests
 {

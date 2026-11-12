@@ -51,9 +51,6 @@ internal static class StepScreens
     /// <summary>Characters of one change line.</summary>
     private const int MaxChangeChars = 200;
 
-    /// <summary>The observation byte budget upstream's <c>agent.maxObservationBytes</c> defaults to. The port has no such key.</summary>
-    internal const int DefaultObservationBytes = 262_144;
-
     /// <summary>The step's screen against the one <c>since</c> saw, or as the first screen when there was none.</summary>
     public static StepScreen CompareScreens((int Step, ScreenText Screen)? previous, ScreenText next)
     {
@@ -168,7 +165,7 @@ internal static class StepScreens
             var shown = !(node.States.Hidden || node.States.AriaHidden);
             if (shown)
             {
-                var text = SnapshotText.Describe(node, options.Redactor, options.AppOrigin, listing: false);
+                var text = SnapshotText.Describe(node, options.Redactor, options.AppOrigin);
                 bytes += Encoding.UTF8.GetByteCount(text) + 1;
                 if (lines.Count > 0 && bytes > options.MaxBytes)
                 {

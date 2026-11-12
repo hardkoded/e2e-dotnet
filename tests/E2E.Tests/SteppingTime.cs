@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests;
@@ -33,6 +34,8 @@ internal sealed class SteppingTime : FakeTimeProvider
     /// <summary>Runs the clock until <paramref name="pending"/> ends, then returns its outcome.</summary>
     public async Task RunAsync(Task pending)
     {
+        // A poll that waits on a real timer, not this clock, would never let the clock move: fail instead of spinning forever.
+        var idle = Stopwatch.StartNew();
         while (!pending.IsCompleted)
         {
             // Let the poll finish what it is doing, such as a read that completes and drops its own timeout.
@@ -44,7 +47,12 @@ internal sealed class SteppingTime : FakeTimeProvider
 
             if (!pending.IsCompleted && NextDue() is { } due)
             {
+                idle.Restart();
                 Advance(due > GetUtcNow() ? due - GetUtcNow() : TimeSpan.Zero);
+            }
+            else if (!pending.IsCompleted && idle.Elapsed > TimeSpan.FromSeconds(30))
+            {
+                throw new TimeoutException("The poll waits on no timer of the fake clock for 30 seconds; it must wait on this clock.");
             }
         }
 

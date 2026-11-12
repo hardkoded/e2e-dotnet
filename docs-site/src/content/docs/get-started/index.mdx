@@ -1,6 +1,8 @@
 ---
-title: Get started
+title: Quickstart
 description: Pick a platform and run a first E2E for .NET test.
+sidebar:
+  label: Quickstart
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
@@ -18,6 +20,7 @@ Every platform shares the same test API: `App`, `Agent`, `Screen`, and `Expect`.
 
 ```csharp
 await Agent.ActAsync("sign in as {user}", new ActOptions { Params = new Dictionary<string, object?> { ["user"] = "ada" } });
+
 await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!");
 ```
 
@@ -25,7 +28,7 @@ await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!")
 
 ## Before you start
 
-1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+1. Install the [.NET 10 or 11 SDK](https://dotnet.microsoft.com/download).
 2. Sign in to a model. For a GitHub Copilot plan:
 
    ```bash
@@ -33,8 +36,10 @@ await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!")
    e2e login github-copilot
    ```
 
-   For an API key, set `provider` and `model` under `agents.default` in `e2e.config.json`, and export the key the provider reads, for example `OPENAI_API_KEY`. See [the guide](/guide/#subscriptions) for ChatGPT, OpenCode Console, and SuperGrok.
+   For an API key, set `provider` and `model` under `agents.default` in `e2e.config.json`, and export the key the provider reads, for example `OPENAI_API_KEY`. See [Authentication](/features/signing-in/) for ChatGPT, OpenCode Console, and SuperGrok.
 3. Tests that never call the agent need no model, so you can start with locators only. A model request that fails on the network or with a 408, 409, 429, or 5xx answer is sent again up to 5 times before the step fails with `MODEL_PROVIDER_FAILED`. A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does not end in `RequestExpired`.
+
+To scaffold the project, the config, and an example test in one step, run `e2e init <directory>`. It needs the `E2E.Cli` tool from step 2, and `e2e init --example E2E.Sample <directory>` starts from a sample instead. See [Coding agents](/coding-agents/#scaffold-with-e2e-init).
 
 ## The config file
 
@@ -55,7 +60,7 @@ A `web` target takes `app.url`. An `ios` or `android` target takes `app.bundleId
 ## Next
 
 <CardGrid>
-  <LinkCard title="Samples" href={`${import.meta.env.BASE_URL}samples/`} description="Finished projects for each platform to copy from." />
-  <LinkCard title="Guide" href={`${import.meta.env.BASE_URL}guide/`} description="Config, model providers, hosted browsers, video, and CI." />
+  <LinkCard title="Core concepts" href={`${import.meta.env.BASE_URL}get-started/core-concepts/`} description="A test, the config file, and model providers." />
+  <LinkCard title="Web" href={`${import.meta.env.BASE_URL}get-started/web/`} description="Create a web test project and point it at your app." />
   <LinkCard title="API reference" href={`${import.meta.env.BASE_URL}api/`} description="Every public type." />
 </CardGrid>

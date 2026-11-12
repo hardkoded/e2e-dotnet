@@ -1,0 +1,10 @@
+@* Renders the scenario's component: a component type cannot cross from the static page to the interactive circuit, so the slug does. *@
+@if (ExamplesCatalog.Find(Slug)?.Component is { } component)
+{
+    <DynamicComponent Type="component" />
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Slug { get; set; } = "";
+}

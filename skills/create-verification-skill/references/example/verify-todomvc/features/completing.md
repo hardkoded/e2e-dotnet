@@ -32,7 +32,7 @@ completed` is visible. Reopening reverses all three.
 ## Charters
 
 ```
-complete-toggle-all|todomvc|Starting at /todomvc with three todos, use toggle-all, complete one by hand, then use toggle-all again; report a counter or a checkbox that disagrees with the rows
+complete-toggle-all|todomvc|skeptic|Starting at /todomvc with three todos, use toggle-all, complete one by hand, then use toggle-all again; report a counter or a checkbox that disagrees with the rows
 ```
 
 ## Gotchas

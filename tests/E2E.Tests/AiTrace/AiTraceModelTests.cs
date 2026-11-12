@@ -37,6 +37,74 @@ public sealed class AiTraceModelTests
     }
 
     [Fact]
+    public async Task Records_the_provider_metadata_of_a_tool_call_redacted()
+    {
+        var redactor = Redactor.ForValue(Password);
+        var metadata = new Dictionary<string, JsonElement> { ["google"] = JsonSerializer.SerializeToElement(new { thoughtSignature = "sig-" + Password }) };
+        var call = new ModelToolCall { Id = "c1", Name = "tap", Arguments = JsonSerializer.SerializeToElement(new { }), ProviderMetadata = metadata };
+        var model = new ScriptedModel(_ => new ModelResponse { ToolCalls = [call] });
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(redactor, new ModelMessage { Role = "assistant", ToolCalls = [call] }), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+        var output = JsonDocument.Parse(step.Output!).RootElement;
+
+        Assert.Equal("sig-[redacted]", output.GetProperty("content")[0].GetProperty("providerMetadata").GetProperty("google").GetProperty("thoughtSignature").GetString());
+        Assert.Equal("sig-[redacted]", output.GetProperty("response").GetProperty("messages")[0].GetProperty("content")[0].GetProperty("providerOptions").GetProperty("google").GetProperty("thoughtSignature").GetString());
+        Assert.Contains("providerOptions", step.Input, StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, step.Input + step.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Records_the_provider_metadata_of_a_step_redacted()
+    {
+        var redactor = Redactor.ForValue(Password);
+        var metadata = new Dictionary<string, JsonElement> { ["gateway"] = JsonSerializer.SerializeToElement(new { cost = "0.0001", generationId = "gen-" + Password }) };
+        var model = new ScriptedModel(_ => new ModelResponse { Content = "ok", ProviderMetadata = metadata });
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(redactor), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+        var gateway = JsonDocument.Parse(step.Output!).RootElement.GetProperty("providerMetadata").GetProperty("gateway");
+
+        Assert.Equal("0.0001", gateway.GetProperty("cost").GetString());
+        Assert.Equal("gen-[redacted]", gateway.GetProperty("generationId").GetString());
+        Assert.DoesNotContain(Password, step.Input + step.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Omits_the_provider_metadata_of_a_tool_call_that_has_none()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+        var recorder = new AiTraceRecorder();
+
+        await AiTraceModel.CompleteAsync(recorder, model, Request(Redactor.None), CancellationToken.None);
+        var step = recorder.Drain().Steps[0];
+
+        Assert.DoesNotContain("providerMetadata", step.Output!, StringComparison.Ordinal);
+        Assert.DoesNotContain("providerOptions", step.Output!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Attributes_a_generation_a_tool_starts_to_the_step_that_called_it()
+    {
+        var recorder = new AiTraceRecorder();
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+
+        using (var turn = await AiTraceModel.BeginAsync(recorder, model, Request(Redactor.None), CancellationToken.None))
+        {
+            await turn.ExecuteToolAsync(() => AiTraceModel.CompleteAsync(recorder, model, Request(Redactor.None), CancellationToken.None));
+        }
+
+        var document = recorder.Drain();
+
+        Assert.Equal(2, document.Runs.Count);
+        var (outer, inner) = (document.Runs[0], document.Runs[1]);
+        Assert.Equal(outer.Id, inner.ParentRunId);
+        Assert.Equal(document.Steps.Single(step => step.RunId == outer.Id).Id, inner.ParentStepId);
+    }
+
+    [Fact]
     public async Task Records_a_screenshot_as_a_byte_count()
     {
         var recorder = new AiTraceRecorder();

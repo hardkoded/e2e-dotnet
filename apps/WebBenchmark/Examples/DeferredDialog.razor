@@ -1,0 +1,87 @@
+@using Microsoft.JSInterop
+@* Upstream's app/src/Examples/DeferredDialog.tsx. *@
+@implements IDisposable
+@inject IJSRuntime JS
+@if (_status == Status.Done)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Report submitted after deferred confirmation
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">
+            Submit the report; a confirmation dialog appears shortly after the click. Accept it.
+        </p>
+        @if (_status == Status.Cancelled)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                Submission was cancelled
+            </p>
+        }
+        @if (_status == Status.Pending)
+        {
+            <p style="@Hint">Preparing confirmation…</p>
+        }
+        <button type="button" data-testid="submit-report-button" style="@Button" @onclick="HandleSubmitAsync">
+            Submit report
+        </button>
+    </div>
+}
+
+@code {
+    private const int DialogDelayMs = 900;
+
+    private enum Status
+    {
+        Idle,
+        Pending,
+        Cancelled,
+        Done,
+    }
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    // Leaving the page while a confirmation is pending must not pop it over the next page (upstream's effect cleanup clears the timer).
+    private readonly CancellationTokenSource _disposed = new();
+    private Status _status = Status.Idle;
+
+    /// <summary>
+    /// Opens the confirm on a timer instead of synchronously in the click handler, so the click settles before any dialog exists. A
+    /// driver that only checks for dialogs during the triggering action misses it; the dialog must be caught when it surfaces moments
+    /// later. A second click while one confirmation is pending is ignored, so one interaction never queues two dialogs.
+    /// </summary>
+    private async Task HandleSubmitAsync()
+    {
+        if (_status == Status.Pending)
+        {
+            return;
+        }
+
+        _status = Status.Pending;
+        StateHasChanged();
+        try
+        {
+            await Task.Delay(DialogDelayMs, _disposed.Token);
+            var confirmed = await JS.InvokeAsync<bool>("confirm", _disposed.Token, "Really submit the report?");
+            _status = confirmed ? Status.Done : Status.Cancelled;
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or JSDisconnectedException)
+        {
+            // The page went away before the dialog was due.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+}

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -12,9 +13,6 @@ namespace E2E;
 /// </summary>
 public enum VisionDegradation
 {
-    /// <summary>A secret was filled in this attempt, so the app may show it outside a secure field and no pixels reach a model.</summary>
-    PixelTainted,
-
     /// <summary>The engine masked fewer regions than the tree has secure nodes, so the image cannot be proven redacted.</summary>
     MaskingUnproven,
 
@@ -105,14 +103,28 @@ internal sealed record StepEvent
 
     public string? Name { get; init; }
 
-    public int? Count { get; init; }
+    public long? Count { get; init; }
+
+    /// <summary>A <c>model</c> event's input tokens, present only when the provider reported a representable count (upstream's <c>tokenFields</c>).</summary>
+    public long? InputTokens { get; init; }
+
+    public long? OutputTokens { get; init; }
 
     public int? Bytes { get; init; }
+
+    /// <summary>A <c>policy</c> event's verdict on the proposal it judged.</summary>
+    public PolicyDecision? Decision { get; init; }
 
     public string? Code { get; init; }
 
     /// <summary>Redacted human prose for what the event did, bounded. Secret values never appear: the name stands in.</summary>
     public string? Detail { get; init; }
+
+    /// <summary>
+    /// A <c>model</c> event's bounded, redacted excerpt of the reasoning the turn produced, when the provider returned one. The full
+    /// text lives in the AI trace, never here.
+    /// </summary>
+    public string? Reasoning { get; init; }
 }
 
 /// <summary>The accounting of one agent step. The port does not measure the pixel bytes upstream also keeps.</summary>
@@ -128,11 +140,14 @@ internal sealed record StepMetrics
 
     /// <summary>The largest observation the step read, in bytes of the text a model reads: 0 for a step that read none.</summary>
     public int ObservationBytes { get; init; }
+
+    /// <summary>The size in bytes of the largest screenshot the step handed to its model; null when it handed none (upstream's <c>pixelBytes</c>).</summary>
+    public int? PixelBytes { get; init; }
 }
 
 /// <summary>
 /// Model usage for one model-backed step (upstream's <c>StepModelInfo</c>). The port does not keep the provenance fields upstream also
-/// reports (<c>endpoint</c>, <c>adapterVersion</c>, <c>policyVersion</c>, <c>tokenAccounting</c>, <c>peakTokensPerCall</c>).
+/// reports (<c>endpoint</c>, <c>adapterVersion</c>, <c>policyVersion</c>).
 /// <see cref="IAgentModel.Name"/> already spells provider and model id together, so a step normally carries it in <see cref="Model"/>
 /// and no <see cref="Provider"/>.
 /// </summary>
@@ -146,14 +161,18 @@ internal sealed record StepModelInfo
 
     public int Calls { get; init; }
 
-    public int InputTokens { get; init; }
+    public TokenAccounting TokenAccounting { get; init; } = TokenAccounting.Provider;
 
-    public int OutputTokens { get; init; }
+    public long PeakTokensPerCall { get; init; }
+
+    public long InputTokens { get; init; }
+
+    public long OutputTokens { get; init; }
 
     /// <summary>Input tokens the provider served from its prompt cache, summed over the step's calls; null unless the provider reports the split. They are part of <see cref="InputTokens"/>.</summary>
-    public int? CacheReadTokens { get; init; }
+    public long? CacheReadTokens { get; init; }
 
-    public int? CacheWriteTokens { get; init; }
+    public long? CacheWriteTokens { get; init; }
 
     /// <summary>The summed cost of the calls that reported one; null when none did.</summary>
     public double? EstimatedCostUsd { get; init; }
@@ -217,6 +236,12 @@ internal sealed record StepAgentDetails
 
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }
+
+    /// <summary>True when a screenshot went to the step's model as input (upstream's <c>visionInput</c>).</summary>
+    public bool? VisionInput { get; init; }
+
+    /// <summary>Why pixels the step asked for did not become model input, when they did not (upstream's <c>visionDegraded</c>).</summary>
+    public VisionDegradation? VisionDegraded { get; init; }
 }
 
 /// <summary>The viewport a step established.</summary>
@@ -249,6 +274,12 @@ internal sealed class StepRecord
 
     public string? Explanation { get; set; }
 
+    /// <summary>True when a screenshot went to the step's model as input.</summary>
+    public bool? VisionInput { get; set; }
+
+    /// <summary>Why pixels the step asked for did not become model input, when they did not.</summary>
+    public VisionDegradation? VisionDegraded { get; set; }
+
     /// <summary>The revision of the screen the step read last; null for a step that read none.</summary>
     public string? ObservationRevision { get; set; }
 
@@ -263,6 +294,9 @@ internal sealed class StepRecord
 
     /// <summary>The model's usage across the step's calls; null for a step that made none.</summary>
     public StepModelInfo? Model { get; set; }
+
+    /// <summary>The accumulator behind <see cref="Model"/> (upstream's <c>StepAccounting.usage</c>).</summary>
+    public ModelUsage Usage { get; } = new();
 
     /// <summary>The model turns of an agent step, most recent last, bounded.</summary>
     public IReadOnlyList<StepTurn>? Turns { get; set; }
@@ -379,6 +413,9 @@ internal sealed record StepRecorderOptions
 
     /// <summary>Cuts every running step when it fires: the step fails with <c>CANCELLED</c> and its body is abandoned.</summary>
     public CancellationToken Cancellation { get; init; }
+
+    /// <summary>The running phase's signal, read when a step starts: a step that starts with it already cut is refused, and not recorded.</summary>
+    public Func<CancellationToken>? Signal { get; init; }
 
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }

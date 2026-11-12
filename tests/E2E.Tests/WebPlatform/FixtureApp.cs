@@ -170,6 +170,17 @@ internal static class FixtureApp
         </html>
         """;
 
+    // The flags as a script the document waits for: a route on it is invoked before the page's load event, so before the navigation returns.
+    private const string ScriptFlags = """
+        <!doctype html>
+        <html>
+        <head><title>Flags</title><script src="/api/flags.js"></script></head>
+        <body>
+          <h1>Flags</h1>
+        </body>
+        </html>
+        """;
+
     // The flags the page reads from /api/flags.
     private const string Flags = """
         <!doctype html>
@@ -212,6 +223,44 @@ internal static class FixtureApp
         <!doctype html><html><head><title>Downloads</title></head><body><h1>Downloads</h1><a href="/report.csv" download>Download report</a></body></html>
         """;
 
+    // A page whose containers carry no role, test id, or text of their own: the observation lists only the link and the heading.
+    private const string Wrappers = """
+        <!doctype html><html><head><title>Wrappers</title></head><body>
+          <div id="outer"><section class="card"><div class="inner"><a href="/about">Open about</a></div></section></div>
+          <main id="empty"></main>
+          <button id="menu"><i class="glyph"></i>Menu</button>
+          <span id="shadow-menu" role="button" tabindex="0"></span>
+          <script>document.getElementById('shadow-menu').attachShadow({ mode: 'open' }).innerHTML = '<i class="in-shadow"></i>Shadow menu';</script>
+          <div id="pad" style="width:80px;height:40px" onclick="document.title = 'Pad clicked'"></div>
+          <iframe id="box" title="box" srcdoc="&lt;div id=&quot;in-frame&quot;&gt;&lt;p&gt;&lt;a href=&quot;#&quot;&gt;Inside link&lt;/a&gt;&lt;/p&gt;&lt;/div&gt;"></iframe>
+        </body></html>
+        """;
+
+    // More listed nodes than the observation holds, then an element no node lists: a selector must still reach it past the cut.
+    private const string Crowded = """
+        <!doctype html><html><head><title>Crowded</title></head><body>
+          <script>document.write('<button>b</button>'.repeat(3100));</script>
+          <div class="tail-wrap"><i class="tail"></i></div>
+        </body></html>
+        """;
+
+    // An export that carries what the form was filled with: the link downloads a CSV echoing the key field, the way an app's export
+    // includes its data.
+    private const string Exports = """
+        <!doctype html><html><head><title>Exports</title></head><body>
+          <h1>Exports</h1>
+          <label for="export-key">Export key</label>
+          <input id="export-key" type="password" autocomplete="off" />
+          <a id="export" href="/echo.csv" download>Download export</a>
+          <script>
+            document.getElementById('export').addEventListener('click', () => {
+              const key = document.getElementById('export-key').value;
+              document.getElementById('export').href = '/echo.csv?value=' + encodeURIComponent(key);
+            });
+          </script>
+        </body></html>
+        """;
+
     private const string Dialog = """
         <!doctype html>
         <html>
@@ -229,6 +278,10 @@ internal static class FixtureApp
         return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
         {
             "/downloads" => TinySite.RespondAsync(context, Downloads),
+            "/wrappers" => TinySite.RespondAsync(context, Wrappers),
+            "/crowded" => TinySite.RespondAsync(context, Crowded),
+            "/exports" => TinySite.RespondAsync(context, Exports),
+            "/echo.csv" => RespondEchoCsvAsync(context),
             "/dialog" => TinySite.RespondAsync(context, Dialog),
             "/report.csv" => RespondCsvAsync(context),
             "/" => TinySite.RespondAsync(context, Home),
@@ -237,6 +290,7 @@ internal static class FixtureApp
             "/frame" => TinySite.RespondAsync(context, Frame),
             "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
             "/child" => TinySite.RespondAsync(context, Child),
+            "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
             "/flags" => TinySite.RespondAsync(context, Flags),
             "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
             "/editor" => TinySite.RespondAsync(context, Editor),
@@ -250,6 +304,17 @@ internal static class FixtureApp
         var body = System.Text.Encoding.UTF8.GetBytes("id,total\n1,42\n");
         context.Response.ContentType = "text/csv";
         context.Response.AddHeader("Content-Disposition", "attachment; filename=\"report.csv\"");
+        context.Response.ContentLength64 = body.Length;
+        await context.Response.OutputStream.WriteAsync(body);
+        context.Response.Close();
+    }
+
+    private static async Task RespondEchoCsvAsync(HttpListenerContext context)
+    {
+        var value = System.Web.HttpUtility.ParseQueryString(context.Request.Url!.Query)["value"] ?? "";
+        var body = System.Text.Encoding.UTF8.GetBytes($"id,key\n1,{value}\n");
+        context.Response.ContentType = "text/csv";
+        context.Response.AddHeader("Content-Disposition", "attachment; filename=\"export.csv\"");
         context.Response.ContentLength64 = body.Length;
         await context.Response.OutputStream.WriteAsync(body);
         context.Response.Close();

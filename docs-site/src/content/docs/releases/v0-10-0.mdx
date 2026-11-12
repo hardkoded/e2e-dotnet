@@ -1,0 +1,207 @@
+---
+title: "v0.10.0"
+description: "E2E for .NET v0.10.0: the libraries ship for .NET 11, plus serial test groups, a hook before each agent action, command tools in the config, schema checks on values, and steadier mobile runs."
+sidebar:
+  label: "v0.10.0"
+---
+
+_Released November 11, 2026_
+
+v0.10.0 brings 123 pull requests, three days after v0.9.0. Highlights:
+
+- The libraries ship for .NET 11 and .NET 10.
+- `[Serial]` test classes on NUnit: the members share one session.
+- A hook before each agent action.
+- Project tools declared as commands in `e2e.config.json`, served by `e2e mcp`.
+- `ToMatchSchema` and `Expect.Undefined`.
+- Steadier mobile runs: a shut-down device boots when none is booted, and a leased device stays with its worker across attempts.
+
+```bash
+dotnet add package E2E --version 0.10.0
+dotnet add package E2E.NUnit --version 0.10.0   # or E2E.XUnit.V3
+dotnet tool update --global E2E.Cli
+```
+
+> ⚠️ This release has breaking changes. See [Breaking changes](#breaking-changes) before you upgrade.
+
+## .NET 11 (#1573)
+
+Every library package ships `net10.0` (the current LTS) and `net11.0` (the current STS). `src/Directory.Build.props` sets both. The API is the same on each, and nothing was dropped: a `net10.0` project keeps building.
+
+Tests, samples, and apps stay on `net10.0`. The MAUI sample and the web benchmark target `net11.0`.
+
+### Target it
+
+A project that runs on .NET 11 only:
+
+```xml
+<TargetFramework>net11.0</TargetFramework>
+```
+
+A test project that runs on both. `dotnet test` runs the suite once per framework:
+
+```xml
+<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+```
+
+Playwright's install script follows the build output. For a `net11.0` build:
+
+```bash
+pwsh bin/Debug/net11.0/playwright.ps1 install chromium
+```
+
+| Package | v0.9.0 | v0.10.0 |
+| --- | --- | --- |
+| `E2E`, `E2E.NUnit`, `E2E.XUnit.V3` | `net10.0` | `net10.0`, `net11.0` |
+| `E2E.Mobile`, `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, `E2E.Mobile.DevFlow` | `net10.0` | `net10.0`, `net11.0` |
+| `E2E.WinApp`, `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3` | `net10.0` | `net10.0`, `net11.0` |
+| `E2E.Acp`, `E2E.GitHub`, `E2E.Expo`, `E2E.BrowserStack`, `E2E.Limrun`, `E2E.Kernel` | `net10.0` | `net10.0`, `net11.0` |
+| `E2E.TestMu`, `E2E.TestMu.Mobile` | `net10.0` | `net10.0`, `net11.0` |
+| `E2E.Cli` | `net10.0` | `net10.0` |
+
+`E2E.Cli` stays on `net10.0`. `dotnet run` fails on a multi-targeted project unless you pass `-f`, so the tool stays on one framework. The project sets no `RollForward`. The machine that runs `e2e` needs the .NET 10 runtime. A .NET 11 SDK does not include it.
+
+### .NET MAUI
+
+The [MAUI guide](/get-started/maui/) builds `net11.0-ios` and `net11.0-android`. The iOS simulator build is `bin/Debug/net11.0-ios/iossimulator-arm64/MyApp.app`. .NET 11 raises Android's minimum to API 24, and the workload needs the API 37 platform. The test project stays a plain `net10.0` or `net11.0` project, so it builds on a machine without the MAUI workload.
+
+### Windows apps
+
+`E2E.WinApp`, `E2E.WinApp.NUnit`, and `E2E.WinApp.XUnit.V3` add `net11.0-windows7.0` beside `net10.0-windows7.0` in `AssetTargetFallback`. The UI Automation library ships Windows assets only, so a project that restores it repeats both fallbacks and adds `NU1701` to `NoWarn`. [Windows guide](/get-started/windows/)
+
+### Build and CI
+
+`global.json` pins SDK `11.0.100` with `rollForward` set to `latestFeature`, so a later 11.0 SDK is accepted for the build. That setting picks the SDK. It does not roll the `e2e` tool onto the .NET 11 runtime. The CI workflows install `10.0.x` and `11.0.x`.
+
+## Serial test classes
+
+`[Serial]` on an NUnit `E2ETest` class makes its members one group (#1489). They share one session, so the page one member left is still there for the next, and a field carries a value between them. The session starts with the first member. After a member fails, the later members are skipped. Give them `[DependsOnTest]` to fix the order. Do not combine it with `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`, or with tests running in parallel in the fixture.
+
+```csharp
+[Serial]
+public sealed class WorkspaceWizardTests : E2ETest
+{
+    private string _chosenPlan = "";
+
+    [Test]
+    public async Task Step_1_name_the_workspace()
+    {
+        await App.OpenAsync("/wizard");
+        await Screen.GetByLabel("Workspace name").FillAsync("Rocketry");
+        await Screen.GetByRole("button", "Next").TapAsync();
+    }
+
+    [Test, DependsOnTest(nameof(Step_1_name_the_workspace))]
+    public async Task Step_2_pick_a_plan()
+    {
+        await Screen.GetByLabel("Plan").SelectOptionAsync("Pro");
+        _chosenPlan = "Pro";
+        await Screen.GetByRole("button", "Next").TapAsync();
+    }
+}
+```
+
+## A hook before each agent action
+
+`ActOptions.OnBeforeAction` runs before each action of `Agent.ActAsync`, including actions the replay cache replays (#1436). The step waits for it. Use it to capture the screen the action started on. The event has `Index` (1-based, the same index the action's `OnAction` event gets) and `Source` (`ActionSource.Model`, or `ActionSource.Replay` for a cached action). It does not wait for the screen to settle. A mutating project tool runs it. A read-only tool does not. If it throws, the step fails before the action runs, with a message that starts with `agent.act onBeforeAction failed`, and the recording is left alone.
+
+The `OnAction` event that follows reports the recorded action summary (#1428).
+
+```csharp
+await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
+{
+    OnBeforeAction = e => App.ScreenshotAsync($"before {e.Index}"),
+});
+```
+
+## Command tools in the config
+
+`agents.<name>.tools` declares project tools as commands (#1484). Each command runs in the project root. The model's input is JSON on stdin, stdout is the answer, and stderr is printed (`e2e mcp` redacts it). A non-zero exit, or two minutes without an exit, fails the call. `e2e mcp` serves the tool beside the session's tools. A tool written in code is still an `AgentTool` on the fixture.
+
+`description`, `mutates`, and `command` (the program, then its arguments) are required. `inputSchema` is a JSON schema object. Leave it out and the tool takes an object with no properties. `platforms` limits where the tool is offered. `mutates: true` takes a slot of the step's action budget, and the replay cache cannot replay past the call.
+
+A name the agent or an MCP session already uses is `INVALID_CONFIG` (#1517): `observe`, `done`, the action verbs, `complete_step`, `locate`, `run_code`, `test_lines`, `start_recording`, `stop_recording`, and `report_finding`.
+
+```json
+{
+  "agents": {
+    "default": {
+      "tools": {
+        "seed_cart": {
+          "description": "Seed the cart with a SKU",
+          "mutates": true,
+          "command": ["node", "tools/seed-cart.mjs"],
+          "inputSchema": {
+            "type": "object",
+            "properties": { "sku": { "type": "string" } },
+            "required": ["sku"],
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Schema checks
+
+`ToMatchSchema` checks a plain value against a schema you write as a `StandardSchemaV1<TOutput>` delegate (#1518). There is no Standard Schema library in .NET. The delegate returns `StandardSchemaV1Result<TOutput>.Success(output)` or `.Failure(issues)`, and each `StandardSchemaV1Issue` carries its path. A match returns the output, defaults applied. A mismatch lists every issue by its path. A negated check returns `null`. A schema that validates asynchronously cannot be passed. A null schema is `INVALID_ARGUMENT`.
+
+```csharp
+StandardSchemaV1<Dictionary<string, object?>> User = value =>
+{
+    if (value is Dictionary<string, object?> record && record.GetValueOrDefault("id") is int id)
+    {
+        return StandardSchemaV1Result<Dictionary<string, object?>>.Success(
+            new Dictionary<string, object?> { ["id"] = id, ["role"] = record.GetValueOrDefault("role") ?? "member" });
+    }
+
+    return StandardSchemaV1Result<Dictionary<string, object?>>.Failure(
+        [new StandardSchemaV1Issue("expected a number", ["id"])]);
+};
+
+var user = Expect.That<object?>(new Dictionary<string, object?> { ["id"] = 1 }).ToMatchSchema(User);
+```
+
+`Expect.Undefined` stands for JavaScript's `undefined`, which C# has no value for (#1402). `null` is only `null`. `ToBeDefined` passes for `null`. `ToBeUndefined` passes only for `Expect.Undefined`. `ToEqual` ignores a member that holds `Expect.Undefined`. [Value checks](/features/assertions/#value-checks)
+
+## Steadier mobile runs
+
+When no device is named and none is booted, prepare boots a shut-down simulator or emulator (#1567). agent-device picks one: a phone or tablet over a TV, then the newest OS, then name order. A booted device another agent-device session holds is still skipped. When every booted device is held, prepare still fails with `ENGINE_FAILURE`.
+
+A leased device stays with its worker across the attempts that run on that slot (#1552). Disposing an attempt leaves the leased device booted under its session. The run's finish closes those sessions, then releases the leases. A provider recording whose stop failed stays marked on the worker and is finished before the next attempt records.
+
+## Also in this release
+
+- A test that restores a saved session runs the `[E2ESetup]` test that saves it first, once per run (#1488).
+- `E2EConfig.WithTarget(name, engine)` puts an `IEngine` on a named target, in place of the target of that name or after the others when none has it (#1476). The config digest includes that engine's declaration (#1469).
+- Engine authors outside the `E2E` assembly can call the shared helpers: `KeyGrammar`, `ExpressionResolution.ResolveExpression`, `TextRules.MatchesText`, `Urls`, `Time`, `Timing.RaceAbortAsync`, `Secret.IsSecret`, and `JsonValueValidation.ValidateJsonValue`. `IEngine.ValidateApp` runs once per target at config load (#1530). [Writing an engine](/docs/writing-an-engine/)
+- An upload path `sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`, `sample:notes.txt`, `sample:table.csv`, or `sample:empty.txt` is a file e2e ships. `e2e mcp` serves `upload` when the engine declares `EngineCapabilities.Upload`, and `test_lines` prints `SetInputFilesAsync` for a project file (#1539).
+- A click on a checkbox or radio goes through that control's own label (#1569).
+- `open_session` loads the test assembly again on every call, so a rebuilt test runs as it is now. `test` accepts `file:line`, the line of the attributes or the signature (#1482).
+- After a test times out, teardown runs under a budget of its own, so the session can still drive the app. `open_session {test}` opens on the screen the body left (#1492).
+- `AssertAsync`, `WaitForAsync`, and `ExtractAsync` show the judge where the screen is: a path on the app's origin, the whole address off it (#1541).
+- `Device.SetPermissionAsync(string?, string?)` takes the wire names, such as `"camera"` and `"grant"`. An unknown name or state is `INVALID_ARGUMENT` before any device command (#1499).
+- `Device.UnstableRaw` accepts `apps.uninstall`, `command.hardwareButton` (`power`, `volume-up`, `volume-down`), and `settings.update` for `text-size` and `animations` (Android only). Anything else throws `NotSupportedException`. TestMu refuses settings and some of these calls with `UNSUPPORTED_OPERATION` (#1475).
+- A test's swipe of the screen waits out the transition the previous action started (#1551). A test's swipe or scroll sets `postGestureStabilization` to false, and the next action on a control checks that the control stopped moving (#1568).
+- Device prepare logs how long each step took, one line per device, such as boot, the iOS runner, and opening Settings. A step that fails or times out is in that line (#1545).
+- Docs: [GitLab CI/CD](/integrations/gitlab/) (#1463) and the [Appium migration guide](/migrate/appium/) (#1443).
+
+### Tests and parity
+
+Alongside those, the release ports upstream tests the port was missing, including the web benchmark suites, observation and trace checks, value expectations, and the device-provider lease contract. The [full changelog](https://github.com/hardkoded/e2e-dotnet/compare/v0.9.0...v0.10.0) lists every commit.
+
+### Breaking changes
+
+- **`LocatorAction.PressSequentially` is removed.** `Locator.PressSequentiallyAsync` is focus, then the keyboard. A custom engine keeps `focus` in `ActionKinds`, declares `EngineCapabilities.Keyboard`, and implements `TypeTextAsync` so the app gets key events. An engine that declares no `focus` or no keyboard is refused with `UNSUPPORTED_CAPABILITY` before any node resolves (#1429). [Writing an engine](/docs/writing-an-engine/)
+- **`IStepCache` gains `bool Writable { get; }`.** `Write` returns `int?`: the size in bytes, or null when the entry was not written (#1430).
+- **`ToBeDefined` passes for `null`.** `ToBeUndefined` passes only for `Expect.Undefined` (#1402).
+- **`Expect.Poll` throws `ConfigurationException` (`INVALID_CONFIG`)** for a negative `Timeout` or a non-positive `Interval` (#1401). A `Timeout` of zero sets no deadline: the poll runs until the caller's cancellation token ends. A token that cannot end is `INVALID_CONFIG` too.
+- **An engine secret it did not declare fails with `SECRET_UNAVAILABLE`.** `EngineStartOptions.ResolveSecret` resolves only a name listed in `IEngine.Secrets`, and throws `ConfigurationException` for any other (#1407).
+
+## Links
+
+- [GitHub release](https://github.com/hardkoded/e2e-dotnet/releases/tag/v0.10.0)
+- [Full changelog: v0.9.0...v0.10.0](https://github.com/hardkoded/e2e-dotnet/compare/v0.9.0...v0.10.0)
+- [NuGet: E2E](https://www.nuget.org/packages/E2E)

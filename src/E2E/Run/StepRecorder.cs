@@ -29,6 +29,7 @@ internal sealed class StepRecorder
     private readonly string? _projectRoot;
     private readonly Func<string, string>? _redact;
     private readonly CancellationToken _cancellation;
+    private readonly Func<CancellationToken>? _signal;
     private readonly AiTraceScope? _aiTrace;
     private readonly Lock _gate = new();
     private readonly List<StepRecord> _steps = [];
@@ -75,6 +76,7 @@ internal sealed class StepRecorder
         _projectRoot = options.ProjectRoot;
         _redact = options.Redact;
         _cancellation = options.Cancellation;
+        _signal = options.Signal;
         _aiTrace = options.AiTrace;
     }
 
@@ -118,6 +120,13 @@ internal sealed class StepRecorder
     public Task<T> RunAsync<T>(StepKind kind, string api, string rawLabel, Func<Task<T>> body, StepRunOptions? options = null)
     {
         options ??= new StepRunOptions();
+
+        // A step the body starts after its own timeout cut the signal is refused, and not recorded: upstream's attempt has ended by then, so the
+        // timeline keeps the steps that ran.
+        if (_signal?.Invoke() is { IsCancellationRequested: true } cut)
+        {
+            return Task.FromCanceled<T>(cut);
+        }
 
         // The label is published, reported, and traced as is: a secret the test spelled into an instruction or a locator stops here, once.
         var label = RedactText(rawLabel);
@@ -329,6 +338,15 @@ internal sealed class StepRecorder
         }
     }
 
+    /// <summary>The id of the step <see cref="AttachArtifact"/> would attach to, which a store is told produced the artifact; null when there is none.</summary>
+    public string? ArtifactStepId()
+    {
+        lock (_gate)
+        {
+            return (_scope.Value is null ? _steps.LastOrDefault() : CurrentLocked())?.Id;
+        }
+    }
+
     /// <summary>Records one child event of the running step.</summary>
     public void RecordEvent(StepEvent stepEvent)
     {
@@ -469,6 +487,16 @@ internal sealed class StepRecorder
             current.ObservationTruncated = truncated;
         }
 
+        if (details.VisionInput is { } visionInput)
+        {
+            current.VisionInput = visionInput;
+        }
+
+        if (details.VisionDegraded is { } degraded)
+        {
+            current.VisionDegraded = degraded;
+        }
+
         if (details.Explanation is not null)
         {
             current.Explanation = RedactText(details.Explanation);
@@ -482,6 +510,8 @@ internal sealed class StepRecorder
     public void AddModelCall(ExecutorModelCall? call)
     {
         StepRecord current;
+        long tokens;
+        (long? InputTokens, long? OutputTokens) fields;
         lock (_gate)
         {
             if (CurrentLocked() is not { } running)
@@ -491,17 +521,17 @@ internal sealed class StepRecorder
 
             current = running;
             var before = current.Model;
-            current.Model = new StepModelInfo
-            {
-                Provider = call?.Provider ?? before?.Provider,
-                Model = call?.ModelId ?? before?.Model,
-                Calls = (before?.Calls ?? 0) + 1,
-                InputTokens = (before?.InputTokens ?? 0) + (call?.InputTokens ?? 0),
-                OutputTokens = (before?.OutputTokens ?? 0) + (call?.OutputTokens ?? 0),
-                CacheReadTokens = Sum(before?.CacheReadTokens, call?.CacheReadTokens),
-                CacheWriteTokens = Sum(before?.CacheWriteTokens, call?.CacheWriteTokens),
-                EstimatedCostUsd = call?.EstimatedCostUsd is { } cost ? (before?.EstimatedCostUsd ?? 0) + cost : before?.EstimatedCostUsd,
-            };
+            var usage = new ModelUsage.Usage(
+                call?.InputTokens,
+                call?.OutputTokens,
+                call?.CacheReadTokens,
+                call?.CacheWriteTokens,
+                EstimatedCostUsd: call?.EstimatedCostUsd);
+            tokens = current.Usage.Record(usage);
+            fields = ModelUsage.TokenFields(usage);
+            current.Model = current.Usage.Report(
+                new StepModelInfo { Provider = call?.Provider ?? before?.Provider, Model = call?.ModelId ?? before?.Model },
+                (before?.Calls ?? 0) + 1);
         }
 
         Push(
@@ -512,11 +542,12 @@ internal sealed class StepRecorder
                 StartedAt = call?.StartedAt ?? DateTimeOffset.UtcNow,
                 DurationMs = Math.Max(0, call?.DurationMs ?? 0),
                 Name = "executor",
-                Count = (call?.InputTokens ?? 0) + (call?.OutputTokens ?? 0),
+                Count = tokens,
+                InputTokens = fields.InputTokens,
+                OutputTokens = fields.OutputTokens,
+                Reasoning = ModelUsage.ReasoningField(call?.Reasoning, RedactText),
             });
     }
-
-    private static int? Sum(int? left, int? right) => left is null && right is null ? null : (left ?? 0) + (right ?? 0);
 
     /// <summary>
     /// Notes a screen the running step saw; the newest one stands. <paramref name="read"/> renders it, redacted, and runs once, when

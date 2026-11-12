@@ -8,7 +8,7 @@ namespace E2E.Tests.StepCache;
 
 /// <summary>
 /// Upstream's <c>describe('cache.strict and a step whose key changed under its recording')</c> at the session seam. Not ported,
-/// as the port has no such case: a truncated recording, and a secret masked in the claimed step (the act masks it before the
+/// as the port has no such case: a secret masked in the claimed step (the act masks it before the
 /// session sees it, which the pipeline version covers).
 /// </summary>
 public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
@@ -40,8 +40,8 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
         var error = await Assert.ThrowsAsync<AgentException>(session.BeginAsync);
 
         Assert.Equal("REPLAY_STALE", error.Code);
-        Assert.Contains("sits under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
-        Assert.EndsWith("re-record it without cache.strict.", error.Message, StringComparison.Ordinal);
+        Assert.Contains("holds it under another cache key (" + OldKey + ".json)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
         Assert.Equal(("missed", "no-entry"), (session.CacheInfo?.Mode, session.CacheInfo?.Reason));
     }
 
@@ -59,6 +59,34 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
             MakeHost(["/"]));
 
         Assert.Null(await session.BeginAsync());
+    }
+
+    [Fact]
+    public async Task Runs_live_when_the_only_recording_is_truncated_or_records_no_step()
+    {
+        Action<CacheEntry>[] changes =
+        [
+            entry =>
+            {
+                entry.Actions = [.. Enumerable.Range(0, 50).Select(_ => Tap("button", "Upgrade"))];
+                entry.Truncated = true;
+            },
+            entry =>
+            {
+                entry.Test = null;
+                entry.Instruction = null;
+                entry.Engine = null;
+                entry.ParamsDigest = null;
+                entry.CallIndex = null;
+                entry.Agent = null;
+            },
+        ];
+        foreach (var change in changes)
+        {
+            var session = MakeSession(Rekeyed(change), MakeHost(["/"]));
+
+            Assert.Null(await session.BeginAsync());
+        }
     }
 
     [Fact]

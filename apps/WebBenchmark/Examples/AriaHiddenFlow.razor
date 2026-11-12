@@ -1,0 +1,68 @@
+@* Upstream's app/src/Examples/AriaHiddenFlow.tsx.
+   Deliberately hostile accessibility: the entire flow is wrapped in a single aria-hidden="true" container, so the accessibility tree for
+   this screen is completely empty - snapshots based on it see nothing at all. Every element is a bare div with no role, label, or test
+   id, yet everything stays fully visible and clickable. *@
+<div aria-hidden="true" style="@Container">
+    @if (_step == Step.Pick)
+    {
+        <div style="@Hint">Choose the @TargetPlan plan</div>
+        <div style="@CardRow">
+            @foreach (var plan in Plans)
+            {
+                <div @key="plan" style="@Card" @onclick="() => HandlePick(plan)">
+                    <div style="@CardTitle">@plan</div>
+                    <div style="@CardPrice">@PlanPrices[plan]/mo</div>
+                </div>
+            }
+        </div>
+        @if (_error is not null)
+        {
+            <div style="@ErrorText">@_error</div>
+        }
+    }
+    @if (_step == Step.Confirm)
+    {
+        <div style="@Hint">Confirm your selection</div>
+        <div style="@Summary">@TargetPlan plan - $29/mo</div>
+        <div style="@Button" @onclick="() => _step = Step.Done">Confirm @TargetPlan plan</div>
+    }
+    @if (_step == Step.Done)
+    {
+        <div style="@SuccessText">Plan activated</div>
+    }
+</div>
+
+@code {
+    private enum Step { Pick, Confirm, Done }
+
+    private static readonly string[] Plans = ["Basic", "Pro", "Max"];
+    private const string TargetPlan = "Pro";
+    private static readonly Dictionary<string, string> PlanPrices = new() { ["Basic"] = "$9", ["Pro"] = "$29", ["Max"] = "$99" };
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center;";
+    private const string CardRow = "display: flex; gap: 12px;";
+    private const string Card = "flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 16px; text-align: center; cursor: default; user-select: none;";
+    private const string CardTitle = "font-size: 16px; font-weight: 600;";
+    private const string CardPrice = "font-size: 13px; color: #666; margin-top: 4px;";
+    private const string Summary = "font-size: 16px; text-align: center;";
+    private const string Button = "background-color: #111; color: #fff; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; text-align: center; cursor: default; user-select: none;";
+    private const string ErrorText = "color: #c00; font-size: 14px; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center;";
+
+    private Step _step = Step.Pick;
+    private string? _error;
+
+    /// <summary>Advances to the confirm step only for the target plan; any other card shows a recoverable error and keeps the picker on screen.</summary>
+    private void HandlePick(string plan)
+    {
+        if (plan != TargetPlan)
+        {
+            _error = $"That is not the {TargetPlan} plan";
+            return;
+        }
+
+        _error = null;
+        _step = Step.Confirm;
+    }
+}

@@ -32,6 +32,22 @@ internal static class FixtureApp
         </html>
         """;
 
+    // Shows the token held in local storage, and stores the one a ?set query names (upstream's engine fixture app, /state).
+    public const string State = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture State</title></head>
+        <body>
+        <h1 id="token">none</h1>
+        <script>
+          const params = new URLSearchParams(location.search);
+          if (params.has('set')) localStorage.setItem('token', params.get('set'));
+          document.getElementById('token').textContent = localStorage.getItem('token') ?? 'none';
+        </script>
+        </body>
+        </html>
+        """;
+
     // Three controls share one value; the last shares it as a textarea.
     public const string Values = """
         <!doctype html>
@@ -107,7 +123,7 @@ internal static class FixtureApp
         </html>
         """;
 
-    // A heading with a level and a toggle button that reports aria-pressed.
+    // A heading with a level, a toggle button that reports aria-pressed, a context menu target, and a pad that logs the pointer events it gets.
     public const string Pointer = """
         <!doctype html>
         <html>
@@ -115,6 +131,19 @@ internal static class FixtureApp
         <body style="margin:0">
         <h2>Pointer</h2>
         <button id="toggle" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'true' ? 'false' : 'true')">Mute</button>
+        <div id="menu-target" data-testid="menu-target" oncontextmenu="event.preventDefault(); this.textContent = 'context menu'">Right click me</div>
+        <div id="pad" style="position:absolute;left:100px;top:300px;width:400px;height:300px;background:#eee"></div>
+        <pre id="log" data-testid="log"></pre>
+        <script>
+          const log = document.getElementById('log');
+          const pad = document.getElementById('pad');
+          for (const type of ['click', 'dblclick', 'contextmenu', 'mousedown', 'mouseup', 'wheel']) {
+            pad.addEventListener(type, (event) => {
+              if (type === 'contextmenu') event.preventDefault();
+              log.textContent += type + ':' + event.clientX + ',' + event.clientY + (type === 'wheel' ? ':' + event.deltaY : '') + String.fromCharCode(10);
+            });
+          }
+        </script>
         </body>
         </html>
         """;
@@ -136,6 +165,19 @@ internal static class FixtureApp
         </html>
         """;
 
+    // A user field and a password field, both white on white.
+    public const string Login = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture Login</title></head>
+        <body style="margin:0;background:#fff">
+        <h1>Login</h1>
+        <label>User <input name="user" value="ada" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>
+        <label>Password <input type="password" name="password" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>
+        </body>
+        </html>
+        """;
+
     private static readonly Dictionary<string, string> Pages = new(StringComparer.Ordinal)
     {
         ["/"] = Home,
@@ -145,6 +187,8 @@ internal static class FixtureApp
         ["/contents"] = Contents,
         ["/closed-login"] = ClosedLogin,
         ["/twins"] = Twins,
+        ["/state"] = State,
+        ["/login"] = Login,
     };
 
     /// <summary>Starts the app. <c>/slow</c> answers with the home page after five seconds, long enough to cancel first.</summary>

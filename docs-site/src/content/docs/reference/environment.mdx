@@ -1,0 +1,215 @@
+---
+title: Environment variables
+description: Every variable the runner and the first-party packages read, and what each one does.
+---
+
+This page ports upstream's `docs/reference/environment.mdx`, listing the variables the .NET port reads. In the tables, `set` means the variable exists, `value` means it is not blank, and `flag` means it is `1` or `true` (case-insensitive). The port reads some variables upstream does not (marked .NET-only) and does not read others upstream does (see [Not read by the port](#not-read-by-the-port)).
+
+```bash
+export E2E_USER_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+export E2E_CACHE_DIR=~/.cache/e2e
+export E2E_HEADLESS=0
+```
+
+## Reference
+
+### Model
+
+Configure a model in `e2e.config.json` (`agents.<name>.model`), or pass one in code. The provider reads its API key from the variable below. The key's variable name can be changed with `apiKeyEnv` in the agent's config. A missing key fails on the first model call. Subscription models (`chatgpt`, `copilot`, `grok`, `opencode-console`) use a stored login instead.
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `OPENAI_API_KEY` | `OPENAI_API_KEY=<key>` | value | The key of the `openai` and `openai-responses` providers |
+| `ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY=<key>` | value | The key of the `anthropic` provider |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | `GOOGLE_GENERATIVE_AI_API_KEY=<key>` | value | The key of the `google` provider |
+| `AZURE_API_KEY`, `AZURE_RESOURCE_NAME` | `AZURE_RESOURCE_NAME=acme` | value | The key of the `azure` provider, and the resource its base URL is built from when `baseUrl` is not set |
+| `XAI_API_KEY` | `XAI_API_KEY=<key>` | value | The key of the `xai` provider |
+| `OPENROUTER_API_KEY` | `OPENROUTER_API_KEY=<key>` | value | The key of the `openrouter` provider |
+| `AI_GATEWAY_API_KEY`, `VERCEL_OIDC_TOKEN` | `AI_GATEWAY_API_KEY=<key>` | value | The key of the `gateway` provider. Without `AI_GATEWAY_API_KEY`, the Vercel OIDC token is used |
+| `LLM_API_KEY` | `LLM_API_KEY=<key>` | value | The key of the `openai-compatible` provider |
+| `AWS_BEARER_TOKEN_BEDROCK` | `AWS_BEARER_TOKEN_BEDROCK=<token>` | value | The `bedrock` provider's bearer token |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` | `AWS_ACCESS_KEY_ID=<id>` | value | The `bedrock` provider signs its requests (SigV4) with them when no bearer token is set. The session token is optional. .NET-only |
+| `AWS_REGION`, `AWS_DEFAULT_REGION` | `AWS_REGION=eu-west-1` | value | The `bedrock` region, in this order; default `us-east-1`. .NET-only |
+| [`E2E_OAUTH_CREDENTIALS`](#e2e_oauth_credentials) | `E2E_OAUTH_CREDENTIALS="$(cat oauth.json)"` | value | The stored subscription logins as JSON |
+| `OPENCODE_API_KEY` | `OPENCODE_API_KEY=<key>` | value | Replaces the stored `opencode-console` login |
+| `XDG_CONFIG_HOME` | `XDG_CONFIG_HOME=~/.config` | value | Directory of the stored logins, `$XDG_CONFIG_HOME/e2e/oauth.json`; default `~/.config/e2e/oauth.json` |
+| `CODEX_PATH` | `CODEX_PATH=/opt/codex` | value | The Codex binary the `codex` coding-agent preset starts. `agent.env` wins over it. .NET-only (see [Your coding agent](/features/acp/)) |
+
+The provider names and `apiKeyEnv` are the port's `ModelProviders` and `ModelConfig`; see the [API reference](/api/).
+
+#### `E2E_OAUTH_CREDENTIALS`
+
+The stored subscription logins as JSON, the contents of `oauth.json`, for a machine nobody can sign in on.
+
+- The subscription models and `e2e models` read it in place of `$XDG_CONFIG_HOME/e2e/oauth.json`.
+- `e2e login` and `e2e logout` refuse to change it.
+- Refreshed tokens are not written back.
+
+### Credentials and secrets
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `E2E_USER_<NAME>_USERNAME` | `E2E_USER_ADMIN_USERNAME=admin@example.test` | set | Replaces `credentials.<name>.username` |
+| `E2E_USER_<NAME>_PASSWORD` | `E2E_USER_ADMIN_PASSWORD="$ADMIN_PASSWORD"` | set | Replaces `credentials.<name>.password` |
+| `E2E_SECRET_<NAME>` | `E2E_SECRET_API_KEY="$API_KEY"` | set | Replaces the value of `secrets.<name>` |
+
+- `<NAME>` is the name uppercased with every character outside `A-Z0-9` replaced by `_`, so `power-user` becomes `E2E_USER_POWER_USER_USERNAME`.
+- Two credentials, or two secrets, whose names map to one `<NAME>` are `INVALID_CONFIG` at config load, set or not. So one rotation never replaces two entries. The message names the entries and the variables. For example, `api-key` and `api_key` both read `E2E_SECRET_API_KEY`.
+- A credential and a secret may share a name, since their prefixes differ.
+- A variable for a name absent from the config is ignored by the config. `Secret.User(name)` reads the credential variables for a name the config does not declare, as the port's own addition (.NET-only).
+- An empty password or secret is rejected, and so is one shorter than 6 characters (code points). Redaction rewrites every occurrence of a value, and one that short would take ordinary text with it.
+
+### Run mode
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `CI` | `CI=1` | value other than `0` or `false` | CI mode |
+
+Turns on CI mode:
+
+- `retries` defaults to 1.
+- `cache.mode` defaults to `read-only`, unless a custom `cache.store` is set.
+
+Upstream also defaults `workers` to 1, treats a focused test as `ONLY_IN_CI`, and ignores `reuseExisting` in CI. The port has no such settings (it runs under NUnit or xUnit, which set their own parallelism).
+
+### Test selection and run options (.NET-only)
+
+The test host has no `e2e run` command, so these variables stand in for upstream's flags.
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `E2E_AGENT` | `E2E_AGENT=fast` | value | The name of the agent (from `agents` in the config) the run uses, upstream's `--agent`. A test's own pin wins. An unknown name fails when the config loads, with `INVALID_CONFIG`, and `E2EConfig.AgentNames` and `E2EConfig.Agent` follow it |
+| `E2E_CHANGED_SINCE` | `E2E_CHANGED_SINCE=origin/main` | value | The base ref of `--changed-since`, when the host gives none. See [Test filters](/docs/test-filters/) |
+| `E2E_LAST_FAILED` | `E2E_LAST_FAILED=1` | flag | Reruns only the tests the last report failed, upstream's `--last-failed` |
+| `E2E_TRACE` | `E2E_TRACE=on` | value | Which attempts write `trace.md`, upstream's `--trace`. See [Caching and self-healing](/features/caching/) |
+| `E2E_VIDEO` | `E2E_VIDEO=retain-on-failure` | value | Which attempts record a video, upstream's `--video`. See [Video and screenshots](/features/video/) |
+| `E2E_UPDATE_SNAPSHOTS` | `E2E_UPDATE_SNAPSHOTS=1` | `1` only | Writes missing or different stored screenshots, upstream's `--update-snapshots`. Under `CI`, a missing stored screenshot is written only with it; otherwise the assertion fails. See [Soft assertions and evidence](/features/assertions/) |
+| `E2E_DEBUG` | `E2E_DEBUG=1` | flag | Prints the phase timings and the agent step table to stderr, upstream's `--debug` |
+| `E2E_AI_TRACE` | `E2E_AI_TRACE=1` | flag | Records every model call to `ai-trace-<process id>.json`, upstream's `--ai-trace` |
+
+### Replay cache
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| [`E2E_CACHE_DIR`](#e2e_cache_dir) | `E2E_CACHE_DIR=~/.cache/e2e` | value | Replaces `cache.dir` |
+| [`E2E_CACHE_DIR_OVERRIDE`](#e2e_cache_dir_override) | `E2E_CACHE_DIR_OVERRIDE=.e2e/other` | value | Replay cache directory for one run, upstream's `--cache-dir`. .NET-only name |
+| [`E2E_NO_CACHE`](#e2e_no_cache) | `E2E_NO_CACHE=1` | flag | Runs with the replay cache off, whatever the config says, upstream's `--no-cache`. .NET-only name |
+
+#### `E2E_CACHE_DIR`
+
+Replaces `cache.dir` for the test host and `e2e explore`, resolved from the project root.
+
+- `~` or a leading `~/` is the home directory.
+- A custom `cache.store` ignores it.
+- The cache mode stays as configured.
+
+See [Caching and self-healing](/features/caching/).
+
+#### `E2E_CACHE_DIR_OVERRIDE`
+
+Upstream's `--cache-dir`, for one run: the replay cache directory, resolved from the project root. It wins over `E2E_CACHE_DIR` and `cache.dir`.
+
+- `~` or a leading `~/` is the home directory.
+- A blank value is `INVALID_CONFIG` (`--cache-dir must be a non-empty path`); an empty one is ignored.
+- Beside a custom `cache.store` it is `INVALID_CONFIG`: a store has no directory.
+- An `output` that is the directory, inside it, or that would hold it under `results/` is refused.
+- The cache mode stays as configured. `e2e cache` takes the flag itself.
+
+See [Caching and self-healing](/features/caching/).
+
+#### `E2E_NO_CACHE`
+
+Upstream's `--no-cache`, for one run. Set to `1` or `true`, it turns the cache `off`: nothing replays and nothing is recorded or evicted, so the live agent runs every step.
+
+- It overrides `cache.mode`, including an explicit `read-write`, and applies in CI.
+- It overrides a custom `cache.store` too.
+- It is read when the config loads, so set it before the test host starts.
+- Use it to evaluate a new model, or to run a test once against the live agent after it passes.
+
+See [Caching and self-healing](/features/caching/).
+
+### Diagnostics
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `NO_COLOR` | `NO_COLOR=1` | value | Plain output from `ListReporter`, `e2e explore`, and `e2e doctor`. Without it, colors are on for a terminal and off when output is redirected |
+| `GITHUB_SHA`, `GITHUB_HEAD_REF`, `GITHUB_REF_NAME` | `GITHUB_REF_NAME=main` | value | The commit and branch the report records under `run.vcs` when `git` cannot read the project root. `GITHUB_HEAD_REF` wins over `GITHUB_REF_NAME` |
+
+`NO_COLOR` is honored only when colors would otherwise be on for the terminal: a live window (`ListReporterOptions.Live`) always draws in color.
+
+### Reporters
+
+`E2E.GitHub` reads the variables GitHub Actions sets, when a run finishes:
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `E2E_GITHUB_KEY` | `E2E_GITHUB_KEY=chromium` | value | The comment key when `GitHubReporter` is registered without options. .NET-only (upstream passes `key` to `github({ key })`) |
+| `GITHUB_ACTIONS` | `GITHUB_ACTIONS=true` | value | Without it the reporter posts nothing and says so |
+| `GITHUB_REPOSITORY`, `GITHUB_RUN_ID`, `GITHUB_EVENT_NAME`, `GITHUB_WORKFLOW`, `GITHUB_JOB` | `GITHUB_REPOSITORY=acme/shop` | value | Always set by the runner. A missing one fails the reporter, naming the variable |
+| `GITHUB_TOKEN`, `GH_TOKEN` | `GITHUB_TOKEN=<token>` | value | Posts the comment; the first one set wins. Unset, the job summary is still written |
+| `GITHUB_EVENT_PATH`, `GITHUB_REF` | `GITHUB_REF=refs/pull/42/merge` | value | The pull request number and head commit from the event payload, or the number from `refs/pull/N/merge` |
+| `GITHUB_SHA` | `GITHUB_SHA=<commit>` | value | The commit source links point at when the event is not about a pull request |
+| `GITHUB_WORKSPACE` | `GITHUB_WORKSPACE=/home/runner/work/shop/shop` | value | The checkout root, so a suite in a subdirectory links to the right file |
+| `GITHUB_SERVER_URL`, `GITHUB_API_URL` | `GITHUB_SERVER_URL=https://github.example.com` | value | The GitHub host, for Enterprise Server. Default `https://github.com` and `https://api.github.com` |
+| `GITHUB_STEP_SUMMARY` | `GITHUB_STEP_SUMMARY=<file>` | value | The job summary file the comment text is appended to |
+
+See [Pull request comments](/integrations/github/).
+
+### Engines
+
+#### Web
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `E2E_HEADLESS` | `E2E_HEADLESS=0` | value | `0` or `false` shows the browser window when `WebEngineOptions.Headless` is not set. Headless otherwise. .NET-only |
+| `E2E_SKIP_BROWSER_INSTALL` | `E2E_SKIP_BROWSER_INSTALL=1` | `1` or `true` | Skips the Chromium install the first run starts. Install the browser yourself, with `e2e install`. See [Web](/get-started/web/) |
+| `PLAYWRIGHT_BROWSERS_PATH` | `PLAYWRIGHT_BROWSERS_PATH=~/.cache/ms-playwright` | value | Playwright's browser cache. The web engine's install passes it to the Playwright driver, and `e2e doctor` reads it to check the cache: there, `0` means the browsers live inside the driver (nothing to check) and a relative path resolves against `INIT_CWD`, else the working directory |
+| `PLAYWRIGHT_SKIP_BROWSER_GC` | `PLAYWRIGHT_SKIP_BROWSER_GC=0` | value | Defaults to `1` for the engine's browser install, which keeps other browsers in the cache. `0` lets the install remove them |
+| `LOCALAPPDATA`, `XDG_CACHE_HOME` | `XDG_CACHE_HOME=~/.cache` | value | Where `e2e doctor` looks for Playwright's default browser cache (`%LOCALAPPDATA%\ms-playwright` on Windows, `$XDG_CACHE_HOME/ms-playwright` or `~/.cache/ms-playwright` on Linux, `~/Library/Caches/ms-playwright` on macOS) |
+| `KERNEL_API_KEY` | `KERNEL_API_KEY=<key>` | value | The API key `KernelProvider` creates browsers with. Unset, the browser lease fails |
+| `KERNEL_BASE_URL` | `KERNEL_BASE_URL=<url>` | value | Another Kernel API. Default `https://api.onkernel.com/`. .NET-only (the Kernel SDK upstream uses reads it) |
+| `LT_USERNAME`, `LT_ACCESS_KEY` | `LT_USERNAME=acme` | value | The TestMu AI username and access key `TestMuBrowsers` and the `E2E.TestMu.Mobile` provider lease with. With either unset, the lease fails |
+| `TESTMU_USERNAME`, `TESTMU_ACCESS_KEY` | `TESTMU_USERNAME=acme` | value | Aliases of `LT_USERNAME` and `LT_ACCESS_KEY`, used when those are unset. .NET-only |
+| `E2E_WEB_BROWSERS_<TARGET>_<digest>` | - | value | The web engine writes it in `PrepareAsync`; each worker reads it to find its leased browser. Don't set it by hand |
+
+#### Mobile
+
+| Variable | Example | Reading | Effect |
+| --- | --- | --- | --- |
+| `E2E_MOBILE_PROVIDER` | `E2E_MOBILE_PROVIDER=limrun` | value | `local` (default), `limrun`, or `devflow`. A hosted provider leases one device for the whole run. .NET-only |
+| `E2E_MOBILE_PLATFORM` | `E2E_MOBILE_PLATFORM=android` | value | `ios` or `android`; replaces the target's `platform`. .NET-only |
+| `E2E_MOBILE_APP_PATH` | `E2E_MOBILE_APP_PATH=./App.app` | value | Replaces the target's `app.appPath`. .NET-only |
+| `E2E_MOBILE_DEVICE` | `E2E_MOBILE_DEVICE="iPhone 16"` | value | The simulator or emulator to drive. Unset, the booted device of the platform. .NET-only |
+| `E2E_AGENT_DEVICE_BIN` | `E2E_AGENT_DEVICE_BIN=/opt/agent-device/bin.js` | value | An agent-device build to run under `node`, in place of the pinned release through `npx`. .NET-only |
+| `E2E_DEVFLOW_PORT`, `E2E_DEVFLOW_APP` | `E2E_DEVFLOW_PORT=9223` | value | The port and app name of the MAUI DevFlow agent (`E2E_MOBILE_PROVIDER=devflow`). A port that is not a number from 1 to 65535 fails the run. .NET-only |
+| `E2E_DEVFLOW_TRACE` | `E2E_DEVFLOW_TRACE=1` | `1` or `true` | Prints each call to the MAUI DevFlow agent. .NET-only |
+| `E2E_WINAPP_APP_PATH` | `E2E_WINAPP_APP_PATH=C:\apps\App.exe` | value | Replaces a Windows target's `app.appPath`. .NET-only |
+| `EXPO_TOKEN` | `EXPO_TOKEN=<token>` | value | The Expo access token `ExpoSimulators` starts and stops simulator sessions with |
+| `HOME`, `USERPROFILE` | `HOME=/home/ada` | value | Where `ExpoSimulators` finds the eas-cli login (`.expo/state.json`) without `EXPO_TOKEN`: `USERPROFILE` on Windows, `HOME` elsewhere |
+| `LIMRUN_API_KEY` | `LIMRUN_API_KEY=<key>` | value | The API key `LimrunSimulators` leases devices with. Unset, the lease fails with `INVALID_CONFIG`. See [Limrun](/integrations/limrun/) |
+| `LIMRUN_BASE_URL` | `LIMRUN_BASE_URL=<url>` | value | The Limrun API host. Default `https://api.limrun.com` |
+| `BROWSERSTACK_USERNAME`, `BROWSERSTACK_ACCESS_KEY` | `BROWSERSTACK_USERNAME=acme_AbC123` | value | The BrowserStack username and access key `BrowserStackDevices` leases with. With either unset, the lease fails. See [BrowserStack](/integrations/browserstack/) |
+| `BROWSERSTACK_API_ENDPOINT` | `BROWSERSTACK_API_ENDPOINT=<url>` | value | The App Automate API base URL. Default `https://api-cloud.browserstack.com/app-automate`. A value that is not an http(s) URL, or carries a username, password, query, or fragment, fails with `INVALID_CONFIG` |
+| `E2E_AGENT_DEVICE_POOL_<TARGET>_<digest>` | - | value | The mobile engine writes it in `PrepareAsync`; each worker reads it to find its booted device. Don't set it by hand |
+
+The two `E2E_*_<TARGET>_<digest>` variables are internal. `<TARGET>` is the target name uppercased with every character outside `A-Z0-9` replaced by `_`, and `<digest>` is the first 8 hex digits of the SHA-256 of the exact name, so `ios-a` and `ios.a` never share a key.
+
+#### `EXPO_TOKEN`
+
+The Expo access token `ExpoSimulators` starts and stops simulator sessions with. See [Expo Simulators](/get-started/mobile/).
+
+- Unset, it uses the eas-cli login in `.expo/state.json` under the home directory (`HOME`, `USERPROFILE`).
+- With neither, the device lease fails.
+
+## What app processes inherit
+
+An app `command` receives `PATH`, `HOME`, `TMPDIR`, `TMP`, `TEMP`, `SystemRoot`, and `COMSPEC`, plus the variables `command.inheritEnv` matches and whatever `command.env` sets.
+
+## Not read by the port
+
+The port does not read these variables upstream documents, because the feature is not ported (see [Compatibility](/compatibility/)):
+
+- `FORCE_COLOR` and `TERM`: no colored output when piped, and no animated `e2e init` logo.
+- `E2E_TELEMETRY_DISABLED`, `DO_NOT_TRACK`, `E2E_UPDATE_CHECK_DISABLED`, `NO_UPDATE_NOTIFIER`, `npm_config_registry`, `E2E_TELEMETRY_DEBUG`, `E2E_TELEMETRY_FLEET`, `APPDATA` (preferences file), and the CI-vendor, coding-agent, `WSL_DISTRO_NAME`, and `npm_config_user_agent` markers of "Detected environments": the port has no telemetry, update check, or `e2e upgrade`.
+- `LIGHTPANDA_PATH`: the port has no Lightpanda package.
+- `TESTMU_API_ENDPOINT`: the port's TestMu package has no session recording lookup.

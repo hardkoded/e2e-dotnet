@@ -26,6 +26,18 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private static readonly JsonSerializerOptions NodeJson = new() { PropertyNameCaseInsensitive = true };
 
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> ActionKinds => DeviceActions.NodeActionKinds;
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> PointerActionKinds => DeviceActions.PointerActionKinds;
+
+    /// <inheritdoc />
+    public bool CanDismissKeyboard => true;
+
+    /// <summary>The engine's keyboard hook: the dismissal under the input budget the agent's keyboard inputs get (upstream's <c>'keyboard dismiss'</c>).</summary>
+    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss"));
+
     private readonly MobileEngine _engine;
     private readonly string _name;
     private readonly string _where;
@@ -35,17 +47,22 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private readonly string? _artifactsDir;
     private readonly Action<Observation>? _screenSink;
     private readonly InflightCommands _inflight;
-    private IDeviceClient? _client;
 
-    private BoundDevice? _bound;
+    /// <summary>The device this attempt runs on: the client, the booted session and device, and the recording marked on it. The engine keeps it across the attempts of its slot (upstream's surface fields).</summary>
+    private readonly DeviceWorker _worker;
     private int _idCounter;
+
+    /// <summary>Screenshots the attempt kept, which number their files (upstream's <c>attempt.screenshots</c>).</summary>
+    private int _screenshots;
     private string? _appIdentity;
 
     /// <summary>True from a launch until a snapshot succeeds: an app iOS reports not running in between is still starting, not gone.</summary>
     private bool _launching;
     private ViewportSize? _knownViewport;
 
-    private DeviceSession(MobileEngine engine, MobileStartInfo info, SlotBinding? binding, string name, string where, IDeviceClient client)
+    private readonly (string Target, int Slot) _slot;
+
+    private DeviceSession(MobileEngine engine, MobileStartInfo info, SlotBinding? binding, string name, string where, DeviceWorker worker)
     {
         _engine = engine;
         _name = name;
@@ -56,8 +73,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         ActionTimeout = info.ActionTimeout;
         _binding = binding;
         _where = where;
-        _client = client;
+        _worker = worker;
         _inflight = engine.InflightOf(info.TargetName, info.WorkerSlot, binding);
+        _slot = (info.TargetName, info.WorkerSlot);
         if (engine.Pool.Recorder is { } provider && DeviceProviders.TravelledLease(binding) is { } lease)
         {
             _leaseRecorder = new LeaseRecorder(provider, lease, info.RunId, info.TargetName, info.AttemptId, info.Env);
@@ -91,11 +109,19 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public string? AppPath => _app.AppPath;
 
     /// <summary>
-    /// Who acts through this session. A test's step never settles, and it waits out a transition. The agent reads the
-    /// screen right after acting, so its actions settle first. The core session does not say who is calling, so the
-    /// caller sets it. The default is the agent's.
+    /// Who acts through this session when a caller does not say: the members that take no <see cref="OperationContext"/> (the ones
+    /// <see cref="IEngineSession"/> had before it). The default is the agent's.
     /// </summary>
-    public ActionOrigin Origin { get; set; } = ActionOrigin.Agent;
+    [Obsolete("Every action now carries an OperationContext: call the overload that takes one. Removed in the next release.")]
+    public ActionOrigin Origin
+    {
+        get => _origin == OperationOrigin.Test ? ActionOrigin.Test : ActionOrigin.Agent;
+        set => _origin = value == ActionOrigin.Test ? OperationOrigin.Test : OperationOrigin.Agent;
+    }
+
+    private OperationOrigin _origin = OperationOrigin.Agent;
+
+    internal OperationContext DefaultContext => _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
 
     /// <summary>The device fixture of this session: deterministic device management for a test.</summary>
     public Device Device => _device ??= new Device(this);
@@ -111,14 +137,25 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     internal EngineFixtureContext FixtureContext =>
         _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
 
-    /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
-    internal IDeviceClient Client => _client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+    /// <summary>The attempt's fixture context, or null for a session no test harness started, whose fixture calls then run unrecorded.</summary>
+    internal EngineFixtureContext? FixtureContextOrNull => _fixtureContext;
 
-    /// <summary>The agent-device session this worker drives and the device agent-device booted for it, or <c>INVALID_STATE</c> before the boot and after the close. Upstream's <c>boundDevice</c>.</summary>
-    internal BoundDevice BoundDevice => _bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+    /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
+    internal IDeviceClient Client => _worker.Tracked ??= _worker.Client switch
+    {
+        null => throw DeviceSupport.InvalidState("the agent-device engine is not initialized"),
+        ICancellableDeviceClient cancellable => cancellable,
+        var client => new TrackedClient(client, _inflight),
+    };
+
+    /// <summary>The agent-device session and the device it runs on; <c>INVALID_STATE</c> before the boot or after the session closed (upstream's <c>boundDevice</c>).</summary>
+    internal BoundDevice BoundDevice => _worker.Bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
+
+    /// <summary>The target and worker slot the attempt runs on.</summary>
+    internal (string Target, int Slot) Slot => _slot;
 
     /// <summary>Whether the target pins an app for <c>app.open()</c>, <c>app.restart()</c>, and <c>app.clearState()</c> to launch.</summary>
     private bool ManagesApp => _app.BundleId is not null || _app.AppPath is not null;
@@ -141,28 +178,81 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         }
     }
 
+    /// <summary>
+    /// Starts an attempt on the slot's worker. A worker the engine still holds keeps its client and booted device, so its attempt
+    /// boots nothing again (upstream's <c>startAttempt</c> on a live surface); a retained recording is finished first, and a start that
+    /// cannot finish it fails with the worker kept, so the next attempt tries again.
+    /// </summary>
     internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
     {
-        var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
-        await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
-        var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
-        var label = DeviceBindings.DeviceLabel(binding);
-        var where = $"session {session}{(label is null ? "" : $" on {label}")}";
-        var started = new DeviceSession(engine, info, binding, session, where, createClient(session, binding));
+        engine.ClaimSlot(info.TargetName, info.WorkerSlot);
+        DeviceSession started;
+        DeviceWorker worker;
         try
         {
-            await started.BootAsync(cancellationToken).ConfigureAwait(false);
+            var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
+            await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
+            var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
+            var label = DeviceBindings.DeviceLabel(binding);
+            var where = $"session {session}{(label is null ? "" : $" on {label}")}";
+            worker = engine.WorkerOf(info.TargetName, info.WorkerSlot, binding);
+            worker.Client ??= createClient(session, binding);
+            started = new DeviceSession(engine, info, binding, session, where, worker);
         }
         catch
         {
-            // The boot may have opened the agent-device session. Close it without hiding why the boot failed.
-            await started.CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            engine.ReleaseSlot(info.TargetName, info.WorkerSlot);
             throw;
+        }
+
+        try
+        {
+            await started.ResetRetainedRecordingAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The worker keeps its client and its recording: the next attempt finishes or resets them.
+            engine.ReleaseSlot(info.TargetName, info.WorkerSlot);
+            throw;
+        }
+
+        if (worker.Bound is null)
+        {
+            try
+            {
+                await started.BootAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                // The boot may have opened the agent-device session. Close it without hiding why the boot failed.
+                await started.CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                throw;
+            }
         }
 
         engine.Register(started);
         started.TellEnvironment(info.Environment);
         return started;
+    }
+
+    /// <summary>
+    /// Finishes what an earlier attempt left on the device before this one starts (upstream's <c>startAttempt</c>, first its
+    /// <c>recording</c> checks). A provider's recording is stopped, and a native one is reset by closing its agent-device session;
+    /// either that fails and the error goes to the caller.
+    /// </summary>
+    private async Task ResetRetainedRecordingAsync(CancellationToken cancellationToken)
+    {
+        switch (_worker.Recording)
+        {
+            case LeaseRecording lease:
+                await StopLeaseRecordingAsync(_worker, lease, cancellationToken).ConfigureAwait(false);
+                break;
+            case ScreenRecording:
+                await CommandAsync("reset video recording", DeviceMethods.SessionsClose, null, cancellationToken).ConfigureAwait(false);
+                ClearRecording(_worker, _worker.Recording!);
+                ScreenReplaced();
+                break;
+        }
     }
 
     /// <summary>Tells the trace what the attempt runs on. The trace is a reader of the attempt, so a hook that throws never fails it.</summary>
@@ -195,7 +285,10 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>The budget one input runs under. Its device commands stay in flight until they settle. Upstream's <c>inputBudget</c>.</summary>
-    internal InputBudget InputBudget(string label) => new(label, ActionTimeout, pending => Track(pending), _engine.Clock);
+    internal InputBudget InputBudget(string label) => InputBudget(label, ActionTimeout);
+
+    /// <summary>The budget of one operation on <paramref name="timeout"/>, such as the <c>timeout</c> a locate gets. Upstream's <c>inputBudget(label, timeoutMs)</c>.</summary>
+    internal InputBudget InputBudget(string label, TimeSpan timeout) => new(label, timeout, pending => Track(pending), _engine.Clock);
 
     /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
     internal Task<T> Track<T>(Task<T> pending)
@@ -223,8 +316,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private async Task BootAsync(CancellationToken cancellationToken)
     {
-        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
-        _bound = new BoundDevice(_name, booted?["id"]?.GetValue<string>() ?? "", booted?["device"]?.GetValue<string>() ?? "");
+        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, DevicePool.BootRequest(Selection), cancellationToken).ConfigureAwait(false);
+        _worker.Bound = new BoundDevice(_name, Text(booted?["id"]) ?? "", Text(booted?["device"]) ?? "");
 
         // Nothing is installed here: a device provider that installed the build from appPath says so on the binding,
         // and otherwise the suite installs it where it wants to, with device.installApp().
@@ -267,89 +360,265 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         await OpenAppAsync(app, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task BackAsync(CancellationToken cancellationToken)
+    public Task BackAsync(CancellationToken cancellationToken) => BackAsync(DefaultContext, cancellationToken);
+
+    public async Task BackAsync(OperationContext context, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
         var input = InputBudget("back");
-        var before = _latestIndex;
+        var before = _latestScreen;
         await CommandAsync(
             "back",
-            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(), token), token),
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(context), token), token),
             cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }
 
     public bool CanLocate => true;
 
-    public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(ActionTimeout, cancellationToken);
+
+    /// <summary>
+    /// Observes the screen within <paramref name="timeout"/>, the operation budget that bounds every device command of the observation:
+    /// the snapshot and the viewport probe share it (upstream's <c>observe</c> under <c>inputBudget('observe', operation.timeoutMs)</c>).
+    /// </summary>
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: with <see cref="ObserveOptions.Pixels"/> the
+    /// screenshot is taken under the same budget as the snapshot and the viewport probe (upstream's <c>observe(operation, options)</c>).
+    /// </summary>
+    public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, cancellationToken).ConfigureAwait(false);
+        var budget = InputBudget("observe", timeout);
+        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
-        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index));
-        var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
+        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected));
+        var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
+        var pixels = options?.Pixels == true ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken).ConfigureAwait(false) : null;
         return new Observation
         {
             Route = Route,
+            Pixels = pixels,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
+            Viewport = new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)),
             Truncated = raw.Truncated || raw.Sparse,
             KeyboardVisible = MeasuredKeyboard(raw),
         };
     }
 
     public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
-        _engine.Actions.PerformAsync(this, node, action, cancellationToken);
+        PerformAsync(node, action, DefaultContext, cancellationToken);
+
+    public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
+        _engine.Actions.PerformAsync(this, node, action, context, cancellationToken);
 
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         _engine.Actions.PressAsync(this, key, cancellationToken);
 
     public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
-        _engine.Actions.SwipeAsync(this, direction, cancellationToken);
+        SwipeAsync(direction, null, DefaultContext, cancellationToken);
 
-    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
-        _engine.Actions.ScreenshotAsync(this, cancellationToken);
+    /// <summary>A device has one stride for a viewport swipe, so <paramref name="momentum"/> is dropped.</summary>
+    public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext context, CancellationToken cancellationToken) =>
+        _engine.Actions.SwipeAsync(this, direction, context, cancellationToken);
 
-    public ValueTask DisposeAsync() => new(CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
+    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(ActionTimeout, cancellationToken);
 
-    /// <summary>Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is.</summary>
+    /// <summary>The masked screenshot within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
+    public Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+        _engine.Actions.ScreenshotAsync(this, timeout, cancellationToken);
+
+    /// <summary>
+    /// A redacted screenshot artifact. The device paints secure fields as dots, but the last typed character shows in clear, so every
+    /// secure node's bounds are painted over before the file is kept. An image that cannot be redacted is not written at all (upstream's
+    /// <c>screenshot</c> in <c>mobile/src/surface.ts</c>).
+    /// </summary>
+    public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, ActionTimeout, cancellationToken);
+
+    /// <summary><see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
+    public async Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
+        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout), cancellationToken).ConfigureAwait(false);
+        var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+            + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
+        var directory = Path.Combine(artifactsDir, "screenshots");
+        Directory.CreateDirectory(directory);
+        var absolute = Path.Combine(directory, name);
+        var temporary = absolute + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await File.WriteAllBytesAsync(temporary, masked.Png, cancellationToken).ConfigureAwait(false);
+            File.Move(temporary, absolute, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+
+        return "screenshots/" + name;
+    }
+
+    /// <summary>
+    /// Ends this attempt (the run's <c>IEngineSession.DisposeAsync</c>, once per test attempt). A leased device stays booted under its
+    /// session for the next attempt on the slot, as upstream's <c>endAttempt</c> leaves its worker; the run's finish closes it. A device
+    /// without a lease closes with its attempt, as it always did.
+    /// </summary>
+    public ValueTask DisposeAsync() => new(_worker.Binding?.LeaseId is null
+        ? CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None)
+        : EndAttemptAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
+
+    /// <summary>
+    /// Ends this attempt and closes the agent-device session it runs on, within a budget: a close that outlives it is abandoned, as one
+    /// that fails is. The engine's worker is dropped with it (upstream's <c>endAttempt</c> then <c>dispose</c> without reuse).
+    /// </summary>
     internal async Task CloseAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var client = _client;
-        var dangling = _recording;
-        _client = null;
-        _bound = null;
-        _recording = null;
+        var client = _worker.Client;
         _engine.Unregister(this);
-        _appIdentity = null;
-        InstalledApp = null;
-        _knownViewport = null;
-        _latestIndex = null;
-        _generation = [];
-        ClearLocated();
+        ClearAttemptState();
         if (client is null)
         {
             return;
         }
 
-        await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, dangling, token), timeout, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task CloseQuietlyAsync(IDeviceClient client, Recording? dangling, CancellationToken cancellationToken)
-    {
-        // The harness stops the video before it ends the attempt. A recording still marked belongs to an attempt cut
-        // short, or to a stop that failed, and the device must not keep recording into the next one. A provider's
-        // recording whose start outlived its budget may still be landing: its stop waits for it.
-        if (dangling is LeaseRecording lease)
-        {
-            await StopLeaseQuietlyAsync(lease, cancellationToken).ConfigureAwait(false);
-        }
-        else if (dangling is not null)
-        {
-            await StopQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
-        }
-
         try
         {
-            await client.CallAsync(DeviceMethods.SessionsClose, null, cancellationToken).ConfigureAwait(false);
+            // Upstream's endAttempt, then dispose without reuse: a recording still marked is stopped before the session closes.
+            await CleanupBudget.WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken).ConfigureAwait(false);
+            await CleanupBudget.WithinAsync(
+                token => DisposeWorkerAsync(_engine, _slot, _worker, timeout, reuse: null, token),
+                timeout,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // After the close, as upstream clears `attempt` once `dispose` is done. Only the close that held the client frees the slot,
+            // so a second close of the same session never frees the slot a newer attempt took.
+            _engine.ReleaseSlot(_slot.Target, _slot.Slot);
+        }
+    }
+
+    /// <summary>
+    /// Ends this attempt and keeps its worker: the device stays booted for the next attempt on the slot (upstream's <c>endAttempt</c>).
+    /// A provider's recording still marked is stopped, and a native one is stopped too; a stop that fails stays marked for the next
+    /// attempt, which finishes it before it records.
+    /// </summary>
+    internal async Task EndAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await CleanupBudget.WithinAsync(token => StopDanglingAsync(token), timeout, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ClearAttemptState();
+            if (_engine.Unregister(this))
+            {
+                _engine.ReleaseSlot(_slot.Target, _slot.Slot);
+            }
+        }
+    }
+
+    private void ClearAttemptState()
+    {
+        _appIdentity = null;
+        InstalledApp = null;
+        _knownViewport = null;
+        _latestScreen = null;
+        _generation = [];
+        ClearLocated();
+    }
+
+    /// <summary>
+    /// The harness stops the video before it ends the attempt. A recording still marked belongs to an attempt cut short, or to a stop
+    /// that failed, and the device must not keep recording into the next attempt. A screen recording's pending start is settled first.
+    /// </summary>
+    private async Task StopDanglingAsync(CancellationToken cancellationToken)
+    {
+        switch (_worker.Recording)
+        {
+            case LeaseRecording lease:
+                await StopLeaseQuietlyAsync(_worker, lease, cancellationToken).ConfigureAwait(false);
+                break;
+            case ScreenRecording video when _worker.Client is { } client:
+                try
+                {
+                    await _inflight.SettleAsync(cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // A command that never settles is abandoned here, as upstream's settle is; the stop goes on. A caller's cancel is not
+                    // absorbed: it surfaces as cancellation.
+                }
+
+                await StopQuietlyAsync(client, Selection.ToArgs(("action", JsonValue.Create("stop"))), video, cancellationToken).ConfigureAwait(false);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Disposes a worker (upstream's <c>dispose</c>): closes its agent-device session, and with it the device's recording, unless
+    /// <paramref name="reuse"/> is granted and the device is leased, in which case the lease and its session stay for the next worker.
+    /// A reuse that is revoked while the worker is disposing closes the session at once. A provider's recording still marked is
+    /// stopped within the same budget, and a stop that hangs does not hold the close up.
+    /// </summary>
+    internal static async Task DisposeWorkerAsync(MobileEngine engine, (string Target, int Slot) slot, DeviceWorker worker, TimeSpan timeout, CancellationToken? reuse, CancellationToken cancellationToken)
+    {
+        var client = worker.Client;
+        var dangling = worker.Recording;
+        var keep = worker.Binding?.LeaseId is not null && dangling is not ScreenRecording && reuse is { IsCancellationRequested: false };
+        worker.Client = null;
+        worker.Tracked = null;
+        worker.Bound = null;
+        engine.DropWorker(slot, worker);
+
+        // The caller and the reuse revocation may both close: one send, under a lock, so sessions.close goes out once.
+        var closeGate = new object();
+        Task? closing = null;
+        Task Close()
+        {
+            lock (closeGate)
+            {
+                return closing ??= client is null ? Task.CompletedTask : CloseSessionQuietlyAsync(client);
+            }
+        }
+        var registration = reuse?.Register(() => Close());
+        try
+        {
+            if (!keep)
+            {
+                // Sent now and awaited through `closing` below, so the close is never held up by the stop.
+                _ = Close();
+            }
+
+            await CleanupBudget.WithinAsync(
+                async token =>
+                {
+                    if (dangling is LeaseRecording lease)
+                    {
+                        await StopLeaseQuietlyAsync(worker, lease, token).ConfigureAwait(false);
+                    }
+
+                    await (closing ?? Task.CompletedTask).ConfigureAwait(false);
+                },
+                timeout,
+                cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            registration?.Dispose();
+        }
+    }
+
+    /// <summary>Sends the agent-device session close. The session is going away either way, so a failure is absorbed.</summary>
+    private static async Task CloseSessionQuietlyAsync(IDeviceClient client)
+    {
+        try
+        {
+            await client.CallAsync(DeviceMethods.SessionsClose, null, CancellationToken.None).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -361,30 +630,39 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Snapshot for an observation. Without a pinned app, an observation before anything is open is an empty screen
     /// rather than a fault: the model's next move is the open tool, and failing the step would take that move away.
     /// </summary>
-    private async Task<RawSnapshot> SnapshotOrEmptyAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> SnapshotOrEmptyAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
         try
         {
-            return await SnapshotAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
+            return await SnapshotAsync(interactiveOnly, budget, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (_client is not null && !ManagesApp && cause.Code == EngineErrorCodes.InvalidState)
+        catch (EngineException cause) when (_worker.Client is not null && !ManagesApp && cause.Code == EngineErrorCodes.InvalidState)
         {
             return RawSnapshot.Empty;
         }
     }
 
-    internal async Task<RawSnapshot> SnapshotAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    internal async Task<RawSnapshot> SnapshotAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
         var last = RawSnapshot.Empty;
+        var captured = TimeSpan.Zero;
         foreach (var backoff in SparseRetryBackoffMilliseconds)
         {
             if (backoff > 0)
             {
+                // A sparse capture is still the screen: a retry the budget cannot fit returns it instead of timing out.
+                if (budget is not null && budget.Remaining <= TimeSpan.FromMilliseconds(backoff) + captured)
+                {
+                    return last;
+                }
+
                 await _engine.Delay(TimeSpan.FromMilliseconds(backoff), cancellationToken).ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            last = await CaptureAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
+            var startedAt = _engine.Clock.GetTimestamp();
+            last = await CaptureAsync(interactiveOnly, budget, cancellationToken).ConfigureAwait(false);
+            captured = _engine.Clock.GetElapsedTime(startedAt);
             _launching = false;
             if ((last.AppBundleId ?? last.AppName) is { } identity)
             {
@@ -405,13 +683,15 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// (a viewport it could not read, a malformed graph). The check is per capture and a capture is a read, so the
     /// retry is safe. A second failure is the runner's and propagates.
     /// </summary>
-    private async Task<RawSnapshot> CaptureAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> CaptureAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
-        async Task<RawSnapshot> Take() => RawSnapshot.Read(await CommandAsync(
+        Task<JsonNode?> Command() => CommandAsync(
             "snapshot",
             DeviceMethods.CaptureSnapshot,
             DeviceArgs.Of(("interactiveOnly", JsonValue.Create(interactiveOnly))),
-            cancellationToken).ConfigureAwait(false));
+            cancellationToken);
+
+        async Task<RawSnapshot> Take() => RawSnapshot.Read(await (budget is null ? Command() : budget.ReadAsync(Command, cancellationToken)).ConfigureAwait(false));
 
         try
         {
@@ -438,8 +718,14 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// </summary>
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
-        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport);
-        _latestIndex = projected.Index;
+        var projected = SnapshotProjection.ProjectSnapshot(
+            raw.Nodes,
+            () => $"n{++_idCounter}",
+            raw.Viewport,
+            raw.RefsGeneration,
+            SnapshotProjection.KeyboardBand(raw.Nodes, raw.KeyboardKind, raw.KeyboardFrame, raw.KeyboardProbeVisible, raw.Viewport));
+        projected.KeyboardVisible = KeyboardShowing(raw);
+        _latestScreen = projected;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
         {
             _knownViewport = read;
@@ -456,7 +742,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// size; on a real device the tree's size is taken as it comes. A device whose size cannot be learned at all fails the
     /// observation: the harness measures every rect and point against the viewport, so an invented one would misplace every tap.
     /// </summary>
-    private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, CancellationToken cancellationToken)
+    private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, InputBudget budget, CancellationToken cancellationToken)
     {
         if (_knownViewport is { } known)
         {
@@ -466,7 +752,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             }
 
             if (!SameScreen(read, known)
-                && await ProbeViewportAsync(cancellationToken).ConfigureAwait(false) is { } device
+                && await ProbeViewportAsync(budget, cancellationToken).ConfigureAwait(false) is { } device
                 && !SameScreen(read, device))
             {
                 return known;
@@ -476,7 +762,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             return read;
         }
 
-        var probed = await ProbeViewportAsync(cancellationToken).ConfigureAwait(false)
+        var probed = await ProbeViewportAsync(budget, cancellationToken).ConfigureAwait(false)
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 "the device reported no screen geometry: the snapshot has no bounds and the screenshot no logical size, so the viewport is unknown",
@@ -486,8 +772,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>The device's logical screen size as its screenshot reports it. Null when it reports none.</summary>
-    private Task<ViewportSize?> ProbeViewportAsync(CancellationToken cancellationToken) =>
-        CaptureScreenshotAsync((shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)), normalizeStatusBar: false, cancellationToken);
+    private Task<ViewportSize?> ProbeViewportAsync(InputBudget budget, CancellationToken cancellationToken) =>
+        CaptureScreenshotAsync((shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)), normalizeStatusBar: false, budget, cancellationToken);
 
     private const string UninstalledBuild = "the build the target's `app.appPath` names installed first with `device.installApp()`";
 
@@ -506,7 +792,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         bool Sparse,
         ViewportSize? Viewport = null,
         string? KeyboardKind = null,
-        Rect? KeyboardFrame = null)
+        Rect? KeyboardFrame = null,
+        long? RefsGeneration = null,
+        bool? KeyboardProbeVisible = null)
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
 
@@ -543,7 +831,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                     && Number(data["keyboard"]?["frame"]?["width"]) is { } frameWidth
                     && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
                     ? new Rect(frameX, frameY, frameWidth, frameHeight)
-                    : null);
+                    : null,
+                Number(data["refsGeneration"]) is { } generation ? (long)generation : null,
+                data["keyboard"]?["visible"] is JsonValue probe && probe.TryGetValue<bool>(out var probed) ? probed : null);
         }
     }
 }
@@ -556,13 +846,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 internal sealed class InflightCommands
 {
     private readonly HashSet<Task> _pending = [];
+    private bool _unconfirmedAbort;
 
     /// <summary>Registers one device command as in flight until it settles.</summary>
-    public void Track(Task pending)
+    public void Track(Task pending, Func<Task, bool>? unconfirmed = null)
     {
         lock (_pending)
         {
-            _pending.Add(pending);
+            if (!_pending.Add(pending))
+            {
+                return;
+            }
         }
 
         _ = pending.ContinueWith(
@@ -572,6 +866,8 @@ internal sealed class InflightCommands
                 _ = settled.Exception;
                 lock (_pending)
                 {
+                    // A request the caller left that ends without the daemon's answer is not confirmation that the daemon finished the command.
+                    _unconfirmedAbort |= unconfirmed?.Invoke(settled) ?? false;
                     _pending.Remove(settled);
                 }
             },
@@ -591,6 +887,11 @@ internal sealed class InflightCommands
             Task[] pending;
             lock (_pending)
             {
+                if (_unconfirmedAbort)
+                {
+                    throw new EngineException(EngineErrorCodes.EngineFailure, "an earlier device request was aborted without confirmation that the daemon finished; later attempts on this device are blocked", retryable: false);
+                }
+
                 pending = [.. _pending];
             }
 
@@ -611,3 +912,63 @@ internal sealed class InflightCommands
         }
     }
 }
+
+/// <summary>
+/// The client a session's commands go through. agent-device takes no abort signal, and upstream's client is called without one, so a command
+/// the caller gave up on keeps running on the device. The port's HTTP client would abort its request on a cancel and end the tracked task
+/// while the daemon may still run the command; this call runs under a token the caller cannot cancel, and the caller leaves by racing it
+/// (<c>WaitAsync</c> in <c>RunCommandAsync</c>, <c>ActAsync</c>, and <see cref="InputBudget"/>). The call is tracked in flight itself, so it
+/// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
+/// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
+/// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
+/// </summary>
+internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
+{
+    public Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
+        var callerLeft = new System.Runtime.CompilerServices.StrongBox<bool>();
+        var left = cancellationToken.CanBeCanceled
+            ? cancellationToken.Register(
+                static state =>
+                {
+                    var (source, flag) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>))state!;
+                    Volatile.Write(ref flag.Value, true);
+                    source.CancelAfter(E2EDefaults.LaunchTimeout);
+                },
+                (abort, callerLeft))
+            : default;
+        Task<JsonNode?> pending;
+        try
+        {
+            pending = inner.CallAsync(method, options, abort.Token);
+        }
+        catch
+        {
+            left.Dispose();
+            abort.Dispose();
+            throw;
+        }
+
+        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled));
+        _ = pending.ContinueWith(
+            static (_, state) =>
+            {
+                var (registration, source) = ((CancellationTokenRegistration, CancellationTokenSource))state!;
+                registration.Dispose();
+                source.Dispose();
+            },
+            (left, abort),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return pending;
+    }
+
+    /// <summary>True when the daemon itself answered with a failure: an error it reported, not a transport failure that carries a cause.</summary>
+    private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { Reported: true };
+}
+
+/// <summary>The agent-device session a worker drives, and the device agent-device booted for it (upstream's <c>BoundDevice</c>, <c>surface.ts</c>).</summary>
+internal sealed record BoundDevice(string Session, string DeviceId, string DeviceName);

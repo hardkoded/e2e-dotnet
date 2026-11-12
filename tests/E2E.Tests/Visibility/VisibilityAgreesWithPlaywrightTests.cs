@@ -29,6 +29,7 @@ public sealed class VisibilityAgreesWithPlaywrightTests(ChromiumPage chromium) :
         <div id="skipping" data-testid="skipping" style="content-visibility:hidden;width:50px;height:50px"><button id="skipped" data-testid="skipped">Skipped</button></div>
         <skip-host id="skipping-host" data-testid="skipping-host" style="content-visibility:hidden;display:block;width:50px;height:50px"><button id="skipped-slotted" data-testid="skipped-slotted">Slotted</button></skip-host>
         <div id="vis-parent" data-testid="vis-parent" style="visibility:hidden"><button id="vis-child" data-testid="vis-child" style="visibility:visible">Shown child</button></div>
+        <label><input id="shrunk-checkbox" data-testid="shrunk-checkbox" type="checkbox" style="opacity:0;width:0;height:0;margin:0;position:absolute">Agree</label>
         <script>
           customElements.define("skip-host", class extends HTMLElement {
             connectedCallback() { this.attachShadow({ mode: "open" }).innerHTML = "<div><slot></slot></div>"; }
@@ -108,6 +109,19 @@ public sealed class VisibilityAgreesWithPlaywrightTests(ChromiumPage chromium) :
 
     [Fact]
     public Task A_child_that_sets_visibility_visible_under_a_hidden_parent() => AgreesAsync("vis-child", false);
+
+    // Partial: upstream's reader calls this checkbox hidden. A box with no size is not hidden here (COMPATIBILITY.md): the node is listed,
+    // shown, with `EmptyBox` set (which the reader's ReadNode does not carry), which is what keeps it out of `isVisible`. This test checks the node is listed and not hidden, and that Playwright reads it hidden.
+    [Fact]
+    public async Task Partial_A_checkbox_its_label_draws_over_no_box_which_the_observation_still_lists()
+    {
+        await chromium.Page.SetContentAsync(Html);
+        var locator = chromium.Page.GetByTestId("shrunk-checkbox");
+        var node = await chromium.ReadAsync(locator);
+        Assert.NotNull(node);
+        Assert.False(node.Hidden);
+        Assert.True(await locator.IsHiddenAsync(), "playwright hidden");
+    }
 
     private async Task AgreesAsync(string testId, bool hidden)
     {

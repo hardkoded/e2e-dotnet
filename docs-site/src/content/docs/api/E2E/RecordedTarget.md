@@ -21,7 +21,7 @@ public sealed class RecordedTarget
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L149)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ An anchor's input purpose, such as `password`. Null for `none`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L164)
-
 <a id="E2E_RecordedTarget_Name_"></a>
 <a id="E2E_RecordedTarget_Name"></a>
 
@@ -54,8 +52,6 @@ public string? Name { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L153)
 
 <a id="E2E_RecordedTarget_Placeholder_"></a>
 <a id="E2E_RecordedTarget_Placeholder"></a>
@@ -72,7 +68,20 @@ An anchor's placeholder.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L161)
+<a id="E2E_RecordedTarget_Position_"></a>
+<a id="E2E_RecordedTarget_Position"></a>
+
+### Position
+
+
+```csharp
+public TracePosition? Position { get; set; }
+```
+
+
+Upstream's `position`: where the target stood among the controls its own description matched. See [Position](/api/E2E/RecordedAction/#E2E_RecordedAction_Position).
+
+**Value:** [TracePosition](/api/E2E/TracePosition/)
 
 <a id="E2E_RecordedTarget_Role_"></a>
 <a id="E2E_RecordedTarget_Role"></a>
@@ -87,7 +96,20 @@ public string? Role { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L151)
+<a id="E2E_RecordedTarget_Selector_"></a>
+<a id="E2E_RecordedTarget_Selector"></a>
+
+### Selector
+
+
+```csharp
+public string? Selector { get; set; }
+```
+
+
+The target descriptor's structural selector, provenance only (see [Selector](/api/E2E/RecordedAction/#E2E_RecordedAction_Selector)). Anchors never set it.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 <a id="E2E_RecordedTarget_States_"></a>
 <a id="E2E_RecordedTarget_States"></a>
@@ -104,8 +126,6 @@ An anchor's `checked`, `expanded`, `pressed`, and `selected` states that are on.
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L170)
-
 <a id="E2E_RecordedTarget_TestId_"></a>
 <a id="E2E_RecordedTarget_TestId"></a>
 
@@ -118,8 +138,6 @@ public string? TestId { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L155)
 
 <a id="E2E_RecordedTarget_Text_"></a>
 <a id="E2E_RecordedTarget_Text"></a>
@@ -136,8 +154,6 @@ An anchor's text when it differs from its name, with secrets redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L158)
-
 <a id="E2E_RecordedTarget_Value_"></a>
 <a id="E2E_RecordedTarget_Value"></a>
 
@@ -153,4 +169,17 @@ An anchor's value, with secrets redacted. Null for an empty or secure field.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L167)
+<a id="E2E_RecordedTarget_Within_"></a>
+<a id="E2E_RecordedTarget_Within"></a>
+
+### Within
+
+
+```csharp
+public string? Within { get; set; }
+```
+
+
+Upstream's `within`: the key of the container the target sat in. See [Within](/api/E2E/RecordedAction/#E2E_RecordedAction_Within).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

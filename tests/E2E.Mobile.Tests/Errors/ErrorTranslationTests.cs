@@ -100,6 +100,46 @@ public sealed class ErrorTranslationTests
         Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.TranslateError(refused, "observe")).Code);
     }
 
+    [Theory]
+    [InlineData("no")]
+    [InlineData("unknown")]
+    [InlineData(null)]
+    public void Retries_a_moving_target_only_when_no_input_was_dispatched(string? dispatched)
+    {
+        var cause = new AgentDeviceError(
+            "COMMAND_FAILED",
+            "Target position was not confirmed",
+            dispatched is null ? Details(("reason", "target_still_moving")) : Details(("reason", "target_still_moving"), ("dispatched", dispatched)));
+        var translated = Engine(DeviceErrors.StaleOr(cause, "perform tap"));
+        Assert.Equal(dispatched == "no" ? "NODE_STALE" : "ENGINE_FAILURE", translated.Code);
+        Assert.Equal(dispatched == "no", translated.Retryable);
+        Assert.Same(cause, translated.InnerException);
+    }
+
+    // Each refusal as agent-device 0.21.36 sends it when something else is drawn where the touch would land.
+    [Theory]
+    [InlineData(
+        "target_covered",
+        "@e12 is covered by another visible element and cannot be tapped safely",
+        "Covered by Toolbar \"Back Next\". Dismiss or close that element, scroll the target clear of it, or inspect with snapshot/screenshot before retrying.")]
+    [InlineData(
+        "tap_keyboard_occludes_target",
+        "@e12 is behind the visible keyboard and cannot be tapped safely",
+        "The visible keyboard covers this target, so the tap would land on a key instead of on it. End editing first: tap the app's own Done/Cancel/close control.")]
+    public void Fails_a_tap_agent_device_refused_as_the_reason_with_NOT_ACTIONABLE_and_its_hint(string reason, string text, string hint)
+    {
+        var refused = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "no")));
+        var failure = Engine(DeviceErrors.StaleOr(refused, "perform tap"));
+        Assert.Equal("NOT_ACTIONABLE", failure.Code);
+        Assert.False(failure.Retryable);
+        Assert.Same(refused, failure.InnerException);
+        Assert.Equal($"perform tap failed: {text} Hint: {hint}", failure.Message);
+
+        // A refusal that may have sent input is not the test's to fix.
+        var unknown = new AgentDeviceError("COMMAND_FAILED", text, Details(("reason", reason), ("hint", hint), ("dispatched", "unknown")));
+        Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.StaleOr(unknown, "perform tap")).Code);
+    }
+
     [Fact]
     public void Maps_the_rest_to_ENGINE_FAILURE_with_the_text_a_ref_named_in_a_message_without_a_stale_reason_included()
     {
@@ -137,6 +177,19 @@ public sealed class ErrorTranslationTests
         Assert.Equal(
             "device.setPermission failed: permission setting requires an active app in session",
             DeviceErrors.TranslateError(advised, "device.setPermission").Message);
+    }
+
+    [Fact]
+    public void Drops_the_per_code_default_hint_the_daemon_carries_over_which_names_agent_devices_CLI()
+    {
+        var missing = new AgentDeviceError(
+            "APP_NOT_INSTALLED",
+            "No app found matching \"e2eBenchmark\"",
+            Details(("hint", "Run apps to discover the exact installed package or bundle id, or install the app before open.")));
+        var translated = DeviceErrors.TranslateError(missing, "open e2eBenchmark");
+        Assert.Equal("open e2eBenchmark failed: No app found matching \"e2eBenchmark\"", translated.Message);
+        Assert.True(DeviceErrors.IsAppNotInstalled(translated));
+        Assert.False(DeviceErrors.IsAppNotInstalled(DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "open x")));
     }
 
     [Fact]

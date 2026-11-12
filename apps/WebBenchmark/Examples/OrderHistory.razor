@@ -1,0 +1,58 @@
+@* Upstream's app/src/Examples/OrderHistory.tsx. *@
+<div style="@Container">
+    <nav style="@TabBar">
+        @foreach (var entry in Tabs)
+        {
+            <button @key="entry" type="button" data-testid="@($"tab-{entry}")" style="@(_tab == entry ? TabButton + TabButtonActive : TabButton)" @onclick="() => _tab = entry">@TabLabels[entry]</button>
+        }
+    </nav>
+    @if (_tab == "overview")
+    {
+        <div data-testid="overview-panel" style="@Panel">
+            <p style="@PanelTitle">Welcome back, Alex</p>
+            <p style="@PanelText">You have 3 orders and 1 active subscription.</p>
+        </div>
+    }
+    @if (_tab == "orders")
+    {
+        @* PLANTED BUG (do not fix): the orders panel is stuck loading forever.
+           The skeleton never resolves even though the rest of the account
+           area works, so order history is unreachable. *@
+        <div data-testid="orders-panel" style="@Panel">
+            <p style="@PanelText">Loading your orders...</p>
+            <div style="@Skeleton"></div>
+            <div style="@Skeleton"></div>
+            <div style="@Skeleton"></div>
+        </div>
+    }
+    @if (_tab == "settings")
+    {
+        <div data-testid="settings-panel" style="@Panel">
+            <p style="@PanelTitle">Settings</p>
+            <p style="@PanelText">Email: alex@example.com</p>
+            <p style="@PanelText">Plan: Pro (renews monthly)</p>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly string[] Tabs = ["overview", "orders", "settings"];
+
+    private static readonly Dictionary<string, string> TabLabels = new()
+    {
+        ["overview"] = "Overview",
+        ["orders"] = "Orders",
+        ["settings"] = "Settings",
+    };
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string TabBar = "display: flex; gap: 8px;";
+    private const string TabButton = "border: 1px solid #ccc; background-color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;";
+    private const string TabButtonActive = " background-color: #111; color: #fff; border-color: #111;";
+    private const string Panel = "border: 1px solid #e5e5e5; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 10px;";
+    private const string PanelTitle = "font-size: 16px; font-weight: 600; margin: 0;";
+    private const string PanelText = "font-size: 14px; color: #333; margin: 0;";
+    private const string Skeleton = "height: 16px; border-radius: 4px; background-color: #eee;";
+
+    private string _tab = "overview";
+}

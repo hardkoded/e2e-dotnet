@@ -13,6 +13,7 @@ Generated from the XML documentation of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. 
 
 - [E2E](/api/E2E/) — The core. Agent, Screen, Expect, the engines, model clients, config, and the replay cache.
 - [E2E.Engine](/api/E2E.Engine/) — Public types in the `E2E.Engine` namespace.
+- [E2E.Internal](/api/E2E.Internal/) — Public types in the `E2E.Internal` namespace.
 - [E2E.OAuth](/api/E2E.OAuth/) — Public types in the `E2E.OAuth` namespace.
 - [E2E.Reports](/api/E2E.Reports/) — Public types in the `E2E.Reports` namespace.
 

@@ -73,19 +73,18 @@ public sealed class LineTextTests
     }
 
     [Fact]
-    public async Task Separates_words_at_block_children_line_breaks_and_form_controls_and_reads_no_display_none_or_hidden_visibility_inline_text()
+    public async Task Separates_words_at_block_children_line_breaks_and_form_controls_and_reads_no_hidden_inline_text()
     {
-        // The label of a control is the control's name, not a node, so the form-control line is a div.
         var nodes = await ObserveAsync("""
             <div>Intro<p>Block</p>tail</div>
             <p>one<br>two</p>
-            <div>Show <select aria-label="Rows"><option>10</option></select> per page</div>
+            <label>Show <select><option>10</option></select> per page</label>
             <p>Shown <span style="display:none">gone</span><span aria-hidden="true">decor</span><span style="visibility:hidden">ghost</span> end</p>
             <p>Price <span style="display:inline-block;width:0;height:0;overflow:hidden">$99</span><span style="font-size:0">$98</span> today</p>
             <p>extra<wbr>ordinary</p>
             """);
         var texts = nodes.Where(node => node.Role is null or "paragraph").Select(node => node.OwnText ?? node.Text);
-        Assert.Equal(["Intro tail", "Block", "one two", "Show per page", "Shown decor end", "Price today", "extraordinary"], texts);
+        Assert.Equal(["Intro tail", "Block", "one two", "Show per page", "Shown end", "Price today", "extraordinary"], texts);
     }
 
     [Fact]
@@ -145,15 +144,15 @@ public sealed class LineTextTests
     }
 
     /// <summary>
-    /// Every node of one observation of <paramref name="body"/> that paints, in document order. The port also lists
-    /// hidden nodes and boxes with no size, flagged as such; upstream's tree leaves them out.
+    /// Every node of one observation of <paramref name="body"/> that paints and is not aria-hidden, in document order. The port also lists
+    /// hidden, aria-hidden, and zero-size nodes, flagged as such; upstream's tree leaves them out.
     /// </summary>
     private static async Task<List<SemanticNode>> ObserveAsync(string body)
     {
         using var site = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{body}</body></html>");
         await using var engine = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         return WebSemanticsTests.Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
-            .Where(node => !node.States.Hidden && node.Rect is { Width: > 0, Height: > 0 })
+            .Where(node => !node.States.Hidden && !node.States.AriaHidden && node.Rect is { Width: > 0, Height: > 0 })
             .ToList();
     }
 

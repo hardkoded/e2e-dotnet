@@ -8,17 +8,15 @@ namespace E2E.Cli.Mcp;
 internal static class Config
 {
     /// <summary>
-    /// The absolute path of a project's config, found without reading it: <paramref name="configPath"/> relative to
+    /// The absolute path of a project's config, found without reading it: <paramref name="configPath"/> absolute or relative to
     /// <paramref name="cwd"/>, else the nearest <c>e2e.config.json</c> from <paramref name="cwd"/> upward.
     /// </summary>
     public static string LocateProjectConfig(string cwd, string? configPath)
     {
         if (configPath is not null)
         {
-            var explicitPath = Path.GetFullPath(configPath, cwd);
-            return File.Exists(explicitPath)
-                ? explicitPath
-                : throw new ConfigurationException("CONFIG_NOT_FOUND", "no config file at " + explicitPath);
+            var absolute = Path.GetFullPath(configPath, cwd);
+            return File.Exists(absolute) ? absolute : throw E2EConfig.ExplicitConfigNotFound(cwd, configPath, absolute);
         }
 
         return E2EConfig.Find(cwd)

@@ -96,4 +96,22 @@ public sealed class StreamRedactorTests
         var stream = new StreamRedactor(Registered());
         Assert.Equal("hi�", stream.Push(new byte[] { 0x68, 0x69, 0xe2 }) + stream.Flush());
     }
+
+    [Fact]
+    public void Releases_an_unfinished_character_before_a_string_write_instead_of_letting_the_string_pass_it()
+    {
+        var stream = new StreamRedactor(Ledger.Of());
+        Assert.Equal(
+            "�X�",
+            stream.Push(new byte[] { 0xc3 }) + stream.Push("X") + stream.Push(new byte[] { 0xa9 }) + stream.Flush());
+    }
+
+    [Fact]
+    public void Keeps_an_unfinished_character_across_an_empty_string_write_which_writes_nothing()
+    {
+        var stream = new StreamRedactor(Ledger.Of());
+        Assert.Equal(
+            "é",
+            stream.Push(new byte[] { 0xc3 }) + stream.Push("") + stream.Push(new byte[] { 0xa9 }) + stream.Flush());
+    }
 }

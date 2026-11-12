@@ -72,7 +72,8 @@ public sealed class LimrunHeartbeatTests
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
             Assert.All(daemon.Requests, request => Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>()));
-            JsonAssert.Args("""{"tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
+            Assert.Matches("^e2e-lease-[0-9a-f]{8}$", config.Session);
+            JsonAssert.Args($$"""{"session":"{{config.Session}}","tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
             await stop();
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
@@ -109,7 +110,7 @@ public sealed class LimrunHeartbeatTests
             }
         });
         var stop = await LimrunHeartbeat.StartAsync(
-            new LimrunBinding(new JsonObject { ["leaseId"] = "lease" }, "device"),
+            new LimrunBinding(new JsonObject { ["stateDir"] = "/daemon", ["leaseId"] = "lease" }, "device"),
             (_, _) => client,
             log.Add,
             clock.Delay,
@@ -126,5 +127,32 @@ public sealed class LimrunHeartbeatTests
         Assert.Single(log);
         await clock.AdvanceAsync(TimeSpan.FromSeconds(60));
         Assert.Equal(3, beats);
+    }
+
+    /// <summary>A driver that returned no scope cannot start a heartbeat: the guard refuses before any client is created.</summary>
+    [Theory]
+    [InlineData("""{"leaseId":"lease"}""")]
+    [InlineData("""{"stateDir":"/worker"}""")]
+    [InlineData("""{"stateDir":"","leaseId":"lease"}""")]
+    [InlineData("""{"stateDir":"/worker","leaseId":""}""")]
+    [InlineData("""{"stateDir":7,"leaseId":"lease"}""")]
+    public async Task Refuses_a_scope_without_a_state_directory_or_lease_id_before_creating_a_client(string client)
+    {
+        var created = 0;
+        var binding = new LimrunBinding(JsonNode.Parse(client)!.AsObject(), "device");
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => LimrunHeartbeat.StartAsync(
+            binding,
+            (_, _) =>
+            {
+                created++;
+                return new FakeDeviceClient();
+            },
+            _ => { },
+            new ManualDelay().Delay,
+            CancellationToken.None));
+
+        Assert.Equal("Limrun driver returned no agent-device state directory or lease id", error.Message);
+        Assert.Equal(0, created);
     }
 }

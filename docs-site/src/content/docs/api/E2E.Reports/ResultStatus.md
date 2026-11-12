@@ -1,6 +1,6 @@
 ---
 title: "ResultStatus"
-description: "How a test ended, over all its attempts."
+description: "How a test ended, over all its attempts. A pass after an earlier attempt is Flaky, and a retry that was interrupted keeps the Failed or TimedOut verdict of t..."
 editUrl: false
 prev: false
 next: false
@@ -19,9 +19,9 @@ public enum ResultStatus
 ```
 
 
-How a test ended, over all its attempts.
+How a test ended, over all its attempts. A pass after an earlier attempt is [Flaky](#E2E_Reports_ResultStatus_Flaky), and a retry that was interrupted keeps the [Failed](#E2E_Reports_ResultStatus_Failed) or [TimedOut](#E2E_Reports_ResultStatus_TimedOut) verdict of the attempt before it.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L249)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Failed = 2
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L253)
-
 <a id="E2E_Reports_ResultStatus_Flaky"></a>
 
 ### Flaky
@@ -50,8 +48,6 @@ Flaky = 1
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L252)
 
 <a id="E2E_Reports_ResultStatus_Interrupted"></a>
 
@@ -65,8 +61,6 @@ Interrupted = 4
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L255)
-
 <a id="E2E_Reports_ResultStatus_Passed"></a>
 
 ### Passed
@@ -78,8 +72,6 @@ Passed = 0
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L251)
 
 <a id="E2E_Reports_ResultStatus_Skipped"></a>
 
@@ -93,8 +85,6 @@ Skipped = 5
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L256)
-
 <a id="E2E_Reports_ResultStatus_TimedOut"></a>
 
 ### TimedOut
@@ -106,5 +96,3 @@ TimedOut = 3
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L254)

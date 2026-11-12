@@ -20,9 +20,12 @@ internal static partial class OverflowShrink
     /// <summary>The newest screens that stay whole. One: a screen replaced by a newer one is dead weight on every later turn.</summary>
     private const int ScreenPreserveCount = 1;
 
-    /// <summary>Every screen the port prints begins a line with this phrase, as upstream's full screens do.</summary>
-    [GeneratedRegex(@"^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
-    private static partial Regex FullScreenPattern();
+    /// <summary>
+    /// Every full screen is introduced by this phrase (upstream's <c>FULL_SCREEN_PATTERN</c>, <c>Current screen (revision </c>). The pattern also
+    /// matches the heading of the screen a judgment prints before its <c>#id</c> lines (<c>Screen (</c> at the start of a line, .NET-only).
+    /// </summary>
+    [GeneratedRegex(@"Current screen \(revision |^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    internal static partial Regex FullScreenPattern();
 
     public static List<ModelMessage> ShrinkForOverflow(IReadOnlyList<ModelMessage> messages)
     {
@@ -52,11 +55,13 @@ internal static partial class OverflowShrink
     public static int TextChars(IEnumerable<ModelMessage> messages) => messages.Sum(message => message.Content?.Length ?? 0);
 
     /// <summary>Everything before the screen, then the notice in place of the tree.</summary>
-    private static string ElideScreen(string text)
+    internal static string ElideScreen(string text)
     {
         var at = FullScreenPattern().Match(text).Index;
         var head = at <= 0 ? text.Split('\n', 2)[0] : text[..at].TrimEnd();
-        return head + "\n[earlier screen elided; the newest \"Screen\" describes the screen]";
+        return head + (text[at..].StartsWith("Screen (", StringComparison.Ordinal)
+            ? "\n[earlier screen elided; the newest \"Screen\" describes the screen]"
+            : "\n[earlier screen elided; the newest \"Current screen\" plus the changes after it describe the screen]");
     }
 
     private static string Clip(string text)
@@ -80,5 +85,6 @@ internal static partial class OverflowShrink
         ToolCallId = message.ToolCallId,
         Name = message.Name,
         ReasoningItems = message.ReasoningItems,
+        Images = message.Images,
     };
 }

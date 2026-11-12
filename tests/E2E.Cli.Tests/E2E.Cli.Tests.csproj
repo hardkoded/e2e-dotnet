@@ -16,6 +16,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.Cli\E2E.Cli.csproj" />
+    <ProjectReference Include="..\E2E.Tests.App\E2E.Tests.App.csproj" />
+    <ProjectReference Include="..\E2E.Tests.Schema\E2E.Tests.Schema.csproj" />
   </ItemGroup>
 </Project>

@@ -215,9 +215,14 @@ public static partial class SnapshotProjection
     /// Projects one snapshot. <paramref name="mintId"/> is called once per node in document order, so the
     /// surface's id space stays unique across observations. <paramref name="publishedViewport"/> is the one
     /// agent-device published with the snapshot; a producer that measured none leaves it to <see cref="ViewportOf"/>.
+    /// <paramref name="refsGeneration"/> is the capture the refs were issued from.
     /// Android's system bars are left out with their children, see <see cref="IsSystemBar"/>.
+    /// <paramref name="keyboard"/> is the band the soft keyboard covers. A node the keyboard draws over is hidden, as one
+    /// scrolled off screen is: its centre is in the band and none of its children shows. Exempt are the keyboard's own
+    /// nodes (see <see cref="KeyboardSide"/>) and the focused node, the field the keyboard types into: the platform keeps
+    /// it above the keyboard, and on iOS its reported frame can lag behind where it moved to.
     /// </summary>
-    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null)
+    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null, Rect? keyboard = null)
     {
         var viewport = publishedViewport ?? ViewportOf(raw);
         var parents = ParentPositions(raw);
@@ -239,6 +244,7 @@ public static partial class SnapshotProjection
             }
         }
 
+        var keyboardSide = keyboard is { } band ? KeyboardSide(raw, parents, roots, children, band) : [];
         var index = new List<ProjectedNode>();
 
         // Whether every node from `position` down is a class that only shows (`StatusIconKinds`).
@@ -253,11 +259,12 @@ public static partial class SnapshotProjection
             return !children.TryGetValue(position, out var below) || below.All(DisplayOnly);
         }
 
-        SemanticNode Build(int position, ProjectedNode? parent)
+        SemanticNode Build(int position, ProjectedNode? parent, bool parentOnKeyboard)
         {
             var source = raw[position];
             var id = mintId();
             var kind = KindOf(source);
+            var onKeyboard = parentOnKeyboard || keyboardSide.Contains(position) || source.KeyboardOwned == true || IsKeyboardElement(source);
             var android = IsAndroidClass(source.Type);
 
             // The role React Native spelled into the value outranks the platform's `Other`: it is the role
@@ -311,7 +318,10 @@ public static partial class SnapshotProjection
             }
 
             var identifier = NonEmpty(source.Identifier);
-            var label = NonEmpty(source.Label);
+            IReadOnlyList<int> kids = children.TryGetValue(position, out var below) ? below : [];
+            var blank = editable && !secure && string.IsNullOrEmpty(value) && NonEmpty(source.Placeholder) is null;
+            var folded = !android && blank ? FoldedPlaceholder(source, kids, raw, children) : null;
+            var label = folded is null ? NonEmpty(source.Label) : folded.Label;
             var name = NonEmpty(source.ContentDescription) ?? label;
             var entry = new ProjectedNode
             {
@@ -324,7 +334,11 @@ public static partial class SnapshotProjection
                 States = reported,
             };
             index.Add(entry);
-            var childNodes = children.TryGetValue(position, out var below) ? below.Select(child => Build(child, entry)).ToList() : [];
+            var childNodes = kids.Where(child => child != folded?.Child).Select(child => Build(child, entry, onKeyboard)).ToList();
+            if (!onKeyboard && source.Focused != true && UnderKeyboard(source.Rect, keyboard) && childNodes.All(child => child.States?.Hidden == true))
+            {
+                reported["hidden"] = true;
+            }
 
             // A secure field's value is never observed; the tree carries that it is secure, not what it
             // holds. Android echoes a text view's label as its value, which would render every line twice,
@@ -353,9 +367,10 @@ public static partial class SnapshotProjection
                     Hidden = reported.ContainsKey("hidden"),
                     Secure = secure,
                     Checked = checkedState == true,
+                    CheckedReported = checkedState is not null,
                     Expanded = expanded == true,
                 },
-                Placeholder = NonEmpty(source.Placeholder),
+                Placeholder = folded?.Placeholder ?? NonEmpty(source.Placeholder),
 
                 // The accessibility identifier (iOS) or resource id (Android) is the node's test id.
                 TestId = identifier,
@@ -368,9 +383,117 @@ public static partial class SnapshotProjection
 
         var rootNodes = roots
             .Where(position => !IsSystemBar(raw[position], viewport, () => DisplayOnly(position)))
-            .Select(position => Build(position, null))
+            .Select(position => Build(position, null, false))
             .ToList();
-        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport };
+        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport, RefsGeneration = refsGeneration };
+    }
+
+    /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
+    internal static readonly HashSet<string> KeyboardKinds = ["keyboard", "key"];
+
+    /// <summary>
+    /// Whether a raw node is the soft keyboard: the keyboard element or one of its keys (a capture can list keys with no
+    /// keyboard around them), or the suggestion strip UIKit draws along its top edge (<c>UISystemInputAssistantView</c>),
+    /// which XCTest lists beside the keyboard, not inside it.
+    /// </summary>
+    private static bool IsKeyboardElement(RawNode node) => KeyboardKinds.Contains(KindOf(node)) || node.Identifier == "SystemInputAssistantView";
+
+    /// <summary>
+    /// The band the soft keyboard covers: the frame the capture's producer measured or derived, else the keyboard elements
+    /// in the tree (the keys and the suggestion strip above them), from the highest one's top edge to the bottom of the
+    /// screen, since the dock under the keys is the keyboard's too. agent-device's iOS simulator capture publishes no frame,
+    /// only the elements. A producer that saw no docked keyboard (<c>absent</c>, a rejected tree, a probe that says hidden)
+    /// leaves no band, whatever the tree holds. <paramref name="kind"/>, <paramref name="frame"/> and <paramref name="visible"/>
+    /// are the capture's keyboard fact: its kind, its frame, and what a <c>visibility-only</c> probe says.
+    /// </summary>
+    public static Rect? KeyboardBand(IReadOnlyList<RawNode> nodes, string? kind, Rect? frame, bool? visible, ViewportSize? viewport)
+    {
+        if (kind is "visible" or "derived")
+        {
+            return frame;
+        }
+
+        if (kind is "absent" or "tree-rejected" || (kind == "visibility-only" && visible != true))
+        {
+            return null;
+        }
+
+        var boards = nodes
+            .Where(node => node.Rect is { Width: > 0, Height: > 0 } && node.VisibleToUser != false && IsKeyboardElement(node))
+            .Select(node => node.Rect!.Value)
+            .ToList();
+        if (boards.Count == 0)
+        {
+            return null;
+        }
+
+        var left = boards.Min(rect => rect.X);
+        var right = boards.Max(rect => rect.X + rect.Width);
+        var top = boards.Min(rect => rect.Y);
+        var bottom = Math.Max((viewport ?? ViewportOf(nodes))?.Height ?? 0, boards.Max(rect => rect.Y + rect.Height));
+        return new Rect(left, top, right - left, bottom - top);
+    }
+
+    /// <summary>
+    /// Whether the soft keyboard draws over the point a touch on <paramref name="rect"/> aims at, its centre: the keyboard
+    /// sits above every app window, so a touch there lands on a key, and the user sees the keyboard, not the node.
+    /// </summary>
+    private static bool UnderKeyboard(Rect? rect, Rect? keyboard)
+    {
+        if (rect is not { } node || keyboard is not { } band)
+        {
+            return false;
+        }
+
+        var x = node.X + (node.Width / 2);
+        var y = node.Y + (node.Height / 2);
+        return x >= band.X && x <= band.X + band.Width && y >= band.Y && y <= band.Y + band.Height;
+    }
+
+    /// <summary>
+    /// The positions whose subtrees belong to the keyboard, beyond the keyboard element itself: the window that holds it,
+    /// and the nodes after it under the same parent that lie inside the band. Both platforms put the keyboard's dock (the
+    /// globe and dictation buttons) and suggestion bar there, outside the keyboard element, and agent-device marks them
+    /// <c>keyboardOwned</c> only on some captures. A later sibling that starts above the band is app content, not dock:
+    /// XCTest lists the keyboard either before the app or after it, so document order alone cannot say which side of the
+    /// keyboard a node is on.
+    /// </summary>
+    private static HashSet<int> KeyboardSide(
+        IReadOnlyList<RawNode> raw,
+        IReadOnlyList<int?> parents,
+        IReadOnlyList<int> roots,
+        Dictionary<int, List<int>> children,
+        Rect band)
+    {
+        var side = new HashSet<int>();
+        for (var position = 0; position < raw.Count; position++)
+        {
+            if (KindOf(raw[position]) != "keyboard")
+            {
+                continue;
+            }
+
+            var parent = parents[position];
+            IReadOnlyList<int> siblings = parent is not { } owner ? roots : children.TryGetValue(owner, out var below) ? below : [];
+            foreach (var sibling in siblings)
+            {
+                if (sibling > position && raw[sibling].Rect is { } rect && rect.Y >= band.Y)
+                {
+                    side.Add(sibling);
+                }
+            }
+
+            for (var ancestor = parent; ancestor is { } at; ancestor = parents[at])
+            {
+                if (KindOf(raw[at]) == "window")
+                {
+                    side.Add(at);
+                    break;
+                }
+            }
+        }
+
+        return side;
     }
 
     /// <summary>
@@ -601,6 +724,70 @@ public static partial class SnapshotProjection
         return !string.IsNullOrEmpty(placeholder) && source.Value?.Trim() == placeholder;
     }
 
+    /// <summary>
+    /// The placeholder an empty iOS field folds into its label, with the child that draws it. Compose
+    /// Multiplatform reports no placeholder: it draws one as a text inside the field and appends that text to
+    /// the field's label, so an empty "Name" field with the example "Ada Lovelace" reads
+    /// <c>"Name, Ada Lovelace"</c> over one <c>StaticText</c> child. Null unless the field's only child is that
+    /// text and the field has a label of its own.
+    /// </summary>
+    private static Folded? FoldedPlaceholder(RawNode source, IReadOnlyList<int> kids, IReadOnlyList<RawNode> raw, Dictionary<int, List<int>> children)
+    {
+        if (kids.Count != 1)
+        {
+            return null;
+        }
+
+        var child = kids[0];
+        var text = raw[child];
+        if (children.ContainsKey(child))
+        {
+            return null;
+        }
+
+        var placeholder = NonEmpty(text.Label);
+        var label = source.Label;
+        if (KindOf(text) != "static-text" || placeholder is null || label is null)
+        {
+            return null;
+        }
+
+        if (!label.EndsWith($", {placeholder}", StringComparison.Ordinal) || label.Length == placeholder.Length + 2)
+        {
+            return null;
+        }
+
+        return new Folded(label[..^(placeholder.Length + 2)], placeholder, child);
+    }
+
+    /// <summary>
+    /// Whether a node may take typed text: a text input role, or an <c>other</c> (only iOS reports one, for an element it
+    /// did not classify) that holds a value or nothing but text. agent-device 0.21.33's simulator accessibility tree
+    /// reports a custom-drawn field (Compose Multiplatform, Flutter) that way: a filled one with its text as the value,
+    /// an empty one over the placeholder it draws. A childless, valueless <c>other</c>, such as a React Native
+    /// <c>Pressable</c>, and a container of controls stay refused.
+    /// </summary>
+    public static bool MayTakeText(SemanticNode node)
+    {
+        if (node.Role is null)
+        {
+            return false;
+        }
+
+        if (TextInputRoles.Contains(node.Role))
+        {
+            return true;
+        }
+
+        if (node.Role != "other")
+        {
+            return false;
+        }
+
+        return node.Value is not null
+            || (node.Children.Count > 0 && node.Children.All(child => child.Role == "text" && child.Children.Count == 0));
+    }
+
     /// <summary>The string itself, or null for an absent or empty one.</summary>
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
@@ -747,4 +934,6 @@ public static partial class SnapshotProjection
 
     /// <summary>What React Native spelled into an iOS accessibility value.</summary>
     private sealed record SpelledValue(string Role, SpelledStates States, string? Value);
+
+    private sealed record Folded(string Label, string Placeholder, int Child);
 }

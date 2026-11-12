@@ -23,7 +23,7 @@ NUnit constraints for `Expect.Poll`, in place of the upstream value matchers.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/PollExpectationExtensions.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/PollExpectationExtensions.cs)
 
 ## Methods
 
@@ -56,5 +56,3 @@ Re-reads the value until &lt;code class="paramref"&gt;constraint&lt;/code&gt; ho
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/PollExpectationExtensions.cs#L16)

@@ -146,7 +146,8 @@ public sealed class CapturedDeviceSnapshotsTests
     {
         var raw = JsonSerializer.Deserialize<Capture>(File.ReadAllText(file), Json)!;
         var counter = 0;
-        return (raw, SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport));
+        var keyboard = SnapshotProjection.KeyboardBand(raw.Nodes, raw.Keyboard?.Kind, raw.Keyboard?.Frame, raw.Keyboard?.Visible, raw.Viewport);
+        return (raw, SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport, keyboard: keyboard));
     }
 
     /// <summary>The tree <c>observe</c> would report for a captured snapshot.</summary>
@@ -211,5 +212,8 @@ public sealed class CapturedDeviceSnapshotsTests
         return output;
     }
 
-    private sealed record Capture(RawNode[] Nodes, ViewportSize? Viewport, bool? Truncated);
+    private sealed record Capture(RawNode[] Nodes, ViewportSize? Viewport, bool? Truncated, KeyboardFact? Keyboard = null);
+
+    /// <summary>The keyboard fact a capture carries: its kind, its measured frame, and what a visibility-only probe says.</summary>
+    private sealed record KeyboardFact(string? Kind, Rect? Frame, bool? Visible);
 }

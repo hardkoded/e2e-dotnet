@@ -1,0 +1,75 @@
+@* Upstream's app/src/Examples/LoginForm.tsx. *@
+@if (_loggedIn)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0 0 16px;">
+            Logged in successfully
+        </p>
+        <button type="button" data-testid="logout-button" style="@Button" @onclick="LogOut">Log out</button>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="font-size: 13px; color: #666; text-align: center; margin: 0;">
+            Use @ValidEmail / @ValidPassword
+        </p>
+        <input data-testid="email-input" style="@Input" placeholder="Email" type="email" autocapitalize="none"
+               @bind="_email" @bind:event="oninput" />
+        <input data-testid="password-input" style="@Input" placeholder="Password" type="password"
+               @bind="_password" @bind:event="oninput" />
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="color: #c00; font-size: 14px; margin: 0;">@_error</p>
+        }
+        <button type="button" data-testid="login-button" style="@Button" @onclick="HandleSubmit">Log in</button>
+    </div>
+}
+
+@code {
+    private const string ValidEmail = "tester@tester.army";
+    private const string ValidPassword = "benchmark123";
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Input = "border: 1px solid #ccc; border-radius: 8px; padding: 10px 12px; font-size: 16px;";
+    private const string Button = "background-color: #111; color: #fff; border: none; border-radius: 8px; padding: 12px 16px; font-size: 16px; font-weight: 600; cursor: pointer;";
+
+    private string _email = "";
+    private string _password = "";
+    private string? _error;
+    private bool _loggedIn;
+
+    /// <summary>
+    /// Validates the credentials against the hardcoded benchmark account and moves the screen into the logged-in success state on match.
+    /// </summary>
+    private void HandleSubmit()
+    {
+        if (!_email.Contains('@'))
+        {
+            _error = "Enter a valid email address";
+            return;
+        }
+
+        if (_password.Length < 8)
+        {
+            _error = "Password must be at least 8 characters";
+            return;
+        }
+
+        if (_email != ValidEmail || _password != ValidPassword)
+        {
+            _error = "Invalid credentials";
+            return;
+        }
+
+        _error = null;
+        _loggedIn = true;
+    }
+
+    private void LogOut()
+    {
+        _loggedIn = false;
+        _email = "";
+        _password = "";
+    }
+}

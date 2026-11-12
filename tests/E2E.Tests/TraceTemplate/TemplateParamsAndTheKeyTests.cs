@@ -2,15 +2,33 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
+
 namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
-/// "puts a placeholder where each unique value was and leaves everything else literal" is not ported: the port keys on the
-/// params and templates the recorded text with <see cref="CacheKeys.Template"/>, and has no params tree, JSON pointers, or
-/// <c>templateParams</c>. Its keying half is the next test.
+/// Upstream's <c>templateParams</c> is <see cref="CacheKeys.TemplateParams"/>, applied to the serialized params by
+/// <see cref="CacheKeys.Project"/>.
 /// </summary>
 public sealed class TemplateParamsAndTheKeyTests
 {
+    [Fact]
+    public void Puts_a_placeholder_where_each_unique_value_was_and_leaves_everything_else_literal()
+    {
+        var projected = CacheKeys.Project(new Dictionary<string, object?>
+        {
+            ["name"] = Values.Unique("E2E abc"),
+            ["qty"] = 2,
+            ["s"] = Secret.Create("admin", "hunter2-pw", "password"),
+            ["owner"] = new Dictionary<string, object?> { ["tags"] = new object[] { "vip", Values.Unique("new") } },
+        });
+
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse("{\"name\":\"{{param:/name}}\",\"qty\":2,\"s\":{\"kind\":\"secret\",\"name\":\"admin\",\"purpose\":\"password\"},\"owner\":{\"tags\":[\"vip\",\"{{param:/owner/tags/1}}\"]}}"),
+            projected));
+        Assert.True(JsonNode.DeepEquals(new JsonObject(), CacheKeys.Project(null)));
+    }
+
     private static string Key(string name, string plan, bool marked = true) => CacheKeys.ParamsDigest(new Dictionary<string, object?>
     {
         ["name"] = marked ? Values.Unique(name) : name,

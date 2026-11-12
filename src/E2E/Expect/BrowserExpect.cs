@@ -38,7 +38,7 @@ public sealed class BrowserExpect
         ArgumentNullException.ThrowIfNull(expected);
         var target = Routes.Absolute(_browser.BaseUrl, expected).AbsoluteUri;
         var comparison = ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return UrlAsync(expected, ignoreCase, timeout, current => string.Equals(Normalize(current), target, comparison), cancellationToken);
+        return UrlAsync(target, ignoreCase, timeout, current => string.Equals(Normalize(current), target, comparison), cancellationToken);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ public sealed class BrowserExpect
             timeout,
             async token =>
             {
-                var title = await _browser.TitleAsync(token).ConfigureAwait(false);
+                var title = await _browser.ReadTitleAsync(token).ConfigureAwait(false);
                 return (TextRules.Compare(title, expected, contains: false, normalize: true, ignoreCase: null), "title " + LocatorExpect.Quote(title));
             },
             cancellationToken);
@@ -77,8 +77,8 @@ public sealed class BrowserExpect
     /// Waits for the <c>class</c> attribute of <paramref name="target"/> to match <paramref name="expected"/>: a string is the whole class
     /// list, whitespace-normalized, and a <see cref="Regex"/> is tested against it. An empty <c>class=""</c> is an empty class list; no
     /// <c>class</c> attribute is not. A node that is not there yet keeps the matcher polling, and a node that never arrives fails it as an
-    /// assertion observing no node, where a read of the same locator would fail with <c>NOT_FOUND</c>. Several matches fail at once with
-    /// <c>STRICT_MODE</c>. Upstream's <c>expect(browser).toHaveClass</c>.
+    /// assertion observing no node, where a read of the same locator would fail with <c>LOCATOR_NOT_FOUND</c>. Several matches fail at once with
+    /// <c>LOCATOR_AMBIGUOUS</c>. Upstream's <c>expect(browser).toHaveClass</c>.
     /// </summary>
     public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
@@ -105,7 +105,7 @@ public sealed class BrowserExpect
 
                     value = read.Value;
                 }
-                catch (TestException ex) when (ex.Code == "NOT_FOUND")
+                catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
                 {
                     return (null, "no node");
                 }
@@ -146,7 +146,7 @@ public sealed class BrowserExpect
             timeout,
             async token =>
             {
-                var url = await _browser.UrlAsync(token).ConfigureAwait(false);
+                var url = await _browser.ReadUrlAsync(token).ConfigureAwait(false);
                 return (matches(url), "URL " + url);
             },
             cancellationToken);
@@ -161,14 +161,9 @@ public sealed class BrowserExpect
 
     private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken)
     {
-        if (timeout is { } given)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(given, TimeSpan.Zero, nameof(timeout));
-        }
-
         var token = _browser.Token(cancellationToken);
         var clock = TimeProvider.System;
-        var deadline = new Deadline(timeout ?? _browser.AssertionTimeout, clock);
+        var deadline = Time.StepDeadline(timeout, "expect." + (_negated ? "not." : "") + matcher, _browser.AssertionTimeout, _browser.BudgetDeadline, clock);
         string? observed = null;
         try
         {
@@ -182,7 +177,7 @@ public sealed class BrowserExpect
                 {
                     var left = deadline.Remaining(clock.GetUtcNow());
                     using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    bounded.CancelAfter(left > Time.PollInterval ? left : Time.PollInterval);
+                    bounded.CancelAfter(left > Time.Unbounded ? Time.Unbounded : left > Time.PollInterval ? left : Time.PollInterval);
                     try
                     {
                         var sample = await read(bounded.Token).ConfigureAwait(false);

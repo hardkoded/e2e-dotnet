@@ -101,7 +101,7 @@ public sealed class RouteAnnouncerCacheTests
             Model = new ScriptedModel(request =>
             {
                 onAct();
-                return string.Join('\n', request.Messages.Select(message => message.Content)).Contains("tapped", StringComparison.Ordinal)
+                return string.Join('\n', request.Messages.Select(message => message.Content)).Contains("Tapped", StringComparison.Ordinal)
                     ? ModelResponses.Done("passed", "Library opened")
                     : ModelResponses.Tap("link", "Library");
             }),

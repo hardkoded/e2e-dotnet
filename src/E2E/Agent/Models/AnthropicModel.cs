@@ -43,9 +43,16 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
 
         message.Headers.TryAddWithoutValidation("anthropic-version", _options.Version);
         ModelEndpoint.AddHeaders(message, _options.Headers);
-        message.Content = ModelHttp.Json(BuildBody(request));
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
-        return ModelHttp.Parse(body, Parse);
+        var payload = BuildBody(request);
+        message.Content = ModelHttp.Json(payload);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
+        var response = ModelHttp.Parse(body, Parse);
+        if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
+        {
+            response = ModelHttp.WithToolChoiceDowngrade(response, request.ToolChoice!);
+        }
+
+        return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
     public void Dispose()
@@ -134,6 +141,17 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             });
         }
 
+        // A structured answer is the input of one tool the model is made to call.
+        if (request.Schema is { } schema)
+        {
+            tools.Add(new JsonObject
+            {
+                ["name"] = ModelHttp.JsonToolName,
+                ["description"] = ModelHttp.JsonToolDescription(request),
+                ["input_schema"] = JsonNode.Parse(schema.GetRawText()),
+            });
+        }
+
         var payload = new JsonObject
         {
             ["model"] = _options.Model,
@@ -145,12 +163,33 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         if (tools.Count > 0)
         {
             payload["tools"] = tools;
-            payload["tool_choice"] = new JsonObject { ["type"] = "auto" };
+            payload["tool_choice"] = ToolChoice(request.ToolChoice);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system");
+        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system", "tool_choice");
+
+        // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
+        if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
+        {
+            payload["tool_choice"] = ToolChoice(ModelToolChoice.Auto);
+        }
+
+        // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
+        if (request.Schema is not null && !payload.ContainsKey("thinking"))
+        {
+            payload["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = ModelHttp.JsonToolName };
+        }
+
         return payload;
     }
+
+    // The AI SDK's mapping: required is Anthropic's any, a named tool is a tool choice with its name.
+    private static JsonObject ToolChoice(ModelToolChoice? choice) => choice switch
+    {
+        { Type: "required" } => new JsonObject { ["type"] = "any" },
+        { Type: "tool" } => new JsonObject { ["type"] = "tool", ["name"] = choice.ToolName },
+        _ => new JsonObject { ["type"] = "auto" },
+    };
 
     // The thinking blocks of an earlier turn go back as they came, signature and all, ahead of its text and tool calls.
     private static JsonArray Thinking(ModelMessage message)
@@ -186,12 +225,24 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var thinking = new List<JsonElement>();
+        var reasoningText = new List<string>();
         foreach (var block in root.GetProperty("content").EnumerateArray())
         {
             switch (block.GetProperty("type").GetString())
             {
-                // A thinking block can only be sent back with its signature, and a redacted one with its data.
-                case "thinking" when block.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String:
+                // A thinking block can only be sent back with its signature, and a redacted one with its data. Its text is reported either way.
+                case "thinking":
+                    if (ModelHttp.OptionalString(block, "thinking") is { } thought)
+                    {
+                        reasoningText.Add(thought);
+                    }
+
+                    if (block.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String)
+                    {
+                        thinking.Add(block.Clone());
+                    }
+
+                    break;
                 case "redacted_thinking" when block.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String:
                     thinking.Add(block.Clone());
                     break;
@@ -209,10 +260,10 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "input_tokens")
                     + ModelHttp.Int(usageElement, "cache_read_input_tokens")
@@ -230,6 +281,7 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             ToolCalls = calls,
             Usage = usage,
             ReasoningItems = thinking,
+            ReasoningText = ModelHttp.ReasoningText(reasoningText),
             FinishReason = ModelHttp.FinishReason(stop, "refusal"),
             RawFinishReason = stop,
         };

@@ -234,6 +234,7 @@ internal sealed class Dialer
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = (playwright, endpoint, timeout, cancellationToken) => DialAsync(provider, endpoint),
+            RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
             ConnectPlaywright = (playwright, endpoint, timeout, cancellationToken) =>
             {
                 PlaywrightEndpoints.Add(endpoint);

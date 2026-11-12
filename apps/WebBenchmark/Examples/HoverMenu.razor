@@ -1,0 +1,196 @@
+@* Upstream's app/src/Examples/HoverMenu.tsx.
+   Sabotage scenario: a hover-intent gated menu with no click-to-open path. Submenus open on mouseenter only and close CloseDelayMs
+   after mouseleave, with the close timer canceled on re-enter - so the agent must keep the pointer inside the menu chain while
+   traversing Account > Billing > Redeem voucher. Clicking the top-level items does nothing, and decoy leaves punish guessing. *@
+@implements IDisposable
+@if (_done)
+{
+    <div style="@Container">
+        <p data-testid="success-message" style="@SuccessText">
+            Voucher redeemed
+        </p>
+    </div>
+}
+else
+{
+    <div style="@Container">
+        <p style="@Hint">Using hover only, find Redeem voucher under Account.</p>
+        <div style="@NavRow">
+            @foreach (var (menu, items) in Menus)
+            {
+                <div @key="menu" style="@NavItemWrap" @onmouseenter="() => EnterMenu(menu)" @onmouseleave="LeaveMenu">
+                    <span data-testid="@($"menu-{menu.ToLowerInvariant()}")" style="@NavItem">
+                        @menu
+                    </span>
+                    @if (_openMenu == menu)
+                    {
+                        <div style="@Submenu">
+                            @foreach (var item in items)
+                            {
+                                @if (menu == "Account" && item == "Billing")
+                                {
+                                    <div @key="item" style="@SubmenuItemWrap" @onmouseenter="EnterFlyoutTrigger" @onmouseleave="LeaveFlyout">
+                                        <span style="@SubmenuItem">@item ›</span>
+                                        @if (_flyoutOpen)
+                                        {
+                                            <div style="@Flyout">
+                                                @foreach (var leaf in FlyoutItems)
+                                                {
+                                                    <span @key="leaf" style="@SubmenuItem" @onclick="() => HandleLeafClick(leaf)">
+                                                        @leaf
+                                                    </span>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <span @key="item" style="@SubmenuItem" @onclick="() => HandleLeafClick(item)">
+                                        @item
+                                    </span>
+                                }
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+        @if (_error is not null)
+        {
+            <p data-testid="error-message" style="@ErrorText">
+                @_error
+            </p>
+        }
+    </div>
+}
+
+@code {
+    private const int CloseDelayMs = 200;
+
+    private static readonly (string Menu, string[] Items)[] Menus =
+    [
+        ("Products", ["Profile", "Invoices"]),
+        ("Settings", ["Profile", "Sign out"]),
+        ("Account", ["Billing", "Profile", "Sign out"]),
+    ];
+
+    private static readonly string[] FlyoutItems = ["Redeem voucher", "Invoices"];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 12px; padding: 24px 0;";
+    private const string Hint = "font-size: 13px; color: #666; text-align: center; margin: 0;";
+    private const string NavRow = "display: flex; gap: 24px; justify-content: center; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px;";
+    private const string NavItemWrap = "position: relative;";
+    private const string NavItem = "font-size: 16px; font-weight: 600; color: #111; cursor: default; padding: 6px 4px;";
+    private const string Submenu = "position: absolute; top: 100%; left: 0; z-index: 10; display: flex; flex-direction: column; min-width: 160px; background-color: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 4px;";
+    private const string SubmenuItemWrap = "position: relative; display: flex; flex-direction: column;";
+    private const string SubmenuItem = "font-size: 15px; color: #333; padding: 8px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;";
+    private const string Flyout = "position: absolute; top: 0; left: 100%; z-index: 10; display: flex; flex-direction: column; min-width: 160px; background-color: #fff; border: 1px solid #e5e5e5; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 4px;";
+    private const string ErrorText = "color: #c00; font-size: 14px; margin: 0; text-align: center;";
+    private const string SuccessText = "font-size: 20px; font-weight: 600; color: #0a0; text-align: center; margin: 0;";
+
+    private string? _openMenu;
+    private bool _flyoutOpen;
+    private string? _error;
+    private bool _done;
+    private CancellationTokenSource? _close;
+    private CancellationTokenSource? _flyoutClose;
+
+    private void EnterMenu(string menu)
+    {
+        Cancel(ref _close);
+        if (_openMenu != menu)
+        {
+            _flyoutOpen = false;
+        }
+
+        _openMenu = menu;
+    }
+
+    /// <summary>
+    /// Schedules the submenu (and its flyout) to close after the hover-intent delay; re-entering any part of the menu chain cancels it.
+    /// </summary>
+    private void LeaveMenu()
+    {
+        Cancel(ref _close);
+        _close = Schedule(() =>
+        {
+            _openMenu = null;
+            _flyoutOpen = false;
+        });
+    }
+
+    private void EnterFlyoutTrigger()
+    {
+        Cancel(ref _flyoutClose);
+        _flyoutOpen = true;
+    }
+
+    private void LeaveFlyout()
+    {
+        Cancel(ref _flyoutClose);
+        _flyoutClose = Schedule(() => _flyoutOpen = false);
+    }
+
+    private void HandleLeafClick(string label)
+    {
+        if (label == "Redeem voucher")
+        {
+            _error = null;
+            _done = true;
+            return;
+        }
+
+        _error = "That is not the action";
+    }
+
+    private CancellationTokenSource Schedule(Action action)
+    {
+        var timer = new CancellationTokenSource();
+        _ = RunAfterDelayAsync(action, timer.Token);
+        return timer;
+    }
+
+    private async Task RunAfterDelayAsync(Action action, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(CloseDelayMs, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                action();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // The circuit went away while the timer ran: nothing is left to close.
+        }
+    }
+
+    private static void Cancel(ref CancellationTokenSource? timer)
+    {
+        timer?.Cancel();
+        timer?.Dispose();
+        timer = null;
+    }
+
+    public void Dispose()
+    {
+        Cancel(ref _close);
+        Cancel(ref _flyoutClose);
+    }
+}

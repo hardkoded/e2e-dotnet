@@ -23,7 +23,7 @@ A filter's answer: every test it does not name runs (upstream's `TestFilterResul
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ The tests to leave out, by [Id](/api/E2E/TestFilterCandidate/#E2E_TestFilterCand
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L69)
-
 <a id="E2E_TestFilterResult_Note_"></a>
 <a id="E2E_TestFilterResult_Note"></a>
 
@@ -58,5 +56,3 @@ public string? Note { get; init; }
 One line about the whole decision, such as `the diff is too large to judge`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L72)

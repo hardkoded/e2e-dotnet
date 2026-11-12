@@ -21,7 +21,7 @@ public sealed class ToBeAttachedTests
     {
         var locator = ScreenFixture.Create().GetByText("Gone");
         var error = await FailsWith("ASSERTION_FAILED", () => Expect.That(locator).ToBeAttachedAsync());
-        Assert.Contains("observed no node (match count 0)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("observed: no node (match count 0)", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -34,6 +34,6 @@ public sealed class ToBeAttachedTests
     [Fact]
     public async Task Is_LOCATOR_AMBIGUOUS_on_several_matches_like_every_positive_matcher()
     {
-        await FailsWith("STRICT_MODE", () => Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync());
     }
 }

@@ -24,7 +24,7 @@ public sealed class IgnoreCaseOnTextMatchersTests
     {
         await FailsAssertion(
             () => At("banner").Not.ToContainTextAsync("error", ignoreCase: true, timeout: Soon),
-            "expected not text containing \"error\" (ignoring case)");
+            "expected: not text containing \"error\" (ignoring case)");
         await FailsAssertion(() => At("banner").Not.ToHaveTextAsync("SAVE ERROR", ignoreCase: true, timeout: Soon));
         await FailsAssertion(() => At("banner").Not.ToHaveAttributeAsync("data-kind", "ERROR", ignoreCase: true, timeout: Soon));
     }

@@ -4,6 +4,7 @@
 
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using static E2E.Mobile.Tests.RawNodes;
 
 namespace E2E.Mobile.Tests.Engine;
 
@@ -95,7 +96,9 @@ public sealed class ObservationTests
         var publishedSession = await OpenAttempt(published);
         // The application node reads 390x844; a published viewport outranks it.
         published.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(402, 874));
-        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await publishedSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        var publishedObservation = await publishedSession.ObserveAsync(CancellationToken.None);
+        Assert.Equal(new BoundingBox(0, 0, 402, 874), publishedObservation.Roots[0].Rect);
+        Assert.Equal(new TraceViewport(402, 874), publishedObservation.Viewport);
         var tree = Harness.Create();
         var treeSession = await OpenAttempt(tree);
         Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
@@ -207,14 +210,11 @@ public sealed class ObservationTests
         {
             asked.Add(options?["normalizeStatusBar"]?.GetValue<bool>());
             File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
-            return new JsonObject { ["path"] = options["path"]!.GetValue<string>(), ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
+            return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
         });
-
-        // No geometry in the tree: the viewport probe is the one capture that is not a comparison.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(RawNodes.SettingsNodes.Where(node => node.Password != true && node.Type != "secure-text-field").Select(node => node with { Rect = null })));
         var session = await OpenAttempt(h);
-        await session.ObserveAsync(CancellationToken.None);
-        await session.ScreenshotAsync(CancellationToken.None);
+        await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+        await session.ObserveAsync(new ObserveOptions { Pixels = true, Comparable = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
         Assert.Equal([null, true], asked);
     }
 
@@ -239,24 +239,92 @@ public sealed class ObservationTests
     public async Task Withholds_the_pixels_of_a_screen_with_a_secure_field_when_the_image_cannot_be_read_or_decoded()
     {
         var h = Harness.Create();
+        var artifactsDir = Directory.CreateTempSubdirectory("e2e-mobile-artifacts-");
+        try
+        {
+            // A PNG signature and header naming the size, with no image data behind them: the size reads, the decode fails.
+            var headerOnly = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 0))[..33];
+            byte[] shot = [1, 2, 3];
+            h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
+            {
+                File.WriteAllBytes(options!["path"]!.GetValue<string>(), shot);
+                return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
+            });
+            var session = await Screens.OpenAttempt(h, artifactsDir.FullName);
+            foreach (var bytes in new[] { new byte[] { 1, 2, 3 }, headerOnly })
+            {
+                shot = bytes;
+                var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+                Assert.Null(observation.Pixels);
+                Assert.Single(observation.Roots[0].Children);
+                var withheld = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("password", TimeSpan.FromSeconds(30), CancellationToken.None));
+                Assert.Equal("ENGINE_FAILURE", withheld.Code);
+            }
 
-        // A PNG signature and header naming the size, with no image data behind them: the size reads, the decode fails.
-        var headerOnly = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 0))[..33];
-        byte[] shot = [1, 2, 3];
+            Assert.False(Directory.Exists(Path.Combine(artifactsDir.FullName, "screenshots")));
+        }
+        finally
+        {
+            artifactsDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Captures_pixels_on_request_masks_every_secure_node_and_degrades_to_tree_only_when_it_cannot()
+    {
+        var h = Harness.Create();
+        // 390x844 viewport at half scale: a small white RGBA image keeps the encode cheap and still proves the bounds are scaled.
+        var png = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 255));
         h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
         {
-            File.WriteAllBytes(options!["path"]!.GetValue<string>(), shot);
+            File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
             return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
         });
         var session = await OpenAttempt(h);
-        foreach (var bytes in new[] { new byte[] { 1, 2, 3 }, headerOnly })
-        {
-            shot = bytes;
-            var observation = await session.ObserveAsync(CancellationToken.None);
-            Assert.Single(observation.Roots[0].Children);
-            var withheld = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotAsync(CancellationToken.None));
-            Assert.Equal("ENGINE_FAILURE", withheld.Code);
-        }
+        var timeout = TimeSpan.FromSeconds(30);
+        var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        var pixels = observation.Pixels!;
+        Assert.Equal(0.5, pixels.Scale);
+        // One secure node on the Settings fixture: the Password field at y=270, 44 tall.
+        Assert.Equal(1, pixels.MaskedRegionCount);
+        var decoded = PngCodec.Decode(pixels.Png);
+        Assert.Equal((195, 422), (decoded.Width, decoded.Height));
+        int[] At(DecodedPng image, int x, int y) => [image.Pixels[(((y * 195) + x) * 4)], image.Pixels[(((y * 195) + x) * 4) + 1], image.Pixels[(((y * 195) + x) * 4) + 2]];
+        Assert.Equal([0, 0, 0], At(decoded, 100, 290 / 2));
+        Assert.Equal([255, 255, 255], At(decoded, 100, 240 / 2));
+
+        // Without the option the observation is the tree alone.
+        Assert.Null((await session.ObserveAsync(timeout, CancellationToken.None)).Pixels);
+
+        // Android flags a password EditText by attribute, not by class; it is painted over the same way.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(
+        [
+            N("e1", index: 0, depth: 0, type: "android.widget.FrameLayout", rect: new Rect(0, 0, 390, 844)),
+            N("e2", index: 1, parentIndex: 0, depth: 1, type: "android.widget.EditText", label: "Password", value: "hunter2", password: true, rect: new Rect(0, 270, 390, 44)),
+        ]));
+        var android = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Equal(1, android.Pixels!.MaskedRegionCount);
+        var password = Named(android.Roots[0], "Password");
+        Assert.Equal("textbox", password.Role);
+        Assert.True(password.States.Secure);
+        Assert.Null(password.Value);
+        var androidPixels = PngCodec.Decode(android.Pixels.Png);
+        Assert.Equal([0, 0, 0], At(androidPixels, 100, 290 / 2));
+        Assert.Equal([255, 255, 255], At(androidPixels, 100, 240 / 2));
+
+        // A secure node without bounds cannot be masked: the tree ships, the image does not.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")]));
+        var unmaskable = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Null(unmaskable.Pixels);
+        Assert.Single(unmaskable.Roots[0].Children);
+        // A snapshot without geometry keeps the viewport the session last learned.
+        Assert.Equal(new TraceViewport(390, 844), unmaskable.Viewport);
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => throw new AgentDeviceError("COMMAND_FAILED", "screenshot failed"));
+        var treeOnly = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Null(treeOnly.Pixels);
+        Assert.NotEmpty(treeOnly.Roots[0].Children);
     }
 
     [Fact]
@@ -307,22 +375,34 @@ public sealed class ObservationTests
     public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(string entry, string method)
     {
         var h = Harness.Create();
+
+        // A budget runs out when the test spends it, like upstream's fake timers. A real 200 ms wait also cuts off the setup's own
+        // observation when a loaded runner stretches it.
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
-        session.Origin = ActionOrigin.Test;
+        // The launch's transition is over before the input: a budget shorter than the transition is refused, so the input is only sent once it is not in flight.
+        h.Clock.Advance(TimeSpan.FromMilliseconds(600));
         var root = await Screens.RootOf(session);
         var about = Named(root, "About");
-        h.Fake.RespondAsync(method, (_, _) => new TaskCompletionSource<JsonNode?>().Task);
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(method, (_, _) =>
+        {
+            sent.TrySetResult();
+            return new TaskCompletionSource<JsonNode?>().Task;
+        });
         Task hung = entry switch
         {
-            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None),
-            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None),
-            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap()),
+            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None),
+            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None),
+            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), OperationContext.Test, CancellationToken.None),
             "type" => session.TypeTextAsync("hi", replace: false, CancellationToken.None),
             "press" => session.PressAsync("Enter", CancellationToken.None),
-            "keyboard dismiss" => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss")),
-            "back" => session.BackAsync(CancellationToken.None),
+            "keyboard dismiss" => ((IEngineSession)session).DismissKeyboardAsync(CancellationToken.None),
+            "back" => session.BackAsync(OperationContext.Test, CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };
+        await sent.Task;
+        await h.Clock.SpendUntil(hung, TimeSpan.FromMilliseconds(250));
         var failure = await Assert.ThrowsAsync<EngineException>(() => hung);
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
     }
@@ -331,12 +411,17 @@ public sealed class ObservationTests
     public async Task Sends_nothing_once_a_settling_target_spent_the_budget_and_no_keystroke_once_a_focus_tap_used_it_up()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
+
+        // The budget runs out when the test spends it; a real 100 ms wait also cuts off the setup's own observations on a loaded runner.
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
-        session.Origin = ActionOrigin.Test;
         var about = await Screens.Observed(session, "About");
 
+        // The launch's transition is over before the first tap: a budget shorter than the transition is refused, so the tap goes out once it is not in flight.
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+
         // About moves with the tap, so the next tap relocates it first; a slow relocation spends the whole budget.
-        await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
             RawNodes.SettingsNodes.Select(node => node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node)));
         var moved = await Screens.Observed(session, "About");
@@ -347,20 +432,19 @@ public sealed class ObservationTests
         });
         int Presses() => h.Fake.Methods().Count(method => method == DeviceMethods.InteractionsPress);
         var before = Presses();
-        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), CancellationToken.None));
+        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", late.Code);
         Assert.Equal(before, Presses());
 
         // A key on an unfocused field taps it, then types. The tap answers within its grace but past the budget, so the keystroke is not sent.
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         var field = await Screens.Observed(session, "Search");
-        session.Origin = ActionOrigin.Agent;
         h.Fake.Respond(DeviceMethods.InteractionsPress, _ =>
         {
             h.Clock.Spend(TimeSpan.FromMilliseconds(170));
             return new JsonObject();
         });
-        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), CancellationToken.None));
+        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), OperationContext.Agent, CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", cut.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsType, h.Fake.Methods());
     }
@@ -370,11 +454,10 @@ public sealed class ObservationTests
     {
         var h = Harness.Create();
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromSeconds(2));
-        session.Origin = ActionOrigin.Test;
         var about = await Screens.Observed(session, "About");
         var onNode = await Assert.ThrowsAsync<EngineException>(() => session.LongPressAsync(about, TimeSpan.FromSeconds(3)));
         Assert.Equal("NOT_ACTIONABLE", onNode.Code);
-        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3))));
+        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3)), OperationContext.Test, CancellationToken.None));
         Assert.Equal("NOT_ACTIONABLE", atPoint.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsLongPress, h.Fake.Methods());
     }
@@ -383,12 +466,21 @@ public sealed class ObservationTests
     public async Task Keeps_a_timed_out_input_in_flight_the_next_attempt_waits_for_the_device_command_to_settle()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
         var about = await Screens.Observed(session, "About");
         var pressed = new TaskCompletionSource<JsonNode?>();
         var settled = false;
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => pressed.Task);
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) =>
+        {
+            sent.TrySetResult();
+            return pressed.Task;
+        });
+        var tap = session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        await sent.Task;
+        await h.Clock.SpendUntil(tap, TimeSpan.FromMilliseconds(250));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => tap);
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
         Assert.False(settled);
 
@@ -415,17 +507,187 @@ public sealed class ObservationTests
         Assert.Equal("CANCELLED", cancelled.Code);
     }
 
+    private static readonly LocatorExpression About = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+
+    private static Task<JsonNode?> Never() => new TaskCompletionSource<JsonNode?>().Task;
+
+    // A test that sets ManualTimers below has budgets that run out when it spends them, like upstream's fake timers, so a loaded runner cannot end one early.
     [Fact]
-    public async Task Lets_a_locate_outlive_its_budget_a_poll_keeps_its_last_read_so_a_slow_screen_reads_as_missing_not_as_a_timeout()
+    public async Task Bounds_a_snapshot_by_the_operation_budget()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) => Never());
+        var locate = session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None);
+        await h.Clock.SpendUntil(locate, TimeSpan.FromMilliseconds(350));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => locate);
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    [Fact]
+    public async Task Returns_a_sparse_capture_when_the_budget_cannot_fit_a_retry_instead_of_timing_out()
+    {
+        var h = Harness.Create();
+        h.Clock.ManualTimers = true;
+        var session = await Screens.OpenAttempt(h);
+        var snapshots = 0;
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
-            h.Clock.Advance(TimeSpan.FromSeconds(3));
-            return FakeDeviceClient.SettingsSnapshot();
+            snapshots++;
+            return Sparse();
         });
-        var about = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
-        Assert.Single(await session.LocateAsync(about, TimeSpan.FromSeconds(1), CancellationToken.None));
+        Assert.Empty(await session.LocateAsync(About, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        Assert.Equal(1, snapshots);
+        Assert.Empty(h.Delays);
+    }
+
+    [Fact]
+    public async Task Bounds_the_snapshots_of_a_keyboard_dismissal_by_its_budget_and_reports_one_cut_off_after_the_drag_as_possibly_committed()
+    {
+        var h = Harness.Create();
+        h.Clock.ManualTimers = true;
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CommandKeyboard, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key"));
+        var keyboardUp = FakeDeviceClient.SettingsSnapshot();
+        keyboardUp["viewport"] = new JsonObject { ["width"] = 390, ["height"] = 844 };
+        keyboardUp["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
+        var snapshots = 0;
+        var dragged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
+        {
+            if (snapshots++ == 0)
+            {
+                return Task.FromResult<JsonNode?>(keyboardUp);
+            }
+
+            dragged.TrySetResult();
+            return Never();
+        });
+        var dismiss = session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300)));
+        await dragged.Task;
+        await h.Clock.SpendUntil(dismiss, TimeSpan.FromMilliseconds(350));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => dismiss);
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
+        Assert.Single(h.Fake.Calls, call => call.Method == "interactions.swipe");
+    }
+
+    [Fact]
+    public async Task Lets_a_slow_snapshot_run_for_the_whole_timeout_the_locate_gets()
+    {
+        var h = Harness.Create();
+        h.Clock.ManualTimers = true;
+        var session = await Screens.OpenAttempt(h);
+
+        // The snapshot takes 300 ms of the test's clock, so a loaded runner cannot make it outlast the 500 ms the locate gets.
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
+        {
+            h.Clock.Spend(TimeSpan.FromMilliseconds(300));
+            return Task.FromResult<JsonNode?>(FakeDeviceClient.SettingsSnapshot());
+        });
+        Assert.Single(await session.LocateAsync(About, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Takes_no_second_snapshot_for_a_capture_the_budget_abandoned()
+    {
+        var h = Harness.Create();
+        h.Clock.ManualTimers = true;
+        var session = await Screens.OpenAttempt(h);
+        var snapshots = 0;
+
+        // The budget runs out when the test spends it, and the capture fails only once the test lets it, after the budget has abandoned
+        // it: with real waits a loaded runner can let the failure land first.
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failsNow = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            snapshots++;
+            sent.TrySetResult();
+            try
+            {
+                await failsNow.Task;
+                throw new AgentDeviceError(
+                    "COMMAND_FAILED",
+                    "regular iOS snapshot presentation requires a valid viewport",
+                    new Dictionary<string, object?> { ["reason"] = "invalid-viewport" });
+            }
+            finally
+            {
+                failed.SetResult();
+            }
+        });
+        var locating = Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        await sent.Task;
+        await h.Clock.SpendUntil(locating, TimeSpan.FromMilliseconds(300));
+        var failure = await locating;
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        failsNow.SetResult();
+        await failed.Task;
+
+        // Nothing is awaiting the abandoned capture, so a second snapshot would have to come from a retry started on its late failure.
+        await Task.Delay(100);
+        Assert.Equal(1, snapshots);
+    }
+
+    [Fact]
+    public async Task Bounds_screenshot_by_operation_budget()
+    {
+        var h = Harness.Create();
+        var artifactsDir = Directory.CreateTempSubdirectory("e2e-mobile-artifacts-");
+        try
+        {
+            var session = await Screens.OpenAttempt(h, artifactsDir.FullName);
+            h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+            var failure = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("hung shot", TimeSpan.FromMilliseconds(300), CancellationToken.None));
+            Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        }
+        finally
+        {
+            artifactsDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Rethrows_OPERATION_TIMEOUT_from_capturePixels_during_observe()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    [Fact]
+    public async Task Shares_one_budget_across_observe_steps_so_screenshot_cannot_take_a_fresh_budget()
+    {
+        var h = Harness.Create();
+        h.Clock.ManualTimers = true;
+        var session = await OpenAttempt(h);
+        // The snapshot carries its geometry, so the only screenshot is the observation's pixels. The snapshot takes 150 ms of the test's
+        // clock, so a loaded runner cannot make it use up the 500 ms budget before the screenshot starts.
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
+        {
+            h.Clock.Spend(TimeSpan.FromMilliseconds(150));
+            return Task.FromResult<JsonNode?>(WithViewport(402, 874));
+        });
+        var screenshots = 0;
+        var shot = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) =>
+        {
+            Interlocked.Increment(ref screenshots);
+            shot.TrySetResult();
+            return Never();
+        });
+        var started = h.Clock.GetUtcNow();
+        var observing = Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        await shot.Task;
+        await h.Clock.SpendUntil(observing, TimeSpan.FromMilliseconds(350));
+        var failure = await observing;
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        Assert.Equal(1, screenshots);
+        // The test may spend several steps before the engine makes the timer that ends the wait, so only the lower bound is exact: the budget never ends early.
+        Assert.True(h.Clock.GetUtcNow() - started >= TimeSpan.FromMilliseconds(500));
     }
 }

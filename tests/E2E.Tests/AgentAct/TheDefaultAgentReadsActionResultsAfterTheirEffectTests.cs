@@ -9,12 +9,17 @@ namespace E2E.Tests.AgentAct;
 
 public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
 {
-    // The port's tool results carry the whole screen, so this checks the view that arrived late, not a diff of it.
     [Fact]
     public async Task Waits_for_a_change_that_lands_after_the_tap_and_shows_the_screen_it_produced()
     {
         var world = new DocumentWorld().Map("/delayed", page =>
         {
+            // Enough stable nodes that the arrival is a small change, not a new screen.
+            foreach (var label in new[] { "Intro", "Account", "Billing", "Help", "Legal", "Contact" })
+            {
+                page.Heading(label);
+            }
+
             var second = page.Heading("Second view");
             second.Hidden = true;
             DocumentElement? next = null;
@@ -43,12 +48,10 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
         // Two turns: the tap and the verdict. The tap's own result already shows the view that arrived 700 ms after the click.
         Assert.Equal(2, model.CallCount);
         var toolResult = CounterPage.ToolResults(model)[0];
-        Assert.Contains("heading \"Second view\"", toolResult, StringComparison.Ordinal);
-        Assert.DoesNotContain("- button \"Continue\"", toolResult, StringComparison.Ordinal);
+        Assert.Matches("added #\\S+ heading \"Second view\"", toolResult);
+        Assert.Matches("removed #\\S+ button \"Continue\"", toolResult);
     }
 
-    // The port's tool results carry the whole screen after each action, not the changes of that action alone,
-    // and a redundant observe is not answered cheaply.
     [Fact]
     public async Task Runs_the_actions_of_one_turn_in_order()
     {
@@ -74,10 +77,10 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
         Assert.Null(result.Error);
         var results = CounterPage.ToolResults(model);
         // The first result is read before the second action ran.
-        Assert.Contains("textbox \"Email\" [ref=", results[0], StringComparison.Ordinal);
-        Assert.Contains("value=\"ada@example.test\"", results[0], StringComparison.Ordinal);
+        Assert.Matches("changed #\\S+ textbox \"Email\" value=\"ada@example.test\"", results[0]);
         Assert.DoesNotContain("value=\"hello\"", results[0], StringComparison.Ordinal);
-        Assert.Contains("value=\"hello\"", results[1], StringComparison.Ordinal);
+        Assert.Matches("changed #\\S+ textbox \"Focus target\" value=\"hello\"", results[1]);
+        Assert.DoesNotContain("ada@example.test", results[1], StringComparison.Ordinal);
         Assert.Equal(2, act!.Actions);
         Assert.Equal(2, model.CallCount);
     }

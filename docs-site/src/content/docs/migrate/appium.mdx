@@ -1,0 +1,330 @@
+---
+title: From Appium
+description: Move Appium mobile tests, from the .NET client or WebdriverIO, to C# tests with locators, device calls, and agent goals.
+---
+
+This guide ports upstream's `docs/migrate/appium.mdx` (tester-army/e2e at `e83fdf9`, from tester-army/e2e#1597, #1579, #1602, and #1651). Upstream's examples are WebdriverIO and its target is TypeScript. The port's target is a .NET test project with a `MobileAppTest` base class, and the source examples use the Appium .NET client (`Appium.WebDriver`). The tables name the WebdriverIO calls and the `mobile:` commands every client sends. A .NET call maps the same way: `driver.FindElement(AppiumBy.AccessibilityId("x")).Click()` is `$('~x').click()`, `SendKeys` is `setValue`, `driver.ActivateApp(id)` is `driver.activateApp(id)`, and `driver.ExecuteScript("mobile: ...")` is `driver.execute('mobile: ...')`.
+
+e2e replaces the Appium server, its drivers, and the client library with the `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` package. It drives iOS simulators, Android emulators, and connected phones through [agent-device](https://github.com/callstack/agent-device), which it starts through `npx`, so Node 22.12 or newer must be on `PATH`. Your app build and its accessibility ids stay as they are.
+
+This guide is for suites that test a mobile app through Appium's XCUITest or UiAutomator2 driver, from the .NET client, WebdriverIO, or another client.
+
+## Agent prompt
+
+```text
+Migrate this project's Appium tests to e2e, one test at a time. Docs: the "From Appium" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/appium.mdx).
+
+1. Read the migration guide. It maps Appium capabilities, selectors, and commands to e2e and marks what has no equivalent.
+2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Run `e2e init <directory> --yes --engine mobile` (add `--framework xunit` for xUnit v3). It creates the project with E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3) and an example test. Rewrite the example for your app or delete it.
+3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
+4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
+5. Port the capabilities into e2e.config.json with the guide's table: one target for the platform, with app.bundleId, app.appPath, app.launchArguments, and app.permissions. Keep passwords and tokens out of the config.
+6. Run `e2e doctor` and fix what it reports.
+7. List the Appium tests and ask me which one to move first. Suggest one with XPath selectors or explicit waits that often break.
+8. Rewrite that test as a test class that derives from MobileAppTest, with the guide's tables. Follow "Rewrite selectors": XPath has no port, and e2e fails on several matches. Where the guide says "Not yet" or "No equivalent", use the workaround it gives, or leave that test in Appium and tell me why.
+9. Keep the final assertions deterministic, with Expect.That. Where a run of scripted taps breaks often, propose an Agent.ActAsync goal for it instead.
+10. Run the new class on a booted simulator or emulator with `dotnet test --filter` and fix it until it passes. Keep the Appium test until I confirm it can go.
+11. Summarize which tests moved, which stayed in Appium, and why.
+```
+
+For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the old suite running until you retire each test. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## What replaces each Appium part
+
+| Appium | e2e |
+| --- | --- |
+| The Appium server, started before the run | No server. The engine starts agent-device's daemon |
+| Drivers (`appium driver install xcuitest`) | `platform` on the target: `ios` or `android`. Nothing else to install |
+| Capabilities | A target in `e2e.config.json`: the platform, plus `app` |
+| A session (`remote()`, `deleteSession()`, `new AndroidDriver(...)`, `Quit()`) | One device session per worker, which `MobileAppTest` opens and closes |
+| Selector strategies (accessibility id, id, XPath) | `Screen.GetByTestId`, `GetByLabel`, `GetByText`, `GetByRole` |
+| Element commands (`click`, `setValue`) | Locator actions (`TapAsync`, `FillAsync`), which wait for one actionable match |
+| `driver` and `mobile:` commands | `Device` and `App` |
+| expect-webdriverio, implicit and explicit waits | `Expect.That(locator)` matchers, which retry until their timeout |
+| The WebdriverIO testrunner, Mocha, TestNG, pytest, NUnit | An NUnit or xUnit v3 class and `dotnet test` |
+| Nothing in Appium | Agent steps: `Agent.ActAsync`, `AssertAsync`, and `ExtractAsync<T>` take a goal in plain words |
+
+## Port the capabilities
+
+Set up a target with the [mobile guide](/get-started/mobile/) and a model with the [web guide](/get-started/web/). Only agent steps need a model.
+
+On this page, "Not yet" marks a capability or command e2e doesn't have today, and "No equivalent" one it leaves out on purpose.
+
+| Capability | e2e |
+| --- | --- |
+| `platformName` | `platform` on the target (`ios` or `android`), or `E2E_MOBILE_PLATFORM`. The port runs one device target, so the variable switches it |
+| `appium:automationName` | Nothing to set |
+| `appium:deviceName`, `appium:udid` | `MobileOptions.Device`, or `E2E_MOBILE_DEVICE`: a name, a simulator UDID, or an `emulator-5554` serial. `MobileOptions.Devices` is a pool, one worker per device |
+| `appium:platformVersion` | Not yet. Name a simulator or emulator that runs that version |
+| `appium:app` | `app.appPath` on the target. `MobileAppTest` installs the build once per run with `Device.InstallAppAsync()` |
+| `appium:bundleId`, `appium:appPackage` | `app.bundleId` on the target, the app `App.OpenAsync()` launches |
+| `appium:appActivity`, `appium:appWaitActivity` | Not yet. e2e opens the app by its package |
+| `appium:processArguments`, `appium:optionalIntentArguments` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch: a list of strings, process arguments on iOS, `am start` arguments on Android. `processArguments.env` is not yet supported |
+| `appium:autoGrantPermissions`, `appium:permissions` | `app.permissions` on the target, `{ "camera": "grant" }`, set before every fresh launch; nothing is granted unless named |
+| `appium:autoAcceptAlerts`, `appium:autoDismissAlerts` | Not yet. Set `app.permissions` so the prompt never shows, or call `Device.AlertAsync(AlertAction.Accept)` |
+| `appium:noReset: true` | The default. Nothing clears the app's data unless a test asks |
+| `appium:noReset: false` | `App.ClearStateAsync()` at the start of the test |
+| `appium:fullReset` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` |
+| `appium:newCommandTimeout`, WebDriverAgent timeouts | Not needed. Actions use `actionTimeout`, assertions `assertionTimeout`, and the test its own timeout |
+| `appium:language`, `appium:locale` | Not yet |
+| `bstack:options`, `lt:options` | A device provider: `E2E.BrowserStack`, see [BrowserStack](/integrations/browserstack/), or `E2E.TestMu.Mobile` |
+| Several capability sets, `maxInstances` | One target, switched with `E2E_MOBILE_PLATFORM`, and a `MobileOptions.Devices` pool |
+
+```json title="e2e.config.json"
+{
+  "targets": [
+    {
+      "name": "ios",
+      "platform": "ios",
+      "app": {
+        "bundleId": "com.example.app",
+        "appPath": "ios/build/MyApp.app",
+        "launchArguments": ["-e2e", "YES"],
+        "permissions": { "notifications": "grant" }
+      }
+    }
+  ]
+}
+```
+
+Upstream's config holds an `ios` and an `android` target at once. The port's `e2e.config.json` holds one device target, and the two variables switch it, see [MobileAppTest](/compatibility/#mobileapptest-not-in-upstream). Run the Android build with `E2E_MOBILE_PLATFORM=android E2E_MOBILE_APP_PATH=android/app/build/outputs/apk/release/app-release.apk dotnet test`, and give an Android run its own `launchArguments`, such as `["--ez", "e2e", "true"]`. The target holds one `bundleId`: when the Android package differs from the iOS bundle id, set `app.bundleId` to the package for that run, or override `MobileAppTest.AppId`.
+
+## Rewrite one test
+
+Start with a test whose XPath selectors or explicit waits often break.
+
+```csharp title="Appium .NET client"
+[Test]
+public void Signs_in()
+{
+    driver.FindElement(AppiumBy.AccessibilityId("email")).SendKeys("ada@example.test");
+    driver.FindElement(AppiumBy.AccessibilityId("password")).SendKeys("hunter2");
+    driver.FindElement(By.XPath("//XCUIElementTypeButton[@name='Sign in']")).Click();
+    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+    wait.Until(d => d.FindElement(AppiumBy.AccessibilityId("welcome")).Displayed);
+    Assert.That(driver.FindElement(AppiumBy.AccessibilityId("welcome")).Text, Is.EqualTo("Welcome, Ada"));
+}
+```
+
+```csharp title="e2e (NUnit)"
+using E2E.Mobile.NUnit;
+
+public sealed class LoginTests : MobileAppTest
+{
+    [Test]
+    public async Task Signs_in()
+    {
+        // iOS accessibility ids. On Android, content descriptions are labels: use GetByLabel("email").
+        await Screen.GetByTestId("email").FillAsync("ada@example.test");
+        await Screen.GetByTestId("password").FillAsync("hunter2");
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        var welcome = Screen.GetByTestId("welcome");
+        await Expect.That(welcome).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(10));
+        await Expect.That(welcome).ToHaveTextAsync("Welcome, Ada");
+    }
+}
+```
+
+- `MobileAppTest` installs the build and launches the app fresh before each test, so the test needs no `App.OpenAsync()`.
+- Actions wait for their element and assertions retry, so the explicit wait goes away.
+
+For xUnit v3, use `E2E.Mobile.XUnit.V3` and `[Fact]`.
+
+Where a run of scripted taps breaks often, one goal can replace it. The agent reads the screen and finds the fields. The replay cache records its actions once a later check passes, and the next run replays them without a model call, see [Caching](/features/caching/). A password belongs in [configured credentials](/features/signing-in/), which the model never sees:
+
+```csharp
+var ada = Credentials.User("ada");
+await Agent.ActAsync("sign in as {username}", new ActOptions
+{
+    Params = new Dictionary<string, object?> { ["username"] = ada.Username, ["password"] = ada.Password },
+});
+```
+
+## Rewrite selectors
+
+| Appium | e2e |
+| --- | --- |
+| `$('~login')` on iOS, `AppiumBy.AccessibilityId("login")`: an accessibility identifier or React Native `testID` | `Screen.GetByTestId("login")` |
+| `$('~Log in')` on Android, `AppiumBy.AccessibilityId("Log in")`: a content description or React Native `accessibilityLabel` | `Screen.GetByLabel("Log in")` |
+| `$('id=com.example:id/email')`, `AppiumBy.Id`, `resourceId` | `Screen.GetByTestId("email")`; the `com.example:id/` prefix is optional |
+| `-ios predicate string:label == "Sign in"`, `android=new UiSelector().text("Sign in")` | `Screen.GetByText("Sign in")` or `GetByLabel("Sign in")` |
+| `-ios class chain`, class names (`XCUIElementTypeButton`, `android.widget.Button`) | `Screen.GetByRole("button", "Sign in")` |
+| XPath | No equivalent. Chain queries (`Screen.GetByTestId("row").GetByText("Delete")`), or use `Filter(has: ..., hasText: ...)` |
+| `$$(selector)[2]`, `FindElements(...)[2]` | `.Nth(2)`; `AllAsync()` returns every match |
+| `-image` selectors | No equivalent. Use a goal, or `Screen.TapAtAsync(new Point(x, y))` |
+| A selector the queries can't express | `Device.Locator("role=text label=\"Total\"")`, agent-device's selector syntax |
+
+Three differences from Appium cause most edits:
+
+- `GetByText`, `GetByLabel`, and `GetByTestId` match the whole string, case included. Pass a `Regex`, or `exact: false` for a case-insensitive substring of text or label.
+- Appium's `$()` and `FindElement` return the first match. An e2e action or single-element read needs exactly one, and fails with `LOCATOR_AMBIGUOUS` on several. Narrow it with `Filter(...)`, `First()`, or `Nth(n)`.
+- Appium reads the tree in each platform's own terms, as the iOS class in the XPath above shows. e2e maps native controls to shared roles such as `button`, `textbox`, and `switch`, so one test runs on both platforms. The [roles table](/get-started/mobile/#roles) lists the mapping.
+
+## Map each command
+
+Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `Expect.That(locator)` run on every target.
+
+### Element commands
+
+| Appium (WebdriverIO) | e2e |
+| --- | --- |
+| `.click()` | `.TapAsync()` |
+| `.doubleClick()` | `.DoubleTapAsync()` |
+| `mobile: longClickGesture`, `mobile: touchAndHold` | `.LongPressAsync(new LongPressOptions { Duration = ... })` |
+| `.setValue(t)` | `.FillAsync(t)`, which replaces the content |
+| `.addValue(t)` | `.PressSequentiallyAsync(t)`, which taps the field and types key by key at the cursor |
+| `.clearValue()` | `.ClearAsync()` |
+| `driver.keys('Enter')`, `pressKeyCode(66)` | `.PressAsync("Enter")` on the field; a device takes only `Enter`, `Space`, or one character |
+| `.getText()` | `.TextContentAsync()` |
+| `.getValue()`, `.getAttribute('value')` | `.InputValueAsync()` |
+| `.getAttribute(name)` | `.GetAttributeAsync("placeholder")`; `placeholder` is the only attribute on a device |
+| `.isDisplayed()`, `.isEnabled()` | `.IsVisibleAsync()`, `.IsEnabledAsync()` |
+| `.isSelected()` | `await Expect.That(locator).ToBeSelectedAsync()`; there is no selected read |
+| `.getAttribute('checked')` | `.IsCheckedAsync()` |
+| `.isExisting()` | `await locator.CountAsync() > 0` |
+| `.getLocation()`, `.getSize()` | `.BoundingBoxAsync()` |
+| `.waitForDisplayed({ timeout })` | `await Expect.That(locator).ToBeVisibleAsync(timeout: ...)`, or `locator.WaitForAsync()` |
+| `.waitForDisplayed({ reverse: true })` | `await Expect.That(locator).ToBeHiddenAsync()` |
+
+### Gestures
+
+| Appium (WebdriverIO) | e2e |
+| --- | --- |
+| `mobile: swipeGesture`, `mobile: swipe`, `driver.swipe({ direction: 'up' })` | `locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` or `Screen.SwipeAsync(new SwipeOptions { ... })`; Appium names the finger's direction, e2e the content's |
+| `mobile: scrollGesture`, `mobile: scroll` to an element, `.scrollIntoView()` | `Screen.ScrollUntilVisibleAsync(locator)`, or `list.ScrollUntilVisibleAsync(locator)` on the scroll view |
+| `mobile: dragGesture`, `mobile: dragFromToForDuration`, `.dragAndDrop(target)` | `locator.DragToAsync(target)` |
+| A `performActions` swipe between two points | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })` |
+| A tap at coordinates | `Screen.TapAtAsync(new Point(x, y))`; inside an element, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
+| `mobile: pinchOpenGesture`, `mobile: pinch`, multi-finger `performActions` | Not yet |
+
+### Assertions
+
+| expect-webdriverio | e2e |
+| --- | --- |
+| `toBeDisplayed()`, `not.toBeDisplayed()` | `ToBeVisibleAsync()`, `ToBeHiddenAsync()` |
+| `toExist()` | `ToBeAttachedAsync()` |
+| `toHaveText(t)`, `toHaveText(t, { containing: true })` | `ToHaveTextAsync(t)`, `ToContainTextAsync(t)` |
+| `toHaveValue(v)` | `ToHaveValueAsync(v)` |
+| `toBeEnabled()`, `toBeDisabled()` | `ToBeEnabledAsync()`, `ToBeDisabledAsync()` |
+| `toBeSelected()`, `toBeChecked()` | `ToBeSelectedAsync()`, `ToBeCheckedAsync()` |
+| `toBeElementsArrayOfSize(n)` | `ToHaveCountAsync(n)` |
+| `@wdio/visual-service` screen comparison | `Expect.That(Screen).ToHaveScreenshotAsync("name.png")`. The port documents it for the web engine only and has no device run of it, so keep the comparison until you have checked it on your device |
+
+### App lifecycle
+
+| Appium (WebdriverIO) | e2e |
+| --- | --- |
+| The launch at session start | `MobileAppTest` launches the target's app fresh before each test; `App.OpenAsync()` launches it again |
+| `driver.activateApp(id)` | `Device.OpenAppAsync(id)`; `new OpenAppOptions { Relaunch = true }` restarts it |
+| `driver.terminateApp(id)` | `Device.CloseAppAsync()`, for the session's app only. It ends the session, so open an app next |
+| `terminateApp`, then `activateApp` | `App.RestartAsync()` |
+| `mobile: clearApp` | `App.ClearStateAsync()` |
+| `driver.installApp(path)` | `Device.InstallAppAsync(path)` |
+| `driver.removeApp(id)` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsUninstall, ...)` with `app` set to the id removes it, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` removes the app first and installs it with no data (not on TestMu) |
+| `driver.isAppInstalled(id)` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsList, Device.UnstableRaw.Selection.ToArgs(), CancellationToken.None)` lists the installed user apps as `Name (id)`; on Android, only apps with a launcher icon |
+| `queryAppState(id)` | Not yet. On Android, `Device.ForegroundAppAsync()` names the app on screen |
+| `driver.background(seconds)` | `Device.HomeAsync()`, `await Task.Delay(TimeSpan.FromSeconds(seconds))` for a positive `seconds`, then `Device.OpenAppAsync(id)` |
+| `driver.url('myapp://x')`, `mobile: deepLink` | `Device.OpenLinkAsync("myapp://x")` |
+| `driver.back()` | `App.BackAsync()` |
+| `driver.hideKeyboard()` | `Device.DismissKeyboardAsync()` |
+| `driver.getPageSource()` | `Screen.TreeAsync()`, or `Screen.DebugAsync()` to print it |
+| `driver.takeScreenshot()` | `App.ScreenshotAsync("label")`, secure fields masked |
+| `startRecordingScreen()`, `stopRecordingScreen()` | `App.StartRecordingAsync()`, `App.StopRecordingAsync()`, or `E2E_VIDEO=on dotnet test` |
+
+### Device
+
+| Appium (WebdriverIO) | e2e |
+| --- | --- |
+| `mobile: setPermission`, `mobile: changePermissions` | `Device.SetPermissionAsync(DevicePermission.Camera, PermissionState.Grant)`, one per call, on the target's app, which need not be running; call it before the app launches |
+| `driver.acceptAlert()`, `driver.dismissAlert()` | `Device.AlertAsync(AlertAction.Accept)`, `Device.AlertAsync(AlertAction.Dismiss)` |
+| `driver.setGeoLocation({ latitude, longitude })` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
+| `driver.setOrientation('LANDSCAPE')` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
+| `mobile: setAppearance` | `Device.SetAppearanceAsync(Appearance.Dark)` |
+| `driver.setClipboard(t)`, `driver.getClipboard()` | `Device.SetClipboardAsync(t)`, `Device.ClipboardAsync()`, plain text where Appium uses base64. Neither works on an Android build with no clipboard shell command |
+| `driver.toggleWiFi(false)`, `mobile: setConnectivity` with `wifi: false` | `Device.SetNetworkAsync(NetworkState.Offline)`, which turns off Wi-Fi only; Android only |
+| `driver.toggleAirplaneMode()`, `mobile: setConnectivity` with `airplaneMode: true` | `Device.SetAirplaneModeAsync(true)`, Wi-Fi and cellular; Android 11 or later |
+| `mobile: enrollBiometric` | `Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true)` |
+| `mobile: sendBiometricMatch`, `driver.fingerPrint(1)` | `Device.SetBiometricsAsync(BiometricSensor.FaceId, BiometricResult.Match)`, `Device.SetBiometricsAsync(BiometricSensor.Fingerprint, BiometricResult.Match)` |
+| `pressKeyCode` for Home | `Device.HomeAsync()` |
+| `driver.lock()`, `pressKeyCode` for power or volume, `mobile: pressButton` for volume | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.CommandHardwareButton, ...)` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"` presses one; on iOS only the volume keys, on a physical device, not a simulator. See [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `mobile: clearKeychains` | `Device.ClearKeychainAsync()`; iOS simulator only |
+| `driver.isIOS`, `driver.isAndroid` | the `Platform` property of `MobileAppTest`, `MobilePlatform.Ios` or `Android`, with `Assume.That` (NUnit) |
+
+### Runner and tooling
+
+| Appium (WebdriverIO) | e2e |
+| --- | --- |
+| `specs` in `wdio.conf.ts` | the test project's own tests; `dotnet test` collects the classes in the project |
+| `specFileRetries`, Mocha `retries` | NUnit `[Retry(n)]`, where `n` counts total attempts (two Mocha retries are `[Retry(3)]`) and a retry reruns the method, not the file; xUnit v3 has no retry attribute |
+| Mocha `--grep`, tags in titles | `dotnet test --filter "FullyQualifiedName~Name"`, or `[Category("smoke")]` (NUnit) and `--filter "TestCategory=smoke"` |
+| `before`, `beforeEach` hooks | `[OneTimeSetUp]`, `[SetUp]` (NUnit); the constructor and `InitializeAsync` (xUnit v3) |
+| JUnit, Allure, spec reporters | the `dotnet test` loggers, such as `--logger trx`, or a JUnit logger package |
+| Appium Inspector | `Screen.DebugAsync()`, or `e2e mcp` for a coding agent's live session, see [Coding agents](/coding-agents/) |
+
+## Permissions and deep links
+
+Appium grants permissions through capabilities or `mobile:` commands, and opens links through `driver.Url` or `mobile: deepLink`:
+
+```csharp title="Appium .NET client"
+driver.ExecuteScript("mobile: setPermission", new Dictionary<string, object>
+{
+    ["bundleId"] = "com.example.app",
+    ["access"] = new Dictionary<string, string> { ["location"] = "yes" },
+});
+driver.ActivateApp("com.example.app");
+driver.ExecuteScript("mobile: deepLink", new Dictionary<string, object> { ["url"] = "myapp://orders/42", ["bundleId"] = "com.example.app" });
+Assert.That(driver.FindElement(AppiumBy.AccessibilityId("order-title")).Text, Is.EqualTo("Order #42"));
+```
+
+```csharp title="e2e (NUnit)"
+using E2E.Mobile.NUnit;
+
+public sealed class OrderLinkTests : MobileAppTest
+{
+    [Test]
+    public async Task Opens_an_order_from_a_link()
+    {
+        await Device.SetPermissionAsync(DevicePermission.Location, PermissionState.Grant);
+        await App.OpenAsync();
+        await Device.OpenLinkAsync("myapp://orders/42");
+        await Expect.That(Screen.GetByText("Order #42")).ToBeVisibleAsync();
+    }
+}
+```
+
+Set a permission before `App.OpenAsync()`: a change terminates a running app on iOS. Permissions every test needs go in `app.permissions`, and so does one the app reads at startup, since `MobileAppTest` has launched the app before the test body runs. See [Mobile](/get-started/mobile/).
+
+## Run in CI
+
+An Appium job starts the server with `appium &`, then the test run. An e2e job has no server. `MobileAppTest` installs the build from `app.appPath`, and `dotnet test` runs the suite on the booted simulator or emulator:
+
+```bash
+xcrun simctl boot "iPhone 17"
+cd MyApp.E2ETests
+dotnet test
+```
+
+Each platform needs its own job: iOS on macOS, Android on Linux with KVM. Boot exactly one device, or name it with `E2E_MOBILE_DEVICE`, see [Mobile](/get-started/mobile/#4-run).
+
+## Migration checklist
+
+1. Install e2e in a new test project beside the Appium project, or in an `e2e/` folder for a Java or Python suite. Run `e2e doctor`.
+2. Port the capabilities to the target.
+3. Rewrite one flaky test. Replace XPath with test ids, labels, and roles, and add an id where the app has none.
+4. Run it with `dotnet test --filter` on each platform until it passes.
+5. Add the e2e job to CI beside the Appium job.
+6. Delete the Appium test, and repeat. After the last one, remove the Appium server and drivers from CI.
+
+## What has no direct equivalent
+
+The tables above mark single commands. These gaps cut across a whole suite:
+
+- **Webview contexts.** Not yet. There is no `getContexts` or `switchContext`, and no script runs in a webview.
+- **Device shell and files.** Not yet. No `mobile: shell`, `pushFile`, `pullFile`, `startActivity`, or performance data. For what agent-device supports, `Device.UnstableRaw` exposes its client, but it takes only the calls the engine makes, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes). Its calls aren't steps, so they skip the report and secret redaction.
+- **Sauce Labs and other Appium grids.** Not yet. BrowserStack, TestMu AI, Limrun, and Expo Simulators have providers.
+- **Session reuse.** No equivalent. A device has no saved sessions. Sign in inside the test or in `[SetUp]`, see [Mobile](/get-started/mobile/).
+
+## Next
+
+- [Mobile](/get-started/mobile/): configure your app, devices, and hosted devices.
+- [Core concepts](/get-started/core-concepts/): goals, assertions, and locators instead of scripted selectors.

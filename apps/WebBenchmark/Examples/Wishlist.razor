@@ -1,0 +1,69 @@
+@using System.Globalization
+@* Upstream's app/src/Examples/Wishlist.tsx.
+   PLANTED BUG (do not fix): the wishlist tab ignores the saved items. The tab badge counts saves correctly, but the list always renders
+   the empty state, so saved products are gone when the user looks. *@
+<div style="@Container">
+    <nav style="@TabBar">
+        <button type="button" data-testid="tab-shop" style="@(_tab == "shop" ? TabButtonActive : TabButton)" @onclick='() => _tab = "shop"'>Shop</button>
+        <button type="button" data-testid="tab-wishlist" style="@(_tab == "wishlist" ? TabButtonActive : TabButton)" @onclick='() => _tab = "wishlist"'>Wishlist (@_savedIds.Count)</button>
+    </nav>
+    @if (_tab == "shop")
+    {
+        <ul data-testid="shop-list" style="@List">
+            @foreach (var product in Products)
+            {
+                var saved = _savedIds.Contains(product.Id);
+                <li @key="product.Id" style="@Row">
+                    <span>@product.Name <span style="@Price">$@Money(product.Price)</span></span>
+                    <button type="button" data-testid="save-@product.Id" style="@(saved ? SaveButtonActive : SaveButton)" @onclick="() => ToggleSaved(product.Id)">@(saved ? "♥ Saved" : "♡ Save")</button>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <div data-testid="wishlist-panel" style="@EmptyState">
+            <p data-testid="wishlist-empty" style="@EmptyText">No saved items yet.</p>
+            <p style="@EmptyHint">Tap Save on any product to keep it here.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record Product(string Id, string Name, decimal Price);
+
+    private static readonly Product[] Products =
+    [
+        new("planner", "Weekly Desk Planner", 24),
+        new("pen", "Brass Fountain Pen", 58),
+        new("notebook", "Dot Grid Notebook", 14),
+    ];
+
+    private const string Container = "display: flex; flex-direction: column; gap: 16px; padding: 24px 0;";
+    private const string TabBar = "display: flex; gap: 8px;";
+    private const string TabButton = "border: 1px solid #ccc; background-color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;";
+    private const string TabButtonActive = "border: 1px solid #111; background-color: #111; color: #fff; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;";
+    private const string List = "list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column;";
+    private const string Row = "display: flex; justify-content: space-between; align-items: center; padding: 12px 4px; border-bottom: 1px solid #e5e5e5; font-size: 15px;";
+    private const string Price = "color: #666; font-size: 13px; margin-left: 6px;";
+    private const string SaveButton = "border: 1px solid #ccc; background-color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;";
+    private const string SaveButtonActive = "border: 1px solid #c00; background-color: #fff; color: #c00; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;";
+    private const string EmptyState = "border: 1px dashed #ccc; border-radius: 8px; padding: 24px; text-align: center;";
+    private const string EmptyText = "font-size: 15px; font-weight: 600; margin: 0 0 4px;";
+    private const string EmptyHint = "font-size: 13px; color: #666; margin: 0;";
+
+    private string _tab = "shop";
+    private readonly List<string> _savedIds = [];
+
+    /// <summary>Toggles whether a product is saved to the wishlist.</summary>
+    private void ToggleSaved(string productId)
+    {
+        if (!_savedIds.Remove(productId))
+        {
+            _savedIds.Add(productId);
+        }
+    }
+
+    /// <summary>Upstream's <c>toFixed(2)</c>.</summary>
+    private static string Money(decimal amount) => amount.ToString("F2", CultureInfo.InvariantCulture);
+}

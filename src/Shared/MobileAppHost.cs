@@ -59,7 +59,13 @@ internal static class MobileAppHost
         Device = provider is null ? device : null,
         Provider = provider,
         TargetName = config.Target.Name,
-        App = new MobileApp { BundleId = appId, AppPath = appPath },
+        App = new MobileApp
+        {
+            BundleId = appId,
+            AppPath = appPath,
+            LaunchArguments = config.Target.App.LaunchArguments,
+            Permissions = MobileTargetEngine.DevicePermissionsOf(config.Target.Name, config.Target.App.Permissions),
+        },
     };
 
     /// <summary>

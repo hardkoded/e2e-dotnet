@@ -21,7 +21,7 @@ public sealed class GoogleModelOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L271)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)
 
 ## Properties
 
@@ -38,8 +38,6 @@ public string? ApiKey { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L281)
-
 <a id="E2E_GoogleModelOptions_ApiKeyEnv_"></a>
 <a id="E2E_GoogleModelOptions_ApiKeyEnv"></a>
 
@@ -54,8 +52,6 @@ public string ApiKeyEnv { get; init; }
 Environment variable read when [ApiKey](#E2E_GoogleModelOptions_ApiKey) is empty. Defaults to `GOOGLE_GENERATIVE_AI_API_KEY`, as the AI SDK.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L284)
 
 <a id="E2E_GoogleModelOptions_BaseUrl_"></a>
 <a id="E2E_GoogleModelOptions_BaseUrl"></a>
@@ -72,8 +68,6 @@ The API root; requests go to `{BaseUrl}/models/{Model}:generateContent`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L276)
-
 <a id="E2E_GoogleModelOptions_Headers_"></a>
 <a id="E2E_GoogleModelOptions_Headers"></a>
 
@@ -87,8 +81,6 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L286)
-
 <a id="E2E_GoogleModelOptions_Model_"></a>
 <a id="E2E_GoogleModelOptions_Model"></a>
 
@@ -101,8 +93,6 @@ public required string Model { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L273)
 
 <a id="E2E_GoogleModelOptions_Provider_"></a>
 <a id="E2E_GoogleModelOptions_Provider"></a>
@@ -119,8 +109,6 @@ The key this client reads in [ProviderOptions](/api/E2E/ModelRequest/#E2E_ModelR
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L279)
-
 ## Methods
 
 <a id="E2E_GoogleModelOptions_ResolveApiKey_"></a>
@@ -135,5 +123,3 @@ public string? ResolveApiKey()
 
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L288)

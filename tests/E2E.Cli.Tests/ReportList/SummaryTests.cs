@@ -1,0 +1,274 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+using E2E.Cli.Report;
+using E2E.Internal;
+using E2E.Reports;
+using static E2E.Cli.Tests.ReportList.ListReporterKit;
+using AttemptStatus = E2E.Internal.AttemptStatus;
+
+namespace E2E.Cli.Tests.ReportList;
+
+/// <summary>Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('summary'). The 4 serial-member <c>it</c> (the not-saved count of a serial member) are not ported: serial runs are the test runner's feature.</summary>
+public sealed class SummaryTests
+{
+    [Fact]
+    public void Closes_with_each_failed_test_after_the_reporter_rows_its_file_and_failing_line_else_its_declaration_the_error_and_the_trace_page()
+    {
+        // A failed attempt whose error the runner located at `file:line`.
+        static ReportAttempt ThrownAt(string message, string file, int line) => FailedAttempt(message, new SourceLocation(file, line, 1));
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "a", title: ["login", "welcomes"], line: 3, attempts: [ThrownAt("expected \"Welcome\"\ngot \"Sign in\"", "tests/case.e2e.ts", 9)])));
+        reporter.Handle(Finished(Result(ResultStatus.TimedOut, id: "b", title: ["login", "slow"], line: 12, attempts: [ThrownAt("took too long", "tests/helpers.ts", 4)])));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "c", title: ["login", "opens"])));
+        reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, ".e2e/report.json", traces: new Dictionary<string, string> { ["a"] = ".e2e/results/login-welcomes/trace.md" }));
+        Assert.DoesNotContain("Failed  ", string.Join('\n', output.Lines));
+        reporter.Rows([("JUnit", ".e2e/junit.xml")]);
+        Assert.Equal(
+            [
+                "      JUnit  .e2e/junit.xml",
+                "",
+                "     Failed  × |chromium| tests/case.e2e.ts:9 > login > welcomes",
+                "               ASSERTION_FAILED: expected \"Welcome\"",
+                "               trace .e2e/results/login-welcomes/trace.md",
+                "             × |chromium| tests/case.e2e.ts:12 > login > slow",
+                "               ASSERTION_FAILED: took too long",
+                "",
+            ],
+            output.Lines.TakeLast(8));
+    }
+
+    [Fact]
+    public void Counts_timed_out_results_as_failures_and_interrupted_ones_on_their_own_listing_an_interrupted_test_under_its_file_but_not_among_the_failures()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(Finished(Result(ResultStatus.TimedOut, id: "a")));
+        reporter.Handle(Finished(Result(ResultStatus.Interrupted, id: "b", file: "tests/b.e2e.ts")));
+        reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, ".e2e/report.json"));
+        Assert.Contains(" Test Files  1 failed | 1 interrupted | 0 passed (2)", output.Lines);
+        Assert.Contains("      Tests  1 failed | 1 interrupted | 0 passed (2)", output.Lines);
+        Assert.Single(output.Lines, line => line.Contains("Failed Tests", StringComparison.Ordinal));
+
+        var interrupted = new Capture();
+        var cut = PlainReporter(interrupted);
+        cut.Handle(Plan(("tests/a.e2e.ts", 2), ("tests/b.e2e.ts", 1)));
+        cut.Handle(Finished(Result(ResultStatus.Passed, id: "a", file: "tests/a.e2e.ts", title: ["done"])));
+        cut.Handle(Finished(Result(ResultStatus.Interrupted, id: "b", file: "tests/a.e2e.ts", title: ["cut"])));
+        cut.Handle(Finished(Result(ResultStatus.Passed, id: "c", file: "tests/b.e2e.ts")));
+        cut.Handle(RunFinished(ReportRunStatus.Interrupted, 130, ".e2e/report.json"));
+        Assert.Contains(" ❯ |chromium| tests/a.e2e.ts (2 tests | 1 interrupted) 240ms", interrupted.Lines);
+        Assert.Contains("   × |chromium| tests/a.e2e.ts > cut (interrupted) 120ms", interrupted.Lines);
+        Assert.DoesNotContain("Failed Tests", string.Join('\n', interrupted.Lines));
+        Assert.Contains(" Test Files  1 interrupted | 1 passed (2)", interrupted.Lines);
+        Assert.Contains("      Tests  1 interrupted | 2 passed (3)", interrupted.Lines);
+    }
+
+    [Fact]
+    public void Counts_the_tests_each_filter_left_out_on_a_Left_out_row_a_test_once_across_targets_and_repeats_as_the_filter_line_counts_them()
+    {
+        // An unselected result `filter` left out.
+        static TestFinishedEvent LeftOutBy(string id, string target, string filter, int repeat = 0) =>
+            Finished(Result(ResultStatus.Skipped, id: id, target: target, selected: false, attempts: [], skipReason: "unaffected", filter: filter, repeat: repeat));
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
+        reporter.Handle(LeftOutBy("pays", "chromium", "areas"));
+        reporter.Handle(LeftOutBy("pays", "webkit", "areas"));
+        reporter.Handle(LeftOutBy("pays", "chromium", "areas", repeat: 1));
+        reporter.Handle(LeftOutBy("refunds", "chromium", "areas"));
+        reporter.Handle(LeftOutBy("export", "chromium", "jev"));
+        reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "slow", selected: false, attempts: [], skipReason: "carries an excluded tag")));
+        reporter.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.Contains("      Tests  1 passed (1)", output.Lines);
+        Assert.Contains("   Left out  2 by areas, 1 by jev", output.Lines);
+
+        var one = new Capture();
+        var single = PlainReporter(one);
+        single.Handle(Plan());
+        single.Handle(LeftOutBy("pays", "chromium", "areas"));
+        single.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.Contains("   Left out  1 test by areas", one.Lines);
+        Assert.Contains("      Tests  no tests executed", one.Lines);
+
+        var none = new Capture();
+        var plain = PlainReporter(none);
+        plain.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
+        plain.Handle(RunFinished(reportPath: ".e2e/report.json"));
+        Assert.DoesNotContain("Left out", string.Join('\n', none.Lines));
+    }
+
+    [Fact]
+    public void Starts_the_clock_at_plan_so_a_download_narrated_before_it_is_not_on_it()
+    {
+        var time = new FakeTime(new DateTimeOffset(2026, 9, 8, 10, 0, 0, TimeSpan.Zero));
+        var output = new Capture();
+        var reporter = PlainReporter(output, time);
+        reporter.Handle(RunStarted());
+        reporter.Handle(new NoticeEvent("web", "Downloading missing Playwright browsers (first run): chromium..."));
+        time.Advance(TimeSpan.FromSeconds(15));
+        var executionStart = time.GetLocalNow();
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        time.Advance(TimeSpan.FromSeconds(2));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/a.e2e.ts")));
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        Assert.Contains($"   Start at  {Format.FormatClock(executionStart)}", output.Lines);
+        Assert.Contains("   Duration  2.00s", output.Lines);
+    }
+
+    [Fact]
+    public void Counts_a_run_that_never_reached_plan_from_its_launch()
+    {
+        var time = new FakeTime(new DateTimeOffset(2026, 9, 8, 10, 0, 0, TimeSpan.Zero));
+        var output = new Capture();
+        var reporter = PlainReporter(output, time);
+        var launch = time.GetLocalNow();
+        reporter.Handle(RunStarted());
+        time.Advance(TimeSpan.FromMilliseconds(1_500));
+        reporter.Handle(new RunErrorEvent(new Reports.ReportError { Code = "NO_TESTS", Message = "no test file matched tests/**/*.e2e.ts", Phase = ErrorPhase.Collection, Category = ErrorCategory.Configuration }));
+        reporter.Handle(RunFinished(ReportRunStatus.Error, 2, "r.json"));
+        Assert.Contains($"   Start at  {Format.FormatClock(launch)}", output.Lines);
+        Assert.Contains("   Duration  1.50s", output.Lines);
+    }
+
+    [Fact]
+    public void Names_the_models_the_steps_reported_on_the_AI_row_most_calls_first_while_the_header_keeps_the_configuration()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted(model: "gateway/openai/gpt-5.6-luna", judge: "anthropic/claude-sonnet-4.5"));
+        reporter.Handle(Plan(("tests/a.e2e.ts", 2)));
+        var acted = AgentStep("agent.act", new StepModelInfo { Provider = "typesafe-ai", Model = "jev", Calls = 22, InputTokens = 10_000, OutputTokens = 400 });
+        var judged = AgentStep("agent.assert", new StepModelInfo { Provider = "anthropic", Model = "claude-sonnet-4.5", Calls = 1, InputTokens = 2_000, OutputTokens = 0 });
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "test-1", title: ["suite", "acts"], file: "tests/a.e2e.ts", attempts: [Attempt([acted])])));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "test-2", title: ["suite", "judges"], declarationIndex: 1, file: "tests/a.e2e.ts", attempts: [Attempt([judged])])));
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        Assert.Equal("      model gateway/openai/gpt-5.6-luna · judge anthropic/claude-sonnet-4.5", output.Lines[3]);
+        Assert.Contains("         AI  12.4k tokens · 23 model calls · typesafe-ai/jev (22 calls) · anthropic/claude-sonnet-4.5 (1 call)", output.Lines);
+    }
+
+    [Fact]
+    public void Falls_back_to_the_configured_label_never_undefined_when_a_step_reports_calls_without_provenance()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted(model: "openai/gpt-5.6-luna-fast"));
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        var step = AgentStep("agent.act", new StepModelInfo { Calls = 2, InputTokens = 1_000, OutputTokens = 100 });
+        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/a.e2e.ts", attempts: [Attempt([step])])));
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        Assert.Contains("         AI  1.1k tokens · 2 model calls · openai/gpt-5.6-luna-fast", output.Lines);
+        Assert.DoesNotContain(output.Lines, line => line.Contains("undefined", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Tallies_the_trace_cache_under_the_AI_row_by_step_leaving_zero_counts_out()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted(model: "openai/gpt-5.6-luna-fast"));
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        static StepRecord Step(string id, CacheInfo? cache, int calls) =>
+            AgentStep("agent.act", new StepModelInfo { Provider = "openai", Model = "gpt-5.6-luna-fast", Calls = calls, InputTokens = 1_000, OutputTokens = 100 }, id, cache);
+        List<StepRecord> steps =
+        [
+            Step("replayed-1", new CacheInfo { Mode = "self-finalized", ReplayedActions = 3, TotalActions = 3 }, 0),
+            Step("replayed-2", new CacheInfo { Mode = "self-finalized", ReplayedActions = 2, TotalActions = 2 }, 0),
+            Step("handed-off", new CacheInfo { Mode = "agent-concluded", Reason = "end-mismatch", ReplayedActions = 1, TotalActions = 3 }, 2),
+            Step("uncached", null, 3),
+        ];
+        reporter.Handle(Finished(Result(ResultStatus.Passed, file: "tests/a.e2e.ts", attempts: [Attempt(steps)])));
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        var ai = output.Lines.FindIndex(line => line.TrimStart().StartsWith("AI", StringComparison.Ordinal));
+        Assert.Equal("      Cache  2 replayed · 1 handed off", output.Lines[ai + 1]);
+    }
+
+    /// <summary>An <c>act</c> step that missed the cache and settled its recording as <paramref name="write"/>.</summary>
+    private static StepRecord CacheStep(string id, CacheWrite write) =>
+        AgentStep("agent.act", new StepModelInfo { Provider = "openai", Model = "gpt-5.6-luna-fast", Calls = 1, InputTokens = 1_000, OutputTokens = 100 }, id,
+            new CacheInfo { Mode = "missed", Reason = "no-entry" }, write);
+
+    /// <summary>The <c>Cache</c> row of the run summary after <paramref name="facts"/>.</summary>
+    private static string? CacheRow(params RunEventFact[] facts)
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted(model: "openai/gpt-5.6-luna-fast"));
+        foreach (var fact in facts)
+        {
+            reporter.Handle(fact);
+        }
+
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        return output.Lines.Find(line => line.TrimStart().StartsWith("Cache", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Counts_the_steps_whose_recording_was_not_saved()
+    {
+        List<StepRecord> steps = [CacheStep("saved", CacheWrite.Saved), CacheStep("unconfirmed", CacheWrite.Unconfirmed), CacheStep("no-change", CacheWrite.NoChange), CacheStep("not-written", CacheWrite.NotWritten)];
+
+        Assert.Equal("      Cache  4 missed · 3 not saved", CacheRow(
+            Plan(("tests/a.e2e.ts", 1)),
+            Finished(Result(ResultStatus.Passed, file: "tests/a.e2e.ts", attempts: [Attempt(steps)]))));
+    }
+
+    [Fact]
+    public void Counts_not_saved_from_the_attempt_that_decided_a_passing_result_only()
+    {
+        Assert.Equal("      Cache  3 missed", CacheRow(
+            Plan(("tests/a.e2e.ts", 2)),
+            Finished(Result(ResultStatus.Flaky, file: "tests/a.e2e.ts", attempts:
+            [
+                Attempt([CacheStep("first", CacheWrite.Unconfirmed)], status: AttemptStatus.Failed),
+                Attempt([CacheStep("retry", CacheWrite.Saved)], id: "attempt-2"),
+            ])),
+            Finished(Result(ResultStatus.Failed, id: "test-2", file: "tests/a.e2e.ts", declarationIndex: 1, attempts:
+            [
+                Attempt([CacheStep("failed", CacheWrite.Unconfirmed)], status: AttemptStatus.Failed),
+            ]))));
+    }
+
+    [Fact]
+    public void Names_the_interrupt_from_run_finished_alone_when_the_host_aborted_without_the_event()
+    {
+        var output = new Capture();
+        PlainReporter(output).Handle(RunFinished(ReportRunStatus.Interrupted, 130));
+        Assert.Contains(" Test Files  none started (interrupted)", output.Lines);
+        Assert.Contains("      Tests  none executed (interrupted)", output.Lines);
+    }
+
+    [Fact]
+    public void Keeps_the_counters_of_a_run_interrupted_after_its_plan_arrived()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(Plan(("tests/a.e2e.ts", 3)));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "a", file: "tests/a.e2e.ts", title: ["first"])));
+        reporter.Handle(new RunInterruptedEvent(InterruptMode.Graceful));
+        reporter.Handle(RunFinished(ReportRunStatus.Interrupted, 130));
+        Assert.Contains("interrupted: stopping the running test and tearing down (interrupt again to force)", output.Lines);
+        Assert.Contains("      Tests  1 passed (3)", output.Lines);
+        Assert.DoesNotContain("(interrupted)", string.Join('\n', output.Lines));
+    }
+
+    /// <summary>The agent step upstream's <c>step()</c> helpers build: a passed <c>agent.act</c> that reported its model.</summary>
+    private static StepRecord AgentStep(string api, StepModelInfo model, string? id = null, CacheInfo? cache = null, CacheWrite? cacheWrite = null) =>
+        new()
+        {
+            Id = id ?? api,
+            Index = 0,
+            Kind = StepKind.Agent,
+            Api = api,
+            Label = "do it",
+            StartedAt = DateTimeOffset.UnixEpoch,
+            DurationMs = 10,
+            Cache = cache,
+            CacheWrite = cacheWrite,
+            Model = model,
+        };
+}

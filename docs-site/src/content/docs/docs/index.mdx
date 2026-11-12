@@ -1,0 +1,130 @@
+---
+title: Introduction
+description: Agentic end-to-end tests for .NET. Describe a goal, drive the app, then check the result with locators.
+sidebar:
+  label: Introduction
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Agentic end-to-end tests for .NET. Describe a goal in plain language, let an agent drive the app in Chromium, then check the result with locators. A verified agent step is recorded and replays on the next run with no model call.
+
+```bash
+dotnet add package E2E
+dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
+```
+
+## Start here
+
+<CardGrid>
+  <LinkCard title="Quickstart" href={`${import.meta.env.BASE_URL}get-started/`} description="Pick a platform and run a first test." />
+  <LinkCard title="Core concepts" href={`${import.meta.env.BASE_URL}get-started/core-concepts/`} description="A test, the config file, and xUnit v3." />
+  <LinkCard title="Caching and self-healing" href={`${import.meta.env.BASE_URL}features/caching/`} description="Replay a verified act, and heal it when the screen changes." />
+  <LinkCard title="API reference" href={`${import.meta.env.BASE_URL}api/`} description="Every public type in E2E, E2E.NUnit, and E2E.XUnit.V3." />
+  <LinkCard title="Compatibility" href={`${import.meta.env.BASE_URL}compatibility/`} description="How this port differs from the TypeScript e2e framework." />
+</CardGrid>
+
+[Test filters](/docs/test-filters/) leave tests out before the run starts. Which tests they leave out is up to the filters you configure.
+
+## Exit code of an interrupted run
+
+`run.exitCode` in `report.json` is 130, and `run.status` is `interrupted`, once any test of the run was cancelled by the user, as upstream's runner reads its interrupt flag. This holds when the cancelled attempt was a retry: that test keeps its `failed` (or `timed-out`) verdict, since the failure came first, and the run still exits 130. A test that times out is not an interrupt. The flag is set only for an attempt that ends as an `OperationCanceledException` while the runner's token is cancelled (as `E2ESession.Complete` is called with it); the xUnit and NUnit adapters pass a cancelled test's cancellation on as such.
+
+## Reporters
+
+A reporter runs once, when the test run is over and `report.json` is final (upstream's `Reporter.onRunFinished`). Derive from `E2E.Reports.Reporter`, override `OnRunFinishedAsync`, and list the type in `reporters` of `e2e.config.json`:
+
+```json
+{
+  "reporters": ["UploadReporter, MyTests"]
+}
+```
+
+The reporter:
+
+```csharp
+using E2E.Reports;
+
+public sealed class UploadReporter : Reporter
+{
+    public override string Name => "upload";
+
+    public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+    {
+        // run.Report is the report-1 document, as written to run.ReportPath.
+        return [new ReporterSummaryRow("Results", "https://example.test/runs/1")];
+    }
+}
+```
+
+The run ends when the run fixture is torn down (`E2ERunFixture`, see the setup reference), so add it: without it no reporter is called. The reporter needs a public constructor with no parameters. Reporters run in the order the config lists them, and a type listed twice runs twice. An entry is a type name (with its assembly, or the name of a type in a loaded assembly) or an object, `{ "type": "UploadReporter, MyTests", "options": { "label": "nightly" } }`. Options reach a reporter that implements `IConfigurableReporter`: its `Configure(JsonElement options)` runs once, right after the reporter is built, and rejects content it does not know with an error that names the key, not the value. An entry of the wrong shape is `INVALID_CONFIG` when the config loads. A reporter you build in code goes in with `E2EConfig.WithReporter(reporter)`: it runs after the ones the file names, and it never enters the config digest, whatever it holds. The type is resolved when the run begins: a type name that is not found or is not a `Reporter`, and `options` for a reporter that does not implement `IConfigurableReporter`, are one line on standard error that names the type string. The other reporters still run, and the outcome does not change. `e2e.config.json` is committed, so put no token in `options`. It is awaited for one minute, and the token is cancelled when that runs out. The rows it returns print to standard output after the tests. A reporter can never change the outcome: a throw or a timeout is one line on standard error. `FinishedRun.Traces` maps each result id to the trace page the test kept (a path from the project root; empty when none did), and `AiTracePath` is the AI trace file the process wrote, or null. `LastRun` is the report of the run a `--last-failed` rerun selected from (see Test filters), or null.
+
+A reporter can also watch the run as it happens. Override `OnEvent(RunEvent)`: it gets `RunStartedEvent`, `PlanEvent`, `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`, `OutputEvent`, `TestFinishedEvent`, `ExploreEvent`, `RunErrorEvent`, and `RunFinishedEvent`, each in a `RunEvent` with a `Seq` and an `At` time. Events arrive in `Seq` order, from any thread, so keep `OnEvent` quick and do not throw: a throw is one line on standard error, and that reporter gets no more events. A test that retries emits a start and a finish for each attempt. The port defines `OutputEvent` (a test's console output) but does not emit it, and emits no serial groups. An exploration (`Explore.ExploreAsync`) emits a `RunStartedEvent`, a `PlanEvent` of its one test, and an `ExploreEvent` for each of its moments, beside the events of that test. `e2e explore` prints them through the list reporter, as upstream's `e2e explore` does: the `RUN` header, each finding and step as it happens, then the `Findings` section, the `Assessment`, and the summary rows (`Findings`, `Steps`, `AI`, `Start at`, `Duration`). It has no live window.
+
+### Rendering the report as markdown
+
+`MarkdownReport.RenderMarkdownReport` turns the report a reporter receives into one markdown page, for a pull request comment or a job summary (upstream's `renderMarkdownReport`). The page has a headline with the counts and what the run spent, a block for each failed test with the step it went wrong at and the line to look at, the flaky tests and what the test filters left out folded away, and every test as one table. A green run is the headline, the folds, and a footer.
+
+```csharp
+using E2E.Reports;
+
+public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)
+{
+    var page = MarkdownReport.RenderMarkdownReport(
+        run.Report,
+        new MarkdownReportOptions
+        {
+            ArtifactsUrl = "https://example.test/runs/1/artifacts",
+            SourceUrl = (file, line) => $"https://github.com/o/r/blob/abc123/{file}#L{line}",
+            Title = "regression",
+        });
+
+    // Post `page` to the pull request, or write it to the job summary.
+    return Task.FromResult<IReadOnlyList<ReporterSummaryRow>?>(null);
+}
+```
+
+`MarkdownReportOptions` has five optional members. `ArtifactsUrl` is where the run's artifacts can be fetched, and the evidence of a failure links there. Without it, `ArtifactsDir` lists the evidence as paths under that directory. `SourceUrl` links a source line, `Traces` gives the path of each traced result's page by result id, and `Title` tells this run's page apart from another on the same pull request. The function reads only the report. It writes no file and posts nothing, it escapes and clips every title, label, and message, and the page never outgrows what GitHub accepts in a comment. The `summary.md` writer upstream ships is not ported. To post the page as a pull request comment from GitHub Actions, register `GitHubReporter` from `E2E.GitHub` instead of writing the request yourself: see [Pull request comments](/integrations/github/).
+
+## Filtering a locator
+
+`Locator.Filter` keeps or drops the matches of a locator by their subtree. It takes any of four named arguments, and at least one.
+
+```csharp
+var row = Screen.GetByRole("listitem").Filter(hasText: "Invoice 42", hasNotText: "Paid");
+await row.GetByRole("button", "Void").TapAsync();
+```
+
+- `hasText` with a string is a case-insensitive substring match over the match and its descendants, unlike a query text, which matches exactly. Pass a `Regex` for anything stricter.
+- `hasNotText` excludes matches with that subtree text, using the same substring or `Regex` rules.
+- `has` keeps a match whose subtree resolves the inner locator.
+- `hasNot` drops a match whose subtree resolves the inner locator. It follows the same scoping rules as `has`.
+
+`Filter()` with none of the four throws `INVALID_LOCATOR`, and so does a `has` or `hasNot` locator made by another screen. `Filter("text")` and `Filter(locator)` remain as the one-argument forms of `hasText` and `has`. On iOS, a plain React Native `View` has no children in the tree, so `has` on it matches nothing and `hasNot` keeps every such row.
+
+## Scrolling to a node
+
+A locator also takes `SecondaryTapAsync` (a right click), `LongPressAsync`, `HoverAsync`, `DragToAsync(target)`, and `SwipeAsync`. `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` hold keys for the click with `new ClickOptions { Modifiers = [KeyModifier.Shift] }` on the web engine; the others refuse them with `UNSUPPORTED_CAPABILITY`. `TapAsync(new TapOptions { Position = new Point(x, y) })` taps a point of the node's box (an offset from its top-left corner, inside its border), `Screen.TapAtAsync(point)` taps a viewport point, and `Screen.SwipeAsync(new SwipePathOptions { From = a, To = b })` drags between two points, on an engine that declares pointer actions (the web engine and a device). `SelectOptionAsync` takes a label or value string, or `new SelectOption { Label = ... }`, `{ Value = ... }`, or `{ Index = ... }`. `PressAsync(key)` takes zero or more modifiers and one key joined by `+` (`"Enter"`, `"Control+a"`, `"Shift+Tab"`); any other key, such as `"Ctrl+a"` or `""`, fails with `INVALID_ARGUMENT` before the locator is resolved. On a device, `CheckAsync` and `UncheckAsync` need a `checked` state: switches report one on both platforms, and so does a native Android `CheckBox`; a React Native checkbox or radio reports one only when the app sets `accessibilityState.checked`. A control with no state fails with `UNSUPPORTED_CAPABILITY`, so tap it instead. On the web engine, `CheckAsync` on a checkbox or radio hidden under its own label (as in Element Plus) clicks through that label. Anything else on top of the point the click lands on still fails `ACTION_FAILED`.
+
+`Screen.ScrollUntilVisibleAsync(target, options)` scrolls the viewport until `target` resolves visibly. `Locator.ScrollUntilVisibleAsync(target, options)` swipes that node instead, so a feed or table that is its own scroll container pages without the pointer hovering it first. It stops at the first match that is not hidden. On a device, a node under the soft keyboard is hidden, so the scroll goes on ([Visibility](/get-started/mobile/#visibility)).
+
+```csharp
+await Screen.ScrollUntilVisibleAsync(Screen.GetByRole("button", "Accept"));
+await Screen.GetByTestId("feed").ScrollUntilVisibleAsync(row, new ScrollUntilVisibleOptions { Momentum = Momentum.Fast });
+```
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `Direction` | `ScrollDirection` | `Down` |
+| `Momentum` | `Momentum` (`None`, `Slow`, `Fast`) | `Slow` |
+| `Timeout` | `TimeSpan` | 30 seconds |
+
+`Timeout` is its own default, not `actionTimeout`, and bounds the whole scroll, each swipe included. `LOCATOR_NOT_FOUND` means the deadline expired first, a swipe it cut short included. `INVALID_LOCATOR` means `target` was made by another target's screen.
+
+## Errors
+
+A locator reports an engine failure in the test's own codes, with the engine's error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and `OPERATION_TIMEOUT` are `ACTION_FAILED`, a stale node or a missing frame is `LOCATOR_NOT_FOUND`, an ambiguous frame is `LOCATOR_AMBIGUOUS`, and `INVALID_STATE` is `APP_NOT_OPEN`. `ACTION_FAILED` is also what `InputValueAsync()` throws on a node with no value (a heading, a button) and `IsCheckedAsync()` on a node with no checked state; a field with no value still reads `""`, and a checkable role with no state reported still reads `false`. `EVALUATE_FAILED` is what `Browser.EvaluateAsync` throws when the evaluated code threw, and also when the page deleted or replaced a JavaScript built-in (such as `Map`) that the engine's in-page code needs, which fails later evaluates and locators. `EvaluateAsync` itself keeps working when code deletes `Array`, `JSON`, `Map`, or `Object` during the call. `CANCELLED` and `ENGINE_FAILURE` keep their codes (category `infrastructure`), and `UNSUPPORTED_CAPABILITY` is a `ConfigurationException`. A `locator.WaitForAsync` that runs out fails with `LOCATOR_NOT_FOUND` (`locator did not become <state>: <locator>`), not `TIMEOUT`, and a pass verifies the acts before it. A stale node found by an action is looked up again, within the action timeout, before the action fails.
+
+When a filtered locator (a chain with at least one `Filter(...)`, and any `First()` or `Nth(n)` after it) matches nothing or too many, the `LOCATOR_NOT_FOUND` or `LOCATOR_AMBIGUOUS` message ends with `candidates left after each filter step, counted after the failure:` and one line per step, innermost first, with the locator so far and how many nodes it left. A step that narrowed too much or too little names itself. The counts come from one extra read per step after the failure, so a page that changed since can disagree with the failing attempt. All the reads share one 500 ms budget: a chain that cannot finish says `walk stopped after N of M steps`, and a read that fails leaves the list out. A locator without a filter step gets no list.
+
+A read or navigation that times out fails with `OPERATION_TIMEOUT`. It is not retried, even when the call log mentions a detached element or a navigation race. On a device, an input (a tap, key, swipe, or `Back`) that the device does not answer within `actionTimeout` fails with `ACTION_MAY_HAVE_COMMITTED` and is never repeated, because it may have landed; an input the timeout ran out before is not sent (`OPERATION_TIMEOUT`), and a long press that holds at least as long as the time left is refused (`NOT_ACTIONABLE`). A locate, an observation, or a screenshot on a device runs within the timeout of the call that takes it, so a device that stops answering fails the step with `ACTION_FAILED` instead of holding it until the test timeout. `WaitForAsync`, `Expect`, and `ToHaveScreenshotAsync` give their last read extra time, up to their slowest read so far and within the test timeout, so a screen that shows up during it still passes. A caller's cancel on a web session surfaces as an `EngineException` with code `CANCELLED`, as upstream's `guard` does: a token that is already cancelled is refused before the step runs, and a call that is running is no longer waited on once the token cancels (work that honours the token gets one second to undo itself first, so a drag releases the button). A persistent session (`cdpEndpoint`) still throws `OperationCanceledException` for the caller's own cancel, because it waits on a shared reconnect that the cancel of the operation that started it also ends, and its tests and callers rely on that type. Catch both when you cancel a step yourself. See `EngineErrorCodes` in the [API reference](/api/).

@@ -48,7 +48,8 @@ public sealed class AttachedTurnsTests
     public async Task The_tool_loop_records_each_turn_with_its_calls_and_results_and_notes_a_reply_without_a_tool_call()
     {
         var calls = 0;
-        var model = new ScriptedModel(_ => ++calls switch
+        // A model that refuses a forced choice, so the loop asks under auto and the prose reply is the text-reply path, not a skipped forced call.
+        var model = new ScriptedModel(request => request.ToolChoice!.Forced ? throw ToolLoopToolChoice.FakeLoopModel.Rejection : ++calls switch
         {
             1 => new ModelResponse { Content = "I will look around first." },
             2 => ModelResponses.Tap("button", "Increment"),
@@ -66,7 +67,7 @@ public sealed class AttachedTurnsTests
         Assert.StartsWith("tap(", Assert.Single(turns[1].Calls), StringComparison.Ordinal);
         Assert.StartsWith("[tap] ", turns[1].Outcome, StringComparison.Ordinal);
         Assert.StartsWith("done(", Assert.Single(turns[2].Calls), StringComparison.Ordinal);
-        Assert.Equal("[done] done passed", turns[2].Outcome);
+        Assert.Equal("[done] Step concluded.", turns[2].Outcome);
     }
 
     [Fact]
@@ -157,7 +158,7 @@ public sealed class AttachedTurnsTests
         Assert.Equal("ab😀", TurnLog.Truncate("ab😀", 4));
     }
 
-    private static StepRecord AgentStep(E2ESession session) => session.Steps.Single(step => step.Api == "agent.act");
+    private static StepRecord AgentStep(E2ESession session) => session.StepRecords.Single(step => step.Api == "agent.act");
 
     private static Task<E2ESession> StartAsync(IStepExecutor? executor, IAgentModel? model = null) =>
         E2ESession.StartAsync(new E2ESessionOptions

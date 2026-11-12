@@ -4,19 +4,104 @@
 
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Tests.TraceReplay;
 using static E2E.Tests.StepCache.StepCacheHarness;
 
 namespace E2E.Tests.StepCache;
 
 /// <summary>
 /// Upstream's <c>describe('StepTraceSession')</c> of <c>step-cache.test.ts</c>, driven at the session seam. Not ported, because the
-/// port has no such feature: the three tests of an observation that loses semantic evidence (the port reads no pixel-only
-/// screens), "misses a truncated entry" (no truncated entries), "never stages a trace with no start anchor" (every screen has a
-/// route), the two end-wait tests (an entry records no end wait), and "takes the step for the live progress" (no live progress).
+/// port has no such feature: "never stages a trace with no start anchor" (every
+/// screen has a route), and "takes the step for the live progress" (no live progress). The three tests of an observation that loses
+/// semantic evidence are ported through <c>StepHost.TraceEligible</c>: the port reads no pixel-only screens, so the host flips the
+/// flag where upstream's look returns pixels.
 /// "keys on the params with each unique() value as a placeholder" is the dispatcher's and the attempt's key claim in the port.
 /// </summary>
 public sealed class StepTraceSessionTests
 {
+    [Fact]
+    public async Task Does_not_replay_or_stage_after_an_observation_loses_semantic_evidence()
+    {
+        var context = EntryContext();
+        var actions = new List<string>();
+        var host = MakeHost(["/pricing"]);
+        host.OnNavigate = actions.Add;
+        host.Capture = _ =>
+        {
+            host.TraceEligible = false;
+            return new Observation { Route = "/pricing", Roots = [] };
+        };
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Equal("missed", session.CacheInfo?.Mode);
+        Assert.Empty(actions);
+        Assert.Single(host.Looks);
+        session.Record(Navigate("/customers"));
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Never_stages_a_passing_step_after_missing_semantics_even_when_the_final_tree_recovers()
+    {
+        var context = NoEntry();
+        var host = MakeHost(["/start", "/end"]);
+        var session = MakeSession(context, host);
+        await session.BeginAsync();
+
+        session.Record(Navigate("/end"));
+        host.TraceEligible = false;
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Hands_off_before_another_cached_action_when_an_action_loses_semantic_evidence()
+    {
+        var context = EntryContext(actions: [Navigate("/first"), Navigate("/second")]);
+        var host = MakeHost(["/start"]);
+        var visited = new List<string>();
+        host.OnNavigate = url =>
+        {
+            visited.Add(url);
+            host.TraceEligible = false;
+        };
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Equal(["/first"], visited);
+        Assert.Single(session.ReplayedPrefix!.ReplayedActions);
+        await session.ConcludeAsync(StepOutcome.Passed);
+        Settle(context, session, verified: true);
+        Assert.Null(session.Pending.Entry);
+        Assert.Empty(context.Written);
+    }
+
+    [Fact]
+    public async Task Misses_a_truncated_entry_without_replaying_any_of_its_actions_so_the_executor_runs_from_the_top()
+    {
+        var context = EntryContext(actions: [.. Enumerable.Range(0, 50).Select(index => Navigate("/page" + index))], startPath: "/pricing", truncated: true);
+        var visited = new List<string>();
+        var host = MakeHost(["/pricing"]);
+        host.OnNavigate = visited.Add;
+        var session = MakeSession(context, host);
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Empty(visited);
+        Assert.Null(session.ReplayedPrefix);
+        Assert.Equal(("missed", "truncated", 0, 50), Info(session));
+        Assert.Equal(Key, session.CacheInfo?.Entry);
+    }
+
     [Fact]
     public async Task Turns_a_rejecting_store_read_into_a_miss_instead_of_failing_the_step()
     {
@@ -46,6 +131,31 @@ public sealed class StepTraceSessionTests
     {
         var malformed = new CacheEntry { Schema = FileStepCache.SchemaVersion, Actions = [] };
         var session = MakeSession(FakeContext(() => new CacheLookup { Entry = malformed }), MakeHost(["/"]));
+
+        Assert.Null(await session.BeginAsync());
+
+        Assert.Equal(("missed", "invalid-entry", 0, 0), Info(session));
+    }
+
+    /// <summary>
+    /// No upstream <c>it</c>: upstream's <c>readTrace</c> rejects these shapes when it parses a file; the port reads a stored entry
+    /// at one site, and an entry from a custom <see cref="IStepCache"/> is checked there.
+    /// </summary>
+    [Theory]
+    [InlineData(-1, null, "scroll")]
+    [InlineData(120_001, null, "scroll")]
+    [InlineData(null, 1.5, "scroll")]
+    [InlineData(null, -0.1, "scrollUntil")]
+    [InlineData(null, 0.5, "tap")]
+    public async Task Degrades_a_hit_with_a_malformed_end_wait_or_scroll_coverage_to_a_miss(int? endWaitMs, double? spans, string kind)
+    {
+        var entry = new CacheEntry
+        {
+            Schema = FileStepCache.SchemaVersion,
+            EndWaitMs = endWaitMs,
+            Actions = [new RecordedAction { Kind = kind, Direction = "down", Text = "Row", Role = "list", Name = "Ledger", Spans = spans }],
+        };
+        var session = MakeSession(FakeContext(() => new CacheLookup { Entry = entry }), MakeHost(["/"]));
 
         Assert.Null(await session.BeginAsync());
 
@@ -157,7 +267,7 @@ public sealed class StepTraceSessionTests
         Assert.Null(await session.BeginAsync());
 
         Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
-        Assert.Equal(["navigate /customers"], session.ReplayedPrefix?.ReplayedActions);
+        Assert.Equal(["navigate to \"/customers\""], session.ReplayedPrefix?.ReplayedActions);
         var info = session.CacheInfo!;
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), (info.Mode, info.Reason, info.ReplayedActions, info.TotalActions));
         Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker\" text=\"saved\"", info.Detail);
@@ -439,9 +549,8 @@ public sealed class StepTraceSessionTests
         Assert.Equal(("agent-concluded", "end-mismatch"), (already.CacheInfo?.Mode, already.CacheInfo?.Reason));
     }
 
-    /// <summary>Partial port of "looks at the page a navigate opened before free actions on it, so an outcome already there is no proof": the port's free action is a key press, not typing into the focused field.</summary>
     [Fact]
-    public async Task Looks_at_the_page_a_navigate_opened_before_a_free_press_so_an_outcome_already_there_is_no_proof()
+    public async Task Looks_at_the_page_a_navigate_opened_before_free_actions_on_it_so_an_outcome_already_there_is_no_proof()
     {
         var home = Node("h", "heading", "Home");
         var field = Node("f", "textbox", "Email");
@@ -452,7 +561,7 @@ public sealed class StepTraceSessionTests
                     endPath: "/newsletter",
                     endAnchors: [new RecordedTarget { Role = "status", Text = "You're subscribed" }],
                     goneAnchors: [new RecordedTarget { Role = "heading", Name = "Home" }],
-                    actions: [Navigate("/newsletter"), new RecordedAction { Kind = "press", Key = "Enter" }]),
+                    actions: [Navigate("/newsletter"), new RecordedAction { Kind = "typeText", Value = "a@b.c", Replace = false }, new RecordedAction { Kind = "pressKey", Key = "Enter" }]),
                 MakeHost(["/home", "/newsletter"], screens));
 
         Assert.Equal(StepVerdictStatus.Passed, (await Replay([home], [field], [field, subscribed]).BeginAsync())?.Status);
@@ -465,17 +574,94 @@ public sealed class StepTraceSessionTests
     [Fact]
     public async Task Takes_no_look_of_the_end_wait_as_the_end_state_once_the_screen_moved_off_the_recorded_route()
     {
-        var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]);
+        var clock = new AutoAdvanceClock();
+        var started = clock.GetUtcNow();
+        var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor], endWaitMs: 30_000);
         // The route matches first with the effect missing; the anchors then show on another page.
-        var host = MakeHost(["/pricing", "/customers", "/elsewhere"], [], [], [SavedMarker]);
-        host.ReplayTimeout = TimeSpan.FromMilliseconds(300);
+        var host = MakeHost(clock, ["/pricing", "/customers", "/elsewhere"], [], [], [SavedMarker]);
+        host.ReplayTimeout = TimeSpan.FromSeconds(15);
+        host.Remaining = 60_000;
         var session = MakeSession(context, host);
-        var started = DateTime.UtcNow;
 
         Assert.Null(await session.BeginAsync());
 
         Assert.Equal("end-mismatch", session.CacheInfo?.Reason);
-        Assert.True(DateTime.UtcNow - started >= TimeSpan.FromMilliseconds(300));
+        Assert.True(clock.GetUtcNow() - started >= TimeSpan.FromSeconds(30));
+    }
+
+    /// <summary>The margin the session adds to a measured end wait, mirrored here so the bound below moves when the runtime's moves.</summary>
+    private const int EndWaitMarginMs = 10_000;
+
+    /// <summary>What the executor costs between the hand-off and its verdict: a model call and its looks.</summary>
+    private static readonly TimeSpan ExecutorTurn = TimeSpan.FromSeconds(4);
+
+    [Fact]
+    public async Task Re_records_no_longer_end_wait_than_the_entry_it_healed()
+    {
+        var endWaitMs = 200;
+        var recorded = new List<int> { endWaitMs };
+        for (var run = 0; run < 3; run++)
+        {
+            var clock = new AutoAdvanceClock();
+            var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor], endWaitMs: endWaitMs);
+            // This test host holds the replay on its end route while the fake clock settles it.
+            var host = MakeHost(clock, ["/pricing", "/customers"]);
+            host.ReplayTimeout = TimeSpan.FromSeconds(15);
+            host.Remaining = 600_000;
+            var session = MakeSession(context, host);
+            await session.BeginAsync();
+            Assert.Equal("end-mismatch", session.CacheInfo?.Reason);
+            clock.Advance(ExecutorTurn);
+            await session.ConcludeAsync(StepOutcome.Passed);
+            endWaitMs = session.Pending.Entry!.EndWaitMs ?? 0;
+            recorded.Add(endWaitMs);
+        }
+
+        for (var index = 2; index < recorded.Count; index++)
+        {
+            Assert.True(recorded[index] <= recorded[index - 1]);
+        }
+
+        foreach (var wait in recorded.Skip(1))
+        {
+            Assert.True(wait >= EndWaitMarginMs);
+            Assert.True(wait < EndWaitMarginMs + SettledReadMs);
+        }
+    }
+
+    /// <summary>What staging's own read costs, and room for the timer to round.</summary>
+    private const int SettledReadMs = 2_000;
+
+    [Fact]
+    public async Task Keeps_app_settling_time_after_an_executor_action_following_an_action_failed_hand_off()
+    {
+        var clock = new AutoAdvanceClock();
+        var context = EntryContext(
+            startPath: "/start",
+            actions: [Navigate("/first"), Navigate("/second")]);
+        var replayed = 0;
+        var host = MakeHost(clock, ["/start"], [], [SavedMarker]);
+        host.Remaining = 600_000;
+        // This test host holds the failed replay on its route for staging.
+        host.OnNavigate = _ =>
+        {
+            if (++replayed > 1)
+            {
+                throw new AgentException("ACTION_FAILED", "simulated second replay action failure");
+            }
+        };
+        var session = MakeSession(context, host);
+
+        await session.BeginAsync();
+
+        Assert.Equal(ReplayHandOffReason.ActionFailed, session.ReplayedPrefix?.StopReason);
+        clock.Advance(ExecutorTurn);
+        session.Record(Tap("button", "Save"));
+        clock.Advance(TimeSpan.FromMilliseconds(500));
+        await session.ConcludeAsync(StepOutcome.Passed);
+        var recordedWait = session.Pending.Entry!.EndWaitMs ?? 0;
+        Assert.True(recordedWait > EndWaitMarginMs);
+        Assert.True(recordedWait < EndWaitMarginMs + SettledReadMs);
     }
 
     [Fact]
@@ -523,18 +709,18 @@ public sealed class StepTraceSessionTests
         Assert.Empty(staged.Appeared);
     }
 
-    /// <summary>Partial port of "stages the entry it replayed whole to keep, never as a recording, and reports the recorded verdict": an entry records no verdict.</summary>
     [Fact]
-    public async Task Stages_the_entry_it_replayed_whole_to_keep_never_as_a_recording()
+    public async Task Stages_the_entry_it_replayed_whole_to_keep_never_as_a_recording_and_reports_the_recorded_verdict()
     {
         var context = EntryContext(endPath: "/customers");
         var host = MakeHost(["/pricing", "/customers#top"]);
         var session = MakeSession(context, host);
         var verdict = await session.BeginAsync();
         Assert.Equal(StepVerdictStatus.Passed, verdict?.Status);
+        Assert.Contains("recorded verdict: opened the customers page", verdict?.Summary);
 
         session.Record(Navigate("/customers"));
-        await session.ConcludeAsync(StepOutcome.Passed);
+        await session.ConcludeAsync(StepOutcome.Passed, verdict?.Summary);
 
         // The passing screen is never captured for a kept entry: the start and the end check are the only looks.
         Assert.True(session.Pending.ReplayedWhole);

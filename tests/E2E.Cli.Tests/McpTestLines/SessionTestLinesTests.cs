@@ -24,14 +24,25 @@ public sealed class SessionTestLinesTests
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
         const EngineCapabilities all = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
-            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers;
-        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"]);
+            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers | EngineCapabilities.Resize | EngineCapabilities.Upload;
+        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: ["tap", "hover", "dragTo"], canDismissKeyboard: true);
 
-        // Only what looks at the screen or reads the draft prints no line.
-        Assert.Equal(["observe", "screenshot", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
+        // Only what looks at the screen, acts at a point, or reads the draft prints no line.
+        Assert.Equal(["observe", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
         Assert.Equal(
-            ["tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "type_secret"],
+            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "upload", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "type_secret"],
             catalog.Entries.Select(pair => pair.Key).Where(SessionTestLines.HasLine));
+    }
+
+    [Fact]
+    public async Task Offers_press_times_so_a_repeated_key_reaches_its_reason()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, EngineCapabilities.Observation | EngineCapabilities.Actions, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: [], canDismissKeyboard: false);
+        var press = catalog.Find("press")!;
+        Assert.True(press.InputSchema.GetProperty("properties").TryGetProperty("times", out var times));
+        Assert.Equal(20, times.GetProperty("maximum").GetInt32());
     }
 
     [Fact]
@@ -178,10 +189,18 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Partial_Writes_a_secret_by_its_name_never_by_its_value()
+    public async Task Partial_Writes_credentials_and_secrets_by_name_never_by_value()
     {
+        var user = new Fake("n40", "textbox", "Username", Y: 40);
+        var password = new Fake("n41", "textbox", "Password", Y: 80);
         var key = new Fake("n42", "textbox", "API key", Y: 120);
-        var session = new TestLineHarness([key]);
+        var session = new TestLineHarness([user, password, key]);
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);",
+            NoteOf(await session.RunAsync("type", """{ "target": "n40", "text": "ada@example.test" }""")));
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);",
+            NoteOf(await session.RunAsync("type_secret", """{ "target": "n41", "secret": "admin.password" }""")));
         Assert.Equal(
             "Test line: await Screen.GetByRole(\"textbox\", \"API key\").FillAsync(Secrets.Get(\"apiKey\"));",
             NoteOf(await session.RunAsync("type_secret", """{ "target": "n42", "secret": "apiKey" }""")));
@@ -195,10 +214,15 @@ public sealed class SessionTestLinesTests
         var plan = new Fake("n51", "combobox", "Plan", Y: 80);
         var terms = new Fake("n52", "checkbox", "Terms", Y: 120);
         var card = new Fake("n53", "listitem", Text: "Card", Y: 160);
-        var session = new TestLineHarness([field, plan, terms, card, Save]);
+        var done = new Fake("n54", "region", "Done", Y: 200);
+        var session = new TestLineHarness([field, plan, terms, card, done, Save]);
         (string Line, string Tool, string Args)[] lines =
         [
             ("await Screen.GetByRole(\"button\", \"Save\").DoubleTapAsync();", "double_tap", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").LongPressAsync();", "long_press", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").SecondaryTapAsync();", "right_click", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").HoverAsync();", "hover", """{ "target": "n2" }"""),
+            ("await Screen.GetByText(\"Card\").DragToAsync(Screen.GetByRole(\"region\", \"Done\"));", "drag", """{ "target": "n53", "to": "n54" }"""),
             ("await Screen.GetByRole(\"textbox\", \"Notes\").PressAsync(\"Enter\");", "press", """{ "target": "n50", "key": "Enter" }"""),
             ("await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");", "select", """{ "target": "n51", "value": "Pro" }"""),
             ("await Screen.GetByRole(\"checkbox\", \"Terms\").CheckAsync();", "check", """{ "target": "n52" }"""),
@@ -215,15 +239,54 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Partial_Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_and_a_stale_ref()
+    public async Task Prints_no_line_for_a_resize_naming_the_size_to_set_with_the_engine_fixture()
+    {
+        var session = new TestLineHarness([Save]);
+        await session.RunAsync("resize_viewport", """{ "width": 390, "height": 844 }""");
+        Assert.Contains("// resize_viewport: no test line: set 390x844 with the engine fixture's viewport call", session.Lines.Draft(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Answers_an_upload_of_a_project_file_with_its_set_input_files_line()
+    {
+        var attach = new Fake("n62", "button", "Attach", Y: 120);
+        var session = new TestLineHarness([attach]);
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"button\", \"Attach\").SetInputFilesAsync(\"fixtures/photo.png\");",
+            NoteOf(await session.RunAsync("upload", """{ "target": "n62", "files": ["fixtures/photo.png"] }""")));
+    }
+
+    [Fact]
+    public async Task Says_why_a_keyboard_fallback_has_no_line()
     {
         var field = new Fake("n60", "textbox", "Notes", Y: 40);
-        var session = new TestLineHarness([field, Save]);
+        var canvas = new Fake("n61", "image", "Pad", Y: 80);
+        var session = new TestLineHarness([field, canvas]);
+        Assert.Equal("No test line: the value went to the focused field; type into a listed node by id for a line.", NoteOf(await session.RunAsync("type", """{ "value": "x", "text": "x" }""")));
+        var fallback = await session.RunAsync("type", """{ "target": "n61", "text": "x" }""", () => Task.FromResult("#n61 is not an input; tapped it to focus it and typed through the keyboard.\n\nScreen changes"));
+        Assert.Matches("is not an input; tapped it to focus it and typed through the keyboard", fallback.Split('\n')[0]);
+        Assert.Matches("^No test line: the node is not an input and took the value through the keyboard", NoteOf(fallback));
+    }
+
+    [Fact]
+    public async Task Partial_Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_a_stale_ref_and_a_sample_file()
+    {
+        var field = new Fake("n60", "textbox", "Notes", Y: 40);
+        var attach = new Fake("n62", "button", "Attach", Y: 120);
+        var session = new TestLineHarness([field, Save, attach]);
+        Assert.Equal(
+            "No test line: a sample file exists only for the agent; save a file in the project and upload its path for a line.",
+            NoteOf(await session.RunAsync("upload", """{ "target": "n62", "files": ["sample:photo.png"] }""")));
         Assert.Matches(@"^No test line: the key went to whatever had focus", NoteOf(await session.RunAsync("press", """{ "key": "Enter" }""")));
+        Assert.Equal(
+            "No test line: a key pressed several times in one call has no one-line equivalent; press it once per call for lines.",
+            NoteOf(await session.RunAsync("press", """{ "target": "n60", "key": "ArrowDown", "times": 3 }""")));
         Assert.Matches(@"^No test line: a test action brings its node into view itself", NoteOf(await session.RunAsync("scroll", """{ "direction": "down" }""")));
         Assert.Matches(@"^No test line: scrolling to a text has none", NoteOf(await session.RunAsync("scroll_to", """{ "text": "Row 40" }""")));
-        Assert.Matches(@"^No test line: the secret is not a config secret", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
+        Assert.Matches(@"^No test line: the secret is neither", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
         Assert.Matches(@"^No test line: a locator tap takes no modifier keys", NoteOf(await session.RunAsync("tap", """{ "target": "n2", "modifiers": ["Shift"] }""")));
+        Assert.Matches(@"^No test line: a locator right click takes no modifier keys", NoteOf(await session.RunAsync("right_click", """{ "target": "n2", "modifiers": ["Shift"] }""")));
+        Assert.Equal("No test line: the drop target: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("drag", """{ "target": "n2", "to": "n404" }""")));
         Assert.Equal("No test line: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("tap", """{ "target": "n404" }""")));
     }
 
@@ -262,6 +325,22 @@ public sealed class SessionTestLinesTests
                 "// scroll: no test line: a test action brings its node into view itself",
                 "",
                 "Paste it into a test method, and add an Expect after each step that should change the screen."),
+            session.Lines.Draft());
+    }
+
+    [Fact]
+    public async Task Drafts_the_lines_after_a_test_the_session_ran_as_the_ones_that_continue_it()
+    {
+        var session = new TestLineHarness([Save], testRan: "Shop.ProfileTests.SavesTheName");
+        await session.RunAsync("tap", """{ "target": "n2" }""");
+        Assert.Equal(
+            string.Join(
+                '\n',
+                "Test lines from this session's actions after test Shop.ProfileTests.SavesTheName stopped, in order (1 lines):",
+                "",
+                "await Screen.GetByRole(\"button\", \"Save\").TapAsync();",
+                "",
+                "Put them in that test where it stopped, in place of the line that failed or after its last line, and add an Expect after each step that should change the screen."),
             session.Lines.Draft());
     }
 }

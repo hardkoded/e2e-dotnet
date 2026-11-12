@@ -32,9 +32,26 @@ providers and their logins):
 ```
 
 - An agents entry takes `provider`, `model`, `judge`, `baseUrl`, `apiKeyEnv`,
-  `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and
-  `providerOptions`. None inherits from `default`.
-- `model` drives `ActAsync`. Judgments use `judge` when set, else `model`.
+  `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`,
+  `maxObservationBytes`, `maxInputTokens`, `providerOptions`, and `tools`. None inherits
+  from `default`.
+- `tools` declares project tools as commands: `{ "description", "mutates", "command": [program, args...], "inputSchema"?, "platforms"? }`.
+  The command runs in the project root with the model's input as JSON on stdin; its stdout is the answer, its stderr is printed (redacted by `e2e mcp`), and a
+  non-zero exit or two minutes without an exit fails the call. `e2e mcp` serves it beside the session's tools. Tools written as code are `AgentTools`.
+- `maxObservationBytes` (1024 through 16777216, default 262144) is the observation
+  payload ceiling for act turns and judgments. `maxInputTokens` (1 through
+  1000000, default 64000) is the input one model request may carry, counted in
+  UTF-8 bytes. A dense screen is cut to fit under it, with the marker
+  `[observation truncated at the resolved observation byte limit]` as its last
+  line, and the step's `observationTruncated` is set. The budget is the lower of
+  `maxObservationBytes` and `maxInputTokens` less what the rest of the request
+  costs (the system text, the context, the ledger, the instruction, and room for
+  a screenshot under `Vision`), and never under 1024 bytes. A judgment whose
+  request is still over `maxInputTokens` fails with `STEP_BUDGET_EXHAUSTED`
+  before it is sent. `AgentOptions`, `E2ESessionOptions`, and the fixture take
+  the same two values as `MaxObservationBytes` and `MaxInputTokens`.
+- `model` drives `ActAsync`. Judgments use `judge` when set, else `model`. An
+  exploring `AssertAsync` (`Explore = true`) uses `model` even when `judge` is set.
 - No model and no replay that finishes the step is `MODEL_UNAVAILABLE`, and so
   is a model GitHub Copilot does not serve to the account, at the first call.
   Auth failures surface on the first model call as `MODEL_PROVIDER_FAILED`.
@@ -45,6 +62,38 @@ providers and their logins):
 - A custom `IAgentModel` reads each `ModelMessage.Images` of a `user` turn
   (`ModelImage`: `Data`, `MediaType`, `Width`, `Height`). The five built-in
   providers send them after the turn's text. The agent sends none yet.
+- A judgment sets `ModelRequest.Schema` (and `SchemaName`) and offers no tools:
+  a custom `IAgentModel` must ask its provider for that JSON schema as
+  structured output and return the one JSON object as
+  `ModelResponse.Content`. The built-in providers send `response_format`
+  (chat completions), `text.format` (Responses), or `responseJsonSchema`
+  (Google), and make Anthropic and Bedrock call a forced `json` tool.
+- The act tool loop sets `ModelRequest.ToolChoice` (a `ModelToolChoice`:
+  `Auto`, `Required`, or `Tool(name)`) on every turn: `Required`, and
+  `Tool("done")` on the forced conclusion turns. A null choice means `Auto`.
+  The built-in providers send
+  their own form of it: `tool_choice` (`auto`, `any`, or a named tool) for
+  Anthropic, `"auto"`, `"required"`, or a named function for chat completions
+  and Responses, `functionCallingConfig` mode `AUTO` or `ANY` (with
+  `allowedFunctionNames`) for Google, and `toolConfig.toolChoice` for Bedrock.
+  Anthropic and Bedrock refuse a forced tool while the model thinks, so they
+  send `auto` and return a `ModelWarning` (`Type` `unsupported`, `Feature`
+  `toolChoice`) in `ModelResponse.Warnings`. A custom `IAgentModel` may ignore
+  the choice, since the loop offers only `done` on a forced turn either way.
+  When a model answers a forced choice with an HTTP 4xx naming `tool_choice`
+  (for example Claude Fable 5.1's `tool_choice: type "tool" and "any" are not
+  supported for this model`), answers a forced turn in prose, or returns the
+  `toolChoice` warning above, the loop sends the request again (or continues
+  the step) with `Auto` under the same instructions, and starts later steps on
+  that model in `Auto` (a built-in provider model is remembered by its class and model id for the process; any other model by object). A custom `IAgentModel` that fails a forced
+  choice should fail with a message that says so, so the loop can read it.
+- A custom `IAgentModel` reports each call's tokens, cache tokens, and cost in
+  `ModelResponse.Usage` (a `ModelCallUsage`; it was `ModelUsage`, which is now
+  the step's internal accumulator, as upstream's). The step's report sums
+  them: a count that is negative is dropped, a sum past 2^53-1 is capped, and
+  a cost total that overflows is omitted. A call with no `Usage`, or with one
+  side of the token counts missing, marks the step's `tokenAccounting` as
+  `adapter-upper-bound`; `peakTokensPerCall` is the largest call.
 
 ### Choose an agent
 
@@ -70,7 +119,7 @@ public class CheckoutTests : E2ETest
 
 `E2E_AGENT=thorough dotnet test` sets the run's agent for tests that pin none.
 It takes one name; a pin is never replaced. An unknown name, on a pin, a call,
-or `E2E_AGENT`, is `INVALID_ARGUMENT`. There is no list of agents that runs
+or `E2E_AGENT`, is `INVALID_ARGUMENT`, naming the configured agents and the nearest one (`did you mean "ux"?`). There is no list of agents that runs
 one test once per persona. Each agent records its own replay entries, keyed by
 its name and context.
 
@@ -115,14 +164,18 @@ pass returns an `ActResult` with `Summary`, `ModelCalls`, `Actions`, and
 `AUTH_CREDENTIAL_UNAVAILABLE`, `AUTH_CREDENTIAL_INVALID`,
 `SECRET_UNAVAILABLE`, `ENVIRONMENT_UNAVAILABLE`, `SEED_DATA_MISSING`,
 `TEST_SETUP_FAILED`, `AUTOMATION_UNSUPPORTED`, `POLICY_DENIED` (blocked from
-outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
+outside, `Blocked` is true); `STEP_NO_CONCLUSION` (the turns ran out without a
+`done` call); `MODEL_OUTPUT_INVALID` (unusable answer),
 `MODEL_REFUSED` (the model refused the prompt). Full list: topic `debugging`.
 
 `ActOptions`:
 
 - `Params`: values the instruction names. The runner fills a `Secret`, at any
   depth of the params, and a `Values.Unique(...)` value keeps the cache
-  working across runs.
+  working across runs. The substitution also covers the value as a URL spells
+  it (`Ada%20Lovelace` in a path, `Ada+Lovelace` in a query), as the slug an
+  app derives for a record path (`ada-lovelace`), and a multi-line value as
+  the screen shows it, on one line. A short value is never matched inside the slot written for a longer one. The recording holds each as a `{{param:/name}}` placeholder (`{{param:/name|uri}}` for an encoded spelling); a recording with a placeholder the call cannot fill (a param the call did not mark, an unknown encoding, or a value that encoding cannot spell) is a miss, `invalid-entry`. A `Values.Unique` value cannot contain `{{param:`. A `Values.Unique` value may sit at any depth of `Params` (`/owner/tags/1`). The slot also stands for the value in a target's name, in an upload path and in an end anchor (a status reading `Saved E2E-abc` is recorded as its slot and checked with this run's value). A step that typed, read or navigated to text that itself spells `{{param:` is not recorded, so it runs live each time. A step is not recorded either when a `Values.Unique` value is spelled by another param (at any depth, as text, a number, or a flag, or in a URL spelling of it), since the recording could not tell which param it came from.
 - `Timeout`: 30 s by default (`StepTimeout` on the fixture).
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
@@ -137,6 +190,24 @@ outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
   budget), `Action` (`tap`, `navigate`, and so on; a mutating project tool
   reads `tool:<name>`), `Summary` (what the action did, secrets redacted), and
   `Source` (`ActionSource.Model`, or `ActionSource.Replay` for a cached action).
+  Match on the event to read an action's details: `TapAtActionEvent.Point` and
+  `HoverAtActionEvent.Point` for `tapAt` and `hoverAt`, `DragAtActionEvent.From`
+  and `To` for `dragAt` (`using E2E.Engine;` for `Point`). Points are in the
+  same space as `Screen.TapAtAsync` and `BoundingBox`, rounded and clamped to
+  the viewport. A replay reports the points it dispatches on the current
+  screen. Mobile engines have no `hoverAt` or `dragAt`. `ActionName` is the
+  action as an enum (`TapAt`, `Navigate`, ..., `Tool`), and `ToolName` names a
+  mutating project tool (`Action` still reads `tool:<name>`).
+- `OnBeforeAction`: a `BeforeActionHook` (`Task` from a `BeforeActionEvent`)
+  that runs before each action, replayed ones included, and the step waits for
+  it. Use it to capture the screen an action started on: the event has the
+  same `Index` the action's `OnAction` event gets (1-based, restarting in each
+  act call) and `Source`. It does not wait for the screen to settle. A
+  mutating project tool runs it too, a read-only tool does not. If it throws,
+  the step fails before the action runs, with a message that starts with
+  `agent.act onBeforeAction failed`, and the step's recording is left alone. A
+  check inside it never confirms the step's recording. An action can still
+  fail after it, with no `OnAction` call.
 
 ```csharp
 await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
@@ -146,18 +217,68 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
         Console.WriteLine($"{e.Index} {e.Action}: {e.Summary}");
         return Task.CompletedTask;
     },
+    OnBeforeAction = e => App.ScreenshotAsync($"before {e.Index}"),
 });
 ```
 
-The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
+The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
+`right_click`, `hover`, `drag`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,
-`check`, `uncheck`, `clear`, `scroll`, `scroll_to`, `navigate`, `back`, and
-`done`. `scroll` and `scroll_to` come with an engine that can scroll, and
-`back` with one that has history. There is no `hover`, `drag`, `upload`,
-`long_press`, `right_click`, `screenshot`, or point tool: a step that needs
-one is `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+`check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
+`resize_viewport`, and `done`. `scroll` and `scroll_to` come with an engine that
+can scroll, `back` with one that has history, `resize_viewport` with one that
+declares `EngineCapabilities.Resize` (the web engine), and `upload` with one that declares
+`EngineCapabilities.Upload` (the web engine). `long_press`, `right_click`,
+`hover`, and `drag` come with an engine whose `IEngineSession.ActionKinds`
+names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
+all four, the device engines all but `secondaryTap`, and the document engine
+none. The node verbs follow the kinds too: `tap` needs `tap`, `double_tap`
+`doubleTap`, `fill` and `fill_secret` `fill`, `press` `press`, `select`
+`selectOption`, `check` and `uncheck` both `check` and `uncheck`, and `clear`
+`clear`. A verb the engine does not declare is absent from the toolset (a
+device engine has no `select`), and with a keyboard `fill` and `press` come
+without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each named like
+any node (`ref`, or `role` and `name`); both are found on one look at the
+screen. A replay finds both ends again before it drags and hands the step to
+the model when either is gone. `resize_viewport {width, height}` sets the
+viewport size in CSS pixels, 200 to 4096 per side, to check a layout at phone,
+tablet, or desktop width. The size holds until the next resize, and the
+result shows the screen at the new size; take a `screenshot` to check the
+layout itself (overflow, overlap, clipped or hidden content). The trace cache
+records it as `resize` and replays it as given, and a leading resize does not
+count against the navigate opener of a recording. `dismiss_keyboard` (no input) comes with an engine that can hide its
+keyboard (the mobile engine): it hides the on-screen keyboard when it covers what
+the model needs to reach. `screenshot` and the point tools `tap_at`,
+`hover_at`, `drag_at`, `type_at`, `press_at`, and `select_at` are offered with
+the verb they act through (see "Screenshots in `ActAsync`"): `tap_at`,
+`hover_at`, and `drag_at` with an engine that takes a bare point for a tap, a
+hover, or a drag (the web engine does) or that lists `tap`, `hover`, or
+`dragTo` in its `ActionKinds`; `type_at` and `press_at` with `fill` or `press`
+or a keyboard; `select_at` with `selectOption`. `press` takes `times`, 1 to 20 (default 1): the
+first press goes to the node and the rest to whatever has focus, one recorded
+action each, so `Shift+ArrowLeft` with `times` of 8 selects a word and `Tab`
+with `times` of 2 walks focus on. A step that needs a verb its engine lacks is
+`AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+`upload` takes a target and `files`, project-relative paths such as
+`fixtures/photo.png`, and attaches them to a file input or to a control that
+opens a file chooser. The harness authorizes the paths before the engine sees
+them: a path outside the project root (through a symlink too), a hidden file
+or one under a hidden directory (`.env`, `.git`, `.e2e`) is refused as
+`POLICY_DENIED`; a file that does not exist, a directory, an empty list, or
+more than 16 files is `INVALID_ARGUMENT`. A refused upload costs no action
+slot. The allow and each `POLICY_DENIED` refusal are `policy` events named
+`upload.path` on the step. The paths are recorded as given and authorized
+again on replay.
+A path `sample:photo.png`, `sample:photo.jpg`, `sample:document.pdf`,
+`sample:notes.txt`, `sample:table.csv`, or `sample:empty.txt` names one of
+e2e's own small sample files (upstream's `sample-files.ts`; the port's internal
+`SampleFiles`), so the agent can try an
+upload when the project has no file to give it. The files are written once per
+process to a temporary directory and removed when the process exits. An unknown
+`sample:` name is `INVALID_ARGUMENT` and lists the samples. The tool description
+lists them.
 On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
-`tap` and `double_tap` take an optional `modifiers` list (`Shift`, `Control`,
+`tap`, `double_tap`, and `right_click` take an optional `modifiers` list (`Shift`, `Control`,
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
 extends a selection. The held keys are recorded and replayed from the cache.
 A project tool adds its own name to this list (see "Project tools").
@@ -181,23 +302,47 @@ Assert.That(data.Titles, Does.Contain("Buy milk"));
 public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 ```
 
-- `AssertAsync` does not poll. False is `ASSERTION_FAILED` with the model's
+- `AssertAsync` does not poll by default (see [viewport exploration](#viewport-exploration)). False is `ASSERTION_FAILED` with the model's
   explanation. Too little on screen to decide is `ASSERTION_INCONCLUSIVE`,
   also a failure, so reach the right screen first and ask about what is
   visible.
-- Judgments see the statement and the current screen only, never prior
-  steps. Malformed output gets one repair round, then
-  `MODEL_OUTPUT_INVALID`.
+- Default judgments see the statement, its `Params`, the agent's context, the test
+  title, and the current screen, never prior steps. The judge answers `holds`, `fails`, or `inconclusive` in one
+  `agent-judgment-2` JSON object (`protocolVersion`, `explanation`, `verdict`;
+  `schema/agent-judgment-v2.schema.json`). `fails` is `ASSERTION_FAILED`,
+  `inconclusive` is `ASSERTION_INCONCLUSIVE`. An answer outside that grammar
+  gets one repair round, then `MODEL_OUTPUT_INVALID`.
+- `AssertAsync` and `WaitForAsync` take `Params` like `ActAsync`, with the
+  same rules: `INVALID_ARGUMENT` when invalid, a `Values.Unique` value read as
+  its string, and the statement refers to a value as `{name}`. The judge sees a
+  `Secret` by name only, never its value, so check a secret's value on screen
+  with a locator assertion. A custom executor gets an assert's params in
+  `Step.Params`, and can name a secret but never fill it.
+
+  ```csharp
+  var name = Values.Unique($"acme-{DateTime.UtcNow.Ticks}");
+  await Agent.ActAsync("create a company named {name}", new ActOptions { Params = new Dictionary<string, object?> { ["name"] = name } });
+  await Agent.AssertAsync("the table shows company {name}", new AssertOptions { Params = new Dictionary<string, object?> { ["name"] = name } });
+  ```
 - A value shown in more than one place (a total in the summary and on the
   pay button) must agree everywhere, or the judgment fails. Name the one you
   mean (`"the order summary total is $42.00"`) when only it matters.
 - `WaitForAsync` judges at once, then every `Interval` (default 3 s) only
   when the screen changed, and is `STEP_TIMEOUT` after `Timeout` (default the
-  agent's `judgmentTimeout`, 30 s).
+  agent's `judgmentTimeout`, 30 s). A screen capture that outlives `Timeout`
+  is `STEP_TIMEOUT` with `agent.waitFor exceeded its N ms timeout`; once a
+  judgment has been made, the timeout reads `waitFor timed out; last
+  judgment: ...`.
 - `ExtractAsync<T>`: the type is the schema. The model sees the JSON schema
   of `T`, and the answer must deserialize into `T`. Data the screen does not
   show is `ASSERTION_INCONCLUSIVE`; to accept absence, make the member
   nullable and ask for it (`"the phone, or null when none is shown"`).
+- The observation shows a frame from another site (a hosted card field) as its
+  `iframe` node with none of its content, so the agent reaches that content
+  only through pixels: script steps there with `Browser.FrameLocator`, and
+  judge it with `Vision = VisionMode.On` (or `Only`). An act whose only change
+  is inside that frame records no replay (`no-change`), and runs live on every
+  run.
 - `Vision` says what the judge is shown: `VisionMode.Off` (the default) is the
   text snapshot, `On` adds a masked screenshot, and `Only` sends the screenshot
   and no snapshot. Use `On` when the answer is in pixels, such as a chart, a
@@ -205,13 +350,16 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   question, such as whether an overlay covers a form the snapshot lists as
   present. All three take it: `AssertOptions.Vision`, `WaitForOptions.Vision`,
   `ExtractOptions.Vision`.
-- After a `Secret` is filled, no pixels reach the model. `On` then judges the
-  snapshot alone. `Only` fails with `POLICY_DENIED` rather than answer from the
-  snapshot, and so does an engine that captures no pixels or masks fewer
-  regions than the snapshot has secure fields.
+- A `Secret` fill does not turn the screenshot off: pixels still reach the
+  model, with secure fields masked and the value kept out of the text. A
+  generic secret in a plain input, or a value the app shows outside a secure
+  field, is in the image and reaches the model provider, so use test
+  credentials. `Only` fails with `POLICY_DENIED` rather than answer from the
+  snapshot when the engine captures no pixels or masks fewer regions than the
+  snapshot has secure fields.
 - An inconclusive judgment made without pixels ends with a hint to pass
-  `Vision = VisionMode.On`, unless pixels cannot help (a secret was filled, or
-  the engine captures none).
+  `Vision = VisionMode.On`, unless pixels cannot help (the engine captures
+  none).
 - `AssertAsync` keeps a redacted screenshot of the screen it judged under
   `.e2e/results/<result>/attempt-<n>/screenshots/`, and
   `AgentException.Screenshot` names it on a failure. Set
@@ -219,13 +367,45 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   still kept: it masks secure fields only, so a secret the app shows anywhere
   else is in the image.
 
+### Viewport exploration
+
+With `Explore = true`, `AssertAsync` can scroll the current screen and combine
+evidence from several viewports. This helps when a list fits on a tablet but
+needs scrolling on a phone.
+
+```csharp
+await Agent.AssertAsync("Settings lists HOS Settings, Account, Language and Theme", new AssertOptions
+{
+    Explore = true,
+    MaxSteps = 10,
+    MaxModelCalls = 6,
+});
+```
+
+Exploration offers `observe`, `scroll`, `scroll_to`, and project tools declared
+`mutates: false`. The built-in executor also offers `screenshot` when `Vision`
+is `On` or `Only`; the default is tree-only. Other actions are rejected with
+`POLICY_DENIED`. The viewport stays where exploration ends.
+
+Defaults are 10 scroll actions and 6 model calls, each capped at the selected
+agent's configured limit. Overrides may exceed the 10/6 defaults, up to the
+configured limits. The deadline defaults to `judgmentTimeout`. `MaxSteps` or
+`MaxModelCalls` without `Explore = true` throws `INVALID_ARGUMENT`. The
+built-in executor uses `agents.<name>.model`, even when `judge` is configured.
+
+A contradiction is `ASSERTION_FAILED`; insufficient evidence within the time
+or action/model budget is `ASSERTION_INCONCLUSIVE`.
+
+Use `WaitForAsync` for a condition that changes over time, and `Explore` for
+content elsewhere on the current screen.
+
 ## Write instructions the model can execute
 
 - One goal per `ActAsync`. The test sets the order of goals; the model finds
   the path.
 - Keep each goal atomic: one outcome that one check confirms. When two
   parts of an instruction each leave a state worth checking, they are two
-  goals: give each its own `ActAsync` and check. Steps toward a single
+  goals, each its own `ActAsync`. Steps toward a single
   outcome are the path, not more goals: scrolling to a control, closing a
   banner, opening the menu that holds it, filling the fields of one form.
 - A split flow fails at the goal that broke. Each goal replays from its own
@@ -233,31 +413,47 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   timeout still caps them all.
 
 ```csharp
-// BAD: three goals in one instruction, one recording, no check between them.
+// BAD: three goals in one instruction, one recording.
 await Agent.ActAsync("open the Pro plan, set the seats to {seats}, and check out", new ActOptions
 {
     Params = new Dictionary<string, object?> { ["seats"] = 3 },
 });
 
-// GOOD: three atomic goals, each pinned before the next.
-await Agent.ActAsync("open the Pro plan");
-await Expect.That(Screen.GetByRole("heading", "Pro plan")).ToBeVisibleAsync();
-await Agent.ActAsync("set the seats to {seats}", new ActOptions
+// GOOD: arrange with two atomic goals, act with the one under test, assert last.
+[Test]
+public async Task Checks_out_the_Pro_plan()
 {
-    Params = new Dictionary<string, object?> { ["seats"] = 3 },
-});
-await Expect.That(Screen.GetByRole("status", "Seats")).ToHaveTextAsync("3 seats");
-await Agent.ActAsync("check out");
-await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+    await App.OpenAsync("/plans");
+    await Agent.ActAsync("open the Pro plan");
+    await Agent.ActAsync("set the seats to {seats}", new ActOptions
+    {
+        Params = new Dictionary<string, object?> { ["seats"] = 3 },
+    });
+    await Agent.WaitForAsync("the cart shows the Pro plan with 3 seats");
+
+    await Agent.ActAsync("check out");
+
+    await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+    await Expect.That(Screen.GetByText("Pro plan, 3 seats")).ToBeVisibleAsync();
+}
 ```
+
+Choosing the seats is its own behavior, so it gets its own test that ends
+after `set the seats` and asserts the seat count. Tests follow arrange, act,
+assert, one behavior each (topic `writing-tests`, "Structure").
 
 - Use the words on screen: `"open the Billing tab"`, not `"upgrade"`.
 - Values go in `Params`, never pasted into the instruction.
 - Do not describe mechanics the runner handles: waiting, scrolling, retries.
-- Pin every act's outcome right after it; that check lets the cache record:
+- End the test with a check of the outcome. A passing locator or engine
+  matcher, `AssertAsync`, or wait confirms every `ActAsync` before it, which
+  lets the cache record them; close an arrange block of `ActAsync` goals
+  with a wait for its state, so a failure later in the test keeps them
+  recorded:
 
 ```csharp
 await Agent.ActAsync("create a workspace named \"Atlas\" on the Pro plan");
+
 await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Created \"Atlas\" on the Pro plan");
 ```
 
@@ -286,12 +482,78 @@ none, and neither does a field whose value or text holds a registered
 secret, so selected characters of a secret never reach the model. A
 `press` of `Shift+ArrowLeft` shows what it selected.
 
+### Screenshots in `ActAsync`
+
+The model starts a step from the text snapshot. Its `screenshot` tool returns
+a masked screenshot of the screen (an image on the next turn, with its pixel
+size and its scale to CSS pixels in the result). Once it has taken one, every
+later action in the step answers with a fresh screenshot, so the model sees
+what the action did. A screen with no control to act on (a canvas) opens with
+a screenshot. An engine that captures no pixels, or masks fewer regions than
+the screen has secure fields, gets none, and the result says so; the model
+works from the text. A superseded screen past 32 KB, and all but the newest
+two screenshots (in batches of three), are elided from the request. The step
+report carries `visionInput` and `pixelBytes`. When an engine cannot read the
+semantic tree (`Observation.TreeUnavailable`, answered to a look with
+`ObserveOptions.PixelFallback`; the web engine answers a stalled semantic read this way), the step works from the screenshot alone:
+earlier node references are refused and the step is not cached. If no masked
+screenshot can replace the tree, the step ends `POLICY_DENIED`. `ActOptions`
+has no `Vision` option.
+
+The point tools act at a point of the latest screenshot, given in that image's
+pixels (x from the left edge, y from the top). They are for a target the
+screen does not list; the model is told to prefer ids. Before a screenshot
+they cost nothing and answer with the line that says to take one.
+
+- `tap_at`, `hover_at`, and `drag_at` (`x`, `y`, and for a drag `to_x` and
+  `to_y`) send the bare point to the engine, scaled into CSS pixels and
+  clamped to the viewport, when it declares the pointer kind. The result names
+  the control the point landed inside, or says no listed control is there. An
+  engine without the bare point acts on the enabled control that contains the
+  point by its id instead (`tap`, and `hover` where the engine lists it), and a
+  point on nothing listed fails with `UNSUPPORTED_CAPABILITY`. `drag_at` on
+  such an engine joins two points that land on two different listed controls by
+  id, as `drag` does; a drag inside one control, or from a point on nothing
+  listed, fails the same way.
+- `type_at`, `press_at`, and `select_at` act by id on the enabled control the
+  point lands on (`value` or `key` beside the point). A point on nothing listed
+  is an action failure the model can read, and costs no action, except with a
+  keyboard (the web and document engines): `type_at` and `press_at` then tap
+  the point to focus it and go through the keyboard. `type_at` takes `replace`
+  to clear the field first. A listed node the engine cannot fill (a canvas, a
+  custom widget) takes `fill` through the keyboard too, after a tap that
+  focuses it, and the result says so. `fill` with no target types into the
+  focused field. `select_at` always needs a listed control.
+
+Over MCP, the session's `screenshot` is the one the point tools read their
+points from, and the point tools follow it in the catalog.
+
+A custom executor reaches the same verbs as `Actions.TapAtAsync`,
+`HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`, and, when the engine
+declares `Keyboard`, `TypeTextAsync` and `PressKeyAsync` for the focused field
+(`ExecutorVerb.TypeText` and `PressKey`), and, on an engine that can hide its
+keyboard, `DismissKeyboardAsync` (`ExecutorVerb.DismissKeyboard`). On an
+engine that declares `EngineCapabilities.Resize`, `ResizeAsync(new TraceViewport(width, height))`
+(`ExecutorVerb.Resize`) sets the viewport, 200 to 4096 on each side, for this
+page and every page the attempt opens after it. The trace
+records them as `typeText`, `pressKey`, `dismissKeyboard`, and `resize`. The trace cache records a
+point with the viewport size and where the point sat inside the node under
+it. A replay re-finds that node and taps the same place in its live box; a
+viewport of another size hands the step over (`viewport-changed`).
+
+The loop watches for a run of failed calls too, of any tools and with any
+inputs: three in a row add a notice that asks the model to change approach,
+and five in a row leave it only `done`. A call that worked starts the count
+over. A turn with no tool call counts as a failure and is answered with a
+notice that asks for a tool call or `done`.
+
 ## Budgets and cost
 
 | Call | Model calls | Default timeout |
 | --- | ---: | --- |
 | `ActAsync` | up to `maxModelCalls` (25) | 30 s |
-| `AssertAsync` | 2 | 30 s |
+| `AssertAsync` without exploration | 2 | 30 s |
+| `AssertAsync` with `Explore` | min(6, configured limit), plus up to min(10, configured limit) actions | 30 s |
 | `ExtractAsync` | 2 | 30 s |
 | `WaitForAsync` | up to `maxModelCalls` (25) | 30 s |
 
@@ -305,7 +567,9 @@ A model request the provider refuses as too large ends a judgment with
 superseded screen, cuts any text past 16,384 characters to its head with a
 notice, and sends the request again. The refused request spends no model
 call. A second refusal, or a first one with nothing to shrink, is
-`CONTEXT_OVERFLOW`.
+`CONTEXT_OVERFLOW`. `ToolLoopExecutorOptions.InconclusiveOnOverflow = true`
+fails the step with `ASSERTION_INCONCLUSIVE` instead, for an assertion loop
+whose earlier screens are evidence.
 
 ## The replay cache
 
@@ -318,30 +582,68 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `"cache": { "mode": "off" }`. Entries live in `.e2e/cache/`; deleting the
   directory only slows the next run.
 - An entry is written only after a later locator expectation,
-  `AssertAsync`, or `WaitForAsync` passes, so an unchecked act never
-  replays. Locator reads, `locator.WaitForAsync`, and `ExtractAsync` verify
-  nothing.
-- A replay re-finds each control by role, name, test id, and path, and
-  needs the recorded start route unless the recording opens with a
-  navigation. It passes alone only when the recorded end route is back,
+  `AssertAsync`, `WaitForAsync`, or `locator.WaitForAsync` passes, so an
+  unchecked act never replays. One check at the end confirms every
+  `ActAsync` before it. Locator reads and `ExtractAsync` verify nothing.
+- A replay re-finds each control by role, name, test id, placeholder, input
+  purpose, and its named row (an unnamed control with twins and no named
+  container hands off with `target-not-found`, and so does one known only by
+  a generated test id once that id is gone), and needs the recorded start
+  route unless the recording opens with a navigation. A test id the app
+  generates is forgiven when the other fields still identify the control.
+  Twins are told apart by the place the recording noted, at the same count
+  only; a form still rendering shows fewer of them, so the replay looks
+  again before it hands off with `target-ambiguous`. A location on the app's own origin (the `App.Url`'s) is
+  compared by its path, query, and fragment, so a recording follows the app
+  to another port or host; a screen on any other origin is another route.
+  An agent `navigate` to a full URL on the app is recorded as its path, query,
+  and fragment, so the step replays where the app runs then; re-record older
+  entries to pick this up.
+  It passes alone only when the recorded end route is back,
   every control that appeared (with its text, value, and checked or
   selected state) is there, every one that went away is gone, at least one
   of those changed during the replay, and no new alert showed; otherwise
-  the agent takes over mid-step. The web engine does not observe Next.js
+  the agent takes over mid-step. A replay waits for a slow effect for as
+  long as the recording needed (a report that takes half a minute), up to
+  what the step's clock leaves. A scroll on a list that filled at least
+  half the screen scrolls the viewport instead when the list can no longer
+  be re-found (web engine only); a smaller region hands off. The agent's
+  live scroll and `scroll_to` do the same: a list the tree renumbered is
+  re-found by its place (the same role, mostly the same box), one that filled
+  the screen and is gone scrolls the viewport, and a smaller one that is
+  gone fails with `LOCATOR_NOT_FOUND`. `scroll_to` with a text reads each
+  screen once when it has visibly scrolled, and otherwise re-reads it for up
+  to a second, the same beat a held-still look uses, before that screen
+  counts as stopped. A list that appends when it reaches the end keeps being
+  paged. A single changing time value (`12:05`) beside other text
+  does not count as the list moving. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
-  reads differently on every run, a date, a time, an id, is not checked.
+  reads differently on every run, a date, an ISO 8601 instant, a time, an
+  id, is not checked. In an alert it reads as a placeholder, so a replay
+  that shows `Saved at 2026-10-24T15:30:00Z` for a recorded
+  `Saved at 2026-10-24T15:41:27.955Z` passes, whatever the precision or
+  offset of the instant.
   An entry's key holds the test and its class, the instruction and params,
   the agent, and its `context`, so renaming the test or its class records
   every goal in it again, and rewording a goal records that goal again.
   `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
-  `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
-  project tool, see below).
+  `target-ambiguous`, `action-failed`, `action-uncertain` (the replay stopped
+  before any action; after one it hands off; under `cache.strict` a miss other
+  than `no-entry`, `gap`, `truncated`, and an unreadable store fails with `REPLAY_STALE`), `end-mismatch`, `gap` (the recording stops at a
+  project tool, see below), `truncated` (the recording hit a limit and never
+  replays: more than 50 actions, a typed value or URL over 4,096 characters or
+  one that holds a registered secret, or a control with no usable description;
+  split the step, or pass the secret as a `Secret`).
   `ActResult.Cache.Detail` says where the replay stopped and why
   (`at action 2 of 3, tap button "Apply": ...`). After an `end-mismatch` it
   names what did not hold: the recorded nodes that did not show, the ones that did not go away, and
   any alert the recording never saw, or says the outcome already showed
   before the replay acted.
+- A replay finishes as soon as the recorded changes show, which can be before
+  content below them has loaded. To check content that loads after the step,
+  use `WaitForAsync`, which waits for it, rather than `AssertAsync`, which
+  judges the screen once.
 - A step recording no actions, or changing nothing on screen or in the
   route, creates no entry. The screen it passed on is read once it holds
   still, so a late render still counts. One whose `Values.Unique` value
@@ -373,7 +675,9 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
 - Commit `.e2e/cache/` to share replays with CI and teammates.
 - `cache.strict` fails a recording that no longer replays with
   `REPLAY_STALE`, also when the recording sits under an old key (topic
-  `running`). Re-record with a run without it, then commit. A version that
+  `running`). The message says how to re-record: a `read-write` run with
+  `cache.strict` set to false, then commit the changed entry under the cache
+  directory. A version that
   changed the cache key (the one with the `trace-1` key) invalidated every
   earlier recording: re-record them all once.
 
@@ -445,10 +749,16 @@ same dictionary. A config file cannot declare one, since a tool is code.
   arguments.
 - `platforms: ["ios", "android"]` offers the tool only on those platforms (`windows` is the Windows app platform).
   Leave it out to offer the tool everywhere.
-- The tool's output is redacted and cut at 16384 characters.
+- The tool's output is redacted and bounded to 400 lines and 16 KB (16384
+  UTF-8 bytes), whichever comes first. The cut never splits a line, and a
+  notice at the end says how many lines and bytes were left out, so the model
+  can ask for a narrower result. Return less, or let the tool take a filter.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,
-  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so is
-  `report_finding`, the tool `Explore.ExploreAsync` adds (topic `explore`).
+  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so are
+  the names of the tools the harness adds: `complete_step` in every agent
+  step, `locate`, `run_code`, `test_lines`, `start_recording`, and
+  `stop_recording` in an e2e MCP session, and `report_finding`, which
+  `Explore.ExploreAsync` adds (topic `explore`).
 - A tool that needs the screen takes the second `AgentTool` constructor,
   whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
   tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.
@@ -460,10 +770,9 @@ upstream calls `mobileTools`: `open_app`, `swipe`, and `alert`, offered only on
 the platforms of the engines you pass. Return it from `AgentTools` beside your
 own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
-starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
+starts in the same app. A tool of your own that needs a raw driver session gets the running device's from `MobileTools.UnstableDeviceSession(engines)` (the `RawDeviceSession` of `Device.UnstableRaw`; throws `INVALID_STATE` outside an attempt; its client calls are not steps and skip redaction, so declare a mutating tool `mutates: true`; unstable). `open_app` takes an optional `app`: without one it returns to the app under test (the target's `App.BundleId`, or the app the build installed), so the agent can recover after a system sheet or another app took the screen. `samples/MobileApp.E2ETests` shows it in use.
 
-Not ported: decision models, `maxObservationBytes`,
-`maxInputTokens`, and the `--debug` agent step table. To see every model call, use
+Not ported: decision models and the `--debug` agent step table. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).
 
 ## Custom executors
@@ -475,6 +784,16 @@ when `System` and project tools are not enough.
 | --- | --- | --- |
 | `ToolLoop.CreateToolLoopExecutor` | The tools and the prompt. The loop adds only `done`. | Budgets, loop guards, verdicts, and usage counts |
 | `IStepExecutor` | `RunStepAsync(context, token)`. A model is optional. | The step deadline, redacted observations, checked actions, and the verdict |
+| `AcpExecutor.ClaudeCode(options)`, `AcpExecutor.Codex(options)`, `AcpExecutor.Create(command, args, options)` (`E2E.Acp`) | Nothing for a preset. `Create` takes the command of any agent that speaks the Agent Client Protocol on stdio. | The same as `IStepExecutor`. The agent gets the built-in action tools and `done` as an MCP server, and every action goes through `ctx.Actions`. A permission request fails closed, and a tool of the agent's own ends the step with `POLICY_DENIED`. |
+
+A coding agent the user already signs in to runs agent steps with no model provider: install `E2E.Acp` and the agent's adapter, and use `AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" })` (sign in with `claude`, or set `ANTHROPIC_API_KEY`; adapter `npm install -D @agentclientprotocol/claude-agent-acp`) or `AcpExecutor.Codex()` (sign in with `codex login`; adapter `@agentclientprotocol/codex-acp`). Node must be on the `PATH`: the preset finds the adapter in `node_modules` from the working directory up and runs it with `node`, and an adapter that is not installed is `INVALID_CONFIG`. The agent gets only the step tools: Claude Code with its own tools, settings, MCP servers, and saved sessions off, Codex read-only with its shell, web search, apps, plugins, browser, and your MCP servers off. A tool of the agent's own that runs without asking fails the step with `POLICY_DENIED`. `AcpAgentOptions` takes `Model` (a model the agent offers; the error lists them when it does not), `Env`, `System`, and `Name`. The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, in any casing, from the process and from `Env`; a secret in any other variable reaches the agent. A prompt turn counts as one model call. `WaitForAsync` and `ExtractAsync` still need `Model`. A custom command must be an executable on Windows, not a `.cmd` shim. See the online guide `/features/acp/`.
+
+`ExecutorObservation.Path` (from `context.ObserveAsync`) is where the screen is, redacted:
+the path, query, and fragment of the engine's `Observation.Location`, so
+`/app#/cart?id=1` keeps its fragment, and a secret marker in the query is
+percent-encoded (`%3Csecret:NAME%3E`). A location that is not a URL stays as it
+is; an engine that reports only a route gives that route. This follows upstream's
+`observationPath`.
 
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config
@@ -485,7 +804,7 @@ executor brings is the agent's, and an entry that names another is
 `INVALID_CONFIG`. `WaitForAsync` and `ExtractAsync` keep using the judge.
 
 Keep the loop, change the vocabulary. This agent has two tools: one reads the
-screen, one taps a node by its ref.
+screen, one taps a node by its id.
 
 ```csharp
 using System.Text.Json;
@@ -501,18 +820,18 @@ public sealed class TapOnlyTests : E2ETest
     protected override IStepExecutor? AgentExecutor => ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
     {
         Name = "tap-only",
-        System = _ => "Read the screen before acting. Tap controls by their ref from the latest read.",
+        System = _ => "Read the screen before acting. Tap controls by their id from the latest read.",
         BuildPrompt = context => Task.FromResult(context.Step.Instruction),
         Tools = (context, _) =>
         [
             new ToolLoopTool(
-                new ModelTool { Name = "read_screen", Description = "Read the screen as text", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
+                new ModelTool { Name = "read_screen", Description = "Read the screen as text, one node per line as #id role \"name\"", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
                 async (_, token) => new ToolLoopResult((await context.ObserveAsync(cancellationToken: token)).Text)),
             new ToolLoopTool(
-                new ModelTool { Name = "tap", Description = "Tap a node by its ref from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
+                new ModelTool { Name = "tap", Description = "Tap a node by its id from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"] }""") },
                 async (call, token) =>
                 {
-                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
+                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("id").GetString()!.TrimStart('#')), token);
                     return new ToolLoopResult("Tapped.");
                 }),
         ],
@@ -520,7 +839,13 @@ public sealed class TapOnlyTests : E2ETest
 }
 ```
 
-The loop runs at most `MaxModelCalls` model turns per step. A tool that throws
+The loop runs at most `MaxModelCalls` model turns per step. With five turns left
+it asks the model to wrap up, and on the last two turns, after a loop-guard stop,
+or when the step is nearly out of time, it offers only `done`. A step whose turns
+run out without a `done` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
+not a hard stop). The instructions tell the model, from the first turn, to reply
+with tool calls only; a reply without one is kept in the history, the model is
+told to act, and the turn counts. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the
@@ -533,6 +858,39 @@ supports the verb. A tool that works outside `context.Actions` wraps its body in
 `context.Budgets.RunToolAsync(name, mutates, body)`, which takes an action slot
 and records the call. Do not call `context.Actions` or `context.ObserveAsync` inside a
 mutating body: the call waits behind itself.
+
+To keep the built-in actions beside your own tools, add
+`AgentTools.CreateGrammarTools(context, new GrammarToolsOptions { Guard = body => helpers.GuardAsync(body) })`
+to the list `Tools` returns. It gives the built-in agent's action tools for the
+verbs the target's engine supports, and each result reports what changed on
+screen. The built-in agent lists the screen as `#id role "name"` lines, once at the
+start of the step and on `observe`; a result after an action shows only the
+`added`, `changed`, and `removed` lines since the screen the model last read, and
+the whole screen again when most of it changed. An action takes the id as `ref`. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
+tools: start `System` with it. The loop appends `AgentTools.VerdictRules` itself.
+`Guard` is optional; without it a hard stop of the step leaves the tool and the
+loop ends the step. A result is a `ToolLoopResult`: text, or text with a
+screenshot in `Pixels`. When a tool throws an error that
+`StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
+The context must be one the runtime opened for a step.
+Each built-in tool's schema, and the schema of `done`, is closed: it carries
+`additionalProperties: false`, and a call with a field the tool does not declare
+(`force`, `selector`) is refused with the field named, never run without it. A
+tool of your own keeps the schema you give it.
+
+```csharp
+Tools = (context, helpers) =>
+[
+    .. AgentTools.CreateGrammarTools(context, new GrammarToolsOptions { Guard = body => helpers.GuardAsync(body) }),
+    ReadInbox(context),
+],
+System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when a step mentions an email.",
+```
+
+An executor that drives a model outside the loop gets the built-in verdict from
+`AgentTools.CreateVerdictTool(context.Step.Kind)`: give the model its `Tool` and
+`AgentTools.VerdictRules`, run each `done` call with `Execute(call)`, and return
+`Verdict` once `Concluded`. The tool is `done`, and it takes `code`.
 
 The observation's `KeyboardVisible` says whether an on-screen keyboard is
 showing, and is `null` when the engine can't tell.
@@ -566,15 +924,14 @@ What the context holds:
 | Member | What it is |
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
-| `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
-| `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
+| `ObserveAsync(options)` | Redacted screen text, one node per line as `#id role "name" ...` (upstream's `text`; an executor that parsed the earlier `[ref=...]` text reads the id after `#` now; on the web an empty painted rectangle, at least 12 CSS pixels on each side, such as a canvas node or a drop zone, reads as role `box`), and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the id) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
+| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` (all take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `LongPressAsync`, `HoverAsync`, and `DragAsync(source, destination)` (when `Target.Verbs` holds `ExecutorVerb.LongPress`, `SecondaryTap`, `Hover`, or `Drag`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`, `ResizeAsync(size)` (when `Target.Verbs` holds `ExecutorVerb.Resize`). A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
-| `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
-| `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
+| `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, the test's `TitlePath` (empty outside a test), `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
-| `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
-| `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
+| `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall(ExecutorModelCall)`, and `RunToolAsync`. `ExecutorModelCall.Reasoning` is the model's own reasoning for the turn; the step's `model` event carries a redacted excerpt of at most 600 characters, and a turn with no reasoning leaves the field out |
+| `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels (a `screenshot` artifact of the step; it returns the artifact's report id), under the attempt's results directory |
 | `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
@@ -594,12 +951,24 @@ the executor, and when a replay stops part way the executor gets
 `ReplayedPrefix`. `Off` never replays or records. An assert is never cached.
 
 On an agent with an executor, `AssertAsync` goes to it as a step with `Kind`
-`Assert`. `Vision` is refused with `UNSUPPORTED_CAPABILITY`, since the executor
-decides what its model sees. `Screenshot` still keeps evidence after the
-verdict.
+`Assert`; so does an assertion with `Explore = true`, with any executor. An
+executor that sets `IStepExecutor.Vision` to true receives the mode as
+`ExecutorStep.Vision`; for any other, `Vision` is refused with
+`UNSUPPORTED_CAPABILITY`, since the executor decides what its model sees.
+`Screenshot` still keeps evidence after the verdict. An assertion step may only
+read: the runtime refuses any action but `observe`, `screenshot`, `scroll`, and
+`scroll_to`, and any project tool declared `mutates: true`, with
+`POLICY_DENIED`. A step that ends without enough evidence reports
+`ASSERTION_INCONCLUSIVE` where an act reports `STEP_BUDGET_EXHAUSTED`,
+`STEP_TIMEOUT`, or `STEP_NO_CONCLUSION`. `CreateVerdictTool` drops
+`ASSERTION_INCONCLUSIVE` from the failed verdict of an `Act` step.
 
-Not ported: the point verbs, long press, hover, drag, and upload (the port's
-engines have none) and the observation's `Revision`.
+A custom executor shows an image in a tool result with `ToolLoopResult.Pixels`;
+the loop sends it on a user turn after the turn's tool results. Set
+`ToolLoopExecutorOptions.BuildMessages` instead of `BuildPrompt` to open the
+step with images (exactly one of the two).
+
+Not ported: the observation's `Revision`.
 
 ## In CI
 

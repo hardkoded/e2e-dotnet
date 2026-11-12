@@ -4,6 +4,7 @@
 
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Mobile;
 
@@ -65,6 +66,15 @@ public sealed partial class DeviceSession
         ArgumentNullException.ThrowIfNull(app);
         DeviceLinks.AssertAppId(app);
         options ??= new OpenAppOptions();
+        if (options.Permissions is { } given)
+        {
+            // Before any device command, so one unknown name leaves the permissions of the others unchanged (upstream's `assertPermissions`).
+            foreach (var (permission, state) in given)
+            {
+                AssertPermission("device.openApp({ permissions })", permission, state);
+            }
+        }
+
         var relaunch = options.Relaunch;
         var configured = relaunch && app == PinnedApp;
         var launchArguments = options.LaunchArguments ?? (configured ? _app.LaunchArguments : null);
@@ -111,9 +121,92 @@ public sealed partial class DeviceSession
         ScreenReplaced();
     }
 
-    /// <summary>One permission change for <c>device.setPermission</c>: on the pinned app, else on the app agent-device's session is on.</summary>
-    public Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default) =>
-        SetPermissionAsync(permission, state, PinnedApp, cancellationToken);
+    /// <summary>
+    /// One permission change for <c>device.setPermission</c>: on the pinned app, else on the app agent-device's session is on.
+    /// The name and state are checked before any device command (upstream's <c>assertPermission</c>), a state the enum does
+    /// not define refused.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a permission or state outside <see cref="DevicePermission"/> and <see cref="PermissionState"/>.</exception>
+    public async Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default)
+    {
+        // A cast number is the port's non-string name: upstream refuses a name that is not a string by its type (`got type number`).
+        if (!Enum.IsDefined(permission))
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission permission must be one of {PermissionNames()}, got type number");
+        }
+
+        AssertPermission("device.setPermission", permission, state);
+        await SetPermissionAsync(permission, state, PinnedApp, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// One permission change for <c>device.setPermission</c> by name and state, the string form of
+    /// <see cref="SetPermissionAsync(DevicePermission, PermissionState, CancellationToken)"/>. A name or state agent-device does not
+    /// set is refused before any device command: a misspelled name with the name it means, a missing state as <c>undefined</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a name or state that is not one of the wire names.</exception>
+    public async Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default)
+    {
+        if (permission is null)
+        {
+            // Upstream's `undefined` name: no string at all, so the type is named, as it is for a cast number.
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission permission must be one of {PermissionNames()}, got type undefined");
+        }
+
+        var index = Array.IndexOf(PermissionWireNames, permission);
+        if (index < 0)
+        {
+            var hint = Suggestions.DidYouMean(permission, PermissionWireNames);
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission has unknown key \"{permission}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
+        }
+
+        var states = Enum.GetValues<PermissionState>();
+        var stateNames = states.Select(known => known.WireName()).ToList();
+        var stateIndex = state is null ? -1 : stateNames.IndexOf(state);
+        if (stateIndex < 0)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"device.setPermission.{permission} must be one of {string.Join(", ", stateNames)}, got {(state is null ? "undefined" : $"\"{state}\"")}");
+        }
+
+        await SetPermissionAsync(Enum.GetValues<DevicePermission>()[index], states[stateIndex], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The permission names agent-device sets, in the order upstream's <c>DEVICE_PERMISSIONS</c> lists them.</summary>
+    internal static readonly string[] PermissionWireNames = [.. Enum.GetValues<DevicePermission>().Select(known => known.WireName())];
+
+    private static string PermissionNames() => string.Join(", ", PermissionWireNames);
+
+    /// <summary>
+    /// Refuses one permission before any device command: a name agent-device does not set, naming the nearest, or a state
+    /// other than grant, deny, or reset. The enums are closed, so only a cast number reaches either refusal.
+    /// </summary>
+    private static void AssertPermission(string label, DevicePermission permission, PermissionState state)
+    {
+        if (!Enum.IsDefined(permission))
+        {
+            var name = ((int)permission).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var hint = Suggestions.DidYouMean(name, PermissionWireNames);
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"{label} has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
+        }
+
+        if (!Enum.IsDefined(state))
+        {
+            var states = Enum.GetValues<PermissionState>().Select(known => known.WireName());
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                $"{label}.{permission.WireName()} must be one of {string.Join(", ", states)}, got {(int)state}");
+        }
+    }
 
     /// <summary>One permission change on <paramref name="app"/>, which needs no running app and no open in the session.</summary>
     private async Task SetPermissionAsync(DevicePermission permission, PermissionState state, string? app, CancellationToken cancellationToken)

@@ -70,7 +70,7 @@ public sealed class ScenariosTests : BenchmarkTest
         var account = scenario.WithAccount ? Credentials.User("benchmark") : null;
         var options = new ActOptions
         {
-                        Params = account is null ? null : new Dictionary<string, object?> { ["username"] = account.Username, ["password"] = account.Password },
+            Params = account is null ? null : new Dictionary<string, object?> { ["username"] = account.Username, ["password"] = account.Password },
         };
 
         await Agent.ActAsync(instruction, options);

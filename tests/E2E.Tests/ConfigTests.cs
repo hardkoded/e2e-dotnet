@@ -148,16 +148,21 @@ public sealed class ConfigTests
     [InlineData("""{ "targets": [{ "platform": "web", "app": { "bundleId": "dev.x" } }] }""", "unknown targets[0].app key \"bundleId\"")]
     [InlineData("""{ "targets": [{ "platform": "android", "app": { "appPath": "" } }] }""", "targets[0].app.appPath must be a non-empty string")]
     [InlineData("""{ "agents": { "default": { "modle": "m" } } }""", "unknown agents.default key \"modle\"; did you mean \"model\"?")]
-    [InlineData("""{ "agents": { "default": { "maxInputTokens": 3 } } }""", "agents.default key \"maxInputTokens\" is not supported by the .NET port")]
-    [InlineData("""{ "agents": { "default": { "tools": {} } } }""", "agents.default key \"tools\" is not supported by the .NET port")]
+    [InlineData("""{ "agents": { "default": { "maxInputTokens": 0 } } }""", "agents.default.maxInputTokens must be an integer from 1 through 1000000")]
+    [InlineData("""{ "agents": { "default": { "maxObservationBytes": 1023 } } }""", "agents.default.maxObservationBytes must be an integer from 1024 through 16777216")]
+    [InlineData("""{ "agents": { "default": { "tools": 5 } } }""", "agents.default.tools must be an object of tools by name")]
+    [InlineData("""{ "agents": { "default": { "tools": { "t": { "mutates": false, "command": ["x"] } } } } }""", "agents.default.tools.t.description must be a non-empty string")]
+    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": [] } } } } }""", "agents.default.tools.t.command must be a non-empty array of strings: the program, then its arguments")]
+    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "command": ["x"] } } } } }""", "agents.default.tools.t.mutates must be true or false: whether running the tool can change the application")]
+    [InlineData("""{ "agents": { "default": { "tools": { "t": { "description": "d", "mutates": false, "command": ["x"], "run": 1 } } } } }""", "agents.default.tools.t has an unknown key \"run\"")]
     [InlineData("""{ "agents": { "default": { "executor": {} } } }""", "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor")]
-    [InlineData("""{ "agents": { "default": { "maxSteps": 101 } } }""", "agents.default.maxSteps must be an integer from 1 to 100")]
-    [InlineData("""{ "agents": { "fast": { "maxModelCalls": 0 } } }""", "agents.fast.maxModelCalls must be an integer from 1 to 100")]
+    [InlineData("""{ "agents": { "default": { "maxSteps": 101 } } }""", "agents.default.maxSteps must be an integer from 1 through 100")]
+    [InlineData("""{ "agents": { "fast": { "maxModelCalls": 0 } } }""", "agents.fast.maxModelCalls must be an integer from 1 through 100")]
     [InlineData("""{ "agents": { "default": { "judgmentTimeout": 0 } } }""", "agents.default.judgmentTimeout must be a positive integer")]
     [InlineData("""{ "agents": { "default": { "system": 3 } } }""", "agents.default.system must be a string")]
     [InlineData("""{ "agents": { "default": { "providerOptions": { "openai": 1 } } } }""", "agents.default.providerOptions.openai must be an object of provider options")]
     [InlineData("""{ "timeout": 0 }""", "timeout must be a positive integer")]
-    [InlineData("""{ "retries": 11 }""", "retries must be an integer from 0 to 10")]
+    [InlineData("""{ "retries": 11 }""", "retries must be an integer from 0 through 10")]
     [InlineData("""{ "secrets": { "pin": "12345" } }""", "secret \"pin\" must be at least 6 characters")]
     [InlineData("""{ "secrets": { "token": null } }""", "secret \"token\" has no value; set E2E_SECRET_TOKEN")]
     [InlineData("""{ "secrets": { "api-key": "aaaaaa", "api_key": "bbbbbb" } }""", "share the override variable E2E_SECRET_API_KEY")]
@@ -323,6 +328,21 @@ public sealed class ConfigTests
         Assert.Equal("INVALID_APP_URL", error.Code);
     }
 
+    [Fact]
+    public void Resolves_testAssembly_from_the_config_directory()
+    {
+        Assert.Equal(Path.GetFullPath("bin/Tests.dll", Root), Parse("""{ "testAssembly": "bin/Tests.dll" }""").TestAssembly);
+        Assert.Null(Parse("{}").TestAssembly);
+    }
+
+    [Fact]
+    public void Rejects_an_empty_testAssembly()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "testAssembly": "" }"""));
+
+        Assert.Contains("testAssembly must be a non-empty string", error.Message, StringComparison.Ordinal);
+    }
+
     private static E2EConfig Parse(string json, Func<string, string?>? environment = null)
     {
         return E2EConfig.Parse(json, Root, environment ?? Env());
@@ -341,7 +361,7 @@ public sealed class ConfigTests
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
     }
 
-    internal static Task<E2ESession> StartAsync(string directory, CacheMode mode, bool strict, string button, Action onAct, string title = "billing > upgrades", string? context = null, int attempt = 1)
+    internal static Task<E2ESession> StartAsync(string directory, CacheMode mode, bool strict, string button, Action onAct, string title = "billing > upgrades", string? context = null, int attempt = 1, string? targetName = null)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -357,7 +377,7 @@ public sealed class ConfigTests
                 }
 
                 onAct();
-                return text.Contains("tapped", StringComparison.Ordinal)
+                return text.Contains("Tapped", StringComparison.Ordinal)
                     ? ModelResponses.Done("passed", "Upgraded to Pro.")
                     : ModelResponses.Tap("button", button);
             }),
@@ -369,6 +389,7 @@ public sealed class ConfigTests
             ActionTimeout = TimeSpan.FromMilliseconds(300),
             TestTitle = title,
             AgentContext = context,
+            TargetName = targetName,
         });
     }
 

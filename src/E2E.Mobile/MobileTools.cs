@@ -37,14 +37,27 @@ public static class MobileTools
         var tools = new (string Name, AgentTool Tool)[]
         {
             ("open_app", new AgentTool(
-                "Open an app by bundle id, package, or display name (e.g. \"Settings\"), bringing it to the foreground. Set relaunch to restart it fresh. Takes an app, not a URL: a link is refused.",
-                Schema(new JsonObject { ["app"] = Primitive("string", minLength: 1), ["relaunch"] = Primitive("boolean") }, "app"),
+                "Bring an app to the foreground. Omit app to return to the app under test, e.g. after a system sheet or another app took over the screen; pass a bundle id, package, or display name (e.g. \"Settings\") only for another app. Set relaunch to restart it fresh. Takes an app, not a URL: a link is refused.",
+                Schema(new JsonObject { ["app"] = Primitive("string", minLength: 1), ["relaunch"] = Primitive("boolean") }),
                 true,
                 async (input, token) =>
                 {
-                    var app = RequireString(input, "app");
-                    await Active().OpenAppAsync(app, new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") }, token).ConfigureAwait(false);
-                    return $"Opened {app}.";
+                    var app = OptionalString(input, "app");
+                    var session = Active();
+                    var target = app ?? AppUnderTest(session);
+                    try
+                    {
+                        await session.OpenAppAsync(target, new OpenAppOptions { Relaunch = OptionalBoolean(input, "relaunch") }, token).ConfigureAwait(false);
+                    }
+                    catch (EngineException error) when (app is not null && DeviceErrors.IsAppNotInstalled(error))
+                    {
+                        throw new TestException(
+                            "INVALID_ARGUMENT",
+                            $"open {target} failed: no installed app matches that name. Omit app to return to the app under test, or pass an installed app's exact bundle id or package.",
+                            error);
+                    }
+
+                    return app is null ? $"Opened the app under test ({target})." : $"Opened {app}.";
                 },
                 platforms)),
             ("swipe", new AgentTool(
@@ -84,11 +97,19 @@ public static class MobileTools
         return tools.ToDictionary(pair => pair.Name, pair => pair.Tool);
     }
 
+    /// <summary>The app the target pins for <c>app.open()</c>, which <c>open_app</c> returns to when the model names none.</summary>
+    private static string AppUnderTest(DeviceSession session) =>
+        session.PinnedApp
+            ?? throw new EngineException(
+                EngineErrorCodes.InvalidState,
+                "this target pins no app under test (no app.bundleId or app.appPath), so open_app needs the app's bundle id, package, or display name",
+                retryable: false);
+
     /// <summary>
-    /// The running attempt's raw driver session, for a custom tool that needs capabilities e2e does not wrap yet: the object a test
-    /// reads from <see cref="Device.UnstableRaw"/>, with a client bound to the engine's daemon, lease, and session. Pass every device engine
-    /// the config declares. Outside an attempt it throws <c>INVALID_STATE</c>. Client calls are not steps, and like <c>UnstableRaw</c> this
-    /// can change in any release. Upstream's <c>unstable_deviceSession</c>.
+    /// The running attempt's raw driver session, for a custom tool that needs capabilities e2e does not wrap yet: the object a test reads from
+    /// <see cref="Device.UnstableRaw"/>, with a client bound to the engine's daemon, lease, and session (upstream's <c>unstable_deviceSession</c>).
+    /// Pass every device engine the config declares. Outside an attempt it throws <c>INVALID_STATE</c>. Client calls are not steps, and like
+    /// <c>UnstableRaw</c> this can change in any release.
     /// </summary>
     public static RawDeviceSession UnstableDeviceSession(params MobileEngine[] engines)
     {
@@ -101,7 +122,7 @@ public static class MobileTools
         return Device.RawSession(RunningSession(engines));
     }
 
-    /// <summary>The one session whose attempt is running. A worker runs one attempt at a time, so a tool call made inside a step belongs to that attempt. Upstream's <c>runningSurface</c>.</summary>
+    /// <summary>The one session whose attempt is running. A worker runs one attempt at a time, so a tool call made inside a step belongs to that attempt.</summary>
     private static DeviceSession RunningSession(MobileEngine[] engines)
     {
         var running = engines.SelectMany(engine => engine.ActiveSessions).ToList();
@@ -110,8 +131,8 @@ public static class MobileTools
             : throw new EngineException(
                 EngineErrorCodes.InvalidState,
                 running.Count == 0
-                    ? "no agent-device attempt is running; device tools act inside a test attempt only"
-                    : "several agent-device attempts are running in one worker; tools cannot pick a device",
+                    ? "no mobile attempt is running; device tools act inside a test attempt only"
+                    : "several mobile attempts are running in one worker; tools cannot pick a device",
                 retryable: false);
     }
 
@@ -140,6 +161,9 @@ public static class MobileTools
         input[name] is JsonValue value && value.TryGetValue<string>(out var text) && text.Length > 0
             ? text
             : throw new TestException("INVALID_ARGUMENT", $"{name} must be a non-empty string");
+
+    private static string? OptionalString(JsonObject input, string name) =>
+        input.ContainsKey(name) ? RequireString(input, name) : null;
 
     private static bool OptionalBoolean(JsonObject input, string name) =>
         input[name] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;

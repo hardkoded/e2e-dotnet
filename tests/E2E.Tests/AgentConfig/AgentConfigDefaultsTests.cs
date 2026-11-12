@@ -4,8 +4,6 @@
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's maxObservationBytes and maxInputTokens bounds have no port: the keys are rejected (see COMPATIBILITY.md, Agents).
-// Its removed-key hint for agents.<name>.timeout has no port either: an unknown key is rejected as one.
 public sealed class AgentConfigDefaultsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -33,11 +31,18 @@ public sealed class AgentConfigDefaultsTests
     }
 
     [Fact]
-    public void Bounds_maxSteps_and_maxModelCalls_to_1_through_100()
+    public void Bounds_budgets_to_1_through_100_observation_bytes_to_1_KiB_through_16_MiB_and_input_tokens_to_1_through_1000000()
     {
         Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 0 } } }"""), StringComparison.Ordinal);
         Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 101 } } }"""), StringComparison.Ordinal);
         Assert.Contains("maxModelCalls", Invalid("""{ "agents": { "default": { "maxModelCalls": 101 } } }"""), StringComparison.Ordinal);
+        Assert.Contains("maxObservationBytes", Invalid("""{ "agents": { "default": { "maxObservationBytes": 1023 } } }"""), StringComparison.Ordinal);
+        Assert.Contains("maxObservationBytes", Invalid("""{ "agents": { "default": { "maxObservationBytes": 16777217 } } }"""), StringComparison.Ordinal);
+        Assert.Equal(200_000, Parse("""{ "agents": { "default": { "maxInputTokens": 200000 } } }""").Agent.MaxInputTokens);
+        Assert.Equal(
+            "agents.default.maxInputTokens must be an integer from 1 through 1000000",
+            Invalid("""{ "agents": { "default": { "maxInputTokens": 0 } } }"""));
+        Assert.Contains("agents.default.maxInputTokens", Invalid("""{ "agents": { "default": { "maxInputTokens": 1000001 } } }"""), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,6 +65,15 @@ public sealed class AgentConfigDefaultsTests
         Assert.Equal(
             "unknown agents.default key \"sytem\"; did you mean \"system\"?",
             Invalid("""{ "agents": { "default": { "sytem": "Be careful." } } }"""));
+        Assert.Equal(
+            "unknown agents.ux key \"maxInputToken\"; did you mean \"maxInputTokens\"?",
+            Invalid("""{ "agents": { "ux": { "maxInputToken": 1000 } } }"""));
+    }
+
+    [Fact]
+    public void Rejects_a_removed_agent_key_naming_its_replacement()
+    {
+        Assert.Contains("agents.default.timeout was removed: use judgmentTimeout", Invalid("""{ "agents": { "default": { "timeout": 30000 } } }"""), StringComparison.Ordinal);
     }
 
     [Fact]

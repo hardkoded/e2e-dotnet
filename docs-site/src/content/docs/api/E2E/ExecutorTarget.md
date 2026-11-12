@@ -1,6 +1,6 @@
 ---
 title: "ExecutorTarget"
-description: "A node named by its id from the newest observation (upstream's { id }). The id is the node's ref in the text and in Id. A ref the screen no longer lists fail..."
+description: "A node named by its id from the newest observation (upstream's { id }). The id is the node's id after the # in the text and in Id. An id the screen no longer..."
 editUrl: false
 prev: false
 next: false
@@ -19,12 +19,12 @@ public sealed class ExecutorTarget
 ```
 
 
-A node named by its id from the newest observation (upstream's `{ id }`). The id is the node's ref in the text and in
-[Id](/api/E2E/ExecutorNode/#E2E_ExecutorNode_Id). A ref the screen no longer lists fails the action instead of acting on the wrong node.
+A node named by its id from the newest observation (upstream's `{ id }`). The id is the node's id after the `#` in the text and in
+[Id](/api/E2E/ExecutorNode/#E2E_ExecutorNode_Id). An id the screen no longer lists fails the action instead of acting on the wrong node.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L340)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Constructors
 
@@ -45,8 +45,6 @@ public ExecutorTarget(string id)
 | --- | --- | --- |
 | `id` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L342)
-
 ## Properties
 
 <a id="E2E_ExecutorTarget_Id_"></a>
@@ -61,5 +59,3 @@ public string Id { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L354)
