@@ -50,7 +50,8 @@ providers and their logins):
   request is still over `maxInputTokens` fails with `STEP_BUDGET_EXHAUSTED`
   before it is sent. `AgentOptions`, `E2ESessionOptions`, and the fixture take
   the same two values as `MaxObservationBytes` and `MaxInputTokens`.
-- `model` drives `ActAsync`. Judgments use `judge` when set, else `model`.
+- `model` drives `ActAsync`. Judgments use `judge` when set, else `model`. An
+  exploring `AssertAsync` (`Explore = true`) uses `model` even when `judge` is set.
 - No model and no replay that finishes the step is `MODEL_UNAVAILABLE`, and so
   is a model GitHub Copilot does not serve to the account, at the first call.
   Auth failures surface on the first model call as `MODEL_PROVIDER_FAILED`.
@@ -305,7 +306,7 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   explanation. Too little on screen to decide is `ASSERTION_INCONCLUSIVE`,
   also a failure, so reach the right screen first and ask about what is
   visible.
-- Judgments see the statement, its `Params`, the agent's context, the test
+- Default judgments see the statement, its `Params`, the agent's context, the test
   title, and the current screen, never prior steps. The judge answers `holds`, `fails`, or `inconclusive` in one
   `agent-judgment-2` JSON object (`protocolVersion`, `explanation`, `verdict`;
   `schema/agent-judgment-v2.schema.json`). `fails` is `ASSERTION_FAILED`,
