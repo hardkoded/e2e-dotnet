@@ -349,8 +349,9 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `Headless` | Unset: headless, unless `E2E_HEADLESS` is `0` or `false`. |
 | `Viewport` | Default 1280 by 720; `null` follows the browser window. A test calls `Browser.SetViewportAsync()` to resize; the agent resizes with its `resize_viewport` tool. |
 | `TestIdAttribute` | What `GetByTestId` reads; default `data-testid`. |
-| `Headers` | Sent only to the base URL's host; turns the browser HTTP cache off. |
-| `BasicAuth` | Credentials for a `401` challenge. |
+| `Headers` | Sent only on requests that start at the app's origin (scheme, host, and port of `app.url`) or one in `CredentialOrigins`; a request keeps them through its redirects, to any origin. Turns the browser HTTP cache off. |
+| `BasicAuth` | Credentials for a `401` challenge from the app's origin, or one `CredentialOrigins` lists (a redirect to `www` or `https:` is another origin). WebKit answers any origin when one of them is on a default port or an IPv6 host. |
+| `CredentialOrigins` | More exact origins that receive `Headers` and `BasicAuth`, such as `["https://api.example.com"]`; requires `Headers` or `BasicAuth`, else `INVALID_CONFIG`. A wildcard, a path, a query, or port 0 is `INVALID_CONFIG`. |
 | `UserAgent` | The `User-Agent` every attempt sends. |
 | `Locale` | The language every attempt runs in, a BCP 47 tag: `navigator.language`, `Intl`, and `Accept-Language`. An `accept-language` entry in `Headers` beside it is `INVALID_CONFIG`. |
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |

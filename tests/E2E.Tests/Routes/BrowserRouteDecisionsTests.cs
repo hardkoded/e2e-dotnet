@@ -13,7 +13,7 @@ namespace E2E.Tests.Routes;
 public sealed class BrowserRouteDecisionsTests
 {
     [Fact]
-    public Task Fetches_upstream_once_keeps_site_headers_then_fulfills_an_amended_response() => WithRoutesAsync(async routes =>
+    public Task Fetches_upstream_once_keeps_configured_headers_then_fulfills_an_amended_response() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/echo", async route =>
         {
@@ -197,7 +197,7 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
-    public Task Clears_every_test_route_keeps_configured_site_headers_and_can_register_again() => WithRoutesAsync(async routes =>
+    public Task Clears_every_test_route_keeps_configured_headers_and_can_register_again() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/**", route => route.FulfillAsync(new RouteFulfillResponse { Body = "mock-api" }));
         await routes.Browser.RouteAsync(new Regex(@"/echo\z"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new { intercepted = true } }));
@@ -275,7 +275,7 @@ public sealed class BrowserRouteDecisionsTests
     [Theory]
     [InlineData("continue")]
     [InlineData("fallback")]
-    public Task Keeps_the_configured_site_header_through(string name) => WithRoutesAsync(async routes =>
+    public Task Keeps_the_configured_header_through(string name) => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/echo", route => name == "continue" ? route.ContinueAsync() : route.FallbackAsync());
         var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/echo");
@@ -283,7 +283,7 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
-    public Task Continue_replaces_the_request_headers_and_adds_the_site_header_on_top() => WithRoutesAsync(async routes =>
+    public Task Continue_replaces_the_request_headers_and_adds_the_configured_header_on_top() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/echo", route => route.ContinueAsync(new RouteContinueOverrides
         {
@@ -326,7 +326,38 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Fact]
-    public Task Continue_to_another_site_leaves_the_site_header_behind() => WithRoutesAsync(async routes =>
+    public Task Continue_to_another_port_on_the_same_host_leaves_the_configured_header_behind_and_to_a_listed_origin_keeps_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/api/unlisted", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Unlisted.Origin + "/echo" }));
+        await routes.Browser.RouteAsync("**/api/listed", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Listed.Origin + "/echo" }));
+        Assert.False((await routes.FetchEchoAsync(routes.Site.Origin + "/api/unlisted")).Headers.ContainsKey("x-gate"));
+        Assert.Equal("open-sesame", (await routes.FetchEchoAsync(routes.Site.Origin + "/api/listed")).Headers["x-gate"]);
+    });
+
+    [Fact]
+    public Task Fetch_sends_the_configured_header_to_a_listed_origin_not_another_port_on_the_same_host() => WithRoutesAsync(async routes =>
+    {
+        var sent = new System.Collections.Concurrent.ConcurrentDictionary<string, string?>(StringComparer.Ordinal);
+        await routes.Browser.RouteAsync("**/echo", async route =>
+        {
+            var echo = (await (await route.FetchAsync()).JsonAsync<Echo>())!;
+            sent[new Uri(route.Request.Url).GetLeftPart(UriPartial.Authority)] = echo.Headers.GetValueOrDefault("x-gate");
+            await route.FulfillAsync(new RouteFulfillResponse { Body = "" });
+        });
+
+        // Cross-origin from the page, so the fulfilled reply fails CORS; the route has already read the echo.
+        foreach (var target in new[] { routes.Unlisted.Origin, routes.Listed.Origin })
+        {
+            await routes.Page.EvaluateAsync("(url) => fetch(url).then(() => undefined, () => undefined)", target + "/echo");
+        }
+
+        Assert.Equal(
+            new Dictionary<string, string?> { [routes.Unlisted.Origin] = null, [routes.Listed.Origin] = "open-sesame" }.OrderBy(pair => pair.Key),
+            sent.OrderBy(pair => pair.Key));
+    });
+
+    [Fact]
+    public Task Continue_to_another_origin_leaves_the_configured_header_behind() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/quote", route => route.ContinueAsync(new RouteContinueOverrides { Url = routes.Site.OtherSite + "/echo" }));
         var echo = await routes.FetchEchoAsync(routes.Site.Origin + "/api/quote");
@@ -523,12 +554,15 @@ public sealed class BrowserRouteDecisionsTests
 
     /// <summary>
     /// Runs <paramref name="body"/> against a counting server, in a session whose app
-    /// is that server, with a configured site header and a project root that holds
+    /// is that server, with a configured header and a project root that holds
     /// <c>quote.json</c>. The page is open on the server's root.
     /// </summary>
     private static async Task WithRoutesAsync(Func<RouteSession, Task> body, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>>? fetchRoute = null)
     {
         using var site = CountingSite.Start();
+        // Another port on the app's host: the same site, another origin. Not listed, then listed.
+        using var unlisted = CountingSite.Start();
+        using var listed = CountingSite.Start();
         var projectRoot = Directory.CreateTempSubdirectory("e2e-routes-").FullName;
         try
         {
@@ -539,6 +573,7 @@ public sealed class BrowserRouteDecisionsTests
                 {
                     Headless = true,
                     Headers = new Dictionary<string, string> { ["X-Gate"] = "open-sesame" },
+                    CredentialOrigins = [listed.Origin],
                 })
                 {
                     FetchRoute = fetchRoute ?? ((route, options) => route.FetchAsync(options)),
@@ -560,7 +595,7 @@ public sealed class BrowserRouteDecisionsTests
                     attached.Add(relative);
                     attach(kind, relative);
                 };
-                await body(new RouteSession(site, session.Browser, projectRoot, WebEngine.SurfaceOf(session.Engine)!.Page(), attached));
+                await body(new RouteSession(site, unlisted, listed, session.Browser, projectRoot, WebEngine.SurfaceOf(session.Engine)!.Page(), attached));
             });
         }
         finally
@@ -599,7 +634,7 @@ public sealed class BrowserRouteDecisionsTests
         }
     }
 
-    private sealed record RouteSession(CountingSite Site, Browser Browser, string ProjectRoot, IPage Page, List<string> Attached)
+    private sealed record RouteSession(CountingSite Site, CountingSite Unlisted, CountingSite Listed, Browser Browser, string ProjectRoot, IPage Page, List<string> Attached)
     {
         /// <summary>How many handlers listen for the page's <c>download</c> event.</summary>
         public int DownloadListeners()

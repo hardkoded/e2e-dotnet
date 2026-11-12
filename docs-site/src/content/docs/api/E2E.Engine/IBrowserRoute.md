@@ -65,7 +65,7 @@ Task ContinueAsync(RouteContinueOverrides overrides)
 ```
 
 
-Sends the request to the network, skipping every other route. The configured site headers are added on top of the request headers.
+Sends the request to the network, skipping every other route. The configured headers are added on top of the request headers.
 
 **Parameters**
 
@@ -101,7 +101,7 @@ Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellatio
 ```
 
 
-Reads the upstream response without deciding the route or following redirects. The configured site headers
+Reads the upstream response without deciding the route or following redirects. The configured headers
 are added on top of the request headers. Bounded by &lt;code class="paramref"&gt;timeout&lt;/code&gt;.
 
 **Parameters**

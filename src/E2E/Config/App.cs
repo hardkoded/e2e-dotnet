@@ -129,11 +129,16 @@ internal static class TargetApps
         };
     }
 
-    /// <summary>What an engine's doctor receives about the target's app: its site policy and what a device launches (upstream's <c>engineAppInfo</c>).</summary>
+    /// <summary>
+    /// What an engine's doctor receives about the target's app: its origin and site policy, and what a device launches (upstream's
+    /// <c>engineAppInfo</c>). A free port the run has not assigned yet (<c>e2e doctor</c> assigns none) leaves the origin out rather than
+    /// report it on port <c>0</c>.
+    /// </summary>
     public static EngineAppInfo EngineAppInfoOf(ResolvedApp app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        return new EngineAppInfo { Site = app.Site, BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments, Permissions = app.Permissions };
+        var unassigned = app.PortRequest is { Port: null };
+        return new EngineAppInfo { Origin = unassigned ? null : app.Base?.Origin, Site = app.Site, BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments, Permissions = app.Permissions };
     }
 
     /// <summary>

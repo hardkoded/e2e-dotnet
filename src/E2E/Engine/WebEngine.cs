@@ -186,16 +186,29 @@ public sealed class WebEngineOptions
     public string TestIdAttribute { get; init; } = "data-testid";
 
     /// <summary>
-    /// Headers added to every request bound for the app's host (the host of the
-    /// session's base URL). Requests to any other host never carry them, so a
-    /// secret header stays with the app it unlocks. Names are case-insensitive
+    /// Headers added to every request the browser starts at the app's origin (the
+    /// scheme, host, and port of the session's base URL) or one in
+    /// <see cref="CredentialOrigins"/>. A request that starts at any other origin (another port
+    /// on the same host, a sibling subdomain, a CDN) goes without them. Playwright keeps a
+    /// request's headers through its redirects, so a redirect from the app to an identity
+    /// provider carries them there. Names are case-insensitive
     /// and replace a header the page already sends under the same name.
     /// Routing every request turns the browser's HTTP cache off.
     /// </summary>
     public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
-    /// <summary>Basic-auth credentials the browser answers a challenge with, wherever one is issued.</summary>
+    /// <summary>
+    /// Basic-auth credentials the browser answers a challenge from the app's origin, or one in <see cref="CredentialOrigins"/>,
+    /// with, and no other. WebKit cannot scope a credential to an origin on its scheme's default port or with an IPv6 host, so
+    /// when one of those origins is such an origin, WebKit answers every origin's challenge.
+    /// </summary>
     public WebBasicAuth? BasicAuth { get; init; }
+
+    /// <summary>
+    /// More origins that receive <see cref="Headers"/> and <see cref="BasicAuth"/>, beyond the app's own: an API host or a redirect
+    /// target behind the same gate. Exact origins, such as <c>https://api.example.com</c>; requires headers or basic auth.
+    /// </summary>
+    public IReadOnlyList<string>? CredentialOrigins { get; init; }
 
     /// <summary>The <c>User-Agent</c> the browser sends and <c>navigator.userAgent</c> reports. Defaults to the browser's own.</summary>
     public string? UserAgent { get; init; }
@@ -280,7 +293,7 @@ public sealed partial class WebEngine : IEngine
     private readonly bool _headless;
 
     /// <summary>The configured headers, names lower-cased so they replace the browser's own; null when none are set.</summary>
-    private readonly Dictionary<string, string>? _siteHeaders;
+    private readonly Dictionary<string, string>? _configuredHeaders;
 
     // The default contexts earlier attempts rode, so a cdpEndpoint that hands one back is refused.
     // Process-wide: a test fixture creates an engine for each attempt, retries included.
@@ -297,7 +310,7 @@ public sealed partial class WebEngine : IEngine
         Validate(options);
         _options = options;
         _leases = options.Browser is { } provider ? new LeasedBrowsers(provider) : null;
-        _siteHeaders = options.Headers is { Count: > 0 } headers
+        _configuredHeaders = options.Headers is { Count: > 0 } headers
             ? headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal)
             : null;
         if (options.Headless is bool chosen)
@@ -488,8 +501,16 @@ public sealed partial class WebEngine : IEngine
                 await EnsureBrowserAsync(_options.BrowserName, !_headless, cancellationToken).ConfigureAwait(false);
             }
 
-            var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
+            var origins = ProtectedApp.CredentialOrigins(ProtectedApp.OriginOf(app), _options.CredentialOrigins);
+
+            // Without the app's origin the credentials would go nowhere; fail rather than send them nowhere (upstream's `init` check).
+            if (origins.Count == 0 && (_options.Headers is not null || _options.BasicAuth is not null))
+            {
+                throw new EngineException("INVALID_CONFIG", "web({ headers, basicAuth }) needs the app's origin: declare the target's app.url");
+            }
+
+            var playwright = await CreatePlaywright().ConfigureAwait(false);
             var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute, CapturePage, ReadFrame);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
@@ -499,8 +520,8 @@ public sealed partial class WebEngine : IEngine
                     options.ActionTimeout,
                     _options,
                     initScripts,
-                    context => SetUpContextAsync(context, app, options.Permissions),
-                    url => SiteHeadersFor(url, app),
+                    context => SetUpContextAsync(context, origins, options.Permissions),
+                    url => ConfiguredHeadersFor(url, origins),
                     SiteOf(app),
                     seams,
                     lease,
@@ -515,7 +536,7 @@ public sealed partial class WebEngine : IEngine
             {
                 await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 var credentials = _options.BasicAuth is { } basicAuth
-                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? (async (secret, _) => (await secret.ResolveAsync(cancellationToken).ConfigureAwait(false)).Value)).ConfigureAwait(false)
+                    ? await HttpCredentialsAsync(basicAuth, origins, _options.BrowserName, options.ResolveSecret ?? (async (secret, _) => (await secret.ResolveAsync(cancellationToken).ConfigureAwait(false)).Value)).ConfigureAwait(false)
                     : null;
                 if (connect is not null)
                 {
@@ -530,7 +551,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, app, options.Permissions), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir, Site = SiteOf(app) };
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, origins, options.Permissions), url => ConfiguredHeadersFor(url, origins), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir, Site = SiteOf(app) };
                 session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
@@ -607,14 +628,6 @@ public sealed partial class WebEngine : IEngine
         return string.IsNullOrWhiteSpace(endpoint)
             ? throw new EngineException(EngineErrorCodes.EngineFailure, "connect.cdpEndpoint resolved to an empty CDP endpoint")
             : endpoint;
-    }
-
-    /// <summary>True when <paramref name="url"/> is bound for the app's host, the only requests the configured headers ride.</summary>
-    internal static bool IsAppRequest(string url, Uri app)
-    {
-        return Uri.TryCreate(url, UriKind.Absolute, out var target)
-            && (target.Scheme == Uri.UriSchemeHttp || target.Scheme == Uri.UriSchemeHttps)
-            && string.Equals(target.Host, app.Host, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The app's site: the registrable domain of its URL's host, as upstream's <c>app.site</c>. Null without an app URL.</summary>
@@ -767,6 +780,22 @@ public sealed partial class WebEngine : IEngine
             if (auth.Username.Contains(':', StringComparison.Ordinal))
             {
                 throw new EngineException("INVALID_CONFIG", "basicAuth username must not contain \":\".");
+            }
+        }
+
+        if (options.CredentialOrigins is { } credentialOrigins)
+        {
+            if (options.Headers is null && options.BasicAuth is null)
+            {
+                throw new EngineException("INVALID_CONFIG", "web({ CredentialOrigins }) requires headers or basicAuth: it lists more origins that receive them");
+            }
+
+            for (var index = 0; index < credentialOrigins.Count; index++)
+            {
+                if (ProtectedApp.OriginProblem(credentialOrigins[index]) is { } problem)
+                {
+                    throw new EngineException("INVALID_CONFIG", "web({ CredentialOrigins })[" + index + "] " + problem);
+                }
             }
         }
 
@@ -932,7 +961,7 @@ public sealed partial class WebEngine : IEngine
     internal static void Latch(IEngineSession session, Exception error) => ((WebSession)EngineSession.Unwrap(session)).Latch(error);
 
     // Refuses a locale that is not a BCP 47 tag, and one an accept-language
-    // header would override on the app's host while navigator.language kept
+    // header would override on the app's origin while navigator.language kept
     // reporting it.
     private static void ValidateLocale(string locale, IReadOnlyDictionary<string, string>? headers)
     {
@@ -1029,21 +1058,26 @@ public sealed partial class WebEngine : IEngine
     private static partial Regex LanguageTagPattern();
 
     /// <summary>
-    /// The basic-auth credentials a context answers a challenge with, as Playwright's own <c>HttpCredentials</c> does:
-    /// on a <c>401</c> from any origin. A <see cref="Secret"/> password resolves through the attempt, which registers the
-    /// value for redaction, and the <c>Authorization</c> credential Playwright sends with it too: a page that echoes its
-    /// request headers shows that, not the password.
+    /// The basic-auth credentials a context answers a challenge with: one Playwright <c>HttpCredentials</c> entry per origin
+    /// in <paramref name="origins"/>, so a <c>401</c> from any other origin goes unanswered. WebKit is the exception: it never
+    /// matches a scoped credential to an origin on its scheme's default port or with an IPv6 host, so when one of
+    /// <paramref name="origins"/> is such an origin, WebKit gets one unscoped credential that answers every origin, as
+    /// Playwright's own default does. A <see cref="Secret"/> password resolves through the attempt, which registers the value
+    /// for redaction, and the <c>Authorization</c> credential Playwright sends with it too: a page that echoes its request
+    /// headers shows that, not the password.
     /// </summary>
-    internal static async Task<HttpCredentials> HttpCredentialsAsync(WebBasicAuth basicAuth, Func<Secret, ResolveSecretOptions?, Task<string>> resolveSecret)
+    internal static async Task<IReadOnlyList<HttpCredentials>> HttpCredentialsAsync(WebBasicAuth basicAuth, IReadOnlySet<string> origins, BrowserName browser, Func<Secret, ResolveSecretOptions?, Task<string>> resolveSecret)
     {
         var username = basicAuth.Username;
-        if (basicAuth.Password is string password)
+        var plaintext = basicAuth.Password is string password
+            ? password
+            : await resolveSecret((Secret)basicAuth.Password, new ResolveSecretOptions { Derived = value => BasicCredentials(username, value) }).ConfigureAwait(false);
+        if (browser == BrowserName.Webkit && origins.Any(ProtectedApp.WebkitCannotScope))
         {
-            return new HttpCredentials { Username = username, Password = password };
+            return [new HttpCredentials { Username = username, Password = plaintext }];
         }
 
-        var resolved = await resolveSecret((Secret)basicAuth.Password, new ResolveSecretOptions { Derived = plaintext => BasicCredentials(username, plaintext) }).ConfigureAwait(false);
-        return new HttpCredentials { Username = username, Password = resolved };
+        return [.. origins.Select(origin => new HttpCredentials { Username = username, Password = plaintext, Origin = origin })];
     }
 
     /// <summary>
@@ -1060,7 +1094,7 @@ public sealed partial class WebEngine : IEngine
 
     // A clean context: the viewport the session holds now (setViewport
     // outlives restart and clearState), or no emulation when there is none.
-    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport, HttpCredentials? credentials)
+    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport, IReadOnlyList<HttpCredentials>? credentials)
     {
         var context = new BrowserNewContextOptions
         {
@@ -1076,7 +1110,7 @@ public sealed partial class WebEngine : IEngine
             context.UserAgent = options.UserAgent;
         }
 
-        context.HttpCredentials = credentials;
+        context.HttpCredentialsList = credentials is null ? null : [.. credentials];
 
         // Routing never sees a service worker's requests, so a worker would skip the headers.
         if (options.Headers is not null)
@@ -1091,20 +1125,20 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>
     /// The configured headers, names lower-cased, that a request to <paramref name="url"/>
-    /// carries: all of them for the app's host, none for any other host or when there is no app.
+    /// carries: all of them when its origin is one of the allowed origins, none otherwise.
     /// </summary>
-    private IReadOnlyDictionary<string, string>? SiteHeadersFor(string url, Uri? app)
+    private IReadOnlyDictionary<string, string>? ConfiguredHeadersFor(string url, IReadOnlySet<string> origins)
     {
-        return app is not null && IsAppRequest(url, app) ? _siteHeaders : null;
+        return ProtectedApp.ConfiguredHeadersFor(url, origins, _configuredHeaders);
     }
 
     /// <summary>
-    /// What every context of the attempt is set up with before its first page: the site headers, then the permissions the target
+    /// What every context of the attempt is set up with before its first page: the configured headers, then the permissions the target
     /// grants (upstream's <c>setUpContext</c> hook).
     /// </summary>
-    private async Task SetUpContextAsync(IBrowserContext context, Uri? app, IReadOnlyDictionary<string, AppPermissionState>? permissions)
+    private async Task SetUpContextAsync(IBrowserContext context, IReadOnlySet<string> origins, IReadOnlyDictionary<string, AppPermissionState>? permissions)
     {
-        await InstallSiteHeadersAsync(context, app).ConfigureAwait(false);
+        await InstallConfiguredHeadersAsync(context, origins).ConfigureAwait(false);
 
         // ValidatePermissions admitted only grants.
         if (permissions is { Count: > 0 })
@@ -1114,19 +1148,20 @@ public sealed partial class WebEngine : IEngine
     }
 
     /// <summary>
-    /// Adds the configured headers to every request bound for the app's host, through a
+    /// Adds the configured headers to every request bound for an allowed origin, through a
     /// context route that falls back to the network. Registered before any test route,
     /// so it runs last: a test route's fallback reaches it, and a continue, which skips
-    /// it, merges the same headers itself.
+    /// it, merges the same headers itself. Redirect hops are never routed: Playwright carries a routed request's headers
+    /// onto them, whatever origin they name, and a request that started elsewhere stays without them.
     /// </summary>
-    private async Task InstallSiteHeadersAsync(IBrowserContext context, Uri? app)
+    private async Task InstallConfiguredHeadersAsync(IBrowserContext context, IReadOnlySet<string> origins)
     {
-        if (_siteHeaders is not { } headers || app is null)
+        if (_configuredHeaders is not { } headers || origins.Count == 0)
         {
             return;
         }
 
-        await context.RouteAsync(url => IsAppRequest(url, app), async route =>
+        await context.RouteAsync(url => ProtectedApp.ConfiguredHeadersFor(url, origins, headers) is not null, async route =>
         {
             var merged = new Dictionary<string, string>(route.Request.Headers, StringComparer.Ordinal);
             foreach (var (name, value) in headers)
@@ -1150,10 +1185,10 @@ public sealed partial class WebEngine : IEngine
         private readonly IPlaywright _playwright;
         private readonly TimeSpan _actionTimeout;
         private readonly string _testIdAttribute;
-        private readonly HttpCredentials? _credentials;
+        private readonly IReadOnlyList<HttpCredentials>? _credentials;
         private readonly WebEngineOptions _options;
         private readonly Func<IBrowserContext, Task> _setUpContext;
-        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _configuredHeaders;
         private readonly SessionSeams _seams;
         private readonly PersistentConnect? _persistent;
 
@@ -1212,7 +1247,7 @@ public sealed partial class WebEngine : IEngine
         private bool _firstPage = true;
         private bool _disposed;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null, LeaseScope? lease = null)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders, SessionSeams seams, PersistentConnect? persistent = null, IReadOnlyList<HttpCredentials>? credentials = null, LeaseScope? lease = null)
         {
             _lease = lease;
             _dialogs = new DialogRouter(_latch);
@@ -1221,7 +1256,7 @@ public sealed partial class WebEngine : IEngine
             _browser = browser;
             _options = options;
             _setUpContext = setUpContext;
-            _siteHeaders = siteHeaders;
+            _configuredHeaders = configuredHeaders;
             _seams = seams;
             _persistent = persistent;
             _testIdAttribute = options.TestIdAttribute;
@@ -3551,7 +3586,7 @@ public sealed partial class WebEngine : IEngine
 
         /// <summary>
         /// Installs what every context of the attempt carries: the closed-root hook, the
-        /// init scripts configured then added, the site headers, and the test's routes.
+        /// init scripts configured then added, the configured headers, and the test's routes.
         /// </summary>
         private async Task ConfigureAsync(IBrowserContext context)
         {
@@ -3589,7 +3624,7 @@ public sealed partial class WebEngine : IEngine
             WebEngineOptions options,
             List<string> initScripts,
             Func<IBrowserContext, Task> setUpContext,
-            Func<string, IReadOnlyDictionary<string, string>?> siteHeaders,
+            Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders,
             string? site,
             SessionSeams seams,
             LeaseScope? lease,
@@ -3610,7 +3645,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir, Site = site };
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, configuredHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir, Site = site };
             try
             {
                 if (!persistent.Claim(binding.ContextId))
@@ -4031,7 +4066,7 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task HandleRouteAsync(IRoute route, Func<IBrowserRoute, Task> handler)
         {
-            var decision = new PlaywrightRoute(route, _siteHeaders, _seams.FetchRoute, NoteRouteAbort);
+            var decision = new PlaywrightRoute(route, _configuredHeaders, _seams.FetchRoute, NoteRouteAbort);
             try
             {
                 await handler(decision).ConfigureAwait(false);
@@ -4332,15 +4367,15 @@ public sealed partial class WebEngine : IEngine
     private sealed class PlaywrightRoute : IBrowserRoute
     {
         private readonly IRoute _route;
-        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _configuredHeaders;
         private readonly Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> _fetch;
 
         private readonly Action<IRequest> _noteAbort;
 
-        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> fetch, Action<IRequest> noteAbort)
+        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> configuredHeaders, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> fetch, Action<IRequest> noteAbort)
         {
             _route = route;
-            _siteHeaders = siteHeaders;
+            _configuredHeaders = configuredHeaders;
             _fetch = fetch;
             _noteAbort = noteAbort;
             var request = route.Request;
@@ -4392,7 +4427,7 @@ public sealed partial class WebEngine : IEngine
         {
             // Continue skips every route registered before this one, the site-header
             // route included, so it merges those headers itself.
-            var site = _siteHeaders(overrides.Url ?? Request.Url);
+            var site = _configuredHeaders(overrides.Url ?? Request.Url);
             Dictionary<string, string>? headers = null;
             if (overrides.Headers is not null || overrides.DropHeaders is { Count: > 0 } || site is not null)
             {
@@ -4433,7 +4468,7 @@ public sealed partial class WebEngine : IEngine
                 headers[name.ToLowerInvariant()] = value;
             }
 
-            foreach (var (name, value) in _siteHeaders(Request.Url) ?? Enumerable.Empty<KeyValuePair<string, string>>())
+            foreach (var (name, value) in _configuredHeaders(Request.Url) ?? Enumerable.Empty<KeyValuePair<string, string>>())
             {
                 headers[name] = value;
             }

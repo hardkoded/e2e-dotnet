@@ -38,7 +38,9 @@ public WebBasicAuth? BasicAuth { get; init; }
 ```
 
 
-Basic-auth credentials the browser answers a challenge with, wherever one is issued.
+Basic-auth credentials the browser answers a challenge from the app's origin, or one in [CredentialOrigins](#E2E_Engine_WebEngineOptions_CredentialOrigins),
+with, and no other. WebKit cannot scope a credential to an origin on its scheme's default port or with an IPv6 host, so
+when one of those origins is such an origin, WebKit answers every origin's challenge.
 
 **Value:** [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/)
 
@@ -110,6 +112,22 @@ Attach to a remote Chromium over CDP instead of launching a local one.
 
 **Value:** [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/)
 
+<a id="E2E_Engine_WebEngineOptions_CredentialOrigins_"></a>
+<a id="E2E_Engine_WebEngineOptions_CredentialOrigins"></a>
+
+### CredentialOrigins
+
+
+```csharp
+public IReadOnlyList<string>? CredentialOrigins { get; init; }
+```
+
+
+More origins that receive [Headers](#E2E_Engine_WebEngineOptions_Headers) and [BasicAuth](#E2E_Engine_WebEngineOptions_BasicAuth), beyond the app's own: an API host or a redirect
+target behind the same gate. Exact origins, such as `https://api.example.com`; requires headers or basic auth.
+
+**Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Engine_WebEngineOptions_Headers_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headers"></a>
 
@@ -121,9 +139,12 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 ```
 
 
-Headers added to every request bound for the app's host (the host of the
-session's base URL). Requests to any other host never carry them, so a
-secret header stays with the app it unlocks. Names are case-insensitive
+Headers added to every request the browser starts at the app's origin (the
+scheme, host, and port of the session's base URL) or one in
+[CredentialOrigins](#E2E_Engine_WebEngineOptions_CredentialOrigins). A request that starts at any other origin (another port
+on the same host, a sibling subdomain, a CDN) goes without them. Playwright keeps a
+request's headers through its redirects, so a redirect from the app to an identity
+provider carries them there. Names are case-insensitive
 and replace a header the page already sends under the same name.
 Routing every request turns the browser's HTTP cache off.
 

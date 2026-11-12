@@ -582,7 +582,7 @@ public Task UnrouteAllAsync(CancellationToken cancellationToken = default)
 ```
 
 
-Removes every route added through this browser. The configured site headers stay.
+Removes every route added through this browser. The configured headers stay.
 
 **Parameters**
 

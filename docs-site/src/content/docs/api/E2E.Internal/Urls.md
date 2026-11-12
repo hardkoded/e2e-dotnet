@@ -123,8 +123,8 @@ public static bool SameSite(string url, string site)
 ```
 
 
-True when a URL's host is on &lt;code class="paramref"&gt;site&lt;/code&gt; as [SiteOf(string)](#E2E_Internal_Urls_SiteOf_System_String_) reads it (upstream's `sameSite`): the one rule for where
-an app's secrets, headers, and basic-auth credentials may go. An unparseable URL is off every site.
+True when a URL's host is on &lt;code class="paramref"&gt;site&lt;/code&gt; as [SiteOf(string)](#E2E_Internal_Urls_SiteOf_System_String_) reads it (upstream's `sameSite`): the rule for which
+child frames an observation reads. An unparseable URL is off every site.
 
 **Parameters**
 

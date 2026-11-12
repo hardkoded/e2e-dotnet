@@ -628,11 +628,18 @@ public sealed record EngineFinishInfo
 }
 
 /// <summary>
-/// The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device
+/// The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the origin and site policy, and what a device
 /// launches. The URL itself stays with the harness. Upstream's <c>EngineAppInfo</c>, with the members the port's config declares.
 /// </summary>
 public record EngineAppInfo
 {
+    /// <summary>
+    /// The origin of the app's URL on the run's port (<c>scheme://host:port</c>, as <c>URL.origin</c> serializes it): where credentials an
+    /// engine injects into requests (headers, basic auth) go by default. Null for an app without a URL, and for a free port the run has not
+    /// assigned (<c>e2e doctor</c>).
+    /// </summary>
+    public string? Origin { get; init; }
+
     /// <summary>The site of the app's URL, its registrable domain. Null for an app without a URL, which is no policy at all.</summary>
     public string? Site { get; init; }
 

@@ -35,6 +35,9 @@ public sealed class AnAppUrlOnAFreePortTests
         Assert.Equal(new E2E.Internal.NormalizedBaseUrl("http://127.0.0.1:4321/shop/", "http://127.0.0.1:4321", "/shop/"), app.Base);
         Assert.Equal(new PortRequest("127.0.0.1", 4321), app.PortRequest);
         Assert.Equal("http://127.0.0.1:4321/shop/", app.ReadyUrl);
+        // Engines scope injected credentials to the origin on the assigned port, never the declared :0.
+        Assert.Equal("http://127.0.0.1:4321", TargetApps.EngineAppInfoOf(app).Origin);
+        Assert.Null(TargetApps.EngineAppInfoOf(pending).Origin);
 
         // A target that named its port ignores an assignment.
         Assert.Equal("http://localhost:3000", ResolveConfigTests.Resolved("""{ "url": "http://localhost:3000" }""", port: 4321).Base!.Origin);
