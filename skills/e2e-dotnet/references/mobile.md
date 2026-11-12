@@ -8,6 +8,7 @@ iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`). The engine dr
 - A test
 - Device controls
 - Choosing a device
+- Run the app in another language
 - Video
 - A MAUI app with DevFlow
 - Known limits
@@ -125,6 +126,21 @@ The NUnit and xUnit adapters do not run the engine's prepare and finish hooks, s
 A provider whose service records its devices overrides `IDeviceProvider.RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken ct)`. When an attempt records video, the worker calls it in place of agent-device's screen recording, with the lease as it traveled to the worker: its `Id` and the other `DeviceLease` fields, never what a derived lease class kept on the object `AcquireAsync` returned. The context carries `RunId`, `TargetName`, `AttemptId`, and `Env`. It returns a `ProviderRecording`, as a browser provider's `RecordAsync` does: its `StartedAt`, and `StopAsync`, which either writes a file into the directory it gets and returns `new ProviderRecordingResult { File = "replay.mp4" }` (kept as `video/<file>`), or returns `{ Url, MediaType }` for a recording the service keeps, which the report links. The default returns null, and the engine records with agent-device. A `RecordAsync` that throws fails the start of the video as `ENGINE_FAILURE` naming the provider and the lease; a start that outlives its budget is cancelled, and the recording that comes up anyway is stopped when the session ends. A `StopAsync` that fails keeps the recording, so the end of the attempt stops it once more. A worker without a lease (an engine that did not run its prepare hook) records with agent-device.
 
 A provider that drives its devices without agent-device implements `IDeviceClientSource` as well as `IDeviceProvider`. `MobileEngine` then asks it for the `IDeviceClient` of each session. The client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. This has no upstream counterpart.
+
+## Run the app in another language
+
+On iOS, launch arguments set the app's language and region for that launch. The device keeps its own language. Set them in `MobileApp.LaunchArguments` (`MobileOptions.App`), one run per language:
+
+```csharp
+App = new MobileApp
+{
+    BundleId = "com.example.app",
+    LaunchArguments = ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"],
+},
+```
+
+- The app must ship the language. If it doesn't, iOS shows its development language.
+- Android has no launch argument for the language. Set the device's language before the run. The port's hosted providers have no `language` or `locale` option.
 
 ## Video
 

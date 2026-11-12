@@ -109,6 +109,21 @@ To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices 
 
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
 
+## Run the app in another language
+
+On iOS, launch arguments set the app's language and region for that launch. The device keeps its own language. Set them in `MobileApp.LaunchArguments` (`MobileOptions.App`), one run per language:
+
+```csharp
+App = new MobileApp
+{
+    BundleId = "com.example.app",
+    LaunchArguments = ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"],
+},
+```
+
+- The app must ship the language. If it doesn't, iOS shows its development language.
+- Android has no launch argument for the language. Set the device's language before the run. The hosted providers have no `language` or `locale` option.
+
 ## Hosted devices
 
 Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.Eas` and `E2E.TestMu.Mobile` add other providers. A provider whose service records its devices records the video of an attempt in place of agent-device (`IDeviceProvider.RecordAsync`). See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.
