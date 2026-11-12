@@ -16,7 +16,7 @@ description: Drive a WinUI, WPF, WinForms, or Win32 app with WinAppEngine.
 ```bash
 dotnet new nunit -n MyApp.E2ETests
 cd MyApp.E2ETests
-dotnet add package E2E.WinApp.NUnit      # or E2E.WinApp.XUnit.V3
+dotnet add package E2E.WinApp.NUnit      # or E2E.WinApp.XUnit.V3 or E2E.WinApp.TUnit
 ```
 
 A test project on plain `net10.0` also needs this, because the UI Automation library ships Windows assets only. Without it, restore fails with `NU1202`. Or target `net10.0-windows`.
