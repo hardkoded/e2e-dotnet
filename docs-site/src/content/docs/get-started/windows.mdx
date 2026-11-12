@@ -19,6 +19,8 @@ cd MyApp.E2ETests
 dotnet add package E2E.WinApp.NUnit      # or E2E.WinApp.XUnit.V3 or E2E.WinApp.TUnit
 ```
 
+See [NUnit](/testing-frameworks/nunit/), [xUnit v3](/testing-frameworks/xunit/), and [TUnit](/testing-frameworks/tunit/) for the project setup of each framework.
+
 A test project on plain `net10.0` also needs this, because the UI Automation library ships Windows assets only. Without it, restore fails with `NU1202`. Or target `net10.0-windows`.
 
 ```xml

@@ -1,0 +1,227 @@
+---
+title: xUnit v3
+description: Create an xUnit v3 test project, write a first E2E test, and run it.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+`E2E.XUnit.V3` holds `E2E.XUnit.V3.E2ETest`, an xUnit v3 base class. It implements `IAsyncLifetime`: `InitializeAsync` starts an engine session for each test, and `DisposeAsync` commits the replay cache from the xUnit result. The tests use the same `App`, `Agent`, `Screen`, and `Expect` as every framework. See [Testing frameworks](/testing-frameworks/) for how xUnit v3 compares with NUnit and TUnit.
+
+xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
+
+## Prerequisites
+
+- The .NET 10 or 11 SDK.
+- A model to sign in to, unless the tests never call the agent. See [Before you start](/get-started/#before-you-start).
+- An app to test. The example below runs against the live [Dariten](https://dariten.vercel.app) demo.
+
+## 1. Create the test project
+
+Run `e2e init MyApp.E2ETests --framework xunit` to scaffold the project, an example test, and the config in one step. Or create it by hand. The package list is the one the repo's own xUnit v3 sample uses, on the VSTest runner:
+
+```bash
+dotnet new console -n MyApp.E2ETests
+cd MyApp.E2ETests
+dotnet add package Microsoft.NET.Test.Sdk
+dotnet add package xunit.v3.mtp-off
+dotnet add package xunit.runner.visualstudio
+dotnet add package E2E
+dotnet add package E2E.XUnit.V3
+```
+
+xUnit v3 generates the program's entry point, so delete the `Program.cs` the console template wrote. Then set the project properties:
+
+```xml
+<PropertyGroup>
+  <OutputType>Exe</OutputType>
+  <IsTestProject>true</IsTestProject>
+  <!-- The session already stops on the xUnit cancellation token, so each call does not pass it. -->
+  <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+</PropertyGroup>
+
+<ItemGroup>
+  <Using Include="E2E" />
+  <Using Include="Xunit" />
+</ItemGroup>
+```
+
+- `xunit.v3.mtp-off` keeps the project on the VSTest runner, so the `--filter` commands below work. The package needs `xunit.v3.extensibility.core` 4.0.1 or later, which `E2E.XUnit.V3` brings.
+- `xUnit1051` is the analyzer warning that asks every async call to pass `TestContext.Current.CancellationToken`. The session already stops on that token, so calls on `App`, `Screen`, `Agent`, `Browser`, and `Expect.That` need none. Turning the warning off avoids noise.
+- `E2E` in the implicit usings means tests need no `using E2E;`.
+
+## 2. Point at your app
+
+Put `e2e.config.json` next to the `.csproj`. Step 2 of [Web](/get-started/web/#2-point-at-your-app) has the file and the `CopyToOutputDirectory` item. For this example, use the Dariten target:
+
+```json
+{
+  "targets": [{ "name": "dariten", "platform": "web", "app": { "url": "https://dariten.vercel.app" } }],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": {
+    "default": {
+      "provider": "copilot",
+      "model": "claude-sonnet-5.5",
+      "context": "Dariten is a personal finance demo. Never add, edit, or delete data."
+    }
+  },
+  "cache": { "dir": ".e2e/cache" }
+}
+```
+
+## 3. Write a test
+
+Derive from `E2ETest`. Add a file named `DaritenTests.cs`:
+
+```csharp
+using E2E.XUnit.V3;
+
+namespace MyApp.E2ETests;
+
+public sealed class DaritenTests : E2ETest
+{
+    [Fact]
+    public async Task The_dashboard_links_to_the_transaction_register()
+    {
+        await App.OpenAsync("/");
+        await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+
+        await Screen.GetByRole("link", "Transactions").ClickAsync();
+
+        await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
+    }
+
+    [Fact]
+    [Trait("TestCategory", "RealModel")]
+    public async Task An_agent_filters_the_register_by_category()
+    {
+        await App.OpenAsync("/transactions");
+
+        await Agent.ActAsync("filter the register to show only the Groceries category");
+
+        await Agent.AssertAsync("every transaction listed is in the Groceries category, or the register says no transactions match");
+        await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
+    }
+}
+```
+
+The first test uses locators only, so it needs no model. The second calls a model, so it carries the `TestCategory` trait. Write one class per feature and one test per behavior. The longer version is [`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample).
+
+## 4. Run
+
+```bash
+dotnet test
+dotnet test --filter "FullyQualifiedName~DaritenTests"            # one class
+dotnet test --filter "TestCategory!=RealModel"                    # skip the model tests
+dotnet test --filter "TestCategory=RealModel"                     # only the model tests
+```
+
+The trait name is the filter name: `[Trait("TestCategory", "RealModel")]` is what `TestCategory!=RealModel` matches. Run from the project's folder, or pass its path: `dotnet test tests/MyApp.E2ETests`. The first run asks the model to perform each `ActAsync`. A passing run records the steps a later check confirmed in `.e2e/cache`, and the next run replays them with no model call. See [Caching and self-healing](/features/caching/).
+
+## 5. xUnit v3 specifics
+
+### Hooks and their order
+
+- A constructor runs before the session exists, so do not use `App` or `Screen` there.
+- To run code before or after each test, override `InitializeAsync` or `DisposeAsync` and call the base method. Call it first in `InitializeAsync`. Call it last in `DisposeAsync`, inside a `finally`, so the session is always closed.
+- A check in `DisposeAsync` after a failure verifies nothing, so it never lets a step be recorded.
+- The members are protected properties of the base class: `App`, `Agent`, `Screen`, `Browser`, `Secrets`, and `Context`.
+- Override a virtual member to change one value for a class: `CreateEngine()`, `CreateModel()`, `CreateJudge()`, `CreateAgents()`, `BaseUrl`, `ActionTimeout`, `CacheMode`, and more.
+
+### Attributes
+
+- `[Fact]` marks a test. `[Theory]` rows work too. Each row keeps its own replay, keyed by the class, the method, and every argument.
+- xUnit has no retry, so every test is a first attempt and can replay.
+- `Assert.Skip(reason)` or `Assert.SkipWhen(condition, reason)` skips a test from inside its body.
+
+### Parallelism
+
+The adapter adds no parallelism rule. Each test gets its own instance of the class and its own session.
+
+### Cancellation token
+
+The session stops on xUnit's token. `Expect.Poll` matchers do not see the session, so pass the token to `ToSatisfyAsync` or `ToBeAsync`, so a cancelled run stops them. Write `Xunit.TestContext` in full, because `using E2E;` brings in `E2E.TestContext` too.
+
+### Soft checks and polls
+
+`Expect.Soft` keeps each failure on the session. The body runs on, and the test fails when it is disposed, with every failure in one message. There is no `ToMatchAsync`: `Expect.Poll` takes a predicate through `ToSatisfyAsync`, or a value through `ToBeAsync`.
+
+```csharp
+[Fact]
+public async Task The_count_settles()
+{
+    await App.OpenAsync("/");
+    await Expect.Soft(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+    await Expect.Soft(Screen.GetByText("Net worth")).ToBeVisibleAsync();
+
+    await Expect.Poll(() => ReadCountAsync())
+        .ToSatisfyAsync(count => count > 3, cancellationToken: Xunit.TestContext.Current.CancellationToken);
+}
+```
+
+`ReadCountAsync` stands for your own method.
+
+### Saved sessions
+
+Sign in once, then start other tests signed in. Mark the sign-in test `[E2ESetup("title", Saves = ["admin"])]` instead of `[Fact]`. Its body signs in, checks that it worked, and calls `SaveSessionAsync("admin")` once for each name in `Saves`. Mark a test or a class `[E2ESession("admin")]` to restore it before the body runs.
+
+```csharp
+public sealed class Dashboard : E2ETest
+{
+    [E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await Expect.That(Browser).ToHaveURLAsync("/dashboard");
+        await SaveSessionAsync("admin");
+    }
+
+    [Fact]
+    [E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly()
+    {
+        await App.OpenAsync("/dashboard");
+    }
+}
+```
+
+- `E2ETest` orders the setup tests of a class before its other tests, with a test method orderer. A class with its own `[TestMethodOrderer]` loses that. A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run alone.
+- Exactly one setup test of the test assembly must declare the name. With none, or with two, the restore fails with `SESSION_UNAVAILABLE`. A name saved twice, a name not in `Saves`, or a name in `Saves` the body never saved fails the setup test with `SESSION_CONTRACT`.
+- A restore leaves no page open, so call `App.OpenAsync` first. A session holds what the browser keeps (cookies, local storage, IndexedDB), not server state.
+- A session lasts one run. It is encrypted with a key held in memory and kept under `.e2e/sessions/<run id>`. The run fixture below deletes it when the run ends.
+
+### The run fixture
+
+Register `E2ERunFixture` as an assembly fixture. It stops the app commands your targets declare when the last test ends, calls the `reporters` of `e2e.config.json`, and deletes saved sessions:
+
+```csharp
+using E2E.XUnit.V3;
+
+[assembly: AssemblyFixture(typeof(E2ERunFixture))]
+```
+
+To leave out the tests a change cannot affect, derive a fixture, override `Filters` (and `ChangedSince`), and register that type instead. `E2ERunFixture` is not sealed for this. You can also set `E2E_CHANGED_SINCE=origin/main`. A test a filter leaves out is skipped with the filter's reason. See [Test filters](/docs/test-filters/).
+
+## 6. Mobile and Windows
+
+Install the package for the platform in place of `E2E.XUnit.V3`, and derive from its base class:
+
+```bash
+dotnet add package E2E.Mobile.XUnit.V3      # MobileAppTest, in E2E.Mobile.XUnit.V3
+dotnet add package E2E.WinApp.XUnit.V3      # WinAppTest, in E2E.WinApp.XUnit.V3
+```
+
+A left-out xUnit v3 mobile test is skipped before it leases a hosted device. A Windows test needs an unlocked desktop with one window in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
+
+## 7. Next
+
+<CardGrid>
+  <LinkCard title="Web" href={`${import.meta.env.BASE_URL}get-started/web/`} description="The config, the replay cache, and downloads." />
+  <LinkCard title="Test filters" href={`${import.meta.env.BASE_URL}docs/test-filters/`} description="Leave out the tests a change cannot affect." />
+  <LinkCard title="Soft assertions and evidence" href={`${import.meta.env.BASE_URL}features/assertions/`} description="What a failure keeps." />
+  <LinkCard title="NUnit and TUnit" href={`${import.meta.env.BASE_URL}testing-frameworks/`} description="How the other frameworks differ." />
+</CardGrid>

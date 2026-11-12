@@ -7,7 +7,7 @@ sidebar:
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-E2E for .NET drives an app with an agent, then checks the result with locators. Pick the platform your app runs on. Every page ends with a test you can run.
+E2E for .NET drives an app with an agent, then checks the result with locators. Pick the platform your app runs on. Every page ends with a test you can run. Each platform works with [NUnit](/testing-frameworks/nunit/), [xUnit v3](/testing-frameworks/xunit/), and [TUnit](/testing-frameworks/tunit/); see [Testing frameworks](/testing-frameworks/) to compare them.
 
 | Platform | Engine | Packages | Runs on |
 | --- | --- | --- | --- |
@@ -60,6 +60,7 @@ A `web` target takes `app.url`. An `ios` or `android` target takes `app.bundleId
 ## Next
 
 <CardGrid>
+  <LinkCard title="Testing frameworks" href={`${import.meta.env.BASE_URL}testing-frameworks/`} description="NUnit, xUnit v3, or TUnit: set up a project in your framework." />
   <LinkCard title="Core concepts" href={`${import.meta.env.BASE_URL}get-started/core-concepts/`} description="A test, the config file, and model providers." />
   <LinkCard title="Web" href={`${import.meta.env.BASE_URL}get-started/web/`} description="Create a web test project and point it at your app." />
   <LinkCard title="API reference" href={`${import.meta.env.BASE_URL}api/`} description="Every public type." />

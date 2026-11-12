@@ -65,6 +65,15 @@ export default defineConfig({
                     ],
                 },
                 {
+                    label: "Testing frameworks",
+                    items: [
+                        { label: "Overview", slug: "testing-frameworks" },
+                        { label: "NUnit", slug: "testing-frameworks/nunit" },
+                        { label: "xUnit v3", slug: "testing-frameworks/xunit" },
+                        { label: "TUnit", slug: "testing-frameworks/tunit" },
+                    ],
+                },
+                {
                     label: "Features",
                     items: [
                         { label: "Authentication", slug: "features/signing-in" },
