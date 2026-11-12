@@ -87,7 +87,7 @@ There is no default model and no shared API key. `baseUrl` can point at any Open
 
 `failOnSkippedFailure` (a boolean, false by default) and `maxDuration` (a positive integer of milliseconds, at most `2147483647`, unset by default) are accepted and checked as upstream does: `failOnSkippedFailure must be a boolean`, `maxDuration must be a positive safe integer of milliseconds, got ...`. The port has no runner, so it only carries them (`E2EConfig.FailOnSkippedFailure`, `E2EConfig.MaxDuration`); the test framework decides the exit code and when a run stops. Neither changes the replay cache.
 
-A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
+A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit`.
 
 An engine built in code replaces the platform's: `config.WithTarget(name, engine)` puts an `IEngine` in the target of that name (it keeps that target's app; its platform is the engine's). A run checks every secret the engine's options hold against `secrets` at load, in every target, so a typo fails with the nearest name, and the engine's name, version, platform, and capabilities enter the config digest.
 

@@ -5,7 +5,7 @@ description: Move Appium mobile tests, from the .NET client or WebdriverIO, to C
 
 This guide ports upstream's `docs/migrate/appium.mdx` (tester-army/e2e at `e83fdf9`, from tester-army/e2e#1597, #1579, #1602, and #1651). Upstream's examples are WebdriverIO and its target is TypeScript. The port's target is a .NET test project with a `MobileAppTest` base class, and the source examples use the Appium .NET client (`Appium.WebDriver`). The tables name the WebdriverIO calls and the `mobile:` commands every client sends. A .NET call maps the same way: `driver.FindElement(AppiumBy.AccessibilityId("x")).Click()` is `$('~x').click()`, `SendKeys` is `setValue`, `driver.ActivateApp(id)` is `driver.activateApp(id)`, and `driver.ExecuteScript("mobile: ...")` is `driver.execute('mobile: ...')`.
 
-e2e replaces the Appium server, its drivers, and the client library with the `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` package. It drives iOS simulators, Android emulators, and connected phones through [agent-device](https://github.com/callstack/agent-device), which it starts through `npx`, so Node 22.12 or newer must be on `PATH`. Your app build and its accessibility ids stay as they are.
+e2e replaces the Appium server, its drivers, and the client library with the `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit` package. It drives iOS simulators, Android emulators, and connected phones through [agent-device](https://github.com/callstack/agent-device), which it starts through `npx`, so Node 22.12 or newer must be on `PATH`. Your app build and its accessibility ids stay as they are.
 
 This guide is for suites that test a mobile app through Appium's XCUITest or UiAutomator2 driver, from the .NET client, WebdriverIO, or another client.
 
