@@ -38,6 +38,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Equal("boolean", open.GetProperty("headed").GetProperty("type").GetString());
         Assert.Contains("call {tool, args} runs any catalog tool", client.ServerInstructions, StringComparison.Ordinal);
         Assert.Contains("Several sessions can be open at once", client.ServerInstructions, StringComparison.Ordinal);
+        Assert.Contains("Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.", client.ServerInstructions, StringComparison.Ordinal);
 
         var resources = await client.ListResourcesAsync();
         Assert.Superset(new HashSet<string>(["e2e://guide", "e2e://guide/mcp", "e2e://guide/writing-tests"]), resources.Select(resource => resource.Uri).ToHashSet());
@@ -88,6 +89,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains($"App: {_served.App.Url}/.", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Secrets: \"adminPassword\", \"apiKey\".", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
+        Assert.Contains("Before you write or edit a test, read the writing-tests guide: the resource e2e://guide/writing-tests, or e2e guide writing-tests in a shell.", opened.Text, StringComparison.Ordinal);
         string[] names =
         [
             "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "upload", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
