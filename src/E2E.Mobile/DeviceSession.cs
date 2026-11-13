@@ -941,7 +941,15 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
                     Volatile.Write(ref flag.Value, true);
                     if (now)
                     {
-                        source.Cancel();
+                        try
+                        {
+                            source.Cancel();
+                        }
+                        catch (AggregateException)
+                        {
+                            // A callback of the client's own registration threw; the caller is leaving either way.
+                        }
+
                         return;
                     }
 

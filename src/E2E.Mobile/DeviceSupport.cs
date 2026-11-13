@@ -2,8 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.RegularExpressions;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 
 namespace E2E.Mobile;
