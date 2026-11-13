@@ -186,13 +186,17 @@ public sealed class LocatorExpect
     public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null)
         => ToHaveScreenshotAsync(null, options, callerFile);
 
-    /// <summary>Waits for one visible match. <paramref name="visible"/> false waits for hidden or absent, as <see cref="ToBeHiddenAsync"/>.</summary>
+    /// <summary>
+    /// Waits for one visible match. <paramref name="visible"/> false waits for hidden or absent, as <see cref="ToBeHiddenAsync"/>.
+    /// On a device, a node whose centre the soft keyboard covers is hidden, except for the keyboard's own keys, suggestion bar,
+    /// and dock, the focused field, and a container with a child still showing.
+    /// </summary>
     public Task ToBeVisibleAsync(bool visible = true, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         return VisibilityAsync("toBeVisible", visible, timeout, cancellationToken);
     }
 
-    /// <summary>Waits for hidden or absent state.</summary>
+    /// <summary>Waits for hidden or absent state. On a device, a node the soft keyboard covers is hidden, as <see cref="ToBeVisibleAsync"/> describes.</summary>
     public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         return VisibilityAsync("toBeHidden", visible: false, timeout, cancellationToken);

@@ -383,7 +383,10 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,
 `ToHaveCountAsync`, `ToHaveAttributeAsync`, and more. `.Not` inverts a
-matcher.
+matcher. On a device, a node whose centre the soft keyboard covers is hidden for
+`ToBeVisibleAsync` and `ToBeHiddenAsync`, except the keyboard's own keys,
+suggestion bar, and dock, the focused field, and a container with a child still
+showing (see the mobile reference).
 
 - `Expect.That(Screen).ToHaveScreenshotAsync("home.png")` compares the whole
   screen, and `Expect.That(locator).ToHaveScreenshotAsync()` one element's box,
