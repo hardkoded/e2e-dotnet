@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using Microsoft.Extensions.Time.Testing;
 
@@ -15,12 +16,12 @@ public sealed class SupportHelpersTests
         // Upstream installs fake timers; here the budgets and the devices' answers run on a clock only the test moves.
         var time = new FakeTimeProvider();
         var never = () => new TaskCompletionSource<int>().Task;
-        var cut = Assert.ThrowsAsync<EngineException>(() => new InputBudget("tap", TimeSpan.FromMilliseconds(300), static _ => { }, time).SendAsync(never, CancellationToken.None));
+        var cut = Assert.ThrowsAsync<EngineException>(() => new InputBudget("tap", TimeSpan.FromMilliseconds(300), static _ => { }, time).SendAsync(_ => never(), CancellationToken.None));
         time.Advance(TimeSpan.FromMilliseconds(300));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", (await cut).Code);
 
         // Sent with almost nothing left, a tap still gets time to answer.
-        var late = new InputBudget("tap", TimeSpan.FromMilliseconds(10), static _ => { }, time).SendAsync(async () =>
+        var late = new InputBudget("tap", TimeSpan.FromMilliseconds(10), static _ => { }, time).SendAsync(async _ =>
         {
             await Task.Delay(TimeSpan.FromMilliseconds(200), time);
             return "tapped";
@@ -32,27 +33,27 @@ public sealed class SupportHelpersTests
         var spent = new InputBudget("tap", TimeSpan.FromMilliseconds(100), static _ => { }, time);
         time.Advance(TimeSpan.FromMilliseconds(100));
         var dispatched = false;
-        var unsent = await Assert.ThrowsAsync<EngineException>(() => spent.SendAsync(() => Task.FromResult(dispatched = true), CancellationToken.None));
+        var unsent = await Assert.ThrowsAsync<EngineException>(() => spent.SendAsync(_ => Task.FromResult(dispatched = true), CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", unsent.Code);
         Assert.Equal("tap timed out before it was sent", unsent.Message);
         Assert.False(dispatched);
         var twoStep = new InputBudget("press", TimeSpan.FromMilliseconds(100), static _ => { }, time);
-        await twoStep.SendAsync(() => Task.FromResult(0), CancellationToken.None);
+        await twoStep.SendAsync(_ => Task.FromResult(0), CancellationToken.None);
         time.Advance(TimeSpan.FromMilliseconds(100));
-        var second = await Assert.ThrowsAsync<EngineException>(() => twoStep.SendAsync(() => Task.FromResult(0), CancellationToken.None));
+        var second = await Assert.ThrowsAsync<EngineException>(() => twoStep.SendAsync(_ => Task.FromResult(0), CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", second.Code);
 
         // A command that throws before it is sent does not count as sent.
         var refused = new InputBudget("press", TimeSpan.FromMilliseconds(100), static _ => { }, time);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => refused.SendAsync<int>(() => throw new InvalidOperationException("no target"), CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => refused.SendAsync<int>(_ => throw new InvalidOperationException("no target"), CancellationToken.None));
         time.Advance(TimeSpan.FromMilliseconds(100));
-        var unsentAfter = await Assert.ThrowsAsync<EngineException>(() => refused.SendAsync(() => Task.FromResult(0), CancellationToken.None));
+        var unsentAfter = await Assert.ThrowsAsync<EngineException>(() => refused.SendAsync(_ => Task.FromResult(0), CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", unsentAfter.Code);
 
         // A hold the budget cannot cover is refused unsent, with the reason.
         var held = false;
         var hold = await Assert.ThrowsAsync<EngineException>(
-            () => new InputBudget("longPress", TimeSpan.FromSeconds(2), static _ => { }, time).SendAsync(() => Task.FromResult(held = true), CancellationToken.None, TimeSpan.FromSeconds(3)));
+            () => new InputBudget("longPress", TimeSpan.FromSeconds(2), static _ => { }, time).SendAsync(_ => Task.FromResult(held = true), CancellationToken.None, TimeSpan.FromSeconds(3)));
         Assert.Equal("NOT_ACTIONABLE", hold.Code);
         Assert.StartsWith("longPress holds for 3000 ms, but only 2000 ms of its timeout are left", hold.Message, StringComparison.Ordinal);
         Assert.False(held);
@@ -79,12 +80,91 @@ public sealed class SupportHelpersTests
 
         // After a swipe went out, a read that does not answer must not let a replay send the swipe again.
         var dismissal = new InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300), static _ => { }, time);
-        await dismissal.SendAsync(() => Task.FromResult(0), CancellationToken.None);
+        await dismissal.SendAsync(_ => Task.FromResult(0), CancellationToken.None);
         var after = Assert.ThrowsAsync<EngineException>(() => dismissal.ReadAsync(hung, CancellationToken.None));
         time.Advance(TimeSpan.FromMilliseconds(300));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", (await after).Code);
         var again = await Assert.ThrowsAsync<EngineException>(() => dismissal.ReadAsync(() => Task.FromResult("late"), CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", again.Code);
+    }
+
+    // Upstream sends through agent-device's own client over a transport that answers after 180 ms; the fake client stands in for that boundary.
+    [Theory]
+    [InlineData("press")]
+    [InlineData("type")]
+    public async Task Preserves_the_acknowledgement_allowance_for_command_at_the_SDK_boundary(string command)
+    {
+        var delivered = 0;
+        var fake = new FakeDeviceClient();
+        fake.RespondAsync(command == "press" ? DeviceMethods.InteractionsPress : DeviceMethods.InteractionsType, async (_, token) =>
+        {
+            Interlocked.Increment(ref delivered);
+            await Task.Delay(TimeSpan.FromMilliseconds(180), token);
+            return command == "type" ? throw new AgentDeviceError("UNSUPPORTED_OPERATION", "Typing is unavailable") : new JsonObject();
+        });
+        var budget = new InputBudget(command, TimeSpan.FromMilliseconds(100), static _ => { }, signal: CancellationToken.None);
+        if (command == "press")
+        {
+            Assert.NotNull(await budget.PressAsync(fake, new JsonObject { ["x"] = 20, ["y"] = 20 }));
+        }
+        else
+        {
+            var typing = await Assert.ThrowsAsync<AgentDeviceError>(() => budget.SendAsync(token => fake.CallAsync(DeviceMethods.InteractionsType, new JsonObject { ["text"] = "hello" }, token), CancellationToken.None));
+            Assert.Equal("UNSUPPORTED_OPERATION", typing.Code);
+            Assert.Equal("Typing is unavailable", typing.Message);
+        }
+
+        Assert.Equal(1, delivered);
+    }
+
+    [Fact]
+    public async Task Keeps_caller_cancellation_on_later_inputs_from_the_same_operation()
+    {
+        using var caller = new CancellationTokenSource();
+        var held = new TaskCompletionSource();
+        var started = new TaskCompletionSource();
+        var finished = new TaskCompletionSource();
+        var requests = 0;
+        var delivered = 0;
+        var fake = new FakeDeviceClient();
+        fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, token) =>
+        {
+            var request = Interlocked.Increment(ref requests);
+            if (request == 2)
+            {
+                started.SetResult();
+                await held.Task;
+            }
+
+            if (!token.IsCancellationRequested)
+            {
+                Interlocked.Increment(ref delivered);
+            }
+
+            if (request == 2)
+            {
+                finished.SetResult();
+            }
+
+            return new JsonObject();
+        });
+        var budget = new InputBudget("tap", TimeSpan.FromSeconds(30), static _ => { }, signal: caller.Token);
+        try
+        {
+            await budget.PressAsync(fake, new JsonObject { ["x"] = 20, ["y"] = 20 });
+            var second = budget.PressAsync(fake, new JsonObject { ["x"] = 30, ["y"] = 30 });
+            var canceled = Assert.ThrowsAnyAsync<OperationCanceledException>(() => second);
+            await started.Task;
+            await caller.CancelAsync();
+            await canceled;
+            held.SetResult();
+            await finished.Task;
+            Assert.Equal(1, delivered);
+        }
+        finally
+        {
+            held.TrySetResult();
+        }
     }
 
     // .NET-only: upstream's budgets are numbers of milliseconds, and an infinite timeout (screen.tree with no timeout) has none.
@@ -95,7 +175,7 @@ public sealed class SupportHelpersTests
         var budget = new InputBudget("tree", Timeout.InfiniteTimeSpan, static _ => { }, time);
         time.Advance(TimeSpan.FromDays(1));
         Assert.Equal("tree", await budget.ReadAsync(() => Task.FromResult("tree"), CancellationToken.None));
-        Assert.Equal(1, await budget.SendAsync(() => Task.FromResult(1), CancellationToken.None, TimeSpan.FromHours(1)));
+        Assert.Equal(1, await budget.SendAsync(_ => Task.FromResult(1), CancellationToken.None, TimeSpan.FromHours(1)));
         Assert.True(budget.Remaining > TimeSpan.FromDays(1000));
     }
 

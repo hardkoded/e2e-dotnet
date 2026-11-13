@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using System.Text.Json.Nodes;
 using E2E.Engine;
 
 namespace E2E.Mobile;
@@ -142,9 +143,11 @@ public static partial class DeviceSupport
 /// <paramref name="track"/> keeps the device command itself in flight, past a timeout that abandons it, until it settles. The
 /// callers' own tracking settles with the race, so this is the registration the next attempt waits on. Upstream's <c>track</c>
 /// returns the promise it is given; the port's registers the task and the budget keeps its own reference, so it returns nothing.
+/// <paramref name="signal"/> is the cancellation of the whole operation, shared by every input it sends (upstream's <c>signal</c>). An input that
+/// takes it is cancelled when the operation is, and when its wait for an answer expires.
 /// Its <paramref name="time"/> is the .NET stand-in for the fake timers upstream's tests install (<c>vi.useFakeTimers()</c>): the budget and the wait for an answer both run on it, so a test drives them without real time.
 /// </remarks>
-internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> track, TimeProvider? time = null)
+internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> track, TimeProvider? time = null, CancellationToken signal = default)
 {
     /// <summary>The least time an input gets to answer once sent, however little budget was left: a tap that lands is then not reported as cut off.</summary>
     private static readonly TimeSpan MinAnswer = TimeSpan.FromMilliseconds(250);
@@ -154,13 +157,23 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     private bool _sent;
 
     /// <summary>
+    /// Sends a press request. It receives the operation's cancellation and is cancelled when this wait expires, including its
+    /// existing acknowledgement allowance. Upstream's <c>press</c>.
+    /// </summary>
+    public Task<JsonNode?> PressAsync(IDeviceClient client, JsonObject? options)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        return SendAsync(token => client.CallAsync(DeviceMethods.InteractionsPress, options, token), CancellationToken.None);
+    }
+
+    /// <summary>
     /// Sends one input with what is left of the budget. With none left it sends nothing: <c>OPERATION_TIMEOUT</c>, or
     /// <c>ACTION_MAY_HAVE_COMMITTED</c> once an earlier input of this operation went out. A gesture that holds
     /// (<paramref name="hold"/>) at least as long as the budget left could only be cut off mid-gesture, so it is refused
     /// unsent. An input that does not answer in time may have landed, so it is <c>ACTION_MAY_HAVE_COMMITTED</c> and the
     /// runner never repeats it.
     /// </summary>
-    public async Task<T> SendAsync<T>(Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
+    public async Task<T> SendAsync<T>(Func<CancellationToken, Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
         var remaining = Remaining;
@@ -177,14 +190,17 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
                 retryable: false);
         }
 
-        var pending = dispatch();
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(signal, cancellationToken);
+        using var deadline = new CancellationTokenSource();
+        using var request = CancellationTokenSource.CreateLinkedTokenSource(caller.Token, deadline.Token);
+        var pending = dispatch(request.Token);
         track(pending);
 
         // An input counts as sent only once its command was dispatched, so one that throws first is not.
         _sent = true;
         try
         {
-            return await pending.WaitAsync(Bound(remaining > MinAnswer ? remaining : MinAnswer), _time, cancellationToken).ConfigureAwait(false);
+            return await pending.WaitAsync(Bound(remaining > MinAnswer ? remaining : MinAnswer), _time, caller.Token).ConfigureAwait(false);
         }
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
@@ -192,6 +208,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
             _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             if (ex is TimeoutException)
             {
+                await deadline.CancelAsync().ConfigureAwait(false);
                 throw MaybeCommitted();
             }
 

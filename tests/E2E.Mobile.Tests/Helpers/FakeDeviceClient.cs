@@ -8,8 +8,8 @@ using System.Text.Json.Serialization;
 
 namespace E2E.Mobile.Tests;
 
-/// <summary>One call the fake recorded: the <c>namespace.method</c> and its options object.</summary>
-internal sealed record RecordedCall(string Method, JsonObject? Args);
+/// <summary>One call the fake recorded: the <c>namespace.method</c>, its options object, and the token it was sent with (upstream's recorded <c>signal</c>).</summary>
+internal sealed record RecordedCall(string Method, JsonObject? Args, CancellationToken Signal = default);
 
 /// <summary>
 /// A scripted agent-device client: every call is recorded as <c>namespace.method</c> with its options and answered by
@@ -71,7 +71,7 @@ internal sealed class FakeDeviceClient : IDeviceClient
 
     public async Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
     {
-        Calls.Add(new RecordedCall(method, (JsonObject?)options?.DeepClone()));
+        Calls.Add(new RecordedCall(method, (JsonObject?)options?.DeepClone(), cancellationToken));
         await Task.Yield();
         return _responders.TryGetValue(method, out var responder) ? await responder(options, cancellationToken).ConfigureAwait(false) : new JsonObject();
     }
@@ -82,6 +82,14 @@ internal static class JsonAssert
     /// <summary>Asserts a recorded options object equals the JSON text, whatever the order of its keys.</summary>
     public static void Args(string expected, JsonNode? actual) =>
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), actual), $"expected {expected} but was {actual?.ToJsonString() ?? "null"}");
+
+    /// <summary>Asserts every press the fake recorded went out with a cancellation token: upstream's <c>presses.every((call) =&gt; call.signal instanceof AbortSignal)</c>.</summary>
+    public static void PressesCarryASignal(FakeDeviceClient fake)
+    {
+        var presses = fake.Calls.Where(call => call.Method == "interactions.press").ToList();
+        Assert.NotEmpty(presses);
+        Assert.All(presses, call => Assert.True(call.Signal.CanBeCanceled));
+    }
 
     /// <summary>Asserts the calls after the first <paramref name="skip"/> are exactly these methods with these options, in order.</summary>
     public static void Calls(IEnumerable<RecordedCall> recorded, int skip, params (string Method, string Args)[] expected)

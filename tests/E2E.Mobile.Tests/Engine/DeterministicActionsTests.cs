@@ -310,6 +310,7 @@ public sealed class DeterministicActionsTests
         var about = await Observed(session, "About");
         await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Agent, CancellationToken.None);
         JsonAssert.Args("""{"ref":"@e4","settle":true,"settleQuietMs":150}""", h.Fake.LastArgs("interactions.press"));
+        JsonAssert.PressesCarryASignal(h.Fake);
     }
 
     // .NET-only: upstream's operation always carries an origin. A caller of the members that take no context (the ones IEngineSession had

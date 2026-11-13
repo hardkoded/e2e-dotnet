@@ -135,7 +135,7 @@ public sealed partial class DeviceSession
     public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        var raw = await LocateSnapshotAsync(InputBudget("locate", timeout), cancellationToken).ConfigureAwait(false);
+        var raw = await LocateSnapshotAsync(InputBudget("locate", timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
         if (raw is null)
         {
             return [];
@@ -590,7 +590,7 @@ public sealed partial class DeviceSession
     /// about the screen it never makes on a caller's behalf. The engine makes that guess, the way a user does and
     /// Maestro's <c>hideKeyboard</c> does, in <see cref="DismissKeyboardByGestureAsync"/>.
     /// </summary>
-    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("device.dismissKeyboard"));
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("device.dismissKeyboard", cancellationToken));
 
     /// <summary>
     /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget: the
@@ -687,7 +687,7 @@ public sealed partial class DeviceSession
         var centre = new Point(buttonRect.X + (buttonRect.Width / 2), buttonRect.Y + (buttonRect.Height / 2));
         await CommandAsync(
             "keyboard.dismiss",
-            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y))), token), token),
+            (client, _) => input.PressAsync(client, DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y)))),
             cancellationToken).ConfigureAwait(false);
         return await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
     }
