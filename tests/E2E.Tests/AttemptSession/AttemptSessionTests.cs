@@ -123,7 +123,7 @@ public sealed class AttemptSessionTests
         var engine = new WebEngine(new WebEngineOptions
         {
             Viewport = new WebViewport(320, 200),
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("provisioned") },
+            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
         })
         {
             CreatePlaywright = FakeRemote.Playwright,
@@ -272,7 +272,7 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Does_not_attach_an_endpoint_that_resolves_after_disposal()
     {
-        var endpoint = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new TaskCompletionSource<CdpTarget>(TaskCreationOptions.RunContinuationsAsynchronously);
         var provisioned = 0;
         using var cancel = new CancellationTokenSource();
         var starting = Engine(provision: _ =>
@@ -341,7 +341,7 @@ public sealed class AttemptSessionTests
         {
             resolverToken = token;
             requested.TrySetResult();
-            return new TaskCompletionSource<string>().Task;
+            return new TaskCompletionSource<CdpTarget>().Task;
         });
         await using var first = await engine.StartAsync(Start(TimeSpan.FromMilliseconds(reason == "timeout" ? 30 : 1_000)), None);
         browser.Disconnect();
@@ -390,7 +390,7 @@ public sealed class AttemptSessionTests
         await using var first = await Engine(reconnect: _ =>
         {
             requested.TrySetResult();
-            return new TaskCompletionSource<string>().Task;
+            return new TaskCompletionSource<CdpTarget>().Task;
         }).StartAsync(Start(), None);
         browser.Disconnect();
         using var controller = new CancellationTokenSource();
@@ -415,7 +415,7 @@ public sealed class AttemptSessionTests
         await using var first = await Engine(clock: clock, reconnect: _ =>
         {
             clock.Advance(TimeSpan.FromMilliseconds(40));
-            return Task.FromResult("existing");
+            return Task.FromResult<CdpTarget>("existing");
         }).StartAsync(Start(TimeSpan.FromMilliseconds(200)), None);
         original.Disconnect();
         await first.OpenAsync(Url, None);
@@ -447,8 +447,8 @@ public sealed class AttemptSessionTests
     private WebEngine Engine(
         bool followWindow = false,
         WebColorScheme? colorScheme = null,
-        Func<CancellationToken, Task<string>>? provision = null,
-        Func<CancellationToken, Task<string>>? reconnect = null,
+        Func<CancellationToken, Task<CdpTarget>>? provision = null,
+        Func<CancellationToken, Task<CdpTarget>>? reconnect = null,
         TimeProvider? clock = null)
     {
         return new WebEngine(new WebEngineOptions
@@ -457,8 +457,8 @@ public sealed class AttemptSessionTests
             ColorScheme = colorScheme,
             Connect = new WebConnectOptions
             {
-                CdpEndpoint = provision ?? (_ => Task.FromResult("provisioned")),
-                ReconnectEndpoint = reconnect ?? (_ => Task.FromResult("existing")),
+                CdpEndpoint = provision ?? (_ => Task.FromResult<CdpTarget>("provisioned")),
+                ReconnectEndpoint = reconnect ?? (_ => Task.FromResult<CdpTarget>("existing")),
             },
         })
         {
@@ -470,7 +470,7 @@ public sealed class AttemptSessionTests
     }
 
     /// <summary>Hands out the queued remote browsers in order, the last one to every later dial.</summary>
-    private Task<IBrowser> ConnectAsync(IPlaywright playwright, string endpoint, TimeSpan timeout, CancellationToken cancellationToken)
+    private Task<IBrowser> ConnectAsync(IPlaywright playwright, CdpTarget target, TimeSpan timeout, CancellationToken cancellationToken)
     {
         lock (_connections)
         {

@@ -23,8 +23,8 @@ public sealed class WebColorSchemeReducedMotionTests
 
         var connect = new WebConnectOptions
         {
-            CdpEndpoint = _ => Task.FromResult("ws://127.0.0.1:9222"),
-            ReconnectEndpoint = _ => Task.FromResult("ws://127.0.0.1:9222"),
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://127.0.0.1:9222"),
+            ReconnectEndpoint = _ => Task.FromResult<CdpTarget>("ws://127.0.0.1:9222"),
         };
         _ = new WebEngine(new WebEngineOptions { Connect = connect, ColorScheme = WebColorScheme.Dark, ReducedMotion = WebReducedMotion.Reduce });
     }

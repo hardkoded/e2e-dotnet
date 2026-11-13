@@ -153,11 +153,12 @@ public sealed class WebInitScript
 public sealed class WebConnectOptions
 {
     /// <summary>
-    /// Resolves the CDP endpoint (a <c>ws://</c>, <c>wss://</c>, or <c>http://</c> DevTools URL).
+    /// Resolves the CDP endpoint (a <c>ws://</c>, <c>wss://</c>, or <c>http://</c> DevTools URL), or a <see cref="CdpTarget"/>
+    /// that carries the handshake headers it needs with it.
     /// Called when each attempt starts, so a hosted endpoint provisioned per run can be used.
     /// With <see cref="ReconnectEndpoint"/>, each call must provision a fresh, dedicated browser.
     /// </summary>
-    public required Func<CancellationToken, Task<string>> CdpEndpoint { get; init; }
+    public required Func<CancellationToken, Task<CdpTarget>> CdpEndpoint { get; init; }
 
     /// <summary>
     /// Opts into a dedicated persistent remote context. <see cref="CdpEndpoint"/> provisions
@@ -167,7 +168,7 @@ public sealed class WebConnectOptions
     /// Dispatched operations are never retried. The host owns browser cleanup.
     /// Context replacement, headers, basicAuth, userAgent, locale, and timezoneId are unavailable in this mode.
     /// </summary>
-    public Func<CancellationToken, Task<string>>? ReconnectEndpoint { get; init; }
+    public Func<CancellationToken, Task<CdpTarget>>? ReconnectEndpoint { get; init; }
 }
 
 /// <summary>Options of the browser engine: how it drives the app.</summary>
@@ -330,7 +331,7 @@ public sealed partial class WebEngine : IEngine
     public IReadOnlyList<Secret> Secrets => _options.BasicAuth?.Password is Secret password ? [password] : [];
 
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
-    internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
+    internal Func<IPlaywright, CdpTarget, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
 
     /// <summary>Registers the selector engines in a CDP default context (upstream <c>registerCdpSelectors</c>); .NET-only seam, so tests that stand in for the remote browser with a fake context replace it.</summary>
     internal Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors { get; init; } = CdpSelectors.RegisterCdpSelectorsAsync;
@@ -542,11 +543,12 @@ public sealed partial class WebEngine : IEngine
                     : null;
                 if (connect is not null)
                 {
-                    var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
+                    var target = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
 
                     // As upstream, a connect that never answers is bounded by the browser launch budget.
-                    var dial = lease?.Protocol == BrowserProtocol.Playwright ? ConnectPlaywright : ConnectCdp;
-                    browser = await dial(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
+                    browser = lease?.Protocol == BrowserProtocol.Playwright
+                        ? await ConnectPlaywright(playwright, target.Endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false)
+                        : await ConnectCdp(playwright, target, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -615,21 +617,21 @@ public sealed partial class WebEngine : IEngine
     /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
     /// <paramref name="cancellationToken"/> fires is abandoned; one that throws or yields nothing fails the start.
     /// </summary>
-    private static async Task<string> ResolveEndpointAsync(WebConnectOptions connect, CancellationToken cancellationToken)
+    private static async Task<CdpTarget> ResolveEndpointAsync(WebConnectOptions connect, CancellationToken cancellationToken)
     {
-        string endpoint;
+        CdpTarget? target;
         try
         {
-            endpoint = await connect.CdpEndpoint(cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
+            target = await connect.CdpEndpoint(cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not (OperationCanceledException or EngineException))
         {
             throw new EngineException(EngineErrorCodes.EngineFailure, "browser launch failed: connect.cdpEndpoint failed: " + ex.Message, ex);
         }
 
-        return string.IsNullOrWhiteSpace(endpoint)
+        return string.IsNullOrWhiteSpace(target?.Endpoint)
             ? throw new EngineException(EngineErrorCodes.EngineFailure, "connect.cdpEndpoint resolved to an empty CDP endpoint")
-            : endpoint;
+            : target;
     }
 
     /// <summary>The app's site: the registrable domain of its URL's host, as upstream's <c>app.site</c>. Null without an app URL.</summary>
@@ -3846,7 +3848,7 @@ public sealed partial class WebEngine : IEngine
         private static async Task<SessionBinding> AttachWithinAsync(
             IPlaywright playwright,
             SessionSeams seams,
-            Func<CancellationToken, Task<string>> resolve,
+            Func<CancellationToken, Task<CdpTarget>> resolve,
             TimeSpan budget,
             long started,
             (string ContextId, TargetIdentity? Target)? previous,
@@ -3905,16 +3907,16 @@ public sealed partial class WebEngine : IEngine
         private static async Task<SessionBinding> AttachPersistentAsync(
             IPlaywright playwright,
             SessionSeams seams,
-            Func<CancellationToken, Task<string>> resolve,
+            Func<CancellationToken, Task<CdpTarget>> resolve,
             Func<TimeSpan> remaining,
             (string ContextId, TargetIdentity? Target)? previous,
             string label,
             CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
-            var endpoint = await resolve(token).ConfigureAwait(false);
+            var connection = await resolve(token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(endpoint))
+            if (string.IsNullOrWhiteSpace(connection?.Endpoint))
             {
                 throw RecoveryFailed("the endpoint is empty");
             }
@@ -3926,7 +3928,7 @@ public sealed partial class WebEngine : IEngine
                 throw new EngineException(EngineErrorCodes.OperationTimeout, label + " timed out", retryable: false);
             }
 
-            var browser = await seams.ConnectCdp(playwright, endpoint, left, token).ConfigureAwait(false);
+            var browser = await seams.ConnectCdp(playwright, connection, left, token).ConfigureAwait(false);
 
             // A connection whose owner gave up is detached at once, not when its next read returns.
             using var detach = token.Register(() => _ = CloseQuietlyAsync(browser));
@@ -4570,12 +4572,12 @@ public sealed partial class WebEngine : IEngine
     }
 
     /// <summary>What tests replace: the clock budgets read, the CDP attach, the selector registration in its context, and the read of a route's upstream response.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute, Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage, Func<IFrame, object, Task<IJSHandle>> ReadFrame);
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, CdpTarget, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute, Func<IPage, PageScreenshotOptions, Task<byte[]>> CapturePage, Func<IFrame, object, Task<IJSHandle>> ReadFrame);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(
-        Func<CancellationToken, Task<string>> Provision,
-        Func<CancellationToken, Task<string>> Reconnect,
+        Func<CancellationToken, Task<CdpTarget>> Provision,
+        Func<CancellationToken, Task<CdpTarget>> Reconnect,
         HashSet<string> UsedContexts,
         IBrowserProvider? Provider = null)
     {

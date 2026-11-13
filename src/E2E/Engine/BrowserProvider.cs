@@ -155,6 +155,13 @@ public interface IBrowserProvider
     Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Resolves CDP handshake headers in the worker from its own environment; never serialized with the lease. Null,
+    /// the default, sends none.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(BrowserLease lease, BrowserRequest context, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
+
+    /// <summary>
     /// Records the leased browser for an attempt that records video, in place of the engine's screencast of the page: the
     /// service's own recording of the browser, called from the worker when the attempt starts its video. A provider that
     /// cannot record its browsers (a headless session the service cannot replay) returns null, and the engine records the
@@ -167,8 +174,8 @@ public interface IBrowserProvider
     /// Releases every lease of the run and target the provider still holds open, and resolves to their ids. Called once
     /// per target from finish, in the runner, after every worker exited and the leases prepare made were released:
     /// whatever it finds is a lease a worker acquired (a per-attempt browser, a replacement) and never gave back,
-    /// because the worker died before it could. Find them by what acquire tagged them with at the service: the run id
-    /// and the target.
+    /// because the worker died before it could. Find them by service tags or a shared journal scoped to the run id and
+    /// target.
     /// </summary>
     Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([]);
@@ -457,6 +464,14 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         }
 
         return lease;
+    }
+
+    /// <summary>Resolves connection credentials inside the worker, separately from the lease handoff (upstream <c>cdpTarget</c>).</summary>
+    public async Task<CdpTarget> CdpTargetAsync(BrowserLease lease, CancellationToken cancellationToken, string? endpoint = null)
+    {
+        var run = RequireRun();
+        var headers = await provider.CdpHeadersAsync(lease, NewRequest(run, attemptId: null), cancellationToken).ConfigureAwait(false);
+        return new CdpTarget { Endpoint = endpoint ?? lease.CdpEndpoint, Headers = headers };
     }
 
     /// <summary>

@@ -368,7 +368,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `Screencast` | `new WebScreencastOptions { Size, Quality }` for the engine's own video: the frame size in whole pixels (default the viewport's) and the JPEG quality, 0 to 100. Which attempts record is `video`, not this. A browser provider that records ignores it (topic `debugging`). |
 | `BrowserName` | `BrowserName.Chromium` (default), `Firefox`, or `Webkit`: the browser the engine launches. Two browsers on one app are two targets, each with its own `WebEngine`. Install an extra one with `e2e install firefox --with-deps` or `e2e install webkit --with-deps`. `Connect` and `Browser` attach over CDP, so they need Chromium: `Connect` with another browser is `INVALID_CONFIG`. Upstream's single `browser` option is a name or a provider; the port splits it into `BrowserName` and `Browser`. |
 | `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
-| `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
+| `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<CdpTarget>`; a string converts implicitly, or return `new CdpTarget { Endpoint = ..., Headers = ... }` to authenticate the CDP handshake; these headers are separate from `Headers`, which go to the app), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
 - With `ReconnectEndpoint`, the engine registers its selector engines in the browser's default context on every connect and reconnect (Playwright seeds custom selectors only in new contexts), so a screenshot masks secure fields in it, including inside closed shadow roots.
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
@@ -389,7 +389,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `BrowserProviderScope.Worker` (default: a browser per worker slot, leased
   when the run starts) or `Attempt` (a fresh browser per attempt, released with
   the session). `Attempt` rides one persistent context, with the limits of
-  `ReconnectEndpoint` above. Optional `SweepAsync` releases the leases a dead
+  `ReconnectEndpoint` above. Optional `CdpHeadersAsync(lease, request, ct)` returns the CDP handshake headers, read from `request.Env` in the worker; they never travel with the lease. Optional `SweepAsync` releases the leases a dead
   worker left open. `Downloads` (`Dir`, `ReadAsync`) and `RecordAsync`
   (returning a `ProviderRecording`) are for a service that holds the browser's
   files and screen; the engine calls `RecordAsync` for an attempt that records

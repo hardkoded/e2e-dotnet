@@ -180,9 +180,12 @@ public sealed partial class WebEngine : IAsyncDisposable
                 CdpEndpoint = async cancellationToken =>
                 {
                     var lease = await leases.EndpointAsync(cancellationToken).ConfigureAwait(false);
+                    CdpTarget target = lease.Protocol == BrowserProtocol.Cdp
+                        ? await leases.CdpTargetAsync(lease, cancellationToken).ConfigureAwait(false)
+                        : lease.CdpEndpoint;
                     _attached = true;
                     _protocol = lease.Protocol;
-                    return lease.CdpEndpoint;
+                    return target;
                 },
             };
             return this;
@@ -198,8 +201,8 @@ public sealed partial class WebEngine : IAsyncDisposable
 
             Connect = new WebConnectOptions
             {
-                CdpEndpoint = _ => Task.FromResult(lease.CdpEndpoint),
-                ReconnectEndpoint = _ => Task.FromResult(lease.ReconnectEndpoint ?? lease.CdpEndpoint),
+                CdpEndpoint = cancellationToken => leases.CdpTargetAsync(lease, cancellationToken),
+                ReconnectEndpoint = cancellationToken => leases.CdpTargetAsync(lease, cancellationToken, lease.ReconnectEndpoint ?? lease.CdpEndpoint),
             };
             return this;
         }

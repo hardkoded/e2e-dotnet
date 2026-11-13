@@ -24,7 +24,7 @@ public sealed class WebEngineOverCdpTests
         var resolved = 0;
         var engine = new WebEngine(new WebEngineOptions
         {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult(remote.Endpoint); } },
+            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult<CdpTarget>(remote.Endpoint); } },
         });
 
         await using (var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None))
@@ -48,7 +48,7 @@ public sealed class WebEngineOverCdpTests
         var resolved = 0;
         var engine = new WebEngine(new WebEngineOptions
         {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult(current.Endpoint); } },
+            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult<CdpTarget>(current.Endpoint); } },
         });
         try
         {
@@ -93,7 +93,7 @@ public sealed class WebEngineOverCdpTests
                     // Cancel right as the endpoint is handed back, so the attach
                     // completes into an already-cancelled start.
                     controller.Cancel();
-                    return Task.FromResult(remote.Endpoint);
+                    return Task.FromResult<CdpTarget>(remote.Endpoint);
                 },
             },
         });
