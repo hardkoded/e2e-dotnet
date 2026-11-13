@@ -21,7 +21,7 @@ internal static class InitFlags
         Scaffolds a test project (a .csproj and ExampleTests.cs) with e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
           --yes             accept the defaults for every question a flag does not answer, and ask nothing
           --example <name>  start from a sample downloaded from GitHub: E2E.Sample, E2E.XUnit.V3.Sample, TodoMvc
-          --framework <id>  test framework of a new project: nunit (the default) or xunit; an existing project keeps its own
+          --framework <id>  test framework of a new project: nunit (the default), xunit, or tunit; an existing project keeps its own
           --install         restore the packages with dotnet restore after scaffolding
           --no-install      do not restore the packages
           --engine <ids>    engine for a new config: web, mobile, or none

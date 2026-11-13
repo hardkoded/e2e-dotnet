@@ -19,6 +19,9 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.NUnit` | NUnit fixture `E2ETest` |
 | `src/E2E.TestMu` | TestMu AI hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.TestMu`. No upstream counterpart |
 | `src/E2E.XUnit.V3` | xUnit v3 fixture `E2ETest` |
+| `src/E2E.TUnit` | TUnit fixture `E2ETest`. No upstream counterpart |
+| `src/E2E.Mobile.TUnit` | `MobileAppTest` for TUnit, packed as `E2E.Mobile.TUnit`. No upstream counterpart |
+| `src/E2E.WinApp.TUnit` | TUnit `WinAppTest`, the twin of `E2E.WinApp.XUnit.V3`. No upstream counterpart |
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
 | `tests/E2E.Expo.Tests` | Unit tests of `src/E2E.Expo`, with a fake Expo service. No device, no API key. The tests that evaluate a dynamic app config run a stand-in `expo` with `node`, so they need Node on the path |
@@ -38,6 +41,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `skills/migrate-to-e2e` | A skill for consumers that moves an existing suite to e2e one slice at a time. Not bundled. It reads the `e2e-dotnet` skill's topics: update it when a topic it names is renamed |
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
 | `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
+| `samples/E2E.TUnit.Sample` | The `samples/E2E.Sample` tests, written for TUnit |
 | `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64` |
 | `samples/MobileApp.E2ETests` | Tests that drive `samples/MobileApp` on a simulator or emulator with `MobileEngine`. All are `RealModel` and `Device`, and need a device and Node 22.12 or newer. Leave them out of a local real-model run with `--filter "TestCategory=RealModel&TestCategory!=Device"`. The project builds in `E2E.slnx` |
 
@@ -71,7 +75,7 @@ npm run dev
 
 The dev server is at http://localhost:4321/e2e-dotnet/ . `npm run build` then `npm run preview` serves the production build, including search.
 
-The API reference is generated from the XML docs of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. After a public API change, regenerate it and commit the pages:
+The API reference is generated from the XML docs of `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, and `E2E.TUnit`. After a public API change, regenerate it and commit the pages:
 
 ```bash
 cd docs-site
@@ -84,6 +88,6 @@ That needs the .NET 11 SDK. It runs DocFX metadata, then writes Markdown into `d
 
 ## Release
 
-Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Expo`, `E2E.GitHub`, `E2E.TestMu`, `E2E.Kernel`, and `E2E.Acp`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
+Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.TUnit`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, `E2E.Mobile.TUnit`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Expo`, `E2E.GitHub`, `E2E.TestMu`, `E2E.Kernel`, and `E2E.Acp`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
 Docs are not published by the tag. Vercel publishes them on push to `main`. See [Documentation](#documentation).

@@ -31,7 +31,7 @@ test assembly or the working directory. Override a property to change one value 
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Derived:** [E2ETest](/api/E2E.NUnit/E2ETest/), [E2ETest](/api/E2E.XUnit.V3/E2ETest/)
+**Derived:** [E2ETest](/api/E2E.NUnit/E2ETest/), [E2ETest](/api/E2E.TUnit/E2ETest/), [E2ETest](/api/E2E.XUnit.V3/E2ETest/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs)
 

@@ -42,6 +42,20 @@ public sealed class BillingTests : E2ETest
 
 xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
 
+### TUnit
+
+`E2E.TUnit.E2ETest` has the same members and reads the same config. Write `[Test]` methods, with `[Arguments]` for data rows. TUnit builds a new instance of the class for each test. It differs from the NUnit fixture in a few ways:
+
+- A before-test hook starts the session, and an after-test hook commits the replay cache. Your own `[After(Test)]` hook runs before the commit.
+- `Expect.Soft` failures fail the test when its after-test hook runs, in one `ASSERTION_FAILED`. A soft failure before `Skip.Test(...)` fails the test.
+- The first attempt can replay. `[Retry]` attempts run live and still record.
+- The session stops on the test's cancellation token, so a call does not need it.
+- `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
+- `E2ERunFixture` works as in the other adapters (reporters, app-command shutdown, `--changed-since`, `--last-failed`), but TUnit has no assembly fixture to register: derive a public class with a public parameterless constructor in the test project (`public sealed class AppCommands : E2ERunFixture;`) and a test-session hook finds it by reflection. A project with no such class runs none of it.
+- Saved sessions: write `[Test]` and `[E2ESetup("title", Saves = ["admin"])]` on the sign-in test (TUnit does not let a library define a test attribute, so `[E2ESetup]` goes beside `[Test]`), and `[E2ESession("admin")]` on the tests that restore it. The setup test gets the highest execution priority. TUnit runs tests in parallel, so a setup test and the test that restores its session can start together: put `[NotInParallel]` on the class if the setup must not run twice.
+- Mobile and Windows tests: `E2E.Mobile.TUnit` (`MobileAppTest`) and `E2E.WinApp.TUnit` (`WinAppTest`).
+- On .NET SDK 10 and later, `dotnet test` needs `{ "test": { "runner": "Microsoft.Testing.Platform" } }` in a `global.json`, because TUnit runs on Microsoft.Testing.Platform. Filter with `dotnet test --treenode-filter "/*/*/*/*[Category=RealModel]"`, or run the project with `dotnet run`.
+
 ## Config
 
 `E2ETest` reads the nearest `e2e.config.json` above the test assembly directory, then above the working directory. The shape follows upstream `e2e.config.ts`. Every key is optional, and an unknown key fails with `INVALID_CONFIG`.
@@ -74,7 +88,7 @@ There is no default model and no shared API key. `baseUrl` can point at any Open
 
 `failOnSkippedFailure` (a boolean, false by default) and `maxDuration` (a positive integer of milliseconds, at most `2147483647`, unset by default) are accepted and checked as upstream does: `failOnSkippedFailure must be a boolean`, `maxDuration must be a positive safe integer of milliseconds, got ...`. The port has no runner, so it only carries them (`E2EConfig.FailOnSkippedFailure`, `E2EConfig.MaxDuration`); the test framework decides the exit code and when a run stops. Neither changes the replay cache.
 
-A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
+A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit`.
 
 An engine built in code replaces the platform's: `config.WithTarget(name, engine)` puts an `IEngine` in the target of that name (it keeps that target's app; its platform is the engine's). A run checks every secret the engine's options hold against `secrets` at load, in every target, so a typo fails with the nearest name, and the engine's name, version, platform, and capabilities enter the config digest.
 

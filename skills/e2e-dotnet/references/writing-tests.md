@@ -22,8 +22,9 @@ framework; read the guide for yours first:
 | --- | --- | --- |
 | NUnit | `E2E.NUnit` | `writing-tests-nunit` ([writing-tests-nunit.md](writing-tests-nunit.md)) |
 | xUnit v3 | `E2E.XUnit.V3` | `writing-tests-xunit` ([writing-tests-xunit.md](writing-tests-xunit.md)) |
+| TUnit | `E2E.TUnit` | `writing-tests-tunit` ([writing-tests-tunit.md](writing-tests-tunit.md)) |
 
-This topic covers what both share. A test body reads the same in either:
+This topic covers what they share. A test body reads the same in each:
 
 ```csharp
 await App.OpenAsync("/todos");

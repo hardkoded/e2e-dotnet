@@ -442,6 +442,12 @@ public abstract class E2EFixture
     /// <summary>Whether a session is running, for an adapter whose tests share one.</summary>
     internal bool HasSession => _session is not null;
 
+    /// <summary>
+    /// The soft failures of the running session, closed (the close is cached, so the adapter's own close returns the same failure). For an adapter
+    /// whose framework keeps a skipped body skipped whatever its hooks throw: it throws the failure itself, in place of the skip.
+    /// </summary>
+    internal TestException? CloseSoftFailures() => _session?.CloseSoftFailures();
+
     /// <summary>The engine of the running session, for an adapter that offers the session to <see cref="SessionHandover"/>.</summary>
     internal IEngine? EngineInUse => _engine;
 

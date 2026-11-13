@@ -23,11 +23,11 @@ public sealed class TheBundledAgentSkillTests
     }
 
     [Fact]
-    // The port adds one writing-tests topic per test framework to upstream's eight.
+    // The port adds one writing-tests topic per test framework (NUnit, TUnit, xUnit v3) to upstream's eight.
     public void Offers_one_topic_per_reference_file_and_lists_every_topic_in_SKILL_md()
     {
         var topics = BundledSkill.Topics();
-        Assert.Equal(["agent", "bug-bash", "debugging", "explore", "host", "mcp", "mobile", "running", "setup", "windows", "writing-tests", "writing-tests-nunit", "writing-tests-xunit"], topics);
+        Assert.Equal(["agent", "bug-bash", "debugging", "explore", "host", "mcp", "mobile", "running", "setup", "windows", "writing-tests", "writing-tests-nunit", "writing-tests-tunit", "writing-tests-xunit"], topics);
         var overview = BundledSkill.ReadGuide(null) ?? "";
         var linked = Regex.Matches(overview, @"\[references/([a-z-]+)\.md\]\(references/\1\.md\)").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal);
         Assert.Equal(topics, linked);

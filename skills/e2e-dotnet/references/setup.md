@@ -49,7 +49,10 @@ gateway needs its sign-in before the first run (`e2e login <provider>`).
 
 Init also creates the test project: a `.csproj` named after the directory with
 the packages of the test framework and of e2e at the tool's version, and an
-`ExampleTests.cs`. `--framework xunit` picks xUnit v3 (NUnit is the default).
+`ExampleTests.cs`. `--framework xunit` picks xUnit v3 and `--framework tunit` picks TUnit (NUnit is the default). The closing line says
+`dotnet run` for TUnit (and `dotnet test` for the others): on .NET SDK 10 and later
+`dotnet test` refuses a TUnit project unless `global.json` opts into the
+Microsoft.Testing.Platform runner.
 In a directory with a `.csproj` it adds only the package references that project
 lacks, keeping its framework. `--install` runs `dotnet restore`; without it,
 `dotnet test` restores. `--example <name>` (`E2E.Sample`, `E2E.XUnit.V3.Sample`, `TodoMvc`)
@@ -234,7 +237,10 @@ and in CI.
   process-exit cleanup): in NUnit, a
   `[SetUpFixture]` outside any namespace, `public sealed class AppCommands :
   E2ERunFixture;` (`E2E.NUnit`); in xUnit v3,
-  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
+  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`; in TUnit, a public class in the test
+  project, `public sealed class AppCommands : E2ERunFixture;` (`E2E.TUnit`), which a
+  test-session hook finds by reflection (no registration; a public parameterless
+  constructor is needed). Two
   processes, such as `dotnet test` and `e2e mcp`, still start one app each:
   give a shared app a fixed port and `reuseExisting`.
 - Reporters. `reporters` in `e2e.config.json` lists `E2E.Reports.Reporter`
@@ -482,11 +488,11 @@ A browser provider or `Connect` takes the `chromium` names: the engine drives it
 
 ## Mobile targets
 
-iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots a shut-down one: a phone or tablet over a TV, then the newest OS, then name order; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). `Device.UnstableRaw` gives the test's agent-device session for what `Device` lacks: the session name, device id and name, a `Selection` to pass into a client call, and the client (unstable; its calls are not steps); a custom agent tool gets it from `MobileTools.UnstableDeviceSession(engines)`. For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
+iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots a shut-down one: a phone or tablet over a TV, then the newest OS, then name order; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). `Device.UnstableRaw` gives the test's agent-device session for what `Device` lacks: the session name, device id and name, a `Selection` to pass into a client call, and the client (unstable; its calls are not steps); a custom agent tool gets it from `MobileTools.UnstableDeviceSession(engines)`. For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
 
 ## Windows targets
 
-Windows desktop apps are driven by `WinAppEngine` in the `E2E.WinApp` project, through Windows UI Automation. Install `E2E.WinApp.NUnit` or `E2E.WinApp.XUnit.V3`, declare the app as `"targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }]` (`appPath` is the executable to launch, `bundleId` its process name), and derive from its `WinAppTest`. It runs on Windows only and needs an unlocked desktop for keys and clicks. The UI Automation library ships Windows assets only, so a test project on plain `net10.0` adds `<AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>` and `NU1701` to `NoWarn`. For the `Window` fixture, the agent tools, and known limits, read [windows.md](windows.md).
+Windows desktop apps are driven by `WinAppEngine` in the `E2E.WinApp` project, through Windows UI Automation. Install `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, or `E2E.WinApp.TUnit`, declare the app as `"targets": [{ "platform": "windows", "app": { "appPath": "bin/MyApp.exe", "bundleId": "MyApp" } }]` (`appPath` is the executable to launch, `bundleId` its process name), and derive from its `WinAppTest`. It runs on Windows only and needs an unlocked desktop for keys and clicks. The UI Automation library ships Windows assets only, so a test project on plain `net10.0` adds `<AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>` and `NU1701` to `NoWarn`. For the `Window` fixture, the agent tools, and known limits, read [windows.md](windows.md).
 
 ## Done when
 

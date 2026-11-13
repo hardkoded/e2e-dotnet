@@ -28,6 +28,10 @@
     "slug": "api/E2E.Reports"
   },
   {
+    "label": "E2E.TUnit",
+    "slug": "api/E2E.TUnit"
+  },
+  {
     "label": "E2E.XUnit.V3",
     "slug": "api/E2E.XUnit.V3"
   }

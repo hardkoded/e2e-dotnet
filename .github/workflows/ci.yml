@@ -34,14 +34,25 @@ jobs:
       - name: Build
         run: dotnet build E2E.slnx --no-restore -c Release
 
+      # TUnit runs on Microsoft.Testing.Platform, and `dotnet test` on the .NET 10 SDK and later refuses such a
+      # project unless a global.json opts in, which would break the VSTest projects. So `dotnet test` runs a copy
+      # of the solution without the TUnit test projects, and the next step runs those with `dotnet run`.
       - name: Test
-        run: dotnet test E2E.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
+        run: |
+          cp E2E.slnx E2E.vstest.slnx
+          dotnet sln E2E.vstest.slnx remove tests/E2E.TUnit.Tests/E2E.TUnit.Tests.csproj samples/E2E.TUnit.Sample/E2E.TUnit.Sample.csproj
+          dotnet test E2E.vstest.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
+
+      - name: Test (TUnit)
+        run: |
+          dotnet run --project tests/E2E.TUnit.Tests --no-build -c Release -- --treenode-filter "/*/*/*/*[Category!=RealModel]" --timeout 15m
 
       - name: Pack
         run: |
           dotnet pack src/E2E/E2E.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.NUnit/E2E.NUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.XUnit.V3/E2E.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.TUnit/E2E.TUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Cli/E2E.Cli.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release --no-build -o artifacts --nologo
@@ -56,6 +67,7 @@ jobs:
           dotnet pack src/E2E.WinApp/E2E.WinApp.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.WinApp.TUnit/E2E.WinApp.TUnit.csproj -c Release --no-build -o artifacts --nologo
 
   windows:
     name: windows-build-test

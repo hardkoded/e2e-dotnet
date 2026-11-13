@@ -27,6 +27,7 @@ public sealed class InitFlagsTests : CliInitTestBase
     [InlineData("--example", "TodoMvc", "--engine", "web")]
     [InlineData("--example", "TodoMvc", "--gateway", "none")]
     [InlineData("--example", "TodoMvc", "--framework", "xunit")]
+    [InlineData("--example", "TodoMvc", "--framework", "tunit")]
     public void Rejects_an_unknown_example_or_framework_and_an_example_beside_the_flags_it_brings_its_own_files_for(params string[] args)
     {
         var (options, error) = InitFlags.Parse(args);
@@ -46,6 +47,10 @@ public sealed class InitFlagsTests : CliInitTestBase
         Assert.Null(error);
         Assert.False(options!.Install);
         Assert.Equal("xunit", options.Framework);
+
+        (options, error) = InitFlags.Parse(["--framework=tunit"]);
+        Assert.Null(error);
+        Assert.Equal("tunit", options!.Framework);
         Assert.Null(InitFlags.Parse([]).Options!.Install);
     }
 

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.83.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\E2E.Agent.Tests\Testbed.cs" Link="Testbed\Playground.cs" />
+    <Compile Include="..\E2E.Agent.Tests\PlaywrightRoutes.cs" Link="Testbed\PlaywrightRoutes.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\E2E.TUnit\E2E.TUnit.csproj" />
+    <ProjectReference Include="..\..\src\E2E.Mobile.TUnit\E2E.Mobile.TUnit.csproj" />
+    <ProjectReference Include="..\..\src\E2E.WinApp.TUnit\E2E.WinApp.TUnit.csproj" />
+  </ItemGroup>
+</Project>

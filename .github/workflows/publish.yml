@@ -32,6 +32,7 @@ jobs:
           dotnet pack src/E2E/E2E.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.NUnit/E2E.NUnit.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.XUnit.V3/E2E.XUnit.V3.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.TUnit/E2E.TUnit.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Cli/E2E.Cli.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Expo/E2E.Expo.csproj -c Release -o artifacts --nologo
@@ -43,10 +44,12 @@ jobs:
           dotnet pack src/E2E.BrowserStack/E2E.BrowserStack.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.DevFlow/E2E.Mobile.DevFlow.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.NUnit/E2E.Mobile.NUnit.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.Mobile.TUnit/E2E.Mobile.TUnit.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile.XUnit.V3/E2E.Mobile.XUnit.V3.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.WinApp/E2E.WinApp.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.WinApp.TUnit/E2E.WinApp.TUnit.csproj -c Release -o artifacts --nologo
 
       - name: NuGet login
         uses: NuGet/login@v1

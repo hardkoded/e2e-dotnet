@@ -26,6 +26,7 @@ public sealed class FrameworkPresetsTests
     [Theory]
     [InlineData("nunit", "E2E.Sample")]
     [InlineData("xunit", "E2E.XUnit.V3.Sample")]
+    [InlineData("tunit", "E2E.TUnit.Sample")]
     public void Pin_the_package_versions_of_the_matching_sample(string id, string sample)
     {
         var pinned = XDocument.Load(SampleProject(sample)).Descendants("PackageReference")
@@ -41,5 +42,8 @@ public sealed class FrameworkPresetsTests
         Assert.Null(Frameworks.Detect(["Microsoft.NET.Test.Sdk", "E2E"]));
         Assert.Equal("xunit", Frameworks.Detect(["E2E", "E2E.XUnit.V3"])?.Id);
         Assert.Equal("nunit", Frameworks.Detect(["E2E.Mobile.NUnit"])?.Id);
+        Assert.Equal("tunit", Frameworks.Detect(["TUnit"])?.Id);
+        Assert.Equal("tunit", Frameworks.Detect(["E2E", "E2E.TUnit"])?.Id);
+        Assert.Equal("tunit", Frameworks.Detect(["E2E.Mobile.TUnit"])?.Id);
     }
 }

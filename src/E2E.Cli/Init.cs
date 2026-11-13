@@ -68,7 +68,7 @@ internal sealed record InitOptions
     /// <summary>Whether to restore the packages after scaffolding; unset, it asks, and <c>--yes</c> takes no.</summary>
     public bool? Install { get; init; }
 
-    /// <summary>.NET-only: the test framework of a new project (<c>nunit</c> or <c>xunit</c>); unset, the framework an existing project uses, else NUnit.</summary>
+    /// <summary>.NET-only: the test framework of a new project (<c>nunit</c>, <c>xunit</c>, or <c>tunit</c>); unset, the framework an existing project uses, else NUnit.</summary>
     public string? Framework { get; init; }
 
     /// <summary>Test seam (.NET-only): runs the restore in a directory and returns its exit code, in place of mocking <c>spawnSync</c>.</summary>
@@ -590,7 +590,7 @@ internal static partial class Init
             before.Add("e2e login " + subscription);
         }
 
-        log.Outro("Next: " + string.Join(", then ", [.. before, "dotnet test"]));
+        log.Outro("Next: " + string.Join(", then ", [.. before, framework.TestCommand]));
         return Done(InitResult.Scaffolded, 0);
     }
 

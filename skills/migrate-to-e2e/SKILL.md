@@ -133,7 +133,7 @@ once and the progress file says so; later sessions skip this step.
    the old suite, or at the repo root of a Node-only repo (`e2e/` next to
    its `package.json`, with the .NET project inside), and run it in CI as its
    own `dotnet test` step: add `E2E.NUnit` or
-   `E2E.XUnit.V3` (`E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` on a device
+   `E2E.XUnit.V3` (`E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit` on a device
    project), write `e2e.config.json`, and add one example test. Delete or
    rewrite the example. One target per platform or browser the source suite
    covers.

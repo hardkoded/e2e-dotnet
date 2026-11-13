@@ -12,7 +12,7 @@ Docs and API reference: https://www.hardkoded.com/e2e-dotnet/
 
 ```bash
 dotnet add package E2E
-dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
+dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3, or E2E.TUnit for TUnit
 ```
 
 The library targets `net10.0` and `net11.0` and includes `WebEngine`, which drives Chromium, Firefox, or WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/); `WebEngineOptions.BrowserName` picks one, and Chromium is the default. `Connect` and a `Browser` provider attach over CDP, so they need Chromium. The first `WebEngine` launch in a process installs the browser it launches, so the first run needs network access. A headless Chromium run installs only the headless shell, the build it launches; Firefox and WebKit have one build. When that build is already installed, the step does nothing. The install keeps other browsers in the Playwright cache; set `PLAYWRIGHT_SKIP_BROWSER_GC=0` to let it remove them. On a machine that already has the browser, or has no network, set `E2E_SKIP_BROWSER_INSTALL=1` to skip it, and install it yourself from the build output:
@@ -192,6 +192,20 @@ public sealed class HostedBrowsers(string serviceUrl) : IBrowserProvider
 
 xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
 
+### TUnit
+
+`E2E.TUnit.E2ETest` has the same members and reads the same config. Write `[Test]` methods, with `[Arguments]` for data rows. TUnit builds a new instance of the class for each test. It differs from the NUnit fixture in a few ways:
+
+- A before-test hook starts the session, and an after-test hook commits the replay cache. Your own `[After(Test)]` hook runs before the commit.
+- `Expect.Soft` failures fail the test when its after-test hook runs, in one `ASSERTION_FAILED`. A soft failure before `Skip.Test(...)` fails the test.
+- The first attempt can replay. `[Retry]` attempts run live and still record.
+- The session stops on the test's cancellation token, so a call does not need it.
+- `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
+- `E2ERunFixture` works as in the other adapters (reporters, app-command shutdown, `--changed-since`, `--last-failed`), but TUnit has no assembly fixture to register: derive a public class with a public parameterless constructor in the test project (`public sealed class AppCommands : E2ERunFixture;`) and a test-session hook finds it by reflection. A project with no such class runs none of it.
+- Saved sessions: write `[Test]` and `[E2ESetup("title", Saves = ["admin"])]` on the sign-in test (TUnit does not let a library define a test attribute, so `[E2ESetup]` goes beside `[Test]`), and `[E2ESession("admin")]` on the tests that restore it. The setup test gets the highest execution priority. TUnit runs tests in parallel, so a setup test and the test that restores its session can start together: put `[NotInParallel]` on the class if the setup must not run twice.
+- Mobile and Windows tests: `E2E.Mobile.TUnit` (`MobileAppTest`) and `E2E.WinApp.TUnit` (`WinAppTest`).
+- On .NET SDK 10 and later, `dotnet test` needs `{ "test": { "runner": "Microsoft.Testing.Platform" } }` in a `global.json`, because TUnit runs on Microsoft.Testing.Platform. Filter with `dotnet test --treenode-filter "/*/*/*/*[Category=RealModel]"`, or run the project with `dotnet run`.
+
 ## Config
 
 `E2ETest` reads the nearest `e2e.config.json` above the test assembly directory, then above the working directory. The shape follows upstream `e2e.config.ts`. Every key is optional, and an unknown key fails with `INVALID_CONFIG`.
@@ -218,7 +232,7 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 
 There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
 
-A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
+A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, or `E2E.Mobile.TUnit`.
 
 `trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port records `video` on the web engine and writes a trace page, `trace.md`, for each attempt that keeps one (see Trace page below).
 
@@ -430,7 +444,7 @@ await session.Fixtures.App.OpenAsync("/");
 
 ## Coding agents (MCP)
 
-`e2e init` asks which engine, model gateway (and the base URL of an `openai-compatible` one), skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them. The engine, gateway, and endpoint questions are asked only when `e2e.config.json` does not exist; the skill and MCP questions are asked only when no flag names the locations and no earlier run left any (which a rerun then refreshes). It asks before replacing a symlinked skill directory with a copy or a link (never under `--yes`, which leaves it alone), and cancelling a question or declining the plan writes nothing. Init scaffolds `e2e.config.json`, a test project (a `.csproj` named after the directory with the e2e packages at the tool's version, and an `ExampleTests.cs`; NUnit, or xUnit v3 with `--framework xunit`), installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and updates `.gitignore`. In a directory with a `.csproj` it adds only the missing package references. `--install` runs `dotnet restore`, and `--example <name>` copies a sample instead. An existing config is never overwritten; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
+`e2e init` asks which engine, model gateway (and the base URL of an `openai-compatible` one), skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them. The engine, gateway, and endpoint questions are asked only when `e2e.config.json` does not exist; the skill and MCP questions are asked only when no flag names the locations and no earlier run left any (which a rerun then refreshes). It asks before replacing a symlinked skill directory with a copy or a link (never under `--yes`, which leaves it alone), and cancelling a question or declining the plan writes nothing. Init scaffolds `e2e.config.json`, a test project (a `.csproj` named after the directory with the e2e packages at the tool's version, and an `ExampleTests.cs`; NUnit, xUnit v3 with `--framework xunit`, or TUnit with `--framework tunit`), installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json`, `.cursor/mcp.json`, and `.codex/config.toml`, and updates `.gitignore`. In a directory with a `.csproj` it adds only the missing package references. `--install` runs `dotnet restore`, and `--example <name>` copies a sample instead. An existing config is never overwritten; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
 
 `e2e mcp` serves the project to a coding agent such as Claude Code, Cursor, or Codex over MCP (stdio). `e2e init` registers it; to do it by hand:
 
@@ -474,7 +488,7 @@ dotnet test samples/E2E.Sample
 
 To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.config.json`, for example to `"provider": "openai", "model": "gpt-4.1-mini"` with `OPENAI_API_KEY` set.
 
-[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`.
+[`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) has the same two tests for xUnit v3. Run it with `dotnet test samples/E2E.XUnit.V3.Sample`. [`samples/E2E.TUnit.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.TUnit.Sample) has them for TUnit.
 
 Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test samples/E2E.Sample`.
 
@@ -497,9 +511,10 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `e2e` test, expect, agent, cache, and `@e2e-dev/web` | `E2E` (`WebEngine`) |
 | NUnit | `E2E.NUnit` (`E2ETest`) |
 | xUnit v3 | `E2E.XUnit.V3` (`E2ETest`) |
-| none (.NET only) | `E2E.Mobile.NUnit` and `E2E.Mobile.XUnit.V3` (`MobileAppTest`), a ready base class for a device test |
+| TUnit | `E2E.TUnit` (`E2ETest`) |
+| none (.NET only) | `E2E.Mobile.NUnit`, `E2E.Mobile.XUnit.V3`, and `E2E.Mobile.TUnit` (`MobileAppTest`), a ready base class for a device test |
 | none (.NET only) | `E2E.WinApp` (`WinAppEngine`), Windows desktop apps through Windows UI Automation |
-| none (.NET only) | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` (`WinAppTest`), a ready base class for a Windows app test |
+| none (.NET only) | `E2E.WinApp.NUnit`, `E2E.WinApp.XUnit.V3`, and `E2E.WinApp.TUnit` (`WinAppTest`), a ready base class for a Windows app test |
 | `apps/mobile-benchmark` | `apps/WinAppBenchmark`, the benchmark scenarios as a WinUI 3 app (Microsoft.UI.Reactor), and `apps/WinAppBenchmark.E2ETests`, its ported suites, for the Windows engine |
 | `@e2e-dev/eas` | `E2E.Expo` (`ExpoSimulators`) |
 | `@e2e-dev/github` (ported in part) | `E2E.GitHub` (`GitHubReporter`), the run as a pull request comment |

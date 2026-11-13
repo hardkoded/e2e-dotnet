@@ -14,7 +14,7 @@ Windows desktop apps run on `WinAppEngine` (project `E2E.WinApp`). The engine dr
 
 ## The fixture
 
-Install `E2E.WinApp.NUnit` (or `E2E.WinApp.XUnit.V3`) and derive from its `WinAppTest`. The app comes from `e2e.config.json`. The `agents`, `cache`, and timeout settings come from the same file.
+Install `E2E.WinApp.NUnit` (or `E2E.WinApp.XUnit.V3` or `E2E.WinApp.TUnit`) and derive from its `WinAppTest`. With TUnit, write `[Test]` methods as with NUnit, and mark the class `[NotInParallel]` so one window is in the foreground at a time. The app comes from `e2e.config.json`. The `agents`, `cache`, and timeout settings come from the same file.
 
 ```json
 {
@@ -33,6 +33,21 @@ Install `E2E.WinApp.NUnit` (or `E2E.WinApp.XUnit.V3`) and derive from its `WinAp
 ```csharp
 using E2E.WinApp.NUnit;
 
+public sealed class SettingsTests : WinAppTest
+{
+    [Test]
+    public async Task Shows_the_settings_page() =>
+        await Expect.That(Screen.GetByRole("button", new() { Name = "Save" })).ToBeVisibleAsync();
+}
+```
+
+With TUnit, import `E2E.WinApp.TUnit`, use TUnit's `[Test]`, and mark the class `[NotInParallel]`:
+
+```csharp
+using E2E;
+using E2E.WinApp.TUnit;
+
+[NotInParallel]
 public sealed class SettingsTests : WinAppTest
 {
     [Test]
