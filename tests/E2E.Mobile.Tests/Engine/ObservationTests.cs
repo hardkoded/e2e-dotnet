@@ -564,7 +564,7 @@ public sealed class ObservationTests
             dragged.TrySetResult();
             return Never();
         });
-        var dismiss = session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300)));
+        var dismiss = session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300), CancellationToken.None));
         await dragged.Task;
         await h.Clock.SpendUntil(dismiss, TimeSpan.FromMilliseconds(350));
         var failure = await Assert.ThrowsAsync<EngineException>(() => dismiss);

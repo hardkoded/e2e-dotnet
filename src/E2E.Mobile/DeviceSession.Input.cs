@@ -21,17 +21,11 @@ public sealed partial class DeviceSession
     {
         ArgumentNullException.ThrowIfNull(action);
         ArgumentNullException.ThrowIfNull(context);
-        var input = InputBudget(PointerLabel(action));
-        var hold = action switch
-        {
-            PointerAction.LongPress press => press.Duration ?? DeviceActions.DefaultLongPress,
-            PointerAction.SwipeTo swipe => swipe.Duration,
-            _ => (TimeSpan?)null,
-        };
+        var input = InputBudget(PointerLabel(action), cancellationToken);
         var before = _latestScreen;
         await CommandAsync(
             $"{PointerLabel(action)} at point",
-            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(context), GestureStabilization(context), token), token, hold),
+            (client, token) => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(context), GestureStabilization(context), input),
             cancellationToken).ConfigureAwait(false);
         if (action is PointerAction.SwipeTo)
         {
@@ -54,7 +48,7 @@ public sealed partial class DeviceSession
             throw DeviceSupport.Unsupported("agent-device cannot clear the focused field without a node; type into a listed field by id to replace its value");
         }
 
-        var input = InputBudget("type");
+        var input = InputBudget("type", cancellationToken);
         var before = _latestScreen;
         await CommandAsync(
             "keyboard.type",

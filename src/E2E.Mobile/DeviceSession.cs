@@ -36,7 +36,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public bool CanDismissKeyboard => true;
 
     /// <summary>The engine's keyboard hook: the dismissal under the input budget the agent's keyboard inputs get (upstream's <c>'keyboard dismiss'</c>).</summary>
-    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss"));
+    Task IEngineSession.DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("keyboard dismiss", cancellationToken));
 
     private readonly MobileEngine _engine;
     private readonly string _name;
@@ -285,10 +285,10 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>The budget one input runs under. Its device commands stay in flight until they settle. Upstream's <c>inputBudget</c>.</summary>
-    internal InputBudget InputBudget(string label) => InputBudget(label, ActionTimeout);
+    internal InputBudget InputBudget(string label, CancellationToken signal) => InputBudget(label, ActionTimeout, signal);
 
     /// <summary>The budget of one operation on <paramref name="timeout"/>, such as the <c>timeout</c> a locate gets. Upstream's <c>inputBudget(label, timeoutMs)</c>.</summary>
-    internal InputBudget InputBudget(string label, TimeSpan timeout) => new(label, timeout, pending => Track(pending), _engine.Clock);
+    internal InputBudget InputBudget(string label, TimeSpan timeout, CancellationToken signal) => new(label, timeout, pending => Track(pending), _engine.Clock, signal);
 
     /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
     internal Task<T> Track<T>(Task<T> pending)
@@ -309,7 +309,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     /// <summary>Sends an input under its operation's budget, or directly from a fixture call, which has none. Upstream's <c>sendInput</c>.</summary>
     internal static Task<T> SendInputAsync<T>(InputBudget? input, Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null) =>
-        input is null ? dispatch() : input.SendAsync(dispatch, cancellationToken, hold);
+        input is null ? dispatch() : input.SendAsync(_ => dispatch(), cancellationToken, hold);
 
     public Task<JsonNode?> CommandAsync(string label, string method, JsonObject? options, CancellationToken cancellationToken) =>
         CommandAsync(label, (client, token) => client.CallAsync(method, options, token), cancellationToken);
@@ -365,7 +365,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public async Task BackAsync(OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var input = InputBudget("back");
+        var input = InputBudget("back", cancellationToken);
         var before = _latestScreen;
         await CommandAsync(
             "back",
@@ -390,7 +390,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// </summary>
     public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var budget = InputBudget("observe", timeout);
+        var budget = InputBudget("observe", timeout, cancellationToken);
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected));
@@ -441,7 +441,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public async Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
-        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout), cancellationToken).ConfigureAwait(false);
+        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout, cancellationToken), cancellationToken).ConfigureAwait(false);
         var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
             + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
         var directory = Path.Combine(artifactsDir, "screenshots");
@@ -921,6 +921,9 @@ internal sealed class InflightCommands
 /// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
 /// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
 /// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
+/// A press is the exception, as in upstream's client, which takes a signal for <c>interactions.press</c> only (tester-army/e2e#1685): its
+/// request is aborted as soon as the caller leaves, and that abort does not block later attempts, since agent-device owns the drain of
+/// native work it already accepted.
 /// </summary>
 internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
 {
@@ -929,15 +932,30 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
         cancellationToken.ThrowIfCancellationRequested();
         var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
         var callerLeft = new System.Runtime.CompilerServices.StrongBox<bool>();
+        var cancellable = method == DeviceMethods.InteractionsPress;
         var left = cancellationToken.CanBeCanceled
             ? cancellationToken.Register(
                 static state =>
                 {
-                    var (source, flag) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>))state!;
+                    var (source, flag, now) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>, bool))state!;
                     Volatile.Write(ref flag.Value, true);
+                    if (now)
+                    {
+                        try
+                        {
+                            source.Cancel();
+                        }
+                        catch (AggregateException)
+                        {
+                            // A callback of the client's own registration threw; the caller is leaving either way.
+                        }
+
+                        return;
+                    }
+
                     source.CancelAfter(E2EDefaults.LaunchTimeout);
                 },
-                (abort, callerLeft))
+                (abort, callerLeft, cancellable))
             : default;
         Task<JsonNode?> pending;
         try
@@ -951,7 +969,7 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             throw;
         }
 
-        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled));
+        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled) && !(cancellable && settled.IsCanceled));
         _ = pending.ContinueWith(
             static (_, state) =>
             {

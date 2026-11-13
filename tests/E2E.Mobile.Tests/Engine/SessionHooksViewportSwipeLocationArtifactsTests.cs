@@ -136,7 +136,7 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         var h = Harness.Create();
         var pressed = new TaskCompletionSource<JsonNode?>();
         var received = new TaskCompletionSource<CancellationToken>();
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, token) =>
+        h.Fake.RespondAsync(DeviceMethods.InteractionsLongPress, (_, token) =>
         {
             received.TrySetResult(token);
             return pressed.Task.WaitAsync(token);
@@ -144,13 +144,13 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         var session = await OpenAttempt(h);
         var about = await Observed(session, "About");
         using var controller = new CancellationTokenSource();
-        var pending = session.PerformAsync(about, new LocatorAction.Tap(), controller.Token);
+        var pending = session.PerformAsync(about, new LocatorAction.LongPress(), controller.Token);
         var sent = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await controller.CancelAsync();
         var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal("CANCELLED", cancelled.Code);
 
-        // The request was not aborted with the caller, and the next attempt still waits for the daemon.
+        // A press is the exception (upstream cancels it, tester-army/e2e#1685); a long press is not. The request was not aborted with the caller, and the next attempt still waits for the daemon.
         Assert.False(sent.IsCancellationRequested);
         await session.DisposeAsync();
         var next = h.Boot();

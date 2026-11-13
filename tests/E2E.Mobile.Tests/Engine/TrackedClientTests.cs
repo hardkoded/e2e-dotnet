@@ -22,7 +22,7 @@ public sealed class TrackedClientTests
         var client = new TrackedClient(h.Fake, inflight, time);
         var daemon = new TaskCompletionSource<JsonNode?>();
         var received = new TaskCompletionSource<CancellationToken>();
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, token) =>
+        h.Fake.RespondAsync(DeviceMethods.InteractionsHover, async (_, token) =>
         {
             received.SetResult(token);
             try
@@ -35,7 +35,7 @@ public sealed class TrackedClientTests
             }
         });
         using var caller = new CancellationTokenSource();
-        var pending = client.CallAsync(DeviceMethods.InteractionsPress, null, caller.Token);
+        var pending = client.CallAsync(DeviceMethods.InteractionsHover, null, caller.Token);
         // Session commands can register the same task again. That must not lose its abort tracking.
         inflight.Track(pending);
         var sent = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
@@ -77,13 +77,13 @@ public sealed class TrackedClientTests
         var client = new TrackedClient(h.Fake, inflight, time);
         var daemon = new TaskCompletionSource<JsonNode?>();
         var received = new TaskCompletionSource();
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, _) =>
+        h.Fake.RespondAsync(DeviceMethods.InteractionsHover, async (_, _) =>
         {
             received.SetResult();
             return await daemon.Task;
         });
         using var caller = new CancellationTokenSource();
-        var pending = client.CallAsync(DeviceMethods.InteractionsPress, null, caller.Token);
+        var pending = client.CallAsync(DeviceMethods.InteractionsHover, null, caller.Token);
         await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await caller.CancelAsync();
         // The failure lands before the abort deadline.
@@ -113,9 +113,9 @@ public sealed class TrackedClientTests
         var inflight = h.Engine.InflightOf("ios-simulator", 0, null);
         var client = new TrackedClient(h.Fake, inflight, time);
         var daemon = new TaskCompletionSource<JsonNode?>();
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => daemon.Task);
+        h.Fake.RespondAsync(DeviceMethods.InteractionsHover, (_, _) => daemon.Task);
         using var caller = new CancellationTokenSource();
-        var pending = client.CallAsync(DeviceMethods.InteractionsPress, null, caller.Token);
+        var pending = client.CallAsync(DeviceMethods.InteractionsHover, null, caller.Token);
         await caller.CancelAsync();
         time.Advance(E2EDefaults.LaunchTimeout);
         Assert.False(pending.IsCompleted);

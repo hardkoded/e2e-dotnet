@@ -300,6 +300,7 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
         await session.Device.DismissKeyboardAsync();
         Assert.Equal(["command.keyboard", "capture.snapshot", "interactions.press", "capture.snapshot"], h.Fake.Methods().Skip(before));
         JsonAssert.Args("""{"x":195,"y":722}""", h.Fake.LastArgs("interactions.press"));
+        JsonAssert.PressesCarryASignal(h.Fake);
     }
 
     [Fact]

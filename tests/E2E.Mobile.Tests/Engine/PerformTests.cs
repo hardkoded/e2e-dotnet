@@ -69,6 +69,7 @@ public sealed class PerformTests
             // The swipe left the stabilization wait to the next action, so the drag first reads its control again.
             ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+        JsonAssert.PressesCarryASignal(h.Fake);
     }
 
     [Fact]
