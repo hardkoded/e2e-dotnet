@@ -251,7 +251,7 @@ public static class EngineSessions
             {
                 await invoke().ConfigureAwait(false);
             }
-            catch (Exception cause) when (cause is not E2EException)
+            catch (Exception cause) when (cause is not (OperationCanceledException or E2EException))
             {
                 throw Normalize(cause, what);
             }
@@ -269,7 +269,7 @@ public static class EngineSessions
             {
                 return await invoke().ConfigureAwait(false);
             }
-            catch (Exception cause) when (cause is not E2EException)
+            catch (Exception cause) when (cause is not (OperationCanceledException or E2EException))
             {
                 throw Normalize(cause, what);
             }
