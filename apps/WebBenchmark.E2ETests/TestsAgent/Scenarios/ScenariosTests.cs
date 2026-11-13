@@ -7,7 +7,7 @@ namespace WebBenchmark.E2ETests.TestsAgent.Scenarios;
 /// <summary>
 /// Ported from upstream's <c>apps/web-benchmark/tests-agent/scenarios.e2e.ts</c> (no <c>describe</c>). Each scenario test gives the
 /// catalog description as its goal and reads the rest off the page; the deterministic check on the scenario's success message decides
-/// the test. The scenarios that need pixels, native dialogs, a second tab, or a downloaded file are left out upstream, and so here.
+/// the test. The scenarios that need pixels, native dialogs, or a downloaded file are left out upstream, and so here.
 /// </summary>
 public sealed class ScenariosTests : TestsAgentTest
 {
@@ -145,6 +145,13 @@ public sealed class ScenariosTests : TestsAgentTest
             "promo-storefront",
             "buy any one product, dismissing the promotional overlays that get in the way, until the order is confirmed",
             "Order confirmed");
+
+    [Test, Category("new-tab-flow")]
+    public Task Act_completes_new_tab_flow() =>
+        CompleteAsync(
+            "new-tab-flow",
+            "open the verification tab, read the code it shows, then go back to the original tab, enter the code there, and verify it",
+            "Verified successfully");
 
     [Test, Category("gift-card-purchase")]
     public Task Act_completes_gift_card_purchase() =>

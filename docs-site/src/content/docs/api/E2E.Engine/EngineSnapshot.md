@@ -126,6 +126,23 @@ public EngineNode Root { get; init; }
 
 **Value:** [EngineNode](/api/E2E.Engine/EngineNode/)
 
+<a id="E2E_Engine_EngineSnapshot_Tabs_"></a>
+<a id="E2E_Engine_EngineSnapshot_Tabs"></a>
+
+### Tabs
+
+
+```csharp
+public EngineTabs? Tabs { get; init; }
+```
+
+
+The tabs the surface has open, when it has more than one, such as a browser with a tab the app opened. The harness tells the model which
+tab it reads and how many there are, and the agent switches between them through [SwitchTab](/api/E2E.Engine/EngineSessionSpec/#E2E_Engine_EngineSessionSpec_SwitchTab) and closes
+them through [CloseTab](/api/E2E.Engine/EngineSessionSpec/#E2E_Engine_EngineSessionSpec_CloseTab). Null with one tab.
+
+**Value:** [EngineTabs](/api/E2E.Engine/EngineTabs/)
+
 <a id="E2E_Engine_EngineSnapshot_TreeUnavailable_"></a>
 <a id="E2E_Engine_EngineSnapshot_TreeUnavailable"></a>
 

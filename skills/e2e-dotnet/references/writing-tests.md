@@ -383,7 +383,10 @@ node under the soft keyboard is hidden, so the scroll goes on (topic `mobile`, "
 `ToBeEnabledAsync`, `ToBeDisabledAsync`, `ToBeCheckedAsync`,
 `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`,
 `ToHaveCountAsync`, `ToHaveAttributeAsync`, and more. `.Not` inverts a
-matcher.
+matcher. On a device, a node whose centre the soft keyboard covers is hidden for
+`ToBeVisibleAsync` and `ToBeHiddenAsync`, except the keyboard's own keys,
+suggestion bar, and dock, the focused field, and a container with a child still
+showing (see the mobile reference).
 
 - `Expect.That(Screen).ToHaveScreenshotAsync("home.png")` compares the whole
   screen, and `Expect.That(locator).ToHaveScreenshotAsync()` one element's box,
@@ -662,6 +665,14 @@ misses.
   `App.OpenAsync` to load the page with it; a feature left out keeps its
   value. It sets every open tab and every tab opened after it. For every test,
   set `ColorScheme` and `ReducedMotion` on the engine.
+- `Tabs()`, `WaitForPopupAsync(trigger, timeout?)`, `NewTabAsync()`: a tab the app
+  opens (`target="_blank"`, `window.open`) opens in the background: the active tab stays
+  where it was. `WaitForPopupAsync(() => trigger)` makes the tab the trigger opens active
+  and returns it. When the active tab closes, its opener is active again, or the tab
+  active most recently when the opener is gone. `Tabs()` lists the open tabs in the order
+  they opened; a `BrowserTab` has `UrlAsync`, `TitleAsync`, `IsActive`, `IsClosed`,
+  `ActivateAsync`, and `CloseAsync`. `NewTabAsync()` opens a blank tab in the same
+  context and makes it active. No tab in time is `ACTION_FAILED`.
 - `AddInitScriptAsync(source | WebInitScript)`,
   `AddInitScriptAsync(WebInitScript.FromFunction(fn), arg)`: runs before the
   page's own scripts; call it before `App.OpenAsync`. `arg` is JSON.

@@ -172,6 +172,14 @@ public sealed class Observation
     /// </summary>
     public string? Location { get; init; }
 
+    /// <summary>
+    /// The tabs the surface has open, when it has more than one (upstream's <c>EngineSnapshot.tabs</c>), such as a browser with a tab the app
+    /// opened: how many, and the zero-based place, in the order the tabs opened, of the one this observation reads. Null with one tab. The
+    /// agent switches between the tabs with <see cref="IEngineSession.SwitchTabAsync(int, OperationContext, CancellationToken)"/> and closes
+    /// them with <see cref="IEngineSession.CloseTabAsync(int, OperationContext, CancellationToken)"/>.
+    /// </summary>
+    public EngineTabs? Tabs { get; init; }
+
     public required IReadOnlyList<SemanticNode> Roots { get; init; }
 
     /// <summary>True when the engine left nodes out to stay within its node budget. Scrolling brings them in.</summary>

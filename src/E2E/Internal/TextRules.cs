@@ -14,6 +14,9 @@ namespace E2E.Internal;
 /// </summary>
 public static partial class TextRules
 {
+    /// <summary>The bytes a skip reason keeps in a report (upstream cuts it to 8192 after redacting).</summary>
+    internal const int MaxSkipReasonBytes = 8192;
+
     /// <summary>
     /// Matches normalized text against a pattern (upstream's <c>matchesText</c>): a string is compared exactly, or as a case-insensitive
     /// substring when <paramref name="exact"/> is false; a regular expression tests the normalized text.

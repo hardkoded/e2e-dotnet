@@ -81,6 +81,7 @@ public Task ClearStateAsync(CancellationToken cancellationToken = default)
 
 Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_App_BaseUrl). The reopen, which happens when a base URL is set, throws
 `APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
+On a device with no `app.bundleId`, throws `UNSUPPORTED_CAPABILITY` until the target's build is installed.
 
 **Parameters**
 
@@ -106,6 +107,7 @@ Throws `APP_URL_REQUIRED` for a relative URL when the test declares no base URL,
 for a malformed URL or a scheme other than `http:` or `https:` (the exact `about:blank` is admitted). Throws
 `APP_UNREACHABLE`, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
 name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is `ENGINE_FAILURE`.
+On a device with no `app.bundleId`, throws `UNSUPPORTED_CAPABILITY` until the target's build is installed with `Device.InstallAppAsync`.
 
 **Parameters**
 
@@ -129,6 +131,7 @@ public Task RestartAsync(CancellationToken cancellationToken = default)
 
 Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). Cookies and storage are kept. The reopen, which
 happens when a base URL is set, throws `APP_UNREACHABLE` when nothing answers, as `OpenAsync` does.
+On a device with no `app.bundleId`, throws `UNSUPPORTED_CAPABILITY` until the target's build is installed.
 
 **Parameters**
 

@@ -20,7 +20,7 @@ public sealed record EngineKeyboardSpec
     public Func<OperationContext, Task>? Dismiss { get; init; }
 }
 
-/// <summary>Upstream's <c>session</c> hooks of an engine: opening, navigating back, resizing, restarting, and resetting the app.</summary>
+/// <summary>Upstream's <c>session</c> hooks of an engine: opening, navigating back, resizing, switching and closing tabs, restarting, and resetting the app.</summary>
 public sealed record EngineSessionSpec
 {
     public Func<string, OperationContext, Task>? Open { get; init; }
@@ -28,6 +28,18 @@ public sealed record EngineSessionSpec
     public Func<OperationContext, Task>? Back { get; init; }
 
     public Func<ViewportSize, OperationContext, Task>? Resize { get; init; }
+
+    /// <summary>
+    /// Shows the open tab at a zero-based index, in the order the tabs opened, as <see cref="EngineSnapshot.Tabs"/> counts them. An index with
+    /// no open tab is an <c>ACTION_FAILED</c> the model reads.
+    /// </summary>
+    public Func<int, OperationContext, Task>? SwitchTab { get; init; }
+
+    /// <summary>
+    /// Closes the open tab at a zero-based index, counted as <see cref="SwitchTab"/> counts them. When it was the tab shown, the engine shows
+    /// another, such as the tab that opened it. An index with no open tab, or the last open tab, is an <c>ACTION_FAILED</c> the model reads.
+    /// </summary>
+    public Func<int, OperationContext, Task>? CloseTab { get; init; }
 
     public Func<OperationContext, Task>? Restart { get; init; }
 

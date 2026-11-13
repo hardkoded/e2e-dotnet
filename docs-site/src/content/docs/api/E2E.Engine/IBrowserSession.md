@@ -28,6 +28,28 @@ The harness has already validated every argument.
 
 ## Methods
 
+<a id="E2E_Engine_IBrowserSession_ActivateTabAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_ActivateTabAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
+
+### ActivateTabAsync(IAttemptTab, CancellationToken)
+
+
+```csharp
+Task ActivateTabAsync(IAttemptTab tab, CancellationToken cancellationToken)
+```
+
+
+Makes &lt;code class="paramref"&gt;tab&lt;/code&gt; the tab the session shows (`BrowserTab.ActivateAsync`). A closed tab fails with `ACTION_FAILED`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [IAttemptTab](/api/E2E.Engine/IAttemptTab/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IBrowserSession_AddInitScriptAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_AddInitScriptAsync_System_String_System_Threading_CancellationToken_"></a>
 
@@ -70,6 +92,29 @@ Removes the cookies matching every filter in &lt;code class="paramref"&gt;option
 | Name | Type | Description |
 | --- | --- | --- |
 | `options` | [CookieFilter](/api/E2E.Engine/CookieFilter/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IBrowserSession_CloseTabAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_CloseTabAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
+
+### CloseTabAsync(IAttemptTab, CancellationToken)
+
+
+```csharp
+Task CloseTabAsync(IAttemptTab tab, CancellationToken cancellationToken)
+```
+
+
+Closes &lt;code class="paramref"&gt;tab&lt;/code&gt; (`BrowserTab.CloseAsync`). When it was the tab shown, the tab that opened it is shown, else the open tab
+shown most recently, before this resolves.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [IAttemptTab](/api/E2E.Engine/IAttemptTab/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
@@ -223,6 +268,27 @@ that does not override it fails with `UNSUPPORTED_CAPABILITY`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IBrowserSession_IsActiveTab_"></a>
+<a id="E2E_Engine_IBrowserSession_IsActiveTab_E2E_Engine_IAttemptTab_"></a>
+
+### IsActiveTab(IAttemptTab)
+
+
+```csharp
+bool IsActiveTab(IAttemptTab tab)
+```
+
+
+Whether &lt;code class="paramref"&gt;tab&lt;/code&gt; is the tab the session shows (`BrowserTab.IsActive`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [IAttemptTab](/api/E2E.Engine/IAttemptTab/) |  |
+
+**Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
 <a id="E2E_Engine_IBrowserSession_KeyboardDownAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_KeyboardDownAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -391,6 +457,27 @@ Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationT
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IBrowserSession_NewTabAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_NewTabAsync_System_Threading_CancellationToken_"></a>
+
+### NewTabAsync(CancellationToken)
+
+
+```csharp
+Task<IAttemptTab> NewTabAsync(CancellationToken cancellationToken)
+```
+
+
+Opens a blank tab in the same browser context, sharing its cookies and storage, and shows it (`browser.newTab`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IAttemptTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IBrowserSession_OnDialogAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_OnDialogAsync_E2E_Engine_DialogHandler_System_Threading_CancellationToken_"></a>
 
@@ -503,6 +590,65 @@ Sizes the open page, and every page the session opens later in the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IBrowserSession_TabTitleAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_TabTitleAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
+
+### TabTitleAsync(IAttemptTab, CancellationToken)
+
+
+```csharp
+Task<string> TabTitleAsync(IAttemptTab tab, CancellationToken cancellationToken)
+```
+
+
+The title of a tab (`BrowserTab.TitleAsync`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [IAttemptTab](/api/E2E.Engine/IAttemptTab/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IBrowserSession_TabUrlAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_TabUrlAsync_E2E_Engine_IAttemptTab_System_Threading_CancellationToken_"></a>
+
+### TabUrlAsync(IAttemptTab, CancellationToken)
+
+
+```csharp
+Task<string> TabUrlAsync(IAttemptTab tab, CancellationToken cancellationToken)
+```
+
+
+The URL of a tab (`BrowserTab.UrlAsync`).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [IAttemptTab](/api/E2E.Engine/IAttemptTab/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IBrowserSession_Tabs_"></a>
+<a id="E2E_Engine_IBrowserSession_Tabs"></a>
+
+### Tabs()
+
+
+```csharp
+IReadOnlyList<IAttemptTab> Tabs()
+```
+
+
+The open tabs, in the order they opened (upstream's `tabs`). A session that does not override it fails with `UNSUPPORTED_CAPABILITY`.
+
+**Returns:** [IReadOnlyList&lt;IAttemptTab&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Engine_IBrowserSession_UnrouteAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_UnrouteAsync_System_Func_E2E_Engine_IBrowserRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
@@ -576,6 +722,31 @@ save of every file. A trigger that throws fails the call with its own error. A s
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserDownload&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Engine_IBrowserSession_WaitForPopupAsync_"></a>
+<a id="E2E_Engine_IBrowserSession_WaitForPopupAsync_System_Func_System_Threading_Tasks_Task__System_TimeSpan_System_Threading_CancellationToken_"></a>
+
+### `WaitForPopupAsync(Func<Task>, TimeSpan, CancellationToken)`
+
+
+```csharp
+Task<IAttemptTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken)
+```
+
+
+Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; and waits up to &lt;code class="paramref"&gt;timeout&lt;/code&gt; for the tab the app opens, which is shown when this resolves.
+The wait takes the first tab the app opens after it starts. A trigger that throws fails the call with its own error; no tab in time is
+`ACTION_FAILED`. A session that does not override it fails with `UNSUPPORTED_CAPABILITY`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `trigger` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IAttemptTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_"></a>
 <a id="E2E_Engine_IBrowserSession_WaitForResponseAsync_System_Func_System_String_System_Boolean__System_TimeSpan_System_Threading_CancellationToken_"></a>

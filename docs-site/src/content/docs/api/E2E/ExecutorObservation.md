@@ -129,6 +129,22 @@ The revision of the capture ([Revision](/api/E2E.Engine/Observation/#E2E_Engine_
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_ExecutorObservation_Tabs_"></a>
+<a id="E2E_ExecutorObservation_Tabs"></a>
+
+### Tabs
+
+
+```csharp
+public ExecutorTabs? Tabs { get; init; }
+```
+
+
+The open tabs when there is more than one (upstream's `tabs`): how many, and the one this screen shows, numbered from 1 in the order
+they opened. Null with one tab, and on an engine without tabs.
+
+**Value:** [ExecutorTabs](/api/E2E/ExecutorTabs/)
+
 <a id="E2E_ExecutorObservation_Text_"></a>
 <a id="E2E_ExecutorObservation_Text"></a>
 

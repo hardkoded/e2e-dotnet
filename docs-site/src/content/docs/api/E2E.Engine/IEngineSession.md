@@ -240,6 +240,32 @@ Discards cookies, storage, and history, and opens a blank document.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IEngineSession_CloseTabAsync_"></a>
+<a id="E2E_Engine_IEngineSession_CloseTabAsync_System_Int32_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### CloseTabAsync(int, OperationContext, CancellationToken)
+
+
+```csharp
+Task CloseTabAsync(int index, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Closes the open tab at &lt;code class="paramref"&gt;index&lt;/code&gt;, counted as `SwitchTabAsync` counts
+them. When it was the tab shown, the engine shows another, such as the tab that opened it. An index with no open tab, or the last open
+tab, is an `ACTION_FAILED` the model reads. Engines that declare [CloseTab](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_CloseTab) implement it.
+Upstream's `session.closeTab`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `index` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_DismissKeyboardAsync_"></a>
 <a id="E2E_Engine_IEngineSession_DismissKeyboardAsync_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
 
@@ -1145,6 +1171,31 @@ Scrolls the viewport about three quarters of a screen. Engines that declare
 | Name | Type | Description |
 | --- | --- | --- |
 | `direction` | [ScrollDirection](/api/E2E.Engine/ScrollDirection/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_IEngineSession_SwitchTabAsync_"></a>
+<a id="E2E_Engine_IEngineSession_SwitchTabAsync_System_Int32_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### SwitchTabAsync(int, OperationContext, CancellationToken)
+
+
+```csharp
+Task SwitchTabAsync(int index, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Shows the open tab at &lt;code class="paramref"&gt;index&lt;/code&gt;, zero-based in the order the tabs opened, as [Tabs](/api/E2E.Engine/Observation/#E2E_Engine_Observation_Tabs) counts them:
+every observation and action after it reads and acts on that tab. An index with no open tab is an `ACTION_FAILED` the model
+reads. Engines that declare [SwitchTab](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_SwitchTab) implement it. Upstream's `session.switchTab`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `index` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

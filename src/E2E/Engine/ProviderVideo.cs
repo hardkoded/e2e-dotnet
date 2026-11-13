@@ -60,6 +60,9 @@ internal sealed class ProviderVideo(Func<CancellationToken, Task<LeaseRecording?
     /// <summary>Pages come and go under one recording of the browser.</summary>
     public Task PageClosingAsync() => Task.CompletedTask;
 
+    /// <summary>Pages come and go under one recording of the browser.</summary>
+    public Task PageClosedAsync() => Task.CompletedTask;
+
     /// <summary>
     /// Stops the recording as the attempt's one segment; nothing when none was started. A stop that failed keeps the
     /// recording, so the attempt's close tries once more instead of leaving it running on a browser later attempts share.

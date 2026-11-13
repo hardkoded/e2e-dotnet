@@ -80,7 +80,7 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 }
 ```
 
-A call's own `Timeout` wins over `actionTimeout` and `assertionTimeout`. A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect` matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`, `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForDownloadAsync`, or `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it. `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends, and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout` is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, as is a zero or negative `Interval`). `Agent` calls take a positive `Timeout` only: zero or less is `INVALID_ARGUMENT`.
+A call's own `Timeout` wins over `actionTimeout` and `assertionTimeout`. A `Timeout` of `TimeSpan.Zero` on a locator action, `WaitForAsync`, an `Expect` matcher, `ToHaveScreenshotAsync`, `Screen.TreeAsync`, `Screen.DebugAsync`, `Browser.GotoAsync`, `WaitForResponseAsync`, `WaitForPopupAsync`, `WaitForDownloadAsync`, or `WaitForDownloadsAsync` sets no deadline of its own: the test timeout still bounds it. `Expect.Poll` with a zero `Timeout` polls until the cancellation token you pass ends, and without a token that can end it fails with `INVALID_CONFIG`. A negative `Timeout` is `INVALID_ARGUMENT` (`INVALID_CONFIG` from `Expect.Poll`, as is a zero or negative `Interval`). `Agent` calls take a positive `Timeout` only: zero or less is `INVALID_ARGUMENT`.
 
 There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
 

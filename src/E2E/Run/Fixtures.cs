@@ -75,6 +75,7 @@ public sealed class App
     /// for a malformed URL or a scheme other than <c>http:</c> or <c>https:</c> (the exact <c>about:blank</c> is admitted). Throws
     /// <c>APP_UNREACHABLE</c>, naming the URL, when the network refused the navigation because nothing answers there (a refused connection, a
     /// name that does not resolve, an unreachable host, or a connection that timed out); any other failed navigation is <c>ENGINE_FAILURE</c>.
+    /// On a device with no <c>app.bundleId</c>, throws <c>UNSUPPORTED_CAPABILITY</c> until the target's build is installed with <c>Device.InstallAppAsync</c>.
     /// </summary>
     public Task OpenAsync(string? url = null, CancellationToken cancellationToken = default)
     {
@@ -115,6 +116,7 @@ public sealed class App
     /// <summary>
     /// Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept. The reopen, which
     /// happens when a base URL is set, throws <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// On a device with no <c>app.bundleId</c>, throws <c>UNSUPPORTED_CAPABILITY</c> until the target's build is installed.
     /// </summary>
     public Task RestartAsync(CancellationToken cancellationToken = default)
     {
@@ -124,6 +126,7 @@ public sealed class App
     /// <summary>
     /// Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>. The reopen, which happens when a base URL is set, throws
     /// <c>APP_UNREACHABLE</c> when nothing answers, as <see cref="OpenAsync"/> does.
+    /// On a device with no <c>app.bundleId</c>, throws <c>UNSUPPORTED_CAPABILITY</c> until the target's build is installed.
     /// </summary>
     public Task ClearStateAsync(CancellationToken cancellationToken = default)
     {

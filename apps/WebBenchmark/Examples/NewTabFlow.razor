@@ -59,6 +59,18 @@ else
     private string? _error;
     private bool _verified;
 
+    // Upstream calls window.open and writes into the window it returns, all in the click handler. A window cannot cross the interop boundary
+    // (Blazor would serialize it), so the page keeps that code in the browser and the handler calls it with the page's HTML.
+    private const string OpenTabScript = """
+        window.webBenchmarkNewTabFlow = window.webBenchmarkNewTabFlow || {
+          open: (html) => {
+            const win = window.open("", "_blank");
+            win?.document.write(html);
+            win?.document.close();
+          },
+        };
+        """;
+
     /// <summary>
     /// Opens a blank second tab and writes the verification page into it, as upstream does with <c>window.open("", "_blank")</c> and
     /// <c>document.write</c>. A popup the browser blocks returns null, and nothing opens, as upstream's optional chaining does.
@@ -67,14 +79,8 @@ else
     {
         try
         {
-            await using var tab = await JS.InvokeAsync<IJSObjectReference?>("window.open", CancellationToken.None, "", "_blank");
-            if (tab is null)
-            {
-                return;
-            }
-
-            await tab.InvokeVoidAsync("document.write", CancellationToken.None, VerificationPageHtml);
-            await tab.InvokeVoidAsync("document.close", CancellationToken.None);
+            await JS.InvokeVoidAsync("eval", OpenTabScript);
+            await JS.InvokeVoidAsync("webBenchmarkNewTabFlow.open", VerificationPageHtml);
         }
         catch (JSDisconnectedException)
         {

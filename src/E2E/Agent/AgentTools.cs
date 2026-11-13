@@ -159,6 +159,31 @@ public static class AgentTools
             }
             """));
 
+    /// <summary>Upstream's <c>switch_tab</c> tool (<c>agent/primitives.ts</c>), offered where the engine can show another tab.</summary>
+    internal const string SwitchTabName = "switch_tab";
+
+    internal const string SwitchTabDescription = "Show another open tab. When more than one tab is open, the screen header says which tab you are on and how many there are, numbered from 1 in the order they opened. A tab the app opens stays in the background until you switch to it.";
+
+    /// <summary>Upstream's <c>close_tab</c> tool (<c>agent/primitives.ts</c>), offered where the engine can close a tab.</summary>
+    internal const string CloseTabName = "close_tab";
+
+    internal const string CloseTabDescription = "Close an open tab, numbered as switch_tab counts them. Closing the tab on screen shows the tab that opened it, else the tab shown before it. The last open tab cannot be closed.";
+
+    private static readonly JsonElement TabSchema = Parse(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "tab": { "type": "integer", "minimum": 1, "description": "The tab number, from 1 in the order the tabs opened." }
+          },
+          "required": ["tab"]
+        }
+        """);
+
+    private static readonly ModelTool SwitchTab = Tool(SwitchTabName, SwitchTabDescription, TabSchema);
+
+    private static readonly ModelTool CloseTab = Tool(CloseTabName, CloseTabDescription, TabSchema);
+
     /// <summary>Upstream's <c>dismiss_keyboard</c> tool (<c>agent/primitives.ts</c>), offered where the engine can hide its keyboard.</summary>
     internal const string DismissKeyboardName = "dismiss_keyboard";
 
@@ -537,6 +562,16 @@ public static class AgentTools
             tools.Add(ResizeViewport);
         }
 
+        if (verbs.Contains(ExecutorVerb.SwitchTab))
+        {
+            tools.Add(SwitchTab);
+        }
+
+        if (verbs.Contains(ExecutorVerb.CloseTab))
+        {
+            tools.Add(CloseTab);
+        }
+
         // Upstream offers dismiss_keyboard with the dismissKeyboard verb, which an engine with a keyboard that can be hidden lists.
         if (verbs.Contains(ExecutorVerb.DismissKeyboard))
         {
@@ -653,7 +688,7 @@ public static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     internal static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.SwitchTab | EngineCapabilities.CloseTab | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     internal static ModelTool Project(string name, AgentTool tool) =>

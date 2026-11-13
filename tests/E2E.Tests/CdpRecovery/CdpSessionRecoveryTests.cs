@@ -24,8 +24,8 @@ public sealed class CdpSessionRecoveryTests
         var reconnected = 0;
         var session = await StartAsync(app, new WebConnectOptions
         {
-            CdpEndpoint = _ => { provisioned++; return Task.FromResult(remote.Endpoint); },
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult(remote.Endpoint); },
+            CdpEndpoint = _ => { provisioned++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
+            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
         });
         var live = WebEngine.SurfaceOf(session)!;
         try
@@ -137,8 +137,8 @@ public sealed class CdpSessionRecoveryTests
         var reconnected = 0;
         await using var session = await StartAsync(app, new WebConnectOptions
         {
-            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult(remote.Endpoint); },
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
         });
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.EvaluateAsync("""
@@ -175,8 +175,8 @@ public sealed class CdpSessionRecoveryTests
         var provisioned = 0;
         await using var session = await StartAsync(app, new WebConnectOptions
         {
-            CdpEndpoint = _ => { provisioned++; return Task.FromResult(remote.Endpoint); },
-            ReconnectEndpoint = _ => Task.FromResult(replacement.Endpoint),
+            CdpEndpoint = _ => { provisioned++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
+            ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(replacement.Endpoint),
         });
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
         Assert.Contains("different browser", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Message, StringComparison.Ordinal);
@@ -200,6 +200,25 @@ public sealed class CdpSessionRecoveryTests
     }
 
     [Fact]
+    public async Task Keeps_a_tab_the_app_opened_in_the_background_across_a_reconnect()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, Fixed(remote));
+        var browser = new Browser(session, "web", app.Url, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), () => None, () => { }, new SoftFailures());
+        await browser.EvaluateAsync<object>($"void window.open({JsonSerializer.Serialize(app.Url + "login")}, '_blank')");
+        await PollAsync(() => Task.FromResult<string?>(browser.Tabs().Count.ToString(System.Globalization.CultureInfo.InvariantCulture)), "2");
+        var tabs = browser.Tabs();
+        var (own, background) = (tabs[0], tabs[1]);
+        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+        await session.ObserveAsync(None);
+        Assert.Equal([own, background], browser.Tabs());
+        Assert.True(own.IsActive);
+        await background.ActivateAsync();
+        Assert.Equal(app.Url + "login", await browser.UrlAsync());
+    }
+
+    [Fact]
     public async Task Bounds_a_hung_reconnect_resolver_and_propagates_cancellation_to_it()
     {
         using var app = await FixtureApp.StartAsync();
@@ -209,8 +228,8 @@ public sealed class CdpSessionRecoveryTests
             app,
             new WebConnectOptions
             {
-                CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-                ReconnectEndpoint = abort => { signal = abort; return new TaskCompletionSource<string>().Task; },
+                CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+                ReconnectEndpoint = abort => { signal = abort; return new TaskCompletionSource<CdpTarget>().Task; },
             },
             TimeSpan.FromSeconds(2));
         await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
@@ -239,7 +258,7 @@ public sealed class CdpSessionRecoveryTests
 
                     return hosts[^1].Endpoint;
                 },
-                ReconnectEndpoint = _ => Task.FromResult(hosts[^1].Endpoint),
+                ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(hosts[^1].Endpoint),
             },
         });
         try
@@ -273,12 +292,12 @@ public sealed class CdpSessionRecoveryTests
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        var endpoint = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var endpoint = new TaskCompletionSource<CdpTarget>(TaskCreationOptions.RunContinuationsAsynchronously);
         var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var reconnected = 0;
         await using var session = await StartAsync(app, new WebConnectOptions
         {
-            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
             ReconnectEndpoint = _ =>
             {
                 reconnected++;
@@ -308,11 +327,11 @@ public sealed class CdpSessionRecoveryTests
         var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
         var connect = new WebConnectOptions
         {
-            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
             ReconnectEndpoint = _ =>
             {
                 clock.Advance(TimeSpan.FromMilliseconds(300));
-                return Task.FromResult(remote.Endpoint);
+                return Task.FromResult<CdpTarget>(remote.Endpoint);
             },
         };
         // The page is about:blank: the test measures the budget, and a page served over the network is a navigation a loaded runner can abort.
@@ -409,8 +428,8 @@ public sealed class CdpSessionRecoveryTests
         var reconnected = 0;
         await using var session = await StartAsync(app, new WebConnectOptions
         {
-            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult(remote.Endpoint); },
+            CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+            ReconnectEndpoint = _ => { reconnected++; return Task.FromResult<CdpTarget>(remote.Endpoint); },
         });
         var browser = (IBrowserSession)session;
         var original = WebEngine.SurfaceOf(session)!.Page();
@@ -580,8 +599,8 @@ public sealed class CdpSessionRecoveryTests
 
     private static WebConnectOptions Fixed(RemoteChrome remote) => new()
     {
-        CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-        ReconnectEndpoint = _ => Task.FromResult(remote.Endpoint),
+        CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
+        ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint),
     };
 
     /// <summary>Starts the engine's attempt against a host-provisioned browser and opens <c>/login</c>.</summary>

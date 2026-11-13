@@ -30,6 +30,20 @@ public sealed record EngineNodeStates(bool? Secure = null, bool? Hidden = null);
 public sealed record EngineNode(NodeRef Ref, string? Role = null, string? Name = null, IReadOnlyList<EngineNode>? Children = null, EngineNodeStates? States = null);
 
 /// <summary>
+/// Upstream's <c>EngineTabs</c> (<c>engine/index.ts</c>): the tabs a surface has open, as a snapshot reports them.
+/// </summary>
+/// <param name="Count">How many tabs are open: 2 or more.</param>
+/// <param name="Active">The zero-based position, in the order the tabs opened, of the tab the snapshot's root reads.</param>
+public sealed record EngineTabs(int Count, int Active)
+{
+    /// <summary>
+    /// Upstream's <c>validTabs</c> (<c>engine/session.ts</c>): true for a tab count an engine reported well, two or more tabs with the active one
+    /// among them. A malformed one is dropped, never shown.
+    /// </summary>
+    internal static bool IsValid(EngineTabs? tabs) => tabs is { Count: >= 2, Active: >= 0 } && tabs.Active < tabs.Count;
+}
+
+/// <summary>
 /// Upstream's <c>EngineSnapshot</c> (<c>engine/index.ts</c>): what an engine's <c>observe</c> returns. A snapshot with
 /// <see cref="TreeUnavailable"/> carries only the root reference and the pixels.
 /// </summary>
@@ -40,6 +54,13 @@ public sealed record EngineSnapshot(EngineNode Root, ViewportSize Viewport)
 
     /// <summary>Whether an on-screen keyboard is showing, when the engine measured it.</summary>
     public bool? KeyboardVisible { get; init; }
+
+    /// <summary>
+    /// The tabs the surface has open, when it has more than one, such as a browser with a tab the app opened. The harness tells the model which
+    /// tab it reads and how many there are, and the agent switches between them through <see cref="EngineSessionSpec.SwitchTab"/> and closes
+    /// them through <see cref="EngineSessionSpec.CloseTab"/>. Null with one tab.
+    /// </summary>
+    public EngineTabs? Tabs { get; init; }
 
     /// <summary>True when the engine left nodes out of the tree to stay within its budget.</summary>
     public bool Truncated { get; init; }
@@ -74,6 +95,9 @@ public sealed record SessionObservation
 
     /// <summary>Where the surface was when captured, when the platform has a location.</summary>
     public string? Location { get; init; }
+
+    /// <summary>The open tabs, when more than one is (<see cref="EngineSnapshot.Tabs"/>).</summary>
+    public EngineTabs? Tabs { get; init; }
 
     /// <summary>The viewport the capture was taken in.</summary>
     public required ViewportSize Viewport { get; init; }

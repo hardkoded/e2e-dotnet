@@ -118,6 +118,7 @@ To open a session from your own runner, set `OpenHostOptions.EngineFactory` (see
 | `CanLocate` + `LocateAsync` | Queries resolved by the engine. Declare `Location` with it; the report lists it |
 | `History` + `BackAsync` | `App.BackAsync()` and the agent's `back` verb |
 | `Resize` + `ResizeAsync` | The agent's `resize_viewport` verb |
+| `SwitchTab` + `SwitchTabAsync`, `CloseTab` + `CloseTabAsync` | The agent's `switch_tab` and `close_tab` verbs. Report the open tabs in `Observation.Tabs` |
 | `Screenshot` + `ScreenshotAsync` | `ToHaveScreenshotAsync` |
 | `Keyboard` + `TypeTextAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target (`PressAsync` is always required) |
 | `State` + `CaptureStateAsync` + `RestoreStateAsync` | Saved sessions |

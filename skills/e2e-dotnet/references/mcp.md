@@ -145,6 +145,8 @@ config declares `credentials` or a `secrets` entry.
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
 | `resize_viewport {width, height}` | Set the viewport size in CSS pixels, 200 to 4096 per side, to check a layout at another width (listed when the engine can resize, as the web engine can). It stays at that size until resized again. It prints no test line: set the size in a test with `Browser.SetViewportAsync` |
+| `switch_tab {tab}` | Show another open tab, numbered from 1 in the order the tabs opened (listed when the engine can switch tabs, as the web engine can). A tab the app opens stays in the background until you switch to it. It prints no test line: use `Browser.Tabs()[tab - 1].ActivateAsync()` |
+| `close_tab {tab}` | Close an open tab, numbered as `switch_tab` counts them (listed when the engine can close a tab, as the web engine can). The last open tab stays. It prints no test line: use `Browser.Tabs()[tab - 1].CloseAsync()` |
 | `dismiss_keyboard` | Hide the on-screen keyboard when it covers what you need to reach (listed when the engine can hide its keyboard, as the mobile engine can). It prints no test line |
 | `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
 | `tap_at {x, y}`, `hover_at {x, y}`, `drag_at {x, y, to_x, to_y}`, `type_at {x, y, value, replace?}`, `press_at {x, y, key}`, `select_at {x, y, value}` | Act at a point of the latest `screenshot`, in that image's pixels, for a target `observe` does not list (a canvas, a map). Before a screenshot they answer with the line that says to take one. Last resort: act on a listed node by id. They print no test line |
@@ -206,7 +208,7 @@ into a test, then add the assertions at the end, after every step.
 | `upload` a node, one file or several | `SetInputFilesAsync("fixtures/photo.png")`, or a list for several files |
 | `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
 
-No line: `type` or `press` with no target, `resize_viewport` (set the size with `Browser.SetViewportAsync` on the web engine), a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with
+No line: `type` or `press` with no target, `resize_viewport` (set the size with `Browser.SetViewportAsync` on the web engine), `switch_tab` and `close_tab` (`Browser.Tabs()[tab - 1].ActivateAsync()` and `.CloseAsync()` on the web engine), a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with
 `modifiers` (a locator tap takes none), a `drag` whose either end has no locator, `scroll`, and `scroll_to` a text.
 
 ## Workflow

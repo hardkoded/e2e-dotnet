@@ -95,6 +95,30 @@ Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = def
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_IExecutorActions_CloseTabAsync_"></a>
+<a id="E2E_IExecutorActions_CloseTabAsync_System_Int32_System_Threading_CancellationToken_"></a>
+
+### CloseTabAsync(int, CancellationToken)
+
+
+```csharp
+Task CloseTabAsync(int tab, CancellationToken cancellationToken = default)
+```
+
+
+Closes an open tab, numbered as `SwitchTabAsync` counts them. Closing the tab the screen shows shows the tab that opened it,
+else the open tab shown most recently. Needs [CloseTab](/api/E2E/ExecutorVerb/#E2E_ExecutorVerb_CloseTab) in [Verbs](/api/E2E/ExecutorTargetInfo/#E2E_ExecutorTargetInfo_Verbs). The default
+refuses with `UNSUPPORTED_CAPABILITY` (.NET-only, as for `SwitchTabAsync`). Upstream's `closeTab`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_IExecutorActions_DismissKeyboardAsync_"></a>
 <a id="E2E_IExecutorActions_DismissKeyboardAsync_System_Threading_CancellationToken_"></a>
 
@@ -534,6 +558,30 @@ Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancella
 | --- | --- | --- |
 | `target` | [ExecutorTarget](/api/E2E/ExecutorTarget/) |  |
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_IExecutorActions_SwitchTabAsync_"></a>
+<a id="E2E_IExecutorActions_SwitchTabAsync_System_Int32_System_Threading_CancellationToken_"></a>
+
+### SwitchTabAsync(int, CancellationToken)
+
+
+```csharp
+Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default)
+```
+
+
+Shows another open tab, numbered from 1 in the order the tabs opened, as [Tabs](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Tabs) counts them. Needs
+[SwitchTab](/api/E2E/ExecutorVerb/#E2E_ExecutorVerb_SwitchTab) in [Verbs](/api/E2E/ExecutorTargetInfo/#E2E_ExecutorTargetInfo_Verbs). The default refuses with `UNSUPPORTED_CAPABILITY`
+(.NET-only: it keeps an executor context written before the member compiling; the harness's own actions override it). Upstream's `switchTab`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `tab` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

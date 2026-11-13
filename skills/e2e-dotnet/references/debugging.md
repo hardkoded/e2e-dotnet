@@ -270,7 +270,7 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt | Delete `.e2e/sessions/<run id>` and run the setup test again |
 | `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Lower `agents.<name>.maxObservationBytes`, split the goal into smaller steps, or use a model with a larger context window |
 | `REPLAY_STALE` | `cache.strict` is on and a committed recording no longer replays, or the cache directory holds the step's recording under another key (the message names the file and what changed since it was recorded: the engine contract, the replay policy, the agent's context) | Re-run once in `read-write` mode without `cache.strict` to re-record, then commit the changed entry. Delete the old file once nothing replays it. The message ends with this advice and names the cache directory (or the configured `cache.store`) |
-| `AUTOMATION_UNSUPPORTED` | The step needs an action the agent's tools lack (hover, drag) | Do that step with `Screen` actions |
+| `AUTOMATION_UNSUPPORTED` | The step needs an action the agent's tools lack (a right-click on a device, say); blocked, exit 1 | Reach the result another way the engine supports (a long press, a menu button), or run the test on a target that supports it |
 | `BROWSER_INSTALL_FAILED` | Browser download failed: the first-run install exited non-zero (infrastructure, exit 3) | Allow network access for the first run, or run `e2e install <names>` (`--with-deps` on bare Linux) and set `E2E_SKIP_BROWSER_INSTALL=1` |
 | `ENVIRONMENT_UNAVAILABLE` with "is not installed for Playwright" | The browser launch found no executable, for example because the install was skipped | Unset `E2E_SKIP_BROWSER_INSTALL`, or run `e2e install <name>` |
 | `INVALID_APP_URL` | `app.url` has userinfo, a query, a fragment, a non-http(s) scheme, or plain HTTP on a non-loopback host | Fix the URL; use `https://` or a loopback host |
@@ -411,7 +411,10 @@ agent step, named `<test title> · <api> "<label>"`. One step is one model call
 of it (an `ActAsync` turn, an `AssertAsync` judgment, a repair round). A step
 holds the prompt as sent, the tool schemas, the response, the usage, and any
 error. Screenshots are replaced by their byte count, and secrets by their
-markers. A step that replays from the cache makes no model call, so it leaves
+markers. The recorder redacts the prompt, the tool results, the response, and
+the errors with the secrets the attempt knows when it writes a step, so a
+secret a tool resolved during the call is redacted there. A run name and its
+scope are redacted when the run starts. A step that replays from the cache makes no model call, so it leaves
 nothing. Pair it with `"cache": { "mode": "off" }` to capture every call.
 
 ```console

@@ -45,7 +45,7 @@ public sealed class WebBrowserProviderTests
         var refused = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
         {
             Browser = new ToyCloud(),
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("ws://x") },
+            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://x") },
         }));
         Assert.Equal("INVALID_CONFIG", refused.Code);
         Assert.Contains("two browser sources", refused.Message, StringComparison.Ordinal);

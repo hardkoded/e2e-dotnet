@@ -19,9 +19,25 @@ public enum BrowserName
     Webkit,
 }
 
+/// <summary>A CDP connection endpoint and its handshake headers, resolved together (upstream <c>CdpTarget</c>). A bare endpoint converts implicitly.</summary>
+public sealed record CdpTarget
+{
+    /// <summary>The <c>ws://</c>, <c>wss://</c>, or <c>http://</c> DevTools URL.</summary>
+    public required string Endpoint { get; init; }
+
+    /// <summary>Headers sent with the CDP handshake only, never with the page's own requests.</summary>
+    public IReadOnlyDictionary<string, string>? Headers { get; init; }
+
+    /// <summary>Wraps an endpoint that needs no handshake headers.</summary>
+    public static implicit operator CdpTarget(string endpoint) => new() { Endpoint = endpoint };
+}
+
 /// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial.</summary>
 internal static class BrowserConnection
 {
+    /// <summary>What a failed connection with handshake headers says, in place of an error that may echo them.</summary>
+    internal const string CdpConnectionFailed = "CDP connection failed; check the endpoint, handshake headers, and connection timeout";
+
     /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches each of them.</summary>
     public static readonly IReadOnlyList<string> BrowserNames = ["chromium", "firefox", "webkit"];
 
@@ -57,11 +73,25 @@ internal static class BrowserConnection
     /// Attaches to a Chromium over CDP, failing once <paramref name="timeout"/> passes
     /// without an answer instead of holding the caller.
     /// </summary>
-    public static Task<IBrowser> ConnectCdpAsync(IPlaywright playwright, string endpoint, TimeSpan timeout, CancellationToken cancellationToken)
+    public static async Task<IBrowser> ConnectCdpAsync(IPlaywright playwright, CdpTarget target, TimeSpan timeout, CancellationToken cancellationToken)
     {
         // Upstream registers its Playwright selector engines first; the port reads the page with its own script and registers none.
         cancellationToken.ThrowIfCancellationRequested();
-        return playwright.Chromium.ConnectOverCDPAsync(endpoint, new BrowserTypeConnectOverCDPOptions { Timeout = (float)timeout.TotalMilliseconds });
+        var options = new BrowserTypeConnectOverCDPOptions { Timeout = (float)timeout.TotalMilliseconds };
+        if (target.Headers is { } headers)
+        {
+            options.Headers = [.. headers];
+        }
+
+        try
+        {
+            return await playwright.Chromium.ConnectOverCDPAsync(target.Endpoint, options).ConfigureAwait(false);
+        }
+        catch (Exception cause) when (target.Headers is not null && cause is not OperationCanceledException)
+        {
+            // Connection errors can echo credentials in altered forms, so retain only their type.
+            throw cause is TimeoutException ? new TimeoutException(CdpConnectionFailed) : new PlaywrightException(CdpConnectionFailed);
+        }
     }
 
     /// <summary>

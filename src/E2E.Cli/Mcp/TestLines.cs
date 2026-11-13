@@ -79,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "dismiss_keyboard"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -334,6 +334,10 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 return LinePlan.Of("await App.BackAsync();");
             case "resize_viewport":
                 return LinePlan.None("set " + Side(args, "width") + "x" + Side(args, "height") + " with the engine fixture's viewport call");
+            case "switch_tab":
+                return LinePlan.None("show tab " + Side(args, "tab") + " with the engine fixture's tab call");
+            case "close_tab":
+                return LinePlan.None("close tab " + Side(args, "tab") + " with the engine fixture's tab call");
             default:
                 return LinePlan.None(name + " has no test line");
         }
@@ -757,7 +761,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
             ? [.. value.EnumerateArray().Where(item => item.ValueKind == JsonValueKind.String).Select(item => item.GetString()!)]
             : [];
 
-    // A viewport side as the model sent it, for the reason a resize has no line.
+    // A viewport side or a tab number as the model sent it, for the reason a resize or a tab call has no line.
     private static string Side(JsonElement args, string name) =>
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) ? value.ToString() : "undefined";
 

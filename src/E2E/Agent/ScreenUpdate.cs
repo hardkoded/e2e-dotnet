@@ -87,7 +87,7 @@ internal sealed partial class ScreenPresenter
     private bool _pixelsDenied;
 
     /// <summary>The screen as the agent last received it, indexed for comparison.</summary>
-    private sealed record ShownScreen(string Revision, List<string> Order, Dictionary<string, string> ById, bool Truncated, bool Keyboard);
+    private sealed record ShownScreen(string Revision, List<string> Order, Dictionary<string, string> ById, bool Truncated, bool Keyboard, ExecutorTabs? Tabs);
 
     /// <summary>
     /// What an exploring assertion's looks show (<see cref="AssertOptions.Vision"/>): <see cref="VisionMode.On"/> asks every look for pixels beside the tree,
@@ -153,13 +153,28 @@ internal sealed partial class ScreenPresenter
         }
 
         var closed = !options.KeyboardNote || options.Lead is null ? "" : KeyboardNoteFor(previous, next);
+        var tabs = TabNote(previous.Tabs, next.Tabs);
+
+        // Another tab is another document: its ids say nothing about the tab the model held.
+        if (tabs is { Moved: true })
+        {
+            return lead + tabs.Note + " " + RenderFull(observation, next) + closed;
+        }
+
+        // A tab opened is the action's effect, so an unchanged screen blames no control.
+        var expectChange = options.ExpectChange && tabs is null;
+        if (tabs is not null)
+        {
+            lead = lead + tabs.Note + " ";
+        }
+
         var diff = Diff(previous, next);
         var changes = diff.Count;
 
         // A truncated screen is never called unchanged: what it left out is unknown.
         if (changes == 0 && !observation.Truncated)
         {
-            return lead + RenderUnchanged(previous.Revision, observation, options.ExpectChange, pixels) + closed;
+            return lead + RenderUnchanged(previous.Revision, observation, expectChange, pixels) + closed;
         }
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
@@ -309,7 +324,47 @@ internal sealed partial class ScreenPresenter
     private static string KeyboardNoteFor(ShownScreen previous, ShownScreen next) =>
         !previous.Keyboard || next.Keyboard || next.Truncated ? "" : "\n\n" + KeyboardClosedNote;
 
-    private static string DescribeLocation(ExecutorObservation observation) => observation.Path is null ? "" : ", path " + observation.Path;
+    private static string DescribeLocation(ExecutorObservation observation)
+    {
+        var path = observation.Path is null ? "" : ", path " + observation.Path;
+        var tabs = observation.Tabs is null ? "" : ", tab " + observation.Tabs.Active.ToString(CultureInfo.InvariantCulture) + " of " + observation.Tabs.Count.ToString(CultureInfo.InvariantCulture);
+        return path + tabs;
+    }
+
+    /// <summary>What the model hears when the open tabs changed (upstream's <c>tabNote</c> result): the note, and whether the screen moved to another tab.</summary>
+    private sealed record TabChange(string Note, bool Moved);
+
+    /// <summary>
+    /// What the model hears when the open tabs changed, or null when they did not (upstream's <c>tabNote</c>). A tab the app opens joins at the
+    /// end and stays in the background, so the screen is on the same tab (<c>Moved</c> false). Any other change may have put the screen on
+    /// another tab (<c>Moved</c> true): one that closed hands the screen back to another.
+    /// </summary>
+    private static TabChange? TabNote(ExecutorTabs? previous, ExecutorTabs? next)
+    {
+        var before = previous ?? new ExecutorTabs(1, 1);
+        var after = next ?? new ExecutorTabs(1, 1);
+        if (before.Count == after.Count && before.Active == after.Active)
+        {
+            return null;
+        }
+
+        if (after.Count > before.Count && after.Active == before.Active)
+        {
+            var added = after.Count - before.Count;
+            var total = after.Count.ToString(CultureInfo.InvariantCulture);
+            var opened = added == 1
+                ? "a new tab (tab " + total + " of " + total + ")"
+                : added.ToString(CultureInfo.InvariantCulture) + " new tabs (tabs " + (before.Count + 1).ToString(CultureInfo.InvariantCulture) + " to " + total + " of " + total + ")";
+            return new TabChange("The app opened " + opened + ". The screen still shows tab " + after.Active.ToString(CultureInfo.InvariantCulture) + "; use switch_tab to see " + (added == 1 ? "it" : "one") + ".", false);
+        }
+
+        if (next is null)
+        {
+            return new TabChange("The other tab" + (before.Count > 2 ? "s" : "") + " closed; the screen shows the one tab still open.", true);
+        }
+
+        return new TabChange("The screen shows tab " + after.Active.ToString(CultureInfo.InvariantCulture) + " of " + after.Count.ToString(CultureInfo.InvariantCulture) + " now.", true);
+    }
 
     // Node id at the head of one rendered line, or null for a marker line.
     private static string? LineId(string line) => LeadingId().Match(line) is { Success: true } match ? match.Groups[1].Value : null;
@@ -340,7 +395,7 @@ internal sealed partial class ScreenPresenter
             byId[id] = line;
         }
 
-        return new ShownScreen(observation.Revision ?? "", order, byId, observation.Truncated, order.Any(line => KeyboardLine().IsMatch(line)));
+        return new ShownScreen(observation.Revision ?? "", order, byId, observation.Truncated, order.Any(line => KeyboardLine().IsMatch(line)), observation.Tabs);
     }
 
     // The lines that differ between two screens, keyed by node id: additions and changes in the new screen's document order, then

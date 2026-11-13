@@ -55,7 +55,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `ENVIRONMENT_UNAVAILABLE` | The environment under test is down or unreachable beyond the app itself (blocked: environment) | infrastructure | 3 |
 | `SEED_DATA_MISSING` | Data the step depends on does not exist in the environment (blocked: seed_data) | configuration | 2 |
 | `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |
-| `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as drag-and-drop (blocked: automation) | test | 1 |
+| `AUTOMATION_UNSUPPORTED` | The step needs an interaction the available toolset cannot perform, such as a right-click on a device (blocked: automation) | test | 1 |
 | `MODEL_UNAVAILABLE` | No model configured, or GitHub Copilot does not serve the configured model to this account (`model_not_supported`) | configuration | 2 |
 | `POLICY_DENIED` | The security policy refused an operation: a denied destination, a forbidden fill, a read from a secure field, or an action that changes the screen during an assertion | configuration | 2 |
 | `APP_UNREACHABLE` | The app URL could not be reached, or an app command exited early or exceeded `startupTimeout`. With a `log`, the startup error quotes the log's output since the command started, `command.env` values redacted, or says there was none. A long log keeps its first and last 20 lines, with `[startup output omitted]` between them. Under the agent, also any engine fault with no more specific code | infrastructure | 3 |

@@ -136,6 +136,24 @@ tree to count, so the engine reports it. Null when the engine does not: the secu
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_Engine_Observation_Tabs_"></a>
+<a id="E2E_Engine_Observation_Tabs"></a>
+
+### Tabs
+
+
+```csharp
+public EngineTabs? Tabs { get; init; }
+```
+
+
+The tabs the surface has open, when it has more than one (upstream's `EngineSnapshot.tabs`), such as a browser with a tab the app
+opened: how many, and the zero-based place, in the order the tabs opened, of the one this observation reads. Null with one tab. The
+agent switches between the tabs with `SwitchTabAsync` and closes
+them with `CloseTabAsync`.
+
+**Value:** [EngineTabs](/api/E2E.Engine/EngineTabs/)
+
 <a id="E2E_Engine_Observation_TreeUnavailable_"></a>
 <a id="E2E_Engine_Observation_TreeUnavailable"></a>
 

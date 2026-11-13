@@ -239,6 +239,17 @@ internal sealed partial class ActContext : StepExecutorContext
             verbs.Add(ExecutorVerb.Resize);
         }
 
+        // Upstream lists switchTab and closeTab when `session.switchTab` and `session.closeTab` are defined.
+        if (capabilities.HasFlag(EngineCapabilities.SwitchTab))
+        {
+            verbs.Add(ExecutorVerb.SwitchTab);
+        }
+
+        if (capabilities.HasFlag(EngineCapabilities.CloseTab))
+        {
+            verbs.Add(ExecutorVerb.CloseTab);
+        }
+
         // Keyboard input to the focused field follows the engine's keyboard (upstream's declaredVerbs).
         if (capabilities.HasFlag(EngineCapabilities.Keyboard))
         {

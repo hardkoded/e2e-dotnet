@@ -20,7 +20,7 @@ public sealed class WebConnectTests
         await using var remote = await RemoteChrome.LaunchAsync();
         var engine = new WebEngine(new WebEngineOptions
         {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult(remote.Endpoint), ReconnectEndpoint = _ => Task.FromResult(remote.Endpoint) },
+            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint), ReconnectEndpoint = _ => Task.FromResult<CdpTarget>(remote.Endpoint) },
         });
         await using var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url }, CancellationToken.None);
         var error = await Assert.ThrowsAsync<EngineException>(() => session.ClearStateAsync(CancellationToken.None));
@@ -32,7 +32,7 @@ public sealed class WebConnectTests
     [Fact]
     public void Rejects_creation_time_credentials_headers_user_agent_locale_and_time_zone_with_persistent_recovery()
     {
-        var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("ws://localhost:0"), ReconnectEndpoint = _ => Task.FromResult("ws://localhost:0") };
+        var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0"), ReconnectEndpoint = _ => Task.FromResult<CdpTarget>("ws://localhost:0") };
         Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, Headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" } }), StringComparison.Ordinal);
         Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, BasicAuth = new WebBasicAuth("user", "synthetic") }), StringComparison.Ordinal);
         Assert.Contains("persistent context", Refused(new WebEngineOptions { Connect = connect, UserAgent = "synthetic playwright" }), StringComparison.Ordinal);
@@ -45,7 +45,7 @@ public sealed class WebConnectTests
     {
         foreach (var browser in new[] { BrowserName.Firefox, BrowserName.Webkit })
         {
-            var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("ws://x") };
+            var connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://x") };
             Assert.Contains("chromium-only", Refused(new WebEngineOptions { BrowserName = browser, Connect = connect }), StringComparison.Ordinal);
         }
     }

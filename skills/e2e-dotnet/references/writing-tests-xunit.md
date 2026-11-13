@@ -78,7 +78,9 @@ public sealed class BillingTests : E2ETest
 - `[Trait("TestCategory", "RealModel")]` marks a test that calls a real
   model, so CI can skip it.
 - `Assert.Skip(reason)` or `Assert.SkipWhen(condition, reason)` skips a test
-  from inside its body.
+  from inside its body. A skip reason, static or from a
+  running test, is secret-redacted, sanitized, and limited to 8,192 UTF-8 bytes
+  before it is reported.
 
 ## Saved sessions
 

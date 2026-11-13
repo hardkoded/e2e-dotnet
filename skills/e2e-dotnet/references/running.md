@@ -26,7 +26,7 @@ e2e install [chromium ...] [--with-deps]             # download browsers (topic 
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
 e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json] # can explore and mcp start: runtime,
                                                      # config, engine setup, models; --json for a host, exit 2 on a failed check
-e2e explore [goal] [--changed-since <ref>] [--max-steps <n>] [--timeout <ms>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
+e2e explore [goal] [--changed-since <ref>] [--max-steps <n>] [--timeout <ms>] [--output <dir>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
 ```
 
 Selection, retries, and parallelism are the test framework's: `--filter`
@@ -41,6 +41,8 @@ or `e2e feedback`. `e2e init` only scaffolds (topic `setup`).
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
+
+`e2e explore --output <dir>` is the results directory, over the config's `output` (default `.e2e`). It must be inside the project root, not the root itself (`INVALID_CONFIG`); to keep reports elsewhere, copy them after the run.
 
 `--trace` and `--video` are the variables `E2E_TRACE` and `E2E_VIDEO` for a
 test run (`e2e explore` has the flags themselves), for

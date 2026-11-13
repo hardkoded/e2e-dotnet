@@ -191,7 +191,7 @@ public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancella
 ```
 
 
-Waits for hidden or absent state.
+Waits for hidden or absent state. On a device, a node the soft keyboard covers is hidden, as `ToBeVisibleAsync` describes.
 
 **Parameters**
 
@@ -236,6 +236,8 @@ public Task ToBeVisibleAsync(bool visible = true, TimeSpan? timeout = null, Canc
 
 
 Waits for one visible match. &lt;code class="paramref"&gt;visible&lt;/code&gt; false waits for hidden or absent, as `ToBeHiddenAsync`.
+On a device, a node whose centre the soft keyboard covers is hidden, except for the keyboard's own keys, suggestion bar,
+and dock, the focused field, and a container with a child still showing.
 
 **Parameters**
 

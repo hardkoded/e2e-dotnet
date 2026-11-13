@@ -328,6 +328,7 @@ public sealed class E2ESession : IAsyncDisposable
                 : null;
             var softFailures = new SoftFailures(options.OnSoftFailure);
             var testFailed = options.TestFailed ?? (static () => false);
+            AttemptScope? created = null;
             var scope = new AttemptScope
             {
                 AttemptId = attemptId,
@@ -339,7 +340,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Screens = screens,
                 Environment = environment,
                 Debug = debug,
-                AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
+                AiTrace = options.AiTrace ? new AiTraceRecorder(text => created is null ? text : created.Redactor.Redact(text)) : null,
                 AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = options.Agent ?? "default", Attempt = options.Attempt - 1 } : null,
                 AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
@@ -371,6 +372,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Token = () => budget.Token,
                 TestFailed = () => softFailures.Any || testFailed(),
             };
+            created = scope;
             foreach (var (name, value) in ledger)
             {
                 scope.Register(name, value);
