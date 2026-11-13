@@ -411,9 +411,10 @@ agent step, named `<test title> · <api> "<label>"`. One step is one model call
 of it (an `ActAsync` turn, an `AssertAsync` judgment, a repair round). A step
 holds the prompt as sent, the tool schemas, the response, the usage, and any
 error. Screenshots are replaced by their byte count, and secrets by their
-markers. The recorder redacts with the secrets the attempt knows when it
-writes a step, so a secret a tool resolved during the call is redacted in
-the run names, the prompt, the tool results, the response, and the errors. A step that replays from the cache makes no model call, so it leaves
+markers. The recorder redacts the prompt, the tool results, the response, and
+the errors with the secrets the attempt knows when it writes a step, so a
+secret a tool resolved during the call is redacted there. A run name and its
+scope are redacted when the run starts. A step that replays from the cache makes no model call, so it leaves
 nothing. Pair it with `"cache": { "mode": "off" }` to capture every call.
 
 ```console
