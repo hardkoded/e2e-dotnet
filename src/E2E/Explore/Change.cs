@@ -167,7 +167,7 @@ internal static partial class ExploreChanges
     [GeneratedRegex(@"\A(-|\d+)\t(-|\d+)\t(.+)\z", RegexOptions.Singleline | RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex NumstatEntry();
 
-    [GeneratedRegex(@"\n(?=[^\n\r  ])", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    [GeneratedRegex(@"\n(?=[^\n\r\u2028\u2029])", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex LineBreakBeforeText();
 
     [GeneratedRegex(@"\A(?:old|new) mode ", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
