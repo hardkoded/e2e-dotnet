@@ -307,6 +307,8 @@ and in CI.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
   `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
   `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.
+  Every timeout in milliseconds, here and at the top level and in `agents`, is at
+  most 2147483647 (about 24 days); a larger one is `INVALID_CONFIG`.
   `executable` is started directly, never through a shell, and each `args`
   entry is passed as it is: name the server itself, not a wrapper script, and
   on Windows `pnpm.cmd` is not `pnpm`.

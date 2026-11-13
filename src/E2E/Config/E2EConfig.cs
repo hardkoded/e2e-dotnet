@@ -799,9 +799,7 @@ public sealed class E2EConfig
                     ApiKeyEnv = apiKeyEnv,
                     MaxSteps = Property(value, "maxSteps") is { } steps ? Integer(steps, label + ".maxSteps", 1, ResolvedAgent.MaxBudget) : null,
                     MaxModelCalls = Property(value, "maxModelCalls") is { } calls ? Integer(calls, label + ".maxModelCalls", 1, ResolvedAgent.MaxBudget) : null,
-                    JudgmentTimeout = Property(value, "judgmentTimeout") is { } judgment
-                        ? TimeSpan.FromMilliseconds(Integer(judgment, label + ".judgmentTimeout", 1, int.MaxValue))
-                        : E2EDefaults.JudgmentTimeout,
+                    JudgmentTimeout = Command.PositiveMs(Property(value, "judgmentTimeout"), label + ".judgmentTimeout") ?? E2EDefaults.JudgmentTimeout,
                     MaxObservationBytes = Property(value, "maxObservationBytes") is { } bytes
                         ? Integer(bytes, label + ".maxObservationBytes", ResolvedAgent.MinObservationBytes, ResolvedAgent.MaxObservationBytesLimit)
                         : E2EDefaults.MaxObservationBytes,
@@ -1478,7 +1476,7 @@ public sealed class E2EConfig
 
     private static TimeSpan Milliseconds(JsonElement root, string name, TimeSpan fallback)
     {
-        return Property(root, name) is { } raw ? TimeSpan.FromMilliseconds(Integer(raw, name, 1, int.MaxValue)) : fallback;
+        return Command.PositiveMs(Property(root, name), name) ?? fallback;
     }
 
     private static int Integer(JsonElement value, string label, int min, int max)

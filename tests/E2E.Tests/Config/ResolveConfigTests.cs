@@ -176,14 +176,34 @@ public sealed class ResolveConfigTests
         Assert.Contains("unknown config key \"app\"; the app under test is declared on its target", moved.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port names the option and its rule, with no unit or offending value.</summary>
     [Theory]
-    [InlineData("""{ "timeout": "30s" }""", "timeout must be a positive integer")]
-    [InlineData("""{ "launchTimeout": 0 }""", "launchTimeout must be a positive integer")]
-    public void Names_the_option_that_is_not_a_positive_number_of_milliseconds(string json, string message)
+    [InlineData("""{ "timeout": "30s" }""", "timeout must be a positive safe integer of milliseconds, got \"30s\"")]
+    [InlineData("""{ "launchTimeout": 0 }""", "launchTimeout must be a positive safe integer of milliseconds, got 0")]
+    public void Names_the_unit_and_the_offending_value_for_durations(string json, string message)
     {
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, Env()));
         Assert.Contains(message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_config_timeouts_a_timer_cannot_wait_for()
+    {
+        foreach (var key in new[] { "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout" })
+        {
+            var config = E2EConfig.Parse($$"""{ "{{key}}": 2147483647 }""", Root, Env());
+            var value = key switch
+            {
+                "timeout" => config.Timeout,
+                "launchTimeout" => config.LaunchTimeout,
+                "actionTimeout" => config.ActionTimeout,
+                "assertionTimeout" => config.AssertionTimeout,
+                _ => config.CleanupTimeout,
+            };
+            Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), value);
+            var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse($$"""{ "{{key}}": 2147483648 }""", Root, Env()));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Equal(key + " must be at most 2147483647 milliseconds, got 2147483648", error.Message);
+        }
     }
 
     /// <summary>
