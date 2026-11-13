@@ -34,8 +34,18 @@ jobs:
       - name: Build
         run: dotnet build E2E.slnx --no-restore -c Release
 
+      # TUnit runs on Microsoft.Testing.Platform, and `dotnet test` on the .NET 10 SDK and later refuses such a
+      # project unless a global.json opts in, which would break the VSTest projects. So `dotnet test` runs a copy
+      # of the solution without the TUnit test projects, and the next step runs those with `dotnet run`.
       - name: Test
-        run: dotnet test E2E.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
+        run: |
+          cp E2E.slnx E2E.vstest.slnx
+          dotnet sln E2E.vstest.slnx remove tests/E2E.TUnit.Tests/E2E.TUnit.Tests.csproj samples/E2E.TUnit.Sample/E2E.TUnit.Sample.csproj
+          dotnet test E2E.vstest.slnx --no-build -c Release --filter "TestCategory!=RealModel&TestCategory!=AcpAgent" --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
+
+      - name: Test (TUnit)
+        run: |
+          dotnet run --project tests/E2E.TUnit.Tests --no-build -c Release -- --treenode-filter "/*/*/*/*[Category!=RealModel]" --timeout 15m
 
       - name: Pack
         run: |
