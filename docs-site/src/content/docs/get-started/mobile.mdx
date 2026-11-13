@@ -55,7 +55,7 @@ These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUni
 
 `appPath` is relative to the folder of `e2e.config.json`. A device target has no URL. For Android, set `"platform": "android"` and `appPath` to the `.apk`, or run with `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH`.
 
-A target with an `appPath` and no `bundleId` has no app to launch until the suite installs its build with `Device.InstallAppAsync()`. The install applies to the current session only; a new session starts from the provider-supplied `InstalledApp`. Before that, `App.OpenAsync()`, `App.RestartAsync()`, and `App.ClearStateAsync()` fail with `UNSUPPORTED_CAPABILITY`. `Device.InstallAppAsync()` with no path and no `appPath` fails with `APP_NOT_OPEN`, and so does `Reinstall` with no `App` passed and no app pinned. A config with neither `bundleId` nor `appPath` is `INVALID_CONFIG` at load.
+A target with an `appPath` and no `bundleId` has no app to launch until the suite installs its build with `Device.InstallAppAsync()`. The install applies to the current session only; a new session starts from the provider-supplied `InstalledApp`. Before that, `App.OpenAsync()`, `App.RestartAsync()`, and `App.ClearStateAsync()` fail with `UNSUPPORTED_CAPABILITY`. `Device.InstallAppAsync()` with no path and no `appPath` fails with `APP_NOT_OPEN` (the engine's `INVALID_STATE`, which a test's fixture reports under that code), and so does `Reinstall` with no `App` passed and no app pinned. A config with neither `bundleId` nor `appPath` is `INVALID_CONFIG` at load.
 
 ## 3. Write a test
 
