@@ -102,7 +102,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--max-steps <n>` | 8 (1 to 100) | Exploration steps at most. |
 | `--timeout <ms>` | 600000 (180000 to 7200000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
-| `--output <dir>` | `output` in the config, else `.e2e` | The output directory: finding screenshots and trace pages are kept in `results/` under it. It follows the config's `output` rules (inside the project, not the root, apart from the cache). |
+| `--output <dir>` | `output` in the config, else `.e2e` | The output directory: finding screenshots and trace pages are kept in `results/` under it. It follows the config's `output` rules (inside the project, not the root, apart from the cache). An `--output` outside the project root, or the root itself, is `INVALID_CONFIG`; to keep reports elsewhere, copy them after the run. |
 | `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
 | `--ai-trace` | off | Record every model call to `ai-trace-<process id>.json` next to the results directory (`.e2e/`), for `npx unbox-ai`. `E2E_AI_TRACE=1` does the same. |
 | `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<result>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
