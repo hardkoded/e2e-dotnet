@@ -295,7 +295,9 @@ public sealed class Device
     /// that runs against a build calls this once per device, in a fixture or a test. <see cref="InstallAppOptions.Reinstall"/>
     /// removes the app first so it starts with no data. A plain install replaces the binary and keeps its data. Resolves
     /// to the identity to <see cref="OpenAppAsync"/> it by, which becomes the app <c>app.open()</c> launches when the
-    /// target's build is installed and no bundle id is pinned.
+    /// target's build is installed and no bundle id is pinned. Throws <c>APP_NOT_OPEN</c> when no path is passed and the target has no
+    /// <c>AppPath</c>, or when <see cref="InstallAppOptions.Reinstall"/> is set with no <see cref="InstallAppOptions.App"/> and no app
+    /// pinned (no <c>BundleId</c>, build not installed yet).
     /// </summary>
     public Task<InstalledApp> InstallAppAsync(string? appPath = null, InstallAppOptions? options = null, CancellationToken cancellationToken = default) =>
         RunAsync("device.installApp", appPath ?? _session.Options.App.AppPath ?? "appPath", () => _session.InstallAppAsync(appPath, options, cancellationToken));
