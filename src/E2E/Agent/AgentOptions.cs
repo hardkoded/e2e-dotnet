@@ -184,7 +184,12 @@ internal sealed class ResolvedAgent
         Check(options.MaxModelCalls ?? E2EDefaults.MaxModelCalls, label + ".maxModelCalls");
         if (options.JudgmentTimeout <= TimeSpan.Zero)
         {
-            throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be a positive integer of milliseconds");
+            throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be a positive safe integer of milliseconds, got " + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+        }
+
+        if (options.JudgmentTimeout.TotalMilliseconds > int.MaxValue)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be at most " + int.MaxValue.ToString(CultureInfo.InvariantCulture) + " milliseconds, got " + ((long)options.JudgmentTimeout.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
         }
 
         Check(options.MaxObservationBytes, label + ".maxObservationBytes", MinObservationBytes, MaxObservationBytesLimit);

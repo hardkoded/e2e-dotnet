@@ -32,7 +32,18 @@ public sealed class AppCommandTests
         var command = ResolveConfigTests.Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": 5000, "shutdownTimeout": 500 } }""").Command!;
         Assert.Equal(TimeSpan.FromMilliseconds(5000), command.StartupTimeout);
         Assert.Equal(TimeSpan.FromMilliseconds(500), command.ShutdownTimeout);
-        var tooLong = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "startupTimeout": 9007199254740991 } }"""));
-        Assert.Contains("must be at most 2147483647 milliseconds", tooLong.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_timeouts_a_timer_cannot_wait_for()
+    {
+        foreach (var key in new[] { "startupTimeout", "shutdownTimeout" })
+        {
+            var command = ResolveConfigTests.Resolved($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483647 } }""").Command!;
+            Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), key == "startupTimeout" ? command.StartupTimeout : command.ShutdownTimeout);
+            var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App($$"""{ "url": "{{AppUrl}}", "command": { "executable": "x", "{{key}}": 2147483648 } }"""));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Contains("app.command." + key + " must be at most 2147483647 milliseconds, got 2147483648", error.Message, StringComparison.Ordinal);
+        }
     }
 }

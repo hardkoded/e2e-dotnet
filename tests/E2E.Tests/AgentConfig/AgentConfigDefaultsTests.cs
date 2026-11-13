@@ -55,6 +55,10 @@ public sealed class AgentConfigDefaultsTests
         Assert.Equal(TimeSpan.FromSeconds(90), config.ActionTimeout);
         Assert.Contains("agents.default.judgmentTimeout must be a positive", Invalid("""{ "agents": { "default": { "judgmentTimeout": 0 } } }"""), StringComparison.Ordinal);
         Assert.Contains("agents.default.judgmentTimeout", Invalid("""{ "agents": { "default": { "judgmentTimeout": 1.5 } } }"""), StringComparison.Ordinal);
+        Assert.Equal(TimeSpan.FromMilliseconds(int.MaxValue), Parse("""{ "agents": { "default": { "judgmentTimeout": 2147483647 } } }""").Agent.JudgmentTimeout);
+        Assert.Equal(
+            "agents.default.judgmentTimeout must be at most 2147483647 milliseconds, got 2147483648",
+            Invalid("""{ "agents": { "default": { "judgmentTimeout": 2147483648 } } }"""));
     }
 
     [Fact]
