@@ -11,6 +11,8 @@ namespace E2E.Mobile.Tests.InputCancellation;
 
 public sealed class InputCancellationTests
 {
+    private static readonly TimeSpan Bound = TimeSpan.FromSeconds(10);
+
     // Upstream's three cases run the SDK client over a transport; the fake client is the boundary here, and it holds the press until the test lets it go.
     [Theory]
     [InlineData("caller abort")]
@@ -18,7 +20,7 @@ public sealed class InputCancellationTests
     [InlineData("device fixture abort")]
     public async Task Cancels_a_pending_press_at_the_SDK_boundary_after_reason(string reason)
     {
-        var h = Harness.Create();
+        var h = Harness.Create(options => options with { TransitionMilliseconds = 0 });
         var release = new TaskCompletionSource();
         var started = new TaskCompletionSource();
         var finished = new TaskCompletionSource();
@@ -57,18 +59,21 @@ public sealed class InputCancellationTests
                 ? Assert.ThrowsAsync<EngineException>(() => pressing).ContinueWith(
                     task => Assert.Equal("ACTION_MAY_HAVE_COMMITTED", task.Result.Code),
                     TaskScheduler.Default)
-                : Assert.ThrowsAnyAsync<OperationCanceledException>(() => pressing);
-            await started.Task;
+                : Assert.ThrowsAsync<EngineException>(() => pressing).ContinueWith(
+                    task => Assert.Equal("CANCELLED", task.Result.Code),
+                    TaskScheduler.Default);
+            await Task.WhenAny(started.Task, rejected).WaitAsync(Bound);
+            Assert.True(started.Task.IsCompleted, $"the press was never sent: {(rejected.IsFaulted ? (pressing.Exception?.GetBaseException().Message ?? "") : "")}");
             if (reason != "input deadline")
             {
                 await controller.CancelAsync();
             }
 
-            await rejected;
+            await rejected.WaitAsync(Bound);
 
             // The external request resumes after the operation has already ended.
             release.SetResult();
-            await finished.Task;
+            await finished.Task.WaitAsync(Bound);
             Assert.Equal(0, delivered);
         }
         finally

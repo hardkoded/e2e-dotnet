@@ -192,7 +192,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
 
         using var caller = CancellationTokenSource.CreateLinkedTokenSource(signal, cancellationToken);
         using var deadline = new CancellationTokenSource();
-        using var request = CancellationTokenSource.CreateLinkedTokenSource(caller.Token, deadline.Token);
+        using var request = CancellationTokenSource.CreateLinkedTokenSource(signal, cancellationToken, deadline.Token);
         var pending = dispatch(request.Token);
         track(pending);
 
@@ -206,9 +206,12 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
         {
             // The abandoned command may still fail later; nothing is left to read it.
             _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+
+            // The request is cancelled before it is let go of: the wait's own registration on the caller's token can run first, and
+            // leaving disposes the linked source, so the request would never see the cancel.
+            await deadline.CancelAsync().ConfigureAwait(false);
             if (ex is TimeoutException)
             {
-                await deadline.CancelAsync().ConfigureAwait(false);
                 throw MaybeCommitted();
             }
 

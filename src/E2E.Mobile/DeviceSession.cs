@@ -921,6 +921,9 @@ internal sealed class InflightCommands
 /// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
 /// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
 /// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
+/// A press is the exception, as in upstream's client, which takes a signal for <c>interactions.press</c> only (tester-army/e2e#1685): its
+/// request is aborted as soon as the caller leaves, and that abort does not block later attempts, since agent-device owns the drain of
+/// native work it already accepted.
 /// </summary>
 internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
 {
@@ -929,15 +932,22 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
         cancellationToken.ThrowIfCancellationRequested();
         var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
         var callerLeft = new System.Runtime.CompilerServices.StrongBox<bool>();
+        var cancellable = method == DeviceMethods.InteractionsPress;
         var left = cancellationToken.CanBeCanceled
             ? cancellationToken.Register(
                 static state =>
                 {
-                    var (source, flag) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>))state!;
+                    var (source, flag, now) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>, bool))state!;
                     Volatile.Write(ref flag.Value, true);
+                    if (now)
+                    {
+                        source.Cancel();
+                        return;
+                    }
+
                     source.CancelAfter(E2EDefaults.LaunchTimeout);
                 },
-                (abort, callerLeft))
+                (abort, callerLeft, cancellable))
             : default;
         Task<JsonNode?> pending;
         try
@@ -951,7 +961,7 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             throw;
         }
 
-        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled));
+        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled) && !(cancellable && settled.IsCanceled));
         _ = pending.ContinueWith(
             static (_, state) =>
             {
