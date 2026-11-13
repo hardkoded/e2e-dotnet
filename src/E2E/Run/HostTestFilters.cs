@@ -264,7 +264,7 @@ internal static class HostTestFilters
                 Tags = [.. test.Tags.Distinct(StringComparer.Ordinal)],
                 File = file,
                 Id = id,
-                Options = new ResolvedTestOptions(null, [], null, ["default"], test.SkipReason, false),
+                Options = new ResolvedTestOptions(null, [], null, ["default"], test.SkipReason is null ? null : TextRules.TruncateUtf8(TextRules.SanitizeText(Redactor.For(secrets).Redact(test.SkipReason)), TextRules.MaxSkipReasonBytes), false),
             });
         }
 

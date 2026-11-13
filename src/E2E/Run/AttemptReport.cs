@@ -93,7 +93,7 @@ internal static class AttemptReport
         {
             Id = scope.AttemptId,
             StartedAt = scope.StartedAt,
-            Skip = status == AttemptStatus.Skipped ? new ReportSkip("explicit", serialized?.Message ?? "skipped") : null,
+            Skip = status == AttemptStatus.Skipped ? new ReportSkip("explicit", TextRules.TruncateUtf8(TextRules.SanitizeText(scope.Redactor.Redact(serialized?.Message ?? "skipped")), TextRules.MaxSkipReasonBytes)) : null,
             Status = status,
             DurationMs = durationMs,
             Error = serialized is null ? null : ReportError.Of(serialized),

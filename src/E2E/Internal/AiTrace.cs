@@ -9,6 +9,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -191,8 +192,10 @@ internal static class AiTraceScopes
 /// Collects one session's model calls. <see cref="AiTraceModel"/> feeds it; <see cref="Drain"/> hands the completed records to the
 /// collector. Upstream's <c>AiTraceRecorder</c>, with the AI SDK telemetry callbacks as methods.
 /// </summary>
-internal sealed partial class AiTraceRecorder
+internal sealed partial class AiTraceRecorder(Func<string, string>? redact = null)
 {
+    // Uses the attempt's live ledger at serialization time, including secrets resolved during a tool call (upstream's constructor argument).
+    private readonly Func<string, string> _redact = redact ?? (static text => text);
     private readonly Lock _gate = new();
     private readonly Dictionary<string, CallState> _calls = new(StringComparer.Ordinal);
 
@@ -296,6 +299,7 @@ internal sealed partial class AiTraceRecorder
 
             var parent = _toolAncestry.Value;
             var scope = AiTraceScopes.Current;
+            var safeScope = RedactScope(scope, _redact);
 
             // A generation made inside a tool is its own nested run, never a continuation of the step's run, so the parent link stays meaningful.
             var stepScope = scope is { Api: not null } && parent is null ? scope : null;
@@ -318,8 +322,8 @@ internal sealed partial class AiTraceRecorder
                 StartedAt = Now(),
                 ParentRunId = parent?.RunId,
                 ParentStepId = parent?.StepId,
-                FunctionId = RunName(scope, start.FunctionId),
-                E2e = scope,
+                FunctionId = RunName(safeScope, start.FunctionId) is { } name ? _redact(name) : null,
+                E2e = safeScope,
             });
         }
     }
@@ -510,10 +514,10 @@ internal sealed partial class AiTraceRecorder
             Provider = open.Provider,
             StartedAt = open.StartedAt,
             DurationMs = open.ResponseTimeMs ?? (DateTimeOffset.UtcNow - open.Started).TotalMilliseconds,
-            Input = AiTrace.Stringify(input),
-            Output = output is null ? null : AiTrace.Stringify(output),
-            Usage = usage is null ? null : AiTrace.Stringify(usage),
-            Error = error,
+            Input = AiTrace.Stringify(input, _redact),
+            Output = output is null ? null : AiTrace.Stringify(output, _redact),
+            Usage = usage is null ? null : AiTrace.Stringify(usage, _redact),
+            Error = error is null ? null : _redact(error),
         };
     }
 
@@ -538,6 +542,17 @@ internal sealed partial class AiTraceRecorder
         prompt.AddRange(messages);
         return prompt;
     }
+
+    // Redacts attribution before the run name truncates its label.
+    private static AiTraceScope? RedactScope(AiTraceScope? scope, Func<string, string> redact) => scope is null ? null : scope with
+    {
+        Test = redact(scope.Test),
+        TestId = redact(scope.TestId),
+        Target = redact(scope.Target),
+        Agent = redact(scope.Agent),
+        Api = scope.Api is null ? null : redact(scope.Api),
+        Label = scope.Label is null ? null : redact(scope.Label),
+    };
 
     private static string? RunName(AiTraceScope? scope, string? functionId)
     {
@@ -807,8 +822,16 @@ internal static class AiTrace
     private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(2);
     private static int _exitHooked;
 
-    /// <summary>JSON with binary views omitted; arbitrary strings and raw tool JSON are preserved. Upstream's <c>stringify</c>.</summary>
-    public static string Stringify(object? value) => JsonSerializer.Serialize(value, Options);
+    /// <summary>JSON with binary views omitted and every string and key redacted once serialization has exposed its value. Upstream's <c>stringify</c>.</summary>
+    public static string Stringify(object? value, Func<string, string>? redact = null)
+    {
+        if (redact is null)
+        {
+            return JsonSerializer.Serialize(value, Options);
+        }
+
+        return Redacted(JsonSerializer.SerializeToNode(value, Options), redact)?.ToJsonString(Options) ?? "null";
+    }
 
     /// <summary>
     /// The trace file of this process under <paramref name="outputDirectory"/>. A test run may use several processes (one per test
@@ -867,6 +890,27 @@ internal static class AiTrace
             {
                 Console.Error.WriteLine("[e2e] could not write the AI trace " + file.Path + ": " + ex.Message);
             }
+        }
+    }
+
+    private static JsonNode? Redacted(JsonNode? node, Func<string, string> redact)
+    {
+        switch (node)
+        {
+            case JsonObject record:
+                var copy = new JsonObject();
+                foreach (var (key, entry) in record)
+                {
+                    copy[redact(key)] = Redacted(entry, redact);
+                }
+
+                return copy;
+            case JsonArray list:
+                return new JsonArray([.. list.Select(item => Redacted(item, redact))]);
+            case JsonValue value when value.TryGetValue<string>(out var text):
+                return JsonValue.Create(redact(text));
+            default:
+                return node?.DeepClone();
         }
     }
 
