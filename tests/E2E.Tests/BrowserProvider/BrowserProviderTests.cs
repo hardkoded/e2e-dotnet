@@ -7,7 +7,8 @@ using E2E.Engine;
 namespace E2E.Tests.BrowserProvider;
 
 /// <summary>
-/// .NET-only: no upstream <c>it</c> covers these. An engine started without a runner leases for the one attempt it starts (upstream
+/// Ports the <c>it</c>s of <c>browser-provider.test.ts</c> that sit outside any <c>describe</c> (the CDP credentials), beside .NET-only tests that no upstream <c>it</c> covers.
+/// .NET-only: no upstream <c>it</c> covers the others. An engine started without a runner leases for the one attempt it starts (upstream
 /// runs that through <c>standalone.ts</c>, which has no unit test of its own), and <c>LeasedBrowsers.Downloads</c> is read by
 /// the browser fixture's <c>waitForDownload</c> upstream, which the port does not have.
 /// </summary>
@@ -167,6 +168,83 @@ public sealed class BrowserProviderTests
         var downloads = (await WorkerAsync(cloud)).Downloads()!;
         var error = await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
         Assert.Equal("INVALID_STATE", error.Code);
+    }
+
+    [Theory]
+    [InlineData(BrowserProviderScope.Worker)]
+    [InlineData(BrowserProviderScope.Attempt)]
+    public async Task Resolves_CDP_credentials_from_the_worker_environment_in_scope(BrowserProviderScope scope)
+    {
+        var cloud = new ToyCloud(scope)
+        {
+            OnCdpHeaders = (_, context) => Task.FromResult<IReadOnlyDictionary<string, string>?>(new Dictionary<string, string> { ["Authorization"] = context.Env["WORKER_TOKEN"]! }),
+        };
+        var (runner, env) = await Runner.PreparedAsync(cloud, 1);
+        Assert.Empty(cloud.CdpHeadersCalls);
+        Assert.DoesNotContain("worker-secret", System.Text.Json.JsonSerializer.Serialize(env), StringComparison.Ordinal);
+        var dialer = new Dialer();
+        var worker = dialer.Engine(cloud);
+        worker.Init(Runner.InitInfo(0, new Dictionary<string, string?>(env) { ["WORKER_TOKEN"] = "worker-secret" }));
+        await Runner.RunAttemptAsync(worker, "with-headers");
+        var target = Assert.Single(dialer.Targets);
+        Assert.Equal("wss://0.example", target.Endpoint);
+        Assert.Equal(new Dictionary<string, string> { ["Authorization"] = "worker-secret" }, target.Headers);
+        var (lease, request) = Assert.Single(cloud.CdpHeadersCalls);
+        Assert.Equal("lease-0", lease.Id);
+        Assert.Equal("worker-secret", request.Env["WORKER_TOKEN"]);
+        await worker.DisposeAsync();
+        await runner.FinishAsync(Runner.FinishInfo(), None);
+    }
+
+    [Fact]
+    public async Task Accepts_endpoint_and_handshake_headers_together_from_a_connect_resolver()
+    {
+        var target = new CdpTarget { Endpoint = "wss://authenticated.example", Headers = new Dictionary<string, string> { ["Authorization"] = "synthetic-token" } };
+        var dialed = new List<CdpTarget>();
+        var worker = new WebEngine(new WebEngineOptions { Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult(target) } })
+        {
+            CreatePlaywright = AttemptSession.FakeRemote.Playwright,
+            ConnectCdp = (_, connection, _, _) =>
+            {
+                dialed.Add(connection);
+                return Task.FromResult(FakeBrowser.Ordinary().Browser);
+            },
+            RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
+            Clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(),
+        };
+        await Runner.RunAttemptAsync(worker, "a1");
+        Assert.Same(target, Assert.Single(dialed));
+    }
+
+    /// <summary>Partial: upstream probes with the internal <c>guard</c>; the port reconnects inside the next operation, here <c>OpenAsync</c>.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Retains_attempt_CDP_credentials_on_reconnect_dedicated_endpoint_PARTIAL_the_probe_is_an_OpenAsync(bool reconnect)
+    {
+        var headers = new Dictionary<string, string> { ["Authorization"] = "synthetic-reconnect-token" };
+        var cloud = new ToyCloud(BrowserProviderScope.Attempt, reconnect: reconnect)
+        {
+            OnCdpHeaders = (_, _) => Task.FromResult<IReadOnlyDictionary<string, string>?>(headers),
+        };
+
+        // One browser identity: recovery must land on the same persistent context.
+        var dialer = new Dialer(_ => FakeBrowser.Persistent("same-browser"));
+        var (runner, env) = await Runner.PreparedAsync(cloud, 1);
+        var worker = dialer.Engine(cloud);
+        worker.Init(Runner.InitInfo(0, env));
+        var session = await worker.StartAsync(Runner.Attempt("a1"), None);
+        await session.OpenAsync("http://app.test/", None);
+        dialer.Browsers[0].Drop();
+        await session.OpenAsync("http://app.test/", None);
+        var recovered = dialer.Targets[1];
+        Assert.Equal(reconnect ? "wss://0.example/reconnect" : "wss://0.example", recovered.Endpoint);
+        Assert.Equal(headers, recovered.Headers);
+        Assert.Equal(2, cloud.CdpHeadersCalls.Count);
+        Assert.Single(cloud.Acquired);
+        await session.DisposeAsync();
+        await worker.DisposeAsync();
+        await runner.FinishAsync(Runner.FinishInfo(), None);
     }
 
     private static EngineStartOptions Alone(string attemptId) =>

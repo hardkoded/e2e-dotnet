@@ -100,6 +100,30 @@ Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancel
 
 **Returns:** [Task&lt;BrowserLease&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
+<a id="E2E_Engine_IBrowserProvider_CdpHeadersAsync_"></a>
+<a id="E2E_Engine_IBrowserProvider_CdpHeadersAsync_E2E_Engine_BrowserLease_E2E_Engine_BrowserRequest_System_Threading_CancellationToken_"></a>
+
+### CdpHeadersAsync(BrowserLease, BrowserRequest, CancellationToken)
+
+
+```csharp
+Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(BrowserLease lease, BrowserRequest context, CancellationToken cancellationToken)
+```
+
+
+Resolves CDP handshake headers in the worker from its own environment; never serialized with the lease. Null,
+the default, sends none.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `lease` | [BrowserLease](/api/E2E.Engine/BrowserLease/) |  |
+| `context` | [BrowserRequest](/api/E2E.Engine/BrowserRequest/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Engine_IBrowserProvider_RecordAsync_"></a>
 <a id="E2E_Engine_IBrowserProvider_RecordAsync_E2E_Engine_BrowserLease_E2E_Engine_ProviderRecordContext_System_Threading_CancellationToken_"></a>
 

@@ -35,15 +35,16 @@ Attach to a remote Chromium over CDP instead of launching one. Supplying
 
 
 ```csharp
-public required Func<CancellationToken, Task<string>> CdpEndpoint { get; init; }
+public required Func<CancellationToken, Task<CdpTarget>> CdpEndpoint { get; init; }
 ```
 
 
-Resolves the CDP endpoint (a `ws://`, `wss://`, or `http://` DevTools URL).
+Resolves the CDP endpoint (a `ws://`, `wss://`, or `http://` DevTools URL), or a [CdpTarget](/api/E2E.Engine/CdpTarget/)
+that carries the handshake headers it needs with it.
 Called when each attempt starts, so a hosted endpoint provisioned per run can be used.
 With [ReconnectEndpoint](#E2E_Engine_WebConnectOptions_ReconnectEndpoint), each call must provision a fresh, dedicated browser.
 
-**Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;CancellationToken, Task&lt;CdpTarget&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint_"></a>
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint"></a>
@@ -52,7 +53,7 @@ With [ReconnectEndpoint](#E2E_Engine_WebConnectOptions_ReconnectEndpoint), each 
 
 
 ```csharp
-public Func<CancellationToken, Task<string>>? ReconnectEndpoint { get; init; }
+public Func<CancellationToken, Task<CdpTarget>>? ReconnectEndpoint { get; init; }
 ```
 
 
@@ -63,4 +64,4 @@ operation, within its budget. The original browser and page must survive.
 Dispatched operations are never retried. The host owns browser cleanup.
 Context replacement, headers, basicAuth, userAgent, locale, and timezoneId are unavailable in this mode.
 
-**Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+**Value:** [Func&lt;CancellationToken, Task&lt;CdpTarget&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)

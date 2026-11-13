@@ -65,6 +65,12 @@ internal class ToyCloud : IBrowserProvider
     /// <summary>Replaces the answer to <see cref="RecordAsync"/>, which is that the provider does not record.</summary>
     public Func<BrowserLease, ProviderRecordContext, CancellationToken, Task<E2E.Engine.ProviderRecording?>>? OnRecord { get; set; }
 
+    /// <summary>Replaces the answer to <see cref="CdpHeadersAsync"/>, which is that the provider sends no headers.</summary>
+    public Func<BrowserLease, BrowserRequest, Task<IReadOnlyDictionary<string, string>?>>? OnCdpHeaders { get; set; }
+
+    /// <summary>Every lease <see cref="CdpHeadersAsync"/> was asked about, with the request it was handed.</summary>
+    public List<(BrowserLease Lease, BrowserRequest Request)> CdpHeadersCalls { get; } = [];
+
     /// <summary>The ids of what was released, in order.</summary>
     public IEnumerable<string> ReleasedIds => Released.Select(lease => lease.Id);
 
@@ -112,6 +118,12 @@ internal class ToyCloud : IBrowserProvider
 
         Open.Remove(lease.Id);
         return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyDictionary<string, string>?> CdpHeadersAsync(BrowserLease lease, BrowserRequest context, CancellationToken cancellationToken)
+    {
+        CdpHeadersCalls.Add((lease, context));
+        return OnCdpHeaders is { } headers ? headers(lease, context) : Task.FromResult<IReadOnlyDictionary<string, string>?>(null);
     }
 
     public Task<E2E.Engine.ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
@@ -220,6 +232,9 @@ internal sealed class Dialer
 
     public List<string> Endpoints { get; } = [];
 
+    /// <summary>The CDP targets dialed, with the handshake headers each carried.</summary>
+    public List<CdpTarget> Targets { get; } = [];
+
     /// <summary>The endpoints dialed with Playwright's own protocol; <see cref="Endpoints"/> holds the CDP ones.</summary>
     public List<string> PlaywrightEndpoints { get; } = [];
 
@@ -233,7 +248,7 @@ internal sealed class Dialer
         return new WebEngine(new WebEngineOptions { Browser = provider, Viewport = new WebViewport(320, 200), InitScripts = initScripts })
         {
             CreatePlaywright = FakeRemote.Playwright,
-            ConnectCdp = (playwright, endpoint, timeout, cancellationToken) => DialAsync(provider, endpoint),
+            ConnectCdp = (playwright, target, timeout, cancellationToken) => DialAsync(provider, target.Endpoint, target: target),
             RegisterCdpSelectors = (_, _, _) => Task.CompletedTask,
             ConnectPlaywright = (playwright, endpoint, timeout, cancellationToken) =>
             {
@@ -244,11 +259,12 @@ internal sealed class Dialer
         };
     }
 
-    private Task<IBrowser> DialAsync(IBrowserProvider provider, string endpoint, bool record = true)
+    private Task<IBrowser> DialAsync(IBrowserProvider provider, string endpoint, bool record = true, CdpTarget? target = null)
     {
         if (record)
         {
             Endpoints.Add(endpoint);
+            Targets.Add(target ?? endpoint);
         }
 
         if (Failure is { } failure)

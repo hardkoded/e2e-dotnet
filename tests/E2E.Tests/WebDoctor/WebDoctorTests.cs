@@ -10,7 +10,7 @@ namespace E2E.Tests.WebDoctor;
 /// <summary><c>describe('web doctor')</c> of upstream <c>web/tests/unit/doctor.test.ts</c>: the checks of <c>e2e doctor</c> for a web engine.</summary>
 public sealed class WebDoctorTests : IDisposable
 {
-    private static readonly WebConnectOptions Attach = new() { CdpEndpoint = _ => Task.FromResult("http://127.0.0.1:9222") };
+    private static readonly WebConnectOptions Attach = new() { CdpEndpoint = _ => Task.FromResult<CdpTarget>("http://127.0.0.1:9222") };
 
     private readonly string _projectRoot = Directory.CreateTempSubdirectory("e2e-web-doctor-").FullName;
 

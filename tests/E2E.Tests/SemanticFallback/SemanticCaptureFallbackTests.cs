@@ -233,7 +233,7 @@ public sealed class SemanticCaptureFallbackTests
             var engine = new WebEngine(new WebEngineOptions
             {
                 Viewport = new WebViewport(100, 80),
-                Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult("provisioned") },
+                Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("provisioned") },
             })
             {
                 CreatePlaywright = FakeRemote.Playwright,
