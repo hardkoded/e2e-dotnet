@@ -762,7 +762,8 @@ same dictionary. A config file cannot declare one, since a tool is code.
 - `platforms: ["ios", "android"]` offers the tool only on those platforms (`windows` is the Windows app platform).
   Leave it out to offer the tool everywhere.
 - The tool's output is redacted and bounded to 400 lines and 16 KB (16384
-  UTF-8 bytes), whichever comes first. The cut never splits a line, and a
+  UTF-8 bytes), whichever comes first. Text is redacted before it is cut. A
+  tool error or an engine error the model reads is redacted too. The cut never splits a line, and a
   notice at the end says how many lines and bytes were left out, so the model
   can ask for a narrower result. Return less, or let the tool take a filter.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,
