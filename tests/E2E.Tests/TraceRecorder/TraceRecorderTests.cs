@@ -351,6 +351,8 @@ public sealed class TraceRecorderTests
         recorder.Record(new RecordedAction { Kind = "back" });
         recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
         recorder.Record("hoverAt", new PlacedPoint(new Point(10, 20)), new TraceViewport(1280, 720));
+        recorder.Record(new RecordedAction { Kind = "switchTab", Tab = 0 });
+        recorder.Record(new RecordedAction { Kind = "closeTab", Tab = 1 });
         var entry = Finalize(recorder, "/board")!;
 
         var read = RoundTrip(entry);
@@ -369,6 +371,8 @@ public sealed class TraceRecorderTests
                 "navigate back",
                 "resize the viewport to 390x844",
                 "hover over the point (10, 20)",
+                "switch to tab 1",
+                "close tab 2",
             ],
             entry.Actions.Select(action => action.Summary));
         Assert.Equal("uncheck", entry.Actions[5].Kind);
@@ -377,6 +381,8 @@ public sealed class TraceRecorderTests
         Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[10].Point!.Value, read.Actions[10].Viewport));
         Assert.Equal(new TraceViewport(390, 844), read.Actions[9].Size);
         Assert.Equal("resize", entry.Actions[9].Kind);
+        Assert.Equal(("switchTab", "switch to tab 1", 0), (entry.Actions[11].Kind, entry.Actions[11].Summary, entry.Actions[11].Tab));
+        Assert.Equal(("closeTab", "close tab 2", 1), (entry.Actions[12].Kind, entry.Actions[12].Summary, entry.Actions[12].Tab));
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
     }
 
@@ -395,11 +401,11 @@ public sealed class TraceRecorderTests
     }
 
     /// <summary>
-    /// Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the port's <c>check</c> is its own kind with no
+    /// Partial port of "rejects a stored check, upload, drag, resize, tab switch, or tab close that lost a field": the port's <c>check</c> is its own kind with no
     /// <c>checked</c> field, so upstream's <c>checked: 'yes'</c> case is not checked. The rest reads through <see cref="TraceRead.ReadTraceEntry(System.Text.Json.Nodes.JsonNode?)"/>.
     /// </summary>
     [Fact]
-    public void Partial_Rejects_a_stored_check_upload_drag_or_resize_that_lost_a_field()
+    public void Partial_Rejects_a_stored_check_upload_drag_resize_tab_switch_or_tab_close_that_lost_a_field()
     {
         var recorder = MakeRecorder();
         recorder.Record("check", UpgradeButton);
@@ -410,6 +416,8 @@ public sealed class TraceRecorderTests
         drag.Destination = Recorder.DescribeTarget(UpgradeButton, Redactor.None);
         recorder.Record(drag);
         recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
+        recorder.Record(new RecordedAction { Kind = "switchTab", Tab = 1 });
+        recorder.Record(new RecordedAction { Kind = "closeTab", Tab = 1 });
         var entry = Finalize(recorder)!;
         var stored = Stored(entry);
 
@@ -423,6 +431,10 @@ public sealed class TraceRecorderTests
         Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
         Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
         Assert.NotNull(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 }));
+        Assert.Null(ReadPatched(stored, 4, action => action.Remove("tab")));
+        Assert.Null(ReadPatched(stored, 5, action => action["tab"] = -1));
+        Assert.Null(ReadPatched(stored, 4, action => action["tab"] = -1));
+        Assert.Null(ReadPatched(stored, 4, action => action["tab"] = 1.5));
         Assert.Null(ReadPatched(stored, 0, action => action["kind"] = "fly"));
 
         // .NET-only: a field on an action of another kind, and a destination that names nothing, are rejected too.

@@ -10,7 +10,13 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>
-/// The browser the attempt drives, showing one active tab. It needs an engine
+/// The browser the attempt drives, showing one active tab. Navigation, reads, <see cref="Locator(string)"/>, <see cref="FrameLocator(string)"/>,
+/// <see cref="EvaluateAsync{T}(string, CancellationToken)"/>, <see cref="WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/>,
+/// <see cref="WaitForDownloadAsync"/>, the keyboard and mouse, <c>Expect(browser)</c>, and the screen act on the active tab; cookies, routes,
+/// and dialog handlers cover the whole browser, every tab included. A tab the app opens (a <c>target="_blank"</c> link,
+/// <c>window.open</c>) joins <see cref="Tabs"/> but does not become active on its own: <see cref="WaitForPopupAsync"/> makes the tab its trigger
+/// opens active, and <see cref="BrowserTab.ActivateAsync"/> any other. When the active tab closes, the tab that opened it is active again.
+/// It needs an engine
 /// session that implements <see cref="IBrowserSession"/>, such as
 /// <see cref="WebEngine"/>; on any other engine each member fails with
 /// <c>UNSUPPORTED_CAPABILITY</c>.
@@ -48,6 +54,9 @@ public sealed class Browser
         Keyboard = new BrowserKeyboard(this);
         Mouse = new BrowserMouse(this);
     }
+
+    /// <summary>One handle per tab, so the same tab is the same object for the attempt.</summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IAttemptTab, BrowserTab> _tabHandles = new();
 
     /// <summary>Viewport-level keyboard, for whatever has focus.</summary>
     public BrowserKeyboard Keyboard { get; }
@@ -450,6 +459,43 @@ public sealed class Browser
         return downloads;
     }
 
+    /// <summary>The handle a test holds for one of the attempt's tabs.</summary>
+    private BrowserTab TabHandle(IAttemptTab tab) => _tabHandles.GetValue(tab, key => new BrowserTab(this, key));
+
+    /// <summary>Returns the open tabs, in the order they opened.</summary>
+    public IReadOnlyList<BrowserTab> Tabs() => [.. Require("tabs").Tabs().Select(TabHandle)];
+
+    /// <summary>
+    /// Runs <paramref name="trigger"/> and waits for the tab it opens, then returns that tab once it is the active tab, within
+    /// <paramref name="timeout"/> (the action timeout by default; zero waits for the test timeout). The wait takes the first tab the app opens
+    /// after it starts, which can be one an earlier action opened whose page loaded only now. A trigger that throws fails the call with its own
+    /// error, and no tab within the timeout fails with <c>ACTION_FAILED</c>, naming the page when a tab was still loading it.
+    /// </summary>
+    public async Task<BrowserTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        IAttemptTab? opened = null;
+        await RunStepAsync(StepKind.Resource, "browser.waitForPopup", "", async () =>
+        {
+            var session = Require("waitForPopup");
+            var budget = StepBudget(timeout, "browser.waitForPopup");
+            opened = await AppNotOpen.GuardAsync(() => session.WaitForPopupAsync(trigger, budget, Token(cancellationToken))).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        return TabHandle(opened!);
+    }
+
+    /// <summary>Opens a blank tab in the same browser context, sharing its cookies and storage, and makes it the active tab.</summary>
+    public async Task<BrowserTab> NewTabAsync(CancellationToken cancellationToken = default)
+    {
+        IAttemptTab? opened = null;
+        await RunStepAsync(StepKind.Resource, "browser.newTab", "", async () =>
+            opened = await AppNotOpen.GuardAsync(() => Require("newTab").NewTabAsync(Token(cancellationToken))).ConfigureAwait(false)).ConfigureAwait(false);
+        return TabHandle(opened!);
+    }
+
+    /// <summary>Whether <paramref name="tab"/> is the active tab (<see cref="BrowserTab.IsActive"/>).</summary>
+    internal bool IsActiveTab(IAttemptTab tab) => Require("tab.isActive").IsActiveTab(tab);
+
     internal IBrowserSession Require(string operation)
     {
         return EngineSession.Unwrap(_session) as IBrowserSession
@@ -714,6 +760,44 @@ public sealed class WebResponse
     /// <summary>Waits for the body as <see cref="TextAsync"/> does and deserializes it as JSON.</summary>
     public async Task<T?> JsonAsync<T>(CancellationToken cancellationToken = default) =>
         JsonSerializer.Deserialize<T>(await TextAsync(cancellationToken).ConfigureAwait(false), JsonDefaults.Options);
+}
+
+/// <summary>
+/// One tab of the browser the attempt drives: the attempt's own, one the app opened, or one <see cref="Browser.NewTabAsync"/> opened. The same tab
+/// is the same object for the whole attempt.
+/// </summary>
+public sealed class BrowserTab
+{
+    private readonly Browser _browser;
+    private readonly IAttemptTab _tab;
+
+    internal BrowserTab(Browser browser, IAttemptTab tab)
+    {
+        _browser = browser;
+        _tab = tab;
+    }
+
+    /// <summary>Whether this is the active tab, the one the screen, <c>Expect</c>, and the browser's page methods act on.</summary>
+    public bool IsActive => _browser.IsActiveTab(_tab);
+
+    /// <summary>Whether the tab has closed.</summary>
+    public bool IsClosed => _tab.IsClosed;
+
+    /// <summary>Returns the tab's current URL.</summary>
+    public Task<string> UrlAsync(CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "tab.url", "", () => AppNotOpen.GuardAsync(() => _browser.Require("tab.url").TabUrlAsync(_tab, _browser.Token(cancellationToken))));
+
+    /// <summary>Returns the tab's current title.</summary>
+    public Task<string> TitleAsync(CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "tab.title", "", () => AppNotOpen.GuardAsync(() => _browser.Require("tab.title").TabTitleAsync(_tab, _browser.Token(cancellationToken))));
+
+    /// <summary>Makes this the active tab. Fails with <c>ACTION_FAILED</c> when it has closed.</summary>
+    public Task ActivateAsync(CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "tab.activate", "", () => AppNotOpen.GuardAsync(() => _browser.Require("tab.activate").ActivateTabAsync(_tab, _browser.Token(cancellationToken))));
+
+    /// <summary>Closes the tab. When it was the active tab, the tab that opened it becomes active, else the open tab that was active most recently.</summary>
+    public Task CloseAsync(CancellationToken cancellationToken = default) =>
+        _browser.RunStepAsync(StepKind.Resource, "tab.close", "", () => AppNotOpen.GuardAsync(() => _browser.Require("tab.close").CloseTabAsync(_tab, _browser.Token(cancellationToken))));
 }
 
 /// <summary>

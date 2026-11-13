@@ -1,6 +1,6 @@
 ---
 title: "EngineSessionSpec"
-description: "Upstream's session hooks of an engine: opening, navigating back, resizing, restarting, and resetting the app."
+description: "Upstream's session hooks of an engine: opening, navigating back, resizing, switching and closing tabs, restarting, and resetting the app."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed record EngineSessionSpec : IEquatable<EngineSessionSpec>
 ```
 
 
-Upstream's `session` hooks of an engine: opening, navigating back, resizing, restarting, and resetting the app.
+Upstream's `session` hooks of an engine: opening, navigating back, resizing, switching and closing tabs, restarting, and resetting the app.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -41,6 +41,22 @@ public Func<OperationContext, Task>? Back { get; init; }
 
 
 **Value:** [Func&lt;OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
+<a id="E2E_Engine_EngineSessionSpec_CloseTab_"></a>
+<a id="E2E_Engine_EngineSessionSpec_CloseTab"></a>
+
+### CloseTab
+
+
+```csharp
+public Func<int, OperationContext, Task>? CloseTab { get; init; }
+```
+
+
+Closes the open tab at a zero-based index, counted as [SwitchTab](#E2E_Engine_EngineSessionSpec_SwitchTab) counts them. When it was the tab shown, the engine shows
+another, such as the tab that opened it. An index with no open tab, or the last open tab, is an `ACTION_FAILED` the model reads.
+
+**Value:** [Func&lt;int, OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
 <a id="E2E_Engine_EngineSessionSpec_Open_"></a>
 <a id="E2E_Engine_EngineSessionSpec_Open"></a>
@@ -93,3 +109,19 @@ public Func<OperationContext, Task>? Restart { get; init; }
 
 
 **Value:** [Func&lt;OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
+<a id="E2E_Engine_EngineSessionSpec_SwitchTab_"></a>
+<a id="E2E_Engine_EngineSessionSpec_SwitchTab"></a>
+
+### SwitchTab
+
+
+```csharp
+public Func<int, OperationContext, Task>? SwitchTab { get; init; }
+```
+
+
+Shows the open tab at a zero-based index, in the order the tabs opened, as [Tabs](/api/E2E.Engine/EngineSnapshot/#E2E_Engine_EngineSnapshot_Tabs) counts them. An index with
+no open tab is an `ACTION_FAILED` the model reads.
+
+**Value:** [Func&lt;int, OperationContext, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)

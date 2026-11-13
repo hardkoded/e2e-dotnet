@@ -37,6 +37,8 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ["navigate"] = """{ "url": "/about" }""",
         ["back"] = "{}",
         ["resize_viewport"] = """{ "width": 390, "height": 844 }""",
+        ["switch_tab"] = """{ "tab": 2 }""",
+        ["close_tab"] = """{ "tab": 2 }""",
         ["screenshot"] = "{}",
         ["tap_at"] = """{ "x": 10, "y": 20 }""",
         ["hover_at"] = """{ "x": 10, "y": 20 }""",
@@ -48,7 +50,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     };
 
     private const EngineCapabilities Everything = EngineCapabilities.Keyboard | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize
-        | EngineCapabilities.Upload | EngineCapabilities.TapModifiers;
+        | EngineCapabilities.SwitchTab | EngineCapabilities.CloseTab | EngineCapabilities.Upload | EngineCapabilities.TapModifiers;
 
     private static IReadOnlyList<ModelTool> FullGrammar() =>
         AgentTools.GrammarToolDefinitions(Everything, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true);
@@ -142,6 +144,28 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.False(resize.IsValid(Input("""{ "width": 100, "height": 844 }""")));
         Assert.False(resize.IsValid(Input("""{ "width": 390, "height": 5000 }""")));
         Assert.False(resize.IsValid(Input("""{ "width": 390 }""")));
+    }
+
+    [Fact]
+    public void Offers_switch_tab_only_with_the_switchTab_verb_by_a_whole_tab_number_from_1()
+    {
+        Assert.DoesNotContain(OverVerbs(ExecutorVerb.Tap, ExecutorVerb.Back), tool => tool.Name == "switch_tab");
+        var switchTab = OverVerbs(ExecutorVerb.SwitchTab).Single(tool => tool.Name == "switch_tab");
+        ExpectClosed(switchTab, """{ "tab": 2 }""");
+        var schema = SchemaOf(switchTab);
+        Assert.False(schema.IsValid(Input("""{ "tab": 0 }""")));
+        Assert.False(schema.IsValid(Input("""{ "tab": 1.5 }""")));
+    }
+
+    [Fact]
+    public void Offers_close_tab_only_with_the_closeTab_verb_by_a_whole_tab_number_from_1()
+    {
+        Assert.DoesNotContain(OverVerbs(ExecutorVerb.SwitchTab), tool => tool.Name == "close_tab");
+        var closeTab = OverVerbs(ExecutorVerb.CloseTab).Single(tool => tool.Name == "close_tab");
+        ExpectClosed(closeTab, """{ "tab": 2 }""");
+        var schema = SchemaOf(closeTab);
+        Assert.False(schema.IsValid(Input("""{ "tab": 0 }""")));
+        Assert.False(schema.IsValid(Input("""{ "tab": 1.5 }""")));
     }
 
     [Fact]

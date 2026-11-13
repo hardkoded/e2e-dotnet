@@ -54,6 +54,20 @@ public enum EngineCapabilities
     /// <c>resize</c> verb; C# has no optional member to test, so this declares it.
     /// </summary>
     Resize = 4096,
+
+    /// <summary>
+    /// <see cref="IEngineSession.SwitchTabAsync(int, OperationContext, CancellationToken)"/>: the engine shows another open tab, which the
+    /// agent's <c>switch_tab</c> tool needs. .NET-only name for upstream's optional <c>session.switchTab</c>, whose being defined lists the
+    /// <c>switchTab</c> verb; C# has no optional member to test, so this declares it. Report the tabs with <see cref="Observation.Tabs"/>.
+    /// </summary>
+    SwitchTab = 8192,
+
+    /// <summary>
+    /// <see cref="IEngineSession.CloseTabAsync(int, OperationContext, CancellationToken)"/>: the engine closes an open tab, which the agent's
+    /// <c>close_tab</c> tool needs. .NET-only name for upstream's optional <c>session.closeTab</c>, whose being defined lists the
+    /// <c>closeTab</c> verb; C# has no optional member to test, so this declares it.
+    /// </summary>
+    CloseTab = 16384,
 }
 
 /// <summary>
@@ -406,6 +420,21 @@ public interface IEngineSession : IAsyncDisposable
     /// <see cref="EngineCapabilities.Resize"/> implement it. Upstream's <c>session.resize</c>.
     /// </summary>
     Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) => Unsupported("viewport resizing");
+
+    /// <summary>
+    /// Shows the open tab at <paramref name="index"/>, zero-based in the order the tabs opened, as <see cref="Observation.Tabs"/> counts them:
+    /// every observation and action after it reads and acts on that tab. An index with no open tab is an <c>ACTION_FAILED</c> the model
+    /// reads. Engines that declare <see cref="EngineCapabilities.SwitchTab"/> implement it. Upstream's <c>session.switchTab</c>.
+    /// </summary>
+    Task SwitchTabAsync(int index, OperationContext context, CancellationToken cancellationToken) => Unsupported("tab switching");
+
+    /// <summary>
+    /// Closes the open tab at <paramref name="index"/>, counted as <see cref="SwitchTabAsync(int, OperationContext, CancellationToken)"/> counts
+    /// them. When it was the tab shown, the engine shows another, such as the tab that opened it. An index with no open tab, or the last open
+    /// tab, is an <c>ACTION_FAILED</c> the model reads. Engines that declare <see cref="EngineCapabilities.CloseTab"/> implement it.
+    /// Upstream's <c>session.closeTab</c>.
+    /// </summary>
+    Task CloseTabAsync(int index, OperationContext context, CancellationToken cancellationToken) => Unsupported("tab closing");
 
     /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>
     Task RestartAsync(CancellationToken cancellationToken) => Unsupported("app.restart");

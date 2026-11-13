@@ -513,6 +513,42 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             cancellationToken);
     }
 
+    // Upstream's switchTab: shows the open tab numbered `tab` from 1, as the observation counts them.
+    public Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default)
+    {
+        if (tab < 1)
+        {
+            throw new TestException("INVALID_ARGUMENT", "switchTab requires a tab number from 1");
+        }
+
+        return RunAsync(
+            "switchTab",
+            async token =>
+            {
+                await _scope.Session.SwitchTabAsync(tab - 1, _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "switchTab", Tab = tab - 1 }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's closeTab: closes the open tab numbered `tab` from 1, as the observation counts them.
+    public Task CloseTabAsync(int tab, CancellationToken cancellationToken = default)
+    {
+        if (tab < 1)
+        {
+            throw new TestException("INVALID_ARGUMENT", "closeTab requires a tab number from 1");
+        }
+
+        return RunAsync(
+            "closeTab",
+            async token =>
+            {
+                await _scope.Session.CloseTabAsync(tab - 1, _accounting.Operation(OperationContext.Agent, _scope.ActionTimeout), token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "closeTab", Tab = tab - 1 }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
     /// <summary>
     /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.

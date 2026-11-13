@@ -94,6 +94,9 @@ internal sealed record PreparedObservation
     /// </summary>
     public required string Path { get; init; }
 
+    /// <summary>The open tabs when there is more than one, the active one numbered from 1 in opening order (upstream's <c>tabs</c>).</summary>
+    public ExecutorTabs? Tabs { get; init; }
+
     /// <summary>
     /// The redacted route the engine reported, which the cache compares. .NET-only: upstream's <c>path</c> serves, and the port's
     /// engines report a route that is not always a location.
@@ -315,6 +318,7 @@ internal static partial class AgentObservation
                 Kind = PreparedKind.Pixels,
                 Location = location,
                 Path = path,
+                Tabs = TabsOf(observation),
                 Route = options.Redactor.Redact(observation.Route),
                 Revision = observation.Revision,
                 Text = ObservationFeed.UnavailableTreeMarker,
@@ -338,6 +342,7 @@ internal static partial class AgentObservation
             Kind = PreparedKind.Semantic,
             Location = location,
             Path = path,
+            Tabs = TabsOf(observation),
             Route = options.Redactor.Redact(observation.Route),
             Revision = observation.Revision,
             Text = text,
@@ -352,6 +357,10 @@ internal static partial class AgentObservation
             PixelsWithheld = pixels.Withheld,
         };
     }
+
+    /// <summary>The open tabs a look reports, the active one numbered from 1 (upstream's <c>tabs</c> in <c>prepareObservation</c>); null with one tab.</summary>
+    internal static ExecutorTabs? TabsOf(Observation observation) =>
+        observation.Tabs is { } tabs ? new ExecutorTabs(tabs.Count, tabs.Active + 1) : null;
 
     /// <summary>
     /// The path <see cref="PrepareObservation"/> gives a look: <see cref="ObservationPath"/> of its redacted location, else its redacted

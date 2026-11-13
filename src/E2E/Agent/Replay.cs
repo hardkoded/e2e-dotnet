@@ -194,7 +194,7 @@ internal static class Replay
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "resize" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !await ReserveAsync(host).ConfigureAwait(false))
+            if ((action.Kind is "back" or "resize" or "switchTab" or "closeTab" or "scroll" or "scrollUntil" or "press" or "typeText" or "pressKey" or "dismissKeyboard") && !HasTarget(action) && !await ReserveAsync(host).ConfigureAwait(false))
             {
                 return Stop(ReplayHandOffReason.ActionBudget);
             }
@@ -222,6 +222,12 @@ internal static class Replay
                         break;
                     case "resize":
                         await host.Actions.ResizeAsync(action.Size!, token).ConfigureAwait(false);
+                        break;
+                    case "switchTab":
+                        await host.Actions.SwitchTabAsync(action.Tab!.Value + 1, token).ConfigureAwait(false);
+                        break;
+                    case "closeTab":
+                        await host.Actions.CloseTabAsync(action.Tab!.Value + 1, token).ConfigureAwait(false);
                         break;
                     case "press" when !HasTarget(action):
                         // A recording of the key with no node from before pressKey, which replays as pressKey does.

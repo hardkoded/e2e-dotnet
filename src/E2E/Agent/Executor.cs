@@ -274,6 +274,12 @@ public enum ExecutorVerb
 
     /// <summary>Upstream's <c>resize</c>: <see cref="IExecutorActions.ResizeAsync"/>, with an engine that declares <see cref="EngineCapabilities.Resize"/>.</summary>
     Resize,
+
+    /// <summary>Upstream's <c>switchTab</c>: <see cref="IExecutorActions.SwitchTabAsync"/>, with an engine that declares <see cref="EngineCapabilities.SwitchTab"/>.</summary>
+    SwitchTab,
+
+    /// <summary>Upstream's <c>closeTab</c>: <see cref="IExecutorActions.CloseTabAsync"/>, with an engine that declares <see cref="EngineCapabilities.CloseTab"/>.</summary>
+    CloseTab,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -355,6 +361,12 @@ public sealed record ExecutorObservation(string Text)
     /// </summary>
     public string? Path { get; init; }
 
+    /// <summary>
+    /// The open tabs when there is more than one (upstream's <c>tabs</c>): how many, and the one this screen shows, numbered from 1 in the order
+    /// they opened. Null with one tab, and on an engine without tabs.
+    /// </summary>
+    public ExecutorTabs? Tabs { get; init; }
+
     /// <summary>The revision of the capture (<see cref="Observation.Revision"/>), <c>b&lt;n&gt;</c> for the attempt's n-th. Null when the capture carries none. Upstream's <c>revision</c>.</summary>
     public string? Revision { get; init; }
 
@@ -370,6 +382,11 @@ public sealed record ExecutorObservation(string Text)
     /// <summary>The viewport of the capture, which a point on its screenshot is scaled into (upstream's <c>viewport</c>). Set on the listed view only.</summary>
     internal TraceViewport? Viewport { get; init; }
 }
+
+/// <summary>The open tabs of a screen (upstream's <c>ExecutorObservation.tabs</c>), numbered from 1 in the order they opened.</summary>
+/// <param name="Count">How many tabs are open.</param>
+/// <param name="Active">The tab this screen shows, from 1.</param>
+public sealed record ExecutorTabs(int Count, int Active);
 
 /// <summary>
 /// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's id after the <c>#</c> in the text and in
@@ -531,6 +548,22 @@ public interface IExecutorActions
     /// </summary>
     Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) =>
         Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "resize is not supported by this executor context."));
+
+    /// <summary>
+    /// Shows another open tab, numbered from 1 in the order the tabs opened, as <see cref="ExecutorObservation.Tabs"/> counts them. Needs
+    /// <see cref="ExecutorVerb.SwitchTab"/> in <see cref="ExecutorTargetInfo.Verbs"/>. The default refuses with <c>UNSUPPORTED_CAPABILITY</c>
+    /// (.NET-only: it keeps an executor context written before the member compiling; the harness's own actions override it). Upstream's <c>switchTab</c>.
+    /// </summary>
+    Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "switchTab is not supported by this executor context."));
+
+    /// <summary>
+    /// Closes an open tab, numbered as <see cref="SwitchTabAsync"/> counts them. Closing the tab the screen shows shows the tab that opened it,
+    /// else the open tab shown most recently. Needs <see cref="ExecutorVerb.CloseTab"/> in <see cref="ExecutorTargetInfo.Verbs"/>. The default
+    /// refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only, as for <see cref="SwitchTabAsync"/>). Upstream's <c>closeTab</c>.
+    /// </summary>
+    Task CloseTabAsync(int tab, CancellationToken cancellationToken = default) =>
+        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "closeTab is not supported by this executor context."));
 
     /// <summary>
     /// Taps one viewport point, in the CSS pixels of the newest observation (<see cref="SemanticNode.Rect"/> space; a point read off

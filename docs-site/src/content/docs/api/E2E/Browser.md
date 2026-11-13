@@ -1,6 +1,6 @@
 ---
 title: "Browser"
-description: "The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine ea..."
+description: "The browser the attempt drives, showing one active tab. Navigation, reads, Locator(string), FrameLocator(string), EvaluateAsync<T>, WaitForResponseAsync, Wai..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,13 @@ public sealed class Browser
 ```
 
 
-The browser the attempt drives, showing one active tab. It needs an engine
+The browser the attempt drives, showing one active tab. Navigation, reads, [Locator(string)](#E2E_Browser_Locator_System_String_), [FrameLocator(string)](#E2E_Browser_FrameLocator_System_String_),
+`EvaluateAsync&lt;T&gt;`, `WaitForResponseAsync`,
+`WaitForDownloadAsync`, the keyboard and mouse, `Expect(browser)`, and the screen act on the active tab; cookies, routes,
+and dialog handlers cover the whole browser, every tab included. A tab the app opens (a `target="_blank"` link,
+`window.open`) joins [Tabs()](#E2E_Browser_Tabs) but does not become active on its own: `WaitForPopupAsync` makes the tab its trigger
+opens active, and [ActivateAsync(CancellationToken)](/api/E2E/BrowserTab/#E2E_BrowserTab_ActivateAsync_System_Threading_CancellationToken_) any other. When the active tab closes, the tab that opened it is active again.
+It needs an engine
 session that implements [IBrowserSession](/api/E2E.Engine/IBrowserSession/), such as
 [WebEngine](/api/E2E.Engine/WebEngine/); on any other engine each member fails with
 `UNSUPPORTED_CAPABILITY`.
@@ -384,6 +390,27 @@ locator. A selector that captures with `*` before its last part (`*css=article >
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
+<a id="E2E_Browser_NewTabAsync_"></a>
+<a id="E2E_Browser_NewTabAsync_System_Threading_CancellationToken_"></a>
+
+### NewTabAsync(CancellationToken)
+
+
+```csharp
+public Task<BrowserTab> NewTabAsync(CancellationToken cancellationToken = default)
+```
+
+
+Opens a blank tab in the same browser context, sharing its cookies and storage, and makes it the active tab.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;BrowserTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
 <a id="E2E_Browser_OnDialogAsync_"></a>
 <a id="E2E_Browser_OnDialogAsync_E2E_Engine_DialogHandler_System_Threading_CancellationToken_"></a>
 
@@ -550,6 +577,21 @@ Sets the viewport size for the rest of the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Browser_Tabs_"></a>
+<a id="E2E_Browser_Tabs"></a>
+
+### Tabs()
+
+
+```csharp
+public IReadOnlyList<BrowserTab> Tabs()
+```
+
+
+Returns the open tabs, in the order they opened.
+
+**Returns:** [IReadOnlyList&lt;BrowserTab&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
 <a id="E2E_Browser_TitleAsync_"></a>
 <a id="E2E_Browser_TitleAsync_System_Threading_CancellationToken_"></a>
 
@@ -713,6 +755,32 @@ fails the call with its own error.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserDownload&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Browser_WaitForPopupAsync_"></a>
+<a id="E2E_Browser_WaitForPopupAsync_System_Func_System_Threading_Tasks_Task__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForPopupAsync(Func<Task>, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<BrowserTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; and waits for the tab it opens, then returns that tab once it is the active tab, within
+&lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by default; zero waits for the test timeout). The wait takes the first tab the app opens
+after it starts, which can be one an earlier action opened whose page loaded only now. A trigger that throws fails the call with its own
+error, and no tab within the timeout fails with `ACTION_FAILED`, naming the page when a tab was still loading it.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `trigger` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;BrowserTab&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>

@@ -157,6 +157,31 @@ A browser provider or `Connect` takes the `chromium` names; the engine drives `C
 
 Each failure is `INVALID_CONFIG`. Config loading does not run `ValidateApp`: a web target without `app.url` still loads. Attempt start validates `app.permissions` separately, through `WebPermissions.ValidatePermissions`.
 
+## Working with tabs
+
+A tab the app opens, from a `target="_blank"` link or `window.open`, opens in the background. The active tab stays where it was, and `Screen`, `Expect`, and the `Browser` page methods keep acting on it. `Browser.WaitForPopupAsync` makes the tab its trigger opens active. When the active tab closes, the tab that opened it is active again, or the open tab that was active most recently when the opener is gone too.
+
+```csharp
+var popup = await Browser.WaitForPopupAsync(() =>
+    Screen.GetByRole("button", "Open verification tab").TapAsync());
+var code = await Screen.GetByText(new Regex("^TAB-")).TextContentAsync();
+await popup.CloseAsync(); // the opener is active again
+await Screen.GetByRole("textbox", "Verification code").FillAsync(code);
+```
+
+- `WaitForPopupAsync(trigger, timeout?)` runs the trigger and returns the tab it opens once that tab is active. It takes the first tab the app opens after the wait starts, which can be one an earlier action opened whose page loaded only now. Zero waits for the test timeout.
+- `Tabs()` returns the open tabs in the order they opened, the same `BrowserTab` for a tab the whole attempt. A tab joins once its first page loads, so two tabs one action opens are listed in the order their pages load. A tab that never gets a page is never listed: a `target="_blank"` link to a download, to a `mailto:` address, or to a response with no content.
+- `BrowserTab.ActivateAsync()` makes a tab active without closing the others. `BrowserTab.CloseAsync()` closes it, and when it was active, waits until the next one is. `BrowserTab.IsActive` and `IsClosed` say where it stands, and `UrlAsync()` and `TitleAsync()` read it.
+- `NewTabAsync()` opens a blank tab in the same browser context, with the same cookies and storage, and makes it active. Navigate it with `GotoAsync`.
+- A tab whose opener closed before the tab loaded is listed too, on Chromium.
+- The screencast records the active tab, one video segment per change. A tab that closes itself keeps no segment, since its page closes before the recording can be saved. A provider's own recording covers every tab.
+
+| Throws | When |
+| --- | --- |
+| `ACTION_FAILED` | `WaitForPopupAsync`: no tab opened in time. A trigger that returned in time fails with `no tab opened within <n>ms; the trigger resolved after <m>ms`, or with `the tab the app opened did not load <url> within <n>ms` when a tab was still loading its first page. `ActivateAsync`: the tab has closed. |
+
+The agent sees tabs too. The result of the action that opened a tab says `The app opened a new tab (tab 2 of 2). The screen still shows tab 1; use switch_tab to see it.`, and while more than one tab is open every screen header names the tab (`tab 1 of 2`). See [Working with the browser](/features/browser/) for a recovery that keeps them.
+
 ## Downloading files
 
 `Browser.WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the file it starts as `{ Path, AbsolutePath, SuggestedFilename }`. Each file is a `download` artifact of the step. Read it through `AbsolutePath`, which also works with a hosted browser whose provider serves `Downloads`.

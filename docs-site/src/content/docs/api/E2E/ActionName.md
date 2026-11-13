@@ -49,6 +49,20 @@ Check = 10
 
 **Value:** [ActionName](./)
 
+<a id="E2E_ActionName_CloseTab"></a>
+
+### CloseTab
+
+
+```csharp
+CloseTab = 26
+```
+
+
+An open tab closed (`closeTab`).
+
+**Value:** [ActionName](./)
+
 <a id="E2E_ActionName_DismissKeyboard"></a>
 
 ### DismissKeyboard
@@ -244,6 +258,20 @@ SecondaryTap = 3
 Select = 9
 ```
 
+
+**Value:** [ActionName](./)
+
+<a id="E2E_ActionName_SwitchTab"></a>
+
+### SwitchTab
+
+
+```csharp
+SwitchTab = 25
+```
+
+
+Another open tab shown (`switchTab`).
 
 **Value:** [ActionName](./)
 

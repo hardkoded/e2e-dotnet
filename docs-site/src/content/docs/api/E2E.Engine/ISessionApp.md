@@ -46,6 +46,28 @@ Navigates back once.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_ISessionApp_CloseTabAsync_"></a>
+<a id="E2E_Engine_ISessionApp_CloseTabAsync_System_Int32_E2E_Engine_OperationContext_"></a>
+
+### CloseTabAsync(int, OperationContext)
+
+
+```csharp
+Task CloseTabAsync(int index, OperationContext operation)
+```
+
+
+Closes the open tab at a zero-based index, in the order the tabs opened.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `index` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_ISessionApp_OpenAsync_"></a>
 <a id="E2E_Engine_ISessionApp_OpenAsync_System_String_E2E_Engine_OperationContext_"></a>
 
@@ -128,6 +150,28 @@ Recreates the app context without clearing persisted state; shows nothing until 
 
 | Name | Type | Description |
 | --- | --- | --- |
+| `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Engine_ISessionApp_SwitchTabAsync_"></a>
+<a id="E2E_Engine_ISessionApp_SwitchTabAsync_System_Int32_E2E_Engine_OperationContext_"></a>
+
+### SwitchTabAsync(int, OperationContext)
+
+
+```csharp
+Task SwitchTabAsync(int index, OperationContext operation)
+```
+
+
+Shows the open tab at a zero-based index, in the order the tabs opened.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `index` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 | `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

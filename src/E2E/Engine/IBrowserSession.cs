@@ -7,6 +7,16 @@ using System.Text.Json;
 namespace E2E.Engine;
 
 /// <summary>
+/// One tab of the attempt as an engine session hands it out (upstream's <c>AttemptTab</c>). The <see cref="Browser"/> fixture holds it behind a
+/// <see cref="BrowserTab"/>; a session reads and acts on it through <see cref="IBrowserSession"/>.
+/// </summary>
+public interface IAttemptTab
+{
+    /// <summary>Whether the tab has closed.</summary>
+    bool IsClosed { get; }
+}
+
+/// <summary>
 /// The browser-shaped surface an engine session can add on top of
 /// <see cref="IEngineSession"/>. The <see cref="Browser"/> fixture uses it, and
 /// fails with <c>UNSUPPORTED_CAPABILITY</c> when the session does not implement it.
@@ -79,6 +89,44 @@ public interface IBrowserSession : IEngineSession
     /// </summary>
     Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<BrowserDownload>>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownloads is not supported by this engine."));
+
+    /// <summary>The open tabs, in the order they opened (upstream's <c>tabs</c>). A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.</summary>
+    IReadOnlyList<IAttemptTab> Tabs() =>
+        throw new EngineException("UNSUPPORTED_CAPABILITY", "browser.tabs is not supported by this engine.");
+
+    /// <summary>Whether <paramref name="tab"/> is the tab the session shows (<c>BrowserTab.IsActive</c>).</summary>
+    bool IsActiveTab(IAttemptTab tab) => false;
+
+    /// <summary>The URL of a tab (<c>BrowserTab.UrlAsync</c>).</summary>
+    Task<string> TabUrlAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
+        Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "tab.url is not supported by this engine."));
+
+    /// <summary>The title of a tab (<c>BrowserTab.TitleAsync</c>).</summary>
+    Task<string> TabTitleAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
+        Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "tab.title is not supported by this engine."));
+
+    /// <summary>Makes <paramref name="tab"/> the tab the session shows (<c>BrowserTab.ActivateAsync</c>). A closed tab fails with <c>ACTION_FAILED</c>.</summary>
+    Task ActivateTabAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
+        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "tab.activate is not supported by this engine."));
+
+    /// <summary>
+    /// Closes <paramref name="tab"/> (<c>BrowserTab.CloseAsync</c>). When it was the tab shown, the tab that opened it is shown, else the open tab
+    /// shown most recently, before this resolves.
+    /// </summary>
+    Task CloseTabAsync(IAttemptTab tab, CancellationToken cancellationToken) =>
+        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "tab.close is not supported by this engine."));
+
+    /// <summary>Opens a blank tab in the same browser context, sharing its cookies and storage, and shows it (<c>browser.newTab</c>).</summary>
+    Task<IAttemptTab> NewTabAsync(CancellationToken cancellationToken) =>
+        Task.FromException<IAttemptTab>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.newTab is not supported by this engine."));
+
+    /// <summary>
+    /// Runs <paramref name="trigger"/> and waits up to <paramref name="timeout"/> for the tab the app opens, which is shown when this resolves.
+    /// The wait takes the first tab the app opens after it starts. A trigger that throws fails the call with its own error; no tab in time is
+    /// <c>ACTION_FAILED</c>. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task<IAttemptTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException<IAttemptTab>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForPopup is not supported by this engine."));
 
     Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
 

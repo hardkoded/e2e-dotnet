@@ -92,6 +92,8 @@ One attempt's session with the app, disposed at the end of the attempt after `af
 | `SwipeAsync(direction, ct)`, `(direction, momentum, ct)`, `(direction, momentum, context, ct)` | `Scroll` | `perform(root, swipe)` |
 | `BackAsync(ct)`, `BackAsync(context, ct)` | `History` | `session.back` |
 | `ResizeAsync(size, context, ct)` | `Resize` | `session.resize` |
+| `SwitchTabAsync(index, context, ct)` | `SwitchTab` | `session.switchTab` |
+| `CloseTabAsync(index, context, ct)` | `CloseTab` | `session.closeTab` |
 | `RestartAsync(ct)`, `ClearStateAsync(ct)` | | `session.restart`, `session.reset` |
 | `ScreenshotAsync(ct)`, `ScreenshotAsync(timeout, ct)` | `Screenshot` | `observe` pixels for `toHaveScreenshot` |
 | `ScreenshotArtifactAsync(label, ct)`, `(label, timeout, ct)` | | `artifacts.screenshot` |
@@ -148,6 +150,8 @@ public enum OperationOrigin { Test, Agent }
 | `Upload` | `PerformAsync` with `SetInputFiles` | The agent's `upload` tool. .NET-only name. |
 | `State` | `CaptureStateAsync`, `RestoreStateAsync` | Saved sessions. .NET-only name for the optional `state` capability. |
 | `Resize` | `ResizeAsync` | The agent's `resize_viewport`. .NET-only name for the optional `session.resize`. |
+| `SwitchTab` | `SwitchTabAsync` | The agent's `switch_tab`. .NET-only name for the optional `session.switchTab`. Report the tabs with `Observation.Tabs`. |
+| `CloseTab` | `CloseTabAsync` | The agent's `close_tab`. .NET-only name for the optional `session.closeTab`. |
 
 Selection also grades a target by the kind of app it declares: a target with `app.url` has `browser`, and one with `bundleId` or `appPath` has `native-app`.
 
@@ -176,6 +180,8 @@ The agent offers the model only the verbs the engine's declarations unlock. A ve
 | `navigate` | always offered |
 | `back` | `History` |
 | `resize_viewport` | `Resize` |
+| `switch_tab` | `SwitchTab` |
+| `close_tab` | `CloseTab` |
 | `dismiss_keyboard` | `Keyboard` and `CanDismissKeyboard` |
 | `tap_at` | the `tap` kind in `PointerActionKinds`, or the `tap` verb |
 | `hover_at` | `hover` in `PointerActionKinds`, or the `hover` verb |
@@ -347,6 +353,7 @@ void IEngine.ValidateApp(EngineAppDeclaration app, EngineAppCheckInfo info)
 | `Viewport` | `TraceViewport?` | `viewport`. The viewport `SemanticNode.Rect` and `Point` are measured in, in CSS pixels. Null when the engine did not measure it. |
 | `Truncated` | `bool` | `truncated` |
 | `KeyboardVisible` | `bool?` | `keyboardVisible` |
+| `Tabs` | `EngineTabs?` | `tabs`. The tabs the surface has open when it has more than one: `Count`, and the zero-based place of the tab the observation reads, `Active`, in the order the tabs opened. The harness names the tab in every screen header and tells the model when a tab opened or the screen moved to another tab. Null with one tab. |
 | `TreeUnavailable` | `bool` | `treeUnavailable` |
 | `Pixels` | `EngineScreenshot?` | `pixels` and `maskedRegionCount` |
 | `Revision` | `string` | Stamped by the harness as the observation reaches the agent. Leave it empty. |
@@ -432,13 +439,15 @@ Upstream's `validateApp` hook and `EngineAppDeclaration` are not members of `IEn
 
 ### Session steering
 
-Steering hooks behind the universal `App` fixture and the agent's `navigate`, `back`, and `resize_viewport` verbs.
+Steering hooks behind the universal `App` fixture and the agent's `navigate`, `back`, `resize_viewport`, `switch_tab`, and `close_tab` verbs.
 
 | Hook | Behind |
 | --- | --- |
 | `OpenAsync(url, ct)` | `App.OpenAsync()`, the agent's `navigate`, the reopen after `RestartAsync` and `ClearStateAsync`. The URL is resolved against the base URL and the origin policy. |
 | `BackAsync(ct)` | `App.BackAsync()`, the agent's `back`. With no earlier entry it does nothing. |
 | `ResizeAsync(size, context, ct)` | the agent's `resize_viewport`; `size` is a `TraceViewport` in CSS pixels and holds for this page and every page the attempt opens after it. |
+| `SwitchTabAsync(index, context, ct)` | the agent's `switch_tab`; `index` is zero-based in the order the tabs opened, as `Observation.Tabs` counts them. An index with no open tab is `ACTION_FAILED`. |
+| `CloseTabAsync(index, context, ct)` | the agent's `close_tab`; `index` counts as for `SwitchTabAsync`. Closing the tab shown shows another, such as the tab that opened it. An index with no open tab, or the last open tab, is `ACTION_FAILED`. |
 | `RestartAsync(ct)` | `App.RestartAsync()`: recreates the execution context, keeping persisted state. |
 | `ClearStateAsync(ct)` | `App.ClearStateAsync()`: clears persisted client state and recreates the execution context. |
 

@@ -97,6 +97,12 @@ public interface ISessionApp
     /// <summary>Sets the viewport size in CSS pixels.</summary>
     Task ResizeAsync(ViewportSize size, OperationContext operation);
 
+    /// <summary>Shows the open tab at a zero-based index, in the order the tabs opened.</summary>
+    Task SwitchTabAsync(int index, OperationContext operation);
+
+    /// <summary>Closes the open tab at a zero-based index, in the order the tabs opened.</summary>
+    Task CloseTabAsync(int index, OperationContext operation);
+
     /// <summary>Recreates the app context without clearing persisted state; shows nothing until <see cref="OpenAsync"/>.</summary>
     Task RestartAsync(OperationContext operation);
 

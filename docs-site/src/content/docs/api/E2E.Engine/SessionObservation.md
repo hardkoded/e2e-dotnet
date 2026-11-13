@@ -150,6 +150,21 @@ The viewport action reference, valid for this capture.
 
 **Value:** [NodeRef](/api/E2E.Engine/NodeRef/)
 
+<a id="E2E_Engine_SessionObservation_Tabs_"></a>
+<a id="E2E_Engine_SessionObservation_Tabs"></a>
+
+### Tabs
+
+
+```csharp
+public EngineTabs? Tabs { get; init; }
+```
+
+
+The open tabs, when more than one is ([Tabs](/api/E2E.Engine/EngineSnapshot/#E2E_Engine_EngineSnapshot_Tabs)).
+
+**Value:** [EngineTabs](/api/E2E.Engine/EngineTabs/)
+
 <a id="E2E_Engine_SessionObservation_Tree_"></a>
 <a id="E2E_Engine_SessionObservation_Tree"></a>
 

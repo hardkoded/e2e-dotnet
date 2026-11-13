@@ -23,6 +23,9 @@ internal interface IAttemptVideo
 
     Task PageClosingAsync();
 
+    /// <summary>The recorded page closed on its own (a tab the app closed): what its segment wrote is kept, and one that could not flush is dropped, not reported lost.</summary>
+    Task PageClosedAsync();
+
     Task<IReadOnlyList<VideoSegment>> StopAsync(CancellationToken cancellationToken);
 
     /// <summary>Ends a recording the attempt never collected; nothing it recorded is reported.</summary>
@@ -33,7 +36,9 @@ internal interface IAttemptVideo
 /// The attempt's recording on the Playwright surface. A screencast belongs to one page, so a recording is a series of
 /// segments: one per page the attempt shows. <see cref="ArmAsync"/> starts the first segment on the attempt's page; a page
 /// about to close (a restart, a context replaced by a state reset) ends its segment first, since Playwright writes nothing
-/// for a screencast whose page closed under it, and the next page the attempt opens starts the next segment. Each segment
+/// for a screencast whose page closed under it, and the next page the attempt opens starts the next segment. A tab the app
+/// opens starts a segment as it is shown, and the tab it returns to starts another. A tab that closed itself keeps its
+/// segment only if Playwright wrote one, which it usually does not, since the page closed before the screencast could flush. Each segment
 /// is captured at <see cref="WebScreencastOptions.Size"/> when set, else at its page's viewport size when it starts (the
 /// window's under a null viewport, so a page <c>Browser.SetViewportAsync</c> sized is recorded at that size), and carries
 /// the instant it began, so a consumer can place step timestamps on it. The first segment is <c>video/video.webm</c>; later
@@ -90,6 +95,9 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
 
     /// <summary>The recorded page is about to close: its segment ends here, while the page can still flush it.</summary>
     public Task PageClosingAsync() => EndAsync();
+
+    /// <summary>The recorded page already closed: its segment ends, and is dropped without a report when it left no file.</summary>
+    public Task PageClosedAsync() => EndAsync(closed: true);
 
     /// <summary>The attempt closes uncollected: disarmed first, so no late page starts a segment, then the one in progress ends and its file is complete on disk.</summary>
     public Task AbandonAsync(CancellationToken cancellationToken = default)
@@ -162,9 +170,10 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
     /// <summary>
     /// Ends the segment in progress. A stop that failed but left a file keeps the file; one that left nothing (a page
     /// closed before the stop, which Playwright never flushes) lost the segment, which <see cref="StopAsync"/> reports. A
-    /// segment that wrote nothing is not a segment.
+    /// segment that wrote nothing is not a segment. <paramref name="closed"/> is for a page that closed on its own, whose segment
+    /// Playwright never flushes: it is gone, not lost.
     /// </summary>
-    private async Task EndAsync()
+    private async Task EndAsync(bool closed = false)
     {
         var segment = _current;
         if (segment is null)
@@ -173,7 +182,11 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
         }
 
         _current = null;
-        await WaitForFrameAsync(segment, FirstFrameWait).ConfigureAwait(false);
+        if (!closed)
+        {
+            await WaitForFrameAsync(segment, FirstFrameWait).ConfigureAwait(false);
+        }
+
         try
         {
             await segment.Page.Screencast.StopAsync().ConfigureAwait(false);
@@ -182,6 +195,11 @@ internal sealed class VideoRecorder(string artifactsDir, WebScreencastOptions? o
         {
             if (!File.Exists(segment.Absolute))
             {
+                if (closed)
+                {
+                    return;
+                }
+
                 _lost ??= (segment.Relative, cause);
                 return;
             }

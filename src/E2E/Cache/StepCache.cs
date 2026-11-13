@@ -388,6 +388,21 @@ public sealed class RecordedAction
             : Size is null;
 
     /// <summary>
+    /// The open tab a <c>switchTab</c> shows or a <c>closeTab</c> closes, by its zero-based place in the order the tabs opened, replayed as given
+    /// (upstream's <c>tab</c> of a <c>SwitchTabAction</c> and a <c>CloseTabAction</c>). Null on every other action.
+    /// </summary>
+    public int? Tab { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Tab"/> is well formed: a <c>switchTab</c> or <c>closeTab</c> holds a place from zero, and every other action none.
+    /// Upstream's <c>readAction</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidTab() =>
+        Kind is "switchTab" or "closeTab"
+            ? Tab is >= 0
+            : Tab is null;
+
+    /// <summary>
     /// Upstream's <c>destination</c> of a <c>drag</c>: the node the source was dropped on, described like the source with the container it
     /// sat in. A replay re-finds both ends on one screen before it drags. Null on every other action.
     /// </summary>

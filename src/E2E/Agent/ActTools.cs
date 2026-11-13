@@ -24,7 +24,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter screen, bool session = false)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "resize_viewport", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -89,6 +89,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
 
+        // switch_tab and close_tab are tools only where the engine can show and close a tab.
+        if ((call.Name == AgentTools.SwitchTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.SwitchTab))
+            || (call.Name == AgentTools.CloseTabName && !_scope.EngineCapabilities.HasFlag(EngineCapabilities.CloseTab)))
+        {
+            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+        }
+
         // Arguments that are no JSON object (text that did not parse, an array, a bare value) run nothing: a missing key would fall back to a default.
         if (call.Arguments.ValueKind is not (JsonValueKind.Object or JsonValueKind.Undefined or JsonValueKind.Null))
         {
@@ -121,6 +128,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 return await ActingAsync(new ActionLabel("Navigated back.", "back"), () => actions.BackAsync(token), token).ConfigureAwait(false);
             case "resize_viewport":
                 return await ResizeViewportAsync(arguments, actions, token).ConfigureAwait(false);
+            case "switch_tab":
+                return await TabToolAsync(arguments, "switch_tab", "Switched to tab ", tab => actions.SwitchTabAsync(tab, token), token).ConfigureAwait(false);
+            case "close_tab":
+                return await TabToolAsync(arguments, "close_tab", "Closed tab ", tab => actions.CloseTabAsync(tab, token), token).ConfigureAwait(false);
             case "dismiss_keyboard":
                 // The keyboard leaving is the point, so the result does not note it, and an unchanged screen is no sign of a miss.
                 return await ActingAsync(new ActionLabel("Dismissed the keyboard.", "dismiss_keyboard", ExpectChange: false, KeyboardNote: false), () => actions.DismissKeyboardAsync(token), token).ConfigureAwait(false);
@@ -201,6 +212,18 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         var size = width.ToString(CultureInfo.InvariantCulture) + "x" + height.ToString(CultureInfo.InvariantCulture);
         return await ActingAsync(new ActionLabel("Resized the viewport to " + size + ".", "resize_viewport " + size, ExpectChange: false), () => actions.ResizeAsync(new TraceViewport(width, height), token), token).ConfigureAwait(false);
+    }
+
+    // Upstream's switch_tab and close_tab tools: the tab number from 1, and the screen after it as the result.
+    private async Task<ToolOutcome> TabToolAsync(JsonElement arguments, string tool, string done, Func<int, Task> run, CancellationToken token)
+    {
+        if (Args.Int(arguments, "tab") is not { } tab || tab < 1)
+        {
+            return ToolOutcome.Fail(tool + " needs a tab number from 1.");
+        }
+
+        var number = tab.ToString(CultureInfo.InvariantCulture);
+        return await ActingAsync(new ActionLabel(done + number + ".", tool + " " + number), () => run(tab), token).ConfigureAwait(false);
     }
 
     // Upstream's press tool with `times`: each repeat is one recorded action against the budget, as a scroll repeat is. The first press addresses

@@ -61,6 +61,20 @@ Clear = 8
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_CloseTab"></a>
+
+### CloseTab
+
+
+```csharp
+CloseTab = 26
+```
+
+
+Upstream's `closeTab`: `CloseTabAsync`, with an engine that declares [CloseTab](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_CloseTab).
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_DismissKeyboard"></a>
 
 ### DismissKeyboard
@@ -260,6 +274,20 @@ SecondaryTap = 3
 Select = 10
 ```
 
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_SwitchTab"></a>
+
+### SwitchTab
+
+
+```csharp
+SwitchTab = 25
+```
+
+
+Upstream's `switchTab`: `SwitchTabAsync`, with an engine that declares [SwitchTab](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_SwitchTab).
 
 **Value:** [ExecutorVerb](./)
 

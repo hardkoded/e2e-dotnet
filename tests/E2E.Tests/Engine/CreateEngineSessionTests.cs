@@ -235,6 +235,8 @@ public sealed class CreateEngineSessionTests
         Assert.Equal(["back"], VerbsOf(Toy() with { Session = new EngineSessionSpec { Back = _ => Done(), Restart = _ => Done() } }));
         Assert.Empty(VerbsOf(Toy() with { Session = new EngineSessionSpec { Restart = _ => Done() } }));
         Assert.Equal(["resize"], VerbsOf(Toy() with { Session = new EngineSessionSpec { Resize = (_, _) => Done() } }));
+        Assert.Equal(["switchTab"], VerbsOf(Toy() with { Session = new EngineSessionSpec { SwitchTab = (_, _) => Done() } }));
+        Assert.Equal(["closeTab"], VerbsOf(Toy() with { Session = new EngineSessionSpec { CloseTab = (_, _) => Done() } }));
     }
 
     [Fact]

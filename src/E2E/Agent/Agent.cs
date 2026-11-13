@@ -1182,6 +1182,12 @@ public enum ActionName
 
     /// <summary>The viewport set to a size (<c>resize</c>). Last, so no earlier member changes its value.</summary>
     Resize,
+
+    /// <summary>Another open tab shown (<c>switchTab</c>).</summary>
+    SwitchTab,
+
+    /// <summary>An open tab closed (<c>closeTab</c>).</summary>
+    CloseTab,
 }
 
 /// <summary>Who chose an action an <see cref="ActionEvent"/> reports.</summary>

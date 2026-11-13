@@ -88,6 +88,12 @@ internal static class SettlePolicy
 
         // A layout may reflow at the new size or stay as it was, like a scroll.
         ["resize"] = Scrolls,
+
+        // Another tab is another document, shown whole the moment it is switched to.
+        ["switchTab"] = Moves,
+
+        // Closing the tab on screen shows another document, as a switch does.
+        ["closeTab"] = Moves,
         ["pressKey"] = Moves,
         ["dismissKeyboard"] = Moves,
         ["fill"] = Types,

@@ -18,7 +18,7 @@ internal static class TraceRead
     /// <summary>The action kinds this runner records and replays. Upstream's <c>readAction</c> makes any other name a miss.</summary>
     private static readonly HashSet<string> KnownKinds = new(
         ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "scrollTo", "fill", "clear", "press", "select", "check", "uncheck", "upload", "drag",
-            "navigate", "scroll", "scrollUntil", "tapAt", "hoverAt", "dragAt", "back", "resize", "typeText", "pressKey", "dismissKeyboard", "tool"],
+            "navigate", "scroll", "scrollUntil", "tapAt", "hoverAt", "dragAt", "back", "resize", "switchTab", "closeTab", "typeText", "pressKey", "dismissKeyboard", "tool"],
         StringComparer.Ordinal);
 
     /// <summary>Upstream's <c>readTraceEntry</c> over a parsed document: the entry it reads as, or null for a document it cannot read.</summary>
@@ -84,7 +84,8 @@ internal static class TraceRead
         && action.HasValidPoints()
         && action.HasValidKeyboard()
         && action.HasValidDestination()
-        && action.HasValidSize();
+        && action.HasValidSize()
+        && action.HasValidTab();
 
     private static bool HasNull<T>(List<T> items) where T : class => items.Any(item => item is null);
 }

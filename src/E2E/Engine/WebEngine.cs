@@ -369,6 +369,8 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.TapModifiers
         | EngineCapabilities.Video
         | EngineCapabilities.Resize
+        | EngineCapabilities.SwitchTab
+        | EngineCapabilities.CloseTab
         | EngineCapabilities.Upload
         | EngineCapabilities.State;
 
@@ -1333,7 +1335,7 @@ public sealed partial class WebEngine : IEngine
         public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) => GuardAsync("observe", cancellationToken, async () =>
         {
             var budget = Budget("observe", cancellationToken, timeout);
-            return await ObserveInTurnAsync(budget, () => CaptureObservationAsync(options, budget)).ConfigureAwait(false);
+            return await ObserveInTurnAsync(budget, () => ReadingTabAsync(() => CaptureObservationAsync(options, budget), cancellationToken)).ConfigureAwait(false);
         });
 
         /// <summary>
@@ -1366,6 +1368,7 @@ public sealed partial class WebEngine : IEngine
                     {
                         Route = Routes.LocationOf(url),
                         Location = url,
+                        Tabs = TabsReport(),
                         Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(),
                         Truncated = walk.Truncated,
                         ScrollPosition = walk.Scroll,
@@ -1389,6 +1392,7 @@ public sealed partial class WebEngine : IEngine
                     {
                         Route = Routes.LocationOf(url),
                         Location = url,
+                        Tabs = TabsReport(),
                         Roots = [],
                         Truncated = true,
                         TreeUnavailable = true,
@@ -1483,7 +1487,7 @@ public sealed partial class WebEngine : IEngine
             ArgumentNullException.ThrowIfNull(expression);
             try
             {
-                return await GuardAsync("locate", cancellationToken, () => LocateNowAsync(expression, timeout, cancellationToken)).ConfigureAwait(false);
+                return await GuardAsync("locate", cancellationToken, () => ReadingTabAsync(() => LocateNowAsync(expression, timeout, cancellationToken), cancellationToken)).ConfigureAwait(false);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.EngineFailure && ex.InnerException is PlaywrightException cause)
             {
@@ -1726,6 +1730,7 @@ public sealed partial class WebEngine : IEngine
 
             // The lists behind both nodes stay alive until the action ends, whatever observation publishes meanwhile.
             using var keepElement = pin;
+            var shown = Page;
             try
             {
                 if (action is LocatorAction.DragTo drag)
@@ -1739,6 +1744,10 @@ public sealed partial class WebEngine : IEngine
                 }
 
                 await budget.WithinAsync(DispatchAsync(element, action, budget)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex) && WebErrors.DispatchedInput(ex) && TabClosed(shown))
+            {
+                // The input went out and its own tab closed: closing was what it did.
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
             {
@@ -2138,6 +2147,7 @@ public sealed partial class WebEngine : IEngine
             // The old page's nodes are gone with it: refs observed there read as stale, not as a closed target.
             _refs.Clear();
             _page = null;
+            ForgetTabs();
             foreach (var page in context.Pages.ToList())
             {
                 await Within(budget, page.CloseAsync()).ConfigureAwait(false);
@@ -2175,6 +2185,7 @@ public sealed partial class WebEngine : IEngine
             // The old context's nodes are gone with it: refs observed there read as stale, not as a closed target.
             _refs.Clear();
             _page = null;
+            ForgetTabs();
             if (context is not null)
             {
                 await Within(budget, context.CloseAsync()).ConfigureAwait(false);
@@ -2737,6 +2748,7 @@ public sealed partial class WebEngine : IEngine
                 var applied = ApplyMediaAsync(page);
                 _emulated.AddOrUpdate(page, applied);
                 _ = applied.ContinueWith(static task => task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                Orphaned(page);
             };
         }
 
@@ -3055,6 +3067,7 @@ public sealed partial class WebEngine : IEngine
             // Late recovery and page work can only reach this retired session.
             _disposed = true;
             _refs.Clear();
+            ForgetTabs();
             var connected = _lease is not null && _browser.IsConnected;
             await _lifetime.CancelAsync().ConfigureAwait(false);
             try
@@ -3559,6 +3572,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             _page = page;
+            Adopt(page, null, _target).ShownAt = Interlocked.Increment(ref _shownCount);
             return page;
         }
 
@@ -3581,7 +3595,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             _firstPage = false;
-            return await context.NewPageAsync().ConfigureAwait(false);
+            return await CreatePageAsync(context).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -3694,6 +3708,9 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                // A tab change already queued (a tab that closed, one a test showed) lands before the operation reads or acts on one.
+                await SettleTabsAsync(label, cancellationToken).ConfigureAwait(false);
                 var running = _persistent is null ? work() : RunPersistentAsync(label, cancellationToken, work);
                 try
                 {
@@ -3788,6 +3805,7 @@ public sealed partial class WebEngine : IEngine
                 var binding = await AttachWithinAsync(_playwright, _seams, _persistent!.Reconnect, _actionTimeout, started, previous, label, cancellationToken, _lifetime.Token, async candidate =>
                 {
                     await ConfigureAsync(candidate.Context).ConfigureAwait(false);
+                    await RemapTabsAsync(candidate.Context).ConfigureAwait(false);
                     if (candidate.Page is { } page)
                     {
                         page.SetDefaultTimeout(ActionMs);
@@ -3991,7 +4009,8 @@ public sealed partial class WebEngine : IEngine
                 var info = (await session.SendAsync("Target.getTargetInfo").ConfigureAwait(false))!.Value.GetProperty("targetInfo");
                 return new TargetIdentity(
                     info.GetProperty("targetId").GetString()!,
-                    info.TryGetProperty("browserContextId", out var context) ? context.GetString() : null);
+                    info.TryGetProperty("browserContextId", out var context) ? context.GetString() : null,
+                    info.TryGetProperty("openerId", out var opener) ? opener.GetString() : null);
             }
             finally
             {
@@ -4570,7 +4589,7 @@ public sealed partial class WebEngine : IEngine
         }
     }
 
-    private sealed record TargetIdentity(string TargetId, string? BrowserContextId);
+    internal sealed record TargetIdentity(string TargetId, string? BrowserContextId, string? OpenerId = null);
 
     private sealed record SessionBinding(IBrowser Browser, IBrowserContext Context, IPage? Page, string ContextId, TargetIdentity? Target);
 
@@ -5035,6 +5054,12 @@ internal static partial class WebErrors
     {
         return InputCutOff(cause, label) ?? Translate(cause, label);
     }
+
+    /// <summary>
+    /// Whether a failed Playwright action had dispatched its input, read from its call log: in the message for a timeout, and for an
+    /// error such as a page closing under the action (upstream's <c>dispatchedInput</c>).
+    /// </summary>
+    public static bool DispatchedInput(Exception cause) => PostDispatchPattern().IsMatch(Message(cause));
 
     /// <summary>Classifies a failed locator action. A timeout after the input was dispatched may have committed.</summary>
     public static E2EException ClassifyAction(Exception rawCause, LocatorAction action)

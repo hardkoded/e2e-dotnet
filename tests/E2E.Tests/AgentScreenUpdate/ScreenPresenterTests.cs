@@ -27,8 +27,9 @@ public sealed class ScreenPresenterTests
         bool truncated = false,
         bool treeUnavailable = false,
         ExecutorPixels? pixels = null,
-        VisionDegradation? pixelsWithheld = null) =>
-        new(string.Join('\n', lines)) { Revision = revision, Path = path, Truncated = truncated, TreeUnavailable = treeUnavailable, Pixels = pixels, PixelsWithheld = pixelsWithheld, Viewport = new TraceViewport(1280, 720) };
+        VisionDegradation? pixelsWithheld = null,
+        ExecutorTabs? tabs = null) =>
+        new(string.Join('\n', lines)) { Revision = revision, Path = path, Tabs = tabs, Truncated = truncated, TreeUnavailable = treeUnavailable, Pixels = pixels, PixelsWithheld = pixelsWithheld, Viewport = new TraceViewport(1280, 720) };
 
     private static ExecutorPixels Shot(byte value) => new([value], "image/png", 1, 1, 1, 0);
 
@@ -68,6 +69,29 @@ public sealed class ScreenPresenterTests
         var text = presenter.Initial(Screen("b1", Home, "/"));
         Assert.Equal("Current screen (revision b1, path /, 6 nodes):", text.Split('\n')[0]);
         Assert.Contains(" #n3 button \"Increment\"", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Says_a_tab_the_app_opened_stays_in_the_background_then_shows_another_tab_whole_even_when_its_ids_match()
+    {
+        var presenter = new ScreenPresenter();
+        presenter.Initial(Screen("b1", Home, "/"));
+        var opened = presenter.Update(Screen("b2", Home, "/", tabs: new ExecutorTabs(2, 1)), new ScreenUpdateOptions { Lead = "Tapped #n3.", ExpectChange = true });
+
+        // The tab is the tap's effect: no control is blamed for the unchanged screen.
+        Assert.Contains("Tapped #n3.\n\nThe app opened a new tab (tab 2 of 2). The screen still shows tab 1; use switch_tab to see it. Screen unchanged since revision b1", opened, StringComparison.Ordinal);
+        string[] popup = ["#n1 document \"Verification\"", " #n2 text \"Code TAB-88421\""];
+        var switched = presenter.Update(Screen("b3", popup, "/verify", tabs: new ExecutorTabs(2, 2)), new ScreenUpdateOptions { Lead = "Switched to tab 2." });
+        Assert.Contains("The screen shows tab 2 of 2 now. Current screen (revision b3, path /verify, tab 2 of 2, 2 nodes):", switched, StringComparison.Ordinal);
+        Assert.Contains(" #n2 text \"Code TAB-88421\"", switched, StringComparison.Ordinal);
+        Assert.DoesNotContain("changed #n1", switched, StringComparison.Ordinal);
+        var back = presenter.Update(Screen("b4", Home, "/", tabs: new ExecutorTabs(2, 1)), new ScreenUpdateOptions { Lead = "Switched to tab 1." });
+        Assert.Contains("The screen shows tab 1 of 2 now. Current screen (revision b4, path /, tab 1 of 2, 6 nodes):", back, StringComparison.Ordinal);
+        Assert.Contains("Screen unchanged since revision b4", presenter.Update(Screen("b5", Home, "/", tabs: new ExecutorTabs(2, 1))), StringComparison.Ordinal);
+        var two = presenter.Update(Screen("b6", Home, "/", tabs: new ExecutorTabs(4, 1)));
+        Assert.Contains("The app opened 2 new tabs (tabs 3 to 4 of 4). The screen still shows tab 1; use switch_tab to see one.", two, StringComparison.Ordinal);
+        var closed = presenter.Update(Screen("b7", Home, "/"));
+        Assert.Contains("The other tabs closed; the screen shows the one tab still open. Current screen (revision b7, path /, 6 nodes):", closed, StringComparison.Ordinal);
     }
 
     [Fact]

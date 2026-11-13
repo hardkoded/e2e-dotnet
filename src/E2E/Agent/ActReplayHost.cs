@@ -226,6 +226,18 @@ public sealed partial class Agent
             feed.ArmAfter(new RecordedAction { Kind = "resize" });
         }
 
+        public async Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.SwitchTabAsync(tab - 1, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "switchTab" });
+        }
+
+        public async Task CloseTabAsync(int tab, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.CloseTabAsync(tab - 1, budget.Operation(OperationContext.Agent, scope.ActionTimeout), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "closeTab" });
+        }
+
         // A recorded bare point goes to the engine as given and arms the next look; the replay commits the action as recorded. The result's
         // prose is for a model, which a replay has none of.
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)

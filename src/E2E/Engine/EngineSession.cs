@@ -179,6 +179,12 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
         Guard("viewport resizing", cancellationToken, () => _engine.ResizeAsync(size, Stamp(context), cancellationToken));
 
+    public Task SwitchTabAsync(int index, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("tab switching", cancellationToken, () => _engine.SwitchTabAsync(index, Stamp(context), cancellationToken));
+
+    public Task CloseTabAsync(int index, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("tab closing", cancellationToken, () => _engine.CloseTabAsync(index, Stamp(context), cancellationToken));
+
     public Task RestartAsync(CancellationToken cancellationToken) =>
         Guard("app restart", cancellationToken, () => _engine.RestartAsync(cancellationToken));
 

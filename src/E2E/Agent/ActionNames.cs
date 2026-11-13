@@ -27,7 +27,7 @@ internal static class ActionNames
     public static readonly HashSet<string> GrammarToolNames = new(
     [
         "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "type_secret", "press", "select", "check", "scroll",
-        "scroll_to", "drag", "upload", "navigate", "back", "resize_viewport", "screenshot", "tap_at", "hover_at", "drag_at", "type_at",
+        "scroll_to", "drag", "upload", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "screenshot", "tap_at", "hover_at", "drag_at", "type_at",
         "press_at", "select_at", "dismiss_keyboard", "fill", "fill_secret", "uncheck", "clear",
     ], StringComparer.Ordinal);
 }
