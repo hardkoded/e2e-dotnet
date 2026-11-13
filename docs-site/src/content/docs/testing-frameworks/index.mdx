@@ -1,0 +1,94 @@
+---
+title: Testing frameworks
+description: Compare the NUnit, xUnit v3, and TUnit packages, and pick one for your test project.
+sidebar:
+  label: Overview
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+E2E for .NET runs inside your test framework. The framework finds the tests, runs them, and reports the result. E2E adds a base class that starts an engine session for each test and commits the replay cache from the test's result.
+
+Three frameworks are supported: NUnit, xUnit v3, and TUnit. xUnit v2 is not supported, because it cannot read a test's result during cleanup and the replay cache needs that result. The test API is the same in all three: `App`, `Agent`, `Screen`, `Browser`, `Secrets`, `Context`, and the `Expect` and `Credentials` classes. What differs is the attributes, the hooks, and a few rules, listed below.
+
+<CardGrid>
+  <LinkCard title="NUnit" href={`${import.meta.env.BASE_URL}testing-frameworks/nunit/`} description="E2E.NUnit. The default of e2e init." />
+  <LinkCard title="xUnit v3" href={`${import.meta.env.BASE_URL}testing-frameworks/xunit/`} description="E2E.XUnit.V3. On the VSTest runner." />
+  <LinkCard title="TUnit" href={`${import.meta.env.BASE_URL}testing-frameworks/tunit/`} description="E2E.TUnit. On Microsoft.Testing.Platform." />
+</CardGrid>
+
+## Packages
+
+Every project references `E2E` and the adapter of its framework. The mobile and Windows packages hold a ready base class for a device or a desktop test, and they take the place of the web adapter in that project.
+
+| | NUnit | xUnit v3 | TUnit |
+| --- | --- | --- | --- |
+| Web | `E2E.NUnit` | `E2E.XUnit.V3` | `E2E.TUnit` |
+| Mobile | `E2E.Mobile.NUnit` | `E2E.Mobile.XUnit.V3` | `E2E.Mobile.TUnit` |
+| Windows | `E2E.WinApp.NUnit` | `E2E.WinApp.XUnit.V3` | `E2E.WinApp.TUnit` |
+| Base class | `E2E.NUnit.E2ETest` | `E2E.XUnit.V3.E2ETest` | `E2E.TUnit.E2ETest` |
+| Test attribute | `[Test]`, `[TestCase]` | `[Fact]`, `[Theory]` | `[Test]`, `[Arguments]` |
+| Runner | VSTest | VSTest (`xunit.v3.mtp-off`) | Microsoft.Testing.Platform |
+| Project type | Default | `<OutputType>Exe</OutputType>` | `<OutputType>Exe</OutputType>` |
+
+## How a test runs
+
+| | NUnit | xUnit v3 | TUnit |
+| --- | --- | --- | --- |
+| Instance of the class | One per fixture, shared by its tests | One per test | One per test |
+| Session starts | The base class's `[SetUp]` | `InitializeAsync` | A before-test hook |
+| Cache commits | The base class's `[TearDown]` | `DisposeAsync` | An after-test hook |
+| Your setup | Your `[SetUp]` runs after the base class's | Override `InitializeAsync` and call the base first | Your `[Before(Test)]` runs after the session starts |
+| Your cleanup | Your `[TearDown]` runs before the base class's | Override `DisposeAsync` and call the base last, in a `finally` | Your `[After(Test)]` runs before the commit |
+
+In all three, a pass or a skip records the verified steps, a failure evicts the unverified ones, and a cancelled test leaves the cache alone. A check in your cleanup after a failure verifies nothing, so it never lets a step be recorded.
+
+## What differs
+
+| | NUnit | xUnit v3 | TUnit |
+| --- | --- | --- | --- |
+| Retry | `[Retry(n)]`. The first attempt can replay. Later attempts run live and still record. Each `[Repeat]` iteration is a first attempt. | None. Every test is a first attempt. | `[Retry]`. The first attempt can replay. Later attempts run live and still record. |
+| Soft failures | `Expect.Soft` records each failure on the NUnit result. The test fails when it ends, with every failure listed. A soft failure before `Assert.Ignore(...)` fails the test. | The test fails when it is disposed, with every failure in one message. A soft failure before a skip fails the test. | The test fails when its after-test hook runs, in one `ASSERTION_FAILED`. A soft failure before `Skip.Test(...)` fails the test. |
+| `Expect.Poll` | `ToBeAsync`, `ToSatisfyAsync`, and `ToMatchAsync` with any NUnit constraint | `ToBeAsync` and `ToSatisfyAsync` | `ToBeAsync` and `ToSatisfyAsync` |
+| Cancellation | `ToMatchAsync` takes an optional token | The session stops on xUnit's token. Pass `Xunit.TestContext.Current.CancellationToken` to a poll matcher. | The session stops on the test's token. Pass that token to a poll matcher. |
+| Parallelism | The tests of a fixture share one instance, so a fixture that runs its tests in parallel fails at setup unless it has `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. `[Parallelizable(ParallelScope.Fixtures)]` is fine. | No rule beyond xUnit's own. Each test has its own instance and session. | TUnit runs tests in parallel. Put `[NotInParallel]` on a class that must not. |
+| Skip from a body | `Assert.Ignore(reason)` or `Assume.That(...)` | `Assert.Skip(reason)` or `Assert.SkipWhen(condition, reason)` | `Skip.Test(reason)` |
+| Real-model tests | `[Category("RealModel")]` | `[Trait("TestCategory", "RealModel")]` | `[Category("RealModel")]` |
+| Skip them | `--filter "TestCategory!=RealModel"` | `--filter "TestCategory!=RealModel"` | `--treenode-filter "/*/*/*/*[Category!=RealModel]"` |
+
+## Saved sessions
+
+Sign in once, then start other tests signed in. Mark the sign-in test with `[E2ESetup("title", Saves = ["admin"])]` and the tests that need it with `[E2ESession("admin")]`. The attribute and the rules are the same in all three. Only where the setup attribute goes differs: it replaces `[Test]` in NUnit, replaces `[Fact]` in xUnit v3, and goes beside `[Test]` in TUnit, which does not let a library define a test attribute.
+
+A setup test runs before the other tests of its class. NUnit gives it an early `[Order]`, xUnit v3 orders it with a test method orderer that a class's own `[TestMethodOrderer]` replaces, and TUnit gives it `Priority.Critical`. A test that restores a session nobody has saved yet runs the setup first, once per run. See [Authentication](/features/signing-in/) for how a login becomes a session.
+
+## The run fixture
+
+A run fixture stops the app commands your targets declare when the last test ends, calls the `reporters` of `e2e.config.json`, and carries the `Filters`, `ChangedSince`, and `LastFailed` selection from [Test filters](/docs/test-filters/). It also deletes saved sessions when the run ends. Without it, none of that runs, and the app commands stop when the test process exits.
+
+| NUnit | xUnit v3 | TUnit |
+| --- | --- | --- |
+| A `[SetUpFixture]` outside any namespace, derived from the abstract `E2ERunFixture` | `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`, or your own derived class (it is not sealed) | A public class with a public parameterless constructor, derived from `E2ERunFixture`. A test-session hook finds it, so nothing is registered. |
+
+## Run a test
+
+`dotnet test` runs all three. Each page has the filter syntax for its framework, and TUnit needs a one-time opt-in on .NET 10 and later.
+
+## Which one
+
+Use the framework your team already uses. The test API and the replay cache do not change with it. Choose by what you need:
+
+- NUnit, for `[Retry]`, `[Repeat]`, and `TestCase` rows.
+- xUnit v3, when the rest of your solution uses xUnit.
+- TUnit, for parallel tests by default and Microsoft.Testing.Platform.
+
+`e2e init <directory>` scaffolds a project in any of them: `--framework nunit` (the default), `--framework xunit`, or `--framework tunit`.
+
+## Next
+
+<CardGrid>
+  <LinkCard title="NUnit" href={`${import.meta.env.BASE_URL}testing-frameworks/nunit/`} description="Create a project and write a first test." />
+  <LinkCard title="xUnit v3" href={`${import.meta.env.BASE_URL}testing-frameworks/xunit/`} description="Create a project and write a first test." />
+  <LinkCard title="TUnit" href={`${import.meta.env.BASE_URL}testing-frameworks/tunit/`} description="Create a project and write a first test." />
+  <LinkCard title="Platforms" href={`${import.meta.env.BASE_URL}get-started/`} description="Web, mobile, .NET MAUI, and Windows." />
+</CardGrid>

@@ -1,0 +1,233 @@
+---
+title: TUnit
+description: Create a TUnit test project, write a first E2E test, and run it.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+`E2E.TUnit` holds `E2E.TUnit.E2ETest`, a TUnit base class. TUnit builds a new instance of the class for each test. A before-test hook of `E2ETest` starts an engine session, and an after-test hook commits the replay cache from the TUnit result. The tests use the same `App`, `Agent`, `Screen`, and `Expect` as every framework. See [Testing frameworks](/testing-frameworks/) for how TUnit compares with NUnit and xUnit v3.
+
+## Prerequisites
+
+- The .NET 10 or 11 SDK.
+- A model to sign in to, unless the tests never call the agent. See [Before you start](/get-started/#before-you-start).
+- An app to test. The example below runs against the live [Dariten](https://dariten.vercel.app) demo.
+
+## 1. Create the test project
+
+Run `e2e init MyApp.E2ETests --framework tunit` to scaffold the project, an example test, and the config in one step. Or create it by hand:
+
+```bash
+dotnet new console -n MyApp.E2ETests
+cd MyApp.E2ETests
+dotnet add package TUnit
+dotnet add package E2E
+dotnet add package E2E.TUnit
+```
+
+TUnit generates the program's entry point, so delete the `Program.cs` the console template wrote. TUnit runs on Microsoft.Testing.Platform, so the project is an executable:
+
+```xml
+<PropertyGroup>
+  <OutputType>Exe</OutputType>
+  <IsTestProject>true</IsTestProject>
+</PropertyGroup>
+
+<ItemGroup>
+  <Using Include="E2E" />
+</ItemGroup>
+```
+
+`E2E` in the implicit usings means tests need no `using E2E;`.
+
+On the .NET 10 SDK and later, `dotnet test` refuses a Microsoft.Testing.Platform project unless you opt in. Add a `global.json` next to the solution or the project:
+
+```json
+{
+  "test": { "runner": "Microsoft.Testing.Platform" }
+}
+```
+
+Without it, `dotnet test` fails with `Testing with VSTest target is no longer supported by Microsoft.Testing.Platform`. If the folder already has a `global.json`, add the `test` property to it.
+
+## 2. Point at your app
+
+Put `e2e.config.json` next to the `.csproj`. Step 2 of [Web](/get-started/web/#2-point-at-your-app) has the file and the `CopyToOutputDirectory` item. For this example, use the Dariten target:
+
+```json
+{
+  "targets": [{ "name": "dariten", "platform": "web", "app": { "url": "https://dariten.vercel.app" } }],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": {
+    "default": {
+      "provider": "copilot",
+      "model": "claude-sonnet-5.5",
+      "context": "Dariten is a personal finance demo. Never add, edit, or delete data."
+    }
+  },
+  "cache": { "dir": ".e2e/cache" }
+}
+```
+
+## 3. Write a test
+
+Derive from `E2ETest`. Add a file named `DaritenTests.cs`:
+
+```csharp
+using E2E.TUnit;
+
+namespace MyApp.E2ETests;
+
+public sealed class DaritenTests : E2ETest
+{
+    [Test]
+    public async Task The_dashboard_links_to_the_transaction_register()
+    {
+        await App.OpenAsync("/");
+        await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+
+        await Screen.GetByRole("link", "Transactions").ClickAsync();
+
+        await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
+    }
+
+    [Test]
+    [Category("RealModel")]
+    public async Task An_agent_filters_the_register_by_category()
+    {
+        await App.OpenAsync("/transactions");
+
+        await Agent.ActAsync("filter the register to show only the Groceries category");
+
+        await Agent.AssertAsync("every transaction listed is in the Groceries category, or the register says no transactions match");
+        await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
+    }
+}
+```
+
+The first test uses locators only, so it needs no model. The second calls a model, so it carries `[Category("RealModel")]`. Write one class per feature and one test per behavior. The longer version is [`samples/E2E.TUnit.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.TUnit.Sample).
+
+## 4. Run
+
+```bash
+dotnet test
+dotnet test --treenode-filter "/*/*/*/*[Category!=RealModel]"    # skip the model tests
+dotnet test --treenode-filter "/*/*/*/*[Category=RealModel]"     # only the model tests
+```
+
+With the runner opt-in from step 1, give a TUnit option such as `--treenode-filter` to `dotnet test` directly, with no `--` before it. The first run asks the model to perform each `ActAsync`. A passing run records the steps a later check confirmed in `.e2e/cache`, and the next run replays them with no model call. See [Caching and self-healing](/features/caching/).
+
+## 5. TUnit specifics
+
+### Hooks and their order
+
+- Your own `[Before(Test)]` hook runs after the session starts, so `App`, `Agent`, and `Screen` are ready there.
+- Your own `[After(Test)]` hook runs before the session is committed. A check there after a failure verifies nothing.
+- When a test body fails, the app is looked at the moment it fails, before your `[After(Test)]` hook can navigate away, and the evidence goes in the failure.
+- The members are protected properties of the base class: `App`, `Agent`, `Screen`, `Browser`, `Secrets`, and `Context`.
+- Override a property such as `Config`, `BaseUrl`, or `CacheMode` on the class to change one value.
+
+### Attributes
+
+- `[Test]` marks a test. `[Arguments]` and data sources give rows.
+- The default cache title is the class and method name with every argument in full, so each row keeps its own replay. Override `CacheTitle(TestContext)` to change it.
+- `[Retry]`: the first attempt can replay. Later attempts run live and still record.
+- `Skip.Test(reason)` skips a test from inside its body.
+
+### Parallelism
+
+TUnit runs tests in parallel, and each test has its own instance and session. Put `[NotInParallel]` on a class that must not run beside others, such as one with a setup test (see below).
+
+### Cancellation token
+
+The session stops on the test's cancellation token, so calls on `App`, `Screen`, `Agent`, `Browser`, and `Expect.That` need none. `Expect.Poll` matchers do not see the session. Take the token as a parameter of the test and pass it to `ToSatisfyAsync` or `ToBeAsync`, so a cancelled run stops them. Write `TUnit.Core.TestContext` in full, because `using E2E;` brings in `E2E.TestContext` too.
+
+### Soft checks and polls
+
+`Expect.Soft` failures do not stop the body. The test fails when its after-test hook runs, in one `ASSERTION_FAILED` that lists every soft failure. A soft failure before `Skip.Test(...)` fails the test, and the skip reason stays in the message. There is no `ToMatchAsync`: `Expect.Poll` takes a predicate through `ToSatisfyAsync`, or a value through `ToBeAsync`.
+
+```csharp
+[Test]
+public async Task The_count_settles(CancellationToken cancellationToken)
+{
+    await App.OpenAsync("/");
+    await Expect.Soft(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
+    await Expect.Soft(Screen.GetByText("Net worth")).ToBeVisibleAsync();
+
+    await Expect.Poll(() => ReadCountAsync())
+        .ToSatisfyAsync(count => count > 3, cancellationToken: cancellationToken);
+}
+```
+
+`ReadCountAsync` stands for your own method.
+
+### Saved sessions
+
+Sign in once, then start other tests signed in. TUnit does not let a library define a test attribute, so write `[E2ESetup("title", Saves = ["admin"])]` beside `[Test]` on the sign-in test. The title becomes its display name. Its body signs in, checks that it worked, and calls `SaveSessionAsync("admin")` once for each name in `Saves`. Mark a test or a class `[E2ESession("admin")]` to restore it before the body runs.
+
+```csharp
+[NotInParallel]
+public sealed class Dashboard : E2ETest
+{
+    [Test, E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await Expect.That(Browser).ToHaveURLAsync("/dashboard");
+        await SaveSessionAsync("admin");
+    }
+
+    [Test]
+    [E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly()
+    {
+        await App.OpenAsync("/dashboard");
+    }
+}
+```
+
+- A setup test gets the highest execution priority (`Priority.Critical`), so TUnit schedules it before the other tests. A test that restores a session nobody has saved yet runs the setup test that declares it first, once per run, so a dependent can run alone.
+- TUnit runs tests in parallel, so the setup test and a test that restores its session can start at the same moment, and the setup then runs twice. Put `[NotInParallel]` on the class when it must not.
+- Exactly one setup test of the test assembly must declare the name. With none, or with two, the restore fails with `SESSION_UNAVAILABLE`. A name saved twice, a name not in `Saves`, or a name in `Saves` the body never saved fails the setup test with `SESSION_CONTRACT`.
+- A restore leaves no page open, so call `App.OpenAsync` first. A session holds what the browser keeps (cookies, local storage, IndexedDB), not server state.
+- A session lasts one run. It is encrypted with a key held in memory and kept under `.e2e/sessions/<run id>`. The run fixture below deletes it when the run ends.
+
+### The run fixture
+
+A run-level hook stops the app commands your targets declare when the last test ends, calls the `reporters` of `e2e.config.json`, and carries the `Filters`, `ChangedSince`, and `LastFailed` selection. TUnit has no assembly fixture to register, and a hook that a library declares runs in every project that references it. So the hook is opt-in by a class: derive a public, non-abstract class with a public parameterless constructor from `E2ERunFixture`, anywhere in the test project.
+
+```csharp
+using E2E.TUnit;
+
+public sealed class AppCommands : E2ERunFixture;
+```
+
+- A test-session hook creates every such class of the test assembly and starts it before the first test. Another hook finishes it after the last. A project with no such class runs none of it.
+- To leave out the tests a change cannot affect, override `Filters` (and `ChangedSince`, `LastFailed`, `Config`) in the derived class, or set `E2E_CHANGED_SINCE=origin/main`. See [Test filters](/docs/test-filters/).
+- The fixture finds the tests by reflection: every public method of a concrete `E2ETest` with a `[Test]`, not `[Explicit]`. A parameterized method is one test. `Tags` are the `[Category]` values of the method, its class, its enclosing classes, and the assembly. `--treenode-filter` does not narrow what the fixture judges.
+- A test the filters left out ends with `Skip.Test(reason)` before its session starts.
+
+## 6. Mobile and Windows
+
+Install the package for the platform in place of `E2E.TUnit`, and derive from its base class:
+
+```bash
+dotnet add package E2E.Mobile.TUnit      # MobileAppTest, in E2E.Mobile.TUnit
+dotnet add package E2E.WinApp.TUnit      # WinAppTest, in E2E.WinApp.TUnit
+```
+
+Write `[Test]` methods as in step 3. Mark a Windows test class `[NotInParallel]`, so one window is in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
+
+## 7. Next
+
+<CardGrid>
+  <LinkCard title="Web" href={`${import.meta.env.BASE_URL}get-started/web/`} description="The config, the replay cache, and downloads." />
+  <LinkCard title="Test filters" href={`${import.meta.env.BASE_URL}docs/test-filters/`} description="Leave out the tests a change cannot affect." />
+  <LinkCard title="Soft assertions and evidence" href={`${import.meta.env.BASE_URL}features/assertions/`} description="What a failure keeps." />
+  <LinkCard title="NUnit and xUnit v3" href={`${import.meta.env.BASE_URL}testing-frameworks/`} description="How the other frameworks differ." />
+</CardGrid>

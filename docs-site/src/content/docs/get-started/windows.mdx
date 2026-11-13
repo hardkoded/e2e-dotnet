@@ -16,8 +16,10 @@ description: Drive a WinUI, WPF, WinForms, or Win32 app with WinAppEngine.
 ```bash
 dotnet new nunit -n MyApp.E2ETests
 cd MyApp.E2ETests
-dotnet add package E2E.WinApp.NUnit      # or E2E.WinApp.XUnit.V3 or E2E.WinApp.TUnit
+dotnet add package E2E.WinApp.NUnit
 ```
+
+These commands set up NUnit. For [xUnit v3](/testing-frameworks/xunit/) or [TUnit](/testing-frameworks/tunit/), create the project as that page says, then add `E2E.WinApp.XUnit.V3` or `E2E.WinApp.TUnit` in place of `E2E.WinApp.NUnit`. The [NUnit](/testing-frameworks/nunit/) page lists what the NUnit project needs besides the E2E packages: `dotnet add package NUnit` (NUnit 5; the template pins an older one and restore fails with `NU1605` without it) and the project properties.
 
 A test project on plain `net10.0` also needs this, because the UI Automation library ships Windows assets only. Without it, restore fails with `NU1202`. Or target `net10.0-windows`.
 
