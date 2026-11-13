@@ -25,6 +25,15 @@ internal static class PlanAnswers
 public sealed class PlanSchemaTests
 {
     [Fact]
+    public void Accepts_a_skip_only_when_it_offers_one()
+    {
+        var skip = """{ "decision": "skip", "title": "", "instruction": "", "summary": "Only README.md changed; no screen reads it." }""";
+        Assert.False(PlanSchema.SafeParse(skip).Success);
+        Assert.True(PlanSchema.SafeParseSkippable(skip).Success);
+        Assert.False(PlanSchema.SafeParseSkippable("""{ "decision": "skip", "title": "", "instruction": "", "summary": "docs" }""").Success);
+    }
+
+    [Fact]
     public void Accepts_a_step_with_a_title_and_an_instruction_and_a_finish_with_a_summary()
     {
         Assert.True(PlanSchema.SafeParse(PlanAnswers.Step(title: "Cart", instruction: "Add two items and open the cart")).Success);

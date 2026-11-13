@@ -29,6 +29,20 @@ reaches [OnProgress](/api/E2E/ExploreOptions/#E2E_ExploreOptions_OnProgress), an
 
 ## Fields
 
+<a id="E2E_Explore_DefaultChangeGoal"></a>
+
+### DefaultChangeGoal
+
+
+```csharp
+public const string DefaultChangeGoal = "Explore what this change affects and find bugs in it"
+```
+
+
+The goal with [ChangedSince](/api/E2E/ExploreOptions/#E2E_ExploreOptions_ChangedSince) and none given: the change is the scope. Upstream's `DEFAULT_CHANGE_GOAL`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Explore_DefaultGoal"></a>
 
 ### DefaultGoal

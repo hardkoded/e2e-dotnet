@@ -21,7 +21,7 @@ namespace E2E.Tests.Explore;
 /// </summary>
 public sealed class E2eExploreTests
 {
-    private static ExploreModel Model(Func<string, PlanAnswer> plan, Func<LoopCall, ModelResponse> loop) => new(plan, loop);
+    private static ExploreModel Model(Func<string, PlanReply> plan, Func<LoopCall, ModelResponse> loop) => new(plan, loop);
 
     [Fact]
     public async Task Keeps_a_screenshot_per_finding_when_the_model_reports_two_in_one_turn()
@@ -183,6 +183,114 @@ public sealed class E2eExploreTests
 
         // The planner's prompts opened with the goal, the test's title.
         Assert.Contains("Test: Explore the home page and find bugs", model.PlannerCalls.First().Messages[0].Content, StringComparison.Ordinal);
+    }
+
+    /// <summary>A project on its way to a throwaway repository, as upstream's <c>createProject</c> and <c>initRepo</c>: one commit of the README and the ignore file, and a <c>base</c> branch at it.</summary>
+    private static string ChangedProject()
+    {
+        var root = TempRoot();
+        GitRepo.InitRepo(root);
+        GitRepo.CommitFiles(root, new Dictionary<string, string> { ["README.md"] = "app\n", [".gitignore"] = ".e2e/\n" }, "project");
+        GitRepo.RunGit(root, "branch", "--quiet", "base");
+        return root;
+    }
+
+    // Upstream also reads the report: its schema, `run.changes`, and the step labels of the attempt. The port keeps the record in the
+    // outcome, which carries no run, so the labels are read where the record puts a charter: its title and instruction.
+    [Fact]
+    public async Task Partial_Plans_from_the_change_since_changed_since_in_every_calls_context_defaulting_the_goal_to_it_and_records_the_change()
+    {
+        var changed = ChangedProject();
+        try
+        {
+            // Past the report's 8192-character step label: the change must never become one.
+            var files = new Dictionary<string, string> { ["src/counter.tsx"] = "<output>{count}</output>\n" };
+            foreach (var index in Enumerable.Range(0, 20))
+            {
+                files[$"src/page-{index}.tsx"] = string.Concat(Enumerable.Repeat("<p>row</p>\n", 60));
+            }
+
+            GitRepo.CommitFiles(changed, files, "Show the counter value");
+            var plans = 0;
+            var model = Model(
+                _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("The changed counter renders."),
+                _ => ExploreModel.Done("passed", "Looked"));
+            var notices = new List<string>();
+            var outcome = await Explorer.ExploreAsync(Options(changed, model.Model, notices, goal: null, changedSince: "base"));
+
+            var instruction = model.PlannerCalls.First().Messages[0].Content;
+            Assert.Contains("Goal: Explore what this change affects and find bugs in it", instruction, StringComparison.Ordinal);
+            Assert.Contains("Plan from the code change between <change> and </change> in the context.", instruction, StringComparison.Ordinal);
+            Assert.DoesNotContain("<output>{count}</output>", instruction, StringComparison.Ordinal);
+
+            // The planner and the explorer both read the change in their trusted context.
+            Assert.Contains("- Show the counter value", model.PlannerCalls.First().System, StringComparison.Ordinal);
+            Assert.Contains("src/counter.tsx (+1 -0; full patch below)\n@@ -0,0 +1 @@\n+<output>{count}</output>", model.PlannerCalls.First().System, StringComparison.Ordinal);
+            Assert.Contains("src/counter.tsx (+1 -0; full patch below)", model.LoopCalls.Last().System, StringComparison.Ordinal);
+            Assert.Equal(new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "base"), 21), outcome.Explore.Change);
+            Assert.All(outcome.Explore.Steps, step =>
+            {
+                Assert.DoesNotContain("<output>{count}</output>", step.Title + step.Instruction, StringComparison.Ordinal);
+            });
+
+            // No change since the ref: a notice, and the context says so.
+            var unchanged = await Explorer.ExploreAsync(Options(changed, model.Model, notices, goal: null, changedSince: "HEAD"));
+            Assert.Contains("no files changed since HEAD", notices);
+            Assert.Equal("Explore what this change affects and find bugs in it", unchanged.Explore.Goal);
+            Assert.Equal(new ReportExploreChange(GitRepo.RunGit(changed, "rev-parse", "HEAD"), 0), unchanged.Explore.Change);
+            Assert.Contains($"<change>\nNo files changed since {GitRepo.RunGit(changed, "rev-parse", "--short=7", "HEAD")}.\n</change>", model.PlannerCalls.Last().System, StringComparison.Ordinal);
+            var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "no-such-ref")));
+            Assert.Equal("INVALID_CHANGED_SINCE", unknown.Code);
+
+            // A ref that reads as a git option never reaches git.
+            var option = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(changed, model.Model, [], changedSince: "--output=/tmp/x")));
+            Assert.Equal("INVALID_CHANGED_SINCE", option.Code);
+            Assert.Equal("--changed-since must name a git ref, such as origin/main; got \"--output=/tmp/x\"", option.Message);
+        }
+        finally
+        {
+            GitRepo.RemoveRepo(changed);
+        }
+    }
+
+    [Fact]
+    public async Task Passes_when_the_planner_skips_a_change_with_nothing_a_user_can_see_and_offers_no_skip_without_a_change_or_with_a_goal()
+    {
+        var changed = ChangedProject();
+        try
+        {
+            GitRepo.CommitFiles(changed, new Dictionary<string, string> { ["README.md"] = "app, documented\n" }, "Document the app");
+            var model = Model(_ => ExploreModel.Skip("Only README.md changed: documentation, nothing a user sees."), _ => ExploreModel.Done("passed", "Looked"));
+            var skipped = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "base"));
+            Assert.Equal(RunStatus.Passed, skipped.Status);
+            Assert.Equal(0, skipped.ExitCode);
+            Assert.Equal(ReportExploreEnded.Skipped, skipped.Explore.Ended);
+            Assert.Empty(skipped.Explore.Steps);
+            Assert.Empty(skipped.Explore.Findings);
+            Assert.Equal("Only README.md changed: documentation, nothing a user sees.", skipped.Explore.Summary);
+
+            // No file changed and a clean working tree: the skip is offered too.
+            var empty = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "HEAD"));
+            Assert.Equal(ReportExploreEnded.Skipped, empty.Explore.Ended);
+            Assert.Equal(0, empty.Explore.Change!.Files);
+
+            // Without a change, or with a goal someone wrote, the grammar has no skip: the answer is invalid, and the built-in survey runs instead.
+            foreach (var options in new[] { Options(changed, model.Model, []), Options(changed, model.Model, [], goal: "Check the counter", changedSince: "base") })
+            {
+                var explored = await Explorer.ExploreAsync(options);
+                Assert.NotEqual(ReportExploreEnded.Skipped, explored.Explore.Ended);
+                Assert.Equal(["Survey the app"], explored.Explore.Steps.Select(step => step.Title));
+            }
+
+            // A working tree that differs from HEAD: the brief is not whole, so no skip.
+            File.WriteAllText(Path.Combine(changed, "README.md"), "app, edited locally\n");
+            var dirty = await Explorer.ExploreAsync(Options(changed, model.Model, [], goal: null, changedSince: "base"));
+            Assert.NotEqual(ReportExploreEnded.Skipped, dirty.Explore.Ended);
+        }
+        finally
+        {
+            GitRepo.RemoveRepo(changed);
+        }
     }
 
     [Fact]

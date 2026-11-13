@@ -21,14 +21,14 @@ internal sealed record FindingInput(
     string? ObservationRevision = null);
 
 /// <summary>
-/// The record of one exploration: the goal, its budgets, the steps the agent planned and ran, and the findings it reported.
+/// The record of one exploration: the goal, its budgets, the change it plans from, the steps the agent planned and ran, and the findings it reported.
 /// One instance is shared by the planner, the explorer's finding tool, the exploration body, and the progress listeners,
 /// and its snapshot is <see cref="ExploreOutcome.Explore"/>. The state is the report boundary: every free text is bounded
 /// to the report's ceilings here, and nowhere else. A finding's text comes from the model and may echo a secret value, so the
 /// redactor runs over it here, before it reaches the outcome, the report, a progress event, or the next step's parameters. Each change is announced to
 /// the listeners <see cref="Subscribe"/> registered, as <see cref="ExploreProgress"/>.
 /// </summary>
-internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null, Redactor? redactor = null)
+internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null, Redactor? redactor = null, ReportExploreChange? change = null)
 {
     /// <summary>Ceilings the report keeps, as upstream's schema does.</summary>
     public const int MaxTitleChars = 200;
@@ -53,6 +53,9 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
     public string Goal { get; } = goal;
 
     public ExploreBudgets Budgets { get; } = budgets;
+
+    /// <summary>The code change it plans from, with <c>--changed-since</c>.</summary>
+    public ReportExploreChange? Change { get; } = change;
 
     public IReadOnlyList<ReportExploreStep> Steps
     {
@@ -240,7 +243,7 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
     {
         lock (_gate)
         {
-            return new ReportExplore(Goal, Budgets, _ended, [.. _steps], [.. _findings], _summary);
+            return new ReportExplore(Goal, Budgets, _ended, [.. _steps], [.. _findings], _summary, Change);
         }
     }
 

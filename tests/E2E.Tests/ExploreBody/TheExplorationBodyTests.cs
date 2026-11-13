@@ -10,12 +10,15 @@ using State = E2E.ExploreState;
 namespace E2E.Tests.ExploreBody;
 
 /// <summary>An agent that replays a script and records what the body asked. The C# shape of upstream's fixture objects.</summary>
-internal sealed class ScriptedExploreAgent(IEnumerable<PlanAnswer> plans, IEnumerable<ActOutcome>? acts = null) : IExploreAgent
+internal sealed class ScriptedExploreAgent(IEnumerable<object> plans, IEnumerable<ActOutcome>? acts = null) : IExploreAgent
 {
-    private readonly Queue<PlanAnswer> _plans = new(plans);
+    private readonly Queue<object> _plans = new(plans);
     private readonly Queue<ActOutcome> _acts = new(acts ?? []);
 
     public List<string> PlanInstructions { get; } = [];
+
+    /// <summary>Per planner call, whether its grammar offered <c>skip</c>: upstream reads it from the schema the call passed, the port from the answer type it asked for.</summary>
+    public List<bool> SkipOffered { get; } = [];
 
     public List<(string Instruction, TimeSpan? Timeout)> ActCalls { get; } = [];
 
@@ -45,12 +48,18 @@ internal sealed class ScriptedExploreAgent(IEnumerable<PlanAnswer> plans, IEnume
     public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
     {
         PlanInstructions.Add(instruction);
+        SkipOffered.Add(typeof(T) == typeof(SkippablePlanAnswer));
         if (!_plans.TryDequeue(out var answer))
         {
             throw new InvalidOperationException("unscripted planner call " + (PlanInstructions.Count));
         }
 
-        return Task.FromResult((T)(object)answer);
+        return Task.FromResult(answer switch
+        {
+            T asked => asked,
+            PlanAnswer plain when typeof(T) == typeof(SkippablePlanAnswer) => (T)(object)new SkippablePlanAnswer(Enum.Parse<SkippablePlanKind>(plain.Decision.ToString()), plain.Title, plain.Instruction, plain.Summary),
+            _ => throw new InvalidOperationException("the scripted answer " + answer + " is not one the grammar asked for, " + typeof(T).Name + " offers"),
+        });
     }
 }
 
@@ -66,6 +75,9 @@ internal static class PlanScript
     public static PlanAnswer Step(string title, string instruction) => new(PlanKind.Step, title, instruction, "");
 
     public static PlanAnswer Finish(string summary) => new(PlanKind.Finish, "", "", summary);
+
+    /// <summary>The answer that a change has nothing a user can see; only the grammar that offers <c>skip</c> reads it.</summary>
+    public static SkippablePlanAnswer Skip(string summary) => new(SkippablePlanKind.Skip, "", "", summary);
 }
 
 public sealed class TheExplorationBodyTests
@@ -81,8 +93,8 @@ public sealed class TheExplorationBodyTests
             return Task.CompletedTask;
         }), CancellationToken.None);
 
-    private static ExploreBodyOptions Options(State state, bool openApp = true, IReadOnlyDictionary<string, UserCredential>? credentials = null, TimeProvider? time = null) =>
-        new(state, StepTimeout, openApp, credentials, Time: time);
+    private static ExploreBodyOptions Options(State state, bool openApp = true, IReadOnlyDictionary<string, UserCredential>? credentials = null, TimeProvider? time = null, PlanChange? change = null) =>
+        new(state, StepTimeout, openApp, credentials, Time: time, Change: change);
 
     private static AgentException Blocked(string code, string message) => new(code, message, blocked: true);
 
@@ -266,6 +278,72 @@ public sealed class TheExplorationBodyTests
         Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
         Assert.True(error.Blocked);
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
+    }
+
+    [Fact]
+    public async Task Ends_skipped_and_passes_when_the_planner_skips_a_change_shown_in_full()
+    {
+        var state = new State("goal", Budgets);
+        var agent = new ScriptedExploreAgent([PlanScript.Skip("Only README.md changed: documentation.")]);
+
+        await RunAsync(Options(state, change: new PlanChange(true)), agent);
+
+        Assert.Equal([true], agent.SkipOffered);
+        Assert.Contains("- \"skip\": only when no changed file can change what a user sees or does", agent.PlanInstructions[0], StringComparison.Ordinal);
+        Assert.Empty(state.Steps);
+        Assert.Equal(ReportExploreEnded.Skipped, state.Ended);
+        Assert.Equal("Only README.md changed: documentation.", state.Summary);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Does_not_offer_the_skip_for_a_change_the_brief_does_not_show_in_full_or_a_run_with_no_change(bool hasChange)
+    {
+        var agent = new ScriptedExploreAgent([PlanScript.Finish("Nothing to explore here at all.")]);
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(new State("goal", Budgets), change: hasChange ? new PlanChange(false) : null), agent));
+
+        Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
+        Assert.True(error.Blocked);
+        Assert.Equal([false], agent.SkipOffered);
+        Assert.DoesNotContain("\"skip\"", agent.PlanInstructions[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Offers_the_skip_only_before_the_first_step()
+    {
+        var agent = new ScriptedExploreAgent(
+            [PlanScript.Step("Cart", "Open the cart"), PlanScript.Finish("The cart works as the change intends.")],
+            [ActOutcome.Passed("Opened")]);
+
+        await RunAsync(Options(new State("goal", Budgets), change: new PlanChange(true)), agent);
+
+        Assert.Equal([true, false], agent.SkipOffered);
+    }
+
+    [Fact]
+    public async Task Does_not_offer_the_skip_when_the_run_must_finish_before_its_first_step()
+    {
+        var state = new State("goal", new ExploreBudgets(4, TimeSpan.FromMilliseconds(100_000)));
+        var agent = new ScriptedExploreAgent([PlanScript.Finish("No time was left to explore.")]);
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state, change: new PlanChange(true)), agent));
+
+        Assert.True(error.Blocked);
+        Assert.Equal([false], agent.SkipOffered);
+        Assert.Equal(ReportExploreEnded.Time, state.Ended);
+    }
+
+    [Fact]
+    public async Task Stays_blocked_when_the_planner_finishes_a_change_run_before_its_first_step()
+    {
+        var agent = new ScriptedExploreAgent([PlanScript.Finish("The app shows an error page; nothing is reachable.")]);
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(new State("goal", Budgets), change: new PlanChange(true)), agent));
+
+        Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
+        Assert.True(error.Blocked);
     }
 
     [Fact]

@@ -82,7 +82,8 @@ internal static class ReportSerializer
                     (string?)finding["path"],
                     (string?)finding["artifactId"],
                     (string?)finding["observationRevision"]))],
-                (string?)node["summary"]);
+                (string?)node["summary"],
+                node["change"] is { } change ? new ReportExploreChange((string)change["base"]!, (int)change["files"]!) : null);
         }
 
         public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) => throw new NotSupportedException();

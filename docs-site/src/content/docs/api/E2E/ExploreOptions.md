@@ -74,6 +74,23 @@ Upstream's `--ai-trace`: records every model call to `ai-trace-<process id>.json
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_ExploreOptions_ChangedSince_"></a>
+<a id="E2E_ExploreOptions_ChangedSince"></a>
+
+### ChangedSince
+
+
+```csharp
+public string? ChangedSince { get; init; }
+```
+
+
+A git ref, such as `origin/main`, to explore the change since: the planner reads what differs from the merge base of the ref and
+HEAD, and plans its charters from it. With no [Goal](#E2E_ExploreOptions_Goal), the goal is [DefaultChangeGoal](/api/E2E/Explore/#E2E_Explore_DefaultChangeGoal). An empty ref,
+one starting with `-`, or one git cannot measure from is `INVALID_CHANGED_SINCE`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_ExploreOptions_ConfigPath_"></a>
 <a id="E2E_ExploreOptions_ConfigPath"></a>
 

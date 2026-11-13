@@ -30,6 +30,7 @@ internal static partial class ExploreCommand
           --config <path>   config file (default: the nearest e2e.config.json)
           --target <id>     the target to explore (default: the config's target)
           --agent <name>    the configured agent to explore with (default: agents.default)
+          --changed-since <ref>  explore the change since the merge base of this git ref, such as origin/main
 
         Budgets:
           --max-steps <n>   exploration steps at most, {STEPS} (default: {STEPS_DEFAULT})
@@ -54,10 +55,11 @@ internal static partial class ExploreCommand
           e2e explore "Explore the checkout flow like a first-time buyer and report anything off"
           e2e explore --target web --max-steps 4 --headed
           e2e explore --agent ux "Review onboarding as a first-time user"
+          e2e explore --changed-since origin/main
           e2e explore "Hunt for broken forms and dead links" --video
 
         Exit codes:
-          0    the exploration ran and reported no issue (warnings do not count)
+          0    the exploration ran and reported no issue (warnings do not count), or --changed-since found nothing a user can see
           1    at least one issue was reported, or nothing could be explored
           2    CLI, config, or agent policy error
           3    engine, app process, or model provider failure
@@ -65,7 +67,7 @@ internal static partial class ExploreCommand
         """;
 
     /// <summary>The flags that take a value.</summary>
-    private static readonly HashSet<string> ValueFlags = new(["--config", "--target", "--agent", "--max-steps", "--timeout", "--output"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ValueFlags = new(["--config", "--target", "--agent", "--changed-since", "--max-steps", "--timeout", "--output"], StringComparer.Ordinal);
 
     /// <summary>Upstream flags the port has no feature for, and that change what the run means: they are refused.</summary>
     private static readonly HashSet<string> RefusedFlags = new(["--session", "--reporter"], StringComparer.Ordinal);
@@ -153,6 +155,7 @@ internal static partial class ExploreCommand
             ConfigPath = parsed.Config,
             Target = parsed.Target,
             Agent = parsed.Agent,
+            ChangedSince = parsed.ChangedSince,
             MaxSteps = parsed.MaxSteps,
             Timeout = parsed.Timeout,
             Headed = parsed.Headed,
@@ -413,6 +416,9 @@ internal static partial class ExploreCommand
             case "--agent":
                 result.Agent = value;
                 return null;
+            case "--changed-since":
+                result.ChangedSince = value;
+                return null;
             case "--output":
                 result.Output = value;
                 return null;
@@ -446,6 +452,7 @@ internal static partial class ExploreCommand
         "--config" => "<path>",
         "--target" => "<id>",
         "--agent" => "<name>",
+        "--changed-since" => "<ref>",
         "--max-steps" => "<n>",
         "--timeout" => "<ms>",
         _ => "<dir>",
@@ -464,6 +471,8 @@ internal static partial class ExploreCommand
         public string? Target { get; set; }
 
         public string? Agent { get; set; }
+
+        public string? ChangedSince { get; set; }
 
         public int? MaxSteps { get; set; }
 

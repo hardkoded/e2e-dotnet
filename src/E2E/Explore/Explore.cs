@@ -40,6 +40,13 @@ public sealed class ExploreOptions
     /// </summary>
     public string? Session { get; init; }
 
+    /// <summary>
+    /// A git ref, such as <c>origin/main</c>, to explore the change since: the planner reads what differs from the merge base of the ref and
+    /// HEAD, and plans its charters from it. With no <see cref="Goal"/>, the goal is <see cref="Explore.DefaultChangeGoal"/>. An empty ref,
+    /// one starting with <c>-</c>, or one git cannot measure from is <c>INVALID_CHANGED_SINCE</c>.
+    /// </summary>
+    public string? ChangedSince { get; init; }
+
     /// <summary>Exploration steps, <see cref="Explore.StepBounds"/>.</summary>
     public int? MaxSteps { get; init; }
 
@@ -139,6 +146,9 @@ public static class Explore
     /// <summary>The goal when none is given.</summary>
     public const string DefaultGoal = "Explore the app and find bugs";
 
+    /// <summary>The goal with <see cref="ExploreOptions.ChangedSince"/> and none given: the change is the scope. Upstream's <c>DEFAULT_CHANGE_GOAL</c>.</summary>
+    public const string DefaultChangeGoal = "Explore what this change affects and find bugs in it";
+
     /// <summary>
     /// The virtual file of the exploration's test: it joins the goal in the result id and leads the result's directory, and
     /// it makes the exploration a test, so every prompt opens with <c>Test: &lt;goal&gt;</c>. Upstream's <c>EXPLORE_FILE</c>.
@@ -181,7 +191,8 @@ public static class Explore
     {
         ArgumentNullException.ThrowIfNull(options);
         var notice = options.Notice ?? (static _ => { });
-        var goal = ResolveGoal(options.Goal);
+        var givenGoal = ValidGoal(options.Goal);
+        Changes.ValidateChangedSince(options.ChangedSince);
         var budgets = new ExploreBudgets(
             ResolveBounded(options.MaxSteps, StepBounds, "maxSteps", value => value),
             ResolveBounded(options.Timeout, TimeoutBounds, "timeout", value => (int)value.TotalMilliseconds));
@@ -191,6 +202,10 @@ public static class Explore
         var target = PickTarget(config.Targets, options.Target, notice);
         var credentials = NormalizeCredentials(ConfiguredAccounts(config, options.Credentials));
         CheckCredentialInventory(credentials);
+        var secrets = config.AllSecrets.Concat(credentials.Values.Select(credential => credential.Password)).ToList();
+        var redactor = Redactor.For(secrets);
+        var change = await ExploreChangeAsync(options.ChangedSince, projectRoot, redactor, notice, cancellationToken).ConfigureAwait(false);
+        var goal = givenGoal ?? (change is null ? DefaultGoal : DefaultChangeGoal);
 
         // An exploration runs as exactly one agent: the one named, else `default`.
         var entries = config.Agents.ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
@@ -210,9 +225,7 @@ public static class Explore
             notice("exploring with agent \"" + agentName + "\"");
         }
 
-        var secrets = config.AllSecrets.Concat(credentials.Values.Select(credential => credential.Password)).ToList();
-        var redactor = Redactor.For(secrets);
-        var state = new ExploreState(RedactGoal(goal, redactor), budgets, redactor: redactor);
+        var state = new ExploreState(RedactGoal(goal, redactor), budgets, redactor: redactor, change: change?.Report);
         if (options.OnProgress is { } listener)
         {
             state.Subscribe(listener);
@@ -222,7 +235,7 @@ public static class Explore
         state.Subscribe(progress => RunEvents.Emit(new ExploreEvent(progress)));
 
         var resolved = ResolvedAgent.From(agentName, entry);
-        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)), options.Session);
+        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)), options.Session, change?.Brief);
         var resolvedExplorer = ResolvedAgent.From(agentName, explorer);
 
         // Every exploration step calls the model, a custom executor's included, since the built-in agent replaces it: no model is a
@@ -323,7 +336,9 @@ public static class Explore
                 target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
                 credentials,
                 string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName,
-                Session: options.Session));
+                Session: options.Session,
+                // A goal someone wrote asks for exploration: only the default one may be skipped.
+                Change: change is null ? null : new PlanChange(change.Brief.Complete && givenGoal is null)));
             try
             {
                 await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
@@ -423,12 +438,40 @@ public static class Explore
         return E2EConfig.Load(path);
     }
 
-    private static string ResolveGoal(string? goal)
+    /// <summary>
+    /// The change <paramref name="changedSince"/> names, read before anything starts, so a ref git cannot measure from fails as a bad flag
+    /// does. Every text git gives is redacted of the config's secrets, fragments included, before the brief cuts it. No change since the
+    /// base is a notice; the brief says so. Upstream's <c>exploreChange</c> (<c>explore/index.ts</c>).
+    /// </summary>
+    private static async Task<ExploreChange?> ExploreChangeAsync(string? changedSince, string projectRoot, Redactor redactor, Action<string> notice, CancellationToken cancellationToken)
+    {
+        if (changedSince is null)
+        {
+            return null;
+        }
+
+        var change = await ExploreChanges.ReadExploreChangeAsync(new ReadExploreChangeOptions
+        {
+            Cwd = projectRoot,
+            ChangedSince = changedSince,
+            CancellationToken = cancellationToken,
+            Redact = redactor.RedactFragments,
+        }).ConfigureAwait(false);
+        if (change.Report.Files == 0)
+        {
+            notice("no files changed since " + changedSince);
+        }
+
+        return change;
+    }
+
+    /// <summary>The goal given, trimmed, or null when none was; one past <see cref="MaxGoalChars"/> is <c>INVALID_CONFIG</c>.</summary>
+    private static string? ValidGoal(string? goal)
     {
         var trimmed = goal?.Trim() ?? "";
         if (trimmed.Length == 0)
         {
-            return DefaultGoal;
+            return null;
         }
 
         return trimmed.Length > MaxGoalChars
@@ -494,12 +537,20 @@ public static class Explore
     /// The explorer's agent with per-step budgets that default higher than a scripted step's, a charter being longer. An agent that
     /// left a budget out has set none, whatever number it would default to.
     /// </summary>
-    internal static AgentOptions WithStepBudgets(AgentOptions explorer, string? session = null) => new()
+    internal static AgentOptions WithStepBudgets(AgentOptions explorer, string? session = null, ChangeBrief? change = null) => new()
     {
         Model = explorer.Model,
         Judge = explorer.Judge,
         System = explorer.System,
-        Context = session is null ? explorer.Context : string.Join('\n', new[] { explorer.Context, ExplorePlan.SignedInContext(session) }.Where(part => !string.IsNullOrWhiteSpace(part))),
+
+        // The change rides in the trusted context, never in a step's label: the planner reads it, the explorer judges against it, and the
+        // report and the trace page never copy it.
+        Context = session is null && change is null
+            ? explorer.Context
+            : string.Join(
+                '\n',
+                new[] { explorer.Context, session is null ? null : ExplorePlan.SignedInContext(session), change is null ? null : ExploreChanges.ChangeContext(change.Text) }
+                    .Where(part => !string.IsNullOrWhiteSpace(part))),
         MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
         MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
         JudgmentTimeout = explorer.JudgmentTimeout,

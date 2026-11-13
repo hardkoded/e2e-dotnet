@@ -38,6 +38,10 @@ internal sealed record ExploreFixtures(IExploreAgent Agent, Func<CancellationTok
 /// <param name="Agent">The agent the steps and the planner run as. Null is <c>default</c>.</param>
 /// <param name="Time">The clock. Defaults to the system's.</param>
 /// <param name="Session">The saved session the attempt restored, which the planner is told it starts signed in with.</param>
+/// <param name="Change">
+/// The code change the run explores (<c>--changed-since</c>), which the planner plans from; <see cref="PlanChange.Skippable"/> when the
+/// context shows the whole change and the goal is the default one, the one case the planner may skip it.
+/// </param>
 internal sealed record ExploreBodyOptions(
     ExploreState State,
     TimeSpan StepTimeout,
@@ -45,14 +49,16 @@ internal sealed record ExploreBodyOptions(
     IReadOnlyDictionary<string, UserCredential>? Credentials = null,
     string? Agent = null,
     TimeProvider? Time = null,
-    string? Session = null);
+    string? Session = null,
+    PlanChange? Change = null);
 
 /// <summary>
 /// The exploration body: the test <see cref="Explore"/> runs. A loop of ordinary <c>ActAsync</c> steps, one per charter the planner
 /// writes, under the exploration's own budgets. The outcome policy is the one TesterArmy's discovery runs settled on: a step that
 /// ends at its budget is a time-boxed charter and not a failure; a failed step is a finding and the run goes on; three failed or
 /// blocked steps in a row, the step cap, or the clock end the run with a closing assessment; findings of kind <c>issue</c> fail
-/// the run; a run that explored nothing and found nothing, or whose charters were all blocked, stays blocked.
+/// the run; a run that explored nothing and found nothing, or whose charters were all blocked, stays blocked. A change the planner
+/// skips, with nothing a user can see, ends <see cref="ReportExploreEnded.Skipped"/> and passes.
 /// </summary>
 internal static class ExploreBody
 {
@@ -110,6 +116,7 @@ internal static class ExploreBody
                 credentials,
                 options.Agent,
                 options.Session,
+                options.Change,
                 options.StepTimeout,
                 () => deadline - time.GetUtcNow());
             var ending = await RunStepsAsync(loop, cancellationToken).ConfigureAwait(false);
@@ -129,6 +136,7 @@ internal static class ExploreBody
         IReadOnlyDictionary<string, UserCredential> Credentials,
         string? AgentName,
         string? Session,
+        PlanChange? Change,
         TimeSpan StepTimeout,
         Func<TimeSpan> Remaining);
 
@@ -164,7 +172,8 @@ internal static class ExploreBody
                         loop.Accounts,
                         stop?.Reason,
                         loop.AgentName,
-                        loop.Session),
+                        loop.Session,
+                        loop.Change is null ? null : new PlanChange(loop.Change.Skippable && state.Steps.Count == 0 && stop is null)),
                     cancellationToken).ConfigureAwait(false);
                 plannerFailures = 0;
             }
@@ -192,6 +201,11 @@ internal static class ExploreBody
             if (plan is PlanDecision.Finish finish)
             {
                 return new Ending(stop?.Ended ?? ReportExploreEnded.Finished, finish.Summary);
+            }
+
+            if (plan is PlanDecision.Skip skip)
+            {
+                return new Ending(ReportExploreEnded.Skipped, skip.Summary);
             }
 
             // Asked to finish, the model planned a step anyway: the budget wins.
@@ -299,9 +313,14 @@ internal static class ExploreBody
         return cause.Code == "CANCELLED" || cause.Blocked ? ReportExploreStepStatus.Blocked : ReportExploreStepStatus.Failed;
     }
 
-    /// <summary>Turns the record into the run's verdict.</summary>
+    /// <summary>Turns the record into the run's verdict: a skipped change passes.</summary>
     private static void Conclude(ExploreState state)
     {
+        if (state.Ended == ReportExploreEnded.Skipped)
+        {
+            return;
+        }
+
         var steps = state.Steps;
         if (steps.Count == 0 && state.Findings.Count == 0)
         {

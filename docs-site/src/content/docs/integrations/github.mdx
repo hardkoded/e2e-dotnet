@@ -91,7 +91,7 @@ Or set `key` in the options of the config entry:
 
 ## Explorations
 
-An `e2e explore` run posts a comment of its own, under a marker with `kind=explore`, so a job can run the tests and then explore. Give the exploration its own `--output`, and upload that directory too. Otherwise it replaces the test run's results, and the evidence links in the test run's comment break.
+An `e2e explore` run posts a comment of its own, under a marker with `kind=explore`, so a job can run the tests and then explore. Give the exploration its own `--output`, and upload that directory too. Otherwise it replaces the test run's results, and the evidence links in the test run's comment break. To explore only what a pull request changed, add `--changed-since origin/${{ github.base_ref }}` and check out with `fetch-depth: 0`; a change no user can see ends `skipped`, the run passes, and the comment headline reads `nothing to explore`. Run it on `pull_request`, never `pull_request_target`.
 
 ## When nothing is posted
 

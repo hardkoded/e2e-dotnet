@@ -137,6 +137,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [RecordingOptions](/api/E2E/RecordingOptions/) | How StartRecordingAsync names its file (upstream's RecordingOptions). |
 | [ReplayedPrefix](/api/E2E/ReplayedPrefix/) | Upstream's ReplayedPrefix: the mid-step hand-off from a diverged cache replay. The replayed actions already ran against the live app under the same budgets and recording as the executor's own. The executor continues the step from the current state and does not redo them. |
 | [ReportExplore](/api/E2E/ReportExplore/) | What an exploration was asked, did, and found: upstream's run.explore block of the report. |
+| [ReportExploreChange](/api/E2E/ReportExploreChange/) | The change since --changed-since an exploration planned from, by counts. |
 | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) | One finding Explore recorded through its report_finding tool. |
 | [ReportExploreStep](/api/E2E/ReportExploreStep/) | One exploration step: a charter the agent planned and then executed as an ActAsync step. |
 | [ResolvedCredential](/api/E2E/ResolvedCredential/) | One config.credentials entry, resolved (upstream's ResolvedCredential, config/resolve.ts): an account whose password is the secret {name}.password. |
