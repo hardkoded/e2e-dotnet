@@ -1,0 +1,197 @@
+---
+title: "v0.11.0"
+description: "E2E for .NET v0.11.0: TUnit adapters for web, mobile, and Windows, exploring assertions that scroll, Screen.DoubleTapAtAsync, and headers scoped to the app origin."
+sidebar:
+  label: "v0.11.0"
+---
+
+_Released November 13, 2026_
+
+v0.11.0 brings 17 pull requests, two days after v0.10.0. Highlights:
+
+- TUnit adapters for web, mobile, and Windows.
+- `e2e init --framework tunit`.
+- `AssertAsync` with `Explore = true` scrolls to gather evidence.
+- `Screen.DoubleTapAtAsync`.
+- `Headers` and `BasicAuth` stay on the app's origin. `CredentialOrigins` adds more.
+
+```bash
+dotnet add package E2E --version 0.11.0
+dotnet add package E2E.TUnit --version 0.11.0   # or E2E.NUnit / E2E.XUnit.V3
+dotnet tool update --global E2E.Cli
+```
+
+> ⚠️ This release has breaking changes. See [Breaking changes](#breaking-changes) before you upgrade.
+
+## TUnit (#1597)
+
+Three packages, twins of the xUnit v3 adapters. Each targets `net10.0` and `net11.0`. A test uses the same `App`, `Agent`, `Screen`, `Browser`, `Secrets`, `Context`, `Expect`, and `Credentials` as NUnit and xUnit v3. TUnit builds one instance per test. A before-test hook starts the engine session, and an after-test hook commits the replay cache from the TUnit result: a pass or a skip records the verified steps, a failure evicts the unverified ones, and a cancelled test leaves the cache alone.
+
+| Package | Base class | Drives |
+| --- | --- | --- |
+| `E2E.TUnit` | `E2E.TUnit.E2ETest` | Web |
+| `E2E.Mobile.TUnit` | `MobileAppTest` | iOS and Android |
+| `E2E.WinApp.TUnit` | `WinAppTest` | Windows |
+
+`E2E.WinApp.TUnit` repeats the Windows asset fallbacks the other WinApp packages added in v0.10.0: `net10.0-windows7.0` and `net11.0-windows7.0`, with `NU1701` in `NoWarn`.
+
+[Testing frameworks](/testing-frameworks/) compares the three. [TUnit](/testing-frameworks/tunit/) is the getting-started page (#1598). The sample is [`samples/E2E.TUnit.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/v0.11.0/samples/E2E.TUnit.Sample).
+
+### Create a project
+
+```bash
+e2e init MyApp.E2ETests --framework tunit
+```
+
+The scaffold writes an executable test project on `net10.0`, an example test, and `e2e.config.json`. It pins `TUnit` `1.83.8`. `--engine` is `web` or `mobile`. There is no Windows preset: write a Windows project by hand and follow the [Windows guide](/get-started/windows/). To run the tests on .NET 11, retarget the way [v0.10.0](/releases/v0-10-0/#target-it) describes. The scaffold stays on `net10.0`.
+
+By hand, start from a console project, delete the `Program.cs` the template wrote (TUnit generates the entry point), and set the project properties:
+
+```xml
+<PropertyGroup>
+  <OutputType>Exe</OutputType>
+  <IsTestProject>true</IsTestProject>
+</PropertyGroup>
+```
+
+TUnit runs on Microsoft.Testing.Platform. On the .NET 10 SDK and later, `dotnet test` refuses that project unless a `global.json` next to the solution or the project opts in:
+
+```json
+{
+  "test": { "runner": "Microsoft.Testing.Platform" }
+}
+```
+
+Without it, `dotnet test` fails with `Testing with VSTest target is no longer supported by Microsoft.Testing.Platform`, and `dotnet run` is the command that runs the suite. With the opt-in, a TUnit option such as `--treenode-filter` goes to `dotnet test` directly, with no `--` before it. If the folder already has a `global.json`, add the `test` property to it.
+
+`E2E.Cli` stays on `net10.0` and sets no `RollForward`. The machine that runs `e2e` needs the .NET 10 runtime. A .NET 11 SDK does not include it.
+
+### Write a test
+
+Derive from `E2ETest` and mark the method `[Test]`:
+
+```csharp
+using E2E.TUnit;
+
+public sealed class SignupTests : E2ETest
+{
+    [Test]
+    public async Task The_home_page_opens()
+    {
+        await App.OpenAsync("/");
+        await Expect.That(Screen.GetByRole("heading", "Welcome")).ToBeVisibleAsync();
+    }
+}
+```
+
+### Setup and parallelism
+
+`[E2ESetup]` goes beside `[Test]`. TUnit does not let a library define a test attribute, so the setup attribute cannot take the place of `[Test]` the way it does on NUnit and xUnit v3. The title becomes the test's display name. TUnit runs tests in parallel, so a setup test and a test that restores its session can start together, and the setup then runs twice. Put `[NotInParallel]` on a class that has a setup test.
+
+```csharp
+[NotInParallel]
+public sealed class Dashboard : E2ETest
+{
+    [Test, E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await SaveSessionAsync("admin");
+    }
+
+    [Test]
+    [E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly()
+    {
+        await App.OpenAsync("/dashboard");
+    }
+}
+```
+
+### The run fixture
+
+The run fixture is opt-in. Derive a public class with a public parameterless constructor from `E2ERunFixture`, anywhere in the test project. A test-session hook finds it, starts it before the first test, and finishes it after the last: the app commands stop, the reporters run, and saved sessions are deleted. A project with no such class runs none of that.
+
+```csharp
+using E2E.TUnit;
+
+public sealed class AppCommands : E2ERunFixture;
+```
+
+### Mobile and Windows
+
+`MobileAppTest` installs the build and launches the app. It leases a hosted device inside `CreateEngine`, because TUnit runs the base class's before-test hook, which creates the engine, before a derived hook. `WinAppTest` launches the desktop app in its own before-test hook, after the session has started. Neither adapter offers the session to `SessionHandover`, the same as xUnit v3, so `e2e mcp`'s `open_session {test}` stays the NUnit path. [Coding agents](/coding-agents/)
+
+## Other features
+
+### Exploring assertions
+
+`AssertOptions.Explore` lets `AssertAsync` look around by scrolling before it judges (#1572). It defaults to false. The step offers `observe`, `scroll`, `scroll_to`, and project tools declared read-only. It offers `screenshot` when `Vision` is not `VisionMode.Off`. It does not tap, type, or navigate. It calls the agent's `model`, even when the config sets a `judge` (#1576). A custom executor still runs the step. An ordinary `AssertAsync` still uses the judge.
+
+`MaxSteps` defaults to the smaller of 10 and the configured `MaxSteps`. `MaxModelCalls` defaults to the smaller of 6 and the configured `MaxModelCalls`. Either property can only lower that limit, and setting one without `Explore = true` is `INVALID_ARGUMENT` (`assert budgets require Explore = true`). `Timeout` defaults to the judgment timeout, 30 seconds. When the time, the action budget, or the model-call budget runs out before the evidence is enough, the step fails `ASSERTION_INCONCLUSIVE`.
+
+```csharp
+await Agent.AssertAsync(
+    "the ledger lists a row for every month of the year",
+    new AssertOptions { Explore = true });
+```
+
+### Double-tap a point
+
+`Screen.DoubleTapAtAsync(Point, ActionOptions?)` double-taps a viewport point, in CSS pixels or the device's points, with no node behind it (#1587). The engine has to declare the `doubleTap` pointer action. The web engine sends a primary-button double click. Mobile and Windows declare the action too. A point that is not finite, or is negative, is `INVALID_ARGUMENT`. `Locator.DoubleTapAsync` is still the double-tap on a node.
+
+```csharp
+await Screen.DoubleTapAtAsync(new Point(420, 280));
+```
+
+## Fixes and improvements
+
+- The replay cache drops an anchor whose text cannot repeat (a clock, a date, a minted id, a bare number) when either side of the step's delta has a stable anchor. A count such as `3 records imported` is dropped only from a side that has a stable anchor of its own. With no stable anchor on either side, the volatile anchors stay. An alert keeps its text and is compared with those parts read as one placeholder each (#1589). [Caching and self-healing](/features/caching/)
+- On mobile, a node whose centre sits under the soft keyboard is hidden, the way a node scrolled off screen is. The keyboard's own keys, suggestion bar, and dock stay visible, and so does the focused field. A tap that agent-device refuses because a cover or the keyboard is over the target, with nothing sent, fails `NOT_ACTIONABLE` and names the cover. A locator reports that failure as `ACTION_FAILED` (#1588). [Visibility](/get-started/mobile/#visibility)
+- `MobileTools.UnstableDeviceSession(params MobileEngine[] engines)` returns the running attempt's `RawDeviceSession`, the same object as `Device.UnstableRaw`, for a custom tool. Pass every device engine the config declares. Outside an attempt, or with several attempts running in one worker, it throws `INVALID_STATE` (#1592). The [photo picker](/get-started/mobile/#photos-for-a-picker-test) guide shows how a test adds a photo with `Device.UnstableRaw` before `App.OpenAsync()` (#1596).
+- A checkbox or radio with no box is listed for the agent only when a label of its own draws it. A label that is a link or another control, or that holds one anywhere inside it, does not count, so a click on the label cannot land on that control. Locators still treat the control as hidden (#1571). [Checkboxes and radios under their label](/get-started/web/#checkboxes-and-radios-under-their-label)
+- `e2e mcp` tells the agent to read the writing-tests guide before it writes or edits a test: the resource `e2e://guide/writing-tests`, or `e2e guide writing-tests` in a shell. The server instructions and every `open_session` result carry the line (#1591). [Coding agents](/coding-agents/)
+- Docs: the [Testing frameworks](/testing-frameworks/) section, with a page each for NUnit, xUnit v3, and TUnit (#1598). One test class per feature, one test per behavior, arranged then acted then asserted, on [Web](/get-started/web/) (#1594). Mobile [device choice and the per-device prepare timing line](/get-started/mobile/#4-run) (#1566). An app in another language through [launch arguments](/get-started/mobile/#run-the-app-in-another-language) (#1593). `MobileOptions.SettleMilliseconds` waits after an agent's action and after `Device.BackAsync`; a test's own steps do not settle, and `Expect` checks them. `SetBiometricsAsync` takes `faceid` and `touchid` on an iOS simulator, and `fingerprint` on an Android emulator or a phone that exposes `cmd fingerprint`. `EnrollBiometricsAsync` is the simulator's Face ID or Touch ID, and is `UNSUPPORTED_CAPABILITY` on Android or a physical iOS device (#1595). [Face ID and fingerprint](/examples/biometrics/)
+
+## Breaking changes
+
+`WebEngineOptions.Headers` and `BasicAuth` apply only to the app's origin, the scheme, host, and port of the target's `app.url`, and to origins listed in `CredentialOrigins` (#1590). A request that starts at any other origin no longer gets them.
+
+In v0.10.0, `Headers` went on every request to the app's host, on any port and on either `http` or `https`. `BasicAuth` answered a `401` from any origin. A request to another port on that host, which used to carry the headers, and a challenge from any other host, which used to receive basic auth, now go without them. Playwright keeps a request's headers through its redirects, so a redirect that starts at the app still carries them to the next host.
+
+`CredentialOrigins` holds exact origins, such as `https://api.example.com`. It requires headers or basic auth. Without either, config load fails `INVALID_CONFIG`: `web({ CredentialOrigins }) requires headers or basicAuth: it lists more origins that receive them`. Headers or basic auth with no app origin fail when the session starts, also `INVALID_CONFIG`: `web({ headers, basicAuth }) needs the app's origin: declare the target's app.url`.
+
+WebKit cannot scope a basic-auth credential to an origin on its scheme's default port (80 or 443), or to an origin with an IPv6 host. When any origin in the set is one of those, WebKit answers every origin's challenge. Headers stay scoped to the origins.
+
+Before, the host received the header and every origin could receive basic auth:
+
+```csharp
+protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
+{
+    Headers = new Dictionary<string, string> { ["X-Preview"] = "1" },
+    BasicAuth = new WebBasicAuth("preview", "secret"),
+});
+```
+
+After, both stay on the app's origin. Name each extra origin:
+
+```csharp
+protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
+{
+    Headers = new Dictionary<string, string> { ["X-Preview"] = "1" },
+    BasicAuth = new WebBasicAuth("preview", "secret"),
+    CredentialOrigins = ["https://api.example.com"],
+});
+```
+
+## Links
+
+- [GitHub release](https://github.com/hardkoded/e2e-dotnet/releases/tag/v0.11.0)
+- [Full changelog: v0.10.0...v0.11.0](https://github.com/hardkoded/e2e-dotnet/compare/v0.10.0...v0.11.0)
+- [TUnit getting started](/testing-frameworks/tunit/)
+- [NuGet: E2E](https://www.nuget.org/packages/E2E)
+- [NuGet: E2E.TUnit](https://www.nuget.org/packages/E2E.TUnit)
