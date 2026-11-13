@@ -200,6 +200,25 @@ public sealed class CdpSessionRecoveryTests
     }
 
     [Fact]
+    public async Task Keeps_a_tab_the_app_opened_in_the_background_across_a_reconnect()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, Fixed(remote));
+        var browser = new Browser(session, "web", app.Url, Directory.GetCurrentDirectory(), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(1), () => None, () => { }, new SoftFailures());
+        await browser.EvaluateAsync<object>($"void window.open({JsonSerializer.Serialize(app.Url + "login")}, '_blank')");
+        await PollAsync(() => Task.FromResult<string?>(browser.Tabs().Count.ToString(System.Globalization.CultureInfo.InvariantCulture)), "2");
+        var tabs = browser.Tabs();
+        var (own, background) = (tabs[0], tabs[1]);
+        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+        await session.ObserveAsync(None);
+        Assert.Equal([own, background], browser.Tabs());
+        Assert.True(own.IsActive);
+        await background.ActivateAsync();
+        Assert.Equal(app.Url + "login", await browser.UrlAsync());
+    }
+
+    [Fact]
     public async Task Bounds_a_hung_reconnect_resolver_and_propagates_cancellation_to_it()
     {
         using var app = await FixtureApp.StartAsync();

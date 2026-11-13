@@ -33,7 +33,7 @@ public sealed partial class AppLogTests
         """;
 
     private const string Moving = """
-        <!doctype html><html><body><h1>Moving</h1><button onclick="window.open('/tab', '_blank')">Help</button><script>
+        <!doctype html><html><body><h1>Moving</h1><button onclick="this.textContent = 'Counted'">Count</button><script>
           const frame = document.createElement('iframe');
           frame.name = 'pay';
           frame.src = '/embed';
@@ -43,7 +43,9 @@ public sealed partial class AppLogTests
         """;
 
     /// <summary>The pages a navigation lands on, each naming its own path; served from here, never from the request.</summary>
-    private static readonly Dictionary<string, string> Landings = new[] { "/next", "/tab", "/embed" }.ToDictionary(landing => landing, landing => $"<!doctype html><h1>{landing}</h1>");
+    private static readonly Dictionary<string, string> Landings = new[] { "/next", "/tab", "/embed" }.ToDictionary(
+        landing => landing,
+        landing => $"<!doctype html><h1>{landing}</h1>{(landing == "/next" ? "<button onclick=\"window.open('/tab', '_blank')\">Help</button>" : "")}");
 
     private static Task<TinySite> StartSiteAsync() => TinySite.StartAsync(async context =>
     {
@@ -120,17 +122,22 @@ public sealed partial class AppLogTests
 
         // The screen is the trace's, never published: a ref from the observation acts after it, twice.
         var observed = await session.ObserveAsync(CancellationToken.None);
-        var help = observed.Roots.SelectMany(Flatten).First(node => node.Role == "button");
-        await session.PerformAsync(help, new LocatorAction.Tap(), CancellationToken.None);
-        await session.PerformAsync(help, new LocatorAction.Tap(), CancellationToken.None);
+        var count = observed.Roots.SelectMany(Flatten).First(node => node.Role == "button");
+        await session.PerformAsync(count, new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(count, new LocatorAction.Tap(), CancellationToken.None);
         Assert.Equal(3, screens.Count);
 
         await WaitUntilAsync(() => went.Contains($"navigated to {url}/next"));
         Assert.Contains($"navigated to {url}/next", went);
+        var help = (await session.ObserveAsync(CancellationToken.None)).Roots.SelectMany(Flatten).First(node => node.Role == "button");
+        await session.PerformAsync(help, new LocatorAction.Tap(), CancellationToken.None);
+        await WaitUntilAsync(() => went.Contains($"the app opened a new tab at {url}/tab"));
+        Assert.Contains($"the app opened a new tab at {url}/tab", went);
         Assert.Contains($"frame \"pay\" loaded {url}/embed", went);
-        Assert.Contains($"the app opened a new tab at {url}/tab; the test stays on its page", went);
         Assert.DoesNotContain(went, line => line.Contains("/moving", StringComparison.Ordinal));
-        Assert.DoesNotContain(went, line => line.StartsWith("the new tab navigated", StringComparison.Ordinal));
+
+        // The tab's first document is told by its opening.
+        Assert.DoesNotContain(went, line => line.Contains("navigated to", StringComparison.Ordinal) && line.EndsWith("/tab", StringComparison.Ordinal));
         await WaitUntilAsync(() => !facts.IsEmpty);
         var told = Assert.Single(facts);
         Assert.Matches(ChromiumVersion(), told["browser"]);

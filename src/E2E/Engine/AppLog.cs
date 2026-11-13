@@ -10,7 +10,7 @@ namespace E2E.Engine;
 /// <summary>Where the app log tells where the page went, and what it asks the engine to tell its navigations from the app's (upstream's <c>NavigationLog</c>).</summary>
 /// <param name="Navigated">Takes one line saying where the page went.</param>
 /// <param name="OwnNavigation">Whether a navigation of the test's page to the URL is one the engine started, which its step already tells.</param>
-/// <param name="TestPage">The page the test drives; every other page is a tab the app opened.</param>
+/// <param name="TestPage">The tab the attempt shows; every other page is a tab in the background.</param>
 internal sealed record NavigationLog(Action<string> Navigated, Func<string, bool> OwnNavigation, Func<IPage?> TestPage);
 
 /// <summary>
@@ -88,30 +88,61 @@ internal static class AppLog
             }
         };
 
+        // The URL each tab the app opened was told at, which its first navigation commits and need not tell again.
+        var announced = new System.Runtime.CompilerServices.ConditionalWeakTable<IPage, string>();
+
+        // Tabs the app opened with no document yet, told once one commits; a download leaves its tab so for good.
+        var unannounced = new System.Runtime.CompilerServices.ConditionalWeakTable<IPage, object>();
+
+        void Opened(string url)
+        {
+            var at = NoPlace.Contains(url) ? "" : " at " + url;
+            Went("the app opened a new tab" + at);
+        }
+
         void Watch(IPage page)
         {
-            // A tab's first document is told by its opening.
-            var opened = false;
             page.FrameNavigated += (_, frame) =>
             {
-                var tab = !ReferenceEquals(page, navigation.TestPage());
-                if (tab && ReferenceEquals(frame, page.MainFrame) && !opened && !NoPlace.Contains(frame.Url))
+                if (ReferenceEquals(frame, page.MainFrame) && unannounced.TryGetValue(page, out _))
                 {
-                    opened = true;
+                    if (page.Url.Length == 0)
+                    {
+                        return;
+                    }
+
+                    unannounced.Remove(page);
+                    Opened(page.Url);
                     return;
                 }
 
-                if (NavigationLine(page, frame, tab, navigation) is { } line)
+                if (ReferenceEquals(frame, page.MainFrame) && announced.TryGetValue(page, out var at))
+                {
+                    announced.Remove(page);
+                    if (frame.Url == at)
+                    {
+                        return;
+                    }
+                }
+
+                if (NavigationLine(page, frame, !ReferenceEquals(page, navigation.TestPage()), navigation) is { } line)
                 {
                     Went(line);
                 }
             };
 
-            // A tab the app opened (window.open, a target="_blank" link); the test stays on its own page.
+            // A tab the app opened (window.open, a target="_blank" link); the screen stays on its tab.
             page.Popup += (_, tab) =>
             {
-                var at = NoPlace.Contains(tab.Url) ? "" : " at " + tab.Url;
-                Went("the app opened a new tab" + at + "; the test stays on its page");
+                var url = tab.Url;
+                if (url.Length == 0)
+                {
+                    unannounced.AddOrUpdate(tab, new object());
+                    return;
+                }
+
+                announced.AddOrUpdate(tab, url);
+                Opened(url);
             };
         }
 
@@ -131,10 +162,10 @@ internal static class AppLog
         errorText is "net::ERR_ABORTED" or "NS_BINDING_ABORTED" || errorText.Contains("cancelled", StringComparison.Ordinal);
 
     /// <summary>
-    /// <c>navigated to /checkout</c>, <c>the new tab navigated to /help</c>, <c>frame "pay" loaded /embed</c>: one navigation as a
+    /// <c>navigated to /checkout</c>, <c>a background tab navigated to /help</c>, <c>frame "pay" loaded /embed</c>: one navigation as a
     /// line, or null for one not worth telling.
     /// </summary>
-    private static string? NavigationLine(IPage page, IFrame frame, bool tab, NavigationLog navigation)
+    private static string? NavigationLine(IPage page, IFrame frame, bool background, NavigationLog navigation)
     {
         var url = frame.Url;
         if (NoPlace.Contains(url) || url.StartsWith("data:", StringComparison.Ordinal))
@@ -144,7 +175,7 @@ internal static class AppLog
 
         if (ReferenceEquals(frame, page.MainFrame))
         {
-            return tab ? "the new tab navigated to " + url : navigation.OwnNavigation(url) ? null : "navigated to " + url;
+            return background ? "a background tab navigated to " + url : navigation.OwnNavigation(url) ? null : "navigated to " + url;
         }
 
         var name = frame.Name;

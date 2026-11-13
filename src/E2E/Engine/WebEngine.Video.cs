@@ -118,6 +118,8 @@ public sealed partial class WebEngine
 
         private Task VideoPageClosingAsync() => _video?.PageClosingAsync() ?? Task.CompletedTask;
 
+        private Task VideoPageClosedAsync() => _video?.PageClosedAsync() ?? Task.CompletedTask;
+
         /// <summary>Ends a recording the attempt never collected, within the cleanup timeout; nothing it recorded is reported.</summary>
         private async Task AbandonVideoAsync()
         {

@@ -119,6 +119,16 @@ public static class EngineSessions
             verbs.Add("resize");
         }
 
+        if (engine?.Session?.SwitchTab is not null)
+        {
+            verbs.Add("switchTab");
+        }
+
+        if (engine?.Session?.CloseTab is not null)
+        {
+            verbs.Add("closeTab");
+        }
+
         if (engine?.Keyboard is { } keyboard)
         {
             verbs.Add("typeText");
@@ -241,7 +251,7 @@ public static class EngineSessions
             {
                 await invoke().ConfigureAwait(false);
             }
-            catch (Exception cause) when (cause is not E2EException)
+            catch (Exception cause) when (cause is not (OperationCanceledException or E2EException))
             {
                 throw Normalize(cause, what);
             }
@@ -259,7 +269,7 @@ public static class EngineSessions
             {
                 return await invoke().ConfigureAwait(false);
             }
-            catch (Exception cause) when (cause is not E2EException)
+            catch (Exception cause) when (cause is not (OperationCanceledException or E2EException))
             {
                 throw Normalize(cause, what);
             }
@@ -295,6 +305,7 @@ public static class EngineSessions
                     Revision = minted,
                     CapturedAt = _clock.GetUtcNow().ToString("O"),
                     Location = snapshot.Location,
+                    Tabs = EngineTabs.IsValid(snapshot.Tabs) ? snapshot.Tabs : null,
                     Viewport = snapshot.Viewport,
                     Redaction = redaction,
                     Pixels = snapshot.Pixels,
@@ -310,6 +321,7 @@ public static class EngineSessions
                 Revision = minted,
                 CapturedAt = _clock.GetUtcNow().ToString("O"),
                 Location = snapshot.Location,
+                Tabs = EngineTabs.IsValid(snapshot.Tabs) ? snapshot.Tabs : null,
                 Viewport = snapshot.Viewport,
                 Redaction = redaction,
                 Tree = StampRevision(snapshot.Root, minted),
@@ -480,6 +492,12 @@ public static class EngineSessions
 
             public Task ResizeAsync(ViewportSize size, OperationContext operation) =>
                 session.Call("viewport resizing", session._engine?.Session?.Resize is { } resize ? () => resize(size, operation) : null);
+
+            public Task SwitchTabAsync(int index, OperationContext operation) =>
+                session.Call("tab switching", session._engine?.Session?.SwitchTab is { } switchTab ? () => switchTab(index, operation) : null);
+
+            public Task CloseTabAsync(int index, OperationContext operation) =>
+                session.Call("tab closing", session._engine?.Session?.CloseTab is { } closeTab ? () => closeTab(index, operation) : null);
 
             public Task RestartAsync(OperationContext operation) =>
                 session.Call("app restart", session._engine?.Session?.Restart is { } restart ? () => restart(operation) : null);

@@ -201,6 +201,16 @@ internal sealed class SessionCatalog
             Add(AgentTools.ResizeViewportName, Verb(context, screen, AgentTools.ResizeViewportName, AgentTools.ResizeViewportName, AgentTools.ResizeViewportDescription, Schema([], ("width", ViewportSide("width"), true), ("height", ViewportSide("height"), true))));
         }
 
+        if (capabilities.HasFlag(EngineCapabilities.SwitchTab))
+        {
+            Add(AgentTools.SwitchTabName, Verb(context, screen, AgentTools.SwitchTabName, AgentTools.SwitchTabName, AgentTools.SwitchTabDescription, Schema([], ("tab", TabNumber(), true))));
+        }
+
+        if (capabilities.HasFlag(EngineCapabilities.CloseTab))
+        {
+            Add(AgentTools.CloseTabName, Verb(context, screen, AgentTools.CloseTabName, AgentTools.CloseTabName, AgentTools.CloseTabDescription, Schema([], ("tab", TabNumber(), true))));
+        }
+
         if (canDismissKeyboard && capabilities.HasFlag(EngineCapabilities.Keyboard))
         {
             Add(AgentTools.DismissKeyboardName, Verb(context, screen, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardDescription, Schema([])));
@@ -353,7 +363,7 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "upload", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
 
     // The files an upload names: one or more non-empty project-relative paths, or a sample (upstream's grammar schema).
@@ -382,6 +392,13 @@ internal sealed class SessionCatalog
         ["minimum"] = 1,
         ["maximum"] = AgentTools.MaxPressTimes,
         ["description"] = "Press the key this many times in this one call, 1 to " + AgentTools.MaxPressTimes.ToString(System.Globalization.CultureInfo.InvariantCulture) + "; default 1. Use more to extend a selection or move a caret several steps at once.",
+    };
+
+    private static JsonNode TabNumber() => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = 1,
+        ["description"] = "The tab number, from 1 in the order the tabs opened",
     };
 
     private static JsonNode ViewportSide(string what) => new JsonObject

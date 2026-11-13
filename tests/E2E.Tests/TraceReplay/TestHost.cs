@@ -198,5 +198,9 @@ internal sealed class TestHost : IReplayHost
         public Task BackAsync(CancellationToken cancellationToken = default) => host.Act("back");
 
         public Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) => host.Act("resize", size);
+
+        public Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default) => host.Act("switchTab", tab);
+
+        public Task CloseTabAsync(int tab, CancellationToken cancellationToken = default) => host.Act("closeTab", tab);
     }
 }

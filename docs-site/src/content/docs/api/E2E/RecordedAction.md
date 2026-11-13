@@ -314,6 +314,22 @@ the summary was stored: upstream refuses such an entry, the port keeps reading i
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedAction_Tab_"></a>
+<a id="E2E_RecordedAction_Tab"></a>
+
+### Tab
+
+
+```csharp
+public int? Tab { get; set; }
+```
+
+
+The open tab a `switchTab` shows or a `closeTab` closes, by its zero-based place in the order the tabs opened, replayed as given
+(upstream's `tab` of a `SwitchTabAction` and a `CloseTabAction`). Null on every other action.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
 <a id="E2E_RecordedAction_TestId_"></a>
 <a id="E2E_RecordedAction_TestId"></a>
 

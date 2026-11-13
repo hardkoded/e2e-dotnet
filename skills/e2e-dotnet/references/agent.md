@@ -225,9 +225,10 @@ The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
 `right_click`, `hover`, `drag`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,
 `check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
-`resize_viewport`, and `done`. `scroll` and `scroll_to` come with an engine that
+`resize_viewport`, `switch_tab`, `close_tab`, and `done`. `scroll` and `scroll_to` come with an engine that
 can scroll, `back` with one that has history, `resize_viewport` with one that
-declares `EngineCapabilities.Resize` (the web engine), and `upload` with one that declares
+declares `EngineCapabilities.Resize` (the web engine), `switch_tab` and `close_tab` with one that
+declares `EngineCapabilities.SwitchTab` and `EngineCapabilities.CloseTab` (the web engine), and `upload` with one that declares
 `EngineCapabilities.Upload` (the web engine). `long_press`, `right_click`,
 `hover`, and `drag` come with an engine whose `IEngineSession.ActionKinds`
 names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
@@ -246,7 +247,15 @@ tablet, or desktop width. The size holds until the next resize, and the
 result shows the screen at the new size; take a `screenshot` to check the
 layout itself (overflow, overlap, clipped or hidden content). The trace cache
 records it as `resize` and replays it as given, and a leading resize does not
-count against the navigate opener of a recording. `dismiss_keyboard` (no input) comes with an engine that can hide its
+count against the navigate opener of a recording. A tab the app opens on the web stays in the
+background: the result of the action that opened it says `The app opened a new tab (tab 2 of 2). The screen
+still shows tab 1; use switch_tab to see it.`, and while more than one tab is open every screen header names
+the tab (`tab 1 of 2`). `switch_tab {tab}` shows another tab, numbered from 1 in the order the tabs opened,
+and sends its screen whole. `close_tab {tab}` closes one by the same number; when it was the tab on screen,
+the screen returns to the tab that opened it, or to the tab shown most recently when that one is closed too.
+The last open tab stays open. The trace cache records them as `switchTab` and `closeTab` by the same tab
+number and replays them as given. A tab takes its number when its first page loads, so when one action opens
+two tabs whose pages load in another order on a later run, the two numbers swap. `dismiss_keyboard` (no input) comes with an engine that can hide its
 keyboard (the mobile engine): it hides the on-screen keyboard when it covers what
 the model needs to reach. `screenshot` and the point tools `tap_at`,
 `hover_at`, `drag_at`, `type_at`, `press_at`, and `select_at` are offered with
@@ -535,7 +544,10 @@ declares `Keyboard`, `TypeTextAsync` and `PressKeyAsync` for the focused field
 keyboard, `DismissKeyboardAsync` (`ExecutorVerb.DismissKeyboard`). On an
 engine that declares `EngineCapabilities.Resize`, `ResizeAsync(new TraceViewport(width, height))`
 (`ExecutorVerb.Resize`) sets the viewport, 200 to 4096 on each side, for this
-page and every page the attempt opens after it. The trace
+page and every page the attempt opens after it. On an engine that declares
+`EngineCapabilities.SwitchTab` and `CloseTab`, `SwitchTabAsync(tab)` and `CloseTabAsync(tab)`
+(`ExecutorVerb.SwitchTab` and `CloseTab`) show and close the open tab numbered `tab` from 1, as
+`ExecutorObservation.Tabs` counts them. The trace
 records them as `typeText`, `pressKey`, `dismissKeyboard`, and `resize`. The trace cache records a
 point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
@@ -925,7 +937,7 @@ What the context holds:
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
 | `ObserveAsync(options)` | Redacted screen text, one node per line as `#id role "name" ...` (upstream's `text`; an executor that parsed the earlier `[ref=...]` text reads the id after `#` now; on the web an empty painted rectangle, at least 12 CSS pixels on each side, such as a canvas node or a drop zone, reads as role `box`), and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the id) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
-| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` (all take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `LongPressAsync`, `HoverAsync`, and `DragAsync(source, destination)` (when `Target.Verbs` holds `ExecutorVerb.LongPress`, `SecondaryTap`, `Hover`, or `Drag`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`, `ResizeAsync(size)` (when `Target.Verbs` holds `ExecutorVerb.Resize`). A node is `new ExecutorTarget(ref)` |
+| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` (all take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `LongPressAsync`, `HoverAsync`, and `DragAsync(source, destination)` (when `Target.Verbs` holds `ExecutorVerb.LongPress`, `SecondaryTap`, `Hover`, or `Drag`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`, `ResizeAsync(size)` (when `Target.Verbs` holds `ExecutorVerb.Resize`), `SwitchTabAsync(tab)` and `CloseTabAsync(tab)` (with `SwitchTab` and `CloseTab`; `tab` counts from 1). A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |

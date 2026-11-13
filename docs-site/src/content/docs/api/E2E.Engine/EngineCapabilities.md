@@ -38,6 +38,22 @@ Actions = 2
 
 **Value:** [EngineCapabilities](./)
 
+<a id="E2E_Engine_EngineCapabilities_CloseTab"></a>
+
+### CloseTab
+
+
+```csharp
+CloseTab = 16384
+```
+
+
+`CloseTabAsync`: the engine closes an open tab, which the agent's
+`close_tab` tool needs. .NET-only name for upstream's optional `session.closeTab`, whose being defined lists the
+`closeTab` verb; C# has no optional member to test, so this declares it.
+
+**Value:** [EngineCapabilities](./)
+
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
 ### History
@@ -172,6 +188,22 @@ State = 2048
 [CaptureStateAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_CaptureStateAsync_System_Threading_CancellationToken_) and `RestoreStateAsync`: the engine saves and restores the
 app's state, which a saved session needs. .NET-only name for upstream's optional `engine.state`, which the report records as
 `stateCapability`; the report's `capabilities` does not list it.
+
+**Value:** [EngineCapabilities](./)
+
+<a id="E2E_Engine_EngineCapabilities_SwitchTab"></a>
+
+### SwitchTab
+
+
+```csharp
+SwitchTab = 8192
+```
+
+
+`SwitchTabAsync`: the engine shows another open tab, which the
+agent's `switch_tab` tool needs. .NET-only name for upstream's optional `session.switchTab`, whose being defined lists the
+`switchTab` verb; C# has no optional member to test, so this declares it. Report the tabs with [Tabs](/api/E2E.Engine/Observation/#E2E_Engine_Observation_Tabs).
 
 **Value:** [EngineCapabilities](./)
 

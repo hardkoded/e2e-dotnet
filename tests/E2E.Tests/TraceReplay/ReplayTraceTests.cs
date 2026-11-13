@@ -151,12 +151,18 @@ public sealed class ReplayTraceTests
                 new RecordedAction { Kind = "upload", Role = target.Role, Name = target.Name, Paths = ["fixtures/a.txt"] },
                 new RecordedAction { Kind = "back" },
                 new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) },
+                new RecordedAction { Kind = "switchTab", Summary = "switch to tab 2", Tab = 1 },
+                new RecordedAction { Kind = "closeTab", Summary = "close tab 2", Tab = 1 },
             ]);
 
         Assert.True(outcome.Completed);
-        Assert.Equal((9, 9), (outcome.Executed, outcome.Total));
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back", "resize"], host.Calls);
+        Assert.Equal((11, 11), (outcome.Executed, outcome.Total));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back", "resize", "switchTab", "closeTab"], host.Calls);
         Assert.Equal(new TraceViewport(390, 844), details[8]);
+
+        // The trace counts tabs from 0, the grammar from 1.
+        Assert.Equal(2, details[9]);
+        Assert.Equal(2, details[10]);
         Assert.Equal(("n1", false), details[5]);
         var (uploaded, paths) = ((string, IReadOnlyList<string>))details[6]!;
         Assert.Equal("n1", uploaded);
