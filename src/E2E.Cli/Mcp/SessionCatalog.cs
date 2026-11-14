@@ -162,7 +162,7 @@ internal sealed class SessionCatalog
             Add("uncheck", Verb(context, screen, "uncheck", "check", "Uncheck a checkbox.", Schema(Target), extra: new JsonObject { ["checked"] = false }));
         }
 
-        if (verbs.Contains(ExecutorVerb.Clear) && verbs.Contains(ExecutorVerb.Type))
+        if (verbs.Contains(ExecutorVerb.Clear))
         {
             Add("clear", Verb(context, screen, "clear", "type", "Clear a field.", Schema(Target), extra: new JsonObject { ["value"] = "" }));
         }

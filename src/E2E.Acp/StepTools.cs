@@ -16,6 +16,9 @@ namespace E2E.Acp;
 /// </summary>
 internal static class StepTools
 {
+    // Upstream's TYPE_SECRET: the session lists the tool once, for every step, so the description sends the agent to the step message.
+    private const string TypeSecret = "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. The step message lists the secrets it declares.";
+
     private const string StepEnded = "The step has ended. Wait for the next instruction.";
 
     /// <summary>The session's tools, listed from its first step. Upstream's <c>stepTools</c>.</summary>
@@ -24,13 +27,13 @@ internal static class StepTools
         var tools = new List<ServedTool>();
         // The tools an assertion offers change nothing in the app (upstream's `name in readOnlyTools`); the listing is of an act's, the widest.
         var readOnlyTools = AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Assert }).Select(tool => tool.Definition.Name).ToHashSet(StringComparer.Ordinal);
-        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act }))
+        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act, OfferTypeSecret = true }))
         {
             var name = listed.Definition.Name;
             var readOnly = readOnlyTools.Contains(name);
             tools.Add(new ServedTool(
                 name,
-                listed.Definition.Description,
+                name == "type_secret" ? TypeSecret : listed.Definition.Description,
                 listed.Definition.Parameters,
                 readOnly,
                 (arguments, token) => GuardedAsync(slot, name, async active =>
@@ -136,7 +139,7 @@ internal static class StepTools
         return active;
     }
 
-    private static string Unavailable(string name) => $"{name} is not available in this step";
+    private static string Unavailable(string name) => name == "type_secret" ? "this step declares no secrets" : $"{name} is not available in this step";
 
     private static ModelToolCall CallOf(string name, JsonElement arguments) => new()
     {

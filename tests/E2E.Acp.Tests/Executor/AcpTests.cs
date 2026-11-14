@@ -593,10 +593,9 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
+    public async Task Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
-        // Partial: the document engine offers every step the same tools, so no step lacks a tool the session listed.
-        // type_secret is listed, and a call of it for a secret the step does not declare says so.
+        // type_secret is listed for every step, and a step that declares no secrets is told so.
         var agent = Scripted(_directory, Turns([Call("type_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
@@ -605,8 +604,8 @@ public sealed class AcpTests : IDisposable
 
         var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).ToList();
         Assert.Contains("type_secret", offered);
-        Assert.DoesNotContain("Not offered in this step", agent.Prompts()[0], StringComparison.Ordinal);
-        Assert.Contains("isError", agent.ResultOf("type_secret"), StringComparison.Ordinal);
+        Assert.Contains("Not offered in this step: type_secret (this step declares no secrets).", agent.Prompts()[0], StringComparison.Ordinal);
+        Assert.Contains("this step declares no secrets", agent.ResultOf("type_secret"), StringComparison.Ordinal);
     }
 
     [Fact]

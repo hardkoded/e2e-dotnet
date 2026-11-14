@@ -442,7 +442,7 @@ public static class AgentTools
         var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
         return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
             // Offered only when the step declared secrets (upstream: an empty vocabulary is better than a tool the model can only be rejected on).
-            .Where(definition => definition.Name != "type_secret" || context.Step.Secrets.Count > 0)
+            .Where(definition => definition.Name != "type_secret" || context.Step.Secrets.Count > 0 || options?.OfferTypeSecret == true)
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(
                 definition,
@@ -811,6 +811,12 @@ public sealed class GrammarToolsOptions
     /// <c>Object.create</c>, which the port has no counterpart of). .NET-only.
     /// </summary>
     internal ExecutorStepKind? Kind { get; init; }
+
+    /// <summary>
+    /// Offer <c>type_secret</c> although the step declares no secrets: the session of an ACP agent lists the widest toolset once (upstream's
+    /// <c>listing</c> builds a context with a secret by <c>Object.create</c>, which the port has no counterpart of). .NET-only.
+    /// </summary>
+    internal bool OfferTypeSecret { get; init; }
 }
 
 /// <summary>
