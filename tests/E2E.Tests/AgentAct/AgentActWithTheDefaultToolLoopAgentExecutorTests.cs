@@ -42,12 +42,13 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
-            model);
+            model,
+            wrapEngine: engine => new TabsEngine(engine));
 
         Assert.Null(result.Error);
         Assert.True(model.CallCount >= 2);
         Assert.Equal(
-            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "clear", "close_tab", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "switch_tab", "tap", "tap_at", "type_at", "uncheck"],
             model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var opening = model.Requests[0].Messages[0].Content!;
         Assert.Contains("Goal: " + Instruction, opening, StringComparison.Ordinal);
