@@ -81,7 +81,6 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Contains("[tap] " + refused.Split('\n')[0], turn.Outcome, StringComparison.Ordinal);
     }
 
-    // Upstream sends errorCode where the port's done tool takes code.
     [Fact]
     public async Task Drops_the_error_code_a_passed_verdict_carries_notes_it_in_the_turn_and_ends_the_step_on_that_call_with_no_repair_turn()
     {
