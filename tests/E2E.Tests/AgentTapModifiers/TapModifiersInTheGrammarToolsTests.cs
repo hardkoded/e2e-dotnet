@@ -91,7 +91,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
         foreach (var name in TapFamily)
         {
             var properties = PropertiesOf(plain, name);
-            Assert.True(properties.TryGetProperty("role", out _), name + " still takes a bare tap");
+            Assert.True(properties.TryGetProperty("target", out _), name + " still takes a bare tap");
             Assert.False(properties.TryGetProperty("modifiers", out _), name + " refuses the undeclared field");
         }
 

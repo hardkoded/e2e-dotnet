@@ -86,7 +86,7 @@ public sealed class WebEngineTests
             }
 
             var target = Regex.Matches(text, @"#(e\d+) button ""Delete""")[^1].Groups[1].Value;
-            return ModelResponses.Call("tap", new { @ref = target });
+            return ModelResponses.Call("tap", new { target = target });
         });
         var session = await StartAsync(site, model, cache: null);
         await RunAsync(session, async () =>
