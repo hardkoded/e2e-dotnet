@@ -160,7 +160,7 @@ var session = await host.OpenSessionAsync(new OpenSessionOptions
 - `Name` is the test name for step and trace reporting.
 - `Timeout` is the deadline for the session's operations, positive and finite, counted from when the session starts opening. It also cuts a session launch that runs past it, but it does not bound host provisioning, and it does not close the session.
 - The `CancellationToken` argument cancels opening or live fixture calls. The host's token also applies. Provisioning happens in `OpenAsync`, so only the host's token cancels it.
-- `Agent` is the agent the session's `Agent` uses when a call names none.
+- `Agent` is the agent the session's `Agent` uses when a call names none. Omitted, it is the config's selected agent: `default`, unless the config was loaded with `E2E_AGENT` naming others, and then the first name it lists. Declaration order in the config file never selects it.
 - `OnStep` receives live `StepProgress`, the same feed reporters receive. It must not block or throw. Its `Phase` is `Start`, `Event`, `Activity`, `Replay`, or `End`.
 
 | Throws | When |
