@@ -1,0 +1,57 @@
+---
+title: Runner
+description: Explore.ExploreAsync, the port's programmatic way to run an exploration, with its options, outcome, and errors.
+---
+
+This page ports the `explore()` part of upstream's `docs/reference/runner.mdx` (tester-army/e2e, `17a2e46`, #1711). The port has no runner: tests run under `dotnet test`, so upstream's `run()`, `list()`, and `openHost()` entries have no counterpart here (see [Compatibility](/compatibility/)). The call that has one is `Explore.ExploreAsync`, which `e2e explore` runs.
+
+```csharp
+var outcome = await Explore.ExploreAsync(new ExploreOptions
+{
+    Goal = "Explore the login flow",
+    MaxSteps = 4,
+});
+Console.WriteLine($"{outcome.Status} {outcome.Explore.Ended} {outcome.Explore.Findings.Count}");
+```
+
+## Options
+
+| Option | Example | Type | Default |
+| --- | --- | --- | --- |
+| `Goal` | `"Explore the login flow"` | `string` | `"Explore the app and find bugs"`; with `ChangedSince`, `"Explore what this change affects and find bugs in it"` |
+| `Target` | `"web"` | `string` | the first configured target |
+| `Agent` | `"smart"` | `string` | `agents.default` |
+| `ChangedSince` | `"origin/main"` | `string` | none |
+| `MaxSteps` | `4` | `int` | `8` |
+| `Timeout` | `TimeSpan.FromMinutes(5)` | `TimeSpan` | 10 minutes |
+| `Engine` | `new WinAppEngine(...)` | `IEngine` | the target's platform picks it |
+| `OnProgress` | `p => Console.WriteLine(p)` | callback | none |
+
+- `Goal` is at most 2,000 characters.
+- `ChangedSince` explores the change since that ref, as [`--changed-since`](/reference/cli/#e2e-explore) does.
+- `MaxSteps` is from 1 to 100. `Timeout` is from 3 minutes to 2 hours.
+- `OnProgress` receives each moment as it happens: `Started`, `Planning`, `StepStarted`, `FindingReported`, `StepFinished`, and `Finished`.
+
+## Outcome
+
+`ExploreOutcome` holds `Status`, `ExitCode`, `Error`, and `Explore`, the record `report.run.explore` also holds.
+
+| Field | Meaning |
+| --- | --- |
+| `Explore.Goal`, `Explore.Budgets` | The goal, with secret values redacted, and the step and time budgets it ran with. |
+| `Explore.Ended` | Why exploration stopped: `Finished`, `Skipped` (with `ChangedSince`, the planner judged the change has nothing a user can see; the run passes), `StepLimit`, `Time`, `Stuck`, or `Aborted`. |
+| `Explore.Summary` | The agent's closing assessment, when it gave one. |
+| `Explore.Change` | With `ChangedSince`, the change it planned from: `Base`, the merge base, and `Files`, how many changed. |
+| `Explore.Steps` | Each step the agent planned and ran, with its status: `Passed`, `Failed`, `Blocked`, or `Exhausted`. |
+| `Explore.Findings` | Each finding: kind, severity from 1 to 5, title, expected, actual, and reproduction. An `issue` fails the run; a `warning` does not. |
+
+## Errors
+
+These reject first, as the matching `e2e explore` flags do. Recognize them with `E2EException.Code`.
+
+| Code | When |
+| --- | --- |
+| `INVALID_CONFIG` | `Goal`, `MaxSteps`, or `Timeout` is out of range, or `Agent` names no configured agent. |
+| `UNKNOWN_TARGET` | `Target` names no configured target. |
+| `MODEL_UNAVAILABLE` | The agent has no model. |
+| `INVALID_CHANGED_SINCE` | `ChangedSince` is empty, starts with `-`, or names a ref git can't measure a change from. |

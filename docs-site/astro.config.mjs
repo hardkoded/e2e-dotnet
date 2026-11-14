@@ -118,6 +118,9 @@ export default defineConfig({
                     label: "Reference",
                     items: [
                         { label: "Environment variables", slug: "reference/environment" },
+                        { label: "CLI", slug: "reference/cli" },
+                        { label: "Runner", slug: "reference/runner" },
+                        { label: "Security rules", slug: "reference/security" },
                         { label: "Errors", slug: "reference/errors" },
                         { label: "Engine contract", slug: "reference/engine" },
                         {

@@ -1,0 +1,23 @@
+---
+title: Security rules
+description: What the port redacts, and what the explorer and the MCP server read and send to a model.
+---
+
+This page ports the parts of upstream's `docs/reference/security.mdx` (tester-army/e2e, `17a2e46`, #1711) that cover behavior the .NET port has. Rules of features the port lacks (serial groups, the runner, `cache.store`, telemetry) have no counterpart here.
+
+## Redaction
+
+Text a model, a report, or a log would carry is redacted: a configured secret's value shows as its `<secret:name>` marker. Redaction matches strings, so these pass through:
+
+- a value a secret provider returns, in titles, and in an `e2e explore --changed-since` brief, since both are redacted before any provider runs,
+- a screenshot, including one sent to the model: it masks secure fields only, after a secret fill too,
+- video: it masks nothing and is labeled `redaction: "incomplete"`,
+- in an `e2e explore --changed-since` brief, a run of fewer than 8 characters of a value, such as a short last line of a multiline key that git prints on a line of its own.
+
+## MCP and explore
+
+| Entry point | Rule |
+| --- | --- |
+| `e2e mcp` | Uses stdio and the same action authorization as a test run. A secret value never leaves the server: every output shows it as its marker. |
+| `e2e explore` | Offers every configured credential to every step. The explorer sees account names and usernames. Passwords stay handles and are filled by secret. |
+| `e2e explore --changed-since` | Sends the commit messages, the changed files' names, and the committed patches since the base to the model, cut to fit its context. A file no commit changed, such as one CI wrote, and a committed file's later local edits go by name only, never read. Secret values the config gives as strings, and runs of 8 or more of their characters, are redacted. A secret provider's value, and a secret committed to the repository that the config doesn't name, reach the model. |

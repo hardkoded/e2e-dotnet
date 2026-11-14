@@ -1,0 +1,69 @@
+---
+title: CLI
+description: The e2e command of the .NET port, its subcommands, and the flags of e2e explore, with its exit codes.
+---
+
+This page ports upstream's `docs/reference/cli.mdx` (tester-army/e2e, `17a2e46`, #1711), for the commands the .NET port has. The port has no `e2e run`, `e2e list`, or `e2e upgrade`: the tests run under `dotnet test` (see [Testing frameworks](/testing-frameworks/)), so the pages of upstream's reference for those commands have no counterpart here.
+
+```bash
+e2e <command> [options]
+```
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `e2e explore [goal]` | Runs the agent against the app toward a goal, without a test file. See [`e2e explore`](#e2e-explore). |
+| `e2e mcp` | Serves a coding agent over MCP (stdio). See [Your coding agent](/features/acp/). |
+| `e2e doctor` | Checks that `e2e explore` and `e2e mcp` can start here. See [e2e doctor](/docs/doctor/). |
+| `e2e cache <ls\|clear\|stats>` | Reads the replay cache the runs write. See [Caching](/features/caching/). |
+| `e2e init [directory]` | Scaffolds a test project, installs the agent skill, and registers the MCP server. |
+| `e2e install [browser ...]` | Downloads browsers for the Playwright version E2E runs. Installs `chromium` when none is named. |
+| `e2e login`, `e2e logout`, `e2e models` | Sign in to a subscription provider, sign out, and list a provider's models. |
+| `e2e guide [topic]` | Prints a guide of the installed skill. |
+
+`e2e <command> --help` lists the options of one command.
+
+## `e2e explore`
+
+```bash
+e2e explore
+e2e explore "Explore checkout like a first-time buyer and report anything off"
+e2e explore --target web --max-steps 4 --headed
+e2e explore --changed-since origin/main
+e2e explore "Hunt for broken forms and dead links" --video
+```
+
+Runs [`Explore.ExploreAsync`](/reference/runner/) from the project directory. The goal is `Explore the app and find bugs` when you give none.
+
+| Flag | Meaning |
+| --- | --- |
+| `--config <path>` | The config file. Default: the nearest `e2e.config.json`. |
+| `--target <id>` | The target to explore. Default: the config's target. |
+| `--agent <name>` | The configured agent to explore as. Default: `agents.default`. Its model, `system`, tools, and context are reused. A custom `Executor` is replaced by the built-in agent, with a notice. An entry with no model is `MODEL_UNAVAILABLE`. |
+| `--changed-since <ref>` | Explores the change since the merge base of the ref and HEAD. The planner reads its commit messages and committed diff. With no goal, the goal is `Explore what this change affects and find bugs in it`, and the planner can skip a change no user can see; the run ends `skipped` and passes. An empty ref, one starting with `-`, or one git can't measure from is `INVALID_CHANGED_SINCE`, exit 2. The report records the change as `run.explore.change`. See [Explore a pull request's change](/docs/explore/), and [Security](/reference/security/#mcp-and-explore) for what the model reads. |
+| `--max-steps <n>` | Exploration steps at most, an integer 1 through 100. Default: `8`. |
+| `--timeout <ms>` | The run's wall clock, an integer 180000 through 7200000. Default: `600000`. The last minute is kept for the closing assessment. |
+| `--headed` | Shows the UI while the agent explores. |
+| `--output <dir>` | The output directory. Default: `output` in the config, else `.e2e`. |
+| `--debug` | Prints the phase timings and the agent step table to stderr (also `E2E_DEBUG=1`). |
+| `--ai-trace` | Records every model call to `ai-trace-<process id>.json` (also `E2E_AI_TRACE=1`). |
+| `--trace [mode]`, `--video [mode]` | Which attempts keep a trace page or a video. A bare flag is `on`. Both take the next word as the mode, so write `--video=on "goal"`. |
+
+A flag out of range exits 2 and names the range. `--session` and `--reporter` exit 2: the port has no setup test to run for a session, and no reporters.
+
+### Output
+
+`<output>/report.json` gains `run.explore`: the goal, the budgets, why the run ended (`finished`, `skipped`, `step-limit`, `time`, `stuck`, or `aborted`), the assessment, the change with `--changed-since` (`base` and `files`), the steps, and the findings.
+
+### Exit codes
+
+| Result | Status | Exit code |
+| --- | --- | --- |
+| Steps ran, no `issue` finding, and not every step was blocked | passed | 0 |
+| At least one `issue` finding | failed | 1 |
+| No step ran and nothing was found, unless the planner skipped the change | blocked | 1 |
+| With `--changed-since`, the planner skipped a change no user can see | passed | 0 |
+| Every step was blocked, with no `issue` finding | blocked | 1, 2, or 3, from the first blocker |
+| Config, engine, or model provider error | error | 2 or 3 |
+| Ctrl-C | | 130 |
