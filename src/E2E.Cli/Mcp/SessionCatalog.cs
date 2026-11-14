@@ -517,25 +517,20 @@ internal sealed class SessionCatalog
         }
         catch (E2EException ex)
         {
-            throw new ToolFailedException(Failure(label, ex.Code, ex.Message, null));
+            throw new ToolFailedException(Failure(label, ex.Code, ex.Message));
         }
 
         if (!outcome.Succeeded)
         {
             var message = outcome.Error ?? (outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content);
-            throw new ToolFailedException(Failure(label, outcome.Code, message, target));
+            throw new ToolFailedException(Failure(label, outcome.Code, message));
         }
 
         return outcome;
     }
 
-    private static string Failure(string label, string? code, string message, string? target)
+    private static string Failure(string label, string? code, string message)
     {
-        if (code == "LOCATOR_NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
-        {
-            message = "node " + target + " is not on the current screen; re-observe for the newest ids";
-        }
-
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 

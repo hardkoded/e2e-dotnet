@@ -786,7 +786,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (matches.Count == 0)
         {
-            throw new TestException("LOCATOR_NOT_FOUND", "No node has the id " + target + " on the screen.");
+            throw ObservationFeed.NodeGone(id ?? "");
         }
 
         if (matches.Count > 1)
