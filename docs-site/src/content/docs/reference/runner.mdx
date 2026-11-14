@@ -202,7 +202,7 @@ if (failures.Count > 0)
 - `RunId` and `Target` are the host's run and target; `AttemptId` is unique to this attempt.
 - `Steps()` returns the steps run so far, as the report records them. Upstream's `StepRecord` is `ReportStep` here.
 - `Report()` returns the session `Report` the trace is rendered from, after close and a successful trace write; otherwise `null`. Its status describes the SDK session, not your runner's test verdict.
-- `ArtifactsDir` is the absolute directory for this attempt's screenshots, recordings, and trace.
+- `ArtifactsDir` is the absolute directory for this attempt's screenshots and recordings. The trace is not in it: read `TracePath`.
 - `TracePath` is the absolute path to `trace.md`; attach or read it after `CloseAsync()` settles.
 
 #### `session.CloseAsync`
