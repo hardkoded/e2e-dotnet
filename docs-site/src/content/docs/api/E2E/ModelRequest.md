@@ -143,7 +143,7 @@ public ModelToolChoice? ToolChoice { get; init; }
 
 Upstream's `ModelCall.toolChoice` (the AI SDK's `toolChoice`): how the model must use the tools it is offered. Null leaves
 the choice to the provider, which is [Auto](/api/E2E/ModelToolChoice/#E2E_ModelToolChoice_Auto). The act tool loop asks for [Required](/api/E2E/ModelToolChoice/#E2E_ModelToolChoice_Required)
-and names `done` on its forced-conclusion turns. A custom [IAgentModel](/api/E2E/IAgentModel/) that cannot force a tool may ignore it.
+and names `complete_step` on its forced-conclusion turns. A custom [IAgentModel](/api/E2E/IAgentModel/) that cannot force a tool may ignore it.
 
 **Value:** [ModelToolChoice](/api/E2E/ModelToolChoice/)
 

@@ -53,7 +53,7 @@ public sealed class ModelRequest
     /// <summary>
     /// Upstream's <c>ModelCall.toolChoice</c> (the AI SDK's <c>toolChoice</c>): how the model must use the tools it is offered. Null leaves
     /// the choice to the provider, which is <see cref="ModelToolChoice.Auto"/>. The act tool loop asks for <see cref="ModelToolChoice.Required"/>
-    /// and names <c>done</c> on its forced-conclusion turns. A custom <see cref="IAgentModel"/> that cannot force a tool may ignore it.
+    /// and names <c>complete_step</c> on its forced-conclusion turns. A custom <see cref="IAgentModel"/> that cannot force a tool may ignore it.
     /// </summary>
     public ModelToolChoice? ToolChoice { get; init; }
 

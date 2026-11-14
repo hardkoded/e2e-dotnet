@@ -22,7 +22,8 @@ public sealed class ScriptedModel : IAgentModel
 Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop
 and the judge may answer a judgment (a request with a [Schema](/api/E2E/ModelRequest/#E2E_ModelRequest_Schema)) with `Done`:
 `passed` reads as `holds`, a `failed` without the code `ASSERTION_INCONCLUSIVE` as `fails`, and a
-`blocked` or inconclusive one as `inconclusive`. `Judgment` answers it directly.
+`blocked` or inconclusive one as `inconclusive`. `Judgment` answers it directly. A tool call that names its node by
+`role` and `name` (or `testId`) reaches the agent as a `target` id, the one the screens in the request list for it.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

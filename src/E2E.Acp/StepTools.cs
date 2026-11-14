@@ -170,7 +170,7 @@ internal sealed class ActiveStep
 
     public StepExecutorContext Context { get; }
 
-    /// <summary>The step's <c>done</c>, which holds its verdict once the agent concludes. Upstream's <c>conclusion</c>.</summary>
+    /// <summary>The step's <c>complete_step</c>, which holds its verdict once the agent concludes. Upstream's <c>conclusion</c>.</summary>
     public VerdictTool Conclusion { get; }
 
     /// <summary>Runs one action at a time.</summary>
