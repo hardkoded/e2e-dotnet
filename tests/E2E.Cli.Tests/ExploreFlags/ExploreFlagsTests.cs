@@ -267,6 +267,33 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
+    public async Task Runs_the_configs_reporters_for_the_exploration()
+    {
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-1626-").FullName;
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(dir, "e2e.config.json"),
+                """{ "targets": [{ "name": "web", "platform": "web", "url": "http://localhost:1" }], "reporters": ["E2E.Cli.Tests.ExploreFlags.RecordingReporter"] }""");
+            RecordingReporter.Seen.Clear();
+            var fake = new FakeExplore(
+                [new ExploreProgress.Started("Explore the app and find bugs", Budgets)],
+                Passed());
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+
+            var code = await ExploreCommand.RunAsync([], stdout, stderr, interactive: false, fake.RunAsync, CancellationToken.None, dir);
+
+            Assert.Equal(0, code);
+            Assert.Contains("RunStartedEvent", RecordingReporter.Seen);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config()
     {
         // The .git directory stops config discovery here, whatever the temp directory's parents hold.
@@ -389,4 +416,12 @@ public sealed class ExploreFlagsTests
 
         public void Dispose() => Environment.SetEnvironmentVariable(_name, null);
     }
+}
+
+/// <summary>A reporter a config names by type, to see which events reach the config's reporters.</summary>
+public sealed class RecordingReporter : Reporter
+{
+    public static System.Collections.Concurrent.ConcurrentBag<string> Seen { get; } = [];
+
+    public override void OnEvent(RunEvent runEvent) => Seen.Add(runEvent.Fact.GetType().Name);
 }
