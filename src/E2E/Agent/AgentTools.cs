@@ -242,7 +242,6 @@ public static class AgentTools
         Tool("tap", "Activate a control.", Target),
         Tool("double_tap", "Double-click a control. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Target),
         Tool("fill", "Replace the text in a field.", WithValue(Target, "value")),
-        Tool("fill_secret", "Type a declared secret into an editable field. A password secret needs a password field. Pass the secret name, never the value.", WithValue(Target, "secret")),
         Tool(
             "press",
             "Press a key such as Enter, Escape, or Tab. Omit target to press the focused control. " +
@@ -256,6 +255,18 @@ public static class AgentTools
         Tool("uncheck", "Uncheck a checkbox.", Target),
         Tool("clear", "Clear a field.", Target),
     ];
+
+    /// <summary>
+    /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>), which the port names <c>fill_secret</c>. Offered only when the step
+    /// declared secrets and the engine can fill: its description lists each as <c>"name" (purpose)</c>. The secret's name is <c>secret</c>
+    /// where upstream's is <c>name</c>, which the target's own <c>name</c> field already takes.
+    /// </summary>
+    private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets) => Tool(
+        "fill_secret",
+        "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. Available: " +
+        string.Join(", ", secrets.Select(secret => "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")"))) +
+        ".",
+        WithValue(Target, "secret"));
 
     private static readonly ModelTool LongPress = Tool(
         "long_press",
@@ -444,7 +455,7 @@ public static class AgentTools
         var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
         var guard = options?.Guard;
         var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
-        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
+        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard, context.Step.Secrets)
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(
                 definition,
@@ -513,11 +524,11 @@ public static class AgentTools
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
     /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
     /// </summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false) =>
-        GrammarToolDefinitions(ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard), capabilities.HasFlag(EngineCapabilities.TapModifiers), actionKinds, project);
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool dismissKeyboard = false, IReadOnlyList<ExecutorSecret>? secrets = null) =>
+        GrammarToolDefinitions(ActContext.VerbsOf(capabilities, actionKinds, pointerKinds ?? [], dismissKeyboard), capabilities.HasFlag(EngineCapabilities.TapModifiers), actionKinds, project, secrets);
 
     /// <summary>The same over the verbs the engine's declarations unlock (upstream's <c>verbs</c> of <c>createGrammarTools</c>): each tool is shaped by them.</summary>
-    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(IReadOnlySet<ExecutorVerb> verbs, bool tapModifiers = false, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyList<ModelTool>? project = null)
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(IReadOnlySet<ExecutorVerb> verbs, bool tapModifiers = false, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyList<ModelTool>? project = null, IReadOnlyList<ExecutorSecret>? secrets = null)
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
@@ -530,7 +541,13 @@ public static class AgentTools
         }
 
         var keyboard = verbs.Contains(ExecutorVerb.TypeText) || verbs.Contains(ExecutorVerb.PressKey);
-        var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs));
+        var grammar = Verbs.Where(verb => OffersVerb(verb.Name, verbs)).Select(verb => NodeTool(verb, verbs)).ToList();
+        // Offered only when the step declared secrets and the engine can fill: an empty vocabulary is better than a tool the model can only be rejected on.
+        if (verbs.Contains(ExecutorVerb.TypeSecret) && secrets is { Count: > 0 })
+        {
+            grammar.Insert(grammar.FindIndex(verb => verb.Name == "fill") + 1, FillSecret(secrets));
+        }
+
         tools.AddRange(tapModifiers ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
         if (verbs.Contains(ExecutorVerb.Upload))
         {
