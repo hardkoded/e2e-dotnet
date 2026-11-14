@@ -51,7 +51,7 @@ The branch's own commit messages and code can sway the call. To tell a skip from
 
 What the model reads: the commit messages, the changed files' names, and the committed patches since the base, cut to fit its context. A file no commit changed, such as one CI wrote, and a committed file's later local edits go by name only, never read. Secret values the config gives as strings, and runs of 8 or more of their characters, are redacted. A secret a provider returns reaches the model.
 
-On GitHub Actions, run it in its own job on `pull_request`. With the [GitHub reporter](/integrations/github/) in the config, the findings go to their own pull request comment. A fork's run can't post; see [When nothing is posted](/integrations/github/#when-nothing-is-posted).
+On GitHub Actions, run it in its own job on `pull_request`. Upstream posts the findings as their own pull request comment through the GitHub reporter. `e2e explore` in the port runs no reporters, so read the findings in the job output and the `--output` directory instead.
 
 ```yaml
 # .github/workflows/explore.yml
