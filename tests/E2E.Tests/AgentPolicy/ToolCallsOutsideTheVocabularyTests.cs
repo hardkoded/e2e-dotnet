@@ -103,7 +103,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
         var verdictTurn = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[^1];
         Assert.StartsWith("done(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
-        Assert.Equal("[done] Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
+        Assert.Equal("[done] Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
     }
 
     [Fact]
