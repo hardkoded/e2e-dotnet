@@ -39,7 +39,7 @@ public static class DefaultAgent
         "Every action result already waited for the effect and contains the changes, so do not call observe after an action. Call observe only after waiting for something the last result showed in progress. " +
         "Conclude passed only when the latest result shows the outcome the step asked for. A result that reports no change, or only the keyboard closing, means the decisive action did not land: act again or conclude failed. " +
         "A result that says only that no listed node changed has not ruled out a drawn change: take a screenshot, when offered, before deciding. Never describe an unchanged screen as the outcome. " +
-        "Never type a secret value. Call fill_secret with the secret name. " +
+        "Never type a secret value. Call type_secret with the secret name. " +
         "A secret looks like <secret:name>. " +
         "If what you need is not on the screen, scroll to it. " +
         "screenshot attaches the viewport's pixels when the tree lacks what you need (a shape on a canvas, a pin on a map, a region of an image, a control inside a system sheet) or contradicts what you expect; " +
@@ -47,13 +47,13 @@ public static class DefaultAgent
         "tap_at, hover_at, drag_at, type_at, press_at, and select_at act at a point in the latest screenshot's pixel coordinates. " +
         "tap_at, hover_at, and drag_at act on the bare points where the engine can, and on the listed controls under them by id where it cannot; " +
         "type_at, press_at, and select_at act on a listed control under the point by its id. " +
-        "Prefer ids: tap, fill, press, and select by id whenever the screen lists the target, " +
+        "Prefer ids: tap, type, press, and select by id whenever the screen lists the target, " +
         "use the point tools only for a target the screen does not list, " +
         "and take a screenshot before guessing a point rather than aiming from memory or from what you expect to be drawn.";
 
     /// <summary>
-    /// Assertion-specific rules (upstream's <c>ASSERT_RULES</c>): they allow evidence gathered across several viewports. The port's verdict tool is <c>done</c>,
-    /// which takes <c>code</c>.
+    /// Assertion-specific rules (upstream's <c>ASSERT_RULES</c>): they allow evidence gathered across several viewports. The verdict tool takes <c>code</c>
+    /// where upstream's takes <c>errorCode</c>.
     /// </summary>
     public const string AssertRules =
         "You are judging exactly one assertion against the current application screen.\n" +

@@ -11,12 +11,12 @@ namespace E2E.Acp.Tests.Executor;
 /// <summary>
 /// Ports <c>describe('acp')</c> of tester-army/e2e <c>packages/acp/tests/executor.test.ts</c> (0410fc9c). The scripted agent is the C# program
 /// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
-/// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>code</c>.
+/// context of a step the runtime opened. The verdict tool takes <c>code</c>.
 /// </summary>
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AcpTests : IDisposable
 {
-    private static readonly object Pass = Call("done", new { status = "passed", summary = "added" });
+    private static readonly object Pass = Call("complete_step", new { status = "passed", summary = "added" });
 
     private readonly string _directory = Directory.CreateTempSubdirectory("e2e-acp-test-").FullName;
 
@@ -60,11 +60,11 @@ public sealed class AcpTests : IDisposable
         Assert.Contains(entries, entry => entry["config"]?["model"]?.GetValue<string>() == "slow");
         var offered = Assert.Single(agent.Sessions())["session"]!;
         Assert.Equal("e2e_step", offered["server"]!.GetValue<string>());
-        // The built-in agent's tools for the target's verbs, plus done.
+        // The built-in agent's tools for the target's verbs, plus complete_step.
         Assert.Equal(
-            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "complete_step", "double_tap", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type", "type_at", "type_secret"],
             offered["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).Order(StringComparer.Ordinal));
-        Assert.Contains("Typed into", agent.ResultOf("fill"), StringComparison.Ordinal);
+        Assert.Contains("Typed into", agent.ResultOf("type"), StringComparison.Ordinal);
         Assert.Contains("Tapped", agent.ResultOf("tap"), StringComparison.Ordinal);
         // The step's first screen is whole, in the message.
         Assert.Contains("button \"Add\"", agent.Prompts()[0], StringComparison.Ordinal);
@@ -185,7 +185,7 @@ public sealed class AcpTests : IDisposable
         // Partial: upstream also has the assertion call hover and sees it refused; the document engine has no pointer, so there is no hover to
         // refuse, and the read-only tool here is scroll.
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([Tap("Add"), Call("scroll", new { direction = "down" }), Call("done", new { status = "failed", summary = "no todo" })]));
+        var agent = Scripted(_directory, Turns([Tap("Add"), Call("scroll", new { direction = "down" }), Call("complete_step", new { status = "failed", summary = "no todo" })]));
         await using var session = await StartAsync(agent.Executor, page.World());
 
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the list shows a todo"));
@@ -212,7 +212,7 @@ public sealed class AcpTests : IDisposable
         Assert.Equal(0, page.Adds);
         Assert.Contains("this step is an assertion", agent.ResultOf("tap"), StringComparison.Ordinal);
         var served = Assert.Single(agent.Sessions())["session"]!;
-        Assert.Equal(["done", "observe", "screenshot", "scroll", "scroll_to"], served["readOnly"]!.AsArray().Select(name => name!.GetValue<string>()).Order(StringComparer.Ordinal));
+        Assert.Equal(["complete_step", "observe", "screenshot", "scroll", "scroll_to"], served["readOnly"]!.AsArray().Select(name => name!.GetValue<string>()).Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion_in_one_attempt()
     {
-        var inconclusive = Call("done", new { status = "failed", summary = "not enough evidence", code = "ASSERTION_INCONCLUSIVE" });
+        var inconclusive = Call("complete_step", new { status = "failed", summary = "not enough evidence", code = "ASSERTION_INCONCLUSIVE" });
         var agent = Scripted(_directory, Turns([inconclusive], [inconclusive]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
@@ -251,8 +251,8 @@ public sealed class AcpTests : IDisposable
     {
         var page = new TodoPage();
         var agent = Scripted(_directory, Turns([
-            Call("done", new { status = "blocked", summary = "the app is down" }),
-            Call("done", new { status = "blocked", summary = "the app is down", code = "APP_UNREACHABLE" }),
+            Call("complete_step", new { status = "blocked", summary = "the app is down" }),
+            Call("complete_step", new { status = "blocked", summary = "the app is down", code = "APP_UNREACHABLE" }),
             Tap("Add"),
         ]));
         await using var session = await StartAsync(agent.Executor, page.World());
@@ -261,13 +261,13 @@ public sealed class AcpTests : IDisposable
 
         Assert.Equal("APP_UNREACHABLE", error.Code);
         Assert.Contains("the app is down", error.Message, StringComparison.Ordinal);
-        var answers = agent.Log().Where(entry => entry["call"]?.GetValue<string>() == "done").Select(entry => entry["result"]!.ToJsonString()).ToList();
+        var answers = agent.Log().Where(entry => entry["call"]?.GetValue<string>() == "complete_step").Select(entry => entry["result"]!.ToJsonString()).ToList();
         Assert.Contains("blocked", answers[0], StringComparison.Ordinal);
         Assert.Contains("isError", answers[0], StringComparison.Ordinal);
         Assert.Contains("Step concluded. Wait for the next instruction.", answers[1], StringComparison.Ordinal);
         // Nothing runs after the verdict.
         Assert.Equal(0, page.Adds);
-        Assert.Contains("Finish with done when", agent.Prompts()[0], StringComparison.Ordinal);
+        Assert.Contains("Finish with complete_step when", agent.Prompts()[0], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -596,17 +596,17 @@ public sealed class AcpTests : IDisposable
     public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
         // Partial: the document engine offers every step the same tools, so no step lacks a tool the session listed.
-        // fill_secret is listed, and a call of it for a secret the step does not declare says so.
-        var agent = Scripted(_directory, Turns([Call("fill_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
+        // type_secret is listed, and a call of it for a secret the step does not declare says so.
+        var agent = Scripted(_directory, Turns([Call("type_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo");
 
         var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).ToList();
-        Assert.Contains("fill_secret", offered);
+        Assert.Contains("type_secret", offered);
         Assert.DoesNotContain("Not offered in this step", agent.Prompts()[0], StringComparison.Ordinal);
-        Assert.Contains("isError", agent.ResultOf("fill_secret"), StringComparison.Ordinal);
+        Assert.Contains("isError", agent.ResultOf("type_secret"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -680,7 +680,7 @@ public sealed class AcpTests : IDisposable
 
     private static object Tap(string name) => Call("tap", new { role = "button", name });
 
-    private static object Fill(string name, string value) => Call("fill", new { role = "textbox", name, value });
+    private static object Fill(string name, string value) => Call("type", new { role = "textbox", name, value });
 
     /// <summary>One list of moves per prompt turn.</summary>
     private static object[] Turns(params object[][] turns) => turns;

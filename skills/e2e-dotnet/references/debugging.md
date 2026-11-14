@@ -160,7 +160,7 @@ characters) and what came back (cut to 600), with the loop's own notes after
 them (`[loop] turn 2 made no tool call: asking for one`). The loop-guard notes
 are among them: `[loop] loop guard warned before turn 5: ...` when the loop
 warned the model it was going in circles, and `[loop] the step was stopped
-before turn 7: ...` when it left the model only `done`. The built-in agent and
+before turn 7: ...` when it left the model only `complete_step`. The built-in agent and
 any `ToolLoop.CreateToolLoopExecutor` executor record them. An executor of
 your own records them with `AttachTurns`.
 
@@ -262,7 +262,7 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `EVALUATE_FAILED` | `Browser.EvaluateAsync` threw inside the page, or the page deleted or replaced a JavaScript built-in (such as `Map`) that the engine needs, which fails later evaluates and locators | Fix the page code; do not replace built-ins the page shares with automation |
 | `ACTION_MAY_HAVE_COMMITTED` | An action, scroll, key press, typing, or mouse call timed out, or hit a strict mode violation, after its input may have reached the page. On a device, a tap, key, swipe, or `Back` the device did not answer within `actionTimeout`. It is never repeated | Check the page state before you retry by hand |
 | `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED` | Goal too big or ambiguous, or a slow provider | Split the goal, use on-screen wording, add vocabulary in `context`; raise `maxSteps` or `maxModelCalls`, `StepTimeout`, or `judgmentTimeout` |
-| `STEP_NO_CONCLUSION` | The agent used every model turn without calling `done` (it kept acting, or answered in prose). A failed verdict, not a budget stop | Split the goal or raise `maxModelCalls`; read the step's turns to see what it kept doing |
+| `STEP_NO_CONCLUSION` | The agent used every model turn without calling `complete_step` (it kept acting, or answered in prose). A failed verdict, not a budget stop | Split the goal or raise `maxModelCalls`; read the step's turns to see what it kept doing |
 | `AUTHENTICATION_FAILED` | The agent concluded that signing in failed inside the app: a product verdict (test, exit 1). `AUTH_CREDENTIAL_INVALID` is the blocked counterpart, for a configured credential the app rejects (configuration, exit 2) | Sign in by hand with the same account and fix the app or the account's state. A rejected credential is `AUTH_CREDENTIAL_INVALID` instead |
 | `SESSION_UNAVAILABLE` (configuration, exit 2), `SESSION_CONTRACT` (test, exit 1) | A test restores a session no selected setup test saved. Or a setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | Add or fix the `[E2ESetup]` test; run the setup test with the tests that restore its sessions |
 | `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity (configuration, exit 2) | Run the setup test again in this run, and do not change the target, engine, or app between the setup test and the tests that restore it; a session lasts one run |

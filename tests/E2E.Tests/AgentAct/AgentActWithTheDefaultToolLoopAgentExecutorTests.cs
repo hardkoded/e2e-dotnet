@@ -2,12 +2,14 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Tests.AgentActVerbs;
 using E2E.Tests.CacheModelProvenance;
 using E2E.Tests.ReportJson;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.AgentAct;
 
+[Collection(BrowserCollection.Name)]
 public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
 {
     private const string Instruction = "increment the counter once and verify it shows 1";
@@ -28,35 +30,30 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Null(result.Error);
     }
 
-    // Partial: upstream lists tools the port does not offer here (upload, drag, drag_at, hover, hover_at, long_press, right_click, resize_viewport, type),
-    // and its verdict tool is complete_step where the port's is done. Upstream's tool results report changes since a revision, which this does not assert.
-    // Upstream lists a toolset the port does not have here (upload, and the point tools). The document engine declares no pointer action,
-    // so it offers no long_press, right_click, hover, or drag. Upstream's tool
-    // results report changes since a revision. The port's results carry the whole screen instead.
     [Fact]
-    public async Task Partial_Offers_the_default_toolset_and_concludes_through_complete_step()
+    public async Task Offers_the_default_toolset_and_concludes_through_complete_step()
     {
+        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, CounterSitePage));
         var model = IncrementThenConclude();
-        var result = await RunAsync(
-            async ctx =>
-            {
-                await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync(Instruction);
-            },
-            CounterPage.World(),
-            model,
-            wrapEngine: engine => new TabsEngine(engine));
+        await using var session = await GesturesSession.StartAsync(site, model, new FileStepCache(TempCache()), "default toolset");
+        await GesturesSession.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            await session.Agent.ActAsync(Instruction);
+        });
 
-        Assert.Null(result.Error);
         Assert.True(model.CallCount >= 2);
         Assert.Equal(
-            ["back", "check", "clear", "close_tab", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "switch_tab", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "close_tab", "complete_step", "double_tap", "drag", "drag_at", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "resize_viewport", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "switch_tab", "tap", "tap_at", "type", "type_at", "upload"],
             model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var opening = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Goal: " + Instruction, opening, StringComparison.Ordinal);
-        Assert.Contains("button \"Increment\"", opening, StringComparison.Ordinal);
-        // The tap result shows the screen it produced, not the tree the model already had.
-        Assert.Contains("status \"Counter\" text=\"1\"", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
+        Assert.Contains("increment the counter once", opening, StringComparison.Ordinal);
+        Assert.Matches(@"Current screen \(revision b\d+, path /, \d+ nodes\):", opening);
+        // The result reports the change since the opening screen, not the tree again.
+        var result = CounterPage.ToolResults(model)[0];
+        Assert.Contains("Screen changes since revision", result, StringComparison.Ordinal);
+        Assert.Matches(@"changed #\S+ status ""Counter"" text=""1"" \(was: #\S+ status ""Counter"" text=""0""\)", result);
+        Assert.DoesNotContain("button \"Increment\"", result, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -111,6 +108,17 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.True((int)step["model"]!["inputTokens"]! > 0);
         Assert.Equal(calls, step["events"]!.AsArray().Count(each => (string)each!["kind"]! == "model"));
     }
+
+    private const string CounterSitePage = """
+        <!doctype html>
+        <html>
+        <head><title>Counter</title></head>
+        <body>
+          <button onclick="const c = document.getElementById('count'); c.textContent = String(Number(c.textContent) + 1)">Increment</button>
+          <p id="count" role="status" aria-label="Counter">0</p>
+        </body>
+        </html>
+        """;
 
     private static ScriptedModel IncrementThenConclude() => new(IncrementThenConcludeTurn);
 

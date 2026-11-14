@@ -513,7 +513,7 @@ lines you changed:
   `close_tab {tab}` (numbered from 1 in the order the tabs opened) move between
   them (topic `agent`). Tell the agent to prefer ids (topic
   `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
-  five failed calls in a row leave the agent only `done` (topic `agent`). Once
+  five failed calls in a row leave the agent only `complete_step` (topic `agent`). Once
   the step shows pixels, an action that leaves the listing as it was but moves
   the screenshot is reported as `listed nodes unchanged; the screenshot
   changed` (a drawn effect, such as a canvas repaint), and the control is

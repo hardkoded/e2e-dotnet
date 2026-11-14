@@ -6,9 +6,8 @@ using System.Text.Json.Nodes;
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported as
-// Partial_ (the port's verdict tool is done, not complete_step; the reserved names are a hand-kept list). Neither has a model
-// instance as the entry.
+// Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported with a
+// hand-kept list of the reserved names. Neither has a model instance as the entry.
 public sealed class TheBuiltInAgentOptionsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
@@ -66,8 +65,7 @@ public sealed class TheBuiltInAgentOptionsTests
 
     /// <summary>
     /// Port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": every name in
-    /// upstream's <c>HARNESS_TOOL_NAMES</c> is refused with its surface. The port's verdict tool is <c>done</c>, which is refused
-    /// below with the agent's own names. The list is kept by hand, so a new harness tool needs a new entry here.
+    /// upstream's <c>HARNESS_TOOL_NAMES</c> is refused with its surface. The list is kept by hand, so a new harness tool needs a new entry here.
     /// </summary>
     [Fact]
     public void Rejects_the_names_of_the_tools_the_harness_adds_in_an_agent_step_an_e2e_mcp_session_and_explore()
@@ -89,9 +87,6 @@ public sealed class TheBuiltInAgentOptionsTests
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Equal($"agents.ux.tools.{name}: the {name} tool name is reserved for the tool the harness adds in {surface}; rename it", error.Message);
         }
-
-        var agentStep = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["done"] = ReadOnlyTool() } }));
-        Assert.Equal("agents.ux.tools.done: the done tool name is reserved for the agent's own tools", agentStep.Message);
     }
 
     /// <summary>
@@ -102,7 +97,7 @@ public sealed class TheBuiltInAgentOptionsTests
     [Fact]
     public void Partial_Rejects_a_reserved_tool_name()
     {
-        foreach (var name in new[] { "tap", "observe", "done" })
+        foreach (var name in new[] { "tap", "observe" })
         {
             var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
 

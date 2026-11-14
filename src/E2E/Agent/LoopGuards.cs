@@ -39,7 +39,7 @@ internal static partial class LoopGuards
         messages
             .Where(message => message.ToolCalls is not null)
             .SelectMany(message => message.ToolCalls!)
-            .Where(call => !string.Equals(call.Name, "done", StringComparison.Ordinal))
+            .Where(call => !string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal))
             .Select(call => (call.Name, call.Arguments.GetRawText()))
             .ToList();
 

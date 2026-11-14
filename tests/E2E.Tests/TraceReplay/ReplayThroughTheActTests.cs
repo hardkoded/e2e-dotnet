@@ -31,7 +31,7 @@ public sealed class ReplayThroughTheActTests
             tap,
             ModelResponses.Fill("textbox", "Email", "a@b.c"),
             tap,
-            ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "password" }),
+            ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "password" }),
             tap,
             ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
             tap);

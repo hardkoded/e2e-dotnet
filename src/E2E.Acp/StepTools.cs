@@ -9,7 +9,7 @@ namespace E2E.Acp;
 
 /// <summary>
 /// The tools a session offers (upstream's <c>tools.ts</c>): the built-in agent's action tools (<see cref="AgentTools.CreateGrammarTools"/>)
-/// and its verdict tool (<see cref="AgentTools.CreateVerdictTool"/>), which is <c>done</c> where upstream's is <c>complete_step</c>. An ACP
+/// and its verdict tool (<see cref="AgentTools.CreateVerdictTool"/>). An ACP
 /// session lists its tools once, while e2e builds them per step, so the session lists them from its first step and each call runs the
 /// active step's own tool of that name. Every action goes through the step's actions, where the runner authorizes, counts, and records it,
 /// so steps replay from the cache as the built-in agent's do.

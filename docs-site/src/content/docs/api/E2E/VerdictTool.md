@@ -35,7 +35,7 @@ drives a model outside the loop is the only caller of [Execute(ModelToolCall)](#
 
 
 ```csharp
-public const string Name = "done"
+public const string Name = "complete_step"
 ```
 
 
@@ -71,7 +71,7 @@ public ModelTool Tool { get; }
 ```
 
 
-The `done` tool; offer it beside the grammar tools.
+The `complete_step` tool; offer it beside the grammar tools.
 
 **Value:** [ModelTool](/api/E2E/ModelTool/)
 

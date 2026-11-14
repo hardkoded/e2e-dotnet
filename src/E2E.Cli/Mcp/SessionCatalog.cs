@@ -137,11 +137,11 @@ internal sealed class SessionCatalog
             if (typeText)
             {
                 var typeTarget = verbs.Contains(ExecutorVerb.Type) ? OptionalTarget : [];
-                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(typeTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
+                Add("type", Verb(context, screen, "type", "type", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(typeTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
             }
             else
             {
-                Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+                Add("type", Verb(context, screen, "type", "type", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
             }
         }
 
@@ -159,12 +159,12 @@ internal sealed class SessionCatalog
         if (verbs.Contains(ExecutorVerb.Check))
         {
             Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
-            Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
+            Add("uncheck", Verb(context, screen, "uncheck", "check", "Uncheck a checkbox.", Schema(Target), extra: new JsonObject { ["checked"] = false }));
         }
 
-        if (verbs.Contains(ExecutorVerb.Clear))
+        if (verbs.Contains(ExecutorVerb.Clear) && verbs.Contains(ExecutorVerb.Type))
         {
-            Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+            Add("clear", Verb(context, screen, "clear", "type", "Clear a field.", Schema(Target), extra: new JsonObject { ["value"] = "" }));
         }
 
         // Upstream's grammarTools serves upload with the agent's description; the session takes the agent tool's text and names its node as target.
@@ -459,7 +459,7 @@ internal sealed class SessionCatalog
     }
 
     /// <summary>A grammar verb: the arguments are renamed to the agent tool's (<c>target</c> is its <c>ref</c>), and the tool runs as in an act.</summary>
-    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
+    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null, JsonObject? extra = null)
     {
         return new CatalogTool
         {
@@ -479,6 +479,11 @@ internal sealed class SessionCatalog
 
                     var key = property.Name == "target" ? "ref" : rename is { } map && map.From == property.Name ? map.To : property.Name;
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
+                }
+
+                foreach (var (key, value) in extra ?? [])
+                {
+                    mapped[key] = value?.DeepClone();
                 }
 
                 var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped).ConfigureAwait(false);
@@ -506,7 +511,7 @@ internal sealed class SessionCatalog
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
                 // Marked before the fill runs: a fill that fails after typing still leaves the secret on screen.
                 context.SecretFilled();
-                var outcome = await RunAsync(context, screen, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, "type_secret", "type_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };

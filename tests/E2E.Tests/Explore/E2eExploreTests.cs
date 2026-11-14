@@ -497,7 +497,7 @@ public sealed class E2eExploreTests
     }
 
     [Fact]
-    public async Task Lets_the_explorer_sign_in_with_a_configured_credential_through_fill_secret_never_seeing_the_password()
+    public async Task Lets_the_explorer_sign_in_with_a_configured_credential_through_type_secret_never_seeing_the_password()
     {
         var planPrompts = new List<string>();
         string? fillResult = null;
@@ -514,7 +514,7 @@ public sealed class E2eExploreTests
             {
                 if (call.Turn == 1)
                 {
-                    return ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "ada.password" });
+                    return ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "ada.password" });
                 }
 
                 fillResult = call.LastToolResult;
@@ -533,7 +533,7 @@ public sealed class E2eExploreTests
         Assert.Null(outcome.Error);
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Contains("- ada (username: ada@example.test)", planPrompts[0], StringComparison.Ordinal);
-        Assert.Contains("fill_secret", model.LoopCalls.First().Tools.Select(tool => tool.Name));
+        Assert.Contains("type_secret", model.LoopCalls.First().Tools.Select(tool => tool.Name));
         Assert.Contains("\"password\":\"<secret:ada.password> (password)\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
         Assert.Contains("ada.password", fillResult, StringComparison.Ordinal);
         Assert.Equal("bookworm", typed);

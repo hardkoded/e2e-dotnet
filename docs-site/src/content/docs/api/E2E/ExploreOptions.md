@@ -118,7 +118,7 @@ public IReadOnlyDictionary<string, UserCredential>? Credentials { get; init; }
 
 
 The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
-named `<name>.password`, which the explorer fills with `fill_secret`; the password never reaches a model.
+named `<name>.password`, which the explorer fills with `type_secret`; the password never reaches a model.
 The config's `credentials` are always accounts, as upstream carries them; this adds accounts the config does not declare
 (.NET-only: `e2e explore` passes the `E2E_USER_*` pairs of the environment).
 

@@ -20,7 +20,7 @@ public static class ToolLoop
 
 
 Upstream's `createToolLoopExecutor` (`agent/tool-loop.ts`): the chassis of an executor that thinks in a loop of model
-turns and tool calls. It owns everything but the tool vocabulary: the `done` verdict tool and its closed code policy, the
+turns and tool calls. It owns everything but the tool vocabulary: the `complete_step` verdict tool and its closed code policy, the
 hard stops (a spent budget, a timeout, or a cancel ends the loop, never the model), the loop guards, the shrink of a history
 that overflowed the model, and the count of model calls. The built-in agent is this chassis plus the grammar tools
 ([CreateBuiltInAgent(BuiltInAgentOptions)](/api/E2E/DefaultAgent/#E2E_DefaultAgent_CreateBuiltInAgent_E2E_BuiltInAgentOptions_)). An executor for a device or an API brings other tools and inherits the same discipline.

@@ -110,7 +110,7 @@ public sealed class SecretsCutShortByObservationLimitsTests
 
             return last.Role == "tool"
                 ? ModelResponses.Done("passed", "filled")
-                : ModelResponses.Call("fill_secret", new { role = "textbox", name = "Source", secret = "member" });
+                : ModelResponses.Call("type_secret", new { role = "textbox", name = "Source", secret = "member" });
         });
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {

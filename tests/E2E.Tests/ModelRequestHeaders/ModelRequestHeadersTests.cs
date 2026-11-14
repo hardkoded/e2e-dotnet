@@ -63,7 +63,7 @@ public sealed class ModelRequestHeadersTests
     {
         var handler = new RecordingHandler(
             Completion("tap", """{"role":"button","name":"Upgrade to Pro"}"""),
-            Completion("done", """{"status":"passed","summary":"upgraded"}"""));
+            Completion("complete_step", """{"status":"passed","summary":"upgraded"}"""));
 
         ActResult? result = null;
         await RunAsync(handler, async ctx => result = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan"));

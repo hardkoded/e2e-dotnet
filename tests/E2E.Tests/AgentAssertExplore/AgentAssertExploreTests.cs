@@ -81,7 +81,7 @@ public sealed class AgentAssertExploreTests
 
         Assert.Null(run.Error);
         Assert.Equal(2, model.CallCount);
-        Assert.Equal(["done", "observe", "screenshot", "scroll", "scroll_to"], model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(["complete_step", "observe", "screenshot", "scroll", "scroll_to"], model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         Assert.True(Images(model.Requests[0]) > 0);
         Assert.DoesNotContain("Increment", model.Requests[0].Messages[0].Content, StringComparison.Ordinal);
         Assert.DoesNotContain("Completed steps", model.Requests[0].Messages[0].Content, StringComparison.Ordinal);

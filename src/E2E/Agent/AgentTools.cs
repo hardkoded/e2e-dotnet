@@ -243,8 +243,8 @@ public static class AgentTools
     [
         Tool("tap", "Activate a control.", Target),
         Tool("double_tap", "Double-click a control. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Target),
-        Tool("fill", "Replace the text in a field.", WithValue(Target, "value")),
-        Tool("fill_secret", "Type a declared secret into an editable field. A password secret needs a password field. Pass the secret name, never the value.", WithValue(Target, "secret")),
+        Tool("type", "Replace the text in a field.", WithValue(Target, "value")),
+        Tool("type_secret", "Type a declared secret into an editable field. A password secret needs a password field. Pass the secret name, never the value.", WithValue(Target, "secret")),
         Tool(
             "press",
             "Press a key such as Enter, Escape, or Tab. Omit role and name to press the focused control. " +
@@ -254,9 +254,10 @@ public static class AgentTools
                 $$"""{ "times": { "type": "integer", "minimum": 1, "maximum": {{MaxPressTimes}}, "description": "Press the key this many times in this one call, 1 to {{MaxPressTimes}}; default 1. Use more to extend a selection or move a caret several steps at once." } }""",
                 "key")),
         Tool("select", "Choose an option in a combobox.", WithValue(Target, "value")),
-        Tool("check", "Check a checkbox.", Target),
-        Tool("uncheck", "Uncheck a checkbox.", Target),
-        Tool("clear", "Clear a field.", Target),
+        Tool(
+            "check",
+            "Set a checkbox, switch, or radio to a state: checked true (the default) or false. Unlike tap it never flips a control already in that state, so use it whenever the step names the state to end in.",
+            Extend(Target, """{ "checked": { "type": "boolean", "description": "The state to end in; default true" } }""")),
     ];
 
     private static readonly ModelTool LongPress = Tool(
@@ -306,8 +307,7 @@ public static class AgentTools
     /// <summary>
     /// The verbs of <see cref="ExecutorTargetInfo.Verbs"/> that offer each tool, any one of them (the <c>verbs.has(...)</c> at each tool's site in
     /// upstream's <c>createGrammarTools</c> and <c>createPointTools</c>): a tool whose verbs the engine's declarations do not unlock is absent
-    /// from the toolset. <c>fill</c> and <c>press</c> are also offered by the keyboard alone, without a target. The port's <c>clear</c> and
-    /// <c>uncheck</c> have no upstream tool; they follow their own action kind and the kinds of <c>check</c>.
+    /// from the toolset. <c>type</c> and <c>press</c> are also offered by the keyboard alone, without a target.
     /// </summary>
     internal static readonly IReadOnlyDictionary<string, ExecutorVerb[]> ToolVerbs = new Dictionary<string, ExecutorVerb[]>(StringComparer.Ordinal)
     {
@@ -317,13 +317,11 @@ public static class AgentTools
         ["right_click"] = [ExecutorVerb.SecondaryTap],
         ["hover"] = [ExecutorVerb.Hover],
         ["drag"] = [ExecutorVerb.Drag],
-        ["fill"] = [ExecutorVerb.Type, ExecutorVerb.TypeText],
-        ["fill_secret"] = [ExecutorVerb.TypeSecret],
+        ["type"] = [ExecutorVerb.Type, ExecutorVerb.TypeText],
+        ["type_secret"] = [ExecutorVerb.TypeSecret],
         ["press"] = [ExecutorVerb.Press, ExecutorVerb.PressKey],
         ["select"] = [ExecutorVerb.Select],
         ["check"] = [ExecutorVerb.Check],
-        ["uncheck"] = [ExecutorVerb.Check],
-        ["clear"] = [ExecutorVerb.Clear],
         ["tap_at"] = [ExecutorVerb.TapAt, ExecutorVerb.Tap],
         ["hover_at"] = [ExecutorVerb.HoverAt, ExecutorVerb.Hover],
         ["drag_at"] = [ExecutorVerb.DragAt, ExecutorVerb.Drag],
@@ -343,10 +341,10 @@ public static class AgentTools
         var typeText = verbs.Contains(ExecutorVerb.TypeText);
         return verb.Name switch
         {
-            "fill" when typeText && !verbs.Contains(ExecutorVerb.Type) => WithoutTarget(
+            "type" when typeText && !verbs.Contains(ExecutorVerb.Type) => WithoutTarget(
                 FillFocused,
-                "Type a plain-text value into whatever has focus. After tap_at on a field the screen does not list, call fill: the value is inserted at the caret of the focused field; set replace to clear it first. Several fields can be typed in one turn."),
-            "fill" when typeText => FillFocused,
+                "Type a plain-text value into whatever has focus. After tap_at on a field the screen does not list, call type: the value is inserted at the caret of the focused field; set replace to clear it first. Several fields can be typed in one turn."),
+            "type" when typeText => FillFocused,
             "press" when verbs.Contains(ExecutorVerb.PressKey) && !verbs.Contains(ExecutorVerb.Press) => WithoutTarget(
                 verb,
                 "Press a key such as Enter, Escape, or Tab on whatever has focus. Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\"."),
@@ -379,9 +377,9 @@ public static class AgentTools
     // With a keyboard, a fill with no target types into whatever has focus (upstream's type with typeText): how a field the tree does not
     // list gets its text after a tap_at gave it focus.
     private static readonly ModelTool FillFocused = Tool(
-        "fill",
+        "type",
         "Type a plain-text value into one input node, or into whatever has focus when target is omitted. With target the value replaces the node's value. " +
-        "After tap_at on a field the screen does not list, call fill with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. " +
+        "After tap_at on a field the screen does not list, call type with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. " +
         "Several fields can be typed in one turn.",
         Extend(Target, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""", "value"));
 
@@ -400,16 +398,15 @@ public static class AgentTools
 
     /// <summary>
     /// Upstream's <c>VERDICT_RULES</c>: the guidance for <see cref="VerdictTool"/>. The tool loop appends it to the instructions of every
-    /// executor it builds, so an executor outside the loop gives it to its own model beside the tool. The port's tool is <c>done</c>
-    /// where upstream's is <c>complete_step</c>, and takes <c>code</c> where upstream's takes <c>errorCode</c>.
+    /// executor it builds, so an executor outside the loop gives it to its own model beside the tool. The tool takes <c>code</c> where upstream's takes <c>errorCode</c>.
     /// </summary>
     public const string VerdictRules =
-        "Finish with done when the step's goal is achieved, or you are certain it cannot be. " +
-        "done status is passed, failed, or blocked. " +
+        "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. " +
+        "complete_step status is passed, failed, or blocked. " +
         "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code.";
 
     /// <summary>
-    /// Upstream's <c>createVerdictTool</c>: the <c>done</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
+    /// Upstream's <c>createVerdictTool</c>: the <c>complete_step</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
     /// fresh one for each step: the first accepted verdict is final.
     /// </summary>
     /// <param name="kind">
@@ -444,6 +441,8 @@ public static class AgentTools
         var guard = options?.Guard;
         var act = new ActTools(host.Scope, host.Feed, DefaultAgent.PresenterFor(context));
         return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds, host.Scope.Session.CanDismissKeyboard)
+            // Offered only when the step declared secrets (upstream: an empty vocabulary is better than a tool the model can only be rejected on).
+            .Where(definition => definition.Name != "type_secret" || context.Step.Secrets.Count > 0)
             .Where(definition => !asserting || AssertionOffers(definition.Name, project, context.Step.Vision))
             .Select(definition => new ToolLoopTool(
                 definition,
@@ -671,7 +670,7 @@ public static class AgentTools
     /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>, and
     /// <c>locate</c>, <c>test_lines</c>, <c>start_recording</c>, and <c>stop_recording</c> under an e2e mcp session (the session
     /// catalog, <c>SessionCatalog.Create</c>; <c>run_code</c> is reserved, and the port has no tool of that name). A project tool named like one would be
-    /// replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>done</c>,
+    /// replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>complete_step</c>,
     /// is reserved with the grammar's names.
     /// </summary>
     internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -687,7 +686,6 @@ public static class AgentTools
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     internal static bool IsReserved(string name) =>
-        string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
         GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.SwitchTab | EngineCapabilities.CloseTab | EngineCapabilities.Upload | EngineCapabilities.Keyboard, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
@@ -706,7 +704,7 @@ public static class AgentTools
         return
         [
             Open("extract", "Return the data read from the screen.", JsonSerializer.SerializeToElement(parameters)),
-            Open("done", "Use this only when the data is not on screen.", JudgeDone),
+            Open("complete_step", "Use this only when the data is not on screen.", JudgeDone),
         ];
     }
 
@@ -834,9 +832,9 @@ public sealed class VerdictTool
     }
 
     /// <summary>The name the model calls to end a step.</summary>
-    public const string Name = "done";
+    public const string Name = "complete_step";
 
-    /// <summary>The <c>done</c> tool; offer it beside the grammar tools.</summary>
+    /// <summary>The <c>complete_step</c> tool; offer it beside the grammar tools.</summary>
     public ModelTool Tool { get; }
 
     /// <summary>The verdict once the model called the tool with an accepted one. Upstream's <c>verdict()</c>.</summary>
@@ -891,7 +889,7 @@ public sealed class VerdictTool
         var status = Args.String(call.Arguments, "status");
         if (status is not ("passed" or "failed" or "blocked"))
         {
-            return ToolOutcome.Reject("done status must be passed, failed, or blocked.");
+            return ToolOutcome.Reject("complete_step status must be passed, failed, or blocked.");
         }
 
         // Upstream's schema (summary: z.string().min(1).max(2000)) turns an empty or oversized summary back to the model.
@@ -899,7 +897,7 @@ public sealed class VerdictTool
         if (string.IsNullOrWhiteSpace(summary) || summary.Length > AgentTools.MaxVerdictSummaryChars)
         {
             return ToolOutcome.Reject(
-                "done summary must be a non-empty string of at most " + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                "complete_step summary must be a non-empty string of at most " + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture) +
                 " characters: what you did and what the screen shows now.");
         }
 

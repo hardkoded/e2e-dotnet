@@ -102,8 +102,8 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Equal(("the counter shows 1", 2, 1), (act.Summary, act.ModelCalls, act.Actions));
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
         var verdictTurn = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[^1];
-        Assert.StartsWith("done(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
-        Assert.Equal("[done] Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
+        Assert.StartsWith("complete_step(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
+        Assert.Equal("[complete_step] Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         var turn = 0;
         var model = new ScriptedModel(request =>
         {
-            if (request.Tools.Count == 1 && request.Tools[0].Name == "done")
+            if (request.Tools.Count == 1 && request.Tools[0].Name == "complete_step")
             {
                 return ModelResponses.Done("failed", "could not get a call past the schema");
             }
@@ -159,7 +159,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         // Three refusals warn, five force the verdict; a model this stuck never reaches the turn budget.
         Assert.True(model.CallCount <= 8, "model calls: " + model.CallCount);
         Assert.Contains(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("failed in a row", StringComparison.Ordinal) == true));
-        Assert.Equal(["done"], model.Requests[^1].Tools.Select(tool => tool.Name));
+        Assert.Equal(["complete_step"], model.Requests[^1].Tools.Select(tool => tool.Name));
     }
 
     private static StepRecord AgentStep(E2ESession session) => session.StepRecords.Single(step => step.Api == "agent.act");

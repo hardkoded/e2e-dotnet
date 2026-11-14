@@ -28,7 +28,7 @@ internal static class ToolLoopPrefixHelpers
 
     internal static string Look(int n) => Answer(n, "look", new { });
 
-    internal static string Done(int n) => Answer(n, "done", new { status = "passed", summary = "done" });
+    internal static string Done(int n) => Answer(n, "complete_step", new { status = "passed", summary = "done" });
 
     /// <summary><c>messages.i.content.j=signature</c> for every thinking block the request replays.</summary>
     internal static List<string> ReplayedThinking(RecordedRequest request) =>

@@ -352,7 +352,7 @@ public static class AcpExecutor
 
             if (step.Secrets.Count > 0)
             {
-                parts.Add($"Secrets to fill with fill_secret, by name: {string.Join(", ", step.Secrets.Select(secret => secret.Purpose is null ? secret.Name : $"{secret.Name} ({secret.Purpose})"))}");
+                parts.Add($"Secrets to fill with type_secret, by name: {string.Join(", ", step.Secrets.Select(secret => secret.Purpose is null ? secret.Name : $"{secret.Name} ({secret.Purpose})"))}");
             }
 
             var missing = StepTools.MissingTools(active, tools);

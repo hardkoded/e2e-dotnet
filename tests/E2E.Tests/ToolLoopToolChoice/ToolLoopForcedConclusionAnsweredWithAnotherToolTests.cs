@@ -49,11 +49,11 @@ public sealed class ToolLoopForcedConclusionAnsweredWithAnotherToolTests
             agentTools: ToolLoopForcedToolChoiceTests.Peek());
 
         Assert.Null(attempt.Error);
-        Assert.Equal(["required", "tool:done", "tool:done"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
+        Assert.Equal(["required", "tool:complete_step", "tool:complete_step"], model.Requests.Select(request => request.ToolChoice!.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type));
         // The first turn offers every tool; the last two are the forced-conclusion turns, which offer only done.
         Assert.Contains(model.Requests[0].Tools, tool => tool.Name == "peek");
-        Assert.Equal(["done"], model.Requests[1].Tools.Select(tool => tool.Name));
-        Assert.Equal(["done"], model.Requests[2].Tools.Select(tool => tool.Name));
+        Assert.Equal(["complete_step"], model.Requests[1].Tools.Select(tool => tool.Name));
+        Assert.Equal(["complete_step"], model.Requests[2].Tools.Select(tool => tool.Name));
         Assert.Equal(2, results.Count);
         Assert.Equal("looked", results[0]);
         Assert.Contains("peek did not run", results[1], StringComparison.Ordinal);

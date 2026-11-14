@@ -184,7 +184,7 @@ internal sealed partial class ActContext : StepExecutorContext
 
     // Upstream's KINDS_BY_VERB (engine/session.ts): the action kinds an engine must declare for each kind-derived grammar verb. `check` sets a
     // state rather than flipping one, so it needs both directions; `fill` unlocks the plain and the secret fill alike. The port's `clear` verb
-    // follows its own kind: upstream has no clear verb.
+    // follows its own kind and serves the MCP `clear` tool through `type`: upstream has no clear verb.
     private static readonly (ExecutorVerb Verb, string[] Kinds)[] KindsByVerb =
     [
         (ExecutorVerb.Tap, ["tap"]),

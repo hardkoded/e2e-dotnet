@@ -17,7 +17,7 @@ namespace E2E.Acp.Tests.Presets;
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AgentPresetsTests : IDisposable
 {
-    private static readonly object[] Pass = [new { call = "done", args = new { status = "passed", summary = "added" } }];
+    private static readonly object[] Pass = [new { call = "complete_step", args = new { status = "passed", summary = "added" } }];
 
     private readonly List<string> _directories = [];
 

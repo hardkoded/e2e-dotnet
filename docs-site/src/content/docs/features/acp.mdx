@@ -9,7 +9,7 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 `E2E.Acp` runs `ActAsync` and `AssertAsync` on Claude Code or Codex over the [Agent Client Protocol](https://agentclientprotocol.com). The agent signs in with its own login or API key, so e2e needs no model provider. This is upstream's `@e2e-dev/acp` (see [COMPATIBILITY.md](/compatibility/#acp)).
 
-The agent gets `done` and the built-in agent's action tools for the verbs the target's engine supports. The runner records every action, so steps replay from the [cache](/features/caching/) without the agent. Your tests do not change.
+The agent gets `complete_step` and the built-in agent's action tools for the verbs the target's engine supports. The runner records every action, so steps replay from the [cache](/features/caching/) without the agent. Your tests do not change.
 
 ## Set up
 
@@ -88,7 +88,7 @@ Each preset also turns off the agent's own tools that run without asking:
 
 ## Secrets
 
-A secret param reaches the agent by name only. The agent calls `fill_secret` and the runner types the value, as for the built-in agent.
+A secret param reaches the agent by name only. The agent calls `type_secret` and the runner types the value, as for the built-in agent.
 
 The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, in any casing. That holds for this process's environment and for `AcpAgentOptions.Env`.
 
@@ -102,7 +102,7 @@ One agent session serves one test attempt. The first agent step that the cache c
 
 Each message carries the step, its non-secret params, the steps done so far, and the current screen. Action results say what changed on screen, and a `screenshot` reaches the agent as an image.
 
-An assertion cannot change the screen. `observe`, `screenshot`, and scrolling still work; hovering is refused. The agent ends every step with `done`: `passed`, `failed`, or `blocked` with an error code, as the built-in agent does.
+An assertion cannot change the screen. `observe`, `screenshot`, and scrolling still work; hovering is refused. The agent ends every step with `complete_step`: `passed`, `failed`, or `blocked` with an error code, as the built-in agent does.
 
 ## Limits
 

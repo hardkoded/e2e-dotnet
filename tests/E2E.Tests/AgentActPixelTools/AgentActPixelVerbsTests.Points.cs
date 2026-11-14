@@ -332,14 +332,14 @@ public sealed partial class AgentActPixelVerbsTests
             {
                 0 => ModelResponses.Call("screenshot", new { }),
                 1 => ModelResponses.Call("tap_at", new { x = 120, y = 60 }),
-                2 => ModelResponses.Call("fill", new { value = "ok" }),
+                2 => ModelResponses.Call("type", new { value = "ok" }),
                 3 => ModelResponses.Call("press", new { key = "Enter" }),
                 _ => Done(),
             },
             screen => HasStatus(screen, "drawn: ok"));
         Assert.Null(run.Error);
         Assert.Equal(["tapAt", "typeText", "pressKey"], EngineEvents(run).Select(item => item.Name));
-        Assert.Contains(run.Requests[0].Tools, tool => tool.Name == "fill");
+        Assert.Contains(run.Requests[0].Tools, tool => tool.Name == "type");
         Assert.DoesNotContain(run.Requests[0].Tools, tool => tool.Name == "dismiss_keyboard");
         Assert.Contains("Typed into the focused field.", Result(run, 3), StringComparison.Ordinal);
     }
@@ -352,7 +352,7 @@ public sealed partial class AgentActPixelVerbsTests
             "type yo into the pad",
             calls => calls switch
             {
-                0 => ModelResponses.Call("fill", new { role = "application", name = "Pad", value = "yo" }),
+                0 => ModelResponses.Call("type", new { role = "application", name = "Pad", value = "yo" }),
                 1 => ModelResponses.Call("press", new { role = "application", name = "Pad", key = "Enter" }),
                 _ => Done(),
             },
@@ -373,7 +373,7 @@ public sealed partial class AgentActPixelVerbsTests
         var run = await ActOnAsync(
             "/",
             "type blind",
-            calls => calls == 0 ? ModelResponses.Call("fill", new { value = "nope" }) : Done(passed: false));
+            calls => calls == 0 ? ModelResponses.Call("type", new { value = "nope" }) : Done(passed: false));
         Assert.NotNull(run.Error);
         // The engine refused before any keystroke: the action was reserved, not committed.
         Assert.DoesNotContain(EngineEvents(run), item => item.Status == StepEventStatus.Passed);
@@ -401,7 +401,7 @@ public sealed partial class AgentActPixelVerbsTests
         Assert.Equal(1, run.Requests[2].Messages[^1].Images?.Count);
         Assert.Contains(run.Requests, request => request.Messages.Any(message => message.Role == "user" && message.Content?.Contains("[SYSTEM NOTICE] the last 3 actions failed in a row", StringComparison.Ordinal) == true));
         var last = run.Requests[^1];
-        Assert.Equal(["done"], last.Tools.Select(tool => tool.Name));
+        Assert.Equal(["complete_step"], last.Tools.Select(tool => tool.Name));
         Assert.Contains("[SYSTEM] Loop guard: the last 5 actions failed in a row", last.Messages[^1].Content, StringComparison.Ordinal);
         // The loop notes the warning and the stop on the turn they followed, as upstream's note() does.
         var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(run.Step.Turns);
@@ -419,7 +419,7 @@ public sealed partial class AgentActPixelVerbsTests
             before: screen => screen.GetByLabel("Password").FillAsync(Secret.Create("memberPassword", "hunter2-secret")));
         Assert.Null(run.Error);
         var first = run.Requests[0];
-        foreach (var verb in new[] { "screenshot", "tap_at", "drag_at", "type_at", "press_at", "select_at", "tap", "fill" })
+        foreach (var verb in new[] { "screenshot", "tap_at", "drag_at", "type_at", "press_at", "select_at", "tap", "type" })
         {
             Assert.Contains(first.Tools, tool => tool.Name == verb);
         }

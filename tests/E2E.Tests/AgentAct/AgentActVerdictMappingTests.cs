@@ -105,7 +105,7 @@ public sealed class AgentActVerdictMappingTests
     // Upstream's generic secret in a plain textbox and its provider-backed secret are not ported: the port has no
     // secret purpose check for a plain field and no credential provider functions.
     [Fact]
-    public async Task Fills_a_declared_secret_through_fill_secret_and_refuses_an_undeclared_one()
+    public async Task Fills_a_declared_secret_through_type_secret_and_refuses_an_undeclared_one()
     {
         string? typed = null;
         var world = new DocumentWorld().Map("/", page => page.Roots.Add(new DocumentElement
@@ -118,9 +118,9 @@ public sealed class AgentActVerdictMappingTests
         }));
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {
-            0 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "admin.password" }),
+            0 => ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "admin.password" }),
             // A configured secret the step never declared is refused.
-            1 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "stripe-key" }),
+            1 => ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "stripe-key" }),
             _ => ModelResponses.Done("passed", "filled the declared secret only"),
         });
         var result = await RunAsync(

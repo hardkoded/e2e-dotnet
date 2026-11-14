@@ -70,7 +70,7 @@ public sealed partial class CreateToolLoopExecutorTests
             executor: TapOnly());
 
         Assert.Null(result.Error);
-        Assert.Equal(["read_screen", "tap", "done"], model.Requests[0].Tools.Select(tool => tool.Name));
+        Assert.Equal(["read_screen", "tap", "complete_step"], model.Requests[0].Tools.Select(tool => tool.Name));
         Assert.Equal(Instruction, model.Requests[0].Messages[0].Content);
         Assert.Equal("Read the screen before acting.\n\n" + AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System);
         Assert.Equal(3, act!.ModelCalls);
@@ -177,7 +177,7 @@ public sealed partial class CreateToolLoopExecutorTests
             executor: TapOnly(prepare: (messages, _) => new PreparedMessages(messages, "the step makes no progress")));
 
         Assert.Equal("ACTION_FAILED", Assert.IsType<AgentException>(result.Error).Code);
-        Assert.Equal(["done"], model.Requests[0].Tools.Select(tool => tool.Name));
+        Assert.Equal(["complete_step"], model.Requests[0].Tools.Select(tool => tool.Name));
         Assert.Contains(model.Requests[0].Messages, message => message.Content?.Contains("the step makes no progress", StringComparison.Ordinal) == true);
     }
 

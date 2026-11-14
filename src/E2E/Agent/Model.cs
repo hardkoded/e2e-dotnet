@@ -222,7 +222,7 @@ public static class ModelResponses
 {
     public static ModelResponse Done(string status, string summary, string? code = null)
     {
-        return Call("done", code is null
+        return Call(VerdictTool.Name, code is null
             ? new { status, summary }
             : (object)new { status, summary, code });
     }
@@ -246,7 +246,7 @@ public static class ModelResponses
 
     public static ModelResponse Fill(string role, string name, string value)
     {
-        return Call("fill", new { role, name, value });
+        return Call("type", new { role, name, value });
     }
 
     public static ModelResponse Call(string name, object arguments)
@@ -301,7 +301,7 @@ public sealed class ScriptedModel : IAgentModel
 
     private static ModelResponse AsJudgment(ModelResponse response)
     {
-        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, "done", StringComparison.Ordinal));
+        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal));
         if (done is null || response.Content is not null)
         {
             return response;

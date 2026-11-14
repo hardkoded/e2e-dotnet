@@ -257,13 +257,13 @@ public sealed partial class Agent
             IReadOnlyList<string> fields = [];
             if (extract is null)
             {
-                var done = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, "done", StringComparison.Ordinal));
+                var done = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, VerdictTool.Name, StringComparison.Ordinal));
                 if (done is not null)
                 {
                     throw new AgentException("ASSERTION_INCONCLUSIVE", ExplainInconclusive("nothing to extract: " + (Args.String(done.Arguments, "summary") ?? "the screen does not show the requested data"), vision));
                 }
 
-                issue = "call extract with the data, or done when the screen does not show it";
+                issue = "call extract with the data, or complete_step when the screen does not show it";
                 previous = response.Content;
             }
             else if (!TryProperty(extract.Arguments, "data", out var data))

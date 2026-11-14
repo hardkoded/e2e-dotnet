@@ -162,7 +162,7 @@ public required Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoo
 ```
 
 
-Builds the step's tool vocabulary. The chassis adds `done`.
+Builds the step's tool vocabulary. The chassis adds `complete_step`.
 
 **Value:** [Func&lt;StepExecutorContext, ToolLoopHelpers, IReadOnlyList&lt;ToolLoopTool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 

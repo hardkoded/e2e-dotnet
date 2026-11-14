@@ -62,7 +62,7 @@ public sealed partial class CreateGrammarToolsTests
         Assert.Contains("observe", offered);
         Assert.Contains("tap", offered);
         Assert.Contains("read_inbox", offered);
-        Assert.Equal("done", offered[^1]);
+        Assert.Equal("complete_step", offered[^1]);
         Assert.StartsWith(DefaultAgent.BaseRules, model.Requests[0].System, StringComparison.Ordinal);
         Assert.EndsWith(AgentTools.VerdictRules + "\n- " + global::E2E.ToolLoopExecutor.ToolCallsOnlyRule, model.Requests[0].System, StringComparison.Ordinal);
         Assert.Equal(1, act!.Actions);
