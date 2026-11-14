@@ -168,7 +168,7 @@ var user = Expect.That<object?>(new Dictionary<string, object?> { ["id"] = 1 }).
 
 ## Steadier mobile runs
 
-When no device is named and none is booted, prepare boots a shut-down simulator or emulator (#1567). agent-device picks one: a phone or tablet over a TV, then the newest OS, then name order. A booted device another agent-device session holds is still skipped. When every booted device is held, prepare still fails with `ENGINE_FAILURE`.
+When no device is named and none is booted, prepare boots a shut-down simulator or emulator (#1567). agent-device picks one: on iOS an iPhone over an iPad over an Apple TV, on Android a phone or tablet over a TV, then the newest OS, then name order. A booted device another agent-device session holds is still skipped. When every booted device is held, prepare still fails with `ENGINE_FAILURE`.
 
 A leased device stays with its worker across the attempts that run on that slot (#1552). Disposing an attempt leaves the leased device booted under its session. The run's finish closes those sessions, then releases the leases. A provider recording whose stop failed stays marked on the worker and is finished before the next attempt records.
 
