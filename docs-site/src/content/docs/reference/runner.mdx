@@ -154,11 +154,11 @@ var session = await host.OpenSessionAsync(new OpenSessionOptions
 | --- | --- | --- | --- |
 | `Name` | `"checkout"` | `string` | required |
 | `Timeout` | `TimeSpan.FromSeconds(60)` | `TimeSpan?` | the config's `timeout` |
-| `Agent` | `"smart"` | `string` | the first configured agent |
+| `Agent` | `"smart"` | `string` | the `default` agent |
 | `OnStep` | `step => { }` | `Action<StepProgress>` | - |
 
 - `Name` is the test name for step and trace reporting.
-- `Timeout` is the deadline for the session's operations, positive and finite, counted from when the session opens. It does not bound provisioning or opening, and it does not close the session.
+- `Timeout` is the deadline for the session's operations, positive and finite, counted from when the session starts opening. It also cuts a session launch that runs past it, but it does not bound host provisioning, and it does not close the session.
 - The `CancellationToken` argument cancels opening or live fixture calls. The host's token also applies. Provisioning happens in `OpenAsync`, so only the host's token cancels it.
 - `Agent` is the agent the session's `Agent` uses when a call names none.
 - `OnStep` receives live `StepProgress`, the same feed reporters receive. It must not block or throw. Its `Phase` is `Start`, `Event`, `Activity`, `Replay`, or `End`.
@@ -227,6 +227,6 @@ Soft expectation failures are collected for the session's whole lifetime. Check 
 
 #### Artifacts
 
-At close, e2e writes `trace.md` to the attempt's directory through the same redacted formatting reports use. A hosted session writes its trace, not `report.json`. For your runner's reporting, use `OnStep`, `Steps()`, `Report()`, and `CloseAsync()`'s failures. Your runner's test-body failures are not passed to e2e.
+At close, e2e writes `trace.md` to the test's directory (`<results>/<test>`, beside the attempt's directory) through the same redacted formatting reports use. A hosted session writes its trace, not `report.json`. For your runner's reporting, use `OnStep`, `Steps()`, `Report()`, and `CloseAsync()`'s failures. Your runner's test-body failures are not passed to e2e.
 
-Differences from upstream: the attempt's directory is `<results>/<test>/attempt-1`, where upstream's is `results/host/<segment>`, and two sessions with one name share it; `RUNNER_BUSY` is not raised, since the port has no suite runner. See [Compatibility](/compatibility/#hosted-sessions).
+Differences from upstream: the attempt's directory is `<results>/<test>/attempt-1` and `trace.md` sits beside it, in `<results>/<test>`; read `TracePath` for its location. Upstream's directory is `results/host/<segment>`. Two sessions with one name share it; `RUNNER_BUSY` is not raised, since the port has no suite runner. See [Compatibility](/compatibility/#hosted-sessions).
