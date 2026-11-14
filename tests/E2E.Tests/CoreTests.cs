@@ -917,12 +917,14 @@ public sealed class CoreTests
         TimeSpan? actionTimeout = null,
         IReadOnlyDictionary<string, AgentTool>? agentTools = null,
         IStepExecutor? executor = null,
-        ReportJson.ReportDirectory? report = null)
+        ReportJson.ReportDirectory? report = null,
+        Func<IEngine, IEngine>? wrapEngine = null)
     {
+        IEngine engine = new DocumentEngine(world ?? BillingWorld.Create());
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             ResultsDirectory = report?.Results,
-            Engine = new DocumentEngine(world ?? BillingWorld.Create()),
+            Engine = wrapEngine is null ? engine : wrapEngine(engine),
             Model = model,
             AgentTools = agentTools,
             AgentExecutor = executor,
