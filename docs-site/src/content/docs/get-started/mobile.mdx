@@ -459,6 +459,10 @@ public static class DeviceCloudProvider
 }
 ```
 
+## Known device limitations
+
+- `Locator.DoubleTapAsync` and `Screen.DoubleTapAtAsync` on iOS are two taps about 285 to 335 ms apart. Give a double-tap detector a window of 350 ms or more.
+
 ## Next
 
 <CardGrid>

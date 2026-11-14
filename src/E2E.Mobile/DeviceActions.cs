@@ -409,7 +409,7 @@ public sealed class DeviceActions : IDeviceActions
     /// <summary>
     /// Issues one pointer action at a screen point in logical pixels. A double tap is two presses (<c>count: 2</c>), as
     /// it is on a node: agent-device's own double-tap gesture reaches a React Native <c>Pressable</c> on iOS as one
-    /// press, while two presses in a row land about 285 ms apart. The kinds outside <see cref="PointerActionKinds"/> are
+    /// press, while two presses in a row land about 285 to 335 ms apart. The kinds outside <see cref="PointerActionKinds"/> are
     /// refused here.
     /// </summary>
     internal static Task<JsonNode?> PointerInteractionAsync(IDeviceClient client, Point point, PointerAction action, JsonObject settle, JsonObject stabilization, InputBudget input)
