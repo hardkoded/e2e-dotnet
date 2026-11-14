@@ -274,7 +274,7 @@ public sealed class ExploreFlagsTests
         {
             File.WriteAllText(
                 Path.Combine(dir, "e2e.config.json"),
-                """{ "targets": [{ "name": "web", "platform": "web", "url": "http://localhost:1" }], "reporters": ["E2E.Cli.Tests.ExploreFlags.RecordingReporter"] }""");
+                """{ "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }], "reporters": ["E2E.Cli.Tests.ExploreFlags.RecordingReporter"] }""");
             RecordingReporter.Seen.Clear();
             var fake = new FakeExplore(
                 [new ExploreProgress.Started("Explore the app and find bugs", Budgets)],
