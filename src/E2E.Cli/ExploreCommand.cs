@@ -140,7 +140,8 @@ internal static partial class ExploreCommand
         var reporter = new ListReporter(
             new StdoutOutput(stdout),
             new ListReporterOptions { Live = false, Colors = interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")) });
-        using var run = HostRun.Begin([]);
+        // The config's reporters run for the exploration as they do for a test run (upstream passes `reporters` to the run it builds), so the GitHub reporter posts its comment.
+        using var run = config is null ? HostRun.Begin([]) : HostRun.Begin(() => config);
         var started = false;
         using var listening = RunEvents.Subscribe(new RunEventSubscriber("list", runEvent =>
         {

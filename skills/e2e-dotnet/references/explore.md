@@ -112,7 +112,8 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--video [mode]` | the config's `video`, else `off` | Which attempts record a video, when the engine can. A bare flag is `on`. `E2E_VIDEO` sets it too. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter`
-exit 2: the command has no way to run the setup test that saves a session, and no reporters. The modes of `--trace`
+exit 2: the command has no way to run the setup test that saves a session, and the reporters come from the config's `reporters`, which
+`e2e explore` runs as `e2e run` does. The modes of `--trace`
 and `--video` are `off`, `on`, `retain-on-failure`, `on-first-retry`, and
 `on-all-retries`; a value that is not one exits 2. `--trace` and `--video` take
 the next word as the mode, so write `--video=on "Explore checkout"` or put the
