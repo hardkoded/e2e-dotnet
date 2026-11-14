@@ -53,7 +53,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         | EngineCapabilities.SwitchTab | EngineCapabilities.CloseTab | EngineCapabilities.Upload | EngineCapabilities.TapModifiers;
 
     private static IReadOnlyList<ModelTool> FullGrammar() =>
-        AgentTools.GrammarToolDefinitions(Everything, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true);
+        AgentTools.GrammarToolDefinitions(Everything, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"], dismissKeyboard: true, secrets: [new ExecutorSecret("admin", "password")]);
 
     private static JsonSchemaCheck SchemaOf(ModelTool tool) => JsonSchemaCheck.FromText(tool.Parameters.GetRawText());
 
@@ -218,7 +218,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     [Fact]
     public void Offers_the_node_verbs_and_the_scroll_and_history_tools_their_capabilities_unlock()
     {
-        var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History, null, EngineActionKinds.Locator);
+        var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History, null, EngineActionKinds.Locator, secrets: [new ExecutorSecret("admin", "password")]);
         Assert.Equal(
             ["back", "check", "clear", "double_tap", "drag", "drag_at", "fill", "fill_secret", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
@@ -242,7 +242,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     public void Offers_each_node_verb_only_for_the_action_kinds_the_engine_declares()
     {
         static string[] Offered(EngineCapabilities capabilities, params string[] kinds) =>
-            [.. AgentTools.GrammarToolDefinitions(capabilities, null, kinds).Select(tool => tool.Name).Where(name => name is not ("observe" or "navigate" or "screenshot")).Order(StringComparer.Ordinal)];
+            [.. AgentTools.GrammarToolDefinitions(capabilities, null, kinds, secrets: [new ExecutorSecret("admin", "password")]).Select(tool => tool.Name).Where(name => name is not ("observe" or "navigate" or "screenshot")).Order(StringComparer.Ordinal)];
 
         Assert.Equal(["tap", "tap_at"], Offered(EngineCapabilities.None, "tap"));
         Assert.Equal(["double_tap"], Offered(EngineCapabilities.None, "doubleTap"));
