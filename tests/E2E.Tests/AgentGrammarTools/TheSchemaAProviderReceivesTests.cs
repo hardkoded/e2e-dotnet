@@ -18,7 +18,8 @@ public sealed class TheSchemaAProviderReceivesTests
             null,
             EngineActionKinds.Locator,
             ["tap", "hover", "dragTo"],
-            dismissKeyboard: true);
+            dismissKeyboard: true,
+            secrets: [new ExecutorSecret("admin", "password")]);
 
     [Fact]
     public void Carries_additionalProperties_false_for_every_grammar_tool_and_complete_step_from_the_schema_itself()

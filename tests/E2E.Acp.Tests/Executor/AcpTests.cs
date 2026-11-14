@@ -62,7 +62,7 @@ public sealed class AcpTests : IDisposable
         Assert.Equal("e2e_step", offered["server"]!.GetValue<string>());
         // The built-in agent's tools for the target's verbs, plus done.
         Assert.Equal(
-            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "clear", "done", "double_tap", "fill", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             offered["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).Order(StringComparer.Ordinal));
         Assert.Contains("Typed into", agent.ResultOf("fill"), StringComparison.Ordinal);
         Assert.Contains("Tapped", agent.ResultOf("tap"), StringComparison.Ordinal);
@@ -596,17 +596,16 @@ public sealed class AcpTests : IDisposable
     public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
         // Partial: the document engine offers every step the same tools, so no step lacks a tool the session listed.
-        // fill_secret is listed, and a call of it for a secret the step does not declare says so.
-        var agent = Scripted(_directory, Turns([Call("fill_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
+        // fill_secret is not listed: the steps declare no secret.
+        var agent = Scripted(_directory, Turns([Pass], [Pass]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo");
 
         var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).ToList();
-        Assert.Contains("fill_secret", offered);
+        Assert.DoesNotContain("fill_secret", offered);
         Assert.DoesNotContain("Not offered in this step", agent.Prompts()[0], StringComparison.Ordinal);
-        Assert.Contains("isError", agent.ResultOf("fill_secret"), StringComparison.Ordinal);
     }
 
     [Fact]
