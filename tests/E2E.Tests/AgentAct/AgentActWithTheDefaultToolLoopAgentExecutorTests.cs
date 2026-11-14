@@ -28,11 +28,13 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Null(result.Error);
     }
 
+    // Partial: upstream lists tools the port does not offer here (upload, drag, drag_at, hover, hover_at, long_press, right_click, resize_viewport, type),
+    // and its verdict tool is complete_step where the port's is done. Upstream's tool results report changes since a revision, which this does not assert.
     // Upstream lists a toolset the port does not have here (upload, and the point tools). The document engine declares no pointer action,
     // so it offers no long_press, right_click, hover, or drag. Upstream's tool
     // results report changes since a revision. The port's results carry the whole screen instead.
     [Fact]
-    public async Task Offers_the_port_toolset_and_concludes_through_done()
+    public async Task Partial_Offers_the_default_toolset_and_concludes_through_complete_step()
     {
         var model = IncrementThenConclude();
         var result = await RunAsync(
@@ -42,12 +44,13 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
-            model);
+            model,
+            wrapEngine: engine => new TabsEngine(engine));
 
         Assert.Null(result.Error);
         Assert.True(model.CallCount >= 2);
         Assert.Equal(
-            ["back", "check", "clear", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "clear", "close_tab", "done", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "switch_tab", "tap", "tap_at", "type_at", "uncheck"],
             model.Requests[0].Tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
         var opening = model.Requests[0].Messages[0].Content!;
         Assert.Contains("Goal: " + Instruction, opening, StringComparison.Ordinal);
