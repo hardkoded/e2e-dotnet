@@ -431,7 +431,7 @@ public sealed partial class DevicePool
 
     /// <summary>
     /// The request <c>boot</c> takes for a selection. One that names no device asks agent-device to pick among several
-    /// shut-down matches (mobile over TV, newest OS, then name order) instead of failing with <c>AMBIGUOUS_MATCH</c>;
+    /// shut-down matches (on iOS an iPhone over an iPad over an Apple TV, on Android a phone or tablet over a TV, then the newest OS, then name order) instead of failing with <c>AMBIGUOUS_MATCH</c>;
     /// several booted matches still fail.
     /// </summary>
     public static JsonObject BootRequest(DeviceSelection selection) =>
@@ -512,7 +512,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
 
         if (chosen.Count == 0)
         {
-            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (newest OS, then name)");
+            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (iPhone over iPad over Apple TV on iOS, phone or tablet over TV on Android, then newest OS, then name)");
             return [new SlotBinding()];
         }
 

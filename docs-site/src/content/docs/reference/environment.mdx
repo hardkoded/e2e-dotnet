@@ -179,7 +179,7 @@ See [Pull request comments](/integrations/github/).
 | `E2E_MOBILE_PROVIDER` | `E2E_MOBILE_PROVIDER=limrun` | value | `local` (default), `limrun`, or `devflow`. A hosted provider leases one device for the whole run. .NET-only |
 | `E2E_MOBILE_PLATFORM` | `E2E_MOBILE_PLATFORM=android` | value | `ios` or `android`; replaces the target's `platform`. .NET-only |
 | `E2E_MOBILE_APP_PATH` | `E2E_MOBILE_APP_PATH=./App.app` | value | Replaces the target's `app.appPath`. .NET-only |
-| `E2E_MOBILE_DEVICE` | `E2E_MOBILE_DEVICE="iPhone 16"` | value | The simulator or emulator to drive. Unset, the booted device of the platform. .NET-only |
+| `E2E_MOBILE_DEVICE` | `E2E_MOBILE_DEVICE="iPhone 16"` | value | The simulator, emulator, or paired device to drive. Unset, the booted device of the platform. .NET-only |
 | `E2E_AGENT_DEVICE_BIN` | `E2E_AGENT_DEVICE_BIN=/opt/agent-device/bin.js` | value | An agent-device build to run under `node`, in place of the pinned release through `npx`. .NET-only |
 | `E2E_DEVFLOW_PORT`, `E2E_DEVFLOW_APP` | `E2E_DEVFLOW_PORT=9223` | value | The port and app name of the MAUI DevFlow agent (`E2E_MOBILE_PROVIDER=devflow`). A port that is not a number from 1 to 65535 fails the run. .NET-only |
 | `E2E_DEVFLOW_TRACE` | `E2E_DEVFLOW_TRACE=1` | `1` or `true` | Prints each call to the MAUI DevFlow agent. .NET-only |
