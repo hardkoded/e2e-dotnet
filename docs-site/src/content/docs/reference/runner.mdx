@@ -223,10 +223,80 @@ if (failures.Count > 0)
 
 #### Deadline and soft failures
 
-Soft expectation failures are collected for the session's whole lifetime. Check `CloseAsync()`'s result to fail your runner's test. When the deadline passes, running operations are cut and later ones fail; close the session.
+Soft expectation failures are collected for the session's whole lifetime. Check `CloseAsync()`'s result to fail your runner's test.
+
+- When the deadline passes, a poll or operation that was watching it reports its own cut. Everything else still running, including an operation an engine or a model never answered, fails with `TEST_TIMEOUT`.
+- Either way the session's outcome is timed out and `CloseAsync()` returns the timeout. Later operations fail with `TEST_TIMEOUT`; close the session.
 
 #### Artifacts
 
 At close, e2e writes `trace.md` to the test's directory (`<results>/<test>`, beside the attempt's directory) through the same redacted formatting reports use. A hosted session writes its trace, not `report.json`. For your runner's reporting, use `OnStep`, `Steps()`, `Report()`, and `CloseAsync()`'s failures. Your runner's test-body failures are not passed to e2e.
 
 Differences from upstream: the attempt's directory is `<results>/<test>/attempt-1` and `trace.md` sits beside it, in `<results>/<test>`; read `TracePath` for its location. Upstream's directory is `results/host/<segment>`. Two sessions with one name share it; `RUNNER_BUSY` is not raised, since the port has no suite runner. See [Compatibility](/compatibility/#hosted-sessions).
+
+## Types
+
+| Type | Describes |
+| --- | --- |
+| `OpenHostOptions`, `E2EHost` | `E2EHost.OpenAsync`'s options and the [host](#e2ehost) |
+| `OpenSessionOptions`, `E2ESession` | `host.OpenSessionAsync`'s options and the [session](#e2esession) |
+| `StepProgress`, `ReportStep` | One `OnStep` progress event, and one step `Steps()` returns (upstream's `StepRecord`) |
+| `E2EException` | One failure `CloseAsync()` returns; its `Code` is the error code (upstream's `SerializedError`, and `isE2EError` is a type test for it) |
+
+## Examples
+
+### A host for each test class and a session for each test
+
+A host for the worker and a session for each test, in NUnit:
+
+```csharp
+[TestFixture]
+public class SettingsTests
+{
+    private E2EHost _host = null!;
+
+    [OneTimeSetUp]
+    public async Task OpenHost() =>
+        _host = await E2EHost.OpenAsync(new OpenHostOptions { Target = "web" });
+
+    [OneTimeTearDown]
+    public async Task CloseHost()
+    {
+        var failures = await _host.CloseAsync();
+        if (failures.Count > 0)
+        {
+            throw new AggregateException("e2e host close failed", failures);
+        }
+    }
+
+    [Test]
+    public async Task Turns_on_dark_mode()
+    {
+        var session = await _host.OpenSessionAsync(new OpenSessionOptions
+        {
+            Name = TestContext.CurrentContext.Test.FullName,
+            OnStep = step =>
+            {
+                if (step.Phase == StepProgressPhase.End)
+                {
+                    Console.WriteLine($"{step.Api} {step.Label}: {step.Status}");
+                }
+            },
+        });
+        try
+        {
+            await session.Agent.ActAsync("open settings and turn on dark mode");
+            await session.App.ScreenshotAsync();
+        }
+        finally
+        {
+            var failures = await session.CloseAsync();
+            TestContext.AddTestAttachment(session.TracePath, "e2e trace");
+            if (failures.Count > 0)
+            {
+                throw new AggregateException("e2e session close failed", failures);
+            }
+        }
+    }
+}
+```
