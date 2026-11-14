@@ -140,7 +140,7 @@ internal static class GesturesSession
     public static readonly Flow UploadFlow = new(
         "uploads a project file",
         "attach the fixture file",
-        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { @ref = RefFor(prompt, "button \"Attachment\""), files = new[] { "fixtures/attachment.txt" } }) : null,
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { target = RefFor(prompt, "button \"Attachment\""), files = new[] { "fixtures/attachment.txt" } }) : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("attached: attachment.txt"));
 
     // How the observation lists the gestures page's plain elements.
@@ -155,8 +155,8 @@ internal static class GesturesSession
         "hover the account menu and redeem the voucher",
         (calls, prompt) => calls switch
         {
-            0 => ModelResponses.Call("hover", new { @ref = RefFor(prompt, AccountLine) }),
-            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            0 => ModelResponses.Call("hover", new { target = RefFor(prompt, AccountLine) }),
+            1 => ModelResponses.Call("tap", new { target = RefFor(prompt, "button \"Redeem\"") }),
             _ => null,
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
@@ -167,8 +167,8 @@ internal static class GesturesSession
         "right-click report.pdf and rename it",
         (calls, prompt) => calls switch
         {
-            0 => ModelResponses.Call("right_click", new { @ref = RefFor(prompt, FileLine) }),
-            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "menuitem \"Rename\"") }),
+            0 => ModelResponses.Call("right_click", new { target = RefFor(prompt, FileLine) }),
+            1 => ModelResponses.Call("tap", new { target = RefFor(prompt, "menuitem \"Rename\"") }),
             _ => null,
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("renamed"));
@@ -179,8 +179,8 @@ internal static class GesturesSession
         "double-tap the twice button, then long-press hold me",
         (calls, prompt) => calls switch
         {
-            0 => ModelResponses.Call("double_tap", new { @ref = RefFor(prompt, "button \"Tap me twice\"") }),
-            1 => ModelResponses.Call("long_press", new { @ref = RefFor(prompt, "button \"Hold me\"") }),
+            0 => ModelResponses.Call("double_tap", new { target = RefFor(prompt, "button \"Tap me twice\"") }),
+            1 => ModelResponses.Call("long_press", new { target = RefFor(prompt, "button \"Hold me\"") }),
             _ => null,
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("long-pressed"));
@@ -190,7 +190,7 @@ internal static class GesturesSession
         "drags the card onto the done column",
         "drag the design review card to the done column",
         (calls, prompt) => calls == 0
-            ? ModelResponses.Call("drag", new { @ref = RefFor(prompt, CardLine), to = new { @ref = RefFor(prompt, DoneLine) } })
+            ? ModelResponses.Call("drag", new { target = RefFor(prompt, CardLine), to = RefFor(prompt, DoneLine) })
             : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("Design review is done"));
 
@@ -200,8 +200,8 @@ internal static class GesturesSession
         "select the last word of the memo",
         (calls, prompt) => calls switch
         {
-            0 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "textbox \"Memo\"") }),
-            1 => ModelResponses.Call("press", new { @ref = RefFor(prompt, "textbox \"Memo\""), key = "Shift+ArrowLeft", times = 8 }),
+            0 => ModelResponses.Call("tap", new { target = RefFor(prompt, "textbox \"Memo\"") }),
+            1 => ModelResponses.Call("press", new { target = RefFor(prompt, "textbox \"Memo\""), key = "Shift+ArrowLeft", times = 8 }),
             _ => null,
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("selected: approved"));
@@ -213,7 +213,7 @@ internal static class GesturesSession
     public static readonly Flow TabFlow = new(
         "tabs from the terms checkbox to the memo with one repeated press",
         "tab from the terms checkbox to the memo",
-        (calls, prompt) => calls == 0 ? ModelResponses.Call("press", new { @ref = RefFor(prompt, "checkbox \"Agree to terms\""), key = "Tab", times = 2 }) : null,
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("press", new { target = RefFor(prompt, "checkbox \"Agree to terms\""), key = "Tab", times = 2 }) : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("selected: release approved"));
 
     /// <summary>
@@ -227,7 +227,7 @@ internal static class GesturesSession
         {
             0 => ModelResponses.Call("screenshot", new { }),
             1 => ModelResponses.Call("hover_at", new { x = 84, y = 33 }),
-            2 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            2 => ModelResponses.Call("tap", new { target = RefFor(prompt, "button \"Redeem\"") }),
             _ => null,
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
@@ -238,8 +238,8 @@ internal static class GesturesSession
         "redeem the voucher and check the page on a phone",
         (calls, prompt) => calls switch
         {
-            0 => ModelResponses.Call("hover", new { @ref = RefFor(prompt, AccountLine) }),
-            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            0 => ModelResponses.Call("hover", new { target = RefFor(prompt, AccountLine) }),
+            1 => ModelResponses.Call("tap", new { target = RefFor(prompt, "button \"Redeem\"") }),
             2 => ModelResponses.Call("resize_viewport", new { width = 390, height = 844 }),
             _ => null,
         },
@@ -257,7 +257,7 @@ internal static class GesturesSession
             "checks the box and leaves a checked box alone",
             "agree to the terms, then make sure the box stays checked",
             // The same check twice: the second finds the box already checked and flips nothing.
-            (calls, prompt) => calls <= 1 ? ModelResponses.Call("check", new { @ref = RefFor(prompt, "checkbox \"Agree to terms\"") }) : null,
+            (calls, prompt) => calls <= 1 ? ModelResponses.Call("check", new { target = RefFor(prompt, "checkbox \"Agree to terms\"") }) : null,
             async screen =>
             {
                 await Expect.That(screen.GetByLabel("Agree to terms")).ToBeCheckedAsync();
@@ -266,18 +266,18 @@ internal static class GesturesSession
         new(
             "checks a radio the pick replaces with its summary",
             "pick Express delivery",
-            (calls, prompt) => calls == 0 ? ModelResponses.Call("check", new { @ref = RefFor(prompt, "radio \"Express\"") }) : null,
+            (calls, prompt) => calls == 0 ? ModelResponses.Call("check", new { target = RefFor(prompt, "radio \"Express\"") }) : null,
             screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("delivery: Express")),
         UploadFlow,
         new(
             "scrolls a listed node into view",
             "scroll to the footnote",
-            (calls, prompt) => calls == 0 ? ModelResponses.Call("scroll_to", new { @ref = RefFor(prompt, "paragraph \"Footnote\"") }) : null,
+            (calls, prompt) => calls == 0 ? ModelResponses.Call("scroll_to", new { target = RefFor(prompt, "paragraph \"Footnote\"") }) : null,
             screen => Expect.That(screen.GetByLabel("Footnote state")).ToHaveTextAsync("in view")),
         new(
             "pages a windowed list to a row it has not rendered",
             "scroll the ledger to the golden row",
-            (calls, prompt) => calls == 0 ? ModelResponses.Call("scroll_to", new { text = "Row 24", @ref = RefFor(prompt, "list \"Ledger\"") }) : null,
+            (calls, prompt) => calls == 0 ? ModelResponses.Call("scroll_to", new { text = "Row 24", target = RefFor(prompt, "list \"Ledger\"") }) : null,
             screen => Expect.That(screen.GetByLabel("Ledger state")).ToHaveTextAsync("golden in view")),
         SelectWordFlow,
         TabFlow,
@@ -286,7 +286,7 @@ internal static class GesturesSession
             "open the about page and come back",
             (calls, prompt) => calls switch
             {
-                0 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "link \"About\"") }),
+                0 => ModelResponses.Call("tap", new { target = RefFor(prompt, "link \"About\"") }),
                 1 => ModelResponses.Call("back", new { }),
                 _ => null,
             },
@@ -298,7 +298,7 @@ internal static class GesturesSession
     public static readonly Flow HiddenFileFlow = new(
         "refuses a hidden file",
         "attach the env file",
-        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { @ref = RefFor(prompt, "button \"Attachment\""), files = new[] { ".env" } }) : ModelResponses.Done("failed", "the file was refused", "POLICY_DENIED"),
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { target = RefFor(prompt, "button \"Attachment\""), files = new[] { ".env" } }) : ModelResponses.Done("failed", "the file was refused", "POLICY_DENIED"),
         _ => Task.CompletedTask);
 
     /// <summary>The project files beside the suite: one uploadable fixture and one hidden file the policy must refuse (upstream's <c>PROJECT_FILES</c>).</summary>

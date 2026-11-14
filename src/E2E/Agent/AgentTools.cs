@@ -20,11 +20,9 @@ public static class AgentTools
         {
           "type": "object",
           "properties": {
-            "role": { "type": "string", "description": "Accessible role, such as button or textbox." },
-            "name": { "type": "string", "description": "Accessible name from the snapshot." },
-            "testId": { "type": "string" },
-            "ref": { "type": "string", "description": "Node id from any screen in this conversation that is still present, e.g. \"n42\". Prefer it to role and name." }
-          }
+            "target": { "type": "string", "minLength": 1, "description": "Node id from any screen in this conversation that is still present, e.g. \"n42\"" }
+          },
+          "required": ["target"]
         }
         """);
 
@@ -98,7 +96,7 @@ public static class AgentTools
             return Tool(
                 "scroll_to",
                 "Scroll until a node is inside the viewport. With target alone, one listed node the screen shows above or below the fold (a button past the fold, a row far down the page). With text, a node the screen does not list yet: the list named by target (or the viewport) is paged screen by screen until a node reading that text shows, as one action however far, for a row deep in a long or windowed list. Prefer either to blind scrolling.",
-                Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }"""));
+                WithOptionalTarget(Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""")));
         }
 
         return byNode
@@ -109,7 +107,7 @@ public static class AgentTools
             : Tool(
                 "scroll_to",
                 "Scroll until a node reading the given text is inside the viewport: the list named by target (or the viewport) is paged screen by screen until it shows, as one action however far, for a row deep in a long or windowed list the screen does not list yet. Prefer it to blind scrolling whenever you know what the target reads.",
-                Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""", "text"));
+                WithOptionalTarget(Extend(Target, $$"""{ "text": {{textProperty}}, "direction": {{directionProperty}} }""", "text")));
     }
 
     private static ModelTool ScrollTool(bool withTarget)
@@ -119,7 +117,7 @@ public static class AgentTools
             ? Tool(
                 "scroll",
                 "Scroll the viewport, or one scrollable node when target is given, by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long or windowed list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
-                Extend(Target, $$"""{ "direction": {{Directions}}, "times": {{times}} }""", "direction"))
+                WithOptionalTarget(Extend(Target, $$"""{ "direction": {{Directions}}, "times": {{times}} }""", "direction")))
             : Tool(
                 "scroll",
                 "Scroll the viewport by a screen or a few. The result reports the rows that came into or left the tree. For a row far down a long list, prefer scroll_to with the row's text: it pages until the row shows, as one action.",
@@ -247,7 +245,7 @@ public static class AgentTools
         Tool("fill_secret", "Type a declared secret into an editable field. A password secret needs a password field. Pass the secret name, never the value.", WithValue(Target, "secret")),
         Tool(
             "press",
-            "Press a key such as Enter, Escape, or Tab. Omit role and name to press the focused control. " +
+            "Press a key such as Enter, Escape, or Tab. Omit target to press the focused control. " +
             "Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\".",
             Extend(
                 WithValue(Target, "key"),
@@ -280,7 +278,7 @@ public static class AgentTools
     private static readonly ModelTool Drag = Tool(
         "drag",
         "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.",
-        Extend(Target, """{ "to": { "type": "object", "description": "The drop target, named like the node dragged.", "properties": { "role": { "type": "string" }, "name": { "type": "string" }, "testId": { "type": "string" }, "ref": { "type": "string" } } } }""", "to"));
+        Extend(Target, """{ "to": { "type": "string", "minLength": 1, "description": "Node id of the drop target" } }""", "to"));
 
     /// <summary>
     /// The pointer verbs the grammar adds when the engine declares their locator action kind (<see cref="IEngineSession.ActionKinds"/>), by
@@ -350,6 +348,7 @@ public static class AgentTools
             "press" when verbs.Contains(ExecutorVerb.PressKey) && !verbs.Contains(ExecutorVerb.Press) => WithoutTarget(
                 verb,
                 "Press a key such as Enter, Escape, or Tab on whatever has focus. Shift with an arrow key extends the selection in a field one step per press, and the screen then shows the selected text as selection=\"...\"."),
+            "press" when verbs.Contains(ExecutorVerb.PressKey) => new ModelTool { Name = verb.Name, Description = verb.Description, Parameters = WithOptionalTarget(verb.Parameters) },
             _ => verb,
         };
     }
@@ -362,6 +361,8 @@ public static class AgentTools
         {
             properties.Remove(name);
         }
+
+        parameters = JsonNode.Parse(WithOptionalTarget(JsonSerializer.SerializeToElement(parameters)).GetRawText())!.AsObject();
 
         return new ModelTool { Name = tool.Name, Description = description, Parameters = JsonSerializer.SerializeToElement(parameters) };
     }
@@ -383,7 +384,7 @@ public static class AgentTools
         "Type a plain-text value into one input node, or into whatever has focus when target is omitted. With target the value replaces the node's value. " +
         "After tap_at on a field the screen does not list, call fill with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. " +
         "Several fields can be typed in one turn.",
-        Extend(Target, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""", "value"));
+        WithOptionalTarget(Extend(Target, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""", "value")));
 
     // The tap family names the keys it holds for the click, on an engine that declares them.
     private static ModelTool HoldingModifiers(ModelTool verb) =>
@@ -764,7 +765,7 @@ public static class AgentTools
         {
             ["type"] = "object",
             ["properties"] = properties,
-            ["required"] = new[] { property },
+            ["required"] = BaseRequired(target).Append(property).ToArray(),
         });
     }
 
@@ -782,12 +783,36 @@ public static class AgentTools
         }
 
         var schema = new Dictionary<string, object?> { ["type"] = "object", ["properties"] = merged };
-        if (required.Length > 0)
+        var all = BaseRequired(target).Concat(required).Distinct(StringComparer.Ordinal).ToArray();
+        if (all.Length > 0)
         {
-            schema["required"] = required;
+            schema["required"] = all;
         }
 
         return JsonSerializer.SerializeToElement(schema);
+    }
+
+    private static IEnumerable<string> BaseRequired(JsonElement schema) =>
+        schema.TryGetProperty("required", out var required) ? required.EnumerateArray().Select(item => item.GetString()!) : [];
+
+    // Upstream's `target.optional()`: the node is named, or the call acts on the viewport or whatever has focus.
+    private static JsonElement WithOptionalTarget(JsonElement schema)
+    {
+        var parameters = JsonNode.Parse(schema.GetRawText())!.AsObject();
+        if (parameters["required"] is JsonArray required)
+        {
+            var kept = required.Where(item => item?.GetValue<string>() != "target").Select(item => item!.DeepClone()).ToArray();
+            if (kept.Length == 0)
+            {
+                parameters.Remove("required");
+            }
+            else
+            {
+                parameters["required"] = new JsonArray(kept);
+            }
+        }
+
+        return JsonSerializer.SerializeToElement(parameters);
     }
 
     private static JsonElement Parse(string json)

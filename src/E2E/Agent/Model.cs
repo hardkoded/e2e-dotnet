@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using E2E.Internal;
 
 namespace E2E;
@@ -272,9 +273,10 @@ public static class ModelResponses
 /// Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop
 /// and the judge may answer a judgment (a request with a <see cref="ModelRequest.Schema"/>) with <see cref="ModelResponses.Done"/>:
 /// <c>passed</c> reads as <c>holds</c>, a <c>failed</c> without the code <c>ASSERTION_INCONCLUSIVE</c> as <c>fails</c>, and a
-/// <c>blocked</c> or inconclusive one as <c>inconclusive</c>. <see cref="ModelResponses.Judgment"/> answers it directly.
+/// <c>blocked</c> or inconclusive one as <c>inconclusive</c>. <see cref="ModelResponses.Judgment"/> answers it directly. A tool call that names its node by
+/// <c>role</c> and <c>name</c> (or <c>testId</c>) reaches the agent as a <c>target</c> id, the one the screens in the request list for it.
 /// </summary>
-public sealed class ScriptedModel : IAgentModel
+public sealed partial class ScriptedModel : IAgentModel
 {
     private readonly Func<ModelRequest, ModelResponse> _next;
 
@@ -295,9 +297,59 @@ public sealed class ScriptedModel : IAgentModel
         cancellationToken.ThrowIfCancellationRequested();
         CallCount++;
         Requests.Add(request);
-        var response = _next(request);
+        var response = Targeted(request, _next(request));
         return Task.FromResult(request.Schema is null ? response : AsJudgment(response));
     }
+
+    // A scripted call may name a node by role and name (or test id), as a person reads the screen; the tools take the node id alone, so the
+    // call is rewritten to the id the screens in this request list for it. A node no screen lists becomes an id that matches nothing.
+    private static ModelResponse Targeted(ModelRequest request, ModelResponse response)
+    {
+        if (response.ToolCalls.Count == 0 || !response.ToolCalls.Any(call => call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)))
+        {
+            return response;
+        }
+
+        var calls = response.ToolCalls.Select(call => call.Arguments.ValueKind == JsonValueKind.Object && NamesNode(call.Arguments)
+            ? new ModelToolCall { Id = call.Id, Name = call.Name, Arguments = Retarget(request, call.Arguments), ProviderMetadata = call.ProviderMetadata }
+            : call).ToList();
+        return new ModelResponse { Content = response.Content, ToolCalls = calls, Usage = response.Usage, ReasoningText = response.ReasoningText, ProviderMetadata = response.ProviderMetadata };
+    }
+
+    private static bool NamesNode(JsonElement arguments) =>
+        !arguments.TryGetProperty("target", out _) && (arguments.TryGetProperty("role", out _) || arguments.TryGetProperty("name", out _) || arguments.TryGetProperty("testId", out _));
+
+    private static JsonElement Retarget(ModelRequest request, JsonElement arguments)
+    {
+        var role = Args.String(arguments, "role");
+        var name = Args.String(arguments, "name");
+        var testId = Args.String(arguments, "testId");
+        var id = "missing";
+        foreach (var line in request.Messages.Where(message => message.Content is not null).SelectMany(message => message.Content!.Split('\n')))
+        {
+            var match = ListedNode().Match(line);
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            if (testId is not null ? match.Groups["testid"].Value == testId : (role is null || match.Groups["role"].Value == role) && (name is null || match.Groups["name"].Value == name))
+            {
+                id = match.Groups["id"].Value;
+            }
+        }
+
+        var rewritten = new System.Text.Json.Nodes.JsonObject { ["target"] = id };
+        foreach (var property in arguments.EnumerateObject().Where(property => property.Name is not ("role" or "name" or "testId")))
+        {
+            rewritten[property.Name] = System.Text.Json.Nodes.JsonNode.Parse(property.Value.GetRawText());
+        }
+
+        return JsonSerializer.SerializeToElement(rewritten);
+    }
+
+    [GeneratedRegex(@"^\s*(?:added |changed )?#(?<id>[A-Za-z0-9_-]+) (?<role>[^\s""]+)(?: ""(?<name>[^""]*)"")?(?:.*? testid=""(?<testid>[^""]*)"")?", RegexOptions.CultureInvariant)]
+    private static partial Regex ListedNode();
 
     private static ModelResponse AsJudgment(ModelResponse response)
     {

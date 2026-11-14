@@ -238,8 +238,7 @@ none. The node verbs follow the kinds too: `tap` needs `tap`, `double_tap`
 `selectOption`, `check` and `uncheck` both `check` and `uncheck`, and `clear`
 `clear`. A verb the engine does not declare is absent from the toolset (a
 device engine has no `select`), and with a keyboard `fill` and `press` come
-without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each named like
-any node (`ref`, or `role` and `name`); both are found on one look at the
+without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each a node id string; both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
 the model when either is gone. `resize_viewport {width, height}` sets the
 viewport size in CSS pixels, 200 to 4096 per side, to check a layout at phone,
@@ -879,7 +878,7 @@ verbs the target's engine supports, and each result reports what changed on
 screen. The built-in agent lists the screen as `#id role "name"` lines, once at the
 start of the step and on `observe`; a result after an action shows only the
 `added`, `changed`, and `removed` lines since the screen the model last read, and
-the whole screen again when most of it changed. An action takes the id as `ref`. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
+the whole screen again when most of it changed. An action names its node by that id alone, as `target` (`drag` also takes the drop node as `to`); there is no `role`, `name`, or `testId` argument. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
 tools: start `System` with it. The loop appends `AgentTools.VerdictRules` itself.
 `Guard` is optional; without it a hard stop of the step leaves the tool and the
 loop ends the step. A result is a `ToolLoopResult`: text, or text with a

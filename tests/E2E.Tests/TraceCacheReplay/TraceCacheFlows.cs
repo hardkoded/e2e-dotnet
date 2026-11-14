@@ -48,9 +48,9 @@ internal static class TraceCacheFlows
         })],
     };
 
-    private static (string, object) Tap(string reference) => ("tap", new { @ref = reference });
+    private static (string, object) Tap(string reference) => ("tap", new { target = reference });
 
-    private static (string, object) Type(string reference, string value) => ("fill", new { @ref = reference, value });
+    private static (string, object) Type(string reference, string value) => ("fill", new { target = reference, value });
 
     /// <summary>The reference of the last listed node whose line matches <paramref name="pattern"/>.</summary>
     private static string NodeIdFor(string prompt, string pattern) => NodeIdsFor(prompt, pattern).LastOrDefault() ?? throw new InvalidOperationException("No line " + pattern + " in the screen:\n" + prompt);

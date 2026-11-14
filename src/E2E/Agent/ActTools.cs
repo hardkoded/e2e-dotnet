@@ -513,9 +513,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     // The control a call names before it is found, where upstream's `#id` stands: the ref when the call has one.
     private static string ReferenceOf(JsonElement arguments) =>
-        Args.String(arguments, "ref") is { } reference
-            ? "#" + reference.TrimStart('#')
-            : Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
+        Args.String(arguments, "target") is { } reference ? "#" + reference.TrimStart('#') : "target";
 
     // A mutating tool takes an action slot and is recorded as a gap: the grammar cannot reproduce it, so a replay ends there
     // and hands the step to the model. The budgets record the gap before the tool runs, since a failed tool may have changed the app.
@@ -596,13 +594,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // success, `drag #a to #b failed: <code>: <message>` otherwise, each followed by the screen.
     private async Task<ToolOutcome> DragAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
     {
-        var drop = arguments.ValueKind == JsonValueKind.Object && arguments.TryGetProperty("to", out var named) && named.ValueKind == JsonValueKind.Object ? named : default;
-        var label = new ActionLabel("", "drag " + ReferenceOf(arguments) + " to " + ReferenceOf(drop));
+        var to = Args.String(arguments, "to");
+        var label = new ActionLabel("", "drag " + ReferenceOf(arguments) + " to " + (to is null ? "target" : "#" + to.TrimStart('#')));
         SemanticNode source;
         SemanticNode destination;
         try
         {
-            if (drop.ValueKind != JsonValueKind.Object || !HasTarget(drop))
+            if (to is null)
             {
                 throw new TestException("INVALID_ARGUMENT", "drag requires a to target: the node to drop on");
             }
@@ -610,7 +608,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             // Both ends come from one look, so a screen that changes between two looks cannot join a node of one with a node of the other.
             var observation = _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false));
             source = ResolveIn(arguments, observation);
-            destination = ResolveIn(drop, observation);
+            destination = ResolveIn(to, observation);
         }
         catch (TestException ex)
         {
@@ -772,11 +770,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token) =>
         ResolveIn(arguments, _feed.PreparedOf(await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false)));
 
-    private SemanticNode ResolveIn(JsonElement arguments, PreparedObservation observation)
+    private SemanticNode ResolveIn(JsonElement arguments, PreparedObservation observation) => ResolveIn(Args.String(arguments, "target"), observation);
+
+    private SemanticNode ResolveIn(string? target, PreparedObservation observation)
     {
         // The id the listing prefixes with `#`, which a model copies now and then (upstream's `lookup` trims it too).
-        var id = Args.String(arguments, "ref")?.TrimStart('#');
-        var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), id, _scope.Redactor);
+        var id = target?.TrimStart('#');
+        var matches = Find(observation, null, null, null, id, _scope.Redactor);
         if (matches.Count == 0 && id is { } reference && _feed.LastSeen(reference) is { } seen && !observation.Nodes.ContainsKey(reference))
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
@@ -786,7 +786,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (matches.Count == 0)
         {
-            throw new TestException("LOCATOR_NOT_FOUND", "No control matched role=" + Args.String(arguments, "role") + " name=" + Args.String(arguments, "name") + ".");
+            throw new TestException("LOCATOR_NOT_FOUND", "No node has the id " + target + " on the screen.");
         }
 
         if (matches.Count > 1)

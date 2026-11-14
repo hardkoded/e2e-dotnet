@@ -66,7 +66,7 @@ public sealed class TheLookAfterScrollingToTextTests
                 case 1:
                     afterScroll = request.Messages.Last(message => message.Role == "tool").Content;
                     var reference = Regex.Match(afterScroll!, @"#(e\d+) button ""Final row""").Groups[1].Value;
-                    return ModelResponses.Call("tap", new { @ref = reference });
+                    return ModelResponses.Call("tap", new { target = reference });
                 default:
                     return ModelResponses.Done("passed", "tapped the final row");
             }
