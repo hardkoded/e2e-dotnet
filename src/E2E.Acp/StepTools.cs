@@ -27,7 +27,7 @@ internal static class StepTools
         var tools = new List<ServedTool>();
         // The tools an assertion offers change nothing in the app (upstream's `name in readOnlyTools`); the listing is of an act's, the widest.
         var readOnlyTools = AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Assert }).Select(tool => tool.Definition.Name).ToHashSet(StringComparer.Ordinal);
-        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act, OfferTypeSecret = true }))
+        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act, Secrets = [new ExecutorSecret("secret", "password")] }))
         {
             var name = listed.Definition.Name;
             var readOnly = readOnlyTools.Contains(name);

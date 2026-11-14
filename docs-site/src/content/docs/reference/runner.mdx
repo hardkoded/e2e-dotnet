@@ -1,9 +1,9 @@
 ---
 title: Runner
-description: Explore.ExploreAsync, the port's programmatic way to run an exploration, with its options, outcome, and errors.
+description: Explore.ExploreAsync and E2EHost.OpenAsync, the port's programmatic ways to run an exploration or open hosted sessions, with their options, outcomes, and errors.
 ---
 
-This page ports the `explore()` part of upstream's `docs/reference/runner.mdx` (tester-army/e2e, `17a2e46`, #1711). The port has no runner: tests run under `dotnet test`, so upstream's `run()`, `list()`, and `openHost()` entries have no counterpart here (see [Compatibility](/compatibility/)). The call that has one is `Explore.ExploreAsync`, which `e2e explore` runs.
+This page ports the `explore()` and `openHost()` parts of upstream's `docs/reference/runner.mdx` (tester-army/e2e, `17a2e46`, #1711). The port has no runner: tests run under `dotnet test`, so upstream's `run()` and `list()` entries have no counterpart here (see [Compatibility](/compatibility/)). The calls that have one are `Explore.ExploreAsync`, which `e2e explore` runs, and `E2EHost.OpenAsync`, upstream's `openHost`, which opens [hosted sessions](#hosted-sessions) for a runner of your own.
 
 ```csharp
 var outcome = await Explore.ExploreAsync(new ExploreOptions
@@ -69,3 +69,234 @@ These reject first, as the matching `e2e explore` flags do. Recognize them with 
 | `UNKNOWN_TARGET` | `Target` names no configured target. |
 | `MODEL_UNAVAILABLE` | The agent has no model. |
 | `INVALID_CHANGED_SINCE` | `ChangedSince` is empty, starts with `-`, or names a ref git can't measure a change from. |
+
+## Hosted sessions
+
+`E2EHost.OpenAsync(OpenHostOptions? options, CancellationToken)` is upstream's `openHost`. It prepares e2e for a runner of your own and returns an `E2EHost`. C# has no free function, so the type it returns owns the call.
+
+```csharp
+await using var host = await E2EHost.OpenAsync(new OpenHostOptions { Target = "web" });
+await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "checkout" });
+await session.App.OpenAsync("/checkout");
+```
+
+- Your runner owns collection, retries, and reporting.
+- The host prepares the target's engine, starts app processes, and initializes the engine for each session. Use a host for the worker and a session for each test.
+- Each `host.OpenSessionAsync` creates a test-lifetime attempt with fresh fixtures, a deadline, steps, and artifacts.
+- If opening fails, e2e tears down what started before it throws.
+
+### OpenHostOptions
+
+| Option | Example | Type | Default |
+| --- | --- | --- | --- |
+| `ConfigPath` | `"e2e.config.json"` | `string` | nearest `e2e.config.json` |
+| `Config` | `E2EConfig.Load(...)` | `E2EConfig` | - |
+| `Cwd` | `"apps/web"` | `string` | the current directory |
+| `Target` | `"android"` | `string` | the only target |
+| `Env` | `env` | `IReadOnlyDictionary<string, string?>` | the process environment |
+| the `CancellationToken` argument | `cts.Token` | `CancellationToken` | - |
+| `Headed` | `true` | `bool` | `false` |
+| `OnNotice` | `(target, message) => { }` | `Action<string, string>` | - |
+| `EngineFactory` | `target => new WebEngine()` | `Func<TargetConfig, IEngine>` | the engine of the target's platform |
+
+- `ConfigPath` is a config file path relative to `Cwd`. `Config` is an `E2EConfig` value, whose `ProjectRoot` is the project root. Upstream's `config` takes either; C# has no union, so there are two members, and passing both is `INVALID_CONFIG`. Omit both to find the config from `Cwd`.
+- `Target` is required when the config declares several targets.
+- `Env` is the environment the config, engines, and providers read.
+- The token cancels host provisioning, a pending session open, or live fixture calls.
+- `Headed` runs a browser engine headed.
+- `OnNotice` receives progress outside a step, such as provisioning or an app process. It must not throw.
+- `EngineFactory` is .NET-only. `e2e.config.json` cannot hold a live engine, so a device, Windows, or test engine comes from here. A factory builds a fresh engine for each host.
+
+| Throws | When |
+| --- | --- |
+| `UNKNOWN_TARGET` | `Target` names no configured target. |
+| `TARGET_REQUIRED` | The config declares several targets and `Target` names none. |
+| `INVALID_CONFIG` | Both `Config` and `ConfigPath` are set. |
+
+Opening failures are classified, redacted errors. Match them with `E2EException.Code`.
+
+### E2EHost
+
+| Member | Returns |
+| --- | --- |
+| `RunId`, `Target` | `string` |
+| `OpenSessionAsync(OpenSessionOptions, CancellationToken)` | `Task<E2ESession>` |
+| `CloseAsync()` | `Task<IReadOnlyList<Exception>>` |
+
+`RunId` and `Target` are the identity the host's sessions share.
+
+Only one hosted attempt may be opening, live, or closing per host. Await `session.CloseAsync()` before opening the next session. A session whose engine cleanup failed closes the host for good, since its isolation is uncertain; open a new host. A launch that fails or is cancelled leaves the host usable.
+
+| Throws | When |
+| --- | --- |
+| `WORKER_PROTOCOL` | An overlapping hosted attempt, or a call on a closed host. |
+
+#### `host.OpenSessionAsync`
+
+Opens a fresh session on the host's target. A session is one test attempt with no retry loop. A retry opens a new session on the same host.
+
+```csharp
+var session = await host.OpenSessionAsync(new OpenSessionOptions
+{
+    Name = "checkout",
+    Timeout = TimeSpan.FromSeconds(60), // default: the config's timeout
+    OnStep = step =>
+    {
+        if (step.Phase == StepProgressPhase.End)
+        {
+            Console.WriteLine($"{step.Api} {step.Label}: {step.Status}");
+        }
+    },
+});
+```
+
+| Option | Example | Type | Default |
+| --- | --- | --- | --- |
+| `Name` | `"checkout"` | `string` | required |
+| `Timeout` | `TimeSpan.FromSeconds(60)` | `TimeSpan?` | the config's `timeout` |
+| `Agent` | `"smart"` | `string` | the `default` agent |
+| `OnStep` | `step => { }` | `Action<StepProgress>` | - |
+
+- `Name` is the test name for step and trace reporting.
+- `Timeout` is the deadline for the session's operations, positive and finite, counted from when the session starts opening. It also cuts a session launch that runs past it, but it does not bound host provisioning, and it does not close the session.
+- The `CancellationToken` argument cancels opening or live fixture calls. The host's token also applies. Provisioning happens in `OpenAsync`, so only the host's token cancels it.
+- `Agent` is the agent the session's `Agent` uses when a call names none. Omitted, it is the config's selected agent: `default`, unless the config was loaded with `E2E_AGENT` naming others, and then the first name it lists. Declaration order in the config file never selects it.
+- `OnStep` receives live `StepProgress`, the same feed reporters receive. It must not block or throw. Its `Phase` is `Start`, `Event`, `Activity`, `Replay`, or `End`.
+
+| Throws | When |
+| --- | --- |
+| `INVALID_CONFIG` | `Name` is blank, or `Timeout` is not positive and finite. |
+| cancellation | The session's or the host's token was cancelled before or during opening. |
+| `WORKER_PROTOCOL` | Another hosted attempt is opening, live, or closing, or the host is closed. |
+
+#### `host.CloseAsync`
+
+Cancels any active or pending session, waits for it to close, then disposes the engine, stops app processes, and releases provisioning.
+
+```csharp
+var failures = await host.CloseAsync();
+if (failures.Count > 0)
+{
+    throw new AggregateException("e2e host close failed", failures);
+}
+```
+
+- Idempotent: it disposes and releases resources once.
+- A host is `IAsyncDisposable`: `await using var host = await E2EHost.OpenAsync()` closes it at scope exit and throws an `AggregateException` when closing reports failures, even for one.
+
+### E2ESession
+
+`E2ESession` is what `host.OpenSessionAsync` returns.
+
+| Member | Returns |
+| --- | --- |
+| `Fixtures` | `TestContext` |
+| `RunId`, `AttemptId`, `Target` | `string` |
+| `Steps()` | `IReadOnlyList<ReportStep>` |
+| `Report()` | `Report?` |
+| `ArtifactsDir` | `string` |
+| `TracePath` | `string` |
+| `CloseAsync()` | `Task<IReadOnlyList<Exception>>` |
+
+- `Fixtures` is the session's `TestContext`. The port has no `test.extend`, so it has no fixtures type argument.
+- `RunId` and `Target` are the host's run and target; `AttemptId` is unique to this attempt.
+- `Steps()` returns the steps run so far, as the report records them. Upstream's `StepRecord` is `ReportStep` here.
+- `Report()` returns the session `Report` the trace is rendered from, after close and a successful trace write; otherwise `null`. Its status describes the SDK session, not your runner's test verdict.
+- `ArtifactsDir` is the absolute directory for this attempt's screenshots and recordings. The trace is not in it: read `TracePath`.
+- `TracePath` is the absolute path to `trace.md`; attach or read it after `CloseAsync()` settles.
+
+#### `session.CloseAsync`
+
+Cancels remaining operations, ends the attempt, and writes its trace. It returns soft expectation failures (one `ASSERTION_FAILED`), abandoned operations (`STEP_NOT_AWAITED`), and cleanup failures instead of throwing them. Upstream returns `SerializedError[]`; the port returns the exceptions, and `E2EException.Code` carries the code.
+
+```csharp
+var failures = await session.CloseAsync();
+if (failures.Count > 0)
+{
+    throw new AggregateException("e2e session close failed", failures);
+}
+```
+
+- Idempotent: later calls return the same failures.
+- The host stays open for the next test.
+- A session is `IAsyncDisposable`: `await using var session = await host.OpenSessionAsync(...)` closes it at scope exit and throws an `AggregateException` of the returned failures.
+
+#### Deadline and soft failures
+
+Soft expectation failures are collected for the session's whole lifetime. Check `CloseAsync()`'s result to fail your runner's test.
+
+- When the deadline passes, a poll or operation that was watching it reports its own cut. Everything else still running, including an operation an engine or a model never answered, fails with `TEST_TIMEOUT`.
+- Either way the session's outcome is timed out and `CloseAsync()` returns the timeout. Later operations fail with `TEST_TIMEOUT`; close the session.
+
+#### Artifacts
+
+At close, e2e writes `trace.md` to the test's directory (`<results>/<test>`, beside the attempt's directory) through the same redacted formatting reports use. A hosted session writes its trace, not `report.json`. For your runner's reporting, use `OnStep`, `Steps()`, `Report()`, and `CloseAsync()`'s failures. Your runner's test-body failures are not passed to e2e.
+
+Differences from upstream: the attempt's directory is `<results>/<test>/attempt-1` and `trace.md` sits beside it, in `<results>/<test>`; read `TracePath` for its location. Upstream's directory is `results/host/<segment>`. Two sessions with one name share it; `RUNNER_BUSY` is not raised, since the port has no suite runner. See [Compatibility](/compatibility/#hosted-sessions).
+
+## Types
+
+| Type | Describes |
+| --- | --- |
+| `OpenHostOptions`, `E2EHost` | `E2EHost.OpenAsync`'s options and the [host](#e2ehost) |
+| `OpenSessionOptions`, `E2ESession` | `host.OpenSessionAsync`'s options and the [session](#e2esession) |
+| `StepProgress`, `ReportStep` | One `OnStep` progress event, and one step `Steps()` returns (upstream's `StepRecord`) |
+| `E2EException` | One failure `CloseAsync()` returns; its `Code` is the error code (upstream's `SerializedError`, and `isE2EError` is a type test for it) |
+
+## Examples
+
+### A host for each test class and a session for each test
+
+A host for the worker and a session for each test, in NUnit:
+
+```csharp
+[TestFixture]
+public class SettingsTests
+{
+    private E2EHost _host = null!;
+
+    [OneTimeSetUp]
+    public async Task OpenHost() =>
+        _host = await E2EHost.OpenAsync(new OpenHostOptions { Target = "web" });
+
+    [OneTimeTearDown]
+    public async Task CloseHost()
+    {
+        var failures = await _host.CloseAsync();
+        if (failures.Count > 0)
+        {
+            throw new AggregateException("e2e host close failed", failures);
+        }
+    }
+
+    [Test]
+    public async Task Turns_on_dark_mode()
+    {
+        var session = await _host.OpenSessionAsync(new OpenSessionOptions
+        {
+            Name = TestContext.CurrentContext.Test.FullName,
+            OnStep = step =>
+            {
+                if (step.Phase == StepProgressPhase.End)
+                {
+                    Console.WriteLine($"{step.Api} {step.Label}: {step.Status}");
+                }
+            },
+        });
+        try
+        {
+            await session.Agent.ActAsync("open settings and turn on dark mode");
+            await session.App.ScreenshotAsync();
+        }
+        finally
+        {
+            var failures = await session.CloseAsync();
+            TestContext.AddTestAttachment(session.TracePath, "e2e trace");
+            if (failures.Count > 0)
+            {
+                throw new AggregateException("e2e session close failed", failures);
+            }
+        }
+    }
+}
+```
