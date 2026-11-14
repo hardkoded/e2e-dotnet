@@ -19,13 +19,20 @@ internal sealed record LoopCall(int Turn, ModelRequest Request)
     public string? LastToolResult => Request.Messages.LastOrDefault(message => message.Role == "tool")?.Content;
 }
 
+/// <summary>What the scripted planner answers, by the decision's wire name, so a decision the typed <see cref="PlanAnswer"/> does not offer (<c>skip</c>) is scripted too.</summary>
+internal sealed record PlanReply(string Decision, string Title, string Instruction, string Summary)
+{
+    public static implicit operator PlanReply(PlanAnswer answer) =>
+        new(answer.Decision == PlanKind.Step ? "step" : "finish", answer.Title, answer.Instruction, answer.Summary);
+}
+
 /// <summary>
 /// One scripted model serving both surfaces, as upstream's <c>installExploreModel</c> does: the planner's structured call and the
 /// explorer's tool loop. A request that offers <c>tap</c> is a turn of the explorer's loop. Anything else is the planner's call.
 /// </summary>
 internal sealed class ExploreModel
 {
-    public ExploreModel(Func<string, PlanAnswer> plan, Func<LoopCall, ModelResponse> loop)
+    public ExploreModel(Func<string, PlanReply> plan, Func<LoopCall, ModelResponse> loop)
     {
         Model = new ScriptedModel(request =>
         {
@@ -35,7 +42,7 @@ internal sealed class ExploreModel
             }
 
             var answer = plan(request.Messages[0].Content ?? "");
-            return ModelResponses.Call("extract", new { data = new { decision = answer.Decision == PlanKind.Step ? "step" : "finish", title = answer.Title, instruction = answer.Instruction, summary = answer.Summary } });
+            return ModelResponses.Call("extract", new { data = new { decision = answer.Decision, title = answer.Title, instruction = answer.Instruction, summary = answer.Summary } });
         });
     }
 
@@ -50,6 +57,9 @@ internal sealed class ExploreModel
     public static PlanAnswer Step(string title, string instruction) => new(PlanKind.Step, title, instruction, "");
 
     public static PlanAnswer Finish(string summary) => new(PlanKind.Finish, "", "", summary);
+
+    /// <summary>The planner's answer that a change has nothing a user can see (upstream's <c>{ decision: 'skip', summary }</c>).</summary>
+    public static PlanReply Skip(string summary) => new("skip", "", "", summary);
 
     public static ModelResponse Done(string status, string summary, string? code = null) => ModelResponses.Done(status, summary, code);
 
@@ -89,7 +99,8 @@ internal static class ExploreHarness
         string root,
         IAgentModel? model,
         List<string> notices,
-        string goal = "Explore the home page and find bugs",
+        string? goal = "Explore the home page and find bugs",
+        string? changedSince = null,
         int maxSteps = 2,
         AgentOptions? agent = null,
         IReadOnlyDictionary<string, AgentOptions>? agents = null,
@@ -109,6 +120,7 @@ internal static class ExploreHarness
             Agents = agents ?? new Dictionary<string, AgentOptions> { ["default"] = agent ?? new AgentOptions { Model = model } },
             Engine = engine ?? Engine(),
             Goal = goal,
+            ChangedSince = changedSince,
             MaxSteps = maxSteps,
             Timeout = timeout ?? TimeSpan.FromMinutes(3),
             Notice = notices.Add,

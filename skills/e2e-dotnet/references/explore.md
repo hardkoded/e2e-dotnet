@@ -10,6 +10,7 @@
 - Reading the result
 - Your config applies
 - Check other screen sizes
+- Explore a change
 - Writing a good goal
 - When it does not fit
 
@@ -45,6 +46,7 @@ caller with a `windows` target sets `ExploreOptions.Engine` to a `WinAppEngine`.
 e2e explore   # goal: "Explore the app and find bugs"
 e2e explore "Explore checkout like a first-time buyer and report anything off"
 e2e explore --target web --max-steps 4 --headed
+e2e explore --changed-since origin/main   # explore what the branch changed
 ```
 
 ## What a run does
@@ -99,6 +101,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--config <path>` | the nearest `e2e.config.json` | The config file. |
 | `--target <id>` | the config's target | The target to explore. |
 | `--agent <name>` | `default` | Build the explorer from another configured agent (`agents.<name>`). |
+| `--changed-since <ref>` | none | Explore what the branch changed since the merge base of the ref and HEAD. The planner reads the commit messages and the committed diff, and plans charters for the screens the change can affect. Only a defect the change can cause is an `issue`; one elsewhere is a `warning`. With no goal, the goal becomes `Explore what this change affects and find bugs in it`, and the planner may skip a change no user can see, such as docs or tests only. That run ends `skipped` and passes. In CI it needs the base in the checkout (`fetch-depth: 0`), and a clean working tree for the skip. An empty ref, one starting with `-`, or one git cannot measure from exits 2 (`INVALID_CHANGED_SINCE`). `ExploreOptions.ChangedSince` is the same. |
 | `--max-steps <n>` | 8 (1 to 100) | Exploration steps at most. |
 | `--timeout <ms>` | 600000 (180000 to 7200000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
@@ -132,7 +135,7 @@ seen, expected against actual, the steps that reach it, and its screenshot
 path; then the `Assessment` and a summary with `Findings`, `Steps`, `AI`,
 `Start at`, and `Duration`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
-(warnings do not count), 1 for an issue or nothing explored, 2 for a
+(warnings do not count, and a change skipped by `--changed-since` passes), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
 failure, and 130 when interrupted. `.e2e/report.json` (in the output
 directory, so `--output out` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
@@ -163,7 +166,8 @@ exploration, and so are retries.
 | --- | --- | --- |
 | Steps ran, no `issue` finding, and not every step was blocked | `Passed` | 0 |
 | At least one `issue` finding | `Failed` | 1 |
-| No step ran and nothing was found | `Blocked` | 1 |
+| No step ran and nothing was found, unless the planner skipped the change | `Blocked` | 1 |
+| With `--changed-since`, the planner skipped a change no user can see | `Passed` | 0 |
 | Every step was blocked, with no `issue` finding | `Blocked` | 1, 2, or 3, from the first blocker |
 | An engine, app, or model provider error ended the run | `Failed` | 3 |
 | The exploration passed, but closing it failed (the engine's finish hook, such as a device lease that was not released, or its `CLEANUP_TIMEOUT`) | `Failed` | 3 (or the verdict's code when that is higher) |
@@ -175,7 +179,9 @@ run, or null for a pass.
 ## Reading the result
 
 `ExploreOutcome.Explore` is the record: the goal, the budgets, why the run
-ended (`Finished`, `StepLimit`, `Time`, `Stuck`, `Aborted`), the closing
+ended (`Finished`, `Skipped`, `StepLimit`, `Time`, `Stuck`, `Aborted`), the
+change it planned from in `Change` (`Base`, the merge base, and `Files`, how
+many files changed; set only with `--changed-since`), the closing
 assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 `Blocked`, `Exhausted`), and the `Findings`. A step carries `ErrorCode` only
 when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
@@ -221,6 +227,47 @@ e2e explore 'Check the pricing page at desktop, tablet, and phone widths for bro
 ```
 
 The agent resizes with its `resize_viewport` tool.
+
+## Explore a change
+
+Add `--changed-since <ref>` to explore what the branch changed. The planner
+reads the commit messages and the committed diff since the merge base with the
+ref, and spends its steps on the screens the change can affect.
+
+```bash
+e2e explore --changed-since origin/main
+```
+
+```csharp
+var outcome = await Explore.ExploreAsync(new ExploreOptions { ChangedSince = "origin/main", MaxSteps = 4 });
+```
+
+Only a defect the change can cause is an `issue`. A defect elsewhere in the app
+is a `warning` and does not fail the run.
+
+With no goal, the goal is `Explore what this change affects and find bugs in
+it`. The planner can then skip a change no user can see, such as docs or tests
+only: the run ends `Skipped` and passes, and the markdown report's headline
+reads `nothing to explore`. It skips only when it read the whole change on a
+clean working tree. A large diff, a binary file, an uncommitted file, or a goal
+you wrote rules a skip out. The branch's own commit messages and code can sway
+the call. To tell a skip from a clean exploration, read `Explore.Ended`.
+
+What the model reads: the commit messages, the changed files' names, and the
+committed patches since the base, cut to fit its context (under 16 KiB with
+the fence). A file no commit changed, such as one CI wrote, and a committed
+file's later local edits go by name only, never read. Secret values the config
+gives as strings, and runs of 8 or more of their characters, are redacted. A
+secret a provider returns, and a secret committed to the repository that the
+config does not name, reach the model. The change rides in the context of the
+planner and the explorer, never in a step's title, the report, or a trace page.
+
+In CI, run it in its own job on `pull_request` with `fetch-depth: 0`, so the
+base branch is in the checkout; without it the run fails with
+`INVALID_CHANGED_SINCE`. Keep the working tree clean after install and build,
+or the run is never skipped: ignore `.e2e/` and build output. Never run it on
+`pull_request_target`: that run holds your secrets, and the model reads the diff
+and commit messages a fork wrote.
 
 ## Writing a good goal
 

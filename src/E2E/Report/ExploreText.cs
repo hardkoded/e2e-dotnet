@@ -26,6 +26,7 @@ internal static class ExploreText
     public static string EndedText(ReportExploreEnded ended) => ended switch
     {
         ReportExploreEnded.Finished => "the agent covered the goal",
+        ReportExploreEnded.Skipped => "the change has nothing a user can see",
         ReportExploreEnded.StepLimit => "the step limit was reached",
         ReportExploreEnded.Time => "the time budget ran out",
         ReportExploreEnded.Stuck => "steps kept failing",

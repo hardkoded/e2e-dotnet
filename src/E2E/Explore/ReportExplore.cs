@@ -32,6 +32,9 @@ public enum ReportExploreEnded
 {
     Finished,
 
+    /// <summary>The planner judged, before any step, that the change since <c>--changed-since</c> has nothing a user can see; the run passes.</summary>
+    Skipped,
+
     StepLimit,
 
     Time,
@@ -97,10 +100,17 @@ public sealed record ReportExploreStep(
 /// <param name="Steps">The steps the agent planned and ran, in order.</param>
 /// <param name="Findings">The findings the agent reported, in order.</param>
 /// <param name="Summary">The agent's closing assessment, when it gave one, at most 4000 characters.</param>
+/// <param name="Change">The code change the exploration planned from, with <c>--changed-since</c>.</param>
 public sealed record ReportExplore(
     string Goal,
     ExploreBudgets Budgets,
     ReportExploreEnded Ended,
     IReadOnlyList<ReportExploreStep> Steps,
     IReadOnlyList<ReportExploreFinding> Findings,
-    string? Summary = null);
+    string? Summary = null,
+    ReportExploreChange? Change = null);
+
+/// <summary>The change since <c>--changed-since</c> an exploration planned from, by counts.</summary>
+/// <param name="Base">The merge base the change is measured from.</param>
+/// <param name="Files">How many files changed since <paramref name="Base"/>; 0 when nothing did.</param>
+public sealed record ReportExploreChange(string Base, int Files);

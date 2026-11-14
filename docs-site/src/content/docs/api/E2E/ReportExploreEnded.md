@@ -31,7 +31,7 @@ Why an exploration stopped.
 
 
 ```csharp
-Aborted = 4
+Aborted = 5
 ```
 
 
@@ -51,13 +51,27 @@ Finished = 0
 
 **Value:** [ReportExploreEnded](./)
 
+<a id="E2E_ReportExploreEnded_Skipped"></a>
+
+### Skipped
+
+
+```csharp
+Skipped = 1
+```
+
+
+The planner judged, before any step, that the change since `--changed-since` has nothing a user can see; the run passes.
+
+**Value:** [ReportExploreEnded](./)
+
 <a id="E2E_ReportExploreEnded_StepLimit"></a>
 
 ### StepLimit
 
 
 ```csharp
-StepLimit = 1
+StepLimit = 2
 ```
 
 
@@ -69,7 +83,7 @@ StepLimit = 1
 
 
 ```csharp
-Stuck = 3
+Stuck = 4
 ```
 
 
@@ -81,7 +95,7 @@ Stuck = 3
 
 
 ```csharp
-Time = 2
+Time = 3
 ```
 
 

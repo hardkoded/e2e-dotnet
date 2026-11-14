@@ -523,6 +523,7 @@ internal static partial class ReportWire
         ("budgets", new JsonObject { ["maxSteps"] = Math.Max(1, explore.Budgets.MaxSteps), ["timeoutMs"] = (long)Math.Max(1, explore.Budgets.Timeout.TotalMilliseconds) }),
         ("ended", explore.Ended switch { ReportExploreEnded.StepLimit => "step-limit", var other => other.ToString().ToLowerInvariant() }),
         ("summary", ClipOrNull(explore.Summary, 4000)),
+        ("change", explore.Change is { } change ? new JsonObject { ["base"] = change.Base, ["files"] = Math.Max(0, change.Files) } : null),
         ("steps", new JsonArray([.. explore.Steps.Select(step => (JsonNode?)Compose(
             ("index", Math.Max(1, step.Index)),
             ("title", Clip(step.Title.Length == 0 ? "step" : step.Title, 200)),

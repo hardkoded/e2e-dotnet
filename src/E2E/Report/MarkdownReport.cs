@@ -615,7 +615,7 @@ public static class MarkdownReport
         List<string> counts = [.. issues > 0 ? new[] { Plural(issues, "issue") } : [], .. warnings > 0 ? new[] { Plural(warnings, "warning") } : []];
         var summary = counts.Count > 0
             ? string.Join(", ", counts)
-            : run.Status == ReportRunStatus.Blocked ? "explored nothing" : run.Status == ReportRunStatus.Passed ? "no findings" : "did not finish";
+            : explore.Ended == ReportExploreEnded.Skipped ? "nothing to explore" : run.Status == ReportRunStatus.Blocked ? "explored nothing" : run.Status == ReportRunStatus.Passed ? "no findings" : "did not finish";
         return "### " + RunIcon(run, results) + " " + PageName(options) + " explore: " + summary;
     }
 
@@ -744,7 +744,11 @@ public static class MarkdownReport
             ? [errors, .. failures, flaky, RepeatsSection(entries, manyTargets), FiltersSection(run, manyTargets, leftOut), AllTests(groups, selected.Count, manyTargets)]
             :
             [
-                [$"**Goal:** {Cell(explore.Goal, MaxGoalChars)}  ", $"**Steps:** {ExploreSteps(explore)}"],
+                [
+                    $"**Goal:** {Cell(explore.Goal, MaxGoalChars)}  ",
+                    .. explore.Change is null ? (string[])[] : [$"**Change:** {Plural(explore.Change.Files, "file")} changed since {Code(ReportFormat.ShortCommit(explore.Change.Base))}  "],
+                    $"**Steps:** {ExploreSteps(explore)}",
+                ],
                 errors,
                 .. failures,
                 flaky,

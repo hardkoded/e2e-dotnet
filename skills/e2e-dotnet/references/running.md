@@ -26,7 +26,7 @@ e2e install [chromium ...] [--with-deps]             # download browsers (topic 
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
 e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json] # can explore and mcp start: runtime,
                                                      # config, engine setup, models; --json for a host, exit 2 on a failed check
-e2e explore [goal] [--max-steps <n>] [--timeout <ms>] [--output <dir>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
+e2e explore [goal] [--changed-since <ref>] [--max-steps <n>] [--timeout <ms>] [--output <dir>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
 ```
 
 Selection, retries, and parallelism are the test framework's: `--filter`

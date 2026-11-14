@@ -86,4 +86,19 @@ public sealed class PlanInstructionTests
         Assert.DoesNotContain("another account or role", PlanFor(accounts[..1]), StringComparison.Ordinal);
         Assert.DoesNotContain("another account or role", PlanFor(accounts, "admin"), StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Plans_from_the_change_the_context_holds_only_when_the_run_explores_one()
+    {
+        var without = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
+        Assert.DoesNotContain("<change>", without, StringComparison.Ordinal);
+        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Change: new PlanChange(false)));
+        Assert.Contains("Plan from the code change between <change> and </change> in the context.", text, StringComparison.Ordinal);
+        Assert.Contains("never plan a step that expects it", text, StringComparison.Ordinal);
+        Assert.Contains("(server code, configuration, build or CI files, tests, docs), cover the main\n  flows that rely on it briefly and finish early", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"skip\"", text, StringComparison.Ordinal);
+        var skippable = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Change: new PlanChange(true)));
+        Assert.Contains("Anything else, or any doubt, is a step", skippable, StringComparison.Ordinal);
+        Assert.Contains("or {\"decision\": \"skip\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}.", skippable, StringComparison.Ordinal);
+    }
 }

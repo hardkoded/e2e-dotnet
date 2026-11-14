@@ -315,7 +315,7 @@ internal sealed class ExploreView
     public IReadOnlyList<string> Record(string badge, bool withSteps)
     {
         List<string> lines = withSteps ? ["", Header(badge, ExploreVerb.Explored), .. _steps.SelectMany(step => StepLines(step))] : [];
-        if (_steps.Count == 0)
+        if (_steps.Count == 0 && _ended != ReportExploreEnded.Skipped)
         {
             lines.Add(RowIndent + _pc.Dim("no step ran"));
         }

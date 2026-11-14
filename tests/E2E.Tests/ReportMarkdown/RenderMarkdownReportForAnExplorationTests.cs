@@ -65,6 +65,25 @@ public sealed class RenderMarkdownReportForAnExplorationTests
     }
 
     [Fact]
+    public void Says_there_was_nothing_to_explore_when_the_planner_skipped_the_change()
+    {
+        var body = Render(Explored(summary: "Only README.md changed.", steps: [], findings: [], ended: ReportExploreEnded.Skipped, status: ReportRunStatus.Passed));
+
+        Assert.Contains("### 🟢 e2e explore: nothing to explore\n", body);
+        Assert.Contains("0 of 8 steps · the change has nothing a user can see", body);
+        Assert.Contains("### 🟢 e2e explore: no findings\n", Render(Explored(steps: [], findings: [], status: ReportRunStatus.Passed)));
+    }
+
+    [Fact]
+    public void Names_the_change_an_exploration_with_changed_since_planned_from()
+    {
+        var document = Explored(change: new ReportExploreChange("abc1234def5678abc1234def5678abc1234def56", 3));
+
+        Assert.Contains("**Goal:** Explore checkout  \n**Change:** 3 files changed since `abc1234`  \n**Steps:**", Render(document));
+        Assert.DoesNotContain("**Change**", Render(Explored()));
+    }
+
+    [Fact]
     public void Keeps_a_backtick_inside_a_linkable_token_by_lengthening_the_code_span_delimiter_as_GFM_reads_it()
     {
         var body = Render(Explored(summary: "open https://example.test/`code` then https://x.example/``q`` and https://y.example/z` or plain https://ok.example"));

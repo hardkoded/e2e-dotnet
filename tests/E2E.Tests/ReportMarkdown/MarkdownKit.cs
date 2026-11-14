@@ -189,7 +189,8 @@ internal static class MarkdownKit
         string? summary = "The cart is the weak spot.",
         IReadOnlyList<ReportExploreStep>? steps = null,
         ReportExploreEnded ended = ReportExploreEnded.Finished,
-        ReportRunStatus status = ReportRunStatus.Failed)
+        ReportRunStatus status = ReportRunStatus.Failed,
+        ReportExploreChange? change = null)
     {
         findings ??= [Finding(0, "Cart total ignores quantity", artifactId: "a:artifact:0")];
         var issues = findings.Any(entry => entry.Kind == ReportExploreFindingKind.Issue);
@@ -205,7 +206,8 @@ internal static class MarkdownKit
             ended,
             steps ?? [new ReportExploreStep(1, "Cart", "Add items and change quantities", ReportExploreStepStatus.Passed, At, TimeSpan.FromMilliseconds(20_000))],
             findings,
-            summary);
+            summary,
+            change);
         return Page(status, [Named("Explore checkout", issues ? ResultStatus.Failed : ResultStatus.Passed, file: "explore", attempts: [evidence])], explore: explore);
     }
 

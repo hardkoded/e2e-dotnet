@@ -35,6 +35,18 @@ internal static class Changes
     private const int GitMaxBuffer = 256 * 1024 * 1024;
 
     /// <summary>
+    /// A <c>changedSince</c> that is empty or reads as a git option is <c>INVALID_CHANGED_SINCE</c> before git is asked (upstream's
+    /// <c>validateChangedSince</c>; a <c>string?</c> cannot be anything but a string, so upstream's type check has no counterpart).
+    /// </summary>
+    public static void ValidateChangedSince(string? reference)
+    {
+        if (reference is not null && (reference.Length == 0 || reference[0] == '-'))
+        {
+            throw InvalidChangedSince($"--changed-since must name a git ref, such as origin/main; got {JsonQuote.Of(reference)}");
+        }
+    }
+
+    /// <summary>
     /// Finds the change the test filters judge: every file that differs from the merge base of the ref and HEAD, in the working tree,
     /// untracked files included, sorted; <c>Files</c> is empty when nothing changed. Every git call together has a 30 second budget; a
     /// ref git cannot measure from, in time or at all, is <c>INVALID_CHANGED_SINCE</c>.
@@ -42,11 +54,9 @@ internal static class Changes
     public static async Task<TestFilterChanges> FindChangesAsync(ChangeOptions options)
     {
         var reference = options.ChangedSince;
-        if (reference.Length == 0 || reference[0] == '-')
-        {
-            // A ref git would read as an option (upstream rejects it at the CLI, before anything runs).
-            throw InvalidChangedSince($"--changed-since {JsonQuote.Of(reference)}: a ref is a name, not an empty text or an option");
-        }
+
+        // A ref git would read as an option is rejected before git is asked.
+        ValidateChangedSince(reference);
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(options.CancellationToken);
         deadline.CancelAfter(options.Budget);
