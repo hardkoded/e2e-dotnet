@@ -216,11 +216,10 @@ public sealed class BrowserProviderTests
         Assert.Same(target, Assert.Single(dialed));
     }
 
-    /// <summary>Partial: upstream probes with the internal <c>guard</c>; the port reconnects inside the next operation, here <c>OpenAsync</c>.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Retains_attempt_CDP_credentials_on_reconnect_dedicated_endpoint_PARTIAL_the_probe_is_an_OpenAsync(bool reconnect)
+    public async Task Retains_attempt_CDP_credentials_on_reconnect_dedicated_endpoint(bool reconnect)
     {
         var headers = new Dictionary<string, string> { ["Authorization"] = "synthetic-reconnect-token" };
         var cloud = new ToyCloud(BrowserProviderScope.Attempt, reconnect: reconnect)
@@ -236,7 +235,7 @@ public sealed class BrowserProviderTests
         var session = await worker.StartAsync(Runner.Attempt("a1"), None);
         await session.OpenAsync("http://app.test/", None);
         dialer.Browsers[0].Drop();
-        await session.OpenAsync("http://app.test/", None);
+        Assert.Equal("recovered", await WebEngine.Guard(session, "probe", None, () => Task.FromResult("recovered")));
         var recovered = dialer.Targets[1];
         Assert.Equal(reconnect ? "wss://0.example/reconnect" : "wss://0.example", recovered.Endpoint);
         Assert.Equal(headers, recovered.Headers);

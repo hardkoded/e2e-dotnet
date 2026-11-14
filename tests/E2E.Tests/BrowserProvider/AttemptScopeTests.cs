@@ -212,11 +212,10 @@ public sealed class AttemptScopeTests
         Assert.Single(cloud.Released);
     }
 
-    /// <summary>Partial: upstream probes with the internal <c>guard</c>; the port reconnects inside the next operation, here <c>OpenAsync</c>.</summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one_PARTIAL_the_probe_is_an_OpenAsync(bool reconnect)
+    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one(bool reconnect)
     {
         // One browser identity: recovery must land on the same persistent context.
         var dialer = new Dialer(_ => FakeBrowser.Persistent("same-browser"));
@@ -227,7 +226,7 @@ public sealed class AttemptScopeTests
         var session = await worker.StartAsync(Runner.Attempt("a1"), None);
         await session.OpenAsync("http://app.test/", None);
         dialer.Browsers[0].Drop();
-        await session.OpenAsync("http://app.test/", None);
+        Assert.Equal("reattached", await WebEngine.Guard(session, "probe", None, () => Task.FromResult("reattached")));
         Assert.Equal(["wss://0.example", reconnect ? "wss://0.example/reconnect" : "wss://0.example"], dialer.Endpoints);
 
         // Recovery is the same browser: no second lease.
