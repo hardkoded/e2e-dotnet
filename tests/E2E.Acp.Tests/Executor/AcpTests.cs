@@ -274,7 +274,7 @@ public sealed class AcpTests : IDisposable
     public async Task Skips_actions_batched_behind_the_verdict()
     {
         var page = new TodoPage();
-        var agent = Scripted(_directory, Turns([new { batch = new[] { Call("tap", new { role = "button", name = "Slow" }), Tap("Add"), Pass } }]));
+        var agent = Scripted(_directory, Turns([new { batch = new[] { Tap("Slow"), Tap("Add"), Pass } }]));
         await using var session = await StartAsync(agent.Executor, page.World());
 
         // The slow tap is still running when done concludes; the tap queued behind it.
@@ -677,9 +677,12 @@ public sealed class AcpTests : IDisposable
 
     private static object Call(string tool, object? args = null) => new { call = tool, args = args ?? new { } };
 
-    private static object Tap(string name) => Call("tap", new { role = "button", name });
+    // The ids the document world's screen lists, in the order the page declares them.
+    private static string IdOf(string name) => name switch { "Title" => "e1", "Add" => "e2", "Slow" => "e3", _ => throw new ArgumentOutOfRangeException(nameof(name)) };
 
-    private static object Fill(string name, string value) => Call("type", new { role = "textbox", name, value });
+    private static object Tap(string name) => Call("tap", new { target = IdOf(name) });
+
+    private static object Fill(string name, string value) => Call("type", new { target = IdOf(name), value });
 
     /// <summary>One list of moves per prompt turn.</summary>
     private static object[] Turns(params object[][] turns) => turns;

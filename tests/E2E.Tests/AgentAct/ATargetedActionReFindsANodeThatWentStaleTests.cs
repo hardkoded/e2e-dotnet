@@ -69,7 +69,7 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
         var turns = 0;
         // The ref comes from the newest screen that lists the button, the way a model reads its history.
         var model = new ScriptedModel(request => turns++ < 3
-            ? ModelResponses.Call("tap", new { @ref = ButtonRef(request) })
+            ? ModelResponses.Call("tap", new { target = ButtonRef(request) })
             : ModelResponses.Done("passed", "tapped three times"));
 
         var (result, steps) = await RunAsync(site, model);
@@ -100,7 +100,7 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
 
             // Three taps in one turn, all by the opening screen's ref. The first tap remounts the rows, so by the
             // second the ref names an element that is gone, and the newest screen lists the button anew.
-            var arguments = ModelResponses.Call("tap", new { @ref = ButtonRef(request) }).ToolCalls[0].Arguments;
+            var arguments = ModelResponses.Call("tap", new { target = ButtonRef(request) }).ToolCalls[0].Arguments;
             return new ModelResponse
             {
                 ToolCalls = [.. Enumerable.Range(1, 3).Select(index => new ModelToolCall { Id = "call_tap_" + index, Name = "tap", Arguments = arguments })],
