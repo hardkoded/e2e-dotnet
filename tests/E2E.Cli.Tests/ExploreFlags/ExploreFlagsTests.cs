@@ -423,5 +423,7 @@ public sealed class RecordingReporter : Reporter
 {
     public static System.Collections.Concurrent.ConcurrentBag<string> Seen { get; } = [];
 
+    public override string Name => "recording";
+
     public override void OnEvent(RunEvent runEvent) => Seen.Add(runEvent.Fact.GetType().Name);
 }
