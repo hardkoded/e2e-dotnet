@@ -529,8 +529,8 @@ they cost nothing and answer with the line that says to take one.
   keyboard (the web and document engines): `type_at` and `press_at` then tap
   the point to focus it and go through the keyboard. `type_at` takes `replace`
   to clear the field first. A listed node the engine cannot fill (a canvas, a
-  custom widget) takes `fill` through the keyboard too, after a tap that
-  focuses it, and the result says so. `fill` with no target types into the
+  custom widget) takes `type` through the keyboard too, after a tap that
+  focuses it, and the result says so. `type` with no target types into the
   focused field. `select_at` always needs a listed control.
 
 Over MCP, the session's `screenshot` is the one the point tools read their

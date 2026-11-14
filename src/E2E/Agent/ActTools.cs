@@ -72,7 +72,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         // A verb is a tool only where the engine's declarations unlock it, so a model that calls one anyway is told so.
-        if (!ActionTools.Contains(call.Name) || !AgentTools.OffersVerb(call.Name, Verbs))
+        // An MCP session also runs a clear on an engine that declares the clear kind, which has no agent tool of its own (upstream has none).
+        var sessionClear = _session && call.Name == "clear" && Verbs.Contains(ExecutorVerb.Clear);
+        if (!sessionClear && (!ActionTools.Contains(call.Name) || !AgentTools.OffersVerb(call.Name, Verbs)))
         {
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
@@ -106,7 +108,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         // The one dispatcher action the call makes spends the slot.
         if (!budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
+            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
         }
 
         try
@@ -195,6 +197,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
                 "check" => actions.CheckAsync(target, Args.Bool(arguments, "checked") != false, token),
+                "clear" => actions.ClearAsync(target, token),
                 _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
             },
             token).ConfigureAwait(false);
@@ -501,6 +504,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 false),
             "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference, !MovesFocusOnly(key)),
             "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
+            "clear" => new("Cleared " + reference + ".", "clear " + reference),
             "check" => new((Args.Bool(arguments, "checked") == false ? "Unchecked " : "Checked ") + reference + ".", "check " + reference),
             _ => new(tool + " " + reference, tool + " " + reference),
         };
@@ -523,7 +527,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (tool.Mutates && !budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
+            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
         }
 
         string output;

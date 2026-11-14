@@ -164,7 +164,7 @@ internal sealed class SessionCatalog
 
         if (verbs.Contains(ExecutorVerb.Clear))
         {
-            Add("clear", Verb(context, screen, "clear", "type", "Clear a field.", Schema(Target), extra: new JsonObject { ["value"] = "" }));
+            Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
         }
 
         // Upstream's grammarTools serves upload with the agent's description; the session takes the agent tool's text and names its node as target.

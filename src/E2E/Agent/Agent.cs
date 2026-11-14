@@ -32,11 +32,11 @@ public sealed partial class Agent
         "Write the explanation first and let the verdict follow from it: the two must agree. " +
         "Respond with exactly one JSON object and nothing else: { \"protocolVersion\": \"agent-judgment-2\", \"explanation\": <short reason grounded in the screen>, \"verdict\": \"holds\" | \"fails\" | \"inconclusive\" }.";
 
-    // Upstream's EXTRACT_REQUEST, for the extract and done tools. Extract cannot share the judge's
-    // text: that says to call only done, and a model that follows its system prompt then never extracts.
+    // Upstream's EXTRACT_REQUEST, for the extract and complete_step tools. Extract cannot share the judge's
+    // text: that says to call only complete_step, and a model that follows its system prompt then never extracts.
     private const string ExtractSystem =
         "You read the requested data from the current screen. Call extract with the data when the screen shows it. " +
-        "Call done only when it does not: the data is not on screen, is still loading, or cannot be read; say what is missing in summary. " +
+        "Call complete_step only when it does not: the data is not on screen, is still loading, or cannot be read; say what is missing in summary. " +
         "Never fill a gap with a placeholder such as an empty string or 0. " +
         "An instruction that says what to answer when the data is absent, such as \"or null when none is shown\", is answered by calling extract with that value. " +
         "Take every value from the screen as it reads; never invent data. " +
@@ -310,7 +310,7 @@ public sealed partial class Agent
                         issue,
                         previous,
                         fields,
-                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call done with status failed and code ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values.")),
+                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call complete_step with status failed and code ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values.")),
             });
         }
     }

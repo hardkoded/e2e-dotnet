@@ -19,7 +19,7 @@ public static class AcpExecutor
     private const string SessionRules =
         "This conversation drives a real application for an end-to-end test, one step per message: an action to perform, or an assertion to judge, with the current screen.\n" +
         "Use only the tools of this conversation. You have no access to the application's source, files, shell, or network.\n" +
-        "The rules below are for each step. A step ends when you call done; then wait for the next message. For an assertion, judge the condition from the screen without changing anything.";
+        "The rules below are for each step. A step ends when you call complete_step; then wait for the next message. For an assertion, judge the condition from the screen without changing anything.";
 
     private static readonly string Rules = $"{SessionRules}\n\n{DefaultAgent.BaseRules}\n\n{AgentTools.VerdictRules}";
 
@@ -402,7 +402,7 @@ public static class AcpExecutor
             said = Redact(context, said.Length > 300 ? said[..300] : said);
             return new StepVerdict(
                 StepVerdictStatus.Failed,
-                $"The agent ended its turn ({report.StopReason}) without done{(said == "" ? "" : $": {said}")}",
+                $"The agent ended its turn ({report.StopReason}) without complete_step{(said == "" ? "" : $": {said}")}",
                 "STEP_NO_CONCLUSION");
         }
 

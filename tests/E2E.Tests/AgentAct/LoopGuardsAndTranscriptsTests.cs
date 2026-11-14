@@ -12,7 +12,7 @@ public sealed class LoopGuardsAndTranscriptsTests
     // Upstream also persists the executor transcript as a log artifact under --debug and checks it.
     // The port has no debug transcript, so only the verdict and the call count are ported.
     [Fact]
-    public async Task Forces_a_verdict_when_the_model_repeats_itself()
+    public async Task Partial_Forces_a_verdict_when_the_model_repeats_itself()
     {
         var model = new ScriptedModel(request =>
         {
