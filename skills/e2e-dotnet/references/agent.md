@@ -235,7 +235,7 @@ names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
 all four, the device engines all but `secondaryTap`, and the document engine
 none. The node verbs follow the kinds too: `tap` needs `tap`, `double_tap`
 `doubleTap`, `type` and `type_secret` `fill`, `press` `press`, `select`
-`selectOption`, and `check` both `check` and `uncheck`. `check` takes `checked` (default true) to end in either state, and there is no `uncheck` or `clear` tool: `type` an empty value into the field by `target` to clear it (a field focused through the keyboard, with no target, needs `replace: true` to clear). A verb the engine does not declare is absent from the toolset (a
+`selectOption`, and `check` both `check` and `uncheck`. `check` takes `checked` (default true) to end in either state, and there is no `uncheck` or `clear` tool: `type` an empty value into the field by `target` to clear it. That clears a node the engine can fill. A node it cannot fill is focused and typed into through the keyboard, which inserts and does not replace: to clear such a field, `type` an empty value with no target and `replace: true` once it has focus. A verb the engine does not declare is absent from the toolset (a
 device engine has no `select`), and with a keyboard `type` and `press` come
 without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each a node id string; both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
