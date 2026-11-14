@@ -97,7 +97,7 @@ public sealed class TheBuiltInAgentOptionsTests
     [Fact]
     public void Partial_Rejects_a_reserved_tool_name()
     {
-        foreach (var name in new[] { "tap", "observe" })
+        foreach (var name in new[] { "tap", "observe", "type_secret" })
         {
             var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
 

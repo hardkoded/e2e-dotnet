@@ -20,7 +20,7 @@ internal static class ActionNames
     public const string ProjectToolEventPrefix = "tool:";
 
     /// <summary>
-    /// Every name the grammar may hand out (upstream's <c>GRAMMAR_TOOL_NAMES</c>). A project tool cannot take one. The port's grammar also
+    /// Every name the grammar may hand out (upstream's <c>GRAMMAR_TOOL_NAMES</c>). A project tool cannot take one.
     /// </summary>
     public static readonly HashSet<string> GrammarToolNames = new(
     [
