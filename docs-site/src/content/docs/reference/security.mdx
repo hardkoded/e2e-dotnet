@@ -9,7 +9,7 @@ This page ports the parts of upstream's `docs/reference/security.mdx` (tester-ar
 
 Text a model, a report, or a log would carry is redacted: a configured secret's value shows as its `<secret:name>` marker. Redaction matches strings, so these pass through:
 
-- a value a secret provider returns, in titles, and in an `e2e explore --changed-since` brief, since both are redacted before any provider runs,
+- a value a secret provider returns, in titles and in an `e2e explore --changed-since` brief: both are redacted before any provider runs, so the provider's value is not yet known,
 - a screenshot, including one sent to the model: it masks secure fields only, after a secret fill too,
 - video: it masks nothing and is labeled `redaction: "incomplete"`,
 - in an `e2e explore --changed-since` brief, a run of fewer than 8 characters of a value, such as a short last line of a multiline key that git prints on a line of its own.

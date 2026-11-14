@@ -16,6 +16,8 @@ Console.WriteLine($"{outcome.Status} {outcome.Explore.Ended} {outcome.Explore.Fi
 
 ## Options
 
+See also the generated [API reference](/api/) for `ExploreOptions`.
+
 | Option | Example | Type | Default |
 | --- | --- | --- | --- |
 | `Goal` | `"Explore the login flow"` | `string` | `"Explore the app and find bugs"`; with `ChangedSince`, `"Explore what this change affects and find bugs in it"` |
@@ -24,9 +26,21 @@ Console.WriteLine($"{outcome.Status} {outcome.Explore.Ended} {outcome.Explore.Fi
 | `ChangedSince` | `"origin/main"` | `string` | none |
 | `MaxSteps` | `4` | `int` | `8` |
 | `Timeout` | `TimeSpan.FromMinutes(5)` | `TimeSpan` | 10 minutes |
+| `Cwd` | `"apps/web"` | `string` | the working directory |
+| `ConfigPath` | `"e2e.ci.config.json"` | `string` | the nearest `e2e.config.json` |
+| `RawConfig` | `new E2EConfig(...)` | `E2EConfig` | none: a config built in code, with `Cwd` as the project root |
+| `Session` | `"loggedIn"` | `string` | none |
+| `Headed` | `true` | `bool` | `false` |
+| `Output` | `"out"` | `string` | `output` in the config, else `.e2e` |
+| `Agents` | `new Dictionary<string, AgentOptions>()` | `IReadOnlyDictionary<string, AgentOptions>` | none: agents given in code replace the config's entry of the same name |
+| `Credentials` | `new Dictionary<string, UserCredential>()` | `IReadOnlyDictionary<string, UserCredential>` | none: accounts the config does not declare |
+| `Notice` | `n => Console.Error.WriteLine(n)` | `Action<string>` | none |
+| `Trace`, `Video` | `RecordingMode.On` | `RecordingMode` | the target's mode |
+| `Debug`, `AiTrace` | `true` | `bool` | `false` (`E2E_DEBUG=1` and `E2E_AI_TRACE=1` turn them on) |
 | `Engine` | `new WinAppEngine(...)` | `IEngine` | the target's platform picks it |
 | `OnProgress` | `p => Console.WriteLine(p)` | callback | none |
 
+- `Session` names a session the host already restored into `Engine`: the port has no setup runner to run it.
 - `Goal` is at most 2,000 characters.
 - `ChangedSince` explores the change since that ref, as [`--changed-since`](/reference/cli/#e2e-explore) does.
 - `MaxSteps` is from 1 to 100. `Timeout` is from 3 minutes to 2 hours.

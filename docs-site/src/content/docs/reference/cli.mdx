@@ -3,7 +3,7 @@ title: CLI
 description: The e2e command of the .NET port, its subcommands, and the flags of e2e explore, with its exit codes.
 ---
 
-This page ports upstream's `docs/reference/cli.mdx` (tester-army/e2e, `17a2e46`, #1711), for the commands the .NET port has. The port has no `e2e run`, `e2e list`, or `e2e upgrade`: the tests run under `dotnet test` (see [Testing frameworks](/testing-frameworks/)), so the pages of upstream's reference for those commands have no counterpart here.
+This page ports upstream's `docs/reference/cli.mdx` (tester-army/e2e, `17a2e46`, #1711), for the commands the .NET port has. Only `e2e explore` is listed flag by flag; run `e2e <command> --help` for the others. The port has no `e2e run`, `e2e list`, or `e2e upgrade`: the tests run under `dotnet test` (see [Testing frameworks](/testing-frameworks/)), so the pages of upstream's reference for those commands have no counterpart here.
 
 ```bash
 e2e <command> [options]
@@ -48,7 +48,7 @@ Runs [`Explore.ExploreAsync`](/reference/runner/) from the project directory. Th
 | `--output <dir>` | The output directory. Default: `output` in the config, else `.e2e`. |
 | `--debug` | Prints the phase timings and the agent step table to stderr (also `E2E_DEBUG=1`). |
 | `--ai-trace` | Records every model call to `ai-trace-<process id>.json` (also `E2E_AI_TRACE=1`). |
-| `--trace [mode]`, `--video [mode]` | Which attempts keep a trace page or a video. A bare flag is `on`. Both take the next word as the mode, so write `--video=on "goal"`. |
+| `--trace [mode]`, `--video [mode]` | Which attempts keep a trace page or a video. A bare flag is `on`. The modes are `off`, `on`, `retain-on-failure`, `on-first-retry`, and `on-all-retries`; `E2E_TRACE` and `E2E_VIDEO` set them too. Both take the next word as the mode, so write `--video=on "goal"`. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter` exit 2: the port has no setup test to run for a session, and no reporters.
 
@@ -64,6 +64,6 @@ A flag out of range exits 2 and names the range. `--session` and `--reporter` ex
 | At least one `issue` finding | failed | 1 |
 | No step ran and nothing was found, unless the planner skipped the change | blocked | 1 |
 | With `--changed-since`, the planner skipped a change no user can see | passed | 0 |
-| Every step was blocked, with no `issue` finding | blocked | 1, 2, or 3, from the first blocker |
+| Every step was blocked, with no `issue` finding | blocked | 1, 2, or 3: the class of the first blocker's error code (see [Errors](/reference/errors/)) |
 | Config, engine, or model provider error | error | 2 or 3 |
 | Ctrl-C | | 130 |
