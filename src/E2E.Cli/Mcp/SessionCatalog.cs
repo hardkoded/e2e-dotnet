@@ -470,14 +470,7 @@ internal sealed class SessionCatalog
                 var mapped = new JsonObject();
                 foreach (var property in args.EnumerateObject())
                 {
-                    // A drag names its drop target as it names the node dragged.
-                    if (agentTool == "drag" && property.Name == "to" && property.Value.ValueKind == JsonValueKind.String)
-                    {
-                        mapped["to"] = new JsonObject { ["ref"] = property.Value.GetString() };
-                        continue;
-                    }
-
-                    var key = property.Name == "target" ? "ref" : rename is { } map && map.From == property.Name ? map.To : property.Name;
+                    var key = rename is { } map && map.From == property.Name ? map.To : property.Name;
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }
 
@@ -503,7 +496,7 @@ internal sealed class SessionCatalog
             InputSchema = Schema(Target, ("secret", Property("string", "The secret's name from the config"), true)),
             Execute = async (args, token) =>
             {
-                var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
+                var mapped = new JsonObject { ["target"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
                 // Marked before the fill runs: a fill that fails after typing still leaves the secret on screen.
                 context.SecretFilled();
                 var outcome = await RunAsync(context, screen, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
@@ -524,25 +517,20 @@ internal sealed class SessionCatalog
         }
         catch (E2EException ex)
         {
-            throw new ToolFailedException(Failure(label, ex.Code, ex.Message, null));
+            throw new ToolFailedException(Failure(label, ex.Code, ex.Message));
         }
 
         if (!outcome.Succeeded)
         {
             var message = outcome.Error ?? (outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content);
-            throw new ToolFailedException(Failure(label, outcome.Code, message, target));
+            throw new ToolFailedException(Failure(label, outcome.Code, message));
         }
 
         return outcome;
     }
 
-    private static string Failure(string label, string? code, string message, string? target)
+    private static string Failure(string label, string? code, string message)
     {
-        if (code == "LOCATOR_NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
-        {
-            message = "node " + target + " is not on the current screen; re-observe for the newest ids";
-        }
-
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 

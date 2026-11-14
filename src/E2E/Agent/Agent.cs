@@ -722,10 +722,7 @@ public sealed partial class Agent
 
     internal static bool HasTarget(JsonElement arguments)
     {
-        return Args.String(arguments, "role") is not null
-            || Args.String(arguments, "name") is not null
-            || Args.String(arguments, "testId") is not null
-            || Args.String(arguments, "ref") is not null;
+        return Args.String(arguments, "target") is not null;
     }
 
     internal static bool HasTarget(RecordedAction action)

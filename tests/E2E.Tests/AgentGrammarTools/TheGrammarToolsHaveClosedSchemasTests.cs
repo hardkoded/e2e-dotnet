@@ -10,7 +10,7 @@ namespace E2E.Tests.AgentGrammarTools;
 
 // Upstream validates a call against the zod schema of a tool (safeParse). The port's schema is the JSON Schema a provider receives, so these
 // tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
-// vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is role, name, or ref, complete_step
+// vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is a node id, complete_step
 // is done, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
@@ -18,22 +18,22 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     private static readonly Dictionary<string, string> Accepted = new(StringComparer.Ordinal)
     {
         ["observe"] = "{}",
-        ["tap"] = """{ "ref": "n1", "modifiers": ["Shift"] }""",
-        ["double_tap"] = """{ "ref": "n1" }""",
-        ["long_press"] = """{ "ref": "n1" }""",
-        ["right_click"] = """{ "ref": "n1" }""",
-        ["hover"] = """{ "ref": "n1" }""",
-        ["fill"] = """{ "ref": "n1", "value": "ada" }""",
-        ["fill_secret"] = """{ "ref": "n1", "secret": "admin" }""",
-        ["press"] = """{ "ref": "n1", "key": "Shift+ArrowLeft", "times": 8 }""",
-        ["select"] = """{ "ref": "n1", "value": "Pro" }""",
-        ["check"] = """{ "ref": "n1" }""",
-        ["uncheck"] = """{ "ref": "n1" }""",
-        ["clear"] = """{ "ref": "n1" }""",
+        ["tap"] = """{ "target": "n1", "modifiers": ["Shift"] }""",
+        ["double_tap"] = """{ "target": "n1" }""",
+        ["long_press"] = """{ "target": "n1" }""",
+        ["right_click"] = """{ "target": "n1" }""",
+        ["hover"] = """{ "target": "n1" }""",
+        ["fill"] = """{ "target": "n1", "value": "ada" }""",
+        ["fill_secret"] = """{ "target": "n1", "secret": "admin" }""",
+        ["press"] = """{ "target": "n1", "key": "Shift+ArrowLeft", "times": 8 }""",
+        ["select"] = """{ "target": "n1", "value": "Pro" }""",
+        ["check"] = """{ "target": "n1" }""",
+        ["uncheck"] = """{ "target": "n1" }""",
+        ["clear"] = """{ "target": "n1" }""",
         ["scroll"] = """{ "direction": "down", "times": 2 }""",
-        ["scroll_to"] = """{ "ref": "n1" }""",
-        ["drag"] = """{ "ref": "n1", "to": { "ref": "n2" } }""",
-        ["upload"] = """{ "ref": "n1", "files": ["fixtures/a.txt"] }""",
+        ["scroll_to"] = """{ "target": "n1" }""",
+        ["drag"] = """{ "target": "n1", "to": "n2" }""",
+        ["upload"] = """{ "target": "n1", "files": ["fixtures/a.txt"] }""",
         ["navigate"] = """{ "url": "/about" }""",
         ["back"] = "{}",
         ["resize_viewport"] = """{ "width": 390, "height": 844 }""",
@@ -97,7 +97,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         var scrollTo = FullGrammar().Single(tool => tool.Name == "scroll_to");
         var full = SchemaOf(scrollTo);
-        Assert.True(full.IsValid(Input("""{ "text": "Row 4322", "direction": "down", "ref": "n6" }""")));
+        Assert.True(full.IsValid(Input("""{ "text": "Row 4322", "direction": "down", "target": "n6" }""")));
         Assert.True(full.IsValid(Input("""{ "text": "Row 4322" }""")));
         Assert.False(full.IsValid(Input($$"""{ "text": "{{new string('x', AgentTools.MaxScrollToText + 1)}}" }""")));
         Assert.False(full.IsValid(Input("""{ "text": "Row 4322", "list": "n6" }""")));
@@ -107,14 +107,14 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         var scrollToByText = device.Single(tool => tool.Name == "scroll_to");
         var byText = SchemaOf(scrollToByText);
         Assert.True(byText.IsValid(Input("""{ "text": "Row 0512" }""")));
-        Assert.True(byText.IsValid(Input("""{ "text": "Row 0512", "ref": "n3" }""")));
-        Assert.False(byText.IsValid(Input("""{ "ref": "n1" }""")));
+        Assert.True(byText.IsValid(Input("""{ "text": "Row 0512", "target": "n3" }""")));
+        Assert.False(byText.IsValid(Input("""{ "target": "n1" }""")));
         ExpectClosed(scrollToByText, """{ "text": "Row 0512", "direction": "down" }""");
 
         var scrollToByNode = OverVerbs(ExecutorVerb.Tap, ExecutorVerb.ScrollTo).Single(tool => tool.Name == "scroll_to");
         var byNode = SchemaOf(scrollToByNode);
         Assert.False(byNode.IsValid(Input("""{ "text": "Row 0512" }""")));
-        ExpectClosed(scrollToByNode, """{ "ref": "n1" }""");
+        ExpectClosed(scrollToByNode, """{ "target": "n1" }""");
     }
 
     [Fact]
@@ -129,9 +129,9 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ExpectClosed(tools.Single(tool => tool.Name == "press"), """{ "key": "Enter" }""");
         ExpectClosed(tools.Single(tool => tool.Name == "scroll"), """{ "direction": "down" }""");
         // Without the id-addressed verb a target is not a field of fill at all, and neither is it of press or scroll.
-        Assert.False(SchemaOf(fill).IsValid(Input("""{ "ref": "n1", "value": "ada" }""")));
-        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "press")).IsValid(Input("""{ "ref": "n1", "key": "Enter" }""")));
-        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "scroll")).IsValid(Input("""{ "ref": "n1", "direction": "down" }""")));
+        Assert.False(SchemaOf(fill).IsValid(Input("""{ "target": "n1", "value": "ada" }""")));
+        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "press")).IsValid(Input("""{ "target": "n1", "key": "Enter" }""")));
+        Assert.False(SchemaOf(tools.Single(tool => tool.Name == "scroll")).IsValid(Input("""{ "target": "n1", "direction": "down" }""")));
     }
 
     [Fact]
@@ -265,7 +265,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
 
         // With both kinds and the keyboard, the target is optional and a call without one acts on the focused field; with fill alone
         // the schema carries a target too; with the keyboard alone it carries none.
-        static bool HasTarget(ModelTool tool) => tool.Parameters.GetProperty("properties").TryGetProperty("ref", out _);
+        static bool HasTarget(ModelTool tool) => tool.Parameters.GetProperty("properties").TryGetProperty("target", out _);
         Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "fill")));
         Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "press")));
         Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["fill"]).Single(tool => tool.Name == "fill")));
@@ -293,8 +293,8 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Empty(Offered(null));
 
         var drag = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, EngineActionKinds.Locator).Single(tool => tool.Name == "drag");
-        Assert.Equal(["to"], drag.Parameters.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
-        Assert.True(drag.Parameters.GetProperty("properties").GetProperty("to").GetProperty("properties").TryGetProperty("ref", out _));
+        Assert.Equal(["target", "to"], drag.Parameters.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal("string", drag.Parameters.GetProperty("properties").GetProperty("to").GetProperty("type").GetString());
         Assert.True(AgentTools.IsReserved("drag"));
 
         // The point verbs that fall back to a node verb are offered with it, and say the bare point cannot be taken.
