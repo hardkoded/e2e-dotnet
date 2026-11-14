@@ -79,6 +79,7 @@ export default defineConfig({
                         { label: "Authentication", slug: "features/signing-in" },
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
+                        { label: "Exploring", slug: "docs/explore" },
                         { label: "Bug bashes", slug: "docs/bug-bash" },
                         { label: "e2e doctor", slug: "docs/doctor" },
                         { label: "Soft assertions & evidence", slug: "features/assertions" },
