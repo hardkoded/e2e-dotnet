@@ -299,6 +299,7 @@ Limits of the preview: the tests attach to the running app, so `Device.InstallAp
 - `Locator.PressAsync` takes `Enter`, `Space`, or one character, sent through the soft keyboard. A field that is not focused is tapped first, for `Enter` as for a character, so the keyboard is up. Other named keys and every modifier fail with `UNSUPPORTED_CAPABILITY`.
 - `CheckAsync` and `UncheckAsync` need a `checked` state in the tree. Switches report one on both platforms, and so does a native Android `CheckBox`; a React Native checkbox or radio reports one only when the app sets `accessibilityState.checked`. A control with no state fails with `UNSUPPORTED_CAPABILITY`, so tap it instead.
 - On an Android build with no shell command for the clipboard service (the Android 16 emulator is one), `Device.ClipboardAsync()` and `Device.SetClipboardAsync(text)` fail with `UNSUPPORTED_CAPABILITY`. To check a copy, paste into a field and read the field back.
+- `Locator.DoubleTapAsync` and `Screen.DoubleTapAtAsync` on iOS are two taps about 285 to 335 ms apart. Give a double-tap detector a window of 350 ms or more.
 - Android needs `adb` from the Android SDK Platform-Tools on `PATH`, locally and for the Limrun tunnel.
 - Building the sample iOS app needs `-p:ValidateXcodeVersion=false` when the installed Xcode is newer than the one the .NET iOS pack expects.
 - Agent steps on a device are slower than in a browser. Raise `StepTimeout` to 90 seconds. The 30 second default timed out a two-field step.

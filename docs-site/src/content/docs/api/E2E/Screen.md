@@ -66,7 +66,8 @@ public Task DoubleTapAtAsync(Point point, ActionOptions? options = null, Cancell
 
 
 Double-taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the
-`doubleTap` pointer action; the web engine sends a primary-button double click. Upstream's `screen.doubleTapAt`.
+`doubleTap` pointer action; the web engine sends a primary-button double click. On a device, this sends two presses
+at the point, as `DoubleTapAsync` does on a node; their timing on iOS is in the mobile guide's known device limitations. Upstream's `screen.doubleTapAt`.
 
 **Parameters**
 
