@@ -146,10 +146,10 @@ public sealed partial class CreateGrammarToolsTests
         Assert.Equal(StepVerdictStatus.Passed, verdict.Verdict!.Value.Status);
     }
 
-    private static ModelToolCall Done(string status, string summary, string? code) => new()
+    private static ModelToolCall Done(string status, string summary, string? errorCode) => new()
     {
         Id = "call-1",
         Name = VerdictTool.Name,
-        Arguments = JsonSerializer.SerializeToElement(code is null ? new { status, summary } : (object)new { status, summary, code }),
+        Arguments = JsonSerializer.SerializeToElement(errorCode is null ? new { status, summary } : (object)new { status, summary, errorCode }),
     };
 }

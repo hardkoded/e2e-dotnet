@@ -310,7 +310,7 @@ public sealed partial class Agent
                         issue,
                         previous,
                         fields,
-                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call done with status failed and code ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values.")),
+                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call done with status failed and errorCode ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values.")),
             });
         }
     }
@@ -1942,8 +1942,8 @@ internal sealed class ToolOutcome
         Content = droppedCode is null
             ? "Step concluded."
             : assertionOnly
-                ? "Step concluded as " + status + "; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent applies only to assertions and was ignored."
-                : "Step concluded as passed; the code" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent does not apply to a passed verdict and was ignored.",
+                ? "Step concluded as " + status + "; the errorCode" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent applies only to assertions and was ignored."
+                : "Step concluded as passed; the errorCode" + (droppedCode.Length == 0 ? "" : " " + droppedCode) + " you sent does not apply to a passed verdict and was ignored.",
         Succeeded = true,
         Done = true,
         Status = status,
