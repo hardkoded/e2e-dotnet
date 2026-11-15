@@ -19,8 +19,6 @@ internal sealed class ScreenshotContext
 
     private int _evidence;
 
-    private int _transcripts;
-
     /// <summary>The project root; stored screenshots are reported relative to it.</summary>
     public required string ProjectRoot { get; init; }
 
@@ -74,18 +72,6 @@ internal sealed class ScreenshotContext
         var file = Path.Combine(ResultsDirectory, name);
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllBytes(file, png);
-        return ScreenshotAssertion.Shown(this, file);
-    }
-
-    /// <summary>
-    /// Keeps the transcript an executor attached to its step under the attempt's results, at <c>transcript-&lt;n&gt;.txt</c>, and
-    /// returns its path as a failure names it: relative to the project root.
-    /// </summary>
-    public string KeepTranscript(string text)
-    {
-        var file = Path.Combine(ResultsDirectory, "transcript-" + Interlocked.Increment(ref _transcripts).ToString("000", System.Globalization.CultureInfo.InvariantCulture) + ".txt");
-        Directory.CreateDirectory(ResultsDirectory);
-        File.WriteAllText(file, text);
         return ScreenshotAssertion.Shown(this, file);
     }
 

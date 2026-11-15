@@ -211,8 +211,8 @@ public virtual void AttachTranscript(string text)
 ```
 
 
-Attaches the executor's model transcript to the step. It is written to the results directory as a `log` file
-when the attempt keeps results, and dropped otherwise. Call it once, at the end.
+Attaches the executor's model transcript to the step. It is kept as a `log` artifact of the step (`transcript-<step id>.txt`)
+when the attempt keeps results, and dropped otherwise. The last call wins.
 
 **Parameters**
 

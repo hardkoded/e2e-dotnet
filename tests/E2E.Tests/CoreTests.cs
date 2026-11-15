@@ -906,7 +906,7 @@ public sealed class CoreTests
         return Path.Combine(Path.GetTempPath(), "e2e-tests", Guid.NewGuid().ToString("n"));
     }
 
-    internal readonly record struct Attempt(Exception? Error, int ModelCalls, int Replayed, int Missed, int InputTokens = 0, int OutputTokens = 0, IReadOnlyList<StepRecord>? Steps = null);
+    internal readonly record struct Attempt(Exception? Error, int ModelCalls, int Replayed, int Missed, int InputTokens = 0, int OutputTokens = 0, IReadOnlyList<StepRecord>? Steps = null, E2E.Reports.ArtifactRecord? Log = null, string? LogText = null, string? AgentStepId = null);
 
     internal static async Task<Attempt> RunAsync(
         Func<TestContext, Task> body,
@@ -918,7 +918,8 @@ public sealed class CoreTests
         IReadOnlyDictionary<string, AgentTool>? agentTools = null,
         IStepExecutor? executor = null,
         ReportJson.ReportDirectory? report = null,
-        Func<IEngine, IEngine>? wrapEngine = null)
+        Func<IEngine, IEngine>? wrapEngine = null,
+        bool debug = false)
     {
         IEngine engine = new DocumentEngine(world ?? BillingWorld.Create());
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -937,6 +938,8 @@ public sealed class CoreTests
             ReplayTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
+            Debug = debug,
+            DebugOutput = debug ? TextWriter.Null : null,
         });
         Exception? error = null;
         try
@@ -949,7 +952,16 @@ public sealed class CoreTests
         }
 
         session.Complete(error);
-        return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens);
+        if (!debug)
+        {
+            return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens);
+        }
+
+        await session.DisposeAsync();
+        var log = session.Artifacts.FirstOrDefault(artifact => artifact.Kind == E2E.Reports.ArtifactKind.Log);
+        var logText = Directory.EnumerateFiles(session.ArtifactsDir, "transcript-*.txt").Select(File.ReadAllText).FirstOrDefault();
+        var agentStep = session.StepRecords.FirstOrDefault(step => step.Api == "agent.act");
+        return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens, session.StepRecords, log, logText, agentStep?.Id);
     }
 
     private sealed class StubHandler : HttpMessageHandler
