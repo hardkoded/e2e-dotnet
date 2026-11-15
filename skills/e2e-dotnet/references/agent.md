@@ -900,8 +900,8 @@ System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when
 
 An executor that drives a model outside the loop gets the built-in verdict from
 `AgentTools.CreateVerdictTool(context.Step.Kind)`: give the model its `Tool` and
-`AgentTools.VerdictRules`, run each `done` call with `Execute(call)`, and return
-`Verdict` once `Concluded`. The tool is `done`, and it takes `errorCode`, as upstream's `complete_step` does.
+`AgentTools.VerdictRules`, run each `complete_step` call with `Execute(call)`, and return
+`Verdict` once `Concluded`. The tool is `complete_step`, and it takes `errorCode`, as upstream's does.
 
 The observation's `KeyboardVisible` says whether an on-screen keyboard is
 showing, and is `null` when the engine can't tell.
