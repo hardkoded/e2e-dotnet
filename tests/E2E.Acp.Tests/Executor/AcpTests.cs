@@ -593,8 +593,10 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
+    public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
+        // Partial: upstream also calls screenshot and checks it reaches the agent as an MCP image/png result. The document engine has no
+        // pixels, so that part is not checked here (#1651).
         // type_secret is listed for every step, and a step that declares no secrets is told so.
         var agent = Scripted(_directory, Turns([Call("type_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
