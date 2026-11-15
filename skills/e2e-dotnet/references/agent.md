@@ -290,7 +290,8 @@ On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
 extends a selection. The held keys are recorded and replayed from the cache.
 A project tool adds its own name to this list (see "Project tools").
 `type_secret` fills any editable field, a rich-text editor included, with a
-generic secret; a password secret needs a password field.
+generic secret; a password secret needs a password field. It takes `target`
+(the node id) and `name` (the secret's name), as upstream's `type_secret`.
 
 ## AssertAsync, WaitForAsync, ExtractAsync: one question
 

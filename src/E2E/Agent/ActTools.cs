@@ -194,7 +194,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
                 "hover" => actions.HoverAsync(target, token),
                 "type" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
-                "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
+                "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
                 "check" => actions.CheckAsync(target, Args.Bool(arguments, "checked") != false, token),
                 "clear" => actions.ClearAsync(target, token),
@@ -485,11 +485,15 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private static string FailureLead(ActionLabel label, E2EException error) => label.Attempt + " failed: " + error.Code + ": " + error.Message;
 
     // The done and attempt leads of a node tool, upstream's wording; `reference` stands where upstream's `#id` does.
+    private static ActionLabel SecretLabel(string secret, string reference) => new(
+        "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
+        "type_secret \"" + secret + "\" into " + reference,
+        false);
+
     private static ActionLabel NodeLabel(string tool, JsonElement arguments, string reference)
     {
         var key = Args.String(arguments, "key") ?? "Enter";
         var value = Args.String(arguments, "value") ?? "";
-        var secret = Args.String(arguments, "secret") ?? "";
         return tool switch
         {
             "tap" => new("Tapped " + reference + ".", "tap " + reference),
@@ -498,10 +502,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             "right_click" => new("Right-clicked " + reference + ".", "right_click " + reference),
             "hover" => new("Hovered over " + reference + ".", "hover " + reference),
             "type" => new("Typed into " + reference + ".", "type " + reference),
-            "type_secret" => new(
-                "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
-                "type_secret \"" + secret + "\" into " + reference,
-                false),
+            "type_secret" => SecretLabel(Args.String(arguments, "name") ?? "", reference),
             "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference, !MovesFocusOnly(key)),
             "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
             "clear" => new("Cleared " + reference + ".", "clear " + reference),

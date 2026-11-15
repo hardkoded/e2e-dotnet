@@ -28,13 +28,13 @@ public sealed class ReplayThroughTheActTests
         var tap = ModelResponses.Tap("button", "Upgrade");
         var looks = await RecordThenReplayAsync(
             TapWorld,
-            tap,
-            ModelResponses.Fill("textbox", "Email", "a@b.c"),
-            tap,
-            ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "password" }),
-            tap,
-            ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
-            tap);
+            _ => tap,
+            _ => ModelResponses.Fill("textbox", "Email", "a@b.c"),
+            _ => tap,
+            request => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "password" }),
+            _ => tap,
+            _ => ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
+            _ => tap);
 
         // The start holds still and serves the first tap; so does the look after each tap or select. The look
         // after a typed fill waits for its value only. A secret fill is masked out of the tree, so the look after
@@ -419,11 +419,14 @@ public sealed class ReplayThroughTheActTests
     });
 
     /// <summary>Records the steps live on a fresh cache, then replays them, and returns the replaying act's looks.</summary>
-    private static async Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params ModelResponse[] steps)
+    private static Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params ModelResponse[] steps) =>
+        RecordThenReplayAsync(world, [.. steps.Select(step => (Func<ModelRequest, ModelResponse>)(_ => step))]);
+
+    private static async Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params Func<ModelRequest, ModelResponse>[] steps)
     {
         var directory = CoreTests.TempCache();
         var next = 0;
-        var recorded = await ActAsync(world(), directory, new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")));
+        var recorded = await ActAsync(world(), directory, new ScriptedModel(request => next < steps.Length ? steps[next++](request) : ModelResponses.Done("passed", "Done.")));
         Assert.Equal("missed", recorded.Mode);
 
         var replayed = await ActAsync(world(), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));

@@ -514,7 +514,7 @@ public sealed class E2eExploreTests
             {
                 if (call.Turn == 1)
                 {
-                    return ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "ada.password" });
+                    return ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(call.Request, "textbox \"Password\""), name = "ada.password" });
                 }
 
                 fillResult = call.LastToolResult;

@@ -434,7 +434,8 @@ internal sealed class SessionHost : IDisposable
                 session.Engine.CanDismissKeyboard,
                 config.Agent.Tools,
                 target.Platform,
-                message => Log("warning", message));
+                message => Log("warning", message),
+                [.. secrets.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose))]);
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
             var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);

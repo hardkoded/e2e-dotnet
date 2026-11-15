@@ -22,8 +22,8 @@ public sealed class AnInconclusiveJudgmentAfterASecretFillTests
         // The act model fills the password through type_secret; a screenshot can still reach a judge
         // afterwards.
         var calls = 0;
-        var actor = new ScriptedModel(_ => calls++ == 0
-            ? ModelResponses.Call("type_secret", new { role = "textbox", name = "Password", secret = "member-password" })
+        var actor = new ScriptedModel(request => calls++ == 0
+            ? ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "member-password" })
             : ModelResponses.Done("passed", "filled the password"));
         var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions

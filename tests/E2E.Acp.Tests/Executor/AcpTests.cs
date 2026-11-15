@@ -10,8 +10,8 @@ namespace E2E.Acp.Tests.Executor;
 
 /// <summary>
 /// Ports <c>describe('acp')</c> of tester-army/e2e <c>packages/acp/tests/executor.test.ts</c> (0410fc9c). The scripted agent is the C# program
-/// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
-/// context of a step the runtime opened. The verdict tool takes <c>errorCode</c>.
+/// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine (the web engine where a test needs pixels), since the grammar tools drive the
+/// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>errorCode</c>.
 /// </summary>
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AcpTests : IDisposable
@@ -593,13 +593,12 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
+    public async Task Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
-        // Partial: upstream also calls screenshot and checks it reaches the agent as an MCP image/png result. The document engine has no
-        // pixels, so that part is not checked here (#1651).
-        // type_secret is listed for every step, and a step that declares no secrets is told so.
-        var agent = Scripted(_directory, Turns([Call("type_secret", new { role = "textbox", name = "Title", secret = "admin.password" }), Pass], [Pass]));
-        await using var session = await StartAsync(agent.Executor, new TodoPage().World());
+        // type_secret is listed for every step, and a step that declares no secrets is told so. The web engine takes the screenshot.
+        using var site = PixelSite.Start("<!doctype html><title>t</title><h1>Hello</h1>");
+        var agent = Scripted(_directory, Turns([Call("screenshot"), Call("type_secret", new { target = "e1", name = "admin.password" }), Pass], [Pass]));
+        await using var session = await StartAsync(agent.Executor, new TodoPage().World(), engine: new WebEngine(headless: true), baseUrl: site.Url);
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo");
@@ -608,6 +607,9 @@ public sealed class AcpTests : IDisposable
         Assert.Contains("type_secret", offered);
         Assert.Contains("Not offered in this step: type_secret (this step declares no secrets).", agent.Prompts()[0], StringComparison.Ordinal);
         Assert.Contains("this step declares no secrets", agent.ResultOf("type_secret"), StringComparison.Ordinal);
+        // A screenshot reaches the agent as an MCP image.
+        var shot = agent.Log().First(entry => entry["call"]?.GetValue<string>() == "screenshot")["result"]!["content"]!.AsArray();
+        Assert.Contains(shot, part => part?["type"]?.GetValue<string>() == "image" && part["mimeType"]?.GetValue<string>() == "image/png");
     }
 
     [Fact]

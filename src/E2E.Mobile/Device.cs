@@ -308,7 +308,7 @@ public sealed class Device
     /// foreground-only open.
     /// </summary>
     public Task OpenAppAsync(string app, OpenAppOptions? options = null, CancellationToken cancellationToken = default) =>
-        RunAsync("device.openApp", DeviceLinks.LinkLabel(app), () => _session.OpenAppAsync(app, options, cancellationToken));
+        RunAsync("device.openApp", DeviceLinks.AppLabel(app), () => _session.OpenAppAsync(app, options, cancellationToken));
 
     /// <summary>
     /// Opens a deep link (<c>myapp://orders/42</c>) or a web link (<c>https://...</c>) into <paramref name="app"/> (default:
@@ -316,7 +316,8 @@ public sealed class Device
     /// A web link the app does not claim goes to Safari, and the next observation brings the app back. Android starts the
     /// link on that package. Without an app, Android lets the OS route the link. iOS needs one (<c>INVALID_ARGUMENT</c>
     /// without). <c>file:</c>, <c>data:</c>, <c>javascript:</c>, <c>view-source:</c>, <c>blob:</c>, and <c>filesystem:</c>
-    /// links are <c>POLICY_DENIED</c>.
+    /// links are <c>POLICY_DENIED</c>. The report shows the link without its userinfo (<c>user:password@</c> or <c>token@</c>),
+    /// query, or fragment, where a login or a magic link's token rides. A string that does not parse shows as <c>&lt;link&gt;</c>, never as typed.
     /// </summary>
     public Task OpenLinkAsync(string url, string? app = null, CancellationToken cancellationToken = default) =>
         RunAsync("device.openLink", DeviceLinks.LinkLabel(url), () => _session.OpenLinkAsync(DeviceLinks.LinkTarget(url), app, cancellationToken));
