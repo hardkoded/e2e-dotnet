@@ -258,15 +258,15 @@ public static class AgentTools
 
     /// <summary>
     /// Upstream's <c>type_secret</c> tool (<c>agent/primitives.ts</c>), which the port names <c>fill_secret</c>. Offered only when the step
-    /// declared secrets and the engine can fill: its description lists each as <c>"name" (purpose)</c>. The secret's name is <c>secret</c>
-    /// where upstream's is <c>name</c>, which the target's own <c>name</c> field already takes.
+    /// declared secrets and the engine can fill: its description lists each as <c>"name" (purpose)</c>. It takes <c>target</c> and the
+    /// secret's <c>name</c>, as upstream.
     /// </summary>
     private static ModelTool FillSecret(IReadOnlyList<ExecutorSecret> secrets) => Tool(
         "fill_secret",
         "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. Available: " +
         string.Join(", ", secrets.Select(secret => "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")"))) +
         ".",
-        WithValue(Target, "secret"));
+        WithValue(Target, "name"));
 
     private static readonly ModelTool LongPress = Tool(
         "long_press",

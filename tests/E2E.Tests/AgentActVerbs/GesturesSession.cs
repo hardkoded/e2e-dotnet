@@ -363,6 +363,14 @@ internal static class GesturesSession
         return (error, session.StepRecords);
     }
 
+    /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>, in every message of a model request.</summary>
+    public static string RefFor(ModelRequest request, string line)
+    {
+        var prompt = string.Join('\n', request.Messages.Select(message => message.Content));
+        var matches = Regex.Matches(prompt, @"^\s*(?:added |changed )?#(e\d+) " + Regex.Escape(line) + @"(?: .*)?$", RegexOptions.Multiline);
+        return matches.Count > 0 ? matches[^1].Groups[1].Value : throw new InvalidOperationException("No line " + line + " in the screen:\n" + prompt);
+    }
+
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>
     public static string RefFor(string prompt, string line)
     {

@@ -79,7 +79,7 @@ internal sealed class SessionCatalog
     /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
     /// <paramref name="canDismissKeyboard"/> is <see cref="IEngineSession.CanDismissKeyboard"/>: <c>dismiss_keyboard</c> is a tool only where it is true.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false, IReadOnlyDictionary<string, AgentTool>? projectTools = null, string? platform = null, Action<string>? warn = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null, bool canDismissKeyboard = false, IReadOnlyDictionary<string, AgentTool>? projectTools = null, string? platform = null, Action<string>? warn = null, IReadOnlyList<ExecutorSecret>? secretHandles = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -229,7 +229,7 @@ internal sealed class SessionCatalog
 
         if (secrets.Count > 0 && verbs.Contains(ExecutorVerb.TypeSecret))
         {
-            Add("type_secret", TypeSecret(context, screen));
+            Add("type_secret", TypeSecret(context, screen, secretHandles));
         }
 
         Add("locate", Locate(context));
@@ -488,15 +488,18 @@ internal sealed class SessionCatalog
         Execute = async (args, token) => await tool.ExecuteAsync(args.ValueKind == JsonValueKind.Object ? JsonNode.Parse(args.GetRawText())!.AsObject() : throw new ConfigurationException("INVALID_ARGUMENT", "a project tool takes an object"), token).ConfigureAwait(false),
     };
 
-    private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen)
+    private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen, IReadOnlyList<ExecutorSecret>? secretHandles)
     {
         return new CatalogTool
         {
-            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>.",
-            InputSchema = Schema(Target, ("secret", Property("string", "The secret's name from the config"), true)),
+            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>." +
+                (secretHandles is { Count: > 0 }
+                    ? " Available: " + string.Join(", ", secretHandles.Select(secret => "\"" + secret.Name + "\"" + (secret.Purpose is null ? "" : " (" + secret.Purpose + ")"))) + "."
+                    : ""),
+            InputSchema = Schema(Target, ("name", Property("string", "The secret's name from the config"), true)),
             Execute = async (args, token) =>
             {
-                var mapped = new JsonObject { ["target"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
+                var mapped = new JsonObject { ["target"] = args.GetProperty("target").GetString(), ["name"] = args.GetProperty("name").GetString() };
                 // Marked before the fill runs: a fill that fails after typing still leaves the secret on screen.
                 context.SecretFilled();
                 var outcome = await RunAsync(context, screen, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);

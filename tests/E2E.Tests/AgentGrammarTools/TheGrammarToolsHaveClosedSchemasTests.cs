@@ -24,7 +24,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ["right_click"] = """{ "target": "n1" }""",
         ["hover"] = """{ "target": "n1" }""",
         ["fill"] = """{ "target": "n1", "value": "ada" }""",
-        ["fill_secret"] = """{ "target": "n1", "secret": "admin" }""",
+        ["fill_secret"] = """{ "target": "n1", "name": "admin" }""",
         ["press"] = """{ "target": "n1", "key": "Shift+ArrowLeft", "times": 8 }""",
         ["select"] = """{ "target": "n1", "value": "Pro" }""",
         ["check"] = """{ "target": "n1" }""",
