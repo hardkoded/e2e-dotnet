@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace E2E.Mobile;
@@ -22,6 +23,11 @@ public static partial class DeviceLinks
     /// <summary>The C0 controls and the space, which a browser trims off both ends of a URL.</summary>
     private static readonly char[] EdgeCharacters = [.. Enumerable.Range(0, 0x21).Select(code => (char)code)];
 
+    /// <summary>What the report shows for a link that did not parse, or an app id that looks like a link.</summary>
+    private const string LinkPlaceholder = "<link>";
+
+    private static readonly Dictionary<string, int> DefaultPorts = new() { ["http"] = 80, ["https"] = 443, ["ftp"] = 21, ["ws"] = 80, ["wss"] = 443 };
+
     private static readonly HashSet<string> ForbiddenProtocols = ["file:", "data:", "javascript:", "view-source:", "blob:", "filesystem:"];
 
     /// <summary>
@@ -34,6 +40,9 @@ public static partial class DeviceLinks
 
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePrefix();
+
+    [GeneratedRegex(@"^([A-Za-z][A-Za-z0-9+.-]*):(.*)\z", RegexOptions.Singleline)]
+    private static partial Regex SchemeSplit();
 
     /// <summary>Whether agent-device would open this string as a URL rather than resolve it as an app.</summary>
     public static bool IsLink(string value) => LinkShape().IsMatch(value.Trim());
@@ -82,13 +91,112 @@ public static partial class DeviceLinks
     }
 
     /// <summary>
-    /// The link as the report shows it, cut before its query and fragment. A magic link carries its
-    /// one-time token there, and a step label is kept for as long as the report is.
+    /// The link as the report shows it: read as a URL parser reads it, then without its userinfo, query, or
+    /// fragment, any of which may carry a credential (a magic link's one-time token, a <c>user:password@</c>
+    /// login). A step label is kept for as long as the report is. A string that does not parse is never
+    /// echoed, as <see cref="LinkTarget"/> never echoes it, and the label is a placeholder.
     /// </summary>
     public static string LinkLabel(string input)
     {
-        var cut = input.AsSpan().IndexOfAny('?', '#');
-        return cut < 0 ? input : input[..cut];
+        // As a URL parser reads it: tabs and line breaks go anywhere, and edge whitespace and control characters go.
+        var text = new string(input.Where(character => character is not ('\t' or '\n' or '\r')).ToArray()).Trim(EdgeCharacters);
+        var scheme = SchemeSplit().Match(text);
+        if (!scheme.Success)
+        {
+            return LinkPlaceholder;
+        }
+
+        var name = scheme.Groups[1].Value.ToLowerInvariant();
+        var rest = scheme.Groups[2].Value;
+        if (!DefaultPorts.TryGetValue(name, out var defaultPort) && name != "file")
+        {
+            return NonSpecialLabel(name, rest);
+        }
+
+        // A special scheme reads a backslash as a slash and takes any number of slashes before the authority.
+        rest = rest.Replace('\\', '/');
+        var start = 0;
+        while (start < rest.Length && rest[start] == '/')
+        {
+            start++;
+        }
+
+        rest = rest[start..];
+        var end = rest.AsSpan().IndexOfAny('/', '?', '#');
+        var authority = end < 0 ? rest : rest[..end];
+        var path = end < 0 ? string.Empty : rest[end..];
+        var host = Authority(authority, out var port, lowercase: true);
+        if (host is null || (host.Length == 0 && name != "file"))
+        {
+            return LinkPlaceholder;
+        }
+
+        var portText = port is null || port == defaultPort ? string.Empty : ":" + port.Value.ToString(CultureInfo.InvariantCulture);
+        return name + "://" + host + portText + PathLabel(path, special: true);
+    }
+
+    /// <summary>
+    /// The label of an <c>openApp</c> step: the app id as it is. <see cref="AssertAppId"/> refuses a link,
+    /// but the step is labeled before it runs, so a string shaped like a link gets the placeholder instead
+    /// of whatever userinfo it carries.
+    /// </summary>
+    public static string AppLabel(string app) => IsLink(app) ? LinkPlaceholder : app;
+
+    private static string NonSpecialLabel(string scheme, string rest)
+    {
+        if (!rest.StartsWith("//", StringComparison.Ordinal))
+        {
+            // No authority: the path (or an opaque path) is all there is, and an @ in it is no userinfo.
+            return scheme + ":" + PathLabel(rest, special: false);
+        }
+
+        rest = rest[2..];
+        var end = rest.AsSpan().IndexOfAny('/', '?', '#');
+        var authority = end < 0 ? rest : rest[..end];
+        var path = end < 0 ? string.Empty : rest[end..];
+        var host = Authority(authority, out var port, lowercase: false);
+        if (host is null)
+        {
+            return LinkPlaceholder;
+        }
+
+        return scheme + "://" + host + (port is null ? string.Empty : ":" + port.Value.ToString(CultureInfo.InvariantCulture)) + PathLabel(path, special: false);
+    }
+
+    /// <summary>The host and port of an authority, without its userinfo; <c>null</c> when it has a host or port no URL parser accepts.</summary>
+    private static string? Authority(string authority, out int? port, bool lowercase)
+    {
+        port = null;
+        var host = authority[(authority.LastIndexOf('@') + 1)..];
+        var colon = host.StartsWith('[') ? host.IndexOf("]:", StringComparison.Ordinal) + 1 : host.LastIndexOf(':');
+        if (colon > 0)
+        {
+            var digits = host[(colon + 1)..];
+            host = host[..colon];
+            if (digits.Length > 0)
+            {
+                if (!digits.All(char.IsAsciiDigit) || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number > 65535)
+                {
+                    return null;
+                }
+
+                port = number;
+            }
+        }
+
+        if (host.Any(character => character <= ' ' || character is '#' or '/' or '<' or '>' or '?' or '@' or '\\' or '^' or '|' or '%' or '\u007f'))
+        {
+            return null;
+        }
+
+        return lowercase ? host.ToLowerInvariant() : host;
+    }
+
+    private static string PathLabel(string rest, bool special)
+    {
+        var cut = rest.AsSpan().IndexOfAny('?', '#');
+        var path = (cut < 0 ? rest : rest[..cut]).Replace(" ", "%20", StringComparison.Ordinal);
+        return special && path.Length == 0 ? "/" : path;
     }
 
     private static void DenyForbiddenScheme(string protocol)
