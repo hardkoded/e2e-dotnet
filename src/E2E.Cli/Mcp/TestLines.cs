@@ -287,7 +287,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
             case "type_secret":
                 {
-                    return SecretExpression(Field(args, "secret") ?? "") is { } secret
+                    return SecretExpression(Field(args, "name") ?? "") is { } secret
                         ? await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token).ConfigureAwait(false)
                         : LinePlan.None("the secret is neither a credential password nor a config secret");
                 }

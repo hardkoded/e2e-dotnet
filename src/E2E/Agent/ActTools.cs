@@ -192,7 +192,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
                 "hover" => actions.HoverAsync(target, token),
                 "fill" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
-                "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
+                "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
                 "check" => actions.CheckAsync(target, true, token),
                 "uncheck" => actions.CheckAsync(target, false, token),
@@ -489,7 +489,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     {
         var key = Args.String(arguments, "key") ?? "Enter";
         var value = Args.String(arguments, "value") ?? "";
-        var secret = Args.String(arguments, "secret") ?? "";
+        var secret = Args.String(arguments, "name") ?? "";
         return tool switch
         {
             "tap" => new("Tapped " + reference + ".", "tap " + reference),

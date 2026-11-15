@@ -171,7 +171,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Tapped the point", pointed.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("No screenshot has been taken", pointed.Text, StringComparison.Ordinal);
 
-        var filled = await _served.CallAsync("type_secret", new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["secret"] = "adminPassword" });
+        var filled = await _served.CallAsync("type_secret", new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["name"] = "adminPassword" });
         Assert.False(filled.IsError, filled.Text);
         Assert.Contains("Filled secret \"adminPassword\" into #", filled.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(Served.AdminPassword, filled.Text, StringComparison.Ordinal);

@@ -57,7 +57,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         (string Tool, Dictionary<string, object?> Args, string Line)[] steps =
         [
             ("type", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Username\""), ["text"] = Username }, "await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);"),
-            ("type_secret", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["secret"] = "admin.password" }, "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);"),
+            ("type_secret", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["name"] = "admin.password" }, "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);"),
             ("select", new() { ["target"] = ServedCli.RefOf(screen, "combobox \"Plan\""), ["value"] = "Pro" }, "await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");"),
             ("check", new() { ["target"] = ServedCli.RefOf(screen, "checkbox \"Accept terms\"") }, "await Screen.GetByRole(\"checkbox\", \"Accept terms\").CheckAsync();"),
             (

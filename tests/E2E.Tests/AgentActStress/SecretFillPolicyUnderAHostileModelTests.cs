@@ -31,8 +31,8 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
             toolResults.Add(LastToolResult(request));
             return calls++ switch
             {
-                0 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Notes", secret = "admin" }),
-                1 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Notes", secret = "stripe-key" }),
+                0 => ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""), name = "admin" }),
+                1 => ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Notes\""), name = "stripe-key" }),
                 _ => ModelResponses.Done("passed", "filled the API key"),
             };
         });
@@ -62,7 +62,7 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
     {
         using var site = await WebFixtureApp.StartAsync();
         var model = new ScriptedModel(request => LastToolResult(request) == ""
-            ? ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "admin" })
+            ? ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "admin" })
             : ModelResponses.Done("passed", "filled the secret"));
         await using var session = await StartAsync(site.Url, model);
         await WebSemanticsTests.RunAsync(session, async () =>

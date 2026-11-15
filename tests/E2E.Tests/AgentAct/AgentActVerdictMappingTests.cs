@@ -118,9 +118,9 @@ public sealed class AgentActVerdictMappingTests
         }));
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {
-            0 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "admin.password" }),
+            0 => ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "admin.password" }),
             // A configured secret the step never declared is refused.
-            1 => ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "stripe-key" }),
+            1 => ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "stripe-key" }),
             _ => ModelResponses.Done("passed", "filled the declared secret only"),
         });
         var result = await RunAsync(
