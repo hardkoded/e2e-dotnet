@@ -33,12 +33,12 @@ Upstream's `createBuiltInAgent` (`agent/default-agent.ts`): the tool loop with t
 
 
 ```csharp
-public const string AssertRules = "You are judging exactly one assertion against the current application screen.\n- Use only the observation, scrolling, and read-only project tools offered to you. Do not tap, type, navigate, or change application state.\n- Combine evidence from every observation in this step. Items need not fit in one viewport. Scroll only to inspect the assertion's subject, and stop when you have enough evidence.\n- Node ids belong to the observed tree. Never invent ids; use scroll_to for a listed node or scroll to inspect more of the current screen.\n- Each scroll result contains a fresh observation. When screenshots are shown, each result includes fresh pixels too.\n- Conclude passed when the collected evidence establishes the assertion, failed with code ASSERTION_FAILED when it contradicts the assertion, and failed with code ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer."
+public const string AssertRules = "You are judging exactly one assertion against the current application screen.\n- Use only the observation, scrolling, and read-only project tools offered to you. Do not tap, type, navigate, or change application state.\n- Combine evidence from every observation in this step. Items need not fit in one viewport. Scroll only to inspect the assertion's subject, and stop when you have enough evidence.\n- Node ids belong to the observed tree. Never invent ids; use scroll_to for a listed node or scroll to inspect more of the current screen.\n- Each scroll result contains a fresh observation. When screenshots are shown, each result includes fresh pixels too.\n- Conclude passed when the collected evidence establishes the assertion, failed with errorCode ASSERTION_FAILED when it contradicts the assertion, and failed with errorCode ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer."
 ```
 
 
-Assertion-specific rules (upstream's `ASSERT_RULES`): they allow evidence gathered across several viewports. The verdict tool takes `code`
-where upstream's takes `errorCode`.
+Assertion-specific rules (upstream's `ASSERT_RULES`): they allow evidence gathered across several viewports. The verdict tool is `complete_step`,
+which takes `errorCode`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

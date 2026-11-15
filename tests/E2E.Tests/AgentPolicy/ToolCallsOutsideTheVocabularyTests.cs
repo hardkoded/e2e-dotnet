@@ -81,7 +81,6 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Contains("[tap] " + refused.Split('\n')[0], turn.Outcome, StringComparison.Ordinal);
     }
 
-    // Upstream sends errorCode where the port's done tool takes code.
     [Fact]
     public async Task Drops_the_error_code_a_passed_verdict_carries_notes_it_in_the_turn_and_ends_the_step_on_that_call_with_no_repair_turn()
     {
@@ -103,7 +102,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
         var verdictTurn = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[^1];
         Assert.StartsWith("complete_step(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
-        Assert.Equal("[complete_step] Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
+        Assert.Equal("[complete_step] Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
     }
 
     [Fact]

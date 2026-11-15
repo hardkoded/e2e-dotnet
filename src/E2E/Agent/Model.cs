@@ -221,11 +221,11 @@ public sealed class ModelResponse
 /// <summary>Builds the tool calls a <see cref="ScriptedModel"/> (or a test) returns.</summary>
 public static class ModelResponses
 {
-    public static ModelResponse Done(string status, string summary, string? code = null)
+    public static ModelResponse Done(string status, string summary, string? errorCode = null)
     {
-        return Call(VerdictTool.Name, code is null
+        return Call(VerdictTool.Name, errorCode is null
             ? new { status, summary }
-            : (object)new { status, summary, code });
+            : (object)new { status, summary, errorCode });
     }
 
     /// <summary>
@@ -360,7 +360,7 @@ public sealed partial class ScriptedModel : IAgentModel
         }
 
         var status = Args.String(done.Arguments, "status");
-        var code = Args.String(done.Arguments, "code");
+        var code = Args.String(done.Arguments, "errorCode");
         var verdict = status switch
         {
             "passed" => "holds",

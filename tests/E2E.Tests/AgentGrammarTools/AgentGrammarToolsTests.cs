@@ -13,7 +13,7 @@ namespace E2E.Tests.AgentGrammarTools;
 
 /// <summary>
 /// The <c>it</c>s outside any <c>describe</c> of upstream's <c>agent-grammar-tools.test.ts</c> that tester-army/e2e#1568 added. The port's verdict
-/// tool is <c>done</c>, with a <c>code</c> where upstream's <c>complete_step</c> has an <c>errorCode</c>, and its project tools are
+/// tool is <c>done</c>, as upstream's <c>complete_step</c> is, with its <c>errorCode</c>, and its project tools are
 /// <see cref="AgentTool"/>s, which <see cref="AgentTools.CreateGrammarTools"/> offers with the grammar, not a separate <c>projectTools</c>.
 /// </summary>
 public sealed class AgentGrammarToolsTests
@@ -107,13 +107,13 @@ public sealed class AgentGrammarToolsTests
     [Fact]
     public void Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion()
     {
-        var arguments = Call(new { status = "failed", summary = "no evidence", code = "ASSERTION_INCONCLUSIVE" });
+        var arguments = Call(new { status = "failed", summary = "no evidence", errorCode = "ASSERTION_INCONCLUSIVE" });
         var call = new ModelToolCall { Id = "verdict", Name = VerdictTool.Name, Arguments = arguments };
 
         var act = AgentTools.CreateVerdictTool(ExecutorStepKind.Act);
         Assert.Contains("ASSERTION_INCONCLUSIVE", act.Tool.Parameters.GetRawText(), StringComparison.Ordinal);
         Assert.Equal(
-            "Step concluded as failed; the code ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.",
+            "Step concluded as failed; the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.",
             act.Execute(call).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "no evidence"), act.Verdict);
 

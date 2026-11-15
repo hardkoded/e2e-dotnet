@@ -11,7 +11,7 @@ namespace E2E.Acp.Tests.Executor;
 /// <summary>
 /// Ports <c>describe('acp')</c> of tester-army/e2e <c>packages/acp/tests/executor.test.ts</c> (0410fc9c). The scripted agent is the C# program
 /// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
-/// context of a step the runtime opened. The verdict tool takes <c>code</c>.
+/// context of a step the runtime opened. The verdict tool takes <c>errorCode</c>.
 /// </summary>
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AcpTests : IDisposable
@@ -233,7 +233,7 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion_in_one_attempt()
     {
-        var inconclusive = Call("complete_step", new { status = "failed", summary = "not enough evidence", code = "ASSERTION_INCONCLUSIVE" });
+        var inconclusive = Call("complete_step", new { status = "failed", summary = "not enough evidence", errorCode = "ASSERTION_INCONCLUSIVE" });
         var agent = Scripted(_directory, Turns([inconclusive], [inconclusive]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
@@ -242,7 +242,7 @@ public sealed class AcpTests : IDisposable
 
         Assert.Equal("ACTION_FAILED", act.Code);
         Assert.Equal("ASSERTION_INCONCLUSIVE", assertion.Code);
-        Assert.Contains("the code ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
+        Assert.Contains("the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
         Assert.Single(agent.Sessions());
     }
 
@@ -252,7 +252,7 @@ public sealed class AcpTests : IDisposable
         var page = new TodoPage();
         var agent = Scripted(_directory, Turns([
             Call("complete_step", new { status = "blocked", summary = "the app is down" }),
-            Call("complete_step", new { status = "blocked", summary = "the app is down", code = "APP_UNREACHABLE" }),
+            Call("complete_step", new { status = "blocked", summary = "the app is down", errorCode = "APP_UNREACHABLE" }),
             Tap("Add"),
         ]));
         await using var session = await StartAsync(agent.Executor, page.World());
@@ -277,7 +277,7 @@ public sealed class AcpTests : IDisposable
         var agent = Scripted(_directory, Turns([new { batch = new[] { Tap("Slow"), Tap("Add"), Pass } }]));
         await using var session = await StartAsync(agent.Executor, page.World());
 
-        // The slow tap is still running when done concludes; the tap queued behind it.
+        // The slow tap is still running when complete_step concludes; the tap queued behind it.
         var result = await session.Agent.ActAsync("add a todo");
 
         Assert.Equal("added", result.Summary);

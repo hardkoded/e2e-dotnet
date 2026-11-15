@@ -410,12 +410,13 @@ public static class AgentTools
 
     /// <summary>
     /// Upstream's <c>VERDICT_RULES</c>: the guidance for <see cref="VerdictTool"/>. The tool loop appends it to the instructions of every
-    /// executor it builds, so an executor outside the loop gives it to its own model beside the tool. The tool takes <c>code</c> where upstream's takes <c>errorCode</c>.
+    /// executor it builds, so an executor outside the loop gives it to its own model beside the tool.
+    /// The tool is <c>complete_step</c>, and it takes an <c>errorCode</c>, as upstream's.
     /// </summary>
     public const string VerdictRules =
         "Finish with complete_step when the step's goal is achieved, or you are certain it cannot be. " +
         "complete_step status is passed, failed, or blocked. " +
-        "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code.";
+        "blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode.";
 
     /// <summary>
     /// Upstream's <c>createVerdictTool</c>: the <c>complete_step</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
@@ -426,7 +427,7 @@ public static class AgentTools
     /// way, since only an assertion can be inconclusive. Omit it to keep every code a failed verdict sends.
     /// </param>
     public static VerdictTool CreateVerdictTool(ExecutorStepKind? kind = null) =>
-        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done), kind);
+        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires errorCode.", Done), kind);
 
     /// <summary>
     /// Upstream's <c>createGrammarTools</c>: the built-in agent's action tools for the verbs the step's engine supports, each answering what
@@ -757,7 +758,7 @@ public static class AgentTools
               "properties": {
                 "status": { "type": "string", "enum": {{JsonSerializer.Serialize(statuses)}} },
                 "summary": { "type": "string", "minLength": 1, "maxLength": {{MaxVerdictSummaryChars}}, "description": "One to three sentences for the next step: what you did, what the screen shows now, and any value it will need (a name or id you created, a message you saw). No page narration; under 400 characters." },
-                "code": {{codeProperty}}
+                "errorCode": {{codeProperty}}
               },
               "required": ["status", "summary"]
             }
@@ -947,7 +948,7 @@ public sealed class VerdictTool
                 " characters: what you did and what the screen shows now.");
         }
 
-        var code = Args.String(call.Arguments, "code");
+        var code = Args.String(call.Arguments, "errorCode");
         // Upstream's schema makes errorCode an enum, so the note names only a code from the closed set; any other code is ignored without being echoed.
         var assertionOnly = _kind == ExecutorStepKind.Act && string.Equals(code, "ASSERTION_INCONCLUSIVE", StringComparison.Ordinal) && !string.Equals(status, "passed", StringComparison.Ordinal);
         var dropped = string.Equals(status, "passed", StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(code)
@@ -961,7 +962,7 @@ public sealed class VerdictTool
         if (string.Equals(status, "blocked", StringComparison.Ordinal) && !AgentTools.BlockableCodes.Contains(code))
         {
             return ToolOutcome.Reject(
-                "a blocked verdict requires a code naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
+                "a blocked verdict requires errorCode naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
                 "If the application itself misbehaved, use status failed instead.");
         }
 
