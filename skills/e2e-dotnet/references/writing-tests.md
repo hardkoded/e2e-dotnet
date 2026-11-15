@@ -562,7 +562,7 @@ public async Task Renames_a_project()
 
 On a device there are no cookies and `App.OpenAsync()` takes no path:
 `Device.OpenLinkAsync("myapp://projects/42")` opens a route, or a sign-in
-link, in the app.
+link, in the app. The step report shows the link without its userinfo, query, or fragment, where a magic link's token rides (`<link>` when it does not parse).
 
 Grow a test that spans several screens one screen at a time when you have
 not checked its steps live: write up to the next screen you have not seen
