@@ -684,10 +684,16 @@ internal sealed class TurnLog(StepExecutorContext context)
     // The loop's own notes on a reported turn, kept past the outcome clip.
     private const int MaxReportedNotesChars = 1_000;
 
+    // Transcript ceiling per step; enough for every turn without unbounded logs.
+    private const int MaxTranscriptChars = 262_144;
+
     private const string LoopNote = "[loop] ";
 
     private readonly Redactor _redactor = context.Host?.Scope.Redactor ?? Redactor.None;
     private readonly List<LoopTurn> _turns = [];
+
+    // Loop notes from before the first turn.
+    private readonly List<string> _preamble = [];
 
     /// <summary>The number of the turn that runs next.</summary>
     public int Next => _turns.Count + 1;
@@ -715,21 +721,16 @@ internal sealed class TurnLog(StepExecutorContext context)
         Attach();
     }
 
-    /// <summary>A loop event between turns is written onto the turn it followed. Before the first turn there is none to write it on, and the port keeps no transcript to open with it.</summary>
+    /// <summary>A loop event between turns is written onto the turn it followed, so the report and the transcript both show it where it happened; before the first turn it opens the record.</summary>
     public void Note(string text)
     {
-        if (_turns.Count == 0)
-        {
-            return;
-        }
-
-        _turns[^1].Notes.Add(LoopNote + text);
+        (_turns.Count == 0 ? _preamble : _turns[^1].Notes).Add(LoopNote + text);
         Attach();
     }
 
     private void Attach()
     {
-        if (_turns.Count == 0)
+        if (_turns.Count == 0 && _preamble.Count == 0)
         {
             return;
         }
@@ -738,6 +739,9 @@ internal sealed class TurnLog(StepExecutorContext context)
             turn.Index,
             [.. turn.Calls.Take(MaxReportedCalls).Select(call => Truncate(call, MaxReportedCallChars))],
             ReportedOutcome(turn)))]);
+        var transcript = new List<string>(_preamble);
+        transcript.AddRange(_turns.Select(turn => string.Join('\n', [$"--- turn {turn.Index} ---", .. turn.Calls.Select(call => "tool call: " + call), string.Join('\n', turn.Results), .. turn.Notes])));
+        context.AttachTranscript(Truncate(string.Join('\n', transcript), MaxTranscriptChars));
     }
 
     // The tool results clipped, and the loop's notes after them, clipped apart, since they come last and one clip would drop them.
