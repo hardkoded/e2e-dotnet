@@ -617,6 +617,8 @@ public sealed class DeterministicActionsTests
     public async Task Stops_re_reading_a_moving_control_once_the_action_budget_cannot_fit_another_poll_and_sends_nothing()
     {
         var h = Resting();
+        // The budget's waits end only when the test spends time, not in real time: a slow runner cannot cut a read short.
+        h.Clock.ManualTimers = true;
         var session = await OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(150));
         // The poll's pause spends the action's budget, as a real wait does.
         h.Waits.Wait = (span, _) =>
