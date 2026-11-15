@@ -20,7 +20,7 @@ public sealed record PreparedMessages : IEquatable<PreparedMessages>
 
 
 What [PrepareMessages](/api/E2E/ToolLoopExecutorOptions/#E2E_ToolLoopExecutorOptions_PrepareMessages) hands back: the history for the next turn, and optionally a reason to
-stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only `done`, like a loop guard.
+stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only `complete_step`, like a loop guard.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -42,7 +42,7 @@ public PreparedMessages(IReadOnlyList<ModelMessage> Messages, string? Stop = nul
 
 
 What [PrepareMessages](/api/E2E/ToolLoopExecutorOptions/#E2E_ToolLoopExecutorOptions_PrepareMessages) hands back: the history for the next turn, and optionally a reason to
-stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only `done`, like a loop guard.
+stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only `complete_step`, like a loop guard.
 
 **Parameters**
 

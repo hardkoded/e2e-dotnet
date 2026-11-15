@@ -159,7 +159,7 @@ The port has no computed capability set: nothing checks that the flags match the
 
 #### Agent verbs
 
-The agent offers the model only the verbs the engine's declarations unlock. A verb the engine leaves out is absent from the toolset, so the model never sees a tool it could only be refused on. The built-in agent's tool names are `fill` and `fill_secret` where this table says `type` and `type_secret`, and `uncheck` is a tool of its own beside `check`.
+The agent offers the model only the verbs the engine's declarations unlock. A verb the engine leaves out is absent from the toolset, so the model never sees a tool it could only be refused on.
 
 | Verb | Needs |
 | --- | --- |
@@ -173,8 +173,7 @@ The agent offers the model only the verbs the engine's declarations unlock. A ve
 | `type_secret` | `fill` |
 | `press` | `press`, or `Keyboard` without a target |
 | `select` | `selectOption` |
-| `check` and `uncheck` | both `check` and `uncheck` |
-| `clear` | `clear` (the port's own verb; upstream has none) |
+| `check` | both `check` and `uncheck` |
 | `scroll`, `scroll_to` | `Scroll` |
 | `upload` | `Upload` |
 | `navigate` | always offered |

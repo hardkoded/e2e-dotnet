@@ -31,7 +31,7 @@ public sealed class ReplayThroughTheActTests
             _ => tap,
             _ => ModelResponses.Fill("textbox", "Email", "a@b.c"),
             _ => tap,
-            request => ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "password" }),
+            request => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "password" }),
             _ => tap,
             _ => ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
             _ => tap);

@@ -53,7 +53,7 @@ prove each bug. Report confirmed bugs only, each with its failing test.
   replay for any confirmed bug.
 - The port has no saved sessions: `e2e explore --session` exits 2, so an
   explorer starts signed out. A charter that needs an account names its
-  credential and the explorer signs in with `fill_secret` (topic `explore`).
+  credential and the explorer signs in with `type_secret` (topic `explore`).
 
 A bug-bash config, left untracked, is a copy of the project's
 `e2e.config.json` with what a bug bash needs changed. JSON has no spread, so

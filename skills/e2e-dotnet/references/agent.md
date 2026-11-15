@@ -70,7 +70,7 @@ providers and their logins):
   (Google), and make Anthropic and Bedrock call a forced `json` tool.
 - The act tool loop sets `ModelRequest.ToolChoice` (a `ModelToolChoice`:
   `Auto`, `Required`, or `Tool(name)`) on every turn: `Required`, and
-  `Tool("done")` on the forced conclusion turns. A null choice means `Auto`.
+  `Tool("complete_step")` on the forced conclusion turns. A null choice means `Auto`.
   The built-in providers send
   their own form of it: `tool_choice` (`auto`, `any`, or a named tool) for
   Anthropic, `"auto"`, `"required"`, or a named function for chat completions
@@ -79,7 +79,7 @@ providers and their logins):
   Anthropic and Bedrock refuse a forced tool while the model thinks, so they
   send `auto` and return a `ModelWarning` (`Type` `unsupported`, `Feature`
   `toolChoice`) in `ModelResponse.Warnings`. A custom `IAgentModel` may ignore
-  the choice, since the loop offers only `done` on a forced turn either way.
+  the choice, since the loop offers only `complete_step` on a forced turn either way.
   When a model answers a forced choice with an HTTP 4xx naming `tool_choice`
   (for example Claude Fable 5.1's `tool_choice: type "tool" and "any" are not
   supported for this model`), answers a forced turn in prose, or returns the
@@ -165,7 +165,7 @@ pass returns an `ActResult` with `Summary`, `ModelCalls`, `Actions`, and
 `SECRET_UNAVAILABLE`, `ENVIRONMENT_UNAVAILABLE`, `SEED_DATA_MISSING`,
 `TEST_SETUP_FAILED`, `AUTOMATION_UNSUPPORTED`, `POLICY_DENIED` (blocked from
 outside, `Blocked` is true); `STEP_NO_CONCLUSION` (the turns ran out without a
-`done` call); `MODEL_OUTPUT_INVALID` (unusable answer),
+`complete_step` call); `MODEL_OUTPUT_INVALID` (unusable answer),
 `MODEL_REFUSED` (the model refused the prompt). Full list: topic `debugging`.
 
 `ActOptions`:
@@ -222,10 +222,10 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
 ```
 
 The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
-`right_click`, `hover`, `drag`, `fill`,
-`fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,
-`check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
-`resize_viewport`, `switch_tab`, `close_tab`, and `done`. `scroll` and `scroll_to` come with an engine that
+`right_click`, `hover`, `drag`, `type`,
+`type_secret` (a `Secret` from `Params`, by name), `press`, `select`,
+`check`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`,
+`resize_viewport`, `switch_tab`, `close_tab`, and `complete_step`. `scroll` and `scroll_to` come with an engine that
 can scroll, `back` with one that has history, `resize_viewport` with one that
 declares `EngineCapabilities.Resize` (the web engine), `switch_tab` and `close_tab` with one that
 declares `EngineCapabilities.SwitchTab` and `EngineCapabilities.CloseTab` (the web engine), and `upload` with one that declares
@@ -234,10 +234,9 @@ declares `EngineCapabilities.SwitchTab` and `EngineCapabilities.CloseTab` (the w
 names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
 all four, the device engines all but `secondaryTap`, and the document engine
 none. The node verbs follow the kinds too: `tap` needs `tap`, `double_tap`
-`doubleTap`, `fill` and `fill_secret` `fill`, `press` `press`, `select`
-`selectOption`, `check` and `uncheck` both `check` and `uncheck`, and `clear`
-`clear`. A verb the engine does not declare is absent from the toolset (a
-device engine has no `select`), and with a keyboard `fill` and `press` come
+`doubleTap`, `type` and `type_secret` `fill`, `press` `press`, `select`
+`selectOption`, and `check` both `check` and `uncheck`. `check` takes `checked` (default true) to end in either state, and there is no `uncheck` or `clear` tool: `type` an empty value into the field by `target` to clear it. That clears a node the engine can fill. A node it cannot fill is focused and typed into through the keyboard, which inserts and does not replace: to clear such a field, `type` an empty value with no target and `replace: true` once it has focus. A verb the engine does not declare is absent from the toolset (a
+device engine has no `select`), and with a keyboard `type` and `press` come
 without a target when the engine declares no `fill` or `press`. `drag` takes a `target` and a `to`, the node to drop on, each a node id string; both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
 the model when either is gone. `resize_viewport {width, height}` sets the
@@ -290,7 +289,7 @@ On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
 extends a selection. The held keys are recorded and replayed from the cache.
 A project tool adds its own name to this list (see "Project tools").
-`fill_secret` fills any editable field, a rich-text editor included, with a
+`type_secret` fills any editable field, a rich-text editor included, with a
 generic secret; a password secret needs a password field. It takes `target`
 (the node id) and `name` (the secret's name), as upstream's `type_secret`.
 
@@ -530,8 +529,8 @@ they cost nothing and answer with the line that says to take one.
   keyboard (the web and document engines): `type_at` and `press_at` then tap
   the point to focus it and go through the keyboard. `type_at` takes `replace`
   to clear the field first. A listed node the engine cannot fill (a canvas, a
-  custom widget) takes `fill` through the keyboard too, after a tap that
-  focuses it, and the result says so. `fill` with no target types into the
+  custom widget) takes `type` through the keyboard too, after a tap that
+  focuses it, and the result says so. `type` with no target types into the
   focused field. `select_at` always needs a listed control.
 
 Over MCP, the session's `screenshot` is the one the point tools read their
@@ -555,9 +554,9 @@ viewport of another size hands the step over (`viewport-changed`).
 
 The loop watches for a run of failed calls too, of any tools and with any
 inputs: three in a row add a notice that asks the model to change approach,
-and five in a row leave it only `done`. A call that worked starts the count
+and five in a row leave it only `complete_step`. A call that worked starts the count
 over. A turn with no tool call counts as a failure and is answered with a
-notice that asks for a tool call or `done`.
+notice that asks for a tool call or `complete_step`.
 
 ## Budgets and cost
 
@@ -766,7 +765,7 @@ same dictionary. A config file cannot declare one, since a tool is code.
   tool error or an engine error the model reads is redacted too. The cut never splits a line, and a
   notice at the end says how many lines and bytes were left out, so the model
   can ask for a narrower result. Return less, or let the tool take a filter.
-- A name the agent already uses (`observe`, `done`, `navigate`, `back`,
+- A name the agent already uses (`observe`, `complete_step`, `navigate`, `back`,
   `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so are
   the names of the tools the harness adds: `complete_step` in every agent
   step, `locate`, `run_code`, `test_lines`, `start_recording`, and
@@ -795,9 +794,9 @@ when `System` and project tools are not enough.
 
 | Option | You write | The runtime keeps |
 | --- | --- | --- |
-| `ToolLoop.CreateToolLoopExecutor` | The tools and the prompt. The loop adds only `done`. | Budgets, loop guards, verdicts, and usage counts |
+| `ToolLoop.CreateToolLoopExecutor` | The tools and the prompt. The loop adds only `complete_step`. | Budgets, loop guards, verdicts, and usage counts |
 | `IStepExecutor` | `RunStepAsync(context, token)`. A model is optional. | The step deadline, redacted observations, checked actions, and the verdict |
-| `AcpExecutor.ClaudeCode(options)`, `AcpExecutor.Codex(options)`, `AcpExecutor.Create(command, args, options)` (`E2E.Acp`) | Nothing for a preset. `Create` takes the command of any agent that speaks the Agent Client Protocol on stdio. | The same as `IStepExecutor`. The agent gets the built-in action tools and `done` as an MCP server, and every action goes through `ctx.Actions`. A permission request fails closed, and a tool of the agent's own ends the step with `POLICY_DENIED`. |
+| `AcpExecutor.ClaudeCode(options)`, `AcpExecutor.Codex(options)`, `AcpExecutor.Create(command, args, options)` (`E2E.Acp`) | Nothing for a preset. `Create` takes the command of any agent that speaks the Agent Client Protocol on stdio. | The same as `IStepExecutor`. The agent gets the built-in action tools and `complete_step` as an MCP server, and every action goes through `ctx.Actions`. A permission request fails closed, and a tool of the agent's own ends the step with `POLICY_DENIED`. |
 
 A coding agent the user already signs in to runs agent steps with no model provider: install `E2E.Acp` and the agent's adapter, and use `AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" })` (sign in with `claude`, or set `ANTHROPIC_API_KEY`; adapter `npm install -D @agentclientprotocol/claude-agent-acp`) or `AcpExecutor.Codex()` (sign in with `codex login`; adapter `@agentclientprotocol/codex-acp`). Node must be on the `PATH`: the preset finds the adapter in `node_modules` from the working directory up and runs it with `node`, and an adapter that is not installed is `INVALID_CONFIG`. The agent gets only the step tools: Claude Code with its own tools, settings, MCP servers, and saved sessions off, Codex read-only with its shell, web search, apps, plugins, browser, and your MCP servers off. A tool of the agent's own that runs without asking fails the step with `POLICY_DENIED`. `AcpAgentOptions` takes `Model` (a model the agent offers; the error lists them when it does not), `Env`, `System`, and `Name`. The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, in any casing, from the process and from `Env`; a secret in any other variable reaches the agent. A prompt turn counts as one model call. `WaitForAsync` and `ExtractAsync` still need `Model`. A custom command must be an executable on Windows, not a `.cmd` shim. See the online guide `/features/acp/`.
 
@@ -854,8 +853,8 @@ public sealed class TapOnlyTests : E2ETest
 
 The loop runs at most `MaxModelCalls` model turns per step. With five turns left
 it asks the model to wrap up, and on the last two turns, after a loop-guard stop,
-or when the step is nearly out of time, it offers only `done`. A step whose turns
-run out without a `done` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
+or when the step is nearly out of time, it offers only `complete_step`. A step whose turns
+run out without a `complete_step` call fails with `STEP_NO_CONCLUSION` (a failed verdict,
 not a hard stop). The instructions tell the model, from the first turn, to reply
 with tool calls only; a reply without one is kept in the history, the model is
 told to act, and the turn counts. A tool that throws
@@ -886,7 +885,7 @@ loop ends the step. A result is a `ToolLoopResult`: text, or text with a
 screenshot in `Pixels`. When a tool throws an error that
 `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
 The context must be one the runtime opened for a step.
-Each built-in tool's schema, and the schema of `done`, is closed: it carries
+Each built-in tool's schema, and the schema of `complete_step`, is closed: it carries
 `additionalProperties: false`, and a call with a field the tool does not declare
 (`force`, `selector`) is refused with the field named, never run without it. A
 tool of your own keeps the schema you give it.
@@ -902,8 +901,8 @@ System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when
 
 An executor that drives a model outside the loop gets the built-in verdict from
 `AgentTools.CreateVerdictTool(context.Step.Kind)`: give the model its `Tool` and
-`AgentTools.VerdictRules`, run each `done` call with `Execute(call)`, and return
-`Verdict` once `Concluded`. The tool is `done`, and it takes `errorCode`, as upstream's `complete_step` does.
+`AgentTools.VerdictRules`, run each `complete_step` call with `Execute(call)`, and return
+`Verdict` once `Concluded`. The tool is `complete_step`, and it takes `errorCode`, as upstream's does.
 
 The observation's `KeyboardVisible` says whether an on-screen keyboard is
 showing, and is `null` when the engine can't tell.

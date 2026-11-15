@@ -12,7 +12,7 @@ public sealed class FailureStreakTests
 {
     private const string Failed = "tap #n6 failed: LOCATOR_NOT_FOUND: node #n6 is not on the current screen (observation b3); it was removed or never existed\n\nCurrent screen (revision b3, 2 nodes):\n#n1 document\n #n2 heading \"X\"";
     private const string Tapped = "Tapped #n6.\n\nScreen unchanged since revision b3 (2 nodes).";
-    private const string Conclude = "done";
+    private const string Conclude = "complete_step";
 
     private static readonly E2E.GuardToolResult Failure = new(Failed, Failed: true);
     private static readonly E2E.GuardToolResult Success = new(Tapped, Failed: false);
@@ -76,7 +76,7 @@ public sealed class FailureStreakTests
     {
         // What the SDK hands back for an input outside the closed schema and for a tool the step does not offer.
         const string undeclaredField = "failed: Invalid input for tool tap: Type validation failed: Value: {\"target\":\"n6\",\"force\":true}.\nError message: [{\"code\":\"unrecognized_keys\",\"keys\":[\"force\"],\"path\":[],\"message\":\"Unrecognized key: \\\"force\\\"\"}]";
-        const string unknownTool = "failed: Model tried to call unavailable tool 'click'. Available tools: observe, tap, type, done.";
+        const string unknownTool = "failed: Model tried to call unavailable tool 'click'. Available tools: observe, tap, type, complete_step.";
 
         var messages = new List<E2E.ModelMessage>
         {
@@ -90,20 +90,6 @@ public sealed class FailureStreakTests
         Assert.Equal(
             new E2E.GuardToolResult[] { Failure, new(undeclaredField, Failed: true), new(unknownTool, Failed: true), Success },
             E2E.LoopGuards.ExtractToolResults(messages, Conclude));
-    }
-
-    /// <summary>
-    /// .NET-only: the port's own tool names (<c>fill</c>, <c>uncheck</c>, <c>clear</c>) lead their failures with the name they were called by,
-    /// so the streak reads them as failures. Upstream has no such names; its failure leads with <c>type</c> and no <c>uncheck</c> or <c>clear</c>.
-    /// </summary>
-    [Fact]
-    public void Counts_a_failed_port_only_tool_toward_the_streak()
-    {
-        var results = E2E.LoopGuards.ExtractToolResults(
-            [Result("fill", "fill #n3 failed: LOCATOR_NOT_FOUND: node #n3 is not on the current screen"), Result("clear", "clear #n4 failed: LOCATOR_NOT_FOUND: node #n4 is gone"), Result("uncheck", "uncheck #n5 failed: LOCATOR_NOT_FOUND: node #n5 is gone")],
-            Conclude);
-        Assert.All(results, result => Assert.True(result.Failed));
-        Assert.Equal((false, "the last 3 actions failed in a row"), E2E.LoopGuards.CheckFailureStreak(results));
     }
 
     [Fact]
@@ -126,7 +112,7 @@ public sealed class FailureStreakTests
     public void Counts_a_refused_conclusion_toward_the_streak_three_warn_five_force_the_verdict_and_the_conclusion_tools_own_text_neither_counts_nor_resets()
     {
         // The repeat guard never sees conclusion calls, so a model resending a done the schema turns away has only this bound short of the turn budget.
-        const string refusedVerdict = "failed: Invalid input for tool done: Type validation failed: Value: {\"status\":\"passed\",\"summary\":\"done\",\"force\":true}.\nError message: [{\"code\":\"unrecognized_keys\",\"keys\":[\"force\"],\"path\":[],\"message\":\"Unrecognized key: \\\"force\\\"\"}]";
+        const string refusedVerdict = "failed: Invalid input for tool complete_step: Type validation failed: Value: {\"status\":\"passed\",\"summary\":\"done\",\"force\":true}.\nError message: [{\"code\":\"unrecognized_keys\",\"keys\":[\"force\"],\"path\":[],\"message\":\"Unrecognized key: \\\"force\\\"\"}]";
         var refused = (int count) => Enumerable.Range(0, count).Select(_ => Result(Conclude, refusedVerdict, errorText: true)).ToList();
 
         Assert.Equal(new E2E.GuardToolResult[] { new(refusedVerdict, Failed: true) }, E2E.LoopGuards.ExtractToolResults(refused(1), Conclude));

@@ -9,13 +9,16 @@ namespace E2E.Acp;
 
 /// <summary>
 /// The tools a session offers (upstream's <c>tools.ts</c>): the built-in agent's action tools (<see cref="AgentTools.CreateGrammarTools"/>)
-/// and its verdict tool (<see cref="AgentTools.CreateVerdictTool"/>), which is <c>done</c> where upstream's is <c>complete_step</c>. An ACP
+/// and its verdict tool (<see cref="AgentTools.CreateVerdictTool"/>). An ACP
 /// session lists its tools once, while e2e builds them per step, so the session lists them from its first step and each call runs the
 /// active step's own tool of that name. Every action goes through the step's actions, where the runner authorizes, counts, and records it,
 /// so steps replay from the cache as the built-in agent's do.
 /// </summary>
 internal static class StepTools
 {
+    // Upstream's TYPE_SECRET: the session lists the tool once, for every step, so the description sends the agent to the step message.
+    private const string TypeSecret = "Fill one declared secret into an input by its name; the plaintext never passes through you. A password fills only a password field; a generic-secret fills any editable input. The step message lists the secrets it declares.";
+
     private const string StepEnded = "The step has ended. Wait for the next instruction.";
 
     /// <summary>The session's tools, listed from its first step. Upstream's <c>stepTools</c>.</summary>
@@ -24,13 +27,13 @@ internal static class StepTools
         var tools = new List<ServedTool>();
         // The tools an assertion offers change nothing in the app (upstream's `name in readOnlyTools`); the listing is of an act's, the widest.
         var readOnlyTools = AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Assert }).Select(tool => tool.Definition.Name).ToHashSet(StringComparer.Ordinal);
-        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act }))
+        foreach (var listed in AgentTools.CreateGrammarTools(first, new GrammarToolsOptions { Kind = ExecutorStepKind.Act, Secrets = [new ExecutorSecret("secret", "password")] }))
         {
             var name = listed.Definition.Name;
             var readOnly = readOnlyTools.Contains(name);
             tools.Add(new ServedTool(
                 name,
-                listed.Definition.Description,
+                name == "type_secret" ? TypeSecret : listed.Definition.Description,
                 listed.Definition.Parameters,
                 readOnly,
                 (arguments, token) => GuardedAsync(slot, name, async active =>
@@ -136,7 +139,7 @@ internal static class StepTools
         return active;
     }
 
-    private static string Unavailable(string name) => $"{name} is not available in this step";
+    private static string Unavailable(string name) => name == "type_secret" ? "this step declares no secrets" : $"{name} is not available in this step";
 
     private static ModelToolCall CallOf(string name, JsonElement arguments) => new()
     {
@@ -167,7 +170,7 @@ internal sealed class ActiveStep
 
     public StepExecutorContext Context { get; }
 
-    /// <summary>The step's <c>done</c>, which holds its verdict once the agent concludes. Upstream's <c>conclusion</c>.</summary>
+    /// <summary>The step's <c>complete_step</c>, which holds its verdict once the agent concludes. Upstream's <c>conclusion</c>.</summary>
     public VerdictTool Conclusion { get; }
 
     /// <summary>Runs one action at a time.</summary>

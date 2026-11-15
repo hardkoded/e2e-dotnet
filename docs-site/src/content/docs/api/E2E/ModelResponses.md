@@ -54,7 +54,7 @@ public static ModelResponse Call(string name, object arguments)
 
 
 ```csharp
-public static ModelResponse Done(string status, string summary, string? code = null)
+public static ModelResponse Done(string status, string summary, string? errorCode = null)
 ```
 
 
@@ -64,7 +64,7 @@ public static ModelResponse Done(string status, string summary, string? code = n
 | --- | --- | --- |
 | `status` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `summary` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-| `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `errorCode` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [ModelResponse](/api/E2E/ModelResponse/)
 

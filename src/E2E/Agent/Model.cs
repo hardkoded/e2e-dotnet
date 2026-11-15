@@ -53,7 +53,7 @@ public sealed class ModelRequest
     /// <summary>
     /// Upstream's <c>ModelCall.toolChoice</c> (the AI SDK's <c>toolChoice</c>): how the model must use the tools it is offered. Null leaves
     /// the choice to the provider, which is <see cref="ModelToolChoice.Auto"/>. The act tool loop asks for <see cref="ModelToolChoice.Required"/>
-    /// and names <c>done</c> on its forced-conclusion turns. A custom <see cref="IAgentModel"/> that cannot force a tool may ignore it.
+    /// and names <c>complete_step</c> on its forced-conclusion turns. A custom <see cref="IAgentModel"/> that cannot force a tool may ignore it.
     /// </summary>
     public ModelToolChoice? ToolChoice { get; init; }
 
@@ -223,7 +223,7 @@ public static class ModelResponses
 {
     public static ModelResponse Done(string status, string summary, string? errorCode = null)
     {
-        return Call("done", errorCode is null
+        return Call(VerdictTool.Name, errorCode is null
             ? new { status, summary }
             : (object)new { status, summary, errorCode });
     }
@@ -247,7 +247,7 @@ public static class ModelResponses
 
     public static ModelResponse Fill(string role, string name, string value)
     {
-        return Call("fill", new { role, name, value });
+        return Call("type", new { role, name, value });
     }
 
     public static ModelResponse Call(string name, object arguments)
@@ -353,7 +353,7 @@ public sealed partial class ScriptedModel : IAgentModel
 
     private static ModelResponse AsJudgment(ModelResponse response)
     {
-        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, "done", StringComparison.Ordinal));
+        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, VerdictTool.Name, StringComparison.Ordinal));
         if (done is null || response.Content is not null)
         {
             return response;

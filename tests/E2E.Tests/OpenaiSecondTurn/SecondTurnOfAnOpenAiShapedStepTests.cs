@@ -22,7 +22,7 @@ public sealed class SecondTurnOfAnOpenAiShapedStepTests
     private const string SecondTurn = """
         {
           "output": [
-            { "type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "done", "arguments": "{\"status\":\"passed\",\"summary\":\"upgraded\"}", "status": "completed" }
+            { "type": "function_call", "id": "fc_2", "call_id": "call_2", "name": "complete_step", "arguments": "{\"status\":\"passed\",\"summary\":\"upgraded\"}", "status": "completed" }
           ],
           "usage": { "input_tokens": 3, "output_tokens": 1 }
         }

@@ -69,7 +69,7 @@ public sealed class ToolLoopForcedToolChoiceTests
     public async Task Offers_only_complete_step_under_auto_on_the_forced_conclusion_turns()
     {
         var loop = new FakeLoopModel(RefusingForcedChoice(call =>
-            call.ToolNames is ["done"] ? Done() : ModelResponses.Call("peek", new { })));
+            call.ToolNames is ["complete_step"] ? Done() : ModelResponses.Call("peek", new { })));
 
         var attempt = await RunAsync(
             async ctx =>
@@ -82,7 +82,7 @@ public sealed class ToolLoopForcedToolChoiceTests
             agentTools: Peek());
 
         Assert.Null(attempt.Error);
-        Assert.Equal(["done"], loop.Calls[^1].ToolNames);
+        Assert.Equal(["complete_step"], loop.Calls[^1].ToolNames);
         Assert.Equal("auto", loop.Calls[^1].ToolChoice);
     }
 

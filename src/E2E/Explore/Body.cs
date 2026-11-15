@@ -32,7 +32,7 @@ internal sealed record ExploreFixtures(IExploreAgent Agent, Func<CancellationTok
 /// </param>
 /// <param name="Credentials">
 /// The configured accounts, by name. Each travels with every charter as a step secret, so the explorer can sign in with
-/// <c>fill_secret</c> by name. The password itself never reaches the model. Upstream resolves them from its credential registry
+/// <c>type_secret</c> by name. The password itself never reaches the model. Upstream resolves them from its credential registry
 /// when the body runs.
 /// </param>
 /// <param name="Agent">The agent the steps and the planner run as. Null is <c>default</c>.</param>

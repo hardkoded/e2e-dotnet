@@ -10,7 +10,7 @@ namespace E2E;
 
 /// <summary>
 /// Upstream's <c>createToolLoopExecutor</c> (<c>agent/tool-loop.ts</c>): the chassis of an executor that thinks in a loop of model
-/// turns and tool calls. It owns everything but the tool vocabulary: the <c>done</c> verdict tool and its closed code policy, the
+/// turns and tool calls. It owns everything but the tool vocabulary: the <c>complete_step</c> verdict tool and its closed code policy, the
 /// hard stops (a spent budget, a timeout, or a cancel ends the loop, never the model), the loop guards, the shrink of a history
 /// that overflowed the model, and the count of model calls. The built-in agent is this chassis plus the grammar tools
 /// (<see cref="DefaultAgent.CreateBuiltInAgent"/>). An executor for a device or an API brings other tools and inherits the same discipline.
@@ -65,7 +65,7 @@ public sealed class ToolLoopExecutorOptions
     /// </summary>
     public Func<StepExecutorContext, string>? System { get; init; }
 
-    /// <summary>Builds the step's tool vocabulary. The chassis adds <c>done</c>.</summary>
+    /// <summary>Builds the step's tool vocabulary. The chassis adds <c>complete_step</c>.</summary>
     public required Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>> Tools { get; init; }
 
     /// <summary>Builds the step's opening prompt: the first user message. Set this or <see cref="BuildMessages"/>.</summary>
@@ -167,7 +167,7 @@ public sealed record PreparedTurn(int StepNumber, IReadOnlyList<string> Previous
 
 /// <summary>
 /// What <see cref="ToolLoopExecutorOptions.PrepareMessages"/> hands back: the history for the next turn, and optionally a reason to
-/// stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only <c>done</c>, like a loop guard.
+/// stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only <c>complete_step</c>, like a loop guard.
 /// </summary>
 public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, string? Stop = null)
 {
@@ -189,13 +189,13 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     // Upstream's FORCED_CONCLUSION_TURNS: turns from the budget ceiling at which only the conclusion tool is offered.
     private const int ForcedConclusionTurns = 2;
 
-    // Upstream's TOOL_CALLS_ONLY_RULE, with the port's done: part of every step's instructions from the first turn.
+    // Upstream's TOOL_CALLS_ONLY_RULE: part of every step's instructions from the first turn.
     internal const string ToolCallsOnlyRule =
-        "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through done.";
+        "Reply with tool calls only. A reply without a tool call does nothing and spends a turn; the step ends only through complete_step.";
 
-    // Upstream's TEXT_REPLY_NOTICE, with the port's done: sent when a turn came back as text without a tool call.
+    // Upstream's TEXT_REPLY_NOTICE: sent when a turn came back as text without a tool call.
     private const string TextReplyNotice =
-        "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call done with your verdict.";
+        "[SYSTEM] Your last reply had no tool call, so nothing happened. Continue with a tool call, or call complete_step with your verdict.";
 
     // Upstream's FREE_TOOL_CHOICE_MODELS: models that refused a forced tool choice once. A model that answers HTTP 400 to that request
     // shape gets auto for the rest of the process, so the refusal costs one round trip per model, not one per step. Upstream's WeakSet
@@ -309,11 +309,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
+                    Content = "[SYSTEM] The step is nearly out of time. Call complete_step now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
                 });
             }
 
-            // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
+            // A repeat warns first. A stop leaves the model only complete_step, so it still writes its own verdict.
             var (stop, repeat) = preparedStop is not null
                 ? (true, preparedStop)
                 : stopped ? (true, null) : LoopGuards.CheckLoopGuards(LoopGuards.ExtractGuardCalls(messages));
@@ -326,8 +326,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 {
                     Role = "user",
                     Content = stop
-                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
-                        : "[SYSTEM NOTICE] You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
+                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call complete_step now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
+                        : "[SYSTEM NOTICE] You appear to be going in circles: " + repeat + ". Change approach, or call complete_step with your best verdict.",
                 });
             }
 
@@ -344,8 +344,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     {
                         Role = "user",
                         Content = streakStop
-                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
-                            : "[SYSTEM NOTICE] " + streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
+                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call complete_step now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
+                            : "[SYSTEM NOTICE] " + streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call complete_step with your best verdict.",
                     });
                 }
             }
@@ -356,17 +356,17 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
+                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call complete_step with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
                 });
             }
 
             // Near the budget, after a loop guard stop, or on a low clock only the conclusion tool is offered. Two forced turns, not one,
             // so a rejected verdict (blocked without an errorCode) can be repaired.
             var forced = turnsLeft <= ForcedConclusionTurns || stopped || lowClock;
-            var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
+            var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, VerdictTool.Name, StringComparison.Ordinal)).ToList() : definitions;
 
             // Upstream's prepareStep: every turn asks for a tool call, and a forced turn names the conclusion tool.
-            var turnToolChoice = forced && toolChoice.Type == "required" ? ModelToolChoice.Tool("done") : toolChoice;
+            var turnToolChoice = forced && toolChoice.Type == "required" ? ModelToolChoice.Tool(VerdictTool.Name) : toolChoice;
             AiTraceTurn traced;
             try
             {
@@ -452,8 +452,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             var screenshots = new List<(string Tool, ExecutorPixels Pixels)>();
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = ToolOutcome.Fail(toolCall.Name + " did not run: only done is available now. Call done with your verdict.");
-                if (!forced || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
+                var outcome = ToolOutcome.Fail(toolCall.Name + " did not run: only complete_step is available now. Call complete_step with your verdict.");
+                if (!forced || string.Equals(toolCall.Name, VerdictTool.Name, StringComparison.Ordinal))
                 {
                     await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, verdictTool, token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
@@ -515,7 +515,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         // Upstream's end of LoopRun.run: the turns ran out without a verdict, so the step fails, as any step that never concluded.
         return new StepVerdict(
             StepVerdictStatus.Failed,
-            "the agent used " + turns.Used.ToString(CultureInfo.InvariantCulture) + " of " + maxCalls.ToString(CultureInfo.InvariantCulture) + " turn(s) without calling done",
+            "the agent used " + turns.Used.ToString(CultureInfo.InvariantCulture) + " of " + maxCalls.ToString(CultureInfo.InvariantCulture) + " turn(s) without calling complete_step",
             "STEP_NO_CONCLUSION");
     }
 

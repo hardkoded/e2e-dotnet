@@ -66,8 +66,8 @@ public sealed class AttachedTurnsTests
         Assert.Equal("assistant: I will look around first.\n[loop] turn 1 made no tool call: asking for one", turns[0].Outcome);
         Assert.StartsWith("tap(", Assert.Single(turns[1].Calls), StringComparison.Ordinal);
         Assert.StartsWith("[tap] ", turns[1].Outcome, StringComparison.Ordinal);
-        Assert.StartsWith("done(", Assert.Single(turns[2].Calls), StringComparison.Ordinal);
-        Assert.Equal("[done] Step concluded.", turns[2].Outcome);
+        Assert.StartsWith("complete_step(", Assert.Single(turns[2].Calls), StringComparison.Ordinal);
+        Assert.Equal("[complete_step] Step concluded.", turns[2].Outcome);
     }
 
     [Fact]

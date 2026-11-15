@@ -8,7 +8,7 @@ namespace E2E.Internal;
 
 /// <summary>
 /// Upstream's <c>agent/model/tool-choice.ts</c>: recognizes a provider refusing a forced tool choice. The act loop asks for a tool call
-/// on every turn (<c>required</c>) and names <c>done</c> on the final ones; some models reject that request shape outright (Anthropic's
+/// on every turn (<c>required</c>) and names <c>complete_step</c> on the final ones; some models reject that request shape outright (Anthropic's
 /// Claude Fable 5.1 answers HTTP 400 with <c>tool_choice: type "tool" and "any" are not supported for this model.</c>; DeepSeek's V4
 /// models think by default and answer a forced choice with <c>Thinking mode does not support this tool_choice</c>; Meta's Muse Spark
 /// models answer <c>only "auto" is supported for tool_choice</c>), and a gateway forwards the provider's words. The loop reacts to this

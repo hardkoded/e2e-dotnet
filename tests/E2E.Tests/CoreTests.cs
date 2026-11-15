@@ -959,7 +959,8 @@ public sealed class CoreTests
 
         await session.DisposeAsync();
         var log = session.Artifacts.FirstOrDefault(artifact => artifact.Kind == E2E.Reports.ArtifactKind.Log);
-        var logText = Directory.EnumerateFiles(session.ArtifactsDir, "transcript-*.txt").Select(File.ReadAllText).FirstOrDefault();
+        // The transcript is read through the path the artifact registers, so a record that points elsewhere fails the test.
+        var logText = log?.Path is { } logPath ? File.ReadAllText(Path.Combine(session.ArtifactsDir, Path.GetFileName(logPath))) : null;
         var agentStep = session.StepRecords.FirstOrDefault(step => step.Api == "agent.act");
         return new Attempt(error, session.ModelCalls, session.Replayed, session.Missed, session.InputTokens, session.OutputTokens, session.StepRecords, log, logText, agentStep?.Id);
     }

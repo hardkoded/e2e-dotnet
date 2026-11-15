@@ -14,7 +14,7 @@ public sealed class LoopGuardsAndTranscriptsTests
     {
         var model = new ScriptedModel(request =>
         {
-            if (request.Tools.Count == 1 && request.Tools[0].Name == "done")
+            if (request.Tools.Count == 1 && request.Tools[0].Name == "complete_step")
             {
                 return ModelResponses.Done("failed", "stuck repeating the same tap");
             }

@@ -10,8 +10,7 @@ namespace E2E.Tests.AgentGrammarTools;
 
 // Upstream validates a call against the zod schema of a tool (safeParse). The port's schema is the JSON Schema a provider receives, so these
 // tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
-// vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is a node id, complete_step
-// is done, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text.
+// vocabulary has upstream's names. The tests keep upstream's `it` text.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
     /// <summary>An input each tool accepts; a tool added to the grammar without one fails the vocabulary check.</summary>
@@ -23,13 +22,11 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         ["long_press"] = """{ "target": "n1" }""",
         ["right_click"] = """{ "target": "n1" }""",
         ["hover"] = """{ "target": "n1" }""",
-        ["fill"] = """{ "target": "n1", "value": "ada" }""",
-        ["fill_secret"] = """{ "target": "n1", "name": "admin" }""",
+        ["type"] = """{ "target": "n1", "value": "ada" }""",
+        ["type_secret"] = """{ "target": "n1", "name": "admin" }""",
         ["press"] = """{ "target": "n1", "key": "Shift+ArrowLeft", "times": 8 }""",
         ["select"] = """{ "target": "n1", "value": "Pro" }""",
-        ["check"] = """{ "target": "n1" }""",
-        ["uncheck"] = """{ "target": "n1" }""",
-        ["clear"] = """{ "target": "n1" }""",
+        ["check"] = """{ "target": "n1", "checked": false }""",
         ["scroll"] = """{ "direction": "down", "times": 2 }""",
         ["scroll_to"] = """{ "target": "n1" }""",
         ["drag"] = """{ "target": "n1", "to": "n2" }""",
@@ -122,9 +119,9 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         var tools = OverVerbs(ExecutorVerb.TypeText, ExecutorVerb.PressKey, ExecutorVerb.Scroll);
         Assert.Equal(
-            ["fill", "observe", "press", "press_at", "screenshot", "scroll", "type_at"],
+            ["observe", "press", "press_at", "screenshot", "scroll", "type", "type_at"],
             tools.Select(tool => tool.Name).Order(StringComparer.Ordinal));
-        var fill = tools.Single(tool => tool.Name == "fill");
+        var fill = tools.Single(tool => tool.Name == "type");
         ExpectClosed(fill, """{ "value": "ada", "replace": true }""");
         ExpectClosed(tools.Single(tool => tool.Name == "press"), """{ "key": "Enter" }""");
         ExpectClosed(tools.Single(tool => tool.Name == "scroll"), """{ "direction": "down" }""");
@@ -183,10 +180,10 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(schema.IsValid(Input("""{ "status": "passed", "summary": "done", "errorCode": "ACTION_FAILED" }""")));
         Assert.Equal(
             "Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.",
-            passed.Execute(Call("done", Input("""{ "status": "passed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
+            passed.Execute(Call("complete_step", Input("""{ "status": "passed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Passed, "done"), passed.Verdict);
         var failed = AgentTools.CreateVerdictTool();
-        Assert.Equal("Step concluded.", failed.Execute(Call("done", Input("""{ "status": "failed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
+        Assert.Equal("Step concluded.", failed.Execute(Call("complete_step", Input("""{ "status": "failed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "done", "ACTION_FAILED"), failed.Verdict);
         Assert.True(schema.IsValid(Input("""{ "status": "blocked", "summary": "done", "errorCode": "ENVIRONMENT_UNAVAILABLE" }""")));
     }
@@ -195,8 +192,8 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     public void Keeps_the_first_verdict_a_later_complete_step_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
     {
         var conclusion = AgentTools.CreateVerdictTool();
-        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "failed", "summary": "total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content);
-        Assert.Equal("The step already concluded.", conclusion.Execute(Call("done", Input("""{ "status": "passed", "summary": "looks fine" }"""))).Content);
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("complete_step", Input("""{ "status": "failed", "summary": "total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content);
+        Assert.Equal("The step already concluded.", conclusion.Execute(Call("complete_step", Input("""{ "status": "passed", "summary": "looks fine" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "total is wrong", "ASSERTION_FAILED"), conclusion.Verdict);
     }
 
@@ -206,10 +203,10 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     public void Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
     {
         var conclusion = AgentTools.CreateVerdictTool();
-        Assert.StartsWith("failed: a blocked verdict requires errorCode", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "could not tell" }"""))).Content, StringComparison.Ordinal);
-        Assert.StartsWith("failed: ", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "the total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content, StringComparison.Ordinal);
+        Assert.StartsWith("failed: a blocked verdict requires errorCode", conclusion.Execute(Call("complete_step", Input("""{ "status": "blocked", "summary": "could not tell" }"""))).Content, StringComparison.Ordinal);
+        Assert.StartsWith("failed: ", conclusion.Execute(Call("complete_step", Input("""{ "status": "blocked", "summary": "the total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content, StringComparison.Ordinal);
         Assert.False(conclusion.Concluded);
-        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "no login", "errorCode": "AUTH_CREDENTIAL_UNAVAILABLE" }"""))).Content);
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("complete_step", Input("""{ "status": "blocked", "summary": "no login", "errorCode": "AUTH_CREDENTIAL_UNAVAILABLE" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Blocked, "no login", "AUTH_CREDENTIAL_UNAVAILABLE"), conclusion.Verdict);
     }
 
@@ -220,7 +217,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History, null, EngineActionKinds.Locator, secrets: [new ExecutorSecret("admin", "password")]);
         Assert.Equal(
-            ["back", "check", "clear", "double_tap", "drag", "drag_at", "fill", "fill_secret", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
+            ["back", "check", "double_tap", "drag", "drag_at", "hover", "hover_at", "long_press", "navigate", "observe", "press", "press_at", "right_click", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type", "type_at", "type_secret"],
             full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
 
         // An engine that declares no action kind has no node verb: only what its capabilities unlock is left.
@@ -237,7 +234,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
 
     // .NET-only: the node verbs follow the action kinds the engine declares (upstream's KINDS_BY_VERB), and the point verbs that act on a
     // listed control follow the node verb they fall back to. Upstream gates tap on tap, double_tap on doubleTap, type and type_secret on fill,
-    // press on press, select on selectOption, and check on both check and uncheck; the port's clear follows clear and uncheck follows check.
+    // press on press, select on selectOption, and check on both check and uncheck.
     [Fact]
     public void Offers_each_node_verb_only_for_the_action_kinds_the_engine_declares()
     {
@@ -246,30 +243,30 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
 
         Assert.Equal(["tap", "tap_at"], Offered(EngineCapabilities.None, "tap"));
         Assert.Equal(["double_tap"], Offered(EngineCapabilities.None, "doubleTap"));
-        Assert.Equal(["fill", "fill_secret", "type_at"], Offered(EngineCapabilities.None, "fill"));
+        Assert.Equal(["type", "type_at", "type_secret"], Offered(EngineCapabilities.None, "fill"));
         Assert.Equal(["press", "press_at"], Offered(EngineCapabilities.None, "press"));
         Assert.Equal(["select", "select_at"], Offered(EngineCapabilities.None, "selectOption"));
-        Assert.Equal(["clear"], Offered(EngineCapabilities.None, "clear"));
+        Assert.Empty(Offered(EngineCapabilities.None, "clear"));
 
         // A check sets a state rather than flipping one, so it needs both directions.
         Assert.Empty(Offered(EngineCapabilities.None, "check"));
         Assert.Empty(Offered(EngineCapabilities.None, "uncheck"));
-        Assert.Equal(["check", "uncheck"], Offered(EngineCapabilities.None, "check", "uncheck"));
+        Assert.Equal(["check"], Offered(EngineCapabilities.None, "check", "uncheck"));
 
         // Kinds that unlock no node verb unlock none (a focus is no verb).
         Assert.Empty(Offered(EngineCapabilities.None, "focus", "scrollIntoView", "setInputFiles"));
         Assert.Empty(Offered(EngineCapabilities.None));
 
         // A keyboard takes fill and press without a target, with or without the kinds, and the point tools that type and press.
-        Assert.Equal(["fill", "press", "press_at", "type_at"], Offered(EngineCapabilities.Keyboard));
+        Assert.Equal(["press", "press_at", "type", "type_at"], Offered(EngineCapabilities.Keyboard));
 
         // With both kinds and the keyboard, the target is optional and a call without one acts on the focused field; with fill alone
         // the schema carries a target too; with the keyboard alone it carries none.
         static bool HasTarget(ModelTool tool) => tool.Parameters.GetProperty("properties").TryGetProperty("target", out _);
-        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "fill")));
+        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "type")));
         Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["fill", "press"]).Single(tool => tool.Name == "press")));
-        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["fill"]).Single(tool => tool.Name == "fill")));
-        Assert.False(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["tap"]).Single(tool => tool.Name == "fill")));
+        Assert.True(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["fill"]).Single(tool => tool.Name == "type")));
+        Assert.False(HasTarget(AgentTools.GrammarToolDefinitions(EngineCapabilities.Keyboard, null, ["tap"]).Single(tool => tool.Name == "type")));
 
         // The same set decides the verbs of the executor's target, and a call to a verb the engine did not unlock is refused as unknown.
         Assert.Equal(

@@ -110,7 +110,7 @@ public sealed class SecretsCutShortByObservationLimitsTests
 
             return last.Role == "tool"
                 ? ModelResponses.Done("passed", "filled")
-                : ModelResponses.Call("fill_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Source\""), name = "member" });
+                : ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Source\""), name = "member" });
         });
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {

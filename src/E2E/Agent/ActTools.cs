@@ -24,7 +24,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter screen, bool session = false)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "upload", "back", "resize_viewport", "switch_tab", "close_tab", "dismiss_keyboard", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -72,7 +72,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         // A verb is a tool only where the engine's declarations unlock it, so a model that calls one anyway is told so.
-        if (!ActionTools.Contains(call.Name) || !AgentTools.OffersVerb(call.Name, Verbs))
+        // An MCP session also runs a clear on an engine that declares the clear kind, which has no agent tool of its own (upstream has none).
+        var sessionClear = _session && call.Name == "clear" && Verbs.Contains(ExecutorVerb.Clear);
+        if (!sessionClear && (!ActionTools.Contains(call.Name) || !AgentTools.OffersVerb(call.Name, Verbs)))
         {
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
@@ -106,7 +108,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         // The one dispatcher action the call makes spends the slot.
         if (!budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
+            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
         }
 
         try
@@ -150,12 +152,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 return await PointToolAsync(call.Name, arguments, actions, budget, token).ConfigureAwait(false);
             case "press" when !HasTarget(arguments):
                 return await PressAsync(arguments, null, "the focused field", actions, token).ConfigureAwait(false);
-            case "fill" when !HasTarget(arguments) && Keyboard:
+            case "type" when !HasTarget(arguments) && Keyboard:
                 // Keyboard input to whatever holds focus: how a field the tree does not list gets its text after a tap_at gave it focus.
                 var typed = Args.String(arguments, "value") ?? "";
                 var replace = Args.Bool(arguments, "replace") == true;
                 return await ActingAsync(
-                    new ActionLabel("Typed into the focused field.", "fill into the focused field"),
+                    new ActionLabel("Typed into the focused field.", "type into the focused field"),
                     () => actions.TypeTextAsync(typed, new TypeTextOptions { Replace = replace }, token),
                     token).ConfigureAwait(false);
         }
@@ -171,7 +173,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         var target = new ExecutorTarget(node);
-        if (call.Name == "fill" && Keyboard)
+        if (call.Name == "type" && Keyboard)
         {
             var value = Args.String(arguments, "value") ?? "";
             return await ActingAsync(NodeLabel(call.Name, arguments, "#" + node.Ref), () => TypeIntoNodeAsync(actions, target, value, "#" + node.Ref, token), token).ConfigureAwait(false);
@@ -191,11 +193,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "long_press" => actions.LongPressAsync(target, token),
                 "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
                 "hover" => actions.HoverAsync(target, token),
-                "fill" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
-                "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
+                "type" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
+                "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
-                "check" => actions.CheckAsync(target, true, token),
-                "uncheck" => actions.CheckAsync(target, false, token),
+                "check" => actions.CheckAsync(target, CheckedOf(arguments), token),
                 "clear" => actions.ClearAsync(target, token),
                 _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
             },
@@ -483,12 +484,33 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // Upstream's failureLead: the attempt, then the error's code, then its message. `navigate file:///etc/passwd failed: POLICY_DENIED: forbidden URL scheme: file:`.
     private static string FailureLead(ActionLabel label, E2EException error) => label.Attempt + " failed: " + error.Code + ": " + error.Message;
 
-    // The done and attempt leads of a node tool, upstream's wording; `reference` stands where upstream's `#id` does. fill and fill_secret
-    // keep the port's tool names in the attempt, where upstream's are type and type_secret. clear has no upstream tool.
+    // The done and attempt leads of a node tool, upstream's wording; `reference` stands where upstream's `#id` does.
     private static ActionLabel SecretLabel(string secret, string reference) => new(
         "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
-        "fill_secret \"" + secret + "\" into " + reference,
+        "type_secret \"" + secret + "\" into " + reference,
         false);
+
+    // Upstream's check takes an optional z.boolean() `checked`: absent is true, and a present value that is no boolean is refused.
+    private static bool CheckedOf(JsonElement arguments)
+    {
+        if (arguments.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in arguments.EnumerateObject())
+            {
+                if (string.Equals(property.Name, "checked", StringComparison.Ordinal))
+                {
+                    return property.Value.ValueKind switch
+                    {
+                        JsonValueKind.True => true,
+                        JsonValueKind.False => false,
+                        _ => throw new TestException("INVALID_ARGUMENT", "check takes checked as true or false"),
+                    };
+                }
+            }
+        }
+
+        return true;
+    }
 
     private static ActionLabel NodeLabel(string tool, JsonElement arguments, string reference)
     {
@@ -501,13 +523,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             "long_press" => new("Long-pressed " + reference + ".", "long_press " + reference),
             "right_click" => new("Right-clicked " + reference + ".", "right_click " + reference),
             "hover" => new("Hovered over " + reference + ".", "hover " + reference),
-            "fill" => new("Typed into " + reference + ".", "fill " + reference),
-            "fill_secret" => SecretLabel(Args.String(arguments, "name") ?? "", reference),
+            "type" => new("Typed into " + reference + ".", "type " + reference),
+            "type_secret" => SecretLabel(Args.String(arguments, "name") ?? "", reference),
             "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference, !MovesFocusOnly(key)),
             "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
-            "check" => new("Checked " + reference + ".", "check " + reference),
-            "uncheck" => new("Unchecked " + reference + ".", "check " + reference),
             "clear" => new("Cleared " + reference + ".", "clear " + reference),
+            "check" => new((Args.Bool(arguments, "checked") == false ? "Unchecked " : "Checked ") + reference + ".", "check " + reference),
             _ => new(tool + " " + reference, tool + " " + reference),
         };
     }
@@ -527,7 +548,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (tool.Mutates && !budget.TryPrepay())
         {
-            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
+            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call " + VerdictTool.Name + " with a verdict.");
         }
 
         string output;

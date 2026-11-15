@@ -213,7 +213,7 @@ the harness adds (see the agent reference).
 
 `Credentials` gives the accounts the explorer can sign in with, by name (read
 one with `Credentials.User`). The planner knows the account names and
-usernames, and the agent fills each password with `fill_secret` by the
+usernames, and the agent fills each password with `type_secret` by the
 secret `<name>.password`; the password never reaches a model. Give only the
 accounts the exploration needs. Without credentials, the agent signs in with
 made-up ones.

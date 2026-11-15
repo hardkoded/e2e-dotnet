@@ -87,7 +87,7 @@ public sealed class ExploreOptions
 
     /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
-    /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>fill_secret</c>; the password never reaches a model.
+    /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>type_secret</c>; the password never reaches a model.
     /// The config's <c>credentials</c> are always accounts, as upstream carries them; this adds accounts the config does not declare
     /// (.NET-only: <c>e2e explore</c> passes the <c>E2E_USER_*</c> pairs of the environment).
     /// </summary>
