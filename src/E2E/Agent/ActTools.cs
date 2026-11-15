@@ -196,7 +196,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "type" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
                 "type_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "name") ?? "", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
-                "check" => actions.CheckAsync(target, Args.Bool(arguments, "checked") != false, token),
+                "check" => actions.CheckAsync(target, CheckedOf(arguments), token),
                 "clear" => actions.ClearAsync(target, token),
                 _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
             },
@@ -489,6 +489,28 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
         "type_secret \"" + secret + "\" into " + reference,
         false);
+
+    // Upstream's check takes an optional z.boolean() `checked`: absent is true, and a present value that is no boolean is refused.
+    private static bool CheckedOf(JsonElement arguments)
+    {
+        if (arguments.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var property in arguments.EnumerateObject())
+            {
+                if (string.Equals(property.Name, "checked", StringComparison.Ordinal))
+                {
+                    return property.Value.ValueKind switch
+                    {
+                        JsonValueKind.True => true,
+                        JsonValueKind.False => false,
+                        _ => throw new TestException("INVALID_ARGUMENT", "check takes checked as true or false"),
+                    };
+                }
+            }
+        }
+
+        return true;
+    }
 
     private static ActionLabel NodeLabel(string tool, JsonElement arguments, string reference)
     {

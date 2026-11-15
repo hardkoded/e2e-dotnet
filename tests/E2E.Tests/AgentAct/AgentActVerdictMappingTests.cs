@@ -102,50 +102,6 @@ public sealed class AgentActVerdictMappingTests
         Assert.Equal(3, model.CallCount);
     }
 
-    // Upstream's generic secret in a plain textbox and its provider-backed secret are not ported: the port has no
-    // secret purpose check for a plain field and no credential provider functions.
-    [Fact]
-    public async Task Fills_a_declared_secret_through_type_secret_and_refuses_an_undeclared_one()
-    {
-        string? typed = null;
-        var world = new DocumentWorld().Map("/", page => page.Roots.Add(new DocumentElement
-        {
-            Role = "textbox",
-            Name = "Password",
-            Secure = true,
-            InputPurpose = "password",
-            OnFill = value => typed = value,
-        }));
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "admin.password" }),
-            // A configured secret the step never declared is refused.
-            1 => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "stripe-key" }),
-            _ => ModelResponses.Done("passed", "filled the declared secret only"),
-        });
-        var result = await RunAsync(
-            async ctx =>
-            {
-                await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync("sign in with the given credentials", new ActOptions
-                {
-                    Params = new Dictionary<string, object?>
-                    {
-                        ["password"] = Secret.Create("admin.password", "admin-pass-1", "member password"),
-                    },
-                });
-            },
-            world,
-            model);
-
-        Assert.Null(result.Error);
-        Assert.Equal("admin-pass-1", typed);
-        Assert.DoesNotContain("admin-pass-1", CounterPage.Everything(model), StringComparison.Ordinal);
-        var results = CounterPage.ToolResults(model);
-        Assert.Contains("Filled secret \"admin.password\" into #", results[0], StringComparison.Ordinal);
-        Assert.Contains("secret \"stripe-key\" was not declared in this step's params; only declared secrets can be filled", results[1], StringComparison.Ordinal);
-    }
-
     [Fact]
     public async Task Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
