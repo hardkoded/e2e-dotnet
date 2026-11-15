@@ -11,7 +11,7 @@ namespace E2E.Acp.Tests.Executor;
 /// <summary>
 /// Ports <c>describe('acp')</c> of tester-army/e2e <c>packages/acp/tests/executor.test.ts</c> (0410fc9c). The scripted agent is the C# program
 /// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
-/// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>code</c>.
+/// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>errorCode</c>.
 /// </summary>
 [Collection(WorkingDirectoryCollection.Name)]
 public sealed class AcpTests : IDisposable
@@ -233,7 +233,7 @@ public sealed class AcpTests : IDisposable
     [Fact]
     public async Task Drops_an_inconclusive_code_from_an_act_verdict_and_keeps_it_on_an_assertion_in_one_attempt()
     {
-        var inconclusive = Call("done", new { status = "failed", summary = "not enough evidence", code = "ASSERTION_INCONCLUSIVE" });
+        var inconclusive = Call("done", new { status = "failed", summary = "not enough evidence", errorCode = "ASSERTION_INCONCLUSIVE" });
         var agent = Scripted(_directory, Turns([inconclusive], [inconclusive]));
         await using var session = await StartAsync(agent.Executor, new TodoPage().World());
 
@@ -242,7 +242,7 @@ public sealed class AcpTests : IDisposable
 
         Assert.Equal("ACTION_FAILED", act.Code);
         Assert.Equal("ASSERTION_INCONCLUSIVE", assertion.Code);
-        Assert.Contains("the code ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
+        Assert.Contains("the errorCode ASSERTION_INCONCLUSIVE you sent applies only to assertions and was ignored.", string.Join(' ', agent.Log().Select(entry => entry.ToJsonString())), StringComparison.Ordinal);
         Assert.Single(agent.Sessions());
     }
 
@@ -252,7 +252,7 @@ public sealed class AcpTests : IDisposable
         var page = new TodoPage();
         var agent = Scripted(_directory, Turns([
             Call("done", new { status = "blocked", summary = "the app is down" }),
-            Call("done", new { status = "blocked", summary = "the app is down", code = "APP_UNREACHABLE" }),
+            Call("done", new { status = "blocked", summary = "the app is down", errorCode = "APP_UNREACHABLE" }),
             Tap("Add"),
         ]));
         await using var session = await StartAsync(agent.Executor, page.World());

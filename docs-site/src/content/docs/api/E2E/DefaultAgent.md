@@ -38,7 +38,7 @@ public const string AssertRules = "You are judging exactly one assertion against
 
 
 Assertion-specific rules (upstream's `ASSERT_RULES`): they allow evidence gathered across several viewports. The port's verdict tool is `done`,
-which takes `code`.
+which takes `errorCode`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

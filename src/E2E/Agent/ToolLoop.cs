@@ -309,7 +309,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
+                    Content = "[SYSTEM] The step is nearly out of time. Call done now with your best verdict: passed only if you verified the goal, failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
                 });
             }
 
@@ -326,7 +326,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 {
                     Role = "user",
                     Content = stop
-                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                        ? "[SYSTEM] Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
                         : "[SYSTEM NOTICE] You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
                 });
             }
@@ -344,7 +344,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     {
                         Role = "user",
                         Content = streakStop
-                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you."
+                            ? "[SYSTEM] Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you."
                             : "[SYSTEM NOTICE] " + streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
                     });
                 }
@@ -356,12 +356,12 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.Add(new ModelMessage
                 {
                     Role = "user",
-                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with code) if something outside the application stopped you.",
+                    Content = "[SYSTEM NOTICE] Only " + turnsLeft.ToString(CultureInfo.InvariantCulture) + " turns remain for this step. Finish the remaining work now, or call done with your best verdict: failed if the application misbehaved, blocked (with errorCode) if something outside the application stopped you.",
                 });
             }
 
             // Near the budget, after a loop guard stop, or on a low clock only the conclusion tool is offered. Two forced turns, not one,
-            // so a rejected verdict (blocked without a code) can be repaired.
+            // so a rejected verdict (blocked without an errorCode) can be repaired.
             var forced = turnsLeft <= ForcedConclusionTurns || stopped || lowClock;
             var offered = forced ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
 

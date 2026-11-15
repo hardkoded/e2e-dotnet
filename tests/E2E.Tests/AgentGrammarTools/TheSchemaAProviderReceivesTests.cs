@@ -37,6 +37,6 @@ public sealed class TheSchemaAProviderReceivesTests
     {
         var schema = AgentTools.CreateVerdictTool().Tool.Parameters;
         Assert.Equal(["additionalProperties", "properties", "required", "type"], schema.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
-        Assert.Contains("a passed step carries none", schema.GetProperty("properties").GetProperty("code").GetProperty("description").GetString(), StringComparison.Ordinal);
+        Assert.Contains("a passed step carries none", schema.GetProperty("properties").GetProperty("errorCode").GetProperty("description").GetString(), StringComparison.Ordinal);
     }
 }

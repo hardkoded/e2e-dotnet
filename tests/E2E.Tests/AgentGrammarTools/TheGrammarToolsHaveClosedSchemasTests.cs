@@ -11,7 +11,7 @@ namespace E2E.Tests.AgentGrammarTools;
 // Upstream validates a call against the zod schema of a tool (safeParse). The port's schema is the JSON Schema a provider receives, so these
 // tests validate against it (JsonSchemaCheck) and read the refusal text of the closed schema through AgentTools.SchemaTool. The port's
 // vocabulary differs from upstream's in names only (type is fill, type_secret is fill_secret, target is a node id, complete_step
-// is done, errorCode is code, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text.
+// is done, and check takes no checked flag but has uncheck). The tests keep upstream's `it` text.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
     /// <summary>An input each tool accepts; a tool added to the grammar without one fails the vocabulary check.</summary>
@@ -180,36 +180,36 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         // One model attaches ACTION_FAILED to about half of its passes; a schema refusal had it resend the identical call until the turn budget ran out.
         var passed = AgentTools.CreateVerdictTool();
         var schema = SchemaOf(passed.Tool);
-        Assert.True(schema.IsValid(Input("""{ "status": "passed", "summary": "done", "code": "ACTION_FAILED" }""")));
+        Assert.True(schema.IsValid(Input("""{ "status": "passed", "summary": "done", "errorCode": "ACTION_FAILED" }""")));
         Assert.Equal(
-            "Step concluded as passed; the code ACTION_FAILED you sent does not apply to a passed verdict and was ignored.",
-            passed.Execute(Call("done", Input("""{ "status": "passed", "summary": "done", "code": "ACTION_FAILED" }"""))).Content);
+            "Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.",
+            passed.Execute(Call("done", Input("""{ "status": "passed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Passed, "done"), passed.Verdict);
         var failed = AgentTools.CreateVerdictTool();
-        Assert.Equal("Step concluded.", failed.Execute(Call("done", Input("""{ "status": "failed", "summary": "done", "code": "ACTION_FAILED" }"""))).Content);
+        Assert.Equal("Step concluded.", failed.Execute(Call("done", Input("""{ "status": "failed", "summary": "done", "errorCode": "ACTION_FAILED" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "done", "ACTION_FAILED"), failed.Verdict);
-        Assert.True(schema.IsValid(Input("""{ "status": "blocked", "summary": "done", "code": "ENVIRONMENT_UNAVAILABLE" }""")));
+        Assert.True(schema.IsValid(Input("""{ "status": "blocked", "summary": "done", "errorCode": "ENVIRONMENT_UNAVAILABLE" }""")));
     }
 
     [Fact]
     public void Keeps_the_first_verdict_a_later_complete_step_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
     {
         var conclusion = AgentTools.CreateVerdictTool();
-        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "failed", "summary": "total is wrong", "code": "ASSERTION_FAILED" }"""))).Content);
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "failed", "summary": "total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content);
         Assert.Equal("The step already concluded.", conclusion.Execute(Call("done", Input("""{ "status": "passed", "summary": "looks fine" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Failed, "total is wrong", "ASSERTION_FAILED"), conclusion.Verdict);
     }
 
-    // The port words the refusal "failed: a blocked verdict requires a code naming what blocked you", where upstream's is "Rejected: a blocked
-    // verdict requires errorCode": the port's field is code, and its tool results lead with "failed: " when the call did not run.
+    // The port words the refusal "failed: a blocked verdict requires errorCode naming what blocked you", where upstream's is "Rejected: a blocked
+    // verdict requires errorCode": the port's tool results lead with "failed: " when the call did not run.
     [Fact]
     public void Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
     {
         var conclusion = AgentTools.CreateVerdictTool();
-        Assert.StartsWith("failed: a blocked verdict requires a code", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "could not tell" }"""))).Content, StringComparison.Ordinal);
-        Assert.StartsWith("failed: ", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "the total is wrong", "code": "ASSERTION_FAILED" }"""))).Content, StringComparison.Ordinal);
+        Assert.StartsWith("failed: a blocked verdict requires errorCode", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "could not tell" }"""))).Content, StringComparison.Ordinal);
+        Assert.StartsWith("failed: ", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "the total is wrong", "errorCode": "ASSERTION_FAILED" }"""))).Content, StringComparison.Ordinal);
         Assert.False(conclusion.Concluded);
-        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "no login", "code": "AUTH_CREDENTIAL_UNAVAILABLE" }"""))).Content);
+        Assert.Equal("Step concluded.", conclusion.Execute(Call("done", Input("""{ "status": "blocked", "summary": "no login", "errorCode": "AUTH_CREDENTIAL_UNAVAILABLE" }"""))).Content);
         Assert.Equal(new StepVerdict(StepVerdictStatus.Blocked, "no login", "AUTH_CREDENTIAL_UNAVAILABLE"), conclusion.Verdict);
     }
 
@@ -374,10 +374,10 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(4, model.CallCount);
         var rejections = model.Requests[3].Messages.Where(message => message.Role == "tool").Select(message => message.Content).Take(3).ToArray();
         Assert.Equal(3, rejections.Length);
-        Assert.All(rejections, content => Assert.StartsWith("failed: a blocked verdict requires a code naming what blocked you", content, StringComparison.Ordinal));
+        Assert.All(rejections, content => Assert.StartsWith("failed: a blocked verdict requires errorCode naming what blocked you", content, StringComparison.Ordinal));
     }
 
-    private static ModelToolCall Done(string status, string code) => ModelResponses.Done(status, "done", code).ToolCalls[0];
+    private static ModelToolCall Done(string status, string errorCode) => ModelResponses.Done(status, "done", errorCode).ToolCalls[0];
 
     private static Task<Outcome> RunAsync(ModelResponse response) => RunAsync(new ScriptedModel(_ => response));
 

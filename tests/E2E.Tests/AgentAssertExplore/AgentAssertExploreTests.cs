@@ -14,7 +14,7 @@ namespace E2E.Tests.AgentAssertExplore;
 /// them over its document engine with a generated screenshot (<see cref="PixelsEngine"/>), not a browser, as its other agent tests do.
 /// Not ported as written: the cases that pass a non-boolean <c>explore</c> or a <c>null</c> budget, which C# types rule out, and the
 /// <c>vision: false</c> case, which C# cannot tell from the default (<see cref="VisionMode.Off"/>). The port's verdict tool is <c>done</c>
-/// and takes <c>code</c>, and its screenshot rides a user turn after the tool results.
+/// and its screenshot rides a user turn after the tool results.
 /// </summary>
 public sealed class AgentAssertExploreTests
 {

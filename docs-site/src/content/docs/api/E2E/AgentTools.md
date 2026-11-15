@@ -34,13 +34,13 @@ The built-in agent's tool vocabulary (upstream's `agent/primitives.ts`). `Create
 
 
 ```csharp
-public const string VerdictRules = "Finish with done when the step's goal is achieved, or you are certain it cannot be. done status is passed, failed, or blocked. blocked means credentials, the environment, or test setup prevented a verdict, and requires a code."
+public const string VerdictRules = "Finish with done when the step's goal is achieved, or you are certain it cannot be. done status is passed, failed, or blocked. blocked means credentials, the environment, or test setup prevented a verdict, and requires an errorCode."
 ```
 
 
 Upstream's `VERDICT_RULES`: the guidance for [VerdictTool](/api/E2E/VerdictTool/). The tool loop appends it to the instructions of every
 executor it builds, so an executor outside the loop gives it to its own model beside the tool. The port's tool is `done`
-where upstream's is `complete_step`, and takes `code` where upstream's takes `errorCode`.
+where upstream's is `complete_step`, and takes an `errorCode` as upstream's does.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

@@ -53,7 +53,7 @@ public static class DefaultAgent
 
     /// <summary>
     /// Assertion-specific rules (upstream's <c>ASSERT_RULES</c>): they allow evidence gathered across several viewports. The port's verdict tool is <c>done</c>,
-    /// which takes <c>code</c>.
+    /// which takes <c>errorCode</c>.
     /// </summary>
     public const string AssertRules =
         "You are judging exactly one assertion against the current application screen.\n" +
@@ -61,7 +61,7 @@ public static class DefaultAgent
         "- Combine evidence from every observation in this step. Items need not fit in one viewport. Scroll only to inspect the assertion's subject, and stop when you have enough evidence.\n" +
         "- Node ids belong to the observed tree. Never invent ids; use scroll_to for a listed node or scroll to inspect more of the current screen.\n" +
         "- Each scroll result contains a fresh observation. When screenshots are shown, each result includes fresh pixels too.\n" +
-        "- Conclude passed when the collected evidence establishes the assertion, failed with code ASSERTION_FAILED when it contradicts the assertion, and failed with code ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer.";
+        "- Conclude passed when the collected evidence establishes the assertion, failed with errorCode ASSERTION_FAILED when it contradicts the assertion, and failed with errorCode ASSERTION_INCONCLUSIVE when the available evidence or remaining budget cannot establish an answer.";
 
     /// <summary>
     /// Builds the built-in step executor: the model loop with the grammar tools of the target's engine and the project
