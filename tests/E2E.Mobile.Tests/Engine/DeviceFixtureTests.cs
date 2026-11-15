@@ -667,10 +667,11 @@ public sealed class DeviceFixtureTests
             return screen.Steps!.All()[^1].Label;
         }
 
-        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenAppAsync("https://app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
+        Assert.Equal("<link>", await LabelOf(() => device.OpenAppAsync("https://user:pw@app.example.com/magic?token=s3cret#frag"), "INVALID_ARGUMENT"));
         Assert.Equal("com.apple.Preferences", await LabelOf(() => device.OpenAppAsync("com.apple.Preferences")));
         Assert.Equal("myapp://orders/42", await LabelOf(() => device.OpenLinkAsync("myapp://orders/42?ref=mail")));
-        Assert.Equal("verify", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
+        Assert.Equal("https://app.example.com/magic", await LabelOf(() => device.OpenLinkAsync("https://user:pw@app.example.com/magic?token=s3cret#frag")));
+        Assert.Equal("<link>", await LabelOf(() => device.OpenLinkAsync("verify?token=s3cret"), "INVALID_ARGUMENT"));
         // Clipboard text is often a code or token the test copied, never a configured secret the ledger would redact.
         Assert.Equal("6 chars", await LabelOf(() => device.SetClipboardAsync("482913")));
     }

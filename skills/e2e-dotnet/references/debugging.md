@@ -103,7 +103,7 @@ no viewer. It tells, in this order:
    an xUnit `InitializeAsync` or `DisposeAsync`), and the offset into the
    video (`, video 0:12`) when one is recorded. A `Browser` or `Device` call is
    a step too, named for the call (`browser.goto` with the URL, `browser.route`
-   with the pattern, `device.openLink` with the link before its query,
+   with the pattern, `device.openLink` with the link without its userinfo, query, or fragment (`<link>` when it does not parse),
    `device.setNetwork` with `offline`), so a failure there points at the call,
    and `browser.waitForURL` and `locator.waitFor` count as a verification. `ClickAsync` and
    `DblClickAsync` are `locator.click` and `locator.dblclick` steps, not
