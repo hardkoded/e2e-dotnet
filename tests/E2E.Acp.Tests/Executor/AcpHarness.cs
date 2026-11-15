@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
@@ -54,6 +57,72 @@ internal sealed class TodoPage
         page.Button("Add", () => Interlocked.Increment(ref _adds));
         page.Button("Slow", () => Thread.Sleep(300));
     });
+}
+
+/// <summary>A local page for the web engine to open. Upstream's step context mocks the observation; the port opens a real page.</summary>
+internal sealed class PixelSite : IDisposable
+{
+    private readonly HttpListener _listener = new();
+    private readonly CancellationTokenSource _stop = new();
+
+    private PixelSite(string url) => Url = url;
+
+    public string Url { get; }
+
+    public static PixelSite Start(string html)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            var site = new PixelSite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
+            site._listener.Prefixes.Add(site.Url);
+            try
+            {
+                site._listener.Start();
+            }
+            catch (HttpListenerException) when (attempt < 5)
+            {
+                site._listener.Close();
+                continue;
+            }
+
+            _ = site.ServeAsync(Encoding.UTF8.GetBytes(html));
+            return site;
+        }
+    }
+
+    public void Dispose()
+    {
+        _stop.Cancel();
+        _listener.Close();
+        _stop.Dispose();
+    }
+
+    private async Task ServeAsync(byte[] page)
+    {
+        while (!_stop.IsCancellationRequested)
+        {
+            try
+            {
+                var context = await _listener.GetContextAsync();
+                context.Response.ContentType = "text/html; charset=utf-8";
+                context.Response.ContentLength64 = page.Length;
+                await context.Response.OutputStream.WriteAsync(page);
+                context.Response.Close();
+            }
+            catch (Exception) when (_stop.IsCancellationRequested || !_listener.IsListening)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is HttpListenerException or IOException or ObjectDisposedException)
+            {
+                // A client that hung up does not stop the site.
+            }
+        }
+    }
 }
 
 internal static class AcpHarness
@@ -112,14 +181,15 @@ internal static class AcpHarness
         bool debug = false,
         string? projectRoot = null,
         IReadOnlyDictionary<string, AgentOptions>? agents = null,
-        IEngine? engine = null)
+        IEngine? engine = null,
+        string baseUrl = "https://todos.test")
     {
         var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = engine ?? new DocumentEngine(world),
             AgentExecutor = executor,
             Agents = agents,
-            BaseUrl = "https://todos.test",
+            BaseUrl = baseUrl,
             TestTitle = "acp",
             CacheEnabled = false,
             StepTimeout = TimeSpan.FromSeconds(60),

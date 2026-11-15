@@ -10,7 +10,7 @@ namespace E2E.Acp.Tests.Executor;
 
 /// <summary>
 /// Ports <c>describe('acp')</c> of tester-army/e2e <c>packages/acp/tests/executor.test.ts</c> (0410fc9c). The scripted agent is the C# program
-/// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
+/// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine (the web engine where a test needs pixels), since the grammar tools drive the
 /// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>errorCode</c>.
 /// </summary>
 [Collection(WorkingDirectoryCollection.Name)]
@@ -593,12 +593,12 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
+    public async Task Lists_the_tools_once_and_tells_the_agent_which_ones_a_step_does_not_offer()
     {
-        // Partial: the document engine offers every step the same tools, so no step lacks a tool the session listed.
-        // fill_secret is not listed: the steps declare no secret.
-        var agent = Scripted(_directory, Turns([Pass], [Pass]));
-        await using var session = await StartAsync(agent.Executor, new TodoPage().World());
+        // fill_secret is not listed: the steps declare no secret. The web engine takes the screenshot.
+        using var site = PixelSite.Start("<!doctype html><title>t</title><h1>Hello</h1>");
+        var agent = Scripted(_directory, Turns([Call("screenshot"), Pass], [Pass]));
+        await using var session = await StartAsync(agent.Executor, new TodoPage().World(), engine: new WebEngine(headless: true), baseUrl: site.Url);
 
         await session.Agent.ActAsync("add a todo");
         await session.Agent.ActAsync("add a todo");
@@ -606,6 +606,9 @@ public sealed class AcpTests : IDisposable
         var offered = Assert.Single(agent.Sessions())["session"]!["tools"]!.AsArray().Select(tool => tool!.GetValue<string>()).ToList();
         Assert.DoesNotContain("fill_secret", offered);
         Assert.DoesNotContain("Not offered in this step", agent.Prompts()[0], StringComparison.Ordinal);
+        // A screenshot reaches the agent as an MCP image.
+        var shot = agent.Log().First(entry => entry["call"]?.GetValue<string>() == "screenshot")["result"]!["content"]!.AsArray();
+        Assert.Contains(shot, part => part?["type"]?.GetValue<string>() == "image" && part["mimeType"]?.GetValue<string>() == "image/png");
     }
 
     [Fact]
