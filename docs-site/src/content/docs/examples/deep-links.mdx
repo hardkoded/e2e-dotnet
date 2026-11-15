@@ -33,7 +33,7 @@ Run Android with `E2E_MOBILE_PLATFORM=android`.
 
 ## Open a link from a cold start
 
-`Device.CloseAppAsync()` ends the app. `Device.OpenLinkAsync(url, app)` hands the link to the app, as the OS does. iOS needs the app argument, so pass `AppId`:
+`Device.CloseAppAsync()` ends the app. `Device.OpenLinkAsync(url, app)` hands the link to the app, as the OS does. iOS needs the app argument, so pass `AppId`. The report shows the link without its userinfo (`user:password@` or `token@`), query, or fragment, where a login or a magic link's token rides. A string that does not parse shows as `<link>`, never as typed.
 
 ```csharp
 using E2E.Mobile.NUnit;
