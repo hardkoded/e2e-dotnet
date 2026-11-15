@@ -139,13 +139,16 @@ public sealed class ExploreStateTests
         var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)));
         state.BeginStep(new string('x', 400), new string('y', 5_000));
         state.EndStep(ReportExploreStepStatus.Passed, new string('z', 9_000));
-        Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, new string('t', 300), "e", "a", [.. Enumerable.Repeat(new string('r', 900), 30)]));
+        Finding(state, new FindingInput(ReportExploreFindingKind.Issue, 4, new string('t', 300), new string('e', 2_500), new string('a', 2_500), [.. Enumerable.Repeat(new string('r', 900), 30)], new string('p', 2_500)));
         state.End(ReportExploreEnded.Finished, new string('s', 9_000));
         var snapshot = state.Snapshot();
         Assert.Equal(200, snapshot.Steps[0].Title.Length);
         Assert.Equal(2_000, snapshot.Steps[0].Instruction.Length);
         Assert.Equal(4_000, snapshot.Steps[0].Summary!.Length);
         Assert.Equal(200, snapshot.Findings[0].Title.Length);
+        Assert.Equal(2_000, snapshot.Findings[0].Expected.Length);
+        Assert.Equal(2_000, snapshot.Findings[0].Actual.Length);
+        Assert.Equal(2_048, snapshot.Findings[0].Path!.Length);
         Assert.Equal(20, snapshot.Findings[0].Reproduction.Count);
         Assert.All(snapshot.Findings[0].Reproduction, entry => Assert.Equal(500, entry.Length));
         Assert.Equal(4_000, snapshot.Summary!.Length);
