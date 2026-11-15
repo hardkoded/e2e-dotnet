@@ -118,8 +118,8 @@ public class StepExecutorContext
         throw new NotSupportedException("This context does not observe.");
 
     /// <summary>
-    /// Attaches the executor's model transcript to the step. It is written to the results directory as a <c>log</c> file
-    /// when the attempt keeps results, and dropped otherwise. Call it once, at the end.
+    /// Attaches the executor's model transcript to the step. It is kept as a <c>log</c> artifact of the step (<c>transcript-&lt;step id&gt;.txt</c>)
+    /// when the attempt keeps results, and dropped otherwise. The last call wins.
     /// </summary>
     public virtual void AttachTranscript(string text)
     {

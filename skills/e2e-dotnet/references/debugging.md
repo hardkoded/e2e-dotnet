@@ -393,9 +393,12 @@ endpoint that sends a `cost` in its usage, such as OpenRouter, reports a cost.
   agent.act "increment the counter once"      2.3s   1.9s    180ms    95ms      2        3120/84       -     -
 ```
 
-Under debug, the transcript a custom executor passes to `AttachTranscript`
-is also kept, redacted, as `transcript-<n>.txt` beside the attempt's other
-results. Without debug it is dropped.
+Under debug, the transcript of an agent step is also kept, redacted, as a
+`log` artifact of the step: `transcript-<step id>.txt` in the attempt's
+artifact directory, listed under the step in the report. The built-in executor
+writes each turn as `--- turn <n> ---`, its `tool call: <name>(<arguments>)`
+lines, the results, and the loop's `[loop]` notes; a custom executor passes
+its own text to `AttachTranscript`. Without debug it is dropped.
 
 ## Model calls
 

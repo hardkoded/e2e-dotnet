@@ -164,21 +164,25 @@ internal sealed partial class ActContext : StepExecutorContext
         return Task.FromResult(id);
     }
 
-    /// <summary>Keeps the transcript the executor attached, redacted like any log. Best effort: a transcript never fails the step.</summary>
+    /// <summary>Persists the executor transcript as a step-attributed <c>log</c> artifact, redacted like any log. Best effort: a transcript never fails the step. Upstream's <c>writeTranscript</c>.</summary>
     public void WriteTranscript()
     {
-        if (_transcript is null || _scope.Screenshots is not { } screenshots)
+        if (_transcript is null || _scope.Artifacts is not { } artifacts)
         {
             return;
         }
 
+        var stepId = _scope.Steps.ArtifactStepId() ?? "act";
+        var name = "transcript-" + UnsafeInName().Replace(stepId, "-") + ".txt";
         try
         {
-            screenshots.KeepTranscript(_scope.Redactor.Redact(_transcript));
+            // Model prose and project-tool output are not model input, but they are a log: the redactor that guards the tree guards the file.
+            File.WriteAllText(Path.Combine(artifacts.Dir, name), _scope.Redactor.Redact(_transcript));
+            _scope.Steps.AttachArtifact(artifacts.Sink.Register(Reports.ArtifactKind.Log, name));
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // The transcript is debug detail.
+            // The transcript is best-effort debug detail; never fail the step for it, as upstream.
         }
     }
 
