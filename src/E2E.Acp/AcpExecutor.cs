@@ -105,8 +105,9 @@ public static class AcpExecutor
         public async Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
         {
             var (held, session) = await ReadyAsync(context, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             var active = new ActiveStep(context);
-            var text = await StepMessageAsync(active, held.Tools, held.Introduced ? null : [Rules, options.System, context.AgentContext], cancellationToken).ConfigureAwait(false);
+            var text = await StepMessageAsync(active, held.Tools, held.Introduced ? null : [Rules, options.System, context.AgentContext], cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
 
             // A step that ended while its screen was read sends no prompt, which no cancel would reach.
             cancellationToken.ThrowIfCancellationRequested();

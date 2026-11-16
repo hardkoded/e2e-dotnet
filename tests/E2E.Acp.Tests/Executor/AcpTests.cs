@@ -437,6 +437,56 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
+    public async Task Partial_Does_not_read_the_screen_for_an_already_aborted_step()
+    {
+        var agent = Scripted(_directory, Turns([Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        var before = engine.Observations;
+        using var abort = new CancellationTokenSource();
+        await abort.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.Agent.ActAsync("add a todo", null, abort.Token));
+
+        Assert.Equal(before, engine.Observations);
+    }
+
+    [Fact]
+    public async Task Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
+    {
+        var agent = Scripted(_directory, Turns([Pass], [Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        await session.Agent.ActAsync("add a todo");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var before = engine.Observations;
+        engine.Hold = release.Task;
+        using var abort = new CancellationTokenSource();
+        var run = session.Agent.ActAsync("add a todo", null, abort.Token);
+        try
+        {
+            await EventuallyAsync(() => Assert.True(engine.Observations > before));
+            await abort.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.WaitAsync(TimeSpan.FromSeconds(1)));
+            Assert.Single(agent.Prompts());
+            engine.Hold = null;
+            var result = await session.Agent.ActAsync("add a todo");
+            Assert.Equal("added", result.Summary);
+            Assert.Single(agent.Sessions());
+        }
+        finally
+        {
+            release.TrySetResult();
+            await Task.WhenAny(run).ConfigureAwait(false);
+            await run.ContinueWith(_ => { }, TaskScheduler.Default);
+        }
+
+        Assert.Equal(2, agent.Prompts().Count);
+    }
+
+    [Fact]
     public async Task Gives_up_on_a_session_whose_agent_never_stops_the_turn_of_a_step_that_ended()
     {
         var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
@@ -451,6 +501,32 @@ public sealed class AcpTests : IDisposable
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("add a todo"));
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
         Assert.Contains("did not stop", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
+    {
+        var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
+        var world = new TodoPage().World();
+        var engine = new HookedEngine(new DocumentEngine(world));
+        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        using var first = new CancellationTokenSource();
+        var run = session.Agent.ActAsync("add a todo", null, first.Token);
+        await EventuallyAsync(() => Assert.Single(agent.Prompts()));
+        await first.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        // The agent logs the cancel after the step already ended: wait for it, or that write races the teardown.
+        await EventuallyAsync(() => Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled")));
+
+        var before = engine.Observations;
+        using var second = new CancellationTokenSource();
+        var next = session.Agent.ActAsync("add a todo", null, second.Token);
+        await Task.Yield();
+        await second.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => next);
+        Assert.Equal(before, engine.Observations);
+        Assert.Single(agent.Prompts());
     }
 
     [Fact]
