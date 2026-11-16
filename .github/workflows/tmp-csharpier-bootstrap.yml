@@ -3,60 +3,40 @@ on:
   push:
     branches: [tmp/csharpier-bootstrap]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  bootstrap:
+  format:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: chore/csharpier
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
             10.0.x
             11.0.x
-      - name: Install tools
+      - name: Format and push
         run: |
-          mkdir -p out
-          dotnet --info | head -30
-          dotnet new tool-manifest
-          dotnet tool install csharpier
-          dotnet tool install husky
-          cp dotnet-tools.json out/
-          dotnet husky install
-          dotnet husky add pre-push -c "dotnet husky run --group pre-push"
-          ls -la .husky; cat .husky/task-runner.json || true; cat .husky/pre-push
-          cp -r .husky out/husky
-          dotnet csharpier --version | tee out/csharpier-version.txt
-      - name: Format
-        run: |
-          dotnet csharpier format . 2>&1 | tail -20
-          git add -N . 
-          git diff --binary -- . ':!dotnet-tools.json' ':!.husky' > out/format.patch
-          git diff --stat -- . ':!dotnet-tools.json' ':!.husky' | tail -5
-          dotnet csharpier check . && echo CHECK_OK
+          dotnet tool restore
+          dotnet csharpier format .
+          dotnet csharpier check .
+          git config user.name "csharpier-bootstrap"
+          git config user.email "csharpier-bootstrap@users.noreply.github.com"
+          git add -A
+          git commit -qm "Format codebase with CSharpier"
+          git push origin HEAD:refs/heads/tmp/csharpier-formatted
       - name: Restore
-        run: dotnet restore E2E.slnx 2>&1 | tail -20
-      - name: Build after format
-        continue-on-error: true
+        run: dotnet restore E2E.slnx
+      - name: Build
+        run: dotnet build E2E.slnx --no-restore -c Release 2>&1 | tail -8
+      - name: Format style and analyzers
         run: |
-          set -o pipefail
-          dotnet build E2E.slnx --no-restore -c Release 2>&1 | tee out/build.log | tail -40
-      - name: Error summary
-        if: always()
-        run: grep -oE '(error|warning) [A-Z]+[0-9]+' out/build.log | sort | uniq -c | sort -rn | tee out/build-summary.txt || true
-      - name: dotnet format whitespace (old CI check)
-        continue-on-error: true
-        run: dotnet format whitespace E2E.slnx --verify-no-changes 2>&1 | tee out/format-whitespace.log | tail -20
-      - name: dotnet format style
-        continue-on-error: true
-        run: dotnet format style E2E.slnx --verify-no-changes --no-restore 2>&1 | tee out/format-style.log | tail -20
-      - name: dotnet format analyzers
-        continue-on-error: true
-        run: dotnet format analyzers E2E.slnx --verify-no-changes --no-restore 2>&1 | tee out/format-analyzers.log | tail -20
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bootstrap
-          path: out/
-          include-hidden-files: true
+          dotnet format style E2E.slnx --verify-no-changes --no-restore
+          dotnet format analyzers E2E.slnx --verify-no-changes --no-restore
+      - name: Hook target dry run (CI unset)
+        run: |
+          git status --short | head
+          CI= GITHUB_ACTIONS= dotnet restore src/E2E/E2E.csproj
+          ls -la .husky .husky/_ ; git config core.hooksPath
