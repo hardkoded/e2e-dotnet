@@ -108,6 +108,17 @@ dotnet run -f net11.0-ios --device <id>
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test
 ```
 
+To change the app while you fix a test, start it with `dotnet watch` in place of `dotnet run`. Hot reload applies each edit to the running app, with no reinstall and no relaunch:
+
+```bash
+# Terminal 1, from the app's folder:
+dotnet watch -f net11.0-ios --device <id>
+# Terminal 2, one test at a time:
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test --filter "FullyQualifiedName~<Class>.<Method>"
+```
+
+Edit the app, wait for `C# and Razor changes applied` (it prints this for a XAML edit too), and run the second command again. Hot reload does not reset the app: the process, the screen, and the counters stay as the last test left them. If `dotnet watch` says it cannot apply an edit, restart it.
+
 The tests attach to the running app. Nothing is installed and the app is not relaunched between tests, so each test starts from the state the last one left. Tests that send the app to the background or relaunch it are inconclusive in this mode. Use `AttachesToRunningApp` in `Assume.That` to skip them. This mode is a preview and has not been run against a device yet.
 
 ## Next

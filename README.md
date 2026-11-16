@@ -343,7 +343,7 @@ With `CI` set and `cache.mode` unset, the cache is `read-only`, so a healed step
 
 ### Rerun a test while you fix it
 
-While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`; use `=` with the full name when another test name contains it) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen.
+While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`; use `=` with the full name when another test name contains it) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen. For a MAUI app you drive through DevFlow, the mobile reference has the loop (topic `mobile`, section "A MAUI app with DevFlow"): `dotnet watch` applies your edit to the running app, and you run the one test again.
 
 1. Set `actionTimeout` to `5000` while you iterate, so a wrong locator fails after 5 s instead of 30 s.
 2. Don't rename the test or its class, or reword a goal that passes. Each causes a miss: a rename for every goal in the test, a reworded goal for itself.

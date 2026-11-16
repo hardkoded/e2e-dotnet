@@ -106,6 +106,19 @@ The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotne
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
 
+### Edit the app and rerun a test
+
+Start the app with `dotnet watch` in place of `dotnet run`. Hot reload applies each edit to the running app, with no reinstall and no relaunch:
+
+```bash
+# Terminal 1, from the app's folder: build, install, launch, and apply each edit.
+(cd samples/MobileApp && dotnet watch -f net11.0-ios --device <UDID>)
+# Terminal 2: run one test against the running app.
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests --filter "FullyQualifiedName~<Class>.<Method>"
+```
+
+Edit the app, wait for `C# and Razor changes applied` (it prints this for a XAML edit too), and run terminal 2 again. Hot reload does not reset the app: the process, the screen, and the counters stay as the last test left them. If `dotnet watch` says it cannot apply an edit, restart it.
+
 `MobileAppTest` finds the agent (through the DevFlow broker when one runs, `maui devflow list`, else on port 9223, or `E2E_DEVFLOW_PORT`), waits up to a minute for it, and holds its mutation lease for the run. Nothing is installed, and the app is not relaunched between tests, so each test starts from the state the last one left. The two device tests that send the app to the background or relaunch it are inconclusive in this mode. On Android, forward the agent's port with `adb forward tcp:<port> tcp:<port>` first. This mode has not been run against a device yet: it is the spike of the DevFlow integration.
 
 ## How the fixture works
