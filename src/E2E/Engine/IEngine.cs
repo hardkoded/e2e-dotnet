@@ -129,8 +129,8 @@ public interface IEngineFixtureHost
 public interface IEngine<out TFixtures> : IEngine
     where TFixtures : class
 {
-    /// <summary>The fixtures of one session, over the engine's own <paramref name="session"/>.</summary>
-    TFixtures CreateFixtures(IEngineSession session);
+    /// <summary>The fixtures of one session, over the engine's own <paramref name="session"/> and the <paramref name="controls"/> the harness built (its <c>Browser</c> and <c>App</c>).</summary>
+    TFixtures CreateFixtures(IEngineSession session, Session controls);
 }
 
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>

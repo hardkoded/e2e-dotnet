@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed class WebEngine : IDoctorEngine, IEngine, IAsyncDisposable
+public sealed class WebEngine : IEngine<WebFixtures>, IDoctorEngine, IEngine, IAsyncDisposable
 ```
 
 
@@ -26,7 +26,7 @@ same node actions the document engine does. Install browsers once with
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Implements:** [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/), [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
+**Implements:** `IEngine&lt;WebFixtures&gt;`, [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/), [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
@@ -136,6 +136,28 @@ public string Version { get; }
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 ## Methods
+
+<a id="E2E_Engine_WebEngine_CreateFixtures_"></a>
+<a id="E2E_Engine_WebEngine_CreateFixtures_E2E_Engine_IEngineSession_E2E_Session_"></a>
+
+### CreateFixtures(IEngineSession, Session)
+
+
+```csharp
+public WebFixtures CreateFixtures(IEngineSession session, Session controls)
+```
+
+
+The fixtures of a session on this engine: its `Browser` and its `App` with the base URL set. A web target always declares `app.url`, so a session with none is a `WORKER_PROTOCOL` failure.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `session` | [IEngineSession](/api/E2E.Engine/IEngineSession/) |  |
+| `controls` | [Session](/api/E2E/Session/) |  |
+
+**Returns:** [WebFixtures](/api/E2E.Engine/WebFixtures/)
 
 <a id="E2E_Engine_WebEngine_DisposeAsync_"></a>
 <a id="E2E_Engine_WebEngine_DisposeAsync"></a>

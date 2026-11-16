@@ -193,9 +193,9 @@ public class Session : IAsyncDisposable
 public sealed class Session<TFixtures> : Session
     where TFixtures : class
 {
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed, Func<IEngineSession, TFixtures> fixtures)
+    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed, Func<IEngineSession, Session, TFixtures> fixtures)
         : base(attempt, identity, internals, onClosed) =>
-        Fixtures = fixtures(EngineSession);
+        Fixtures = fixtures(EngineSession, this);
 
     /// <summary>What the engine contributes beside <see cref="Session.Screen"/>, <see cref="Session.App"/>, and <see cref="Session.Platform"/>.</summary>
     public TFixtures Fixtures { get; }

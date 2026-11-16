@@ -82,7 +82,7 @@ trace mode. The page stands alone: it has no `report.json` to point at.
 ## Launch without a config or a runner
 
 For a script, a scraper, or a bot there is no config file and no report: `Launch.LaunchAsync` (upstream's `launch` from `@e2e-dev/core`) takes an engine and
-the app, and returns a `Host` that opens one `Session` at a time. A session holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture.
+the app, and returns a `Host` that opens one `Session` at a time. A session holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture. `WebEngine` is one too (`WebFixtures`): `session.Fixtures.Browser` is the browser fixture, and `session.Fixtures.App` is a `WebApp`, the `App` with `BaseUrl` always set, since a web target always declares `app.url`.
 
 ```csharp
 await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
