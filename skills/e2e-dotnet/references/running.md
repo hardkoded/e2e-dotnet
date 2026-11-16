@@ -171,7 +171,7 @@ docs has an MTP form:
 | --- | --- | --- |
 | TRX file | `--logger "trx;LogFileName=e2e.trx"` | `--report-trx --report-trx-filename e2e.trx` |
 | Detailed console output | `--logger "console;verbosity=detailed"` | `--output Detailed` |
-| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class Class`, `--filter-method`. TUnit: `--treenode-filter` |
+| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class "*.Class"`, `--filter-method`. TUnit: `--treenode-filter` |
 
 Turn MTP on for `dotnet test` (.NET 10 SDK or later) in a `global.json` next to
 the solution:
@@ -188,9 +188,8 @@ MTP. A VSTest project fails with `All projects must use that test runner`. From
 does the same for one run. Then set each project up:
 
 - NUnit: `<OutputType>Exe</OutputType>` and
-  `<EnableNUnitRunner>true</EnableNUnitRunner>`, with a current
-  `NUnit3TestAdapter` (6.3.0 worked; 5.0.0 was not seen as an MTP project).
-- xUnit v3: reference `xunit.v3` instead of `xunit.v3.mtp-off`. The project
+  `<EnableNUnitRunner>true</EnableNUnitRunner>`, with `NUnit3TestAdapter` 5.0 or later (6.3.0 worked on SDK 10 and 11; 5.0.0 worked on SDK 11 only).
+- xUnit v3: replace the `xunit.v3.mtp-off` package with `xunit.v3`. The project
   already has `<OutputType>Exe</OutputType>`.
 - TUnit: nothing more. It includes the TRX reporter.
 - NUnit and xUnit v3 need the TRX reporter for `--report-trx`:
@@ -198,9 +197,9 @@ does the same for one run. Then set each project up:
   at or above the `Microsoft.Testing.Platform` version the runner brings, or the
   run fails with a `TypeLoadException`.
 
-A MAUI project that uses the .NET 11 device test templates (`dotnet new
-androidtest`, `iostest`) is likely to have MTP on already. The talk "Bringing
-dotnet run, test, and watch to .NET MAUI" recommends it.
+The .NET Conf 2026 talk "Bringing dotnet run, test, and watch to .NET MAUI"
+recommends MTP for the .NET 11 device test templates (`dotnet new androidtest`,
+`iostest`). A MAUI project that uses them may already have it on.
 
 ## Exit codes
 
@@ -251,6 +250,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
+      # Use your test project's target framework in the path.
       - run: pwsh MyApp.E2E/bin/Release/net11.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
       # On MTP: dotnet test -c Release --no-build --report-trx --report-trx-filename e2e.trx
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"

@@ -82,7 +82,7 @@ NUnit and xUnit v3 run on VSTest by default. TUnit runs on Microsoft.Testing.Pla
 | --- | --- | --- |
 | TRX file | `--logger "trx;LogFileName=e2e.trx"` | `--report-trx --report-trx-filename e2e.trx` |
 | Detailed console output | `--logger "console;verbosity=detailed"` | `--output Detailed` |
-| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class Class`. TUnit: `--treenode-filter` |
+| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class "*.Class"`. TUnit: `--treenode-filter` |
 
 NUnit and xUnit v3 can run on MTP too. Add a `global.json` next to the solution:
 
@@ -94,11 +94,11 @@ NUnit and xUnit v3 can run on MTP too. Add a `global.json` next to the solution:
 
 It applies to every test project under it, so a VSTest project fails with `All projects must use that test runner`. Then set up each project:
 
-- NUnit: set `<OutputType>Exe</OutputType>` and `<EnableNUnitRunner>true</EnableNUnitRunner>`, and use a current `NUnit3TestAdapter` (6.3.0 worked; 5.0.0 was not seen as an MTP project).
-- xUnit v3: reference `xunit.v3` instead of `xunit.v3.mtp-off`.
+- NUnit: set `<OutputType>Exe</OutputType>` and `<EnableNUnitRunner>true</EnableNUnitRunner>`, and use `NUnit3TestAdapter` 5.0 or later (6.3.0 worked on SDK 10 and 11; 5.0.0 worked on SDK 11 only).
+- xUnit v3: replace the `xunit.v3.mtp-off` package with `xunit.v3`.
 - TUnit: nothing more.
 
-For `--report-trx`, NUnit and xUnit v3 also need `dotnet add package Microsoft.Testing.Extensions.TrxReport`, at or above the `Microsoft.Testing.Platform` version the runner brings. TUnit includes it. A MAUI project that uses the .NET 11 device test templates (`dotnet new androidtest`, `iostest`) is likely to have MTP on already.
+For `--report-trx`, NUnit and xUnit v3 also need `dotnet add package Microsoft.Testing.Extensions.TrxReport`, at or above the `Microsoft.Testing.Platform` version the runner brings. TUnit includes it. The .NET Conf 2026 talk "Bringing dotnet run, test, and watch to .NET MAUI" recommends MTP for the .NET 11 device test templates (`dotnet new androidtest`, `iostest`), so a MAUI project that uses them may already have it on.
 
 ## Which one
 
