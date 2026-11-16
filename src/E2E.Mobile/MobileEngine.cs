@@ -79,10 +79,16 @@ public sealed record MobileStartInfo
 /// fresh launch of the pinned app. The device is a simulator, an emulator, or a connected phone, named by the options,
 /// discovered, or leased from an <see cref="IDeviceProvider"/>.
 /// </summary>
-public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine, IDoctorEngine
+public sealed partial class MobileEngine : IPreparableEngine, IDisposableEngine, IDoctorEngine, IEngine<MobileFixtures>
 {
     /// <summary>The version of the engine, as upstream's <c>@e2e-dev/mobile</c> numbers the surface this one follows.</summary>
     public const string EngineVersion = "0.11.0";
+
+    /// <summary>The fixtures of a session on this engine: its <c>Device</c>. A session no device engine started is a <c>WORKER_PROTOCOL</c> failure.</summary>
+    public MobileFixtures CreateFixtures(IEngineSession session) =>
+        session is DeviceSession device
+            ? new MobileFixtures(device.Device)
+            : throw new EngineException("WORKER_PROTOCOL", "a mobile engine builds its fixtures from the device session it started");
 
     private static readonly Dictionary<MobilePlatform, string> LoopbackNotes = new()
     {

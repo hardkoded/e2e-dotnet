@@ -147,7 +147,8 @@ public TimeSpan? Timeout { get; init; }
 ```
 
 
-Default timeout of one operation: an action, a wait, a read. Without it an action gets 30 seconds. An agent step has its own, `ActAsync`'s
-timeout. There is no session deadline.
+Default timeout of one operation: an action, a wait, a read, and `App.OpenAsync` or `App.RestartAsync`. Without it an action, a wait,
+or a read gets 30 seconds, and an app open or restart 120 seconds. A session changes it with [SetDefaultTimeout(TimeSpan)](/api/E2E/Session/#E2E_Session_SetDefaultTimeout_System_TimeSpan_). An agent
+step has its own, `ActAsync`'s timeout. There is no session deadline.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
