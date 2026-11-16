@@ -19,7 +19,7 @@ public sealed class CoreTests : IAsyncLifetime
 
     private readonly string _dir = Directory.CreateTempSubdirectory("e2e-core-tests-").FullName;
 
-    private readonly List<Host> _hosts = [];
+    private readonly List<IAsyncDisposable> _hosts = [];
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -29,7 +29,7 @@ public sealed class CoreTests : IAsyncLifetime
         {
             try
             {
-                await opened.CloseAsync();
+                await opened.DisposeAsync();
             }
             catch (AggregateException)
             {
@@ -44,6 +44,13 @@ public sealed class CoreTests : IAsyncLifetime
 
     private async Task<Host> HostOf(CoreFakeEngine engine, LaunchOptions? options = null)
     {
+        var opened = await Launch.LaunchAsync((IEngine)engine, (options ?? new LaunchOptions()) with { Cwd = _dir, Env = new Dictionary<string, string?>() });
+        _hosts.Add(opened);
+        return opened;
+    }
+
+    private async Task<Host<CoreFakeFixtures>> FixtureHostOf(CoreFakeEngine engine, LaunchOptions? options = null)
+    {
         var opened = await Launch.LaunchAsync(engine, (options ?? new LaunchOptions()) with { Cwd = _dir, Env = new Dictionary<string, string?>() });
         _hosts.Add(opened);
         return opened;
@@ -52,18 +59,24 @@ public sealed class CoreTests : IAsyncLifetime
     private static Task<ConfigurationException> Mismatch(Host target, SessionState state) =>
         Assert.ThrowsAsync<ConfigurationException>(() => target.NewSessionAsync(new NewSessionOptions { State = state }));
 
-    // Partial: the port's session has no fixtures beyond screen, app, platform, and browser (no `gadget` and no key listing), and no `agent` on it.
+    // The port's session also holds Browser, the web engine's fixture that every port session carries, so it is in the expected members.
     [Fact]
-    public async Task Partial_Opens_sessions_one_at_a_time_on_one_engine_instance_each_with_screen_app_and_platform()
+    public async Task Opens_sessions_one_at_a_time_on_one_engine_instance_each_with_screen_app_and_platform()
     {
-        var fake = new CoreFakeEngine();
-        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp });
+        var fake = new CoreFakeEngine(scene: [new SemanticNode { Ref = "price", Role = "text", Name = "Price", Text = "39,000", TestId = "sale-price" }]);
+        var opened = await FixtureHostOf(fake, new LaunchOptions { App = FakeApp });
 
         Assert.Equal("fake", opened.Platform);
         var first = await opened.NewSessionAsync();
         await first.App.OpenAsync("/");
-        Assert.Equal("fake", first.Platform);
-        Assert.NotNull(first.Screen);
+        Assert.Equal("39,000", await first.Screen.GetByTestId("sale-price").TextContentAsync());
+        Assert.Equal("gadget on fake", first.Fixtures.Gadget);
+        var members = typeof(Session<CoreFakeFixtures>).GetProperties().Select(member => member.Name)
+            .Concat(typeof(Session<CoreFakeFixtures>).GetMethods().Where(method => !method.IsSpecialName && method.DeclaringType != typeof(object)).Select(method => method.Name))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+        Assert.Equal(["App", "Browser", "CloseAsync", "DisposeAsync", "Fixtures", "Platform", "SaveStateAsync", "Screen", "SetDefaultTimeout"], members);
+        Assert.Null(typeof(Session<CoreFakeFixtures>).GetProperty("Agent"));
         Assert.Equal("WORKER_PROTOCOL", (await Assert.ThrowsAsync<EngineException>(() => opened.NewSessionAsync())).Code);
         await first.CloseAsync();
         await first.CloseAsync();

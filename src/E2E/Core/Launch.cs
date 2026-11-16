@@ -83,7 +83,7 @@ public sealed record NewSessionOptions
 /// One isolated session: a browser context, or the app on a device. Holds <see cref="Screen"/>, <see cref="App"/>, <see cref="Platform"/>, and
 /// <see cref="Browser"/>. Upstream's <c>Session</c> and <c>SessionControls</c> (<c>core/launch.ts</c>), over the port's <see cref="E2ESession"/>.
 /// </summary>
-public sealed class Session : IAsyncDisposable
+public class Session : IAsyncDisposable
 {
     private readonly E2ESession _session;
     private readonly StandaloneAttempt _attempt;
@@ -112,6 +112,9 @@ public sealed class Session : IAsyncDisposable
 
     /// <summary>The engine's platform label: <c>web</c>, <c>ios</c>, <c>android</c>, or an engine's own string.</summary>
     public string Platform => _session.Context.Platform;
+
+    /// <summary>The engine's own session behind this one, which <see cref="IEngine{TFixtures}.CreateFixtures"/> builds the engine's fixtures from.</summary>
+    internal IEngineSession EngineSession => Engine.EngineSession.Unwrap(_session.Engine);
 
     internal E2ESession E2E => _session;
 
@@ -180,6 +183,23 @@ public sealed class Session : IAsyncDisposable
     }
 }
 
+/// <summary>
+/// A session on an engine that contributes fixtures of its own: <see cref="Fixtures"/> holds them, such as <c>Device</c> on a mobile engine. Upstream's
+/// <c>Session&lt;Fixtures&gt;</c> (<c>core/launch.ts</c>), the session type intersected with the engine's fixtures; C# has no intersection, so the
+/// engine's fixtures are one member.
+/// </summary>
+/// <typeparam name="TFixtures">What the engine contributes, as <see cref="IEngine{TFixtures}"/> declares.</typeparam>
+public sealed class Session<TFixtures> : Session
+    where TFixtures : class
+{
+    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed, Func<IEngineSession, TFixtures> fixtures)
+        : base(attempt, identity, internals, onClosed) =>
+        Fixtures = fixtures(EngineSession);
+
+    /// <summary>What the engine contributes beside <see cref="Session.Screen"/>, <see cref="Session.App"/>, and <see cref="Session.Platform"/>.</summary>
+    public TFixtures Fixtures { get; }
+}
+
 /// <summary>One engine instance, initialized: the owner of the sessions opened on it, one at a time. Upstream's <c>Host</c> (<c>core/launch.ts</c>).</summary>
 public sealed class Host : IAsyncDisposable
 {
@@ -194,12 +214,14 @@ public sealed class Host : IAsyncDisposable
     private readonly TimeSpan? _timeout;
     private readonly LaunchApp? _app;
     private readonly bool _headed;
+    private readonly Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session> _newSession;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Session? _open;
 
-    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed)
+    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession = null)
     {
+        _newSession = newSession ?? ((attempt, sessionIdentity, internals, onClosed) => new Session(attempt, sessionIdentity, internals, onClosed));
         _headed = headed;
         _app = app;
         _host = host;
@@ -246,7 +268,7 @@ public sealed class Host : IAsyncDisposable
             try
             {
                 failures.Watch(attempt.Session.Recorder);
-                var session = new Session(attempt, _identity, new SessionInternals(attempt, _projectRoot, failures), () => Release(attempt));
+                var session = _newSession(attempt, _identity, new SessionInternals(attempt, _projectRoot, failures), () => Release(attempt));
                 if (_timeout is { } timeout)
                 {
                     session.SetDefaultTimeout(timeout);
@@ -374,6 +396,34 @@ public sealed class Host : IAsyncDisposable
 }
 
 /// <summary>
+/// A host on an engine that contributes fixtures: its sessions are <see cref="Session{TFixtures}"/>. Upstream's <c>Host&lt;Fixtures&gt;</c> (<c>core/launch.ts</c>).
+/// </summary>
+/// <typeparam name="TFixtures">What the engine contributes, as <see cref="IEngine{TFixtures}"/> declares.</typeparam>
+public sealed class Host<TFixtures> : IAsyncDisposable
+    where TFixtures : class
+{
+    private readonly Host _host;
+
+    internal Host(Host host) => _host = host;
+
+    /// <inheritdoc cref="Host.Platform"/>
+    public string Platform => _host.Platform;
+
+    /// <inheritdoc cref="Host.Secret"/>
+    public Secret Secret(string name) => _host.Secret(name);
+
+    /// <inheritdoc cref="Host.NewSessionAsync"/>
+    public async Task<Session<TFixtures>> NewSessionAsync(NewSessionOptions? options = null, CancellationToken cancellationToken = default) =>
+        (Session<TFixtures>)await _host.NewSessionAsync(options, cancellationToken).ConfigureAwait(false);
+
+    /// <inheritdoc cref="Host.CloseAsync"/>
+    public Task CloseAsync() => _host.CloseAsync();
+
+    /// <inheritdoc cref="CloseAsync"/>
+    public ValueTask DisposeAsync() => _host.DisposeAsync();
+}
+
+/// <summary>
 /// <c>launch</c> from <c>@e2e-dev/core</c>: drive a browser or a device from plain code, with no test runner, config file, or report. A host is
 /// one worker on one engine instance: it prepares the engine, initializes it, and opens sessions on it one at a time. Parallel work is more hosts.
 /// Upstream's <c>core/launch.ts</c>.
@@ -391,7 +441,25 @@ public static class Launch
     /// Launches <paramref name="engine"/>: prepares it (a first-run browser download, a device lease), initializes one worker, and returns the host that
     /// opens sessions on it. Each launch needs its own engine instance.
     /// </summary>
-    public static async Task<Host> LaunchAsync(IEngine engine, LaunchOptions? options = null, CancellationToken cancellationToken = default)
+    public static Task<Host> LaunchAsync(IEngine engine, LaunchOptions? options = null, CancellationToken cancellationToken = default) =>
+        LaunchCoreAsync(engine, options, null, cancellationToken);
+
+    /// <summary>
+    /// Launches an engine that contributes fixtures (<see cref="IEngine{TFixtures}"/>), so each session of the host holds them as <see cref="Session{TFixtures}.Fixtures"/>.
+    /// Upstream's <c>launch&lt;Fixtures&gt;</c>.
+    /// </summary>
+    public static async Task<Host<TFixtures>> LaunchAsync<TFixtures>(IEngine<TFixtures> engine, LaunchOptions? options = null, CancellationToken cancellationToken = default)
+        where TFixtures : class
+    {
+        var host = await LaunchCoreAsync(
+            engine,
+            options,
+            (attempt, identity, internals, onClosed) => new Session<TFixtures>(attempt, identity, internals, onClosed, engine.CreateFixtures),
+            cancellationToken).ConfigureAwait(false);
+        return new Host<TFixtures>(host);
+    }
+
+    private static async Task<Host> LaunchCoreAsync(IEngine engine, LaunchOptions? options, Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession, CancellationToken cancellationToken)
     {
         if (engine is null)
         {
@@ -441,7 +509,7 @@ public static class Launch
                         Headed = options.Headed,
                         Notice = options.OnNotice is { } notice ? (_, message) => OpenSession.Notify(notice, message) : null,
                     }).ConfigureAwait(false);
-                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed);
+                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed, newSession);
                 }
                 catch
                 {
