@@ -22,6 +22,8 @@ internal static class Signals
     // How long the program's registrations get to cancel a signal raised again.
     private static readonly TimeSpan HandlersWait = TimeSpan.FromMilliseconds(500);
 
+    private static readonly TimeSpan SettleWait = TimeSpan.FromMilliseconds(200);
+
     private static readonly Lock Gate = new();
 
     private static readonly HashSet<Func<Task>> Closers = [];
@@ -53,11 +55,17 @@ internal static class Signals
     // Closes every registered host once, then hands the signal back to the process.
     private static void OnSignal(PosixSignalContext context)
     {
-        context.Cancel = true;
         var signal = context.Signal;
         List<Func<Task>> closers;
         lock (Gate)
         {
+            // No host is left to close: the signal is the program's own.
+            if (Closers.Count == 0)
+            {
+                return;
+            }
+
+            context.Cancel = true;
             Uninstall();
             closers = [.. Closers];
             Closers.Clear();
@@ -98,9 +106,14 @@ internal static class Signals
         try
         {
             Send(Number(signal));
-            if (seen.Task.Wait(HandlersWait) && seen.Task.Result.Cancel)
+            // Handlers run in no set order, so the context is read once they have all had a moment to run.
+            if (seen.Task.Wait(HandlersWait))
             {
-                return;
+                Thread.Sleep(SettleWait);
+                if (seen.Task.Result.Cancel)
+                {
+                    return;
+                }
             }
 
             Terminate(signal);

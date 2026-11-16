@@ -90,6 +90,21 @@ The environment the engine reads; default the process environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_LaunchOptions_HandleSignals_"></a>
+<a id="E2E_LaunchOptions_HandleSignals"></a>
+
+### HandleSignals
+
+
+```csharp
+public bool HandleSignals { get; init; }
+```
+
+
+Closes the host on SIGINT, SIGTERM, and SIGHUP, so the browsers and devices it launched do not outlive the program; the signal is raised again afterwards unless the program listens for it itself. Default `true`. A closing that fails is said on stderr. Upstream's `handleSignals`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_LaunchOptions_OnNotice_"></a>
 <a id="E2E_LaunchOptions_OnNotice"></a>
 

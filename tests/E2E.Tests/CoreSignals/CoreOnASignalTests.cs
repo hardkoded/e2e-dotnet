@@ -88,6 +88,11 @@ public sealed class CoreOnASignalTests
     [Fact]
     public async Task ClosesTheHostDisposingItsEngineThenEndsByTheSignal()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return; // The signals are POSIX; Windows has no `kill`.
+        }
+
         var ended = await Interrupt(false);
         Assert.True(ended.Signal == SigInt && ended.Disposed, ended.Stderr);
         Assert.DoesNotContain("failed", ended.Stderr, StringComparison.Ordinal);
@@ -96,6 +101,11 @@ public sealed class CoreOnASignalTests
     [Fact]
     public async Task EndsBySighupThoughTheEngineListensForItAndLeavesAProgramThatListensItselfToDecide()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return; // The signals are POSIX; Windows has no `kill`.
+        }
+
         var alone = await Interrupt(false, SigHup);
         Assert.True(alone.Signal == SigHup && alone.Disposed, alone.Stderr);
         var listening = await Interrupt(false, SigHup, listens: true);
@@ -105,6 +115,11 @@ public sealed class CoreOnASignalTests
     [Fact]
     public async Task SaysOnStderrThatACloseFailedAndStillEndsByTheSignal()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return; // The signals are POSIX; Windows has no `kill`.
+        }
+
         var ended = await Interrupt(true);
         Assert.Equal(SigInt, ended.Signal);
         Assert.Contains("closing a host on SIGINT failed", ended.Stderr, StringComparison.Ordinal);
