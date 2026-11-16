@@ -32,6 +32,7 @@ internal sealed class RefRegistry
     private readonly Queue<string> _locatedOrder = new();
     private int _counter;
     private int _capture;
+    private Func<ActionTarget, Task>? _afterObservedLookup;
     private Dictionary<string, ListedTarget> _observation = new(StringComparer.Ordinal);
 
     public string MintId()
@@ -144,6 +145,7 @@ internal sealed class RefRegistry
     /// </summary>
     public async Task<(ActionTarget Target, IDisposable Pin)> LookupObservedPinnedAsync(string id)
     {
+        var after = Interlocked.Exchange(ref _afterObservedLookup, null);
         ListedTarget observed;
         IDisposable pin;
         lock (_gate)
@@ -164,7 +166,13 @@ internal sealed class RefRegistry
 
         try
         {
-            return (new ElementTarget(await observed.List.AtAsync(observed.Index).ConfigureAwait(false)), pin);
+            var resolved = new ElementTarget(await observed.List.AtAsync(observed.Index).ConfigureAwait(false));
+            if (after is not null)
+            {
+                await after(resolved).ConfigureAwait(false);
+            }
+
+            return (resolved, pin);
         }
         catch
         {
@@ -172,6 +180,13 @@ internal sealed class RefRegistry
             throw;
         }
     }
+
+    /// <summary>
+    /// Runs <paramref name="work"/> once, with the target the next <see cref="LookupObservedPinnedAsync"/> resolved, before that lookup
+    /// returns. .NET-only test seam: upstream's tests wrap <c>RefRegistry.prototype.lookup</c> with <c>vi.spyOn(...).mockImplementationOnce</c>
+    /// to act between the lookup and the page call, and the port has no prototype to spy on.
+    /// </summary>
+    internal void OnceAfterObservedLookup(Func<ActionTarget, Task> work) => _afterObservedLookup = work;
 
     /// <summary>Starts a capture, preventing older in-flight observations from publishing afterward.</summary>
     public int BeginCapture()
