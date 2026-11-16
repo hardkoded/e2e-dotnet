@@ -99,7 +99,16 @@ public sealed class CoreAgent
     /// </summary>
     public async Task<ActResult> ActAsync(string instruction, CachingActOptions? options = null, CancellationToken cancellationToken = default)
     {
-        ActOptions? rest = options;
+        var rest = options is null ? null : new ActOptions
+        {
+            Params = options.Params,
+            Timeout = options.Timeout,
+            MaxSteps = options.MaxSteps,
+            MaxModelCalls = options.MaxModelCalls,
+            Agent = options.Agent,
+            OnAction = options.OnAction,
+            OnBeforeAction = options.OnBeforeAction,
+        };
         var cacheKey = options?.CacheKey;
         var perCall = options?.Cache;
         if (_cacheFor is null)

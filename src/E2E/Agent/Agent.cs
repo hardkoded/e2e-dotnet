@@ -84,8 +84,16 @@ public sealed partial class Agent
     // Upstream's `select` of the agent context: the agent a call runs as. A core agent is the one it was created with.
     private ResolvedAgent Select(string? name) => _binding is null ? _scope.Select(name) : _binding.Select(name);
 
-    public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default) =>
-        _scope.Track(RunActStepAsync(instruction, options, cancellationToken));
+    public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        // A test's agent has no cache of its own to name: a recording is keyed by the test, so CachingActOptions belongs to a core agent.
+        if (options is CachingActOptions)
+        {
+            throw new TestException("INVALID_ARGUMENT", "CachingActOptions (CacheKey, Cache) is for an agent created with CoreAgents.CreateAgent; pass ActOptions");
+        }
+
+        return _scope.Track(RunActStepAsync(instruction, options, cancellationToken));
+    }
 
     public Task AssertAsync(string statement, AssertOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -1753,7 +1761,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
     private Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey>? _claimKey;
 
     private Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey> Claimer() =>
-        _claimKey ??= CacheContexts.KeyClaimer(CacheProjectId, TestTitle, new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, AppIdentity));
+        LazyInitializer.EnsureInitialized(ref _claimKey, () => CacheContexts.KeyClaimer(CacheProjectId, TestTitle, new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, AppIdentity)))!;
 
     /// <summary>The cache context of one act of this attempt, or null when its cache is off: the store and mode the attempt resolved, and its key claims.</summary>
     internal AgentCacheContext? ActCache() =>

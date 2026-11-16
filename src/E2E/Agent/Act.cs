@@ -209,7 +209,13 @@ public sealed partial class Agent
                         AppOrigin = _scope.AppOrigin,
                     });
                 _scope.Acts.Add(session.Pending);
-                cache.Staged?.Add(session.Pending);
+                if (cache.Staged is { } staged)
+                {
+                    lock (staged)
+                    {
+                        staged.Add(session.Pending);
+                    }
+                }
             }
 
             // The baseline a recording's delta is read from, the screen a replay starts on, and the built-in agent's first look:

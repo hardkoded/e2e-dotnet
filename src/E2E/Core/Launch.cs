@@ -166,6 +166,11 @@ public sealed class Session : IAsyncDisposable
         {
             errors.AddRange(await _attempt.CloseAsync().ConfigureAwait(false));
         }
+        catch (Exception cause) when (errors.Count > 0)
+        {
+            // What the closers found is reported with the failure of the attempt's own close.
+            errors.Add(cause);
+        }
         finally
         {
             _onClosed();

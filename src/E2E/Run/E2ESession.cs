@@ -105,12 +105,13 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The attempt's step timeline as the report tells it. Upstream's <c>steps()</c>, which returns <c>StepRecord[]</c>.</summary>
     public IReadOnlyList<E2E.Reports.ReportStep> Steps() => [.. StepRecords.Select(StepProgressWire.Public)];
 
-    /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
     /// <summary>The attempt's step timeline, which a program's agent reads the verified steps off (upstream's <c>attempt.steps</c>).</summary>
     internal StepRecorder Recorder => _scope.Steps;
 
     /// <summary>The attempt's scope, which a program's agent runs over (upstream's <c>attempt.agentRuntime</c>).</summary>
     internal AttemptScope Scope => _scope;
+
+    /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
 
     internal IReadOnlyList<StepRecord> StepRecords => _scope.Steps.All();
 

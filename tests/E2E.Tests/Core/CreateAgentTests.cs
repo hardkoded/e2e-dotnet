@@ -27,13 +27,20 @@ public sealed class CreateAgentTests : IAsyncLifetime
             {
                 await opened.CloseAsync();
             }
-            catch (AggregateException)
+            catch (Exception)
             {
                 // Closing is checked by the tests that look at it.
             }
         }
 
-        Directory.Delete(_dir, recursive: true);
+        try
+        {
+            Directory.Delete(_dir, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A directory a process still holds is the system's to clean.
+        }
     }
 
     /// <summary>Upstream's <c>shop()</c>: a product page whose button leads to a cart with a coupon and a payment button.</summary>

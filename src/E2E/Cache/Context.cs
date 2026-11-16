@@ -125,8 +125,13 @@ internal static class CacheContexts
             return;
         }
 
-        var acts = new List<PendingAct>(staged);
-        staged.Clear();
+        List<PendingAct> acts;
+        lock (staged)
+        {
+            acts = [.. staged];
+            staged.Clear();
+        }
+
         if (settlement is null || context.Mode != CacheMode.ReadWrite)
         {
             return;
