@@ -19,10 +19,10 @@ All tests are in the `RealModel` and `Device` categories. They need a device, so
 ## Build the app
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64
+dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64
 ```
 
-This writes `samples/MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileApp.app`, the path the tests install by default. The Android path was not run. To try it, build `-f net10.0-android -t:SignAndroidPackage`, boot an emulator, and run the tests with `E2E_MOBILE_PLATFORM=android`. Also set `E2E_MOBILE_APP_PATH` to the `.apk`: `e2e.config.json` holds the iOS build path only.
+This writes `samples/MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileApp.app`, the path the tests install by default. The Android path was not run. To try it, build `-f net11.0-android -t:SignAndroidPackage`, boot an emulator, and run the tests with `E2E_MOBILE_PLATFORM=android`. Also set `E2E_MOBILE_APP_PATH` to the `.apk`: `e2e.config.json` holds the iOS build path only.
 
 The app is not in `E2E.slnx`. A machine without the MAUI workload could not build it, and CI (Linux) has none. The test project is in `E2E.slnx`, because it is plain .NET and builds anywhere.
 
@@ -63,7 +63,7 @@ The first test installs the build, and every test launches the app fresh. When y
 The tests can run on a hosted [Limrun](https://limrun.com) iOS simulator instead of a local one. You need a Limrun API key and a build of the app for the simulator.
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -p:ValidateXcodeVersion=false
+dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64 -p:ValidateXcodeVersion=false
 export LIMRUN_API_KEY=...
 E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 ```
@@ -79,7 +79,7 @@ On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` f
 The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent (`builder.AddMauiDevFlowAgent()` in `MauiProgram.cs`). With `E2E_MOBILE_PROVIDER=devflow`, the tests drive the app through that agent instead of agent-device: no Node, and the MAUI visual tree with every `AutomationId`. The tests attach to a running app, so launch it first:
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64 -t:Run
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
 
