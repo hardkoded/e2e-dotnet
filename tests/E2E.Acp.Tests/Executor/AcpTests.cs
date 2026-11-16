@@ -479,7 +479,7 @@ public sealed class AcpTests : IDisposable
         finally
         {
             release.TrySetResult();
-            await Task.WhenAny(run).ConfigureAwait(false);
+            await Task.WhenAny(run);
             await run.ContinueWith(_ => { }, TaskScheduler.Default);
         }
 
