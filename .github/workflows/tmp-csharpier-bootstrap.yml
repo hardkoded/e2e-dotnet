@@ -22,7 +22,7 @@ jobs:
           dotnet new tool-manifest
           dotnet tool install csharpier
           dotnet tool install husky
-          cp .config/dotnet-tools.json out/
+          cp dotnet-tools.json out/
           dotnet husky install
           dotnet husky add pre-push -c "dotnet husky run --group pre-push"
           ls -la .husky; cat .husky/task-runner.json || true; cat .husky/pre-push
@@ -32,8 +32,8 @@ jobs:
         run: |
           dotnet csharpier format . 2>&1 | tail -20
           git add -N . 
-          git diff --binary -- . ':!.config' ':!.husky' > out/format.patch
-          git diff --stat -- . ':!.config' ':!.husky' | tail -5
+          git diff --binary -- . ':!dotnet-tools.json' ':!.husky' > out/format.patch
+          git diff --stat -- . ':!dotnet-tools.json' ':!.husky' | tail -5
           dotnet csharpier check . && echo CHECK_OK
       - name: Restore
         run: dotnet restore E2E.slnx 2>&1 | tail -20
