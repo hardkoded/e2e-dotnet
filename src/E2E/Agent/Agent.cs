@@ -1599,7 +1599,13 @@ internal sealed class AttemptScope : ISecretFillRuntime
     /// <summary>The attempt's step timeline: every public call that touches the app is a step, and the ledger later steps read is derived from it.</summary>
     public StepRecorder Steps => LazyInitializer.EnsureInitialized(
         ref _recorder,
-        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), OnProgress = OnProgress, ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope, Signal = () => Token() }));
+        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), OnProgress = OnProgress, ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope, Signal = () => Token(), RedactThrown = RedactThrown, RetainSteps = RetainSteps }));
+
+    /// <summary>Throws a failed step's error classified and redacted; see <see cref="StepRecorderOptions.RedactThrown"/>.</summary>
+    public bool RedactThrown { get; init; }
+
+    /// <summary>How many finished steps the timeline keeps; see <see cref="StepRecorderOptions.RetainSteps"/>.</summary>
+    public int? RetainSteps { get; init; }
 
     /// <summary>Live progress of the attempt's steps; null feeds none.</summary>
     public Action<StepProgress>? OnProgress { get; init; }

@@ -39,6 +39,42 @@ public sealed class StepRecorderLastVerifiedStepIndexTests
     }
 
     [Fact]
+    public async Task Keeps_counting_step_indexes_when_it_retains_only_the_newest_steps()
+    {
+        var steps = new StepRecorder("attempt", new StepRecorderOptions { RetainSteps = 2 });
+        for (var index = 0; index < 5; index++)
+        {
+            await steps.RunAsync(StepKind.Locator, "locator.textContent", "row " + index, Pass);
+        }
+
+        await steps.RunAsync(StepKind.Locator, "locator.waitFor", "toast → visible", Pass, new StepRunOptions { Verifies = true });
+
+        Assert.Equal([4, 5], steps.All().Select(step => step.Index));
+        Assert.Equal(5, steps.LastVerifiedStepIndex);
+    }
+
+    // A .NET exception's message cannot be edited in place, so where upstream checks that the thrown error was redacted as it stands, this
+    // checks that the error that reaches the caller, and its cause, carry no secret.
+    [Fact]
+    public async Task Throws_a_failed_steps_error_classified_and_redacted_when_asked_to()
+    {
+        static string Redact(string text) => text.Replace("hunter2", "[SECRET]", StringComparison.Ordinal);
+        var thrown = new InvalidOperationException("the page printed hunter2", new InvalidOperationException("driver saw hunter2"));
+        var steps = new StepRecorder("attempt", new StepRecorderOptions { Redact = Redact, RedactThrown = true });
+
+        var caught = await Assert.ThrowsAsync<TestException>(() => steps.RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(thrown)));
+
+        Assert.Equal("ERROR", caught.Code);
+        Assert.DoesNotContain("hunter2", caught.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain("hunter2", caught.InnerException!.Message, StringComparison.Ordinal);
+
+        var kept = new InvalidOperationException("the page printed hunter2");
+        var left = await Assert.ThrowsAsync<InvalidOperationException>(() => new StepRecorder("attempt", new StepRecorderOptions { Redact = Redact })
+            .RunAsync(StepKind.App, "app.open", "/", () => Task.FromException(kept)));
+        Assert.Contains("hunter2", left.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Does_not_advance_on_a_verification_step_that_failed()
     {
         var steps = new StepRecorder("attempt");

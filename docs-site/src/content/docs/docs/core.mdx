@@ -1,0 +1,94 @@
+---
+title: Drive an app without a test runner
+description: Launch a browser or a device from plain C# code, with an optional agent and no test framework.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+`Launch.LaunchAsync` drives a browser or an iOS or Android app from plain code. It uses the e2e engines, `Screen`, and `App`, without a test framework: there is no config file, no report, and no `Expect`. Use it for scripts, automation, scrapers, and bots. This page ports upstream's `docs/core.mdx` (`@e2e-dev/core`); the .NET library is one package, so there is nothing separate to install.
+
+## Drive a browser
+
+`Launch.LaunchAsync` prepares an engine and returns a `Host`. A `Session` is one isolated browser context on that host, and it holds `Screen`, `App`, `Platform`, and `Browser`.
+
+```csharp
+using E2E;
+using E2E.Engine;
+
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions { App = new LaunchApp { Url = "https://shop.example.com" } });
+
+foreach (var sku in new[] { "A-1001", "B-2040" })
+{
+    await using var session = await shop.NewSessionAsync();
+    await session.App.OpenAsync($"/products/{sku}");
+    var price = await session.Screen.GetByTestId("sale-price").TextContentAsync();
+    Console.WriteLine($"{sku} {price}");
+}
+```
+
+`Screen` and `App` are the same API as in a test. `await using` closes each session at the end of its block, and the host, with its browser, at the end of the scope.
+
+| Rule | Behavior |
+| --- | --- |
+| Ownership | Each `LaunchAsync` takes its own engine instance. A second host on the same instance fails with `WORKER_PROTOCOL`. |
+| Sessions | One session at a time on a host. Close it before `NewSessionAsync()`. For parallel work, launch more hosts. |
+| Timeouts | An action, a wait, or a read gets `LaunchOptions.Timeout`, 30 seconds by default. There is no session deadline. |
+| Cancellation | The token passed to `LaunchAsync` and `NewSessionAsync` stops what is running. |
+| Files | Screenshots and downloads go to a temp directory that is deleted when the host closes. Set `ArtifactsDir` to keep them; a relative path resolves from `Cwd`. |
+| Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
+
+<Aside type="note">
+Not ported yet: `setDefaultTimeout`, the longer open and restart timeout, closing the host on SIGINT, SIGTERM, and SIGHUP, `app.linkBase` for `App.OpenAsync(path)` on a device, and `createAgent`. A web engine shows its window through its own options, not a `Headed` launch option. Issues [#1674](https://github.com/hardkoded/e2e-dotnet/issues/1674), [#1675](https://github.com/hardkoded/e2e-dotnet/issues/1675), [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676), [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677), and [#1678](https://github.com/hardkoded/e2e-dotnet/issues/1678) track them.
+</Aside>
+
+## Keep a signed-in state
+
+`session.SaveStateAsync()` captures a browser session's cookies and storage in memory. Close that session, then start another from the state with `NewSessionAsync(new NewSessionOptions { State = state })`. An engine with no state capability fails with `UNSUPPORTED_CAPABILITY`.
+
+```csharp
+var state = await session.SaveStateAsync();
+await session.CloseAsync();
+await using var next = await shop.NewSessionAsync(new NewSessionOptions { State = state });
+```
+
+To keep a state between program runs, encrypt it with a 32-byte key that you keep, for example in a secret store. There is no plaintext export.
+
+```csharp
+var key = new SessionStateKeyOptions { Key = RandomNumberGenerator.GetBytes(32) };
+byte[] bytes = await state.ExportAsync(key); // write these to disk
+var restored = await SessionState.ImportAsync(bytes, key);
+```
+
+The document is `session-state-1` ([schema](https://github.com/hardkoded/e2e-dotnet/blob/main/schema/session-state-v1.schema.json)): the engine, the platform, a digest of the app, and the names of the secrets are in the clear and authenticated, and everything else is in the ciphertext.
+
+A state restores only on a host of the same engine, platform, and app. Another is `SESSION_MISMATCH`. Two addresses of one app, such as `localhost` and `127.0.0.1`, are two apps unless both hosts set the same `LaunchApp.Identity`. A wrong key or a changed byte is `SESSION_INVALID`, and an expired state is `SESSION_EXPIRED`.
+
+## Pass secrets
+
+Give secret values to `LaunchAsync`, then fill them by name.
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
+{
+    App = new LaunchApp { Url = "https://shop.example.com" },
+    Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = Environment.GetEnvironmentVariable("SHOP_PASSWORD")! },
+});
+await session.Screen.GetByLabel("Password").FillAsync(shop.Secret("SHOP_PASSWORD"));
+```
+
+A value is at least 6 characters. It never appears in the errors a session throws, in `Screen.TreeAsync()`, or in what the agent reads. A read your code asks for, such as `TextContentAsync()`, returns the page's text as it is. An exported state holds the values the session knew, encrypted, so a host launched without them still redacts them. `Host.Secret` with a name that was not passed throws `SECRET_UNAVAILABLE`.
+
+## Handle errors
+
+Every failure is an `E2EException` with a `Code`. A step that fails in a session throws it classified and redacted, with no report around it: an engine's own failure is `ENGINE_FAILURE`, and a cause that held a secret value is rebuilt with it replaced.
+
+| Code | When |
+| --- | --- |
+| `LOCATOR_NOT_FOUND` | Nothing matched before the timeout. |
+| `WORKER_PROTOCOL` | A second session on a host, a second host on one engine instance, or a closed host. |
+| `SESSION_MISMATCH` | A state restored on another engine, platform, or app. |
+| `SESSION_INVALID` | A state document that is not `session-state-1`, or that failed authentication. |
+| `SESSION_EXPIRED` | A state past its expiry. |
+| `SECRET_UNAVAILABLE` | `Host.Secret` named a secret that was not passed. |
+
+[Errors](/reference/errors) lists every code.

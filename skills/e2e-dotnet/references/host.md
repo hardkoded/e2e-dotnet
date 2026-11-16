@@ -8,6 +8,7 @@
 - Closing: the failures it returns
 - Steps and the report
 - Limits
+- Launch without a config or a runner
 
 `E2EHost` (upstream's `openHost`) is for a test runner that is not NUnit or
 xUnit and wants isolated per-test sessions: it loads the config, starts the
@@ -78,3 +79,25 @@ trace mode. The page stands alone: it has no `report.json` to point at.
 
 - The engine starts and is disposed once for each session, not once for the host.
 - There is no `extend`, so `Fixtures` has no extra members.
+
+## Launch without a config or a runner
+
+For a script, a scraper, or a bot there is no config file and no report: `Launch.LaunchAsync` (upstream's `launch` from `@e2e-dev/core`) takes an engine and
+the app, and returns a `Host` that opens one `Session` at a time. A session holds `Screen`, `App`, `Platform`, and `Browser`.
+
+```csharp
+await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions
+{
+    App = new LaunchApp { Url = "https://shop.example.com" },
+    Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = password },
+});
+await using var session = await shop.NewSessionAsync();
+await session.App.OpenAsync("/signin");
+await session.Screen.GetByLabel("Password").FillAsync(shop.Secret("SHOP_PASSWORD"));
+```
+
+- A second `LaunchAsync` on an engine instance another host owns, and a second open session on a host, fail with `WORKER_PROTOCOL`. Parallel work is more hosts.
+- A secret value is at least 6 characters, and is redacted from the errors a session throws and from `Screen.TreeAsync()`. `Host.Secret(name)` with another name is `SECRET_UNAVAILABLE`.
+- `LaunchOptions.Timeout` bounds an action, a wait, and a read; there is no session deadline. `ArtifactsDir` keeps screenshots and downloads (a relative path resolves from `Cwd`); without it they go to a temp directory deleted when the host closes.
+- `await session.SaveStateAsync()` captures cookies and storage in memory. Pass it to `shop.NewSessionAsync(new NewSessionOptions { State = state })`. To keep it between runs, `state.ExportAsync(new SessionStateKeyOptions { Key = key })` with a 32-byte key you keep, and `SessionState.ImportAsync(bytes, options)`. A state restores only on the same engine, platform, and app (`SESSION_MISMATCH`; give two addresses of one app the same `LaunchApp.Identity`), a wrong key or changed byte is `SESSION_INVALID`, and an old one `SESSION_EXPIRED`.
+- Not ported yet: `SetDefaultTimeout`, closing on signals, `app.linkBase`, and `createAgent` (issues 1674 to 1678).

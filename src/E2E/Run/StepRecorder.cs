@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using E2E.Internal;
 
 namespace E2E;
@@ -31,9 +32,14 @@ internal sealed class StepRecorder
     private readonly CancellationToken _cancellation;
     private readonly Func<CancellationToken>? _signal;
     private readonly AiTraceScope? _aiTrace;
+    private readonly bool _redactThrown;
+    private readonly int? _retainSteps;
     private readonly Lock _gate = new();
     private readonly List<StepRecord> _steps = [];
     private readonly AsyncLocal<StepRecord?> _scope = new();
+
+    // Steps opened so far, the next step's index: _steps may have dropped its oldest.
+    private int _opened;
 
     // IDs of steps whose bodies are still executing.
     private readonly HashSet<string> _running = [];
@@ -78,6 +84,8 @@ internal sealed class StepRecorder
         _cancellation = options.Cancellation;
         _signal = options.Signal;
         _aiTrace = options.AiTrace;
+        _redactThrown = options.RedactThrown;
+        _retainSteps = options.RetainSteps;
     }
 
     /// <summary>
@@ -139,7 +147,7 @@ internal sealed class StepRecorder
         StepRecord record;
         lock (_gate)
         {
-            var index = _steps.Count;
+            var index = _opened++;
             record = new StepRecord
             {
                 Id = _attemptId + ":" + index.ToString(CultureInfo.InvariantCulture),
@@ -153,6 +161,13 @@ internal sealed class StepRecorder
                 Phase = phase,
             };
             _steps.Add(record);
+
+            // Only a finished step is dropped, and only from the front, so a long-running one keeps its record.
+            while (_retainSteps is { } retain && _steps.Count > retain && !ReferenceEquals(_steps[0], record) && !_running.Contains(_steps[0].Id))
+            {
+                _steps.RemoveAt(0);
+            }
+
             _running.Add(record.Id);
         }
 
@@ -219,7 +234,26 @@ internal sealed class StepRecorder
                 ? StepStatus.Cancelled
                 : cause is AgentException { Blocked: true } ? StepStatus.Blocked : StepStatus.Failed;
             record.Error = ErrorSerializer.Serialize(cause, _projectRoot, _redact);
-            throw;
+            if (!_redactThrown || _redact is null || record.Status == StepStatus.Cancelled)
+            {
+                throw;
+            }
+
+            // A .NET exception's message is read-only, so one that carries a secret is rebuilt with the redacted text, keeping its type and code.
+            var safe = ErrorRedaction.Cause(cause, _redact)!;
+            if (ReferenceEquals(safe, cause))
+            {
+                // Classified too: an error with no code is a test failure with code ERROR, as ErrorSerializer.Classify reads it.
+                if (cause is E2EException or OperationCanceledException)
+                {
+                    throw;
+                }
+
+                safe = new TestException(record.Error.Code, cause.Message, cause);
+            }
+
+            ExceptionDispatchInfo.Throw(safe);
+            throw safe;
         }
         finally
         {

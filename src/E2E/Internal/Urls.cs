@@ -15,6 +15,19 @@ internal sealed record NormalizedBaseUrl(string Href, string Origin, string Base
 /// <summary>URL normalization and origin policy helpers.</summary>
 public static partial class Urls
 {
+    /// <summary>The schemes a device link may not take: the ones that read local content or inline a document, and the browser wrappers that carry one inside. Upstream's <c>REFUSED_LINK_SCHEMES</c>.</summary>
+    private static readonly HashSet<string> RefusedLinkSchemes = ["file:", "data:", "javascript:", "view-source:", "blob:", "filesystem:"];
+
+    /// <summary>
+    /// Whether a link's scheme (with its colon, as <c>Uri.Scheme + ":"</c>) is one no app link may take, in any case. A device link is any app's
+    /// custom scheme, so links are checked against this list rather than the http(s) rule navigation follows. Upstream's <c>isRefusedLinkScheme</c>.
+    /// </summary>
+    public static bool IsRefusedLinkScheme(string protocol)
+    {
+        ArgumentNullException.ThrowIfNull(protocol);
+        return RefusedLinkSchemes.Contains(protocol.ToLowerInvariant());
+    }
+
     /// <summary>
     /// Parses and normalizes the app base URL. Rejects userinfo, query, and fragment. <see cref="Uri"/> handles
     /// IDNA ASCII hosts, dot segments, and default-port removal. A URL without a scheme gets <c>https://</c>, or
