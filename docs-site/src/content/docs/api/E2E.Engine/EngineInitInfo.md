@@ -44,6 +44,21 @@ The run's environment with what prepare left in it.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Engine_EngineInitInfo_Headed_"></a>
+<a id="E2E_Engine_EngineInitInfo_Headed"></a>
+
+### Headed
+
+
+```csharp
+public bool Headed { get; init; }
+```
+
+
+Whether the run asked for a visible surface (`--headed`). Upstream's `headed`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineInitInfo_Log_"></a>
 <a id="E2E_Engine_EngineInitInfo_Log"></a>
 

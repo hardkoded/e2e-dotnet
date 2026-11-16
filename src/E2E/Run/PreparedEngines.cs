@@ -21,6 +21,9 @@ internal sealed record PrepareScope
 
     /// <summary>Where a hook's progress lines go, under the target they concern. The caller redacts the line.</summary>
     public required Action<string, string> Notice { get; init; }
+
+    /// <summary>Whether the run would show the surface. Upstream's <c>headed</c> of <c>ProvisionScope</c>.</summary>
+    public bool Headed { get; init; }
 }
 
 /// <summary>What <see cref="PreparedEngines.FinishAsync"/> is given. Upstream's <c>FinishScope</c> (<c>run/provision.ts</c>).</summary>
@@ -156,6 +159,7 @@ internal sealed class PreparedEngines
                 ProjectRoot = scope.ProjectRoot,
                 Slots = slots,
                 Env = scope.Env,
+                Headed = scope.Headed,
                 Log = line => scope.Notice(targetName, line),
             },
             hookToken).ConfigureAwait(false);

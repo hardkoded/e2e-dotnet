@@ -108,14 +108,14 @@ public sealed partial class WebEngine : IAsyncDisposable
         var finish = new EngineFinishInfo { RunId = runId, TargetName = target, Env = env, Log = Log };
         try
         {
-            var prepared = await leases.PrepareAsync(new EnginePrepareInfo { RunId = runId, TargetName = target, Slots = 1, Env = env, Log = Log }, cancellationToken).ConfigureAwait(false);
+            var prepared = await leases.PrepareAsync(new EnginePrepareInfo { RunId = runId, TargetName = target, Slots = 1, Env = env, Headed = options.Headed, Log = Log }, cancellationToken).ConfigureAwait(false);
             var workerEnv = new Dictionary<string, string?>(env);
             foreach (var (name, value) in prepared.Env)
             {
                 workerEnv[name] = value;
             }
 
-            leases.Init(new EngineInitInfo { RunId = runId, TargetName = target, WorkerSlot = 0, Env = workerEnv, Log = Log });
+            leases.Init(new EngineInitInfo { RunId = runId, TargetName = target, WorkerSlot = 0, Env = workerEnv, Headed = options.Headed, Log = Log });
         }
         catch
         {

@@ -260,6 +260,12 @@ public static partial class EngineManifest
     /// <summary>Fixture names an engine may not shadow: the universal fixtures.</summary>
     private static readonly HashSet<string> ReservedFixtures = ["agent", "app", "screen", "platform", "session"];
 
+    /// <summary>
+    /// The methods an <c>@e2e-dev/core</c> session holds beside its fixtures. A session is one flat object, so a fixture may not take one of these
+    /// names, now or when a control is added. Upstream's <c>SESSION_CONTROLS</c>.
+    /// </summary>
+    private static readonly string[] SessionControls = ["saveState", "setDefaultTimeout", "close"];
+
     /// <summary>A fixture name is lower-camel: a lower-case letter, then letters and digits.</summary>
     [GeneratedRegex("^[a-z][A-Za-z0-9]*$")]
     private static partial Regex FixtureNamePattern();
@@ -388,6 +394,11 @@ public static partial class EngineManifest
                 if (ReservedFixtures.Contains(fixture))
                 {
                     throw Invalid(name, $"fixture name \"{fixture}\" shadows a universal fixture");
+                }
+
+                if (SessionControls.Contains(fixture))
+                {
+                    throw Invalid(name, $"fixture name \"{fixture}\" is a method of every @e2e-dev/core session ({string.Join(", ", SessionControls)}); name the fixture something else");
                 }
 
                 capabilities.Add(fixture);

@@ -192,7 +192,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         // The body's operations run under the test's signal; a teardown enters a budget of its own (see EnterTeardownBudget).
-        var budget = new AttemptBudget(timeout);
+        var budget = new AttemptBudget(timeout, options.Closed);
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
@@ -225,6 +225,7 @@ public sealed class E2ESession : IAsyncDisposable
                 {
                     BaseUrl = baseUrl,
                     TargetName = options.TargetName,
+                    Headed = options.Headed,
                     RunId = AttemptReport.RunId,
                     AttemptId = attemptId,
                     Permissions = options.Permissions,
@@ -1355,6 +1356,12 @@ public sealed class E2ESessionOptions
 
     /// <summary>Throws a failed step's error classified and redacted, for a program with no report around it. Upstream's <c>redactThrown</c> of <c>StandaloneSessionOptions</c>.</summary>
     internal bool RedactThrown { get; init; }
+
+    /// <summary>What an operation fails with once the session has closed; a bare cancellation when absent. Upstream's <c>StandaloneSessionOptions.closed</c>.</summary>
+    internal Func<E2EException>? Closed { get; init; }
+
+    /// <summary>Whether the engine shows its surface; handed to the engine's start. Upstream's <c>headed</c>.</summary>
+    internal bool Headed { get; init; }
 
     /// <summary>How many finished steps the session keeps, for a program whose session has no report. Upstream's <c>retainSteps</c> of <c>StandaloneSessionOptions</c>.</summary>
     internal int? RetainSteps { get; init; }
