@@ -29,7 +29,7 @@ Install `E2E.Mobile.NUnit` (or `E2E.Mobile.XUnit.V3` or `E2E.Mobile.TUnit`) and 
       "platform": "ios",
       "app": {
         "bundleId": "dev.hardkoded.e2e.mobileapp",
-        "appPath": "../MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileApp.app"
+        "appPath": "../MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileApp.app"
       }
     }
   ]
@@ -283,7 +283,7 @@ var provider = new DevFlowAgents(new DevFlowAgentsOptions { AppName = "MobileApp
 Launch the Debug build of the app on a simulator or emulator yourself, then run the tests. The provider finds the agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64 -t:Run
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
 
