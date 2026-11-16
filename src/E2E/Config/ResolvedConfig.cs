@@ -364,7 +364,7 @@ internal sealed record ResolvedConfig
         target.Engine is { } held ? new ResolvedEngine(held.Name, CapabilityNames(held.Capabilities), held.Secrets) : null);
 
     private static HashSet<string> CapabilityNames(EngineCapabilities capabilities) =>
-        [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
+        [.. Enum.GetValues<EngineCapabilities>().Where(flag => flag != EngineCapabilities.None && capabilities.HasFlag(flag)).Select(flag => flag == EngineCapabilities.ComputedStyle ? "computed-style" : char.ToLowerInvariant(flag.ToString()[0]) + flag.ToString()[1..])];
 
     /// <summary>
     /// Every secret an engine's options hold (a <c>Secrets.Get</c> the config evaluated before any run existed) names a configured secret, so a

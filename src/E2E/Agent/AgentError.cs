@@ -38,4 +38,33 @@ internal static class AgentError
         ["ASSERTION_INCONCLUSIVE"] = "test",
         ["REPLAY_STALE"] = "configuration",
     };
+
+    /// <summary>
+    /// Upstream's <c>toAgentError</c>: a failure on the closed agent code set. An agent error stays as it is. A runner or engine code the
+    /// agent knows keeps it, <c>UNSUPPORTED_CAPABILITY</c> and <c>INVALID_CONFIG</c> are <c>POLICY_DENIED</c>, any other infrastructure
+    /// failure is <c>APP_UNREACHABLE</c>, and the rest is <c>ACTION_FAILED</c>. A caller's cancel stays a cancellation (.NET-only).
+    /// </summary>
+    public static Exception ToAgentError(Exception cause)
+    {
+        ArgumentNullException.ThrowIfNull(cause);
+        if (cause is AgentException or OperationCanceledException)
+        {
+            return cause;
+        }
+
+        var (category, code, message, _) = ErrorSerializer.Classify(cause);
+        if (StepExecutors.AgentCodes.Contains(code))
+        {
+            return new AgentException(code, message, cause);
+        }
+
+        if (code is "UNSUPPORTED_CAPABILITY" or "INVALID_CONFIG")
+        {
+            return new AgentException("POLICY_DENIED", message, blocked: true, cause);
+        }
+
+        return category == "infrastructure"
+            ? new AgentException("APP_UNREACHABLE", message, cause)
+            : new AgentException("ACTION_FAILED", message, cause);
+    }
 }

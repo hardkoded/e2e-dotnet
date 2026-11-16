@@ -88,6 +88,12 @@ public sealed record EngineSpec
     /// <summary>Takes one fresh observation of the surface under test.</summary>
     public Func<OperationContext, ObserveOptions?, Task<EngineSnapshot>>? Observe { get; init; }
 
+    /// <summary>
+    /// Reads only the requested, allow-listed rendered properties of a node the engine minted, without changing app state; needs
+    /// <see cref="Observe"/>. Throw a retryable <c>NODE_STALE</c> if the node no longer binds. The harness redacts the values.
+    /// </summary>
+    public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle { get; init; }
+
     /// <summary>Resolves a query against the surface, returning the nodes it matches.</summary>
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate { get; init; }
 
@@ -180,7 +186,7 @@ public sealed class EngineHandle
 
     public int? Workers => Spec.Workers;
 
-    /// <summary>The capabilities the spec declares: <c>observation</c>, <c>actions</c>, <c>location</c>, <c>pointer</c>, <c>keyboard</c>, <c>state</c>, <c>artifacts</c>, and each fixture name.</summary>
+    /// <summary>The capabilities the spec declares: <c>observation</c>, <c>computed-style</c>, <c>actions</c>, <c>location</c>, <c>pointer</c>, <c>keyboard</c>, <c>state</c>, <c>artifacts</c>, and each fixture name.</summary>
     public IReadOnlySet<string> Capabilities { get; }
 
     /// <summary>The action kinds <see cref="Perform"/> honors, or null without the actions capability.</summary>
@@ -193,6 +199,8 @@ public sealed class EngineHandle
     public IReadOnlyList<string>? PointerActions => Spec.PointerActions;
 
     public Func<OperationContext, ObserveOptions?, Task<EngineSnapshot>>? Observe => Spec.Observe;
+
+    public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle => Spec.ReadStyle;
 
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate => Spec.Locate;
 
@@ -286,6 +294,16 @@ public static partial class EngineManifest
         if (spec.Observe is not null)
         {
             capabilities.Add("observation");
+        }
+
+        if (spec.ReadStyle is not null)
+        {
+            if (!capabilities.Contains("observation"))
+            {
+                throw Invalid(name, "declares readStyle without observe: style targets are observation refs");
+            }
+
+            capabilities.Add("computed-style");
         }
 
         if (spec.Perform is not null)

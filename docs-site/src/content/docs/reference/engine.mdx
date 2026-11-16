@@ -83,6 +83,7 @@ One attempt's session with the app, disposed at the end of the attempt after `af
 | `ObserveAsync(ct)`, `ObserveAsync(timeout, ct)`, `ObserveAsync(options, timeout, ct)` | `Observation` | `observe` |
 | `PerformAsync(node, action, ct)`, `PerformAsync(node, action, context, ct)` | `Actions` | `perform` |
 | `ActionKinds` | `Actions`. Defaults to every kind | `actions` |
+| `ReadStyleAsync(node, properties, context, ct)` | `ComputedStyle`. Defaults to `UNSUPPORTED_CAPABILITY` | `readStyle` |
 | `PerformAtAsync(point, action, ct)`, `PerformAtAsync(point, action, context, ct)` | pointer kinds | `performAt` |
 | `PointerActionKinds` | defaults to none | `pointerActions` |
 | `PressAsync(key, ct)` | always | `keyboard.press` |
@@ -138,6 +139,7 @@ public enum OperationOrigin { Test, Agent }
 | Flag | Needs | Unlocks |
 | --- | --- | --- |
 | `Observation` | `ObserveAsync` | The judgment tier, prompt snapshots, trace replay. |
+| `ComputedStyle` | `ReadStyleAsync` | Allow-listed rendered properties of an observed node for read-only project tools (`AgentToolContext.ReadAsync`). Named `computed-style` in `requires`. |
 | `Actions` | `PerformAsync`, `ActionKinds` | Node actions of the declared kinds. |
 | `Location` | `CanLocate`, `LocateAsync` | Locator resolution by the engine. Without `CanLocate` the harness resolves queries in core over `ObserveAsync`. |
 | `Keyboard` | `TypeTextAsync`; `PressAsync` | Input to whatever holds focus; the agent's `type` and `press` without a target. |
@@ -152,6 +154,12 @@ public enum OperationOrigin { Test, Agent }
 | `Resize` | `ResizeAsync` | The agent's `resize_viewport`. .NET-only name for the optional `session.resize`. |
 | `SwitchTab` | `SwitchTabAsync` | The agent's `switch_tab`. .NET-only name for the optional `session.switchTab`. Report the tabs with `Observation.Tabs`. |
 | `CloseTab` | `CloseTabAsync` | The agent's `close_tab`. .NET-only name for the optional `session.closeTab`. |
+
+#### Rendered node properties
+
+`ReadStyleAsync(node, properties, context, ct)` returns computed CSS strings for the requested properties without changing app state. Its `ComputedStyle` capability requires `ObserveAsync`, and `node` comes from the newest observation. Return a string for every requested property. Throw retryable `NODE_STALE` if the node no longer binds. The harness redacts values before returning them to tools. A property name is a plain string, in kebab case, where upstream's `ComputedStyleProperty` is a union of literals, and `ComputedStyleValues` is an `IReadOnlyDictionary<string, string>`.
+
+`ComputedStyles.ComputedStyleProperties` (upstream's `COMPUTED_STYLE_PROPERTIES`) lists the allow-list: `color`, `background-color`, `font-size`, `font-weight`, `font-style`, `text-align`, `text-decoration-line`, `display`, `visibility`, and `opacity`. `ComputedStyles.ValidateComputedStyleProperties(properties)` returns a deduplicated copy and throws `INVALID_ARGUMENT` for an empty list or a property outside the allow-list. Call it before page access. `ComputedStyles` is the port's holder name for upstream's `computed-style.ts` functions. `EngineSpec.ReadStyle` declares it on a `DefineEngine` handle: it needs `Observe` (`readStyle without observe` is `INVALID_CONFIG`) and adds `computed-style` to `Capabilities`. The web engine implements it; the mobile engine does not, so a read there is `POLICY_DENIED` in an agent step. See the `agent` topic for `AgentToolContext.ReadAsync`. The engine protocol (`engine/readStyle`) is not in the port: the port has no JSON-RPC engine client. The manifest schema (`engine/readStyle`) is.
 
 Selection also grades a target by the kind of app it declares: a target with `app.url` has `browser`, and one with `bundleId` or `appPath` has `native-app`.
 
@@ -605,7 +613,7 @@ An engine outside the `E2E` assembly can build and expose its own fixture type t
 
 ### Exported names
 
-`E2E.Engine` exports `IEngine`, `IEngineSession`, `IEngineFixtureHost`, `IPreparableEngine`, `IDoctorEngine`, `EngineCapabilities`, `EngineStartOptions`, `EngineFixtureContext`, `EngineScreenshot`, `EnginePrepareInfo`, `EnginePrepareResult`, `EngineFinishInfo`, `EngineInitInfo`, `EngineDoctorInfo`, `EngineDoctorCheck`, `EngineDoctorStatus`, `EngineAppInfo`, `OperationContext`, `OperationOrigin`, `Observation`, `ObserveOptions`, `SemanticNode`, `NodeStates`, `BoundingBox`, `TraceViewport`, `Point`, `LocatorAction`, `PointerAction`, `EngineActionKinds`, `ScrollDirection`, `Momentum`, `KeyModifier`, `KeyModifiers`, `ObservationLimits`, `AppLogEntry`, `ProviderRecording`, `ProviderRecordings`, `ProviderRecordingTarget`, `ProviderRecordContext`, `ProviderRecordingStopContext`, `ProviderRecordingResult`, `VideoSegment`, `VideoFile`, and `VideoLink`. `E2E` exports `AppLogSource`, `AppLogLevel`, `EngineException`, `EngineErrorCodes`, `EngineState`, `LocatorExpression`, `TextMatch`, `SelectOption`, `Secret`, `AppPermissionState`, `E2EException`, `TestException`, and `ConfigurationException`. `TraceViewport` is the port's name for upstream's `ViewportSize`, and `Point` for `ViewportPoint`.
+`E2E.Engine` exports `ComputedStyles`, `IEngine`, `IEngineSession`, `IEngineFixtureHost`, `IPreparableEngine`, `IDoctorEngine`, `EngineCapabilities`, `EngineStartOptions`, `EngineFixtureContext`, `EngineScreenshot`, `EnginePrepareInfo`, `EnginePrepareResult`, `EngineFinishInfo`, `EngineInitInfo`, `EngineDoctorInfo`, `EngineDoctorCheck`, `EngineDoctorStatus`, `EngineAppInfo`, `OperationContext`, `OperationOrigin`, `Observation`, `ObserveOptions`, `SemanticNode`, `NodeStates`, `BoundingBox`, `TraceViewport`, `Point`, `LocatorAction`, `PointerAction`, `EngineActionKinds`, `ScrollDirection`, `Momentum`, `KeyModifier`, `KeyModifiers`, `ObservationLimits`, `AppLogEntry`, `ProviderRecording`, `ProviderRecordings`, `ProviderRecordingTarget`, `ProviderRecordContext`, `ProviderRecordingStopContext`, `ProviderRecordingResult`, `VideoSegment`, `VideoFile`, and `VideoLink`. `E2E` exports `AppLogSource`, `AppLogLevel`, `EngineException`, `EngineErrorCodes`, `EngineState`, `LocatorExpression`, `TextMatch`, `SelectOption`, `Secret`, `AppPermissionState`, `E2EException`, `TestException`, and `ConfigurationException`. `TraceViewport` is the port's name for upstream's `ViewportSize`, and `Point` for `ViewportPoint`.
 
 Upstream's `ENGINE_SPI_VERSION`, `LOCATOR_ACTION_KINDS` (`EngineActionKinds.Locator`), `POINTER_ACTION_KINDS` (`EngineActionKinds.Pointer`), `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES` (`EngineErrorCodes.IsRetryable`), `JsonValue`, `WithoutUndefined`, `FixtureOperation`, and the engine protocol's exports have no public port. `OBSERVED_NAME_LIMIT` and `OBSERVED_TEXT_LIMIT` are `ObservationLimits.Name` and `ObservationLimits.Text`.
 

@@ -95,4 +95,25 @@ public sealed class SdkTypesTests
         Assert.Equal(typeof(BeforeActionHook), typeof(ActOptions).GetProperty(nameof(ActOptions.OnBeforeAction))!.PropertyType);
         Assert.Null(typeof(AssertOptions).GetProperty("OnBeforeAction"));
     }
+
+    // The lines the computed-style commit adds (tester-army/e2e#1633): a project tool and an executor read the allow-listed style of a node
+    // by `{ id }` and `{ style }`. Upstream's `@ts-expect-error` lines for `content` and `--token` (a property outside the allow-list) have no
+    // counterpart: a property name is a string here, refused when the read is made (see `ComputedStylePropertiesTests`); the target is
+    // a node id and never a selector, and the options hold the style list and nothing that evaluates code.
+    [Fact]
+    public void Partial_a_tool_and_an_executor_read_the_style_of_a_listed_node_and_nothing_else()
+    {
+        var tool = typeof(AgentToolContext).GetMethod(nameof(AgentToolContext.ReadAsync), BindingFlags.Public | BindingFlags.Instance)!;
+        var executor = typeof(StepExecutorContext).GetMethod(nameof(StepExecutorContext.ReadAsync), BindingFlags.Public | BindingFlags.Instance)!;
+        foreach (var read in new[] { tool, executor })
+        {
+            Assert.Equal([typeof(ExecutorTarget), typeof(ExecutorReadOptions), typeof(CancellationToken)], read.GetParameters().Select(parameter => parameter.ParameterType));
+            Assert.Equal(typeof(Task<ExecutorReadResult>), read.ReturnType);
+        }
+
+        Assert.Equal([nameof(ExecutorReadOptions.Style)], typeof(ExecutorReadOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(property => property.Name));
+        Assert.Equal(typeof(IReadOnlyList<string>), typeof(ExecutorReadOptions).GetProperty(nameof(ExecutorReadOptions.Style))!.PropertyType);
+        Assert.Equal(typeof(IReadOnlyDictionary<string, string>), typeof(ExecutorReadResult).GetProperty(nameof(ExecutorReadResult.Style))!.PropertyType);
+        Assert.Null(typeof(ExecutorTarget).GetMethod("op_Implicit"));
+    }
 }

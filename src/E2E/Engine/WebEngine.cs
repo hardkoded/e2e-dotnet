@@ -372,6 +372,7 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.Resize
         | EngineCapabilities.SwitchTab
         | EngineCapabilities.CloseTab
+        | EngineCapabilities.ComputedStyle
         | EngineCapabilities.Upload
         | EngineCapabilities.State;
 
@@ -1711,6 +1712,67 @@ public sealed partial class WebEngine : IEngine
         private sealed record FrameScope(bool Hidden, bool InFrame, WebRect? Content);
 
         private static EngineException NoFrame(string selector) => new(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+
+        /// <summary>
+        /// Reads computed styles from the element an observation ref names, without input or actionability waits (upstream's
+        /// <c>PlaywrightSurface.readStyle</c>). The properties are checked before any page access.
+        /// </summary>
+        public Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(SemanticNode node, IReadOnlyList<string> properties, OperationContext context, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(node);
+            ArgumentNullException.ThrowIfNull(context);
+            IReadOnlyList<string> requested;
+            try
+            {
+                requested = ComputedStyles.ValidateComputedStyleProperties(properties);
+            }
+            catch (TestException refused)
+            {
+                return Task.FromException<IReadOnlyDictionary<string, string>>(refused);
+            }
+
+            return GuardAsync("read computed style", cancellationToken, async () =>
+            {
+                var budget = Budget("readstyle", cancellationToken, context.Timeout);
+                var lookup = _refs.LookupObservedPinnedAsync(node.Ref);
+                IElementHandle element;
+                IDisposable pin;
+                try
+                {
+                    var (target, held) = await budget.WithinAsync(lookup).ConfigureAwait(false);
+                    element = ((ElementTarget)target).Element;
+                    pin = held;
+                }
+                catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+                {
+                    // A lookup the deadline abandoned still pins its list when it settles.
+                    WebSupport.DisposePinWhenSettled(lookup);
+                    throw;
+                }
+                catch
+                {
+                    // A cancelled or failed wait leaves the lookup running, and it still pins its list when it settles.
+                    WebSupport.DisposePinWhenSettled(lookup);
+                    throw;
+                }
+
+                using (pin)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var style = await budget.WithinAsync(element.EvaluateAsync<Dictionary<string, string>?>(PageScript.ComputedStyle, requested.ToArray())).ConfigureAwait(false);
+                        return style is null
+                            ? throw new EngineException(EngineErrorCodes.NodeStale, "node is detached; observe again before reading", retryable: true)
+                            : (IReadOnlyDictionary<string, string>)style;
+                    }
+                    catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                    {
+                        throw WebErrors.NavigationStaleOr(ex, "read computed style");
+                    }
+                }
+            });
+        }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => PerformAsync(node, action, OperationContext.Test, cancellationToken);
 

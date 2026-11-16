@@ -67,7 +67,7 @@ public IReadOnlySet<string> Capabilities { get; }
 ```
 
 
-The capabilities the spec declares: `observation`, `actions`, `location`, `pointer`, `keyboard`, `state`, `artifacts`, and each fixture name.
+The capabilities the spec declares: `observation`, `computed-style`, `actions`, `location`, `pointer`, `keyboard`, `state`, `artifacts`, and each fixture name.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
 
@@ -267,6 +267,19 @@ public Func<EnginePrepareInfo, Task>? Prepare { get; }
 
 
 **Value:** [Func&lt;EnginePrepareInfo, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
+<a id="E2E_Engine_EngineHandle_ReadStyle_"></a>
+<a id="E2E_Engine_EngineHandle_ReadStyle"></a>
+
+### ReadStyle
+
+
+```csharp
+public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle { get; }
+```
+
+
+**Value:** [Func&lt;NodeRef, IReadOnlyList&lt;string&gt;, OperationContext, Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-4)
 
 <a id="E2E_Engine_EngineHandle_Secrets_"></a>
 <a id="E2E_Engine_EngineHandle_Secrets"></a>

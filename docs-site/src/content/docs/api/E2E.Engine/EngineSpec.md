@@ -286,6 +286,22 @@ Prepares the engine for a run.
 
 **Value:** [Func&lt;EnginePrepareInfo, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
+<a id="E2E_Engine_EngineSpec_ReadStyle_"></a>
+<a id="E2E_Engine_EngineSpec_ReadStyle"></a>
+
+### ReadStyle
+
+
+```csharp
+public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle { get; init; }
+```
+
+
+Reads only the requested, allow-listed rendered properties of a node the engine minted, without changing app state; needs
+[Observe](#E2E_Engine_EngineSpec_Observe). Throw a retryable `NODE_STALE` if the node no longer binds. The harness redacts the values.
+
+**Value:** [Func&lt;NodeRef, IReadOnlyList&lt;string&gt;, OperationContext, Task&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-4)
+
 <a id="E2E_Engine_EngineSpec_Secrets_"></a>
 <a id="E2E_Engine_EngineSpec_Secrets"></a>
 

@@ -189,7 +189,7 @@ public sealed class WebEngineLifecycleTests
         Assert.Equal("web", ((IEngine)engine).Name);
         // The port's capabilities are flags with no pointer, artifacts, or browser member: the pointer kinds are the session's own list,
         // and the browser fixture (Browser) is always there.
-        const EngineCapabilities Tier = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard | EngineCapabilities.State;
+        const EngineCapabilities Tier = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard | EngineCapabilities.ComputedStyle | EngineCapabilities.State;
         Assert.Equal(Tier, engine.Capabilities & Tier);
         Assert.True(engine.Capabilities.HasFlag(EngineCapabilities.Screenshot | EngineCapabilities.Video));
         await using var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None);

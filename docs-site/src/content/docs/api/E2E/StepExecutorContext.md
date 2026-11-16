@@ -263,3 +263,29 @@ executor that renders its own view of the screen asks for exactly what it uses.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ExecutorObservation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_StepExecutorContext_ReadAsync_"></a>
+<a id="E2E_StepExecutorContext_ReadAsync_E2E_ExecutorTarget_E2E_ExecutorReadOptions_System_Threading_CancellationToken_"></a>
+
+### ReadAsync(ExecutorTarget, ExecutorReadOptions, CancellationToken)
+
+
+```csharp
+public virtual Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Reads allow-listed rendered properties of a node in the newest observation (upstream's `read`). The result holds only the
+requested properties, secret-redacted. A read never refreshes the observation or relocates the id: it measures the element the newest
+observation listed, or fails with `LOCATOR_NOT_FOUND`. The default refuses with `POLICY_DENIED`, as upstream's tool context
+does for a host that cannot read (.NET-only: it keeps an executor context that does not override it compiling).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `target` | [ExecutorTarget](/api/E2E/ExecutorTarget/) |  |
+| `options` | [ExecutorReadOptions](/api/E2E/ExecutorReadOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;ExecutorReadResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

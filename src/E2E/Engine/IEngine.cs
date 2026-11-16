@@ -68,6 +68,12 @@ public enum EngineCapabilities
     /// <c>closeTab</c> verb; C# has no optional member to test, so this declares it.
     /// </summary>
     CloseTab = 16384,
+
+    /// <summary>
+    /// <see cref="IEngineSession.ReadStyleAsync(SemanticNode, IReadOnlyList{string}, OperationContext, CancellationToken)"/>: the engine reads allow-listed
+    /// rendered properties of an observed node. Upstream's <c>computed-style</c> capability (named <c>computed-style</c> in <c>requires</c>).
+    /// </summary>
+    ComputedStyle = 32768,
 }
 
 /// <summary>
@@ -317,6 +323,15 @@ public interface IEngineSession : IAsyncDisposable
     /// <c>performAt(point, action, operation)</c>. The default drops the context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.
     /// </summary>
     Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) => PerformAtAsync(point, action, cancellationToken);
+
+    /// <summary>
+    /// Reads only the requested, allow-listed rendered properties (<see cref="ComputedStyles.ComputedStyleProperties"/>) of a node this engine
+    /// minted, without changing app state, and returns a string for every property requested. Throw <c>NODE_STALE</c> if the node no longer
+    /// binds. The harness redacts the values before a tool sees them. Engines that declare <see cref="EngineCapabilities.ComputedStyle"/>
+    /// implement it; the default refuses with <c>UNSUPPORTED_CAPABILITY</c>. Upstream's <c>readStyle(ref, properties, operation)</c>.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(SemanticNode node, IReadOnlyList<string> properties, OperationContext context, CancellationToken cancellationToken) =>
+        Task.FromException<IReadOnlyDictionary<string, string>>(new EngineException("UNSUPPORTED_CAPABILITY", "computed styles is not supported by this engine."));
 
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
     Task PressAsync(string key, CancellationToken cancellationToken);

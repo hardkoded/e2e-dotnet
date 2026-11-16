@@ -129,6 +129,9 @@ internal sealed class EngineSession : IEngineSession, IEngineFixtureHost
     public Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) =>
         Guard("point actions", cancellationToken, () => _engine.PerformAtAsync(point, action, Stamp(context), cancellationToken));
 
+    public Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(SemanticNode node, IReadOnlyList<string> properties, OperationContext context, CancellationToken cancellationToken) =>
+        Guard("computed styles", cancellationToken, () => _engine.ReadStyleAsync(node, properties, Stamp(context), cancellationToken));
+
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         Guard("keyboard input", cancellationToken, () =>
         {

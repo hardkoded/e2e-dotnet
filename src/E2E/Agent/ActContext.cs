@@ -120,6 +120,17 @@ internal sealed partial class ActContext : StepExecutorContext
         }).ConfigureAwait(false);
     }
 
+    public override async Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        return await _budget.Queue.RunAsync(async () =>
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
+            return await _feed.ReadAsync(target, options, linked.Token).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+
     public override void AttachTranscript(string text)
     {
         // Debug detail only: transcripts are model prose and can be large.

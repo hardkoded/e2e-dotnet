@@ -89,8 +89,8 @@ public sealed class AgentTool
 }
 
 /// <summary>
-/// What a project tool reaches of the step it runs in (upstream's <c>ToolContext</c>): a look at the screen, and a screenshot kept
-/// as evidence of the step. A tool that changes the app may not look: it observes in a separate call.
+/// What a project tool reaches of the step it runs in (upstream's <c>ToolContext</c>): a look at the screen, the rendered properties of a node,
+/// and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call.
 /// </summary>
 public sealed class AgentToolContext
 {
@@ -122,6 +122,20 @@ public sealed class AgentToolContext
         }
 
         return Context.ObserveAsync(options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Upstream's <c>read</c>: reads allow-listed computed styles of a node in the newest observation, with no action slot. A mutating tool
+    /// is refused with <c>POLICY_DENIED</c>, and so is an engine that cannot read (the mobile engine).
+    /// </summary>
+    public Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default)
+    {
+        if (_mutates)
+        {
+            return Task.FromException<ExecutorReadResult>(new AgentException("POLICY_DENIED", "only read-only tools may read node properties", blocked: true));
+        }
+
+        return Context.ReadAsync(target, options, cancellationToken);
     }
 
     /// <summary>Upstream's <c>attachScreenshot</c>: keeps pixels the tool saw as a screenshot of the step, and returns where it landed.</summary>

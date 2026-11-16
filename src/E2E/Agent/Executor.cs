@@ -118,6 +118,15 @@ public class StepExecutorContext
         throw new NotSupportedException("This context does not observe.");
 
     /// <summary>
+    /// Reads allow-listed rendered properties of a node in the newest observation (upstream's <c>read</c>). The result holds only the
+    /// requested properties, secret-redacted. A read never refreshes the observation or relocates the id: it measures the element the newest
+    /// observation listed, or fails with <c>LOCATOR_NOT_FOUND</c>. The default refuses with <c>POLICY_DENIED</c>, as upstream's tool context
+    /// does for a host that cannot read (.NET-only: it keeps an executor context that does not override it compiling).
+    /// </summary>
+    public virtual Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default) =>
+        Task.FromException<ExecutorReadResult>(new AgentException("POLICY_DENIED", "this tool host cannot read node properties", blocked: true));
+
+    /// <summary>
     /// Attaches the executor's model transcript to the step. It is kept as a <c>log</c> artifact of the step (<c>transcript-&lt;step id&gt;.txt</c>)
     /// when the attempt keeps results, and dropped otherwise. The last call wins.
     /// </summary>
@@ -295,6 +304,17 @@ public sealed class ExecutorObserveOptions
     /// </summary>
     public bool Pixels { get; init; }
 }
+
+/// <summary>What an executor asks <see cref="StepExecutorContext.ReadAsync"/> to measure on a node (upstream's <c>ExecutorReadOptions</c>).</summary>
+public sealed class ExecutorReadOptions
+{
+    /// <summary>A non-empty list of allow-listed CSS property names, in kebab case (<see cref="ComputedStyles.ComputedStyleProperties"/>).</summary>
+    public required IReadOnlyList<string> Style { get; init; }
+}
+
+/// <summary>What <see cref="StepExecutorContext.ReadAsync"/> measured on a node (upstream's <c>ExecutorReadResult</c>).</summary>
+/// <param name="Style">Only the requested properties, as computed strings with secret values redacted.</param>
+public sealed record ExecutorReadResult(IReadOnlyDictionary<string, string> Style);
 
 /// <summary>
 /// One node of the redacted semantic tree. Names, text, values, and attribute values are secret-redacted, and a secure
