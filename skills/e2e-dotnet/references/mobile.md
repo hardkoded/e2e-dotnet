@@ -104,10 +104,10 @@ In a NativeScript app, `testID` and `accessibilityIdentifier` set the same id: `
     public async Task The_agent_gets_a_greeting()
     {
         // The agent works out which field and button to use.
-        await Agent.ActAsync("get the app to greet {name}", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["name"] = "Grace" },
-        });
+        await Agent.ActAsync(
+            "get the app to greet {name}",
+            new ActOptions { Params = new Dictionary<string, object?> { ["name"] = "Grace" } }
+        );
 
         // Each agent step is paired with a check that does not call the model.
         await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Grace!");
