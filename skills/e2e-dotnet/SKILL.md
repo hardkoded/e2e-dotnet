@@ -479,7 +479,11 @@ lines you changed:
   (upstream's `createEngineSession`) wraps a handle as an `ITargetSession`: it
   mints the refs' revisions, routes each verb to the member that implements it,
   and refuses an action kind the engine did not declare. It sits beside `IEngine`;
-  the test runner and the agent still take an `IEngine`.
+  the test runner and the agent still take an `IEngine`. `EngineSpec.ReadStyle`
+  (upstream's `readStyle`) adds the `computed-style` capability, which needs `Observe`:
+  an engine reads allow-listed rendered properties of an observed node
+  (`ComputedStyles.ComputedStyleProperties`) for a read-only project tool's
+  `AgentToolContext.ReadAsync` (topic `agent`).
 - Tests: one test class per feature, one behavior per test method,
   arrange, act, assert with every assertion last (topic `writing-tests`).
   Bad: one test that adds a todo, checks it, marks it done, and checks

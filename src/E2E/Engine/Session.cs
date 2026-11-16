@@ -377,6 +377,12 @@ public static class EngineSessions
             return Task.FromResult(node);
         }
 
+        public async Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(NodeRef reference, IReadOnlyList<string> properties, OperationContext operation)
+        {
+            var readStyle = _engine?.ReadStyle ?? throw Unsupported("computed styles");
+            return await Call("computed styles", () => readStyle(reference, properties, operation)).ConfigureAwait(false);
+        }
+
         public async Task PerformAsync(NodeRef reference, LocatorAction action, OperationContext operation)
         {
             var kind = EngineActionKinds.Of(action);

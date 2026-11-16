@@ -440,6 +440,17 @@ internal static class PageScript
         }
         """;
 
+    // The computed values of the requested properties of one element, or null when it left its document (upstream's readStyle in
+    // web/src/surface.ts). The owning document's view computes them, so an element of a frame or a shadow root reads its own.
+    public const string ComputedStyle = """
+        (element, names) => {
+          const view = element.ownerDocument.defaultView;
+          if (!element.isConnected || view === null) return null;
+          const computed = view.getComputedStyle(element);
+          return Object.fromEntries(names.map((name) => [name, computed.getPropertyValue(name)]));
+        }
+        """;
+
     // The ref an iframe element carries, so the host can hang that frame's
     // observation under the iframe node.
     public const string RefOf = """

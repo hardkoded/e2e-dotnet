@@ -773,7 +773,25 @@ same dictionary. A config file cannot declare one, since a tool is code.
   `Explore.ExploreAsync` adds (topic `explore`).
 - A tool that needs the screen takes the second `AgentTool` constructor,
   whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
-  tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.
+  tool only; a mutating tool gets `POLICY_DENIED`), `ReadAsync`, and
+  `AttachScreenshotAsync`.
+- A `mutates: false` tool can call `context.ReadAsync(new ExecutorTarget(id),
+  new ExecutorReadOptions { Style = ["color", "font-weight"] })` for a node in its
+  newest observation. Web reads return a redacted `Style` dictionary under the step
+  deadline, use no action slot, and never relocate stale ids. A test can say
+  `requires: ['computed-style']` to skip engines without support (the selection core
+  honors it; the test attributes expose no `requires`). Allowed properties
+  (`ComputedStyles.ComputedStyleProperties`): `color`, `background-color`, `font-size`,
+  `font-weight`, `font-style`, `text-align`, `text-decoration-line`, `display`,
+  `visibility`, and `opacity`. A mutating tool, or an engine with no `ReadStyleAsync`
+  (the mobile engine), gets `POLICY_DENIED`; an invalid option or property name is
+  `INVALID_ARGUMENT`; no semantic observation, an id the latest one does not list, or
+  an element that detached is `LOCATOR_NOT_FOUND` (observe again before reading); a
+  read that used up the step's remaining time is `STEP_TIMEOUT`. Reads run in order
+  with observations and actions, measure the current value on the original element,
+  and do not refresh the observation or wait for a value to change. Computed
+  `visibility` and `opacity` describe the element's CSS, not whether another element
+  covers it or an ancestor hides it.
 - Not ported from upstream: building a tool from an AI SDK tool
   (`defineTool`, `toModelOutput`).
 
@@ -943,6 +961,7 @@ What the context holds:
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, the test's `TitlePath` (empty outside a test), `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall(ExecutorModelCall)`, and `RunToolAsync`. `ExecutorModelCall.Reasoning` is the model's own reasoning for the turn; the step's `model` event carries a redacted excerpt of at most 600 characters, and a turn with no reasoning leaves the field out |
+| `ReadAsync(target, options)` | Secret-redacted computed styles of a currently listed node, as `ExecutorReadResult.Style`: `new ExecutorReadOptions { Style = ["color"] }`. Only the requested allow-listed properties; see the project tools above for the errors. It never refreshes the observation or relocates the id |
 | `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels (a `screenshot` artifact of the step; it returns the artifact's report id), under the attempt's results directory |
 | `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 

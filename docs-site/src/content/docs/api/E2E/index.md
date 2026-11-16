@@ -25,7 +25,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AgentException](/api/E2E/AgentException/) | An agent step failed, was blocked, or could not talk to its model. |
 | [AgentOptions](/api/E2E/AgentOptions/) | One named agent, as upstream agents.<name>. Each entry starts from the built-in defaults; no agent inherits another's values. A call picks one with its Agent option. |
 | [AgentTool](/api/E2E/AgentTool/) | A project tool the agent offers to the model beside its own: upstream's defineTool. It declares whether it changes the application and which platforms it is offered on; the agent owns dispatch and accounting. The tool's name is its key in Tools. |
-| [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
+| [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, the rendered properties of a node, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
 | [AgentTools](/api/E2E/AgentTools/) | The built-in agent's tool vocabulary (upstream's agent/primitives.ts). CreateGrammarTools and CreateVerdictTool are public, for a tool loop or an executor that keeps the built-in actions and verdicts. |
 | [AnthropicModel](/api/E2E/AnthropicModel/) | Anthropic Messages API client. The system prompt and the newest message carry cache breakpoints, as upstream marks them, so each turn of a tool loop reads the previous turn's prefix from the cache. |
 | [AnthropicModelOptions](/api/E2E/AnthropicModelOptions/) |  |
@@ -71,6 +71,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorObservation](/api/E2E/ExecutorObservation/) | A redacted, size-bounded observation an executor may show its model. |
 | [ExecutorObserveOptions](/api/E2E/ExecutorObserveOptions/) | What an executor asks ObserveAsync to include beyond the text. |
 | [ExecutorPixels](/api/E2E/ExecutorPixels/) | Masked viewport pixels cleared for model input: the engine's capture, sized for the model, and its proven mask count. |
+| [ExecutorReadOptions](/api/E2E/ExecutorReadOptions/) | What an executor asks ReadAsync to measure on a node (upstream's ExecutorReadOptions). |
+| [ExecutorReadResult](/api/E2E/ExecutorReadResult/) | What ReadAsync measured on a node (upstream's ExecutorReadResult). |
 | [ExecutorSecret](/api/E2E/ExecutorSecret/) | A secret declared in a step's params: its stable name and what it is for. Never its value. |
 | [ExecutorStep](/api/E2E/ExecutorStep/) | One step handed to an executor. An Act plans and executes a flow. An Assert judges a condition and must not change the app. |
 | [ExecutorTabs](/api/E2E/ExecutorTabs/) | The open tabs of a screen (upstream's ExecutorObservation.tabs), numbered from 1 in the order they opened. |

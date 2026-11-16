@@ -137,6 +137,42 @@ internal sealed class RefRegistry
         }
     }
 
+    /// <summary>
+    /// <see cref="LookupPinnedAsync"/> for a node the newest observation listed. A located ref names no such node, so it is refused with a
+    /// non-retryable <c>NODE_STALE</c>: a style target is an observation ref (upstream's <c>lookup</c> returns a <c>locator</c> target for
+    /// it, which <c>readStyle</c> refuses; the port's located refs can hold an element too, so the lookup keeps to the observation).
+    /// </summary>
+    public async Task<(ActionTarget Target, IDisposable Pin)> LookupObservedPinnedAsync(string id)
+    {
+        ListedTarget observed;
+        IDisposable pin;
+        lock (_gate)
+        {
+            if (_located.ContainsKey(id))
+            {
+                throw new EngineException(EngineErrorCodes.NodeStale, $"node reference {id} is not from an observation", retryable: false);
+            }
+
+            if (!_observation.TryGetValue(id, out var listed))
+            {
+                throw new EngineException(EngineErrorCodes.NodeStale, $"node reference {id} is stale", retryable: true);
+            }
+
+            observed = listed;
+            pin = observed.List.Pin();
+        }
+
+        try
+        {
+            return (new ElementTarget(await observed.List.AtAsync(observed.Index).ConfigureAwait(false)), pin);
+        }
+        catch
+        {
+            pin.Dispose();
+            throw;
+        }
+    }
+
     /// <summary>Starts a capture, preventing older in-flight observations from publishing afterward.</summary>
     public int BeginCapture()
     {

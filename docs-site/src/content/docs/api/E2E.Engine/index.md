@@ -29,6 +29,7 @@ Public types in the `E2E.Engine` namespace.
 | [BrowserRequest](/api/E2E.Engine/BrowserRequest/) | What the engine asks a provider for: one browser for one worker slot, or for one attempt, of a run. |
 | [BrowserResponse](/api/E2E.Engine/BrowserResponse/) | A response an engine observed, with its body still being read. |
 | [CdpTarget](/api/E2E.Engine/CdpTarget/) | A CDP connection endpoint and its handshake headers, resolved together (upstream CdpTarget). A bare endpoint converts implicitly. |
+| [ComputedStyles](/api/E2E.Engine/ComputedStyles/) | Upstream's engine/computed-style.ts (.NET-only holder name: C# has no free functions, and ComputedStyle is the tests' namespace): the rendered node properties an engine's readStyle may be asked for. A property name is a plain string (upstream's ComputedStyleProperty union of literals), and the values an engine returns are computed CSS strings keyed by the properties requested (upstream's ComputedStyleValues, here IReadOnlyDictionary&lt;T&gt;). |
 | [CookieFilter](/api/E2E.Engine/CookieFilter/) | Cookie filters are combined; a string matches the field exactly, a regular expression matches its text. |
 | [Dialog](/api/E2E.Engine/Dialog/) | A native dialog as a test's handler sees it (upstream's Dialog). |
 | [DialogHandler](/api/E2E.Engine/DialogHandler/) | What answers a native dialog (upstream's DialogHandler): Accept, Dismiss, or a function that must call AcceptAsync(string) or DismissAsync() before it returns. |

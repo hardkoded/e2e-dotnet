@@ -54,6 +54,21 @@ CloseTab = 16384
 
 **Value:** [EngineCapabilities](./)
 
+<a id="E2E_Engine_EngineCapabilities_ComputedStyle"></a>
+
+### ComputedStyle
+
+
+```csharp
+ComputedStyle = 32768
+```
+
+
+`ReadStyleAsync`: the engine reads allow-listed
+rendered properties of an observed node. Upstream's `computed-style` capability (named `computed-style` in `requires`).
+
+**Value:** [EngineCapabilities](./)
+
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
 ### History

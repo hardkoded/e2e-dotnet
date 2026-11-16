@@ -386,6 +386,74 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     }
 
     /// <summary>
+    /// Upstream's <c>read</c>: reads a currently listed node, under the step deadline and secret redactor. The id is never relocated: a
+    /// read measures the element the newest observation listed, or fails. The caller runs it in the step's queue order.
+    /// </summary>
+    public async Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        var accounting = Accounting ?? throw new InvalidOperationException("This feed serves no step.");
+        var properties = ComputedStyles.ValidateComputedStyleProperties(options.Style);
+        accounting.Checkpoint();
+        return await ReadPhaseAsync(
+            async () =>
+            {
+                var (id, observation) = CurrentTarget(target);
+                var node = observation.Nodes.GetValueOrDefault(id) ?? throw NodeGone(id);
+                IReadOnlyDictionary<string, string> result;
+                try
+                {
+                    result = await scope.Session.ReadStyleAsync(node, properties, accounting.Operation(OperationContext.Agent, scope.ActionTimeout), token).ConfigureAwait(false);
+                }
+                catch (Exception cause) when (cause is not OperationCanceledException)
+                {
+                    accounting.Checkpoint(cause);
+                    if (cause is EngineException { Code: EngineErrorCodes.NodeStale })
+                    {
+                        throw new TestException("LOCATOR_NOT_FOUND", "node #" + id + " left the screen before it was read; observe again", cause);
+                    }
+
+                    throw;
+                }
+
+                accounting.Checkpoint();
+                var style = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var property in properties)
+                {
+                    if (result is null || !result.TryGetValue(property, out var value) || value is null)
+                    {
+                        throw new EngineException(EngineErrorCodes.EngineFailure, "engine readStyle returned no string for \"" + property + "\"", retryable: false);
+                    }
+
+                    style[property] = scope.Redactor.Redact(value);
+                }
+
+                return new ExecutorReadResult(style);
+            },
+            properties);
+    }
+
+    // The read as one recorded observation event, as an instrumented phase translates it onto the closed agent error set (upstream's
+    // instrumentPhase ends with toAgentError, which the port's phase does not: the observe phase's callers map their own failures).
+    private async Task<ExecutorReadResult> ReadPhaseAsync(Func<Task<ExecutorReadResult>> body, IReadOnlyList<string> properties)
+    {
+        try
+        {
+            return await Phases.InstrumentPhaseAsync(
+                new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
+                new PhaseSpec(StepEventKind.Observation, Phases.Observe, "readStyle"),
+                body,
+                _ => new PhaseDetail(Detail: "style: " + string.Join(", ", properties))).ConfigureAwait(false);
+        }
+        catch (Exception cause) when (cause is not (OperationCanceledException or AgentException))
+        {
+            throw AgentError.ToAgentError(cause);
+        }
+    }
+
+    /// <summary>
     /// Upstream's <c>view</c>: one capture as the executor sees it, redacted, with the text, the truncation, the keyboard state
     /// and the route, and the tree when asked for. The step's start observation and <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> both read it.
     /// </summary>
@@ -473,6 +541,14 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     public Lookup Lookup(ExecutorTarget target)
     {
+        var (id, latest) = CurrentTarget(target);
+        var node = latest.Nodes.GetValueOrDefault(id) ?? Refound(id, latest);
+        return new Lookup(id, node, latest);
+    }
+
+    // Upstream's currentTarget: normalizes a target against the current semantic screen, without relocating its id.
+    private (string Id, PreparedObservation Observation) CurrentTarget(ExecutorTarget target)
+    {
         ArgumentNullException.ThrowIfNull(target);
         var id = target.Id.TrimStart('#');
         var latest = Latest ?? throw NodeGone(id);
@@ -481,8 +557,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             throw new TestException("LOCATOR_NOT_FOUND", "semantic capture is unavailable; previous node ids are no longer valid, so use the current screenshot");
         }
 
-        var node = latest.Nodes.GetValueOrDefault(id) ?? Refound(id, latest);
-        return new Lookup(id, node, latest);
+        return (id, latest);
     }
 
     /// <summary>What a screen with no semantic tree lists in place of one (upstream's <c>UNAVAILABLE_TREE_MARKER</c>).</summary>

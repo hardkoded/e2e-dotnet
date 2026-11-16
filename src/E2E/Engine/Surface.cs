@@ -35,6 +35,9 @@ public interface ITargetSession
     /// <summary>Reads one node from the resolution that minted its ref.</summary>
     Task<EngineNode> ReadAsync(NodeRef reference, OperationContext operation);
 
+    /// <summary>Reads the requested, allow-listed rendered properties of a node without changing app state (upstream's <c>readStyle</c>); <c>UNSUPPORTED_CAPABILITY</c> without the computed-style capability.</summary>
+    Task<IReadOnlyDictionary<string, string>> ReadStyleAsync(NodeRef reference, IReadOnlyList<string> properties, OperationContext operation);
+
     /// <summary>Performs exactly one action on a located or observed node.</summary>
     Task PerformAsync(NodeRef reference, LocatorAction action, OperationContext operation);
 
