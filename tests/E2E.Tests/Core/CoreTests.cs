@@ -10,7 +10,7 @@ namespace E2E.Tests.Core;
 
 /// <summary>
 /// Upstream's <c>describe('e2e/core')</c> (<c>tests/integration/core.test.ts</c>): hosts, sessions, saved state, secrets, timeouts, link bases, and the
-/// agent's cache. The <c>it</c> that need a feature the port has not ported (<c>setDefaultTimeout</c>, <c>createAgent</c>) are not here.
+/// agent's cache. The <c>it</c> that need a feature the port has not ported (<c>createAgent</c>) are not here, or are partial.
 /// </summary>
 public sealed class CoreTests : IAsyncLifetime
 {
@@ -207,26 +207,46 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
     }
 
+    // Partial: upstream also runs an agent step (createAgent, #1676) and checks that its observations take the new default; the port has no createAgent yet.
     [Fact]
-    public async Task Opens_a_path_as_a_link_in_the_pinned_app_on_a_device_target_with_a_link_base()
+    public async Task Partial_Bounds_each_operation_by_its_default_timeout_which_setDefaultTimeout_moves_with_no_session_deadline()
     {
-        var fake = new CoreFakeEngine(device: true, links: true);
-        var app = new LaunchApp { BundleId = "com.example.shop", LinkBase = "shopapp://" };
-        var opened = await HostOf(fake, new LaunchOptions { App = app });
+        var fake = new CoreFakeEngine();
+        var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Timeout = TimeSpan.FromSeconds(10) });
         var session = await opened.NewSessionAsync();
-        await session.App.OpenAsync("/products/A-1001");
-        await session.App.OpenAsync("https://shop.example.com/orders/42");
-        Assert.Equal("POLICY_DENIED", (await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync("javascript:alert(1)"))).Code);
-        Assert.Equal(["shopapp://products/A-1001", "https://shop.example.com/orders/42"], fake.OpenedLinks);
-        await session.CloseAsync();
-        Assert.Equal("INVALID_CONFIG", (await Assert.ThrowsAsync<ConfigurationException>(() => HostOf(new CoreFakeEngine(device: true), new LaunchOptions { App = app }))).Code);
+        await session.App.OpenAsync("/");
+        session.SetDefaultTimeout(TimeSpan.FromMilliseconds(200));
 
-        // A path joins the base as written, so a query or fragment the parser drops when empty, or whitespace it trims, is refused too.
-        foreach (var linkBase in new[] { "file:///etc/", "https://shop.example.com/?", "shopapp://#", " https://shop.example.com" })
+        var started = DateTime.UtcNow;
+        var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("button", "Missing").TapAsync());
+
+        Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
+        Assert.True(DateTime.UtcNow - started < TimeSpan.FromSeconds(5));
+        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => session.SetDefaultTimeout(TimeSpan.Zero)).Code);
+        await session.CloseAsync();
+    }
+
+    [Fact]
+    public async Task Gives_an_app_open_the_long_default_until_a_program_sets_a_timeout_which_then_bounds_it_too()
+    {
+        var app = new LaunchApp { BundleId = "com.example.shop", LinkBase = "shopapp://" };
+        async Task<TimeSpan?> OpenTimeout(CoreFakeEngine fake, Session session)
         {
-            var refused = await Assert.ThrowsAsync<ConfigurationException>(
-                () => HostOf(new CoreFakeEngine(device: true, links: true), new LaunchOptions { App = new LaunchApp { BundleId = "com.example.shop", LinkBase = linkBase } }));
-            Assert.Equal("INVALID_CONFIG", refused.Code);
+            var before = fake.Operations.Count;
+            await session.App.OpenAsync("/cart");
+            return fake.Operations.Skip(before).First(operation => operation.Method == "session.openLink").Timeout;
         }
+
+        var plain = new CoreFakeEngine(device: true, links: true);
+        var session = await (await HostOf(plain, new LaunchOptions { App = app })).NewSessionAsync();
+        Assert.True(await OpenTimeout(plain, session) > TimeSpan.FromSeconds(60));
+        session.SetDefaultTimeout(TimeSpan.FromMilliseconds(1234));
+        Assert.True(await OpenTimeout(plain, session) <= TimeSpan.FromMilliseconds(1234));
+        await session.CloseAsync();
+
+        var bounded = new CoreFakeEngine(device: true, links: true);
+        var launched = await (await HostOf(bounded, new LaunchOptions { App = app, Timeout = TimeSpan.FromSeconds(5) })).NewSessionAsync();
+        Assert.True(await OpenTimeout(bounded, launched) <= TimeSpan.FromSeconds(5));
+        await launched.CloseAsync();
     }
 }

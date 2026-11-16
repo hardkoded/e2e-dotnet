@@ -958,6 +958,9 @@ public sealed partial class WebEngine : IEngine
     internal static LiveSurface? SurfaceOf(IEngineSession session) =>
         EngineSession.Unwrap(session) is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
 
+    /// <summary>The ref registry of a web session, for tests that wrap its lookup (upstream's <c>RefRegistry.prototype.lookup</c> spy).</summary>
+    internal static RefRegistry RefsOf(IEngineSession session) => ((WebSession)EngineSession.Unwrap(session)).Refs;
+
     /// <summary>Runs <paramref name="work"/> through the operation entry of a web session (upstream's <c>surface.guard</c>); for tests.</summary>
     internal static Task<T> Guard<T>(IEngineSession session, string label, CancellationToken cancellationToken, Func<Task<T>> work) =>
         ((WebSession)EngineSession.Unwrap(session)).GuardAsync(label, cancellationToken, work);
@@ -1235,6 +1238,8 @@ public sealed partial class WebEngine : IEngine
 
         // The refs of the attempt: minted ids, and the generation of observed nodes behind the latest observation.
         private readonly RefRegistry _refs = new();
+
+        internal RefRegistry Refs => _refs;
 
         // The locator that matched each located node alone, the way upstream keeps a single match on the strict Playwright locator.
         // Keyed by the node a locate returned, so a node the observation listed (same ref) is never strict.

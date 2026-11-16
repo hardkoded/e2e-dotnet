@@ -48,6 +48,9 @@ public sealed class App
     /// <summary>The budget an app call on the named api has (the browser's, bounded by the test); null outside a session, where a call has none.</summary>
     internal Func<string, TimeSpan>? OperationBudget { get; set; }
 
+    /// <summary>What bounds an open, a restart, or a link open: the default a program set, else the test's timeout (upstream's <c>lifecycleMs</c>); null outside a session.</summary>
+    internal Func<TimeSpan>? LifecycleBudget { get; set; }
+
     private readonly StepRecorder? _steps;
     private readonly bool _pinnedApp;
     private readonly string _target;
@@ -106,7 +109,7 @@ public sealed class App
                     throw new ConfigurationException("POLICY_DENIED", "app.open() refuses the link's scheme on target \"" + _target + "\"");
                 }
 
-                await _session.OpenLinkAsync(link, Operation("app.open", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
+                await _session.OpenLinkAsync(link, Lifecycle(OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
                 return;
             }
 
@@ -117,7 +120,7 @@ public sealed class App
                     "app.open(\"" + url + "\") needs an app URL and target \"" + _target + "\" has none: on a device app.open() launches the pinned app; declare app.linkBase to open a path as a link in it, or open one through device.openLink");
             }
 
-            await _session.RestartAsync(Operation("app.open", OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
+            await _session.RestartAsync(Lifecycle(OperationContext.Test), Token(cancellationToken)).ConfigureAwait(false);
         });
     }
 
@@ -236,7 +239,7 @@ public sealed class App
     // inside the same step. Without a base URL there is nothing to reopen.
     private async Task SteerAsync(string api, Func<OperationContext, CancellationToken, Task> hook, CancellationToken cancellationToken)
     {
-        await hook(Operation(api, OperationContext.Test), cancellationToken).ConfigureAwait(false);
+        await hook(Lifecycle(OperationContext.Test), cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(_baseUrl))
         {
             await OpenAtAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
@@ -273,7 +276,7 @@ public sealed class App
     {
         try
         {
-            await _session.OpenAsync(resolved, Operation("app.open", OperationContext.Test), cancellationToken).ConfigureAwait(false);
+            await _session.OpenAsync(resolved, Lifecycle(OperationContext.Test), cancellationToken).ConfigureAwait(false);
         }
         catch (Exception cause) when (cause is not (OperationCanceledException or (E2EException and not EngineException)) && UnreachableApp(cause, resolved) is { } unreachable)
         {
@@ -283,6 +286,10 @@ public sealed class App
 
     private CancellationToken Token(CancellationToken cancellationToken) =>
         Time.Link(cancellationToken, _token());
+
+    /// <summary>The context of an open, a restart, or a link open: <paramref name="context"/> with the lifecycle budget as its <c>Timeout</c>, or as it is outside a session.</summary>
+    private OperationContext Lifecycle(OperationContext context) =>
+        LifecycleBudget is { } budget ? context with { Timeout = Time.Between(budget(), TimeSpan.FromMilliseconds(1), Time.Unbounded) } : context;
 
     /// <summary>The context of an app call on <paramref name="api"/>: <paramref name="context"/> with the call's budget as its <c>Timeout</c>, or as it is outside a session.</summary>
     private OperationContext Operation(string api, OperationContext context) =>

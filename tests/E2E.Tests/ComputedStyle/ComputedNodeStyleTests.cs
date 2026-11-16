@@ -9,9 +9,8 @@ namespace E2E.Tests.ComputedStyle;
 
 /// <summary>
 /// Upstream's <c>describe('computed node style')</c> (<c>packages/web/tests/integration/computed-style.test.ts</c>, tester-army/e2e#1633):
-/// computed node properties come from real elements, including frames and shadow roots. Not ported: the two tests that wrap the engine's
-/// private <c>RefRegistry.lookup</c> with a spy to cancel or navigate between the lookup and the page call; the port has no such seam
-/// (<c>Partial_</c> below reads the same navigation without it).
+/// computed node properties come from real elements, including frames and shadow roots. The last two tests wrap the ref lookup
+/// (<c>RefRegistry.OnceAfterObservedLookup</c>) as upstream spies on <c>RefRegistry.prototype.lookup</c>.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ComputedNodeStyleTests
@@ -127,15 +126,35 @@ public sealed class ComputedNodeStyleTests
         Assert.False(error.Retryable);
     }
 
-    /// <summary>Partial: the port has no seam between the ref lookup and the page call, so the navigation comes before the read and not between them.</summary>
     [Fact]
-    public async Task Partial_Reports_a_navigation_that_replaces_a_resolved_node_as_retryable_NODE_STALE()
+    public async Task Does_not_evaluate_a_node_if_cancellation_arrives_during_reference_lookup()
+    {
+        var (session, page) = await StartAsync();
+        await using var _ = session;
+        await page.SetContentAsync("<button>Cancelled read</button>");
+        var node = await ObserveNamedAsync(session, "Cancelled read");
+        await page.EvaluateAsync("() => { const original = window.getComputedStyle; window.evaluated = false; window.getComputedStyle = (...args) => { window.evaluated = true; return original.apply(window, args); }; }");
+        using var controller = new CancellationTokenSource();
+        WebEngine.RefsOf(session).OnceAfterObservedLookup(async target =>
+        {
+            Assert.IsType<ElementTarget>(target);
+            await controller.CancelAsync();
+        });
+
+        var error = await Assert.ThrowsAsync<EngineException>(() => session.ReadStyleAsync(node, ["color"], Agent, controller.Token));
+
+        Assert.Equal(EngineErrorCodes.Cancelled, error.Code);
+        Assert.False(await page.EvaluateAsync<bool>("() => window.evaluated"));
+    }
+
+    [Fact]
+    public async Task Reports_a_navigation_that_replaces_a_resolved_node_as_retryable_NODE_STALE()
     {
         var (session, page) = await StartAsync();
         await using var _ = session;
         await page.SetContentAsync("<button>Before navigation</button>");
         var node = await ObserveNamedAsync(session, "Before navigation");
-        await page.ReloadAsync();
+        WebEngine.RefsOf(session).OnceAfterObservedLookup(_ => page.ReloadAsync());
 
         var error = await Assert.ThrowsAsync<EngineException>(() => session.ReadStyleAsync(node, ["color"], Agent, CancellationToken.None));
 
