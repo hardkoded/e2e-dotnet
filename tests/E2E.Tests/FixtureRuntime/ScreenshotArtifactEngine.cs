@@ -34,15 +34,27 @@ internal sealed class ScreenshotArtifactEngine(string artifact) : IEngine
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new Observation
-            {
-                Route = "/",
-                Roots =
-                [
-                    new SemanticNode { Ref = "echo", Role = "status", Text = owner.Filled ?? "" },
-                    new SemanticNode { Ref = "password", Role = "textbox", States = new NodeStates { Secure = true } },
-                ],
-            });
+            Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "echo",
+                            Role = "status",
+                            Text = owner.Filled ?? "",
+                        },
+                        new SemanticNode
+                        {
+                            Ref = "password",
+                            Role = "textbox",
+                            States = new NodeStates { Secure = true },
+                        },
+                    ],
+                }
+            );
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {

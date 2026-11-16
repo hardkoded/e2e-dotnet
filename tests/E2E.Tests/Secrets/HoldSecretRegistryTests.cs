@@ -15,7 +15,14 @@ namespace E2E.Tests.Secrets;
 public sealed class HoldSecretRegistryTests
 {
     private static Dictionary<string, ResolvedCredential> Registry(string name, string username) =>
-        new(StringComparer.Ordinal) { [name] = new ResolvedCredential(name, username, Secret.Create(name + ".password", "registry-pass-" + name, "password")) };
+        new(StringComparer.Ordinal)
+        {
+            [name] = new ResolvedCredential(
+                name,
+                username,
+                Secret.Create(name + ".password", "registry-pass-" + name, "password")
+            ),
+        };
 
     private static bool Resolves(string name)
     {

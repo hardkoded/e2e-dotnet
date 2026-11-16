@@ -51,8 +51,14 @@ internal static class AppPorts
         {
             throw new ConfigurationException(
                 "INVALID_APP_URL",
-                "target \"" + targetName + "\" asks for a free port on " + host + ", which this machine cannot bind: " + ex.Message,
-                ex);
+                "target \""
+                    + targetName
+                    + "\" asks for a free port on "
+                    + host
+                    + ", which this machine cannot bind: "
+                    + ex.Message,
+                ex
+            );
         }
     }
 }

@@ -19,12 +19,17 @@ public sealed class BottomTabs : Component
         Element content = tab switch
         {
             "Feed" => VStack(12, Title("Feed").AutomationId("feed-tab-content")),
-            "Actions" => VStack(12, done
-                ? Success("Action completed")
-                : Button("Complete action", () => setDone(true)).AutomationId("complete-action-button")),
-            _ => VStack(12,
+            "Actions" => VStack(
+                12,
+                done
+                    ? Success("Action completed")
+                    : Button("Complete action", () => setDone(true)).AutomationId("complete-action-button")
+            ),
+            _ => VStack(
+                12,
                 Title("Home").AutomationId("home-tab-content"),
-                Hint("Go to the Actions tab and press the button there.")),
+                Hint("Go to the Actions tab and press the button there.")
+            ),
         };
 
         return Grid(
@@ -32,9 +37,8 @@ public sealed class BottomTabs : Component
             rows: [GridSize.Auto, GridSize.Star(), GridSize.Auto],
             Button("Back", () => nav.GoBack()).AutomationId("back").Margin(12, 8),
             content.Padding(24).Grid(row: 1),
-            HStack(8, [.. Tabs.Select(name => TabButton(name, tab, setTab))])
-                .Padding(12, 8)
-                .Grid(row: 2));
+            HStack(8, [.. Tabs.Select(name => TabButton(name, tab, setTab))]).Padding(12, 8).Grid(row: 2)
+        );
     }
 
     private static Element TabButton(string name, string current, Action<string> select) =>

@@ -25,7 +25,13 @@ public sealed class CompactScreenHistoryTests
     [Fact]
     public void Keeps_small_superseded_screens_verbatim_so_the_request_prefix_stays_cacheable()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithScreen, ChangeResult("c1"), FullScreenResult("c2"), FullScreenResult("c4")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithScreen,
+            ChangeResult("c1"),
+            FullScreenResult("c2"),
+            FullScreenResult("c4"),
+        ];
         Assert.Same(messages, Compaction.CompactScreenHistory(messages));
         Assert.Same(messages, Compaction.CompactScreenHistory(messages, 1024));
     }
@@ -33,13 +39,26 @@ public sealed class CompactScreenHistoryTests
     [Fact]
     public void Elides_the_older_full_screens_in_one_batch_once_they_outgrow_the_budget_and_never_a_change_update()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithScreen, ChangeResult("c1"), FullScreenResult("c2"), ChangeResult("c3"), FullScreenResult("c4")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithScreen,
+            ChangeResult("c1"),
+            FullScreenResult("c2"),
+            ChangeResult("c3"),
+            FullScreenResult("c4"),
+        ];
         Assert.Same(messages, Compaction.CompactScreenHistory(messages, 1024));
         var compacted = Compaction.CompactScreenHistory(messages, 0);
         Assert.NotSame(messages, compacted);
-        Assert.Equal("Goal: do the thing\n[earlier screen elided; the newest \"Screen\" describes the screen]", compacted[0].Content);
+        Assert.Equal(
+            "Goal: do the thing\n[earlier screen elided; the newest \"Screen\" describes the screen]",
+            compacted[0].Content
+        );
         // The middle full screen is elided down to its lead; the newest full screen and every change update survive verbatim.
-        Assert.Equal("Tapped #e3.\n[earlier screen elided; the newest \"Screen\" describes the screen]", compacted[2].Content);
+        Assert.Equal(
+            "Tapped #e3.\n[earlier screen elided; the newest \"Screen\" describes the screen]",
+            compacted[2].Content
+        );
         Assert.Same(messages[1], compacted[1]);
         Assert.Same(messages[3], compacted[3]);
         Assert.Same(messages[4], compacted[4]);
@@ -48,13 +67,25 @@ public sealed class CompactScreenHistoryTests
     [Fact]
     public void Elides_full_screens_that_arrived_with_a_screenshot_keeping_the_lead_and_the_image()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithScreen, FullScreenResult("c1"), Screenshot("c1"), FullScreenResult("c2"), Screenshot("c2"), FullScreenResult("c3"), Screenshot("c3")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithScreen,
+            FullScreenResult("c1"),
+            Screenshot("c1"),
+            FullScreenResult("c2"),
+            Screenshot("c2"),
+            FullScreenResult("c3"),
+            Screenshot("c3"),
+        ];
         Assert.Same(messages, Compaction.CompactScreenHistory(messages, 1024));
         var compacted = Compaction.CompactScreenHistory(messages, 0);
         Assert.Contains("[earlier screen elided", compacted[0].Content, StringComparison.Ordinal);
         foreach (var index in new[] { 1, 3 })
         {
-            Assert.Equal("Tapped #e3.\n[earlier screen elided; the newest \"Screen\" describes the screen]", compacted[index].Content);
+            Assert.Equal(
+                "Tapped #e3.\n[earlier screen elided; the newest \"Screen\" describes the screen]",
+                compacted[index].Content
+            );
         }
 
         Assert.Same(messages[5], compacted[5]);
@@ -64,7 +95,14 @@ public sealed class CompactScreenHistoryTests
     [Fact]
     public void Keeps_the_notice_that_replaced_a_screenshot_when_the_screen_beside_it_is_elided()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithScreen, FullScreenResult("c1"), Screenshot("c1"), FullScreenResult("c2"), Screenshot("c2")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithScreen,
+            FullScreenResult("c1"),
+            Screenshot("c1"),
+            FullScreenResult("c2"),
+            Screenshot("c2"),
+        ];
         var compacted = Compaction.CompactScreenHistory(Compaction.CompactScreenshotHistory(messages, 1, 1), 0);
         Assert.Contains("[earlier screen elided", compacted[1].Content, StringComparison.Ordinal);
         Assert.Contains(Compaction.ScreenshotElidedNotice, compacted[2].Content, StringComparison.Ordinal);
@@ -76,7 +114,16 @@ public sealed class CompactScreenHistoryTests
     [Fact]
     public void Shrinks_a_pixel_mode_history_on_the_budget_free_pass_the_overflow_retry_runs_after_the_cache_friendly_pass_kept_it()
     {
-        IReadOnlyList<ModelMessage> messages = [OpeningWithScreen, FullScreenResult("c1", 40), Screenshot("c1"), ChangeResult("c2"), FullScreenResult("c3"), FullScreenResult("c4", 40), Screenshot("c4")];
+        IReadOnlyList<ModelMessage> messages =
+        [
+            OpeningWithScreen,
+            FullScreenResult("c1", 40),
+            Screenshot("c1"),
+            ChangeResult("c2"),
+            FullScreenResult("c3"),
+            FullScreenResult("c4", 40),
+            Screenshot("c4"),
+        ];
         var kept = Compaction.CompactScreenHistory(messages);
         Assert.Same(messages, kept);
         var shrunk = Compaction.CompactScreenHistory(kept, 0);

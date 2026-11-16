@@ -23,7 +23,10 @@ internal sealed record ReporterEntry(string Name, JsonElement? Options)
     /// </summary>
     public Reporter Create()
     {
-        var type = Find(Name) ?? throw Invalid("the type was not found; name it with its assembly (\"Namespace.Type, Assembly\"), make sure that assembly is referenced and copied to the output, and in a trimmed app keep the type");
+        var type = Find(Name)
+            ?? throw Invalid(
+                "the type was not found; name it with its assembly (\"Namespace.Type, Assembly\"), make sure that assembly is referenced and copied to the output, and in a trimmed app keep the type"
+            );
         if (type.IsAbstract || type.IsInterface || !type.IsAssignableTo(typeof(Reporter)))
         {
             throw Invalid("the type must be a non-abstract class that derives from E2E.Reports.Reporter");
@@ -36,7 +39,9 @@ internal sealed record ReporterEntry(string Name, JsonElement? Options)
 
         if (Options is not null && !type.IsAssignableTo(typeof(IConfigurableReporter)))
         {
-            throw Invalid("the type takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
+            throw Invalid(
+                "the type takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter"
+            );
         }
 
         var reporter = (Reporter)Activator.CreateInstance(type)!;
@@ -49,7 +54,11 @@ internal sealed record ReporterEntry(string Name, JsonElement? Options)
     }
 
     // A reporter is chosen by name in a file, so reflection is the point. A trimmed or AOT app must keep the type (see COMPATIBILITY.md, Reporters).
-    [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "The config names the reporter type by string.")]
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2057",
+        Justification = "The config names the reporter type by string."
+    )]
     private static Type? Find(string name)
     {
         if (Type.GetType(name, throwOnError: false) is { } type)
@@ -98,7 +107,9 @@ internal static class Reporters
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Console.Error.WriteLine($"e2e: reporter \"{entry.Name}\" could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}");
+                Console.Error.WriteLine(
+                    $"e2e: reporter \"{entry.Name}\" could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}"
+                );
             }
         }
 

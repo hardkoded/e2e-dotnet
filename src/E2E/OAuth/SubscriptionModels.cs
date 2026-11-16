@@ -41,7 +41,12 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
             }
             catch (OAuthException ex)
             {
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The subscription login failed (" + ex.Code + "): " + ex.Message, blocked: true, ex);
+                throw new AgentException(
+                    "MODEL_PROVIDER_FAILED",
+                    "The subscription login failed (" + ex.Code + "): " + ex.Message,
+                    blocked: true,
+                    ex
+                );
             }
         }
 
@@ -67,7 +72,9 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
     {
         lock (_lock)
         {
-            return _resolved is { } resolved ? Task.FromResult<IAgentModel?>(resolved) : _pending ??= Task.Run(LookupAsync);
+            return _resolved is { } resolved
+                ? Task.FromResult<IAgentModel?>(resolved)
+                : _pending ??= Task.Run(LookupAsync);
         }
     }
 
@@ -110,13 +117,21 @@ public sealed class CopilotModel : DelegatingModel
         ArgumentException.ThrowIfNullOrWhiteSpace(model);
         _model = model;
         _chat = new OpenAiCompatibleModel(
-            new OpenAiCompatibleModelOptions { Model = model, BaseUrl = CopilotProvider.ApiUrl, Provider = "github-copilot", ApiKey = "oauth" },
-            http);
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = CopilotProvider.ApiUrl,
+                Provider = "github-copilot",
+                ApiKey = "oauth",
+            },
+            http
+        );
     }
 
     protected override IAgentModel Fallback => _chat;
 
-    protected override string? Refusal(AgentException failure) => CopilotProvider.IsRefusal(failure) ? CopilotProvider.Refusal(_model) : null;
+    protected override string? Refusal(AgentException failure) =>
+        CopilotProvider.IsRefusal(failure) ? CopilotProvider.Refusal(_model) : null;
 
     protected override async Task<IAgentModel?> ResolveAsync(CancellationToken cancellationToken)
     {
@@ -124,8 +139,16 @@ public sealed class CopilotModel : DelegatingModel
         {
             null => null,
             "responses" => new OpenAiResponsesModel(
-                new OpenAiResponsesModelOptions { Model = _model, BaseUrl = CopilotProvider.ApiUrl, Provider = "github-copilot", ApiKey = "oauth", PromptCacheHints = false },
-                Http),
+                new OpenAiResponsesModelOptions
+                {
+                    Model = _model,
+                    BaseUrl = CopilotProvider.ApiUrl,
+                    Provider = "github-copilot",
+                    ApiKey = "oauth",
+                    PromptCacheHints = false,
+                },
+                Http
+            ),
             _ => _chat,
         };
     }
@@ -169,17 +192,48 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
         return route.Protocol switch
         {
             "openai" => new OpenAiResponsesModel(
-                new OpenAiResponsesModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "openai", ApiKey = "oauth", Headers = _headers, SessionId = _session },
-                Http),
+                new OpenAiResponsesModelOptions
+                {
+                    Model = route.ModelId,
+                    BaseUrl = route.BaseUrl,
+                    Provider = "openai",
+                    ApiKey = "oauth",
+                    Headers = _headers,
+                    SessionId = _session,
+                },
+                Http
+            ),
             "anthropic" => new AnthropicModel(
-                new AnthropicModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, ApiKey = "oauth", Headers = _headers },
-                Http),
+                new AnthropicModelOptions
+                {
+                    Model = route.ModelId,
+                    BaseUrl = route.BaseUrl,
+                    ApiKey = "oauth",
+                    Headers = _headers,
+                },
+                Http
+            ),
             "google" => new GoogleModel(
-                new GoogleModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, ApiKey = "oauth", Headers = _headers },
-                Http),
+                new GoogleModelOptions
+                {
+                    Model = route.ModelId,
+                    BaseUrl = route.BaseUrl,
+                    ApiKey = "oauth",
+                    Headers = _headers,
+                },
+                Http
+            ),
             _ => new OpenAiCompatibleModel(
-                new OpenAiCompatibleModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "opencode", ApiKey = "oauth", Headers = _headers },
-                Http),
+                new OpenAiCompatibleModelOptions
+                {
+                    Model = route.ModelId,
+                    BaseUrl = route.BaseUrl,
+                    Provider = "opencode",
+                    ApiKey = "oauth",
+                    Headers = _headers,
+                },
+                Http
+            ),
         };
     }
 }

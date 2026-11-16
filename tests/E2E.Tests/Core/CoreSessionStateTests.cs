@@ -17,13 +17,24 @@ public sealed class CoreSessionStateTests
     private static SessionState Captured(string? expiresAt = null) =>
         SessionState.Captured(
             Identity,
-            new EngineState("storage", 1, new JsonObject { ["cookies"] = new JsonArray(new JsonObject { ["name"] = "sid", ["value"] = "cookie-value" }) }, expiresAt),
-            [("token", "provider-token-value")]);
+            new EngineState(
+                "storage",
+                1,
+                new JsonObject
+                {
+                    ["cookies"] = new JsonArray(new JsonObject { ["name"] = "sid", ["value"] = "cookie-value" }),
+                },
+                expiresAt
+            ),
+            [("token", "provider-token-value")]
+        );
 
     private static string Text(byte[] bytes) => Encoding.UTF8.GetString(bytes);
 
     private static async Task<ConfigurationException> Invalid(byte[] bytes, byte[] key) =>
-        await Assert.ThrowsAsync<ConfigurationException>(() => SessionState.ImportAsync(bytes, new SessionStateKeyOptions { Key = key }));
+        await Assert.ThrowsAsync<ConfigurationException>(() =>
+            SessionState.ImportAsync(bytes, new SessionStateKeyOptions { Key = key })
+        );
 
     [Fact]
     public async Task Exports_a_session_state_1_document_that_names_the_host_in_the_clear_and_holds_nothing_else_readable()
@@ -43,7 +54,10 @@ public sealed class CoreSessionStateTests
     [Fact]
     public async Task Round_trips_under_the_same_key_and_restores_on_a_matching_host()
     {
-        var restored = await SessionState.ImportAsync(await Captured().ExportAsync(new SessionStateKeyOptions { Key = Key }), new SessionStateKeyOptions { Key = Key });
+        var restored = await SessionState.ImportAsync(
+            await Captured().ExportAsync(new SessionStateKeyOptions { Key = Key }),
+            new SessionStateKeyOptions { Key = Key }
+        );
 
         Assert.Equal("web", restored.Engine);
         var saved = SessionState.RestoredStateFor(restored, Identity);
@@ -69,14 +83,19 @@ public sealed class CoreSessionStateTests
         {
             var malformed = JsonNode.Parse(Text(bytes))!.AsObject();
             malformed["state"]![field] = "";
-            Assert.Equal("SESSION_INVALID", (await Invalid(Encoding.UTF8.GetBytes(malformed.ToJsonString()), Key)).Code);
+            Assert.Equal(
+                "SESSION_INVALID",
+                (await Invalid(Encoding.UTF8.GetBytes(malformed.ToJsonString()), Key)).Code
+            );
         }
     }
 
     [Fact]
     public async Task Takes_a_32_byte_key_only()
     {
-        var short16 = await Assert.ThrowsAsync<TestException>(() => Captured().ExportAsync(new SessionStateKeyOptions { Key = new byte[31] }));
+        var short16 = await Assert.ThrowsAsync<TestException>(() =>
+            Captured().ExportAsync(new SessionStateKeyOptions { Key = new byte[31] })
+        );
         Assert.Equal("INVALID_ARGUMENT", short16.Code);
         var none = await Assert.ThrowsAsync<TestException>(() => Captured().ExportAsync(null!));
         Assert.Equal("INVALID_ARGUMENT", none.Code);
@@ -87,10 +106,37 @@ public sealed class CoreSessionStateTests
     {
         var expired = Captured("2001-01-01T00:00:00.000Z");
 
-        Assert.Equal("SESSION_EXPIRED", (await Invalid(await expired.ExportAsync(new SessionStateKeyOptions { Key = Key }), Key)).Code);
-        Assert.Equal("SESSION_EXPIRED", Assert.Throws<ConfigurationException>(() => SessionState.RestoredStateFor(expired, Identity)).Code);
-        Assert.Equal("SESSION_MISMATCH", Assert.Throws<ConfigurationException>(() => SessionState.RestoredStateFor(Captured(), Identity with { AppIdentity = new string('b', 64) })).Code);
-        Assert.Equal("SESSION_MISMATCH", Assert.Throws<ConfigurationException>(() => SessionState.RestoredStateFor(Captured(), Identity with { Engine = "mobile" })).Code);
-        Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => SessionState.RestoredStateFor(new { Engine = "web", Platform = "web" }, Identity)).Code);
+        Assert.Equal(
+            "SESSION_EXPIRED",
+            (await Invalid(await expired.ExportAsync(new SessionStateKeyOptions { Key = Key }), Key)).Code
+        );
+        Assert.Equal(
+            "SESSION_EXPIRED",
+            Assert.Throws<ConfigurationException>(() => SessionState.RestoredStateFor(expired, Identity)).Code
+        );
+        Assert.Equal(
+            "SESSION_MISMATCH",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    SessionState.RestoredStateFor(Captured(), Identity with { AppIdentity = new string('b', 64) })
+                )
+                .Code
+        );
+        Assert.Equal(
+            "SESSION_MISMATCH",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    SessionState.RestoredStateFor(Captured(), Identity with { Engine = "mobile" })
+                )
+                .Code
+        );
+        Assert.Equal(
+            "INVALID_ARGUMENT",
+            Assert
+                .Throws<TestException>(() =>
+                    SessionState.RestoredStateFor(new { Engine = "web", Platform = "web" }, Identity)
+                )
+                .Code
+        );
     }
 }

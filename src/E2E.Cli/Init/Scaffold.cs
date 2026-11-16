@@ -23,7 +23,12 @@ internal sealed record ScaffoldTest(string Name, string Content);
 /// <param name="Config">The config file's text.</param>
 /// <param name="Tests">The example test files.</param>
 /// <param name="NeedsAppUrl">Whether the example drives a URL the user's app must answer.</param>
-internal sealed record ScaffoldResult(IReadOnlyList<KeyValuePair<string, string>> Dependencies, string Config, IReadOnlyList<ScaffoldTest> Tests, bool NeedsAppUrl);
+internal sealed record ScaffoldResult(
+    IReadOnlyList<KeyValuePair<string, string>> Dependencies,
+    string Config,
+    IReadOnlyList<ScaffoldTest> Tests,
+    bool NeedsAppUrl
+);
 
 /// <summary>
 /// Upstream's <c>cli/init/scaffold.ts</c>. It writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, a C#
@@ -32,7 +37,12 @@ internal sealed record ScaffoldResult(IReadOnlyList<KeyValuePair<string, string>
 /// </summary>
 internal static class Scaffold
 {
-    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true, NewLine = "\n", Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Indented = new()
+    {
+        WriteIndented = true,
+        NewLine = "\n",
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>
     /// The agents block. The model is named by its provider, written in full, so a reader sees where every model call goes
@@ -52,23 +62,28 @@ internal static class Scaffold
     }
 
     /// <summary>The example of a config with no engine, which keeps the default web target: a request to the app, without a browser.</summary>
-    private static string NoEngineExample(FrameworkPreset framework, string rootNamespace) => $$"""
-        using {{framework.FrameworkUsing}};
+    private static string NoEngineExample(FrameworkPreset framework, string rootNamespace) =>
+        $$"""
+            using {{framework.FrameworkUsing}};
 
-        namespace {{rootNamespace}};
+            namespace {{rootNamespace}};
 
-        public sealed class ExampleTests
-        {
-            [{{framework.TestAttribute}}]
-            public async Task App_responds()
+            public sealed class ExampleTests
             {
-                using var client = new HttpClient();
-                using var response = await client.GetAsync(Environment.GetEnvironmentVariable("APP_URL") ?? "http://localhost:3000");
-                {{string.Format(System.Globalization.CultureInfo.InvariantCulture, framework.TrueAssertion, "response.IsSuccessStatusCode")}};
+                [{{framework.TestAttribute}}]
+                public async Task App_responds()
+                {
+                    using var client = new HttpClient();
+                    using var response = await client.GetAsync(Environment.GetEnvironmentVariable("APP_URL") ?? "http://localhost:3000");
+                    {{string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                framework.TrueAssertion,
+                "response.IsSuccessStatusCode"
+            )}};
+                }
             }
-        }
 
-        """;
+            """;
 
     /// <summary>The example test of an engine: its test, and the commented agent example after it when a model is configured.</summary>
     private static string EngineExample(EnginePreset engine, FrameworkPreset framework, string rootNamespace, bool ai)
@@ -94,7 +109,12 @@ internal static class Scaffold
     /// and the model, the package references for <paramref name="framework"/>, and the example test in
     /// <paramref name="rootNamespace"/>.
     /// </summary>
-    public static ScaffoldResult CreateScaffold(IReadOnlyList<string> engineIds, ScaffoldModel? model, FrameworkPreset? framework = null, string rootNamespace = "E2E.Tests")
+    public static ScaffoldResult CreateScaffold(
+        IReadOnlyList<string> engineIds,
+        ScaffoldModel? model,
+        FrameworkPreset? framework = null,
+        string rootNamespace = "E2E.Tests"
+    )
     {
         ArgumentNullException.ThrowIfNull(engineIds);
         framework ??= Frameworks.Get(Frameworks.DefaultFrameworkId);
@@ -117,15 +137,25 @@ internal static class Scaffold
 
         // The test framework's own packages first, as `dotnet new` lays them out, then the E2E packages at the version of this tool.
         var range = Versions.DependencyRange(Versions.RunnerVersion);
-        IReadOnlyList<string> packages = engines.Count == 1 ? engines[0].Dependencies(framework) : ["E2E", "E2E." + framework.AdapterSuffix];
-        List<KeyValuePair<string, string>> dependencies = [.. framework.Dependencies, .. packages.Select(name => new KeyValuePair<string, string>(name, range))];
+        IReadOnlyList<string> packages =
+            engines.Count == 1 ? engines[0].Dependencies(framework) : ["E2E", "E2E." + framework.AdapterSuffix];
+        List<KeyValuePair<string, string>> dependencies =
+        [
+            .. framework.Dependencies,
+            .. packages.Select(name => new KeyValuePair<string, string>(name, range)),
+        ];
 
-        var content = engines.Count == 1 ? EngineExample(engines[0], framework, rootNamespace, model is not null) : NoEngineExample(framework, rootNamespace);
+        var content =
+            engines.Count == 1
+                ? EngineExample(engines[0], framework, rootNamespace, model is not null)
+                : NoEngineExample(framework, rootNamespace);
         return new ScaffoldResult(
             dependencies,
             config.ToJsonString(Indented) + "\n",
             [new ScaffoldTest("ExampleTests", content)],
             // An engine-less config's example requests APP_URL too.
-            engines.Count == 0 || engines.Any(engine => engine.NeedsAppUrl));
+            engines.Count == 0
+                || engines.Any(engine => engine.NeedsAppUrl)
+        );
     }
 }

@@ -78,24 +78,28 @@ public sealed class ReportFileTests : IDisposable
     {
         foreach (var title in new[] { "App.Tests.CartTests.Pays(1)", "App.Tests.CartTests.Pays(2)" })
         {
-            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new ReportEngine(),
-                TestTitle = title,
-                TestFile = "App.Tests.CartTests",
-                TestMethod = "Pays",
-                BaseUrl = "http://127.0.0.1:4100",
-                ProjectRoot = ProjectRoot(),
-                ResultsDirectory = Results,
-                CacheEnabled = false,
-                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-            });
+            await using var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new ReportEngine(),
+                    TestTitle = title,
+                    TestFile = "App.Tests.CartTests",
+                    TestMethod = "Pays",
+                    BaseUrl = "http://127.0.0.1:4100",
+                    ProjectRoot = ProjectRoot(),
+                    ResultsDirectory = Results,
+                    CacheEnabled = false,
+                    Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+                }
+            );
             session.Complete();
         }
 
         var results = Read()["run"]!["results"]!.AsArray();
         Assert.Equal(2, results.Count);
-        Assert.All(results, result => Assert.Equal(E2E.Internal.Ids.TestId("App.Tests.CartTests", ["Pays"]), (string)result!["testId"]!));
+        Assert.All(results, result =>
+            Assert.Equal(E2E.Internal.Ids.TestId("App.Tests.CartTests", ["Pays"]), (string)result!["testId"]!)
+        );
     }
 
     [Fact]
@@ -110,7 +114,9 @@ public sealed class ReportFileTests : IDisposable
         var run = Read()["run"]!;
         Assert.Equal("passed", (string)run["status"]!);
         Assert.Equal(1, (int)run["summary"]!["passed"]!);
-        Assert.False(File.Exists(Path.Combine(Results, AttemptReport.ResultSegmentOf(null, "quiet > passes"), "trace.md")));
+        Assert.False(
+            File.Exists(Path.Combine(Results, AttemptReport.ResultSegmentOf(null, "quiet > passes"), "trace.md"))
+        );
     }
 
     [Fact]
@@ -142,11 +148,23 @@ public sealed class ReportFileTests : IDisposable
             new Dictionary<string, string> { ["Login"] = "tests/Login/LoginTests.cs did not change" },
             [leftOut],
             [new ReportFilter("changed-files", 2, 1)],
-            new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+            new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1)
+        );
 
         // Only the left-out tests are known: the run has its document before any test starts.
         var digest = new string('c', 64);
-        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest });
+        await ReportFile.WriteLeftOutAsync(
+            selection,
+            new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)),
+            _output,
+            Results,
+            new ResolvedConfig
+            {
+                ProjectRoot = _output,
+                Targets = [],
+                ConfigDigest = digest,
+            }
+        );
         var before = Read()["run"]!;
         Assert.Equal(digest, (string)before["project"]!["configDigest"]!);
         Assert.Equal("skipped", (string)before["results"]![0]!["status"]!);
@@ -185,10 +203,20 @@ public sealed class ReportFileTests : IDisposable
             Skip = new ReportSkip("filtered", "did not change", "changed-files"),
             Attempts = [],
         };
-        var selection = new HostSelection(new Dictionary<string, string>(), [leftOut], [new ReportFilter("changed-files", 2, 1)], new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+        var selection = new HostSelection(
+            new Dictionary<string, string>(),
+            [leftOut],
+            [new ReportFilter("changed-files", 2, 1)],
+            new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1)
+        );
 
         // The config calls the target "web"; the session runs on "document".
-        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null)), _output, Results);
+        await ReportFile.WriteLeftOutAsync(
+            selection,
+            new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null)),
+            _output,
+            Results
+        );
         await using (var session = await StartAsync("shop > browses", 1))
         {
             await session.App.OpenAsync("/");
@@ -206,7 +234,18 @@ public sealed class ReportFileTests : IDisposable
     public async Task Carries_the_config_digest_of_a_session_into_the_run_document()
     {
         var digest = new string('d', 64);
-        await using (var session = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = digest }))
+        await using (
+            var session = await StartAsync(
+                "shop > pays",
+                1,
+                config: new ResolvedConfig
+                {
+                    ProjectRoot = _output,
+                    Targets = [],
+                    ConfigDigest = digest,
+                }
+            )
+        )
         {
             await session.App.OpenAsync("/");
             session.Complete();
@@ -228,14 +267,36 @@ public sealed class ReportFileTests : IDisposable
     public async Task Keeps_the_digest_of_a_session_when_the_left_out_tests_come_after_it()
     {
         var session = new string('d', 64);
-        await using (var started = await StartAsync("shop > pays", 1, config: new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = session }))
+        await using (
+            var started = await StartAsync(
+                "shop > pays",
+                1,
+                config: new ResolvedConfig
+                {
+                    ProjectRoot = _output,
+                    Targets = [],
+                    ConfigDigest = session,
+                }
+            )
+        )
         {
             await started.App.OpenAsync("/");
             started.Complete();
         }
 
         var selection = new HostSelection(new Dictionary<string, string>(), [], [], null);
-        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results, new ResolvedConfig { ProjectRoot = _output, Targets = [], ConfigDigest = new string('c', 64) });
+        await ReportFile.WriteLeftOutAsync(
+            selection,
+            new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)),
+            _output,
+            Results,
+            new ResolvedConfig
+            {
+                ProjectRoot = _output,
+                Targets = [],
+                ConfigDigest = new string('c', 64),
+            }
+        );
 
         Assert.Equal(session, (string)Read()["run"]!["project"]!["configDigest"]!);
     }
@@ -243,13 +304,32 @@ public sealed class ReportFileTests : IDisposable
     [Fact]
     public async Task Redacts_the_secrets_of_a_test_from_every_text_of_its_result()
     {
-        var report = new Report1Document(new ReportRun(
-            Guid.CreateVersion7().ToString(),
-            "1.0.0",
-            [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))],
-            [ReportBuilders.Result(id: new string('a', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error(message: "wrong password hunter2"))]) with { Status = ResultStatus.Failed }]));
+        var report = new Report1Document(
+            new ReportRun(
+                Guid.CreateVersion7().ToString(),
+                "1.0.0",
+                [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))],
+                [
+                    ReportBuilders.Result(
+                        id: new string('a', 64),
+                        attempts:
+                        [
+                            ReportBuilders.Attempt(
+                                AttemptStatus.Failed,
+                                ReportBuilders.Error(message: "wrong password hunter2")
+                            ),
+                        ]
+                    ) with
+                    {
+                        Status = ResultStatus.Failed,
+                    },
+                ]
+            )
+        );
 
-        await ReportFile.WriteAsync(report, _output, Results, text => text.Replace("hunter2", "<secret:password>", StringComparison.Ordinal));
+        await ReportFile.WriteAsync(report, _output, Results, text =>
+            text.Replace("hunter2", "<secret:password>", StringComparison.Ordinal)
+        );
 
         var json = File.ReadAllText(Path.Combine(_output, "report.json"));
         Assert.DoesNotContain("hunter2", json, StringComparison.Ordinal);
@@ -261,9 +341,21 @@ public sealed class ReportFileTests : IDisposable
     [InlineData("configuration", 2, "Error")]
     [InlineData("infrastructure", 3, "Error")]
     [InlineData("internal", 4, "Error")]
-    public void Exits_with_the_category_of_the_error_of_a_failed_result_when_that_is_worse_than_a_test_failure(string category, int exitCode, string status)
+    public void Exits_with_the_category_of_the_error_of_a_failed_result_when_that_is_worse_than_a_test_failure(
+        string category,
+        int exitCode,
+        string status
+    )
     {
-        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error() with { Category = category })]) with { Status = ResultStatus.Failed };
+        var failed = ReportBuilders.Result(
+            attempts:
+            [
+                ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error() with { Category = category }),
+            ]
+        ) with
+        {
+            Status = ResultStatus.Failed,
+        };
 
         Assert.Equal((Enum.Parse<ReportRunStatus>(status), exitCode), ReportFile.StatusOf([failed]));
     }
@@ -271,9 +363,36 @@ public sealed class ReportFileTests : IDisposable
     [Fact]
     public void Exits_with_the_worst_exit_code_of_the_results()
     {
-        var configuration = ReportBuilders.Result(id: new string('a', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error() with { Category = "configuration" })]) with { Status = ResultStatus.Failed };
-        var failed = ReportBuilders.Result(id: new string('b', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
-        var interrupted = ReportBuilders.Result(id: new string('c', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Interrupted)]) with { Status = ResultStatus.Interrupted };
+        var configuration = ReportBuilders.Result(
+            id: new string('a', 64),
+            attempts:
+            [
+                ReportBuilders.Attempt(
+                    AttemptStatus.Failed,
+                    ReportBuilders.Error() with
+                    {
+                        Category = "configuration",
+                    }
+                ),
+            ]
+        ) with
+        {
+            Status = ResultStatus.Failed,
+        };
+        var failed = ReportBuilders.Result(
+            id: new string('b', 64),
+            attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]
+        ) with
+        {
+            Status = ResultStatus.Failed,
+        };
+        var interrupted = ReportBuilders.Result(
+            id: new string('c', 64),
+            attempts: [ReportBuilders.Attempt(AttemptStatus.Interrupted)]
+        ) with
+        {
+            Status = ResultStatus.Interrupted,
+        };
 
         Assert.Equal((ReportRunStatus.Error, 2), ReportFile.StatusOf([failed, configuration]));
         Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([configuration, interrupted]));
@@ -283,7 +402,10 @@ public sealed class ReportFileTests : IDisposable
     [Fact]
     public void Exits_130_when_the_run_was_interrupted_whatever_the_results_say()
     {
-        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
+        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with
+        {
+            Status = ResultStatus.Failed,
+        };
 
         Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([failed], interrupted: true));
         Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([], interrupted: true));
@@ -317,7 +439,10 @@ public sealed class ReportFileTests : IDisposable
         await using (var failed = await StartAsync("shop > pays", 1))
         {
             await failed.App.OpenAsync("/");
-            failed.Complete(new TestException("TEST_FAILED", "The test failed."), new CancellationToken(canceled: true));
+            failed.Complete(
+                new TestException("TEST_FAILED", "The test failed."),
+                new CancellationToken(canceled: true)
+            );
         }
 
         var run = Read()["run"]!;
@@ -370,17 +495,21 @@ public sealed class ReportFileTests : IDisposable
     [Fact]
     public async Task Reads_a_cancellation_by_the_session_test_timeout_as_timed_out()
     {
-        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new ReportEngine(),
-            TestTitle = "shop > slow",
-            BaseUrl = "http://127.0.0.1:4100",
-            ProjectRoot = ProjectRoot(),
-            ResultsDirectory = Results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-            TestTimeout = TimeSpan.FromMilliseconds(100),
-        }))
+        await using (
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new ReportEngine(),
+                    TestTitle = "shop > slow",
+                    BaseUrl = "http://127.0.0.1:4100",
+                    ProjectRoot = ProjectRoot(),
+                    ResultsDirectory = Results,
+                    CacheEnabled = false,
+                    Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+                    TestTimeout = TimeSpan.FromMilliseconds(100),
+                }
+            )
+        )
         {
             var token = session.Context.CancellationToken;
             var timedOut = new TaskCompletionSource();
@@ -418,7 +547,9 @@ public sealed class ReportFileTests : IDisposable
     public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
     {
         var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
-        var passed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup])]);
+        var passed = ReportBuilders.Result(
+            attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup])]
+        );
 
         Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([passed]));
     }
@@ -435,14 +566,17 @@ public sealed class ReportFileTests : IDisposable
             return Task.FromResult<VcsInfo?>(info);
         }
 
-        var all = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => ReportFile.DetectVcs(root, Detect))));
+        var all = await Task.WhenAll(
+            Enumerable.Range(0, 20).Select(_ => Task.Run(() => ReportFile.DetectVcs(root, Detect)))
+        );
 
         Assert.All(all, found => Assert.Same(info, found));
         Assert.Equal(1, asked);
 
         var failing = Path.Combine(_output, "failing");
         var attempts = 0;
-        Task<VcsInfo?> Fail(string _) => ++attempts == 1 ? Task.FromException<VcsInfo?>(new IOException("no git")) : Task.FromResult<VcsInfo?>(info);
+        Task<VcsInfo?> Fail(string _) =>
+            ++attempts == 1 ? Task.FromException<VcsInfo?>(new IOException("no git")) : Task.FromResult<VcsInfo?>(info);
 
         await Assert.ThrowsAsync<IOException>(() => ReportFile.DetectVcs(failing, Fail));
         Assert.Same(info, await ReportFile.DetectVcs(failing, Fail));
@@ -457,12 +591,19 @@ public sealed class ReportFileTests : IDisposable
         File.WriteAllBytes(Path.Combine(Results, "t", "attempt-1", "shot.png"), [1, 2]);
 
         var log = ReportWire.Artifact(new ReportArtifact("screen-0", "log", "t/attempt-1/screen.txt"), Results, null);
-        var shot = ReportWire.Artifact(new ReportArtifact("shot-0", "screenshot", "t/attempt-1/shot.png"), Results, "step-3");
+        var shot = ReportWire.Artifact(
+            new ReportArtifact("shot-0", "screenshot", "t/attempt-1/shot.png"),
+            Results,
+            "step-3"
+        );
         var gone = ReportWire.Artifact(new ReportArtifact("screen-1", "log", "t/attempt-1/missing.txt"), Results, null);
 
         Assert.Equal(("complete", 3L), ((string)log["redaction"]!, (long)log["size"]!));
         Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", (string)log["sha256"]!);
-        Assert.Equal(("incomplete", 2L, "step"), ((string)shot["redaction"]!, (long)shot["size"]!, (string)shot["producer"]!["kind"]!));
+        Assert.Equal(
+            ("incomplete", 2L, "step"),
+            ((string)shot["redaction"]!, (long)shot["size"]!, (string)shot["producer"]!["kind"]!)
+        );
         Assert.Equal("step-3", (string)shot["producer"]!["stepId"]!);
         Assert.Equal("incomplete", (string)gone["redaction"]!);
         Assert.Null(gone["path"]);
@@ -471,15 +612,65 @@ public sealed class ReportFileTests : IDisposable
     [Fact]
     public void Keeps_the_lists_of_a_result_within_the_schemas_counts_and_unique_where_it_asks()
     {
-        var screen = new StepScreen { Nodes = 3, Since = 0, Changes = [.. Enumerable.Range(0, 20).Select(index => "added button " + index)] };
+        var screen = new StepScreen
+        {
+            Nodes = 3,
+            Since = 0,
+            Changes = [.. Enumerable.Range(0, 20).Select(index => "added button " + index)],
+        };
         var step = ReportBuilders.Step(screen: screen);
-        var result = ReportBuilders.Result(id: new string('b', 64), attempts: [ReportBuilders.Attempt(steps: [step], appLog: [.. Enumerable.Range(0, 400).Select(index => new AppLogRecord(AppLogSource.Console, AppLogLevel.Info, "line " + index, ReportBuilders.ReportAt))])]) with { Tags = ["smoke", "smoke"] };
-        var report = new Report1Document(new ReportRun(Guid.CreateVersion7().ToString(), "1.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [result]));
+        var result = ReportBuilders.Result(
+            id: new string('b', 64),
+            attempts:
+            [
+                ReportBuilders.Attempt(
+                    steps: [step],
+                    appLog:
+                    [
+                        .. Enumerable
+                            .Range(0, 400)
+                            .Select(index => new AppLogRecord(
+                                AppLogSource.Console,
+                                AppLogLevel.Info,
+                                "line " + index,
+                                ReportBuilders.ReportAt
+                            )),
+                    ]
+                ),
+            ]
+        ) with
+        {
+            Tags = ["smoke", "smoke"],
+        };
+        var report = new Report1Document(
+            new ReportRun(
+                Guid.CreateVersion7().ToString(),
+                "1.0.0",
+                [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))],
+                [result]
+            )
+        );
 
-        var wire = ReportWire.Document(BuildReport.Build(new BuildReportOptions { RunId = report.Run.Id, StartedAt = ReportBuilders.ReportAt, Status = ReportRunStatus.Passed, ExitCode = 0, Results = [result], ReportTargets = report.Run.Targets }), "results");
+        var wire = ReportWire.Document(
+            BuildReport.Build(
+                new BuildReportOptions
+                {
+                    RunId = report.Run.Id,
+                    StartedAt = ReportBuilders.ReportAt,
+                    Status = ReportRunStatus.Passed,
+                    ExitCode = 0,
+                    Results = [result],
+                    ReportTargets = report.Run.Targets,
+                }
+            ),
+            "results"
+        );
 
         ReportSchema.AssertValidReport(wire);
-        Assert.Equal(12, wire["run"]!["results"]![0]!["attempts"]![0]!["steps"]![0]!["screen"]!["changes"]!.AsArray().Count);
+        Assert.Equal(
+            12,
+            wire["run"]!["results"]![0]!["attempts"]![0]!["steps"]![0]!["screen"]!["changes"]!.AsArray().Count
+        );
     }
 
     [Fact]
@@ -496,22 +687,30 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal("a\uFFFDb😀\uFFFD", ReportWire.Clip("a\uD800b😀\uDC00", 20));
     }
 
-    private Task<E2ESession> StartAsync(string title, int attempt, RecordingMode mode = RecordingMode.RetainOnFailure, ResolvedConfig? config = null) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Config = config,
-            Engine = new ReportEngine(),
-            TestTitle = title,
-            BaseUrl = "http://127.0.0.1:4100",
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ProjectRoot = ProjectRoot(),
-            ResultsDirectory = Results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(mode, RecordingSource.Target),
-            Attempt = attempt,
-        });
+    private Task<E2ESession> StartAsync(
+        string title,
+        int attempt,
+        RecordingMode mode = RecordingMode.RetainOnFailure,
+        ResolvedConfig? config = null
+    ) =>
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Config = config,
+                Engine = new ReportEngine(),
+                TestTitle = title,
+                BaseUrl = "http://127.0.0.1:4100",
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = Results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(mode, RecordingSource.Target),
+                Attempt = attempt,
+            }
+        );
 
-    private static string ProjectRoot([CallerFilePath] string testFile = "") => Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
+    private static string ProjectRoot([CallerFilePath] string testFile = "") =>
+        Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
 
     private sealed class ReportEngine : IEngine
     {
@@ -519,9 +718,11 @@ public sealed class ReportFileTests : IDisposable
 
         public string Version => "test";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
+        public EngineCapabilities Capabilities =>
+            EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => Task.FromResult<IEngineSession>(new Session());
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult<IEngineSession>(new Session());
     }
 
     private sealed class Session : IEngineSession
@@ -530,13 +731,33 @@ public sealed class ReportFileTests : IDisposable
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(new Observation
-        {
-            Route = "/",
-            Roots = [new SemanticNode { Ref = "root", Role = "document", Children = [new SemanticNode { Ref = "submit", Role = "button", Name = "Submit" }] }],
-        });
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "root",
+                            Role = "document",
+                            Children =
+                            [
+                                new SemanticNode
+                                {
+                                    Ref = "submit",
+                                    Role = "button",
+                                    Name = "Submit",
+                                },
+                            ],
+                        },
+                    ],
+                }
+            );
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 

@@ -13,21 +13,81 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     private const string App = "dev.e2e.examples.maui";
 
     private static RawNode[] AndroidIdNodes() =>
-    [
-        N("@e1", index: 0, depth: 0, type: "android.widget.FrameLayout", identifier: "android:id/content", rect: new Rect(0, 0, 390, 844)),
-        N("@e2", index: 1, parentIndex: 0, depth: 1, type: "android.view.ViewGroup", identifier: $"{App}:id/form", rect: new Rect(0, 100, 390, 300)),
-        N("@e3", index: 2, parentIndex: 1, depth: 2, type: "android.widget.EditText", identifier: $"{App}:id/name", label: "Ada Lovelace", hintShowing: true, rect: new Rect(0, 120, 390, 44)),
-        N("@e4", index: 3, parentIndex: 1, depth: 2, type: "android.widget.Button", identifier: $"{App}:id/greet", label: "Greet", rect: new Rect(0, 180, 390, 44)),
-        N("@e5", index: 4, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "com.example.other:id/banner", label: "Elsewhere", rect: new Rect(0, 420, 390, 44)),
-        N("@e6", index: 5, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "greeting", label: "Hello, Ada!", rect: new Rect(0, 480, 390, 44)),
-    ];
+        [
+            N(
+                "@e1",
+                index: 0,
+                depth: 0,
+                type: "android.widget.FrameLayout",
+                identifier: "android:id/content",
+                rect: new Rect(0, 0, 390, 844)
+            ),
+            N(
+                "@e2",
+                index: 1,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.view.ViewGroup",
+                identifier: $"{App}:id/form",
+                rect: new Rect(0, 100, 390, 300)
+            ),
+            N(
+                "@e3",
+                index: 2,
+                parentIndex: 1,
+                depth: 2,
+                type: "android.widget.EditText",
+                identifier: $"{App}:id/name",
+                label: "Ada Lovelace",
+                hintShowing: true,
+                rect: new Rect(0, 120, 390, 44)
+            ),
+            N(
+                "@e4",
+                index: 3,
+                parentIndex: 1,
+                depth: 2,
+                type: "android.widget.Button",
+                identifier: $"{App}:id/greet",
+                label: "Greet",
+                rect: new Rect(0, 180, 390, 44)
+            ),
+            N(
+                "@e5",
+                index: 4,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: "com.example.other:id/banner",
+                label: "Elsewhere",
+                rect: new Rect(0, 420, 390, 44)
+            ),
+            N(
+                "@e6",
+                index: 5,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: "greeting",
+                label: "Hello, Ada!",
+                rect: new Rect(0, 480, 390, 44)
+            ),
+        ];
 
-    private static LocatorExpression TestId(string value) => LocatorExpression.For("testid", TextMatch.FromString(value), new TextMatchOptions(), nameof(value));
+    private static LocatorExpression TestId(string value) =>
+        LocatorExpression.For("testid", TextMatch.FromString(value), new TextMatchOptions(), nameof(value));
 
-    private static List<string> TestIds(LocatorExpression expression, MobilePlatform platform = MobilePlatform.Android, IEnumerable<RawNode>? extra = null)
+    private static List<string> TestIds(
+        LocatorExpression expression,
+        MobilePlatform platform = MobilePlatform.Android,
+        IEnumerable<RawNode>? extra = null
+    )
     {
         var index = Project([.. AndroidIdNodes(), .. extra ?? []]).Index;
-        return [.. DeviceLocator.ResolveExpression(expression, index, platform).Select(entry => entry.Node.TestId ?? "")];
+        return
+        [
+            .. DeviceLocator.ResolveExpression(expression, index, platform).Select(entry => entry.Node.TestId ?? ""),
+        ];
     }
 
     [Fact]
@@ -59,7 +119,18 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     [Fact]
     public void Prefers_a_full_match_so_a_bare_id_wins_over_a_prefixed_one_with_the_same_name()
     {
-        var extra = new[] { N("@e7", index: 6, parentIndex: 0, depth: 1, type: "android.widget.Button", identifier: "greet", label: "Greet again") };
+        var extra = new[]
+        {
+            N(
+                "@e7",
+                index: 6,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.Button",
+                identifier: "greet",
+                label: "Greet again"
+            ),
+        };
         Assert.Equal(["greet"], TestIds(TestId("greet"), extra: extra));
     }
 
@@ -68,8 +139,24 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     {
         var extra = new[]
         {
-            N("@e7", index: 6, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "clock", label: "12:00"),
-            N("@e8", index: 7, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "com.android.systemui:id/clock", label: "9:41"),
+            N(
+                "@e7",
+                index: 6,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: "clock",
+                label: "12:00"
+            ),
+            N(
+                "@e8",
+                index: 7,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: "com.android.systemui:id/clock",
+                label: "9:41"
+            ),
         };
         Assert.Equal(["clock"], TestIds(TestId("clock"), extra: extra));
     }
@@ -79,8 +166,24 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     {
         var extra = new[]
         {
-            N("@e7", index: 6, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: $"{App}:id/clock", label: "12:00"),
-            N("@e8", index: 7, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "com.android.systemui:id/clock", label: "9:41"),
+            N(
+                "@e7",
+                index: 6,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: $"{App}:id/clock",
+                label: "12:00"
+            ),
+            N(
+                "@e8",
+                index: 7,
+                parentIndex: 0,
+                depth: 1,
+                type: "android.widget.TextView",
+                identifier: "com.android.systemui:id/clock",
+                label: "9:41"
+            ),
         };
         Assert.Equal([$"{App}:id/clock", "com.android.systemui:id/clock"], TestIds(TestId("clock"), extra: extra));
     }
@@ -88,7 +191,8 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     [Fact]
     public void Tests_a_Regex_against_the_id_without_the_prefix_too()
     {
-        static LocatorExpression Pattern(string source) => LocatorExpression.For("testid", TextMatch.FromRegex(new Regex(source)), new TextMatchOptions(), "value");
+        static LocatorExpression Pattern(string source) =>
+            LocatorExpression.For("testid", TextMatch.FromRegex(new Regex(source)), new TextMatchOptions(), "value");
 
         Assert.Equal([$"{App}:id/greet"], TestIds(Pattern("^greet$")));
         Assert.Equal([$"{App}:id/greet"], TestIds(Pattern(@"^dev\.e2e\.examples\.maui:id/gr")));
@@ -100,7 +204,17 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
         var form = TestId("form");
         var scoped = TestId("greet") with { Parent = form };
         Assert.Equal([$"{App}:id/greet"], TestIds(scoped));
-        Assert.Equal([$"{App}:id/form"], TestIds(new LocatorExpression { Kind = "filter", Source = form, Has = TestId("name") }));
+        Assert.Equal(
+            [$"{App}:id/form"],
+            TestIds(
+                new LocatorExpression
+                {
+                    Kind = "filter",
+                    Source = form,
+                    Has = TestId("name"),
+                }
+            )
+        );
     }
 
     [Fact]

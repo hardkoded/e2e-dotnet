@@ -44,7 +44,12 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Matches("^Right-clicked #e\\d+\\.", CounterPage.ToolResults(menuModel)[0]);
 
         var gesturesModel = ModelFor(DoubleTapAndLongPressFlow);
-        var (_, gestureSteps) = await RunFlowWithStepsAsync(site, DoubleTapAndLongPressFlow, gesturesModel, NewCacheDirectory());
+        var (_, gestureSteps) = await RunFlowWithStepsAsync(
+            site,
+            DoubleTapAndLongPressFlow,
+            gesturesModel,
+            NewCacheDirectory()
+        );
 
         var gestures = EngineEvents(gestureSteps);
         Assert.Equal(["doubleTap", "longPress"], gestures.Select(item => item.Name));
@@ -73,7 +78,9 @@ public sealed class AgentActGrammarVerbsTests
     [Fact]
     public async Task Checks_a_box_twice_and_the_second_check_flips_nothing()
     {
-        var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "checks the box and leaves a checked box alone"));
+        var (result, model) = await RunOneAsync(
+            ReplayFlows.Single(entry => entry.Title == "checks the box and leaves a checked box alone")
+        );
 
         // Two check actions: the second finds the box already checked and flips nothing.
         Assert.Equal(2, result.Actions);
@@ -87,10 +94,16 @@ public sealed class AgentActGrammarVerbsTests
     [Fact]
     public async Task Checks_a_radio_the_pick_replaced_in_one_action()
     {
-        var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "checks a radio the pick replaces with its summary"));
+        var (result, model) = await RunOneAsync(
+            ReplayFlows.Single(entry => entry.Title == "checks a radio the pick replaces with its summary")
+        );
 
         Assert.Equal(1, result.Actions);
-        Assert.Contains("status \"Gesture state\" text=\"delivery: Express\"", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
+        Assert.Contains(
+            "status \"Gesture state\" text=\"delivery: Express\"",
+            CounterPage.ToolResults(model)[0],
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -121,16 +134,24 @@ public sealed class AgentActGrammarVerbsTests
         var step = steps.Single(candidate => candidate.Api == "agent.act");
         Assert.DoesNotContain(step.Events, item => item.Kind == StepEventKind.Engine && item.Name == "setInputFiles");
         var policy = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy);
-        Assert.Equal(("upload.path", PolicyDecision.Denied, "POLICY_DENIED"), (policy.Name, policy.Decision, policy.Code));
+        Assert.Equal(
+            ("upload.path", PolicyDecision.Denied, "POLICY_DENIED"),
+            (policy.Name, policy.Decision, policy.Code)
+        );
         Assert.Equal(0, step.Metrics!.ActionSteps);
         // The refusal reaches the model as the action's failure, naming the path it refused.
-        Assert.Matches("^upload \"\\.env\" to #e\\d+ failed: POLICY_DENIED: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
+        Assert.Matches(
+            "^upload \"\\.env\" to #e\\d+ failed: POLICY_DENIED: \"\\.env\" is",
+            CounterPage.ToolResults(model)[0]
+        );
     }
 
     [Fact]
     public async Task Scrolls_a_listed_node_into_view_in_one_action()
     {
-        var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "scrolls a listed node into view"));
+        var (result, model) = await RunOneAsync(
+            ReplayFlows.Single(entry => entry.Title == "scrolls a listed node into view")
+        );
 
         Assert.Equal(1, result.Actions);
         Assert.Matches("^Scrolled into view #e\\d+\\.", CounterPage.ToolResults(model)[0]);
@@ -139,7 +160,9 @@ public sealed class AgentActGrammarVerbsTests
     [Fact]
     public async Task Pages_a_windowed_list_to_a_row_by_its_text_in_one_action()
     {
-        var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "pages a windowed list to a row it has not rendered"));
+        var (result, model) = await RunOneAsync(
+            ReplayFlows.Single(entry => entry.Title == "pages a windowed list to a row it has not rendered")
+        );
 
         // Several pages of the list, one action of the budget.
         Assert.Equal(1, result.Actions);
@@ -151,7 +174,9 @@ public sealed class AgentActGrammarVerbsTests
     [Fact]
     public async Task Goes_back_and_shows_the_screen_it_returned_to()
     {
-        var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "opens a page and comes back"));
+        var (result, model) = await RunOneAsync(
+            ReplayFlows.Single(entry => entry.Title == "opens a page and comes back")
+        );
 
         // The tap, then the back.
         Assert.Equal(2, result.Actions);
@@ -172,7 +197,11 @@ public sealed class AgentActGrammarVerbsTests
         var actions = EngineEvents(steps);
         Assert.Equal(["hover", "tap", "resize"], actions.Select(item => item.Name));
         Assert.Equal("resize the viewport to 390x844", actions[2].Detail);
-        Assert.StartsWith("Resized the viewport to 390x844.", CounterPage.ToolResults(model)[2], StringComparison.Ordinal);
+        Assert.StartsWith(
+            "Resized the viewport to 390x844.",
+            CounterPage.ToolResults(model)[2],
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -218,7 +247,11 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Equal(["hoverAt", "tap"], actions.Select(item => item.Name));
         Assert.Matches("^hover over the point \\(140, 55\\)", actions[0].Detail);
         var third = CounterPage.ToolResults(model);
-        Assert.Contains("Hovered over the point (140, 55); no listed control is there", third[1], StringComparison.Ordinal);
+        Assert.Contains(
+            "Hovered over the point (140, 55); no listed control is there",
+            third[1],
+            StringComparison.Ordinal
+        );
         Assert.Contains("button \"Redeem\"", third[1], StringComparison.Ordinal);
     }
 
@@ -231,7 +264,12 @@ public sealed class AgentActGrammarVerbsTests
     }
 
     private static List<StepEvent> EngineEvents(IReadOnlyList<StepRecord> steps) =>
-        [.. steps.Single(candidate => candidate.Api == "agent.act").Events.Where(item => item.Kind == StepEventKind.Engine)];
+        [
+            .. steps
+                .Single(candidate => candidate.Api == "agent.act")
+                .Events.Where(item => item.Kind == StepEventKind.Engine),
+        ];
 
-    private static string NewCacheDirectory() => Path.Combine(Path.GetTempPath(), "e2e-verbs", Guid.NewGuid().ToString("n"));
+    private static string NewCacheDirectory() =>
+        Path.Combine(Path.GetTempPath(), "e2e-verbs", Guid.NewGuid().ToString("n"));
 }

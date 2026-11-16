@@ -19,34 +19,83 @@ public sealed class WebBrowserProviderTests
     public void Rejects_a_provider_without_a_name_the_two_methods_or_a_known_scope_PARTIAL_the_interface_requires_the_two_methods()
     {
         Assert.Contains("non-empty Name", Refused(new NamedProvider("")), StringComparison.Ordinal);
-        Assert.Contains("provider \"x\" has scope 7; use Worker or Attempt", Refused(new NamedProvider("x", (BrowserProviderScope)7)), StringComparison.Ordinal);
+        Assert.Contains(
+            "provider \"x\" has scope 7; use Worker or Attempt",
+            Refused(new NamedProvider("x", (BrowserProviderScope)7)),
+            StringComparison.Ordinal
+        );
         _ = new WebEngine(new WebEngineOptions { Browser = new ToyCloud(BrowserProviderScope.Attempt) });
     }
 
     [Fact]
     public void Rejects_downloads_that_are_not_a_directory_and_a_read_or_whose_dir_is_relative_and_takes_an_absolute_POSIX_or_Windows_dir_PARTIAL_null_downloads_are_none()
     {
-        static Task<byte[]> Read(BrowserLease lease, string file, BrowserDownloadContext context, CancellationToken token) => Task.FromResult(Array.Empty<byte>());
-        var empty = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "", ReadAsync = Read } };
-        var unread = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = null! } };
-        Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(empty), StringComparison.Ordinal);
-        Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(unread), StringComparison.Ordinal);
-        _ = new WebEngine(new WebEngineOptions { Browser = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = Read } } });
+        static Task<byte[]> Read(
+            BrowserLease lease,
+            string file,
+            BrowserDownloadContext context,
+            CancellationToken token
+        ) => Task.FromResult(Array.Empty<byte>());
+        var empty = new NamedProvider("toy-cloud")
+        {
+            Downloads = new BrowserProviderDownloads { Dir = "", ReadAsync = Read },
+        };
+        var unread = new NamedProvider("toy-cloud")
+        {
+            Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = null! },
+        };
+        Assert.Contains(
+            "provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync",
+            Refused(empty),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync",
+            Refused(unread),
+            StringComparison.Ordinal
+        );
+        _ = new WebEngine(
+            new WebEngineOptions
+            {
+                Browser = new NamedProvider("toy-cloud")
+                {
+                    Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = Read },
+                },
+            }
+        );
         Assert.Contains(
             "provider \"toy-cloud\" has Downloads.Dir \"downloads\"; name an absolute path on the browser's machine",
-            Refused(new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "downloads", ReadAsync = Read } }),
-            StringComparison.Ordinal);
-        _ = new WebEngine(new WebEngineOptions { Browser = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "C:\\Users\\kernel\\Downloads", ReadAsync = Read } } });
+            Refused(
+                new NamedProvider("toy-cloud")
+                {
+                    Downloads = new BrowserProviderDownloads { Dir = "downloads", ReadAsync = Read },
+                }
+            ),
+            StringComparison.Ordinal
+        );
+        _ = new WebEngine(
+            new WebEngineOptions
+            {
+                Browser = new NamedProvider("toy-cloud")
+                {
+                    Downloads = new BrowserProviderDownloads { Dir = "C:\\Users\\kernel\\Downloads", ReadAsync = Read },
+                },
+            }
+        );
     }
 
     [Fact]
     public void Rejects_a_provider_together_with_connect_two_browser_sources()
     {
-        var refused = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
-        {
-            Browser = new ToyCloud(),
-            Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://x") },
-        }));
+        var refused = Assert.Throws<EngineException>(() =>
+            new WebEngine(
+                new WebEngineOptions
+                {
+                    Browser = new ToyCloud(),
+                    Connect = new WebConnectOptions { CdpEndpoint = _ => Task.FromResult<CdpTarget>("ws://x") },
+                }
+            )
+        );
         Assert.Equal("INVALID_CONFIG", refused.Code);
         Assert.Contains("two browser sources", refused.Message, StringComparison.Ordinal);
     }
@@ -56,9 +105,21 @@ public sealed class WebBrowserProviderTests
     {
         var cloud = new ToyCloud(BrowserProviderScope.Attempt);
         var headers = new Dictionary<string, string> { ["x-preview"] = "synthetic" };
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Browser = cloud, Headers = headers }), StringComparison.Ordinal);
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Browser = cloud, BasicAuth = new WebBasicAuth("user", "synthetic") }), StringComparison.Ordinal);
-        Assert.Contains("persistent context", Refused(new WebEngineOptions { Browser = cloud, UserAgent = "synthetic playwright" }), StringComparison.Ordinal);
+        Assert.Contains(
+            "persistent context",
+            Refused(new WebEngineOptions { Browser = cloud, Headers = headers }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context",
+            Refused(new WebEngineOptions { Browser = cloud, BasicAuth = new WebBasicAuth("user", "synthetic") }),
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "persistent context",
+            Refused(new WebEngineOptions { Browser = cloud, UserAgent = "synthetic playwright" }),
+            StringComparison.Ordinal
+        );
         _ = new WebEngine(new WebEngineOptions { Browser = new ToyCloud(), Headers = headers });
     }
 
@@ -69,7 +130,10 @@ public sealed class WebBrowserProviderTests
         await using var remote = await RemoteChrome.LaunchAsync();
 
         // Attempt scope rides one persistent context: clearing the state is refused, a restart is not.
-        var perAttempt = new ToyCloud(BrowserProviderScope.Attempt) { OnAcquire = (request, token) => Task.FromResult(Lease(remote)) };
+        var perAttempt = new ToyCloud(BrowserProviderScope.Attempt)
+        {
+            OnAcquire = (request, token) => Task.FromResult(Lease(remote)),
+        };
         var attempt = new WebEngine(new WebEngineOptions { Browser = perAttempt });
         await using (var session = await attempt.StartAsync(new EngineStartOptions { BaseUrl = app.Url }, None))
         {
@@ -77,7 +141,8 @@ public sealed class WebBrowserProviderTests
             Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
             Assert.Equal(
                 "app.clearState() is unavailable with browser provider \"toy-cloud\" with scope \"attempt\": it replaces the browser context, and the attempt rides one persistent context; every attempt already starts on a fresh browser, and scope \"worker\" can clear one mid-test",
-                error.Message);
+                error.Message
+            );
             await session.RestartAsync(None);
         }
 
@@ -109,7 +174,8 @@ public sealed class WebBrowserProviderTests
     }
 
     /// <summary>A provider with the members a test sets and nothing else, to hand the engine what the scripted one never would.</summary>
-    private sealed class NamedProvider(string name, BrowserProviderScope scope = BrowserProviderScope.Worker) : IBrowserProvider
+    private sealed class NamedProvider(string name, BrowserProviderScope scope = BrowserProviderScope.Worker)
+        : IBrowserProvider
     {
         public string Name => name;
 
@@ -117,8 +183,13 @@ public sealed class WebBrowserProviderTests
 
         public BrowserProviderDownloads? Downloads { get; init; }
 
-        public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
 
-        public Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task ReleaseAsync(
+            BrowserLease lease,
+            BrowserReleaseContext context,
+            CancellationToken cancellationToken
+        ) => throw new NotSupportedException();
     }
 }

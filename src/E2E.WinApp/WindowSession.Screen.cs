@@ -17,27 +17,62 @@ public sealed partial class WindowSession
     public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
         var app = _app ?? throw WinAppSupport.InvalidState("no app window is open; call app.open()");
-        var windows = await CommandAsync("observe", (driver, token) => driver.WindowsAsync(app.ProcessId, token), cancellationToken).ConfigureAwait(false);
-        var main = windows.FirstOrDefault(window => window.Handle == app.MainWindow) ?? Largest(windows)
-            ?? throw WinAppSupport.InvalidState($"{app.Name} has no window open; the app may have exited, call app.open()");
+        var windows = await CommandAsync(
+                "observe",
+                (driver, token) => driver.WindowsAsync(app.ProcessId, token),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var main = windows.FirstOrDefault(window => window.Handle == app.MainWindow)
+            ?? Largest(windows)
+            ?? throw WinAppSupport.InvalidState(
+                $"{app.Name} has no window open; the app may have exited, call app.open()"
+            );
         _mainWindow = main.Handle;
         _scale = main.Scale > 0 ? main.Scale : 1;
         var origin = new Point(main.Bounds.X, main.Bounds.Y);
         var viewport = new ViewportSize(main.Bounds.Width / _scale, main.Bounds.Height / _scale);
         _viewport = viewport;
 
-        var focused = await CommandAsync("observe", (driver, token) => driver.FocusedAsync(main.Handle, token), cancellationToken).ConfigureAwait(false);
+        var focused = await CommandAsync(
+                "observe",
+                (driver, token) => driver.FocusedAsync(main.Handle, token),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         var budget = new ProjectionBudget(ObservationLimits.Nodes);
         var roots = new List<SemanticNode>();
         var bindings = new List<NodeBinding>();
         var truncated = false;
         foreach (var window in windows.OrderBy(window => window.Handle == main.Handle ? 0 : 1))
         {
-            var raw = await CommandAsync("observe", (driver, token) => driver.InspectAsync(window.Handle, token), cancellationToken).ConfigureAwait(false);
-            var projected = UiaProjection.ProjectWindow(raw, window.Handle, origin, _scale, focused, () => $"n{++_idCounter}", budget);
+            var raw = await CommandAsync(
+                    "observe",
+                    (driver, token) => driver.InspectAsync(window.Handle, token),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
+            var projected = UiaProjection.ProjectWindow(
+                raw,
+                window.Handle,
+                origin,
+                _scale,
+                focused,
+                () => $"n{++_idCounter}",
+                budget
+            );
             roots.Add(projected.Node);
             truncated |= projected.Truncated;
-            bindings.AddRange(projected.Index.Select(entry => new NodeBinding(entry.Id, entry.Raw.Handle, entry.WindowHandle, entry.Node, entry.Raw, entry.Role)));
+            bindings.AddRange(
+                projected.Index.Select(entry => new NodeBinding(
+                    entry.Id,
+                    entry.Raw.Handle,
+                    entry.WindowHandle,
+                    entry.Node,
+                    entry.Raw,
+                    entry.Role
+                ))
+            );
             if (budget.Exhausted)
             {
                 truncated = true;
@@ -51,7 +86,10 @@ public sealed partial class WindowSession
         {
             Route = Route,
             Roots = [UiaProjection.ScreenRoot(roots, viewport)],
-            Viewport = viewport.Width >= 0.5 && viewport.Height >= 0.5 ? new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)) : null,
+            Viewport =
+                viewport.Width >= 0.5 && viewport.Height >= 0.5
+                    ? new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height))
+                    : null,
             Truncated = truncated,
             KeyboardVisible = null,
         };
@@ -61,9 +99,15 @@ public sealed partial class WindowSession
     internal IReadOnlyList<Rect> SecureRects()
     {
         var latest = Latest;
-        return [.. latest.Where(entry => entry.Node.States.Secure && entry.Raw.Bounds is not null).Select(entry => entry.Raw.Bounds!.Value)];
+        return
+        [
+            .. latest
+                .Where(entry => entry.Node.States.Secure && entry.Raw.Bounds is not null)
+                .Select(entry => entry.Raw.Bounds!.Value),
+        ];
     }
 
     /// <summary>True when a secure field of the last observation has no box: the mask cannot cover it, so the screenshot is withheld.</summary>
-    internal bool HasUnmaskableSecureField() => Latest.Any(entry => entry.Node.States.Secure && entry.Raw.Bounds is null);
+    internal bool HasUnmaskableSecureField() =>
+        Latest.Any(entry => entry.Node.States.Secure && entry.Raw.Bounds is null);
 }

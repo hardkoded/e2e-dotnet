@@ -67,9 +67,7 @@ public sealed class KernelProvider : IBrowserProvider
     private readonly KernelReplayParams? _replay;
 
     public KernelProvider(KernelOptions? options = null)
-        : this(options, SharedHttp)
-    {
-    }
+        : this(options, SharedHttp) { }
 
     internal KernelProvider(KernelOptions? options, HttpClient http)
     {
@@ -81,7 +79,8 @@ public sealed class KernelProvider : IBrowserProvider
         Downloads = new BrowserProviderDownloads
         {
             Dir = DownloadsDir,
-            ReadAsync = (lease, file, context, cancellationToken) => ClientFor(context.Env).ReadFileAsync(lease.Id, file, cancellationToken),
+            ReadAsync = (lease, file, context, cancellationToken) =>
+                ClientFor(context.Env).ReadFileAsync(lease.Id, file, cancellationToken),
         };
     }
 
@@ -105,7 +104,16 @@ public sealed class KernelProvider : IBrowserProvider
             tags["e2e_attempt"] = request.AttemptId;
         }
 
-        var browser = await client.CreateAsync(_params with { TimeoutSeconds = _params.TimeoutSeconds ?? DefaultTimeoutSeconds, Tags = tags }, cancellationToken).ConfigureAwait(false);
+        var browser = await client
+            .CreateAsync(
+                _params with
+                {
+                    TimeoutSeconds = _params.TimeoutSeconds ?? DefaultTimeoutSeconds,
+                    Tags = tags,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -120,43 +128,72 @@ public sealed class KernelProvider : IBrowserProvider
                 outcome = $"deleting it failed, so Kernel ends it after timeout_seconds: {cause.Message}";
             }
 
-            throw new InvalidOperationException($"browser {browser.SessionId} arrived after the request was cancelled; {outcome}");
+            throw new InvalidOperationException(
+                $"browser {browser.SessionId} arrived after the request was cancelled; {outcome}"
+            );
         }
 
-        request.Log(browser.LiveViewUrl is null ? $"browser {browser.SessionId}" : $"browser {browser.SessionId}, watch at {browser.LiveViewUrl}");
+        request.Log(
+            browser.LiveViewUrl is null
+                ? $"browser {browser.SessionId}"
+                : $"browser {browser.SessionId}, watch at {browser.LiveViewUrl}"
+        );
         return new BrowserLease { Id = browser.SessionId, CdpEndpoint = browser.CdpWsUrl };
     }
 
-    public async Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken) =>
-        await ClientFor(context.Env).DeleteAsync(lease.Id, cancellationToken).ConfigureAwait(false);
+    public async Task ReleaseAsync(
+        BrowserLease lease,
+        BrowserReleaseContext context,
+        CancellationToken cancellationToken
+    ) => await ClientFor(context.Env).DeleteAsync(lease.Id, cancellationToken).ConfigureAwait(false);
 
-    public async Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<string>> SweepAsync(
+        BrowserReleaseContext context,
+        CancellationToken cancellationToken
+    )
     {
         var client = ClientFor(context.Env);
-        var open = await client.ListActiveAsync(new Dictionary<string, string> { ["e2e_run"] = context.RunId, ["e2e_target"] = context.TargetName }, cancellationToken).ConfigureAwait(false);
-        var settled = await Task.WhenAll(open.Select(async id =>
-        {
-            try
-            {
-                return (Deleted: await client.DeleteAsync(id, cancellationToken).ConfigureAwait(false) ? id : null, Failed: (string?)null);
-            }
-            catch (Exception cause)
-            {
-                return (Deleted: null, Failed: $"{id} ({cause.Message})");
-            }
-        })).ConfigureAwait(false);
+        var open = await client
+            .ListActiveAsync(
+                new Dictionary<string, string> { ["e2e_run"] = context.RunId, ["e2e_target"] = context.TargetName },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
+        var settled = await Task.WhenAll(
+                open.Select(async id =>
+                {
+                    try
+                    {
+                        return (
+                            Deleted: await client.DeleteAsync(id, cancellationToken).ConfigureAwait(false) ? id : null,
+                            Failed: (string?)null
+                        );
+                    }
+                    catch (Exception cause)
+                    {
+                        return (Deleted: null, Failed: $"{id} ({cause.Message})");
+                    }
+                })
+            )
+            .ConfigureAwait(false);
         var deleted = settled.Select(result => result.Deleted).OfType<string>().ToList();
         var failed = settled.Select(result => result.Failed).OfType<string>().ToList();
         if (failed.Count > 0)
         {
-            throw new InvalidOperationException($"deleted {(deleted.Count == 0 ? "none" : string.Join(", ", deleted))}; could not delete {string.Join(", ", failed)}, so Kernel ends it after timeout_seconds");
+            throw new InvalidOperationException(
+                $"deleted {(deleted.Count == 0 ? "none" : string.Join(", ", deleted))}; could not delete {string.Join(", ", failed)}, so Kernel ends it after timeout_seconds"
+            );
         }
 
         return deleted;
     }
 
     /// <summary>Records each attempt as a Kernel replay of the lease's screen, started with the replay body and saved as <c>replay.mp4</c>.</summary>
-    public async Task<ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
+    public async Task<ProviderRecording?> RecordAsync(
+        BrowserLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    )
     {
         if (_replay is null)
         {
@@ -172,7 +209,8 @@ public sealed class KernelProvider : IBrowserProvider
     /// <summary>The Kernel client for the run's API key, read from the run's environment and not the process's.</summary>
     private KernelClient ClientFor(IReadOnlyDictionary<string, string?> env)
     {
-        var apiKey = KernelEnvironment.EnvValue(env, KernelApiKey) ?? throw new InvalidOperationException($"{KernelApiKey} is not set");
+        var apiKey = KernelEnvironment.EnvValue(env, KernelApiKey)
+            ?? throw new InvalidOperationException($"{KernelApiKey} is not set");
         var baseUrl = KernelEnvironment.EnvValue(env, KernelBaseUrl) ?? DefaultBaseUrl;
         return Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
             ? new KernelClient(_http, apiKey, uri)
@@ -180,13 +218,21 @@ public sealed class KernelProvider : IBrowserProvider
     }
 
     /// <summary>A Kernel replay in progress. A retried stop (the download failed after the replay stopped) downloads again without stopping twice.</summary>
-    private sealed class KernelReplayRecording(KernelClient client, string sessionId, string replayId, DateTimeOffset startedAt) : ProviderRecording
+    private sealed class KernelReplayRecording(
+        KernelClient client,
+        string sessionId,
+        string replayId,
+        DateTimeOffset startedAt
+    ) : ProviderRecording
     {
         private bool _stopped;
 
         public override DateTimeOffset StartedAt => startedAt;
 
-        public override async Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken)
+        public override async Task<ProviderRecordingResult> StopAsync(
+            ProviderRecordingStopContext context,
+            CancellationToken cancellationToken
+        )
         {
             if (!_stopped)
             {
@@ -194,7 +240,9 @@ public sealed class KernelProvider : IBrowserProvider
                 _stopped = true;
             }
 
-            await client.DownloadReplayAsync(sessionId, replayId, Path.Combine(context.Dir, ReplayFile), cancellationToken).ConfigureAwait(false);
+            await client
+                .DownloadReplayAsync(sessionId, replayId, Path.Combine(context.Dir, ReplayFile), cancellationToken)
+                .ConfigureAwait(false);
             return new ProviderRecordingResult { File = ReplayFile };
         }
     }

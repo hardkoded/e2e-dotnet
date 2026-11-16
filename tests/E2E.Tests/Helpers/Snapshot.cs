@@ -17,11 +17,14 @@ public static class Snapshot
     public static ViewportSize Viewport => new() { Width = 1280, Height = 720 };
 
     /// <summary>Builds a snapshot of <paramref name="nodes"/>.</summary>
-    public static EngineSnapshot Of(IReadOnlyList<EngineNode> nodes, string? location = null, ObservationPixels? pixels = null, int? maskedRegionCount = null)
+    public static EngineSnapshot Of(
+        IReadOnlyList<EngineNode> nodes,
+        string? location = null,
+        ObservationPixels? pixels = null,
+        int? maskedRegionCount = null
+    )
     {
-        var root = nodes.Count == 1
-            ? nodes[0]
-            : new EngineNode(new NodeRef("root", ""), Role: "root", Children: nodes);
+        var root = nodes.Count == 1 ? nodes[0] : new EngineNode(new NodeRef("root", ""), Role: "root", Children: nodes);
         return new EngineSnapshot(root, Viewport)
         {
             Location = location,
@@ -34,11 +37,12 @@ public static class Snapshot
     public static EngineNode Node(string id, string name) => new(new NodeRef(id, ""), Role: "button", Name: name);
 
     /// <summary>The operation context the tests run every call with: a one-second budget, never cancelled.</summary>
-    public static OperationContext Operation { get; } = new(OperationOrigin.Test)
-    {
-        Signal = CancellationToken.None,
-        Timeout = TimeSpan.FromSeconds(1),
-        RunId = "run",
-        AttemptId = "attempt",
-    };
+    public static OperationContext Operation { get; } =
+        new(OperationOrigin.Test)
+        {
+            Signal = CancellationToken.None,
+            Timeout = TimeSpan.FromSeconds(1),
+            RunId = "run",
+            AttemptId = "attempt",
+        };
 }

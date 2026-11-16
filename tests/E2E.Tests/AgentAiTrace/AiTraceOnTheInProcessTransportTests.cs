@@ -21,20 +21,24 @@ public sealed class AiTraceOnTheInProcessTransportTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-                ? ModelResponses.Done("passed", "tapped once; the counter shows 1")
-                : ModelResponses.Tap("button", "Increment")),
-            BaseUrl = "https://counter.test",
-            TestTitle = "default agent increments the counter",
-            ResultsDirectory = Path.Combine(_output, "results"),
-            ProjectRoot = _output,
-            TargetName = "web",
-            AiTrace = true,
-            CacheEnabled = false,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = new ScriptedModel(request =>
+                    request.Messages.Any(message => message.Role == "tool")
+                        ? ModelResponses.Done("passed", "tapped once; the counter shows 1")
+                        : ModelResponses.Tap("button", "Increment")
+                ),
+                BaseUrl = "https://counter.test",
+                TestTitle = "default agent increments the counter",
+                ResultsDirectory = Path.Combine(_output, "results"),
+                ProjectRoot = _output,
+                TargetName = "web",
+                AiTrace = true,
+                CacheEnabled = false,
+            }
+        );
         try
         {
             await session.App.OpenAsync("/");
@@ -76,7 +80,8 @@ public sealed class AiTraceOnTheInProcessTransportTests : IAsyncLifetime
         var run = Assert.Single(document["runs"]!.AsArray())!;
         Assert.Equal(
             "default agent increments the counter · agent.act \"increment the counter once and verify it shows 1\"",
-            (string?)run["function_id"]);
+            (string?)run["function_id"]
+        );
         var e2e = run["e2e"]!;
         Assert.Equal("default agent increments the counter", (string?)e2e["test"]);
         Assert.Equal("web", (string?)e2e["target"]);

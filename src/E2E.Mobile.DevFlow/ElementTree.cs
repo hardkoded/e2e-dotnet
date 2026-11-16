@@ -21,7 +21,12 @@ internal sealed class DevFlowScreen
 {
     private readonly Dictionary<string, ScreenElement> _byId;
 
-    internal DevFlowScreen(JsonObject snapshot, long? captureEpoch, (double Width, double Height)? viewport, Dictionary<string, ScreenElement> byId)
+    internal DevFlowScreen(
+        JsonObject snapshot,
+        long? captureEpoch,
+        (double Width, double Height)? viewport,
+        Dictionary<string, ScreenElement> byId
+    )
     {
         Snapshot = snapshot;
         CaptureEpoch = captureEpoch;
@@ -115,9 +120,15 @@ internal static class ElementTree
         ["toolbar"] = "toolbar",
     };
 
-    private static readonly HashSet<string> TextInputTypes = new(["Entry", "Editor", "SearchBar"], StringComparer.Ordinal);
+    private static readonly HashSet<string> TextInputTypes = new(
+        ["Entry", "Editor", "SearchBar"],
+        StringComparer.Ordinal
+    );
 
-    private static readonly HashSet<string> ToggleTypes = new(["Switch", "CheckBox", "RadioButton"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ToggleTypes = new(
+        ["Switch", "CheckBox", "RadioButton"],
+        StringComparer.Ordinal
+    );
 
     /// <summary>
     /// Reads one tree answer. <paramref name="interactiveOnly"/> keeps the actionable, labelled, and identified elements
@@ -138,7 +149,10 @@ internal static class ElementTree
         (double, double)? viewport = null;
         foreach (var root in roots.OfType<JsonObject>())
         {
-            viewport ??= RectOf(root) is { } bounds && bounds.Width > 0 && bounds.Height > 0 ? (bounds.Width, bounds.Height) : null;
+            viewport ??=
+                RectOf(root) is { } bounds && bounds.Width > 0 && bounds.Height > 0
+                    ? (bounds.Width, bounds.Height)
+                    : null;
             Flatten(root, parentIndex: null, depth: 0, interactiveOnly, nodes, byId, ref epoch);
         }
 
@@ -161,7 +175,15 @@ internal static class ElementTree
         return new DevFlowScreen(snapshot, epoch, viewport, byId);
     }
 
-    private static void Flatten(JsonObject element, int? parentIndex, int depth, bool interactiveOnly, JsonArray nodes, Dictionary<string, ScreenElement> byId, ref long? epoch)
+    private static void Flatten(
+        JsonObject element,
+        int? parentIndex,
+        int depth,
+        bool interactiveOnly,
+        JsonArray nodes,
+        Dictionary<string, ScreenElement> byId,
+        ref long? epoch
+    )
     {
         var id = Text(element["id"]);
         var kept = id is not null && (!interactiveOnly || IsInteresting(element));
@@ -194,7 +216,13 @@ internal static class ElementTree
         || Text(element["value"]) is { Length: > 0 }
         || (element["traits"] is JsonArray traits && traits.Any(trait => Text(trait) == "interactive"));
 
-    private static (JsonObject Node, ScreenElement Element) Convert(JsonObject element, string id, int index, int? parentIndex, int depth)
+    private static (JsonObject Node, ScreenElement Element) Convert(
+        JsonObject element,
+        string id,
+        int index,
+        int? parentIndex,
+        int depth
+    )
     {
         var type = Text(element["type"]) ?? "";
         var role = Text(element["role"]);
@@ -210,7 +238,9 @@ internal static class ElementTree
         var value = Text(element["value"]);
         var rect = RectOf(element);
         var isTextInput = TextInputTypes.Contains(type) || role == "textbox";
-        var readOnly = Text((element["frameworkProperties"] as JsonObject)?["IsReadOnly"]) is { } ro && string.Equals(ro, "True", StringComparison.OrdinalIgnoreCase);
+        var readOnly =
+            Text((element["frameworkProperties"] as JsonObject)?["IsReadOnly"]) is { } ro
+            && string.Equals(ro, "True", StringComparison.OrdinalIgnoreCase);
 
         var node = new JsonObject
         {
@@ -277,7 +307,13 @@ internal static class ElementTree
 
         if (rect is { } bounds)
         {
-            node["rect"] = new JsonObject { ["x"] = bounds.X, ["y"] = bounds.Y, ["width"] = bounds.Width, ["height"] = bounds.Height };
+            node["rect"] = new JsonObject
+            {
+                ["x"] = bounds.X,
+                ["y"] = bounds.Y,
+                ["width"] = bounds.Width,
+                ["height"] = bounds.Height,
+            };
         }
 
         Set(node, "enabled", enabled);
@@ -309,7 +345,11 @@ internal static class ElementTree
     {
         var native = (element["nativeView"] as JsonObject)?["properties"] as JsonObject;
         var framework = element["frameworkProperties"] as JsonObject;
-        return Text(framework?["Placeholder"]) ?? Text(framework?["placeholder"]) ?? Text(native?["placeholderString"]) ?? Text(native?["placeholder"]) ?? Text(native?["hint"]);
+        return Text(framework?["Placeholder"])
+            ?? Text(framework?["placeholder"])
+            ?? Text(native?["placeholderString"])
+            ?? Text(native?["placeholder"])
+            ?? Text(native?["hint"]);
     }
 
     private static string Kebab(string type)
@@ -318,7 +358,11 @@ internal static class ElementTree
         for (var i = 0; i < type.Length; i++)
         {
             var character = type[i];
-            if (char.IsUpper(character) && i > 0 && (char.IsLower(type[i - 1]) || (i + 1 < type.Length && char.IsLower(type[i + 1]))))
+            if (
+                char.IsUpper(character)
+                && i > 0
+                && (char.IsLower(type[i - 1]) || (i + 1 < type.Length && char.IsLower(type[i + 1])))
+            )
             {
                 text.Append('-');
             }
@@ -338,15 +382,23 @@ internal static class ElementTree
     }
 
     private static Rect? RectOf(JsonObject element) =>
-        element["bounds"] is JsonObject bounds && Number(bounds["x"]) is { } x && Number(bounds["y"]) is { } y && Number(bounds["width"]) is { } width && Number(bounds["height"]) is { } height
+        element["bounds"] is JsonObject bounds
+        && Number(bounds["x"]) is { } x
+        && Number(bounds["y"]) is { } y
+        && Number(bounds["width"]) is { } width
+        && Number(bounds["height"]) is { } height
             ? new Rect(x, y, width, height)
             : null;
 
-    private static bool? Flag(JsonNode? node) => node is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
+    private static bool? Flag(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     /// <summary>A JSON number, whatever type backs it: one parsed from text and one built in code differ.</summary>
     private static double? Number(JsonNode? node) =>
-        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element ? element.GetDouble() : null;
+        node is JsonValue && JsonSerializer.SerializeToElement(node) is { ValueKind: JsonValueKind.Number } element
+            ? element.GetDouble()
+            : null;
 }

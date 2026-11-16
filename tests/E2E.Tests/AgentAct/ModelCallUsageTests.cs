@@ -14,22 +14,35 @@ public sealed class ModelCallUsageTests
     {
         var model = new ScriptedModel(request => new ModelResponse
         {
-            ToolCalls = request.Messages.Any(message => message.Role == "tool") || request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true)
-                ? ModelResponses.Done("passed", "ok").ToolCalls
-                : ModelResponses.Tap("button", "Increment").ToolCalls,
-            Usage = new ModelCallUsage { InputTokens = 100, OutputTokens = 3, CacheReadTokens = 60, CacheWriteTokens = 10, EstimatedCostUsd = 0.25 },
+            ToolCalls =
+                request.Messages.Any(message => message.Role == "tool")
+                || request.Messages.Any(message =>
+                    message.Content?.Contains("Statement:", StringComparison.Ordinal) == true
+                )
+                    ? ModelResponses.Done("passed", "ok").ToolCalls
+                    : ModelResponses.Tap("button", "Increment").ToolCalls,
+            Usage = new ModelCallUsage
+            {
+                InputTokens = 100,
+                OutputTokens = 3,
+                CacheReadTokens = 60,
+                CacheWriteTokens = 10,
+                EstimatedCostUsd = 0.25,
+            },
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "usage > case",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "usage > case",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
 
         await session.Context.App.OpenAsync("/");
         await session.Context.Agent.ActAsync("increment the counter once");

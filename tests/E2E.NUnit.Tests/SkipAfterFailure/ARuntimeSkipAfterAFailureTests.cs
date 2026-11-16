@@ -55,16 +55,27 @@ public sealed class ARuntimeSkipAfterAFailureTests
         Assert.That(SkippingFixture.Attempts, Is.EqualTo(2));
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
         // NUnit retries only a failed attempt, so the second attempt shows the first one failed.
-        Assert.That(SkippingFixture.Messages[0], Does.Contain("toHaveText failed").And.Contain("expected: text \"the count\"").And.Contain("feature disabled"));
+        Assert.That(
+            SkippingFixture.Messages[0],
+            Does.Contain("toHaveText failed")
+                .And.Contain("expected: text \"the count\"")
+                .And.Contain("feature disabled")
+        );
         Assert.That(SkippingFixture.Messages[1], Is.EqualTo("feature disabled"));
     }
 
     [Test]
     public void Keeps_clean_skips_and_passing_soft_assertions_green()
     {
-        Assert.That(NestedRun.Run(nameof(SkippingFixture.Clean_skip)).ResultState.Status, Is.EqualTo(TestStatus.Skipped));
+        Assert.That(
+            NestedRun.Run(nameof(SkippingFixture.Clean_skip)).ResultState.Status,
+            Is.EqualTo(TestStatus.Skipped)
+        );
 
-        Assert.That(NestedRun.Run(nameof(SkippingFixture.False_condition)).ResultState.Status, Is.EqualTo(TestStatus.Passed));
+        Assert.That(
+            NestedRun.Run(nameof(SkippingFixture.False_condition)).ResultState.Status,
+            Is.EqualTo(TestStatus.Passed)
+        );
 
         SkippingFixture.Attempts = 0;
         var recovered = NestedRun.Run(nameof(SkippingFixture.Soft_failure_then_recovery));

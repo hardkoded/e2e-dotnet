@@ -34,7 +34,10 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
     public async Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        using var message = new HttpRequestMessage(HttpMethod.Post, ModelEndpoint.Build(_options.BaseUrl, "/messages", null));
+        using var message = new HttpRequestMessage(
+            HttpMethod.Post,
+            ModelEndpoint.Build(_options.BaseUrl, "/messages", null)
+        );
         var apiKey = _options.ResolveApiKey();
         if (apiKey is not null)
         {
@@ -45,7 +48,9 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         ModelEndpoint.AddHeaders(message, _options.Headers);
         var payload = BuildBody(request);
         message.Content = ModelHttp.Json(payload);
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries).ConfigureAwait(false);
+        var body = await ModelHttp
+            .SendAsync(_http, message, request.Redactor, cancellationToken, maxRetries: request.MaxRetries)
+            .ConfigureAwait(false);
         var response = ModelHttp.Parse(body, Parse);
         if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
         {
@@ -78,48 +83,72 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
 
                 foreach (var call in message.ToolCalls)
                 {
-                    content.Add(new JsonObject
-                    {
-                        ["type"] = "tool_use",
-                        ["id"] = call.Id,
-                        ["name"] = call.Name,
-                        ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
-                    });
+                    content.Add(
+                        new JsonObject
+                        {
+                            ["type"] = "tool_use",
+                            ["id"] = call.Id,
+                            ["name"] = call.Name,
+                            ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
+                        }
+                    );
                 }
 
                 Append(messages, "assistant", content);
             }
             else if (string.Equals(message.Role, "tool", StringComparison.Ordinal))
             {
-                Append(messages, "user", new JsonArray
-                {
-                    new JsonObject
+                Append(
+                    messages,
+                    "user",
+                    new JsonArray
                     {
-                        ["type"] = "tool_result",
-                        ["tool_use_id"] = message.ToolCallId,
-                        ["content"] = message.Content ?? "",
-                    },
-                });
+                        new JsonObject
+                        {
+                            ["type"] = "tool_result",
+                            ["tool_use_id"] = message.ToolCallId,
+                            ["content"] = message.Content ?? "",
+                        },
+                    }
+                );
             }
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "assistant" : "user";
                 var content = role == "assistant" ? Thinking(message) : [];
-                content.Add(new JsonObject { ["type"] = "text", ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content });
+                content.Add(
+                    new JsonObject
+                    {
+                        ["type"] = "text",
+                        ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content,
+                    }
+                );
                 foreach (var image in ModelHttp.UserImages(message))
                 {
-                    content.Add(new JsonObject
-                    {
-                        ["type"] = "image",
-                        ["source"] = new JsonObject { ["type"] = "base64", ["media_type"] = image.MediaType, ["data"] = Convert.ToBase64String(image.Data) },
-                    });
+                    content.Add(
+                        new JsonObject
+                        {
+                            ["type"] = "image",
+                            ["source"] = new JsonObject
+                            {
+                                ["type"] = "base64",
+                                ["media_type"] = image.MediaType,
+                                ["data"] = Convert.ToBase64String(image.Data),
+                            },
+                        }
+                    );
                 }
 
                 Append(messages, role, content);
             }
         }
 
-        if (_options.CacheBreakpoints && request.MarkLatest && messages.Count > 0 && messages[^1]?["content"] is JsonArray { Count: > 0 } latest)
+        if (
+            _options.CacheBreakpoints
+            && request.MarkLatest
+            && messages.Count > 0
+            && messages[^1]?["content"] is JsonArray { Count: > 0 } latest
+        )
         {
             latest[^1]!["cache_control"] = Breakpoint.DeepClone();
         }
@@ -133,23 +162,27 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         var tools = new JsonArray();
         foreach (var tool in request.Tools)
         {
-            tools.Add(new JsonObject
-            {
-                ["name"] = tool.Name,
-                ["description"] = tool.Description,
-                ["input_schema"] = JsonNode.Parse(tool.Parameters.GetRawText()),
-            });
+            tools.Add(
+                new JsonObject
+                {
+                    ["name"] = tool.Name,
+                    ["description"] = tool.Description,
+                    ["input_schema"] = JsonNode.Parse(tool.Parameters.GetRawText()),
+                }
+            );
         }
 
         // A structured answer is the input of one tool the model is made to call.
         if (request.Schema is { } schema)
         {
-            tools.Add(new JsonObject
-            {
-                ["name"] = ModelHttp.JsonToolName,
-                ["description"] = ModelHttp.JsonToolDescription(request),
-                ["input_schema"] = JsonNode.Parse(schema.GetRawText()),
-            });
+            tools.Add(
+                new JsonObject
+                {
+                    ["name"] = ModelHttp.JsonToolName,
+                    ["description"] = ModelHttp.JsonToolDescription(request),
+                    ["input_schema"] = JsonNode.Parse(schema.GetRawText()),
+                }
+            );
         }
 
         var payload = new JsonObject
@@ -166,7 +199,16 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             payload["tool_choice"] = ToolChoice(request.ToolChoice);
         }
 
-        ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system", "tool_choice");
+        ModelHttp.MergeProviderOptions(
+            payload,
+            request,
+            _options.Provider,
+            "model",
+            "messages",
+            "tools",
+            "system",
+            "tool_choice"
+        );
 
         // Forcing a tool is refused while the model thinks, so the request asks for auto and the response says so (see CompleteAsync).
         if (ModelHttp.DowngradesToolChoice(request, ModelHttp.Thinks(payload["thinking"])))
@@ -184,12 +226,13 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
     }
 
     // The AI SDK's mapping: required is Anthropic's any, a named tool is a tool choice with its name.
-    private static JsonObject ToolChoice(ModelToolChoice? choice) => choice switch
-    {
-        { Type: "required" } => new JsonObject { ["type"] = "any" },
-        { Type: "tool" } => new JsonObject { ["type"] = "tool", ["name"] = choice.ToolName },
-        _ => new JsonObject { ["type"] = "auto" },
-    };
+    private static JsonObject ToolChoice(ModelToolChoice? choice) =>
+        choice switch
+        {
+            { Type: "required" } => new JsonObject { ["type"] = "any" },
+            { Type: "tool" } => new JsonObject { ["type"] = "tool", ["name"] = choice.ToolName },
+            _ => new JsonObject { ["type"] = "auto" },
+        };
 
     // The thinking blocks of an earlier turn go back as they came, signature and all, ahead of its text and tool calls.
     private static JsonArray Thinking(ModelMessage message)
@@ -206,7 +249,11 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
     /// <summary>Anthropic wants turns to alternate, so consecutive turns of one role share a message.</summary>
     private static void Append(JsonArray messages, string role, JsonArray content)
     {
-        if (messages.Count > 0 && messages[^1]?["role"]?.GetValue<string>() == role && messages[^1]?["content"] is JsonArray previous)
+        if (
+            messages.Count > 0
+            && messages[^1]?["role"]?.GetValue<string>() == role
+            && messages[^1]?["content"] is JsonArray previous
+        )
         {
             foreach (var part in content.ToArray())
             {
@@ -237,25 +284,34 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
                         reasoningText.Add(thought);
                     }
 
-                    if (block.TryGetProperty("signature", out var signature) && signature.ValueKind == JsonValueKind.String)
+                    if (
+                        block.TryGetProperty("signature", out var signature)
+                        && signature.ValueKind == JsonValueKind.String
+                    )
                     {
                         thinking.Add(block.Clone());
                     }
 
                     break;
-                case "redacted_thinking" when block.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String:
+                case "redacted_thinking"
+                    when block.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.String:
                     thinking.Add(block.Clone());
                     break;
                 case "text":
                     text.Add(block.GetProperty("text").GetString() ?? "");
                     break;
                 case "tool_use":
-                    calls.Add(new ModelToolCall
-                    {
-                        Id = block.GetProperty("id").GetString() ?? "call_" + calls.Count,
-                        Name = block.GetProperty("name").GetString() ?? "",
-                        Arguments = block.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object ? input.Clone() : ModelHttp.Arguments(null),
-                    });
+                    calls.Add(
+                        new ModelToolCall
+                        {
+                            Id = block.GetProperty("id").GetString() ?? "call_" + calls.Count,
+                            Name = block.GetProperty("name").GetString() ?? "",
+                            Arguments =
+                                block.TryGetProperty("input", out var input) && input.ValueKind == JsonValueKind.Object
+                                    ? input.Clone()
+                                    : ModelHttp.Arguments(null),
+                        }
+                    );
                     break;
             }
         }
@@ -265,7 +321,8 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         {
             usage = new ModelCallUsage
             {
-                InputTokens = ModelHttp.Int(usageElement, "input_tokens")
+                InputTokens =
+                    ModelHttp.Int(usageElement, "input_tokens")
                     + ModelHttp.Int(usageElement, "cache_read_input_tokens")
                     + ModelHttp.Int(usageElement, "cache_creation_input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),

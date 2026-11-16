@@ -16,7 +16,10 @@ namespace E2E.Tests.WebEngineState;
 public sealed class WebEngineStateTests
 {
     private static Task<IEngineSession> StartAsync(string url) =>
-        new WebEngine(new WebEngineOptions()).StartAsync(new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None);
+        new WebEngine(new WebEngineOptions()).StartAsync(
+            new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) },
+            CancellationToken.None
+        );
 
     private static async Task<string?> PlanAsync(IEngineSession session)
     {
@@ -85,7 +88,9 @@ public sealed class WebEngineStateTests
         var cookie = new JsonObject { ["name"] = "a" };
         var data = new JsonObject { ["cookies"] = new JsonArray(cookie), ["origins"] = new JsonArray() };
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, data), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, data), CancellationToken.None)
+        );
         Assert.NotEmpty(error.Code);
     }
 
@@ -96,8 +101,20 @@ public sealed class WebEngineStateTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => session.CaptureStateAsync(cancelled.Token))).Code);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, new JsonObject { ["cookies"] = new JsonArray(), ["origins"] = new JsonArray() }), cancelled.Token));
+        Assert.Equal(
+            "CANCELLED",
+            (await Assert.ThrowsAsync<EngineException>(() => session.CaptureStateAsync(cancelled.Token))).Code
+        );
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            session.RestoreStateAsync(
+                new EngineState(
+                    "playwright-storage-state",
+                    1,
+                    new JsonObject { ["cookies"] = new JsonArray(), ["origins"] = new JsonArray() }
+                ),
+                cancelled.Token
+            )
+        );
     }
 
     [Theory]
@@ -107,7 +124,9 @@ public sealed class WebEngineStateTests
     {
         await using var session = await StartAsync("http://127.0.0.1:1/");
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState(format, version, new JsonObject()), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.RestoreStateAsync(new EngineState(format, version, new JsonObject()), CancellationToken.None)
+        );
         Assert.Equal("INVALID_STATE", error.Code);
         Assert.Equal(message, error.Message);
     }
@@ -117,9 +136,18 @@ public sealed class WebEngineStateTests
     {
         await using var session = await StartAsync("http://127.0.0.1:1/");
 
-        foreach (var data in new JsonNode?[] { System.Text.Json.Nodes.JsonValue.Create("/etc/passwd"), new JsonObject { ["cookies"] = new JsonArray() }, null })
+        foreach (
+            var data in new JsonNode?[]
+            {
+                System.Text.Json.Nodes.JsonValue.Create("/etc/passwd"),
+                new JsonObject { ["cookies"] = new JsonArray() },
+                null,
+            }
+        )
         {
-            var error = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, data), CancellationToken.None));
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, data), CancellationToken.None)
+            );
             Assert.Equal("INVALID_STATE", error.Code);
             Assert.Equal("state data must be a storage-state object", error.Message);
         }

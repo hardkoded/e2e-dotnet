@@ -51,13 +51,23 @@ public sealed class DownloadRedactionSessionTests : IDisposable
 
     private string Write(string name, string text) => Write(name, Encoding.UTF8.GetBytes(text));
 
-    private string Read(string name) => File.ReadAllText(Path.Combine(AttemptDir, "downloads", name), new UTF8Encoding(false));
+    private string Read(string name) =>
+        File.ReadAllText(Path.Combine(AttemptDir, "downloads", name), new UTF8Encoding(false));
 
     private async Task<JsonObject> RecordAsync(AttemptScope scope, int index)
     {
         await scope.Artifacts!.SettleAsync();
         var attached = scope.Attached[index];
-        return ReportWire.Artifact(new ReportArtifact(attached.Id, attached.Kind.ToString().ToLowerInvariant(), attached.Path, Redaction: attached.Redaction), _root, null);
+        return ReportWire.Artifact(
+            new ReportArtifact(
+                attached.Id,
+                attached.Kind.ToString().ToLowerInvariant(),
+                attached.Path,
+                Redaction: attached.Redaction
+            ),
+            _root,
+            null
+        );
     }
 
     [Theory]
@@ -74,7 +84,9 @@ public sealed class DownloadRedactionSessionTests : IDisposable
         if (alreadyHasSecret)
         {
             // FillAsync remembers a Secret through this path; the earlier registered value remains known too.
-            scope.Remember(new Dictionary<string, object?> { ["api-key"] = global::E2E.Secret.Create("api-key", later) });
+            scope.Remember(
+                new Dictionary<string, object?> { ["api-key"] = global::E2E.Secret.Create("api-key", later) }
+            );
         }
         else
         {
@@ -86,7 +98,10 @@ public sealed class DownloadRedactionSessionTests : IDisposable
         Assert.Equal("complete", (string?)record["redaction"]);
         Assert.Equal(redacted, Read("export.txt"));
         Assert.Equal(Encoding.UTF8.GetByteCount(redacted), (long?)record["size"]);
-        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))), (string?)record["sha256"]);
+        Assert.Equal(
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))),
+            (string?)record["sha256"]
+        );
     }
 
     // .NET-only: in a --last-failed rerun the attempt sits one level deeper, and the rescan must still find the file by its report path.
@@ -115,7 +130,10 @@ public sealed class DownloadRedactionSessionTests : IDisposable
         scope.Register("api-key", later);
 
         Assert.Equal(E2E.Reports.ArtifactRedaction.Complete, scope.Attached[0].Redaction);
-        Assert.Equal("key=<secret:api-key>\n", await File.ReadAllTextAsync(Path.Combine(attempt, "downloads", "export.txt")));
+        Assert.Equal(
+            "key=<secret:api-key>\n",
+            await File.ReadAllTextAsync(Path.Combine(attempt, "downloads", "export.txt"))
+        );
     }
 
     // A failed final scan must replace the earlier registration's successful result.
@@ -136,7 +154,10 @@ public sealed class DownloadRedactionSessionTests : IDisposable
     [InlineData("""{"key":"\u0068\u0075\u006e\u0074\u0065\u0072\u0032"}""", """{"key":"<secret:api-key>"}""")]
     [InlineData("""{"key":"\u0068\u0075\u006E\u0074\u0065\u0072\u0032"}""", """{"key":"<secret:api-key>"}""")]
     [InlineData("""{"key":"hunter\u0032"}""", """{"key":"<secret:api-key>"}""")]
-    [InlineData("""{"text":"{\"key\":\"\\u0068\\u0075\\u006e\\u0074\\u0065\\u0072\\u0032\"}"}""", """{"text":"{\"key\":\"<secret:api-key>\"}"}""")]
+    [InlineData(
+        """{"text":"{\"key\":\"\\u0068\\u0075\\u006e\\u0074\\u0065\\u0072\\u0032\"}"}""",
+        """{"text":"{\"key\":\"<secret:api-key>\"}"}"""
+    )]
     public async Task Redacts_JSON_Unicode_escaped_ASCII_secrets_before_reporting_complete(string body, string redacted)
     {
         var scope = Downloads(("api-key", "hunter2"));
@@ -145,7 +166,10 @@ public sealed class DownloadRedactionSessionTests : IDisposable
         Assert.Equal("complete", (string?)record["redaction"]);
         Assert.Equal(redacted, Read("export.json"));
         Assert.Equal(Encoding.UTF8.GetByteCount(redacted), (long?)record["size"]);
-        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))), (string?)record["sha256"]);
+        Assert.Equal(
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))),
+            (string?)record["sha256"]
+        );
     }
 
     // A BOM-less UTF-16 file can pass UTF-8 decoding while its NUL bytes keep a secret from matching.

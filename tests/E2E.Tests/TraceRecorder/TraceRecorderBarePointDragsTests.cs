@@ -15,26 +15,60 @@ namespace E2E.Tests.TraceRecorder;
 /// </summary>
 public sealed class TraceRecorderBarePointDragsTests
 {
-    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Relaxed = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private static readonly TraceViewport Viewport = new(1280, 720);
 
-    private static readonly SemanticNode Board = new() { Ref = "b1", Role = "img", Name = "Board", Rect = new BoundingBox(100, 200, 400, 200) };
+    private static readonly SemanticNode Board = new()
+    {
+        Ref = "b1",
+        Role = "img",
+        Name = "Board",
+        Rect = new BoundingBox(100, 200, 400, 200),
+    };
 
     [Fact]
     public void Records_both_points_with_the_viewport_and_where_each_sat_inside_the_node_that_contained_it()
     {
         var recorder = MakeRecorder();
-        recorder.Record(new PlacedPoint(new Point(200, 250), Board), new PlacedPoint(new Point(400, 350), Board), Viewport);
+        recorder.Record(
+            new PlacedPoint(new Point(200, 250), Board),
+            new PlacedPoint(new Point(400, 350), Board),
+            Viewport
+        );
 
         var entry = TraceRecorderTests.Finalize(recorder, "/canvas");
         var action = Assert.Single(entry!.Actions);
 
         Assert.Equal("dragAt", action.Kind);
-        Assert.Equal("drag from the point (200, 250) on img \"Board\" to the point (400, 350) on img \"Board\"", action.Summary);
+        Assert.Equal(
+            "drag from the point (200, 250) on img \"Board\" to the point (400, 350) on img \"Board\"",
+            action.Summary
+        );
         Assert.Equal(Viewport, action.Viewport);
-        Assert.Equal((new Point(200, 250), "img", "Board", 0.25, 0.25), (action.From!.Point, action.From.Under?.Target?.Role, action.From.Under?.Target?.Name, action.From.Under?.Fx, action.From.Under?.Fy));
-        Assert.Equal((new Point(400, 350), "img", "Board", 0.75, 0.75), (action.To!.Point, action.To.Under?.Target?.Role, action.To.Under?.Target?.Name, action.To.Under?.Fx, action.To.Under?.Fy));
+        Assert.Equal(
+            (new Point(200, 250), "img", "Board", 0.25, 0.25),
+            (
+                action.From!.Point,
+                action.From.Under?.Target?.Role,
+                action.From.Under?.Target?.Name,
+                action.From.Under?.Fx,
+                action.From.Under?.Fy
+            )
+        );
+        Assert.Equal(
+            (new Point(400, 350), "img", "Board", 0.75, 0.75),
+            (
+                action.To!.Point,
+                action.To.Under?.Target?.Role,
+                action.To.Under?.Target?.Name,
+                action.To.Under?.Fx,
+                action.To.Under?.Fy
+            )
+        );
         Assert.Null(action.Point);
         Assert.Null(action.Under);
         Assert.Null(entry.Truncated);
@@ -44,12 +78,22 @@ public sealed class TraceRecorderBarePointDragsTests
     public void Keeps_the_container_and_place_among_twins_of_the_node_at_each_end()
     {
         var recorder = MakeRecorder();
-        recorder.Record(new PlacedPoint(new Point(200, 250), Board, "Sprint 1", new TracePosition { Index = 0, Of = 2 }), new PlacedPoint(new Point(400, 350), Board, "Sprint 2"), Viewport);
+        recorder.Record(
+            new PlacedPoint(new Point(200, 250), Board, "Sprint 1", new TracePosition { Index = 0, Of = 2 }),
+            new PlacedPoint(new Point(400, 350), Board, "Sprint 2"),
+            Viewport
+        );
 
         var action = Assert.Single(TraceRecorderTests.Finalize(recorder, "/canvas")!.Actions);
 
-        Assert.Equal(("img", "Board", "Sprint 1"), (action.From!.Under!.Target!.Role, action.From.Under.Target.Name, action.From.Under.Target.Within));
-        Assert.Equal(("img", "Board", "Sprint 2"), (action.To!.Under!.Target!.Role, action.To.Under.Target.Name, action.To.Under.Target.Within));
+        Assert.Equal(
+            ("img", "Board", "Sprint 1"),
+            (action.From!.Under!.Target!.Role, action.From.Under.Target.Name, action.From.Under.Target.Within)
+        );
+        Assert.Equal(
+            ("img", "Board", "Sprint 2"),
+            (action.To!.Under!.Target!.Role, action.To.Under.Target.Name, action.To.Under.Target.Within)
+        );
         Assert.Equal((0, 2), (action.From.Under.Target.Position!.Index, action.From.Under.Target.Position.Of));
         Assert.Null(action.To.Under.Target.Position);
     }
@@ -64,11 +108,17 @@ public sealed class TraceRecorderBarePointDragsTests
         var action = Assert.Single(entry.Actions);
         Assert.Equal("drag from the point (200, 250) on img \"Board\" to the point (700, 600)", action.Summary);
         Assert.Equal(action.Summary, Assert.Single(RoundTrip(entry).Actions).Summary);
-        Assert.Equal((new Point(200, 250), 0.25, 0.25), (action.From!.Point, action.From.Under?.Fx, action.From.Under?.Fy));
+        Assert.Equal(
+            (new Point(200, 250), 0.25, 0.25),
+            (action.From!.Point, action.From.Under?.Fx, action.From.Under?.Fy)
+        );
         Assert.Equal(new Point(700, 600), action.To!.Point);
         Assert.Null(action.To.Under);
         Assert.Equal(Viewport, action.Viewport);
-        Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(RoundTrip(entry).Actions, Relaxed));
+        Assert.Equal(
+            JsonSerializer.Serialize(entry.Actions, Relaxed),
+            JsonSerializer.Serialize(RoundTrip(entry).Actions, Relaxed)
+        );
     }
 
     [Fact]
@@ -80,12 +130,19 @@ public sealed class TraceRecorderBarePointDragsTests
 
         Assert.NotNull(TraceRead.ReadTraceEntry(stored));
         Assert.Null(ReadPatched(stored, 0, action => action.Remove("to")));
-        Assert.Null(ReadPatched(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 1280, ["height"] = -1 }));
+        Assert.Null(
+            ReadPatched(stored, 0, action => action["viewport"] = new JsonObject { ["width"] = 1280, ["height"] = -1 })
+        );
         Assert.Null(ReadPatched(stored, 0, action => action["from"] = new JsonObject { ["x"] = 200, ["y"] = 250 }));
         Assert.Null(ReadPatched(stored, 0, action => action["to"] = new JsonObject
-        {
-            ["point"] = new JsonObject { ["x"] = 700, ["y"] = 600 },
-            ["under"] = new JsonObject { ["target"] = new JsonObject { ["role"] = "img" }, ["fx"] = 0, ["fy"] = 2 },
-        }));
+                {
+                    ["point"] = new JsonObject { ["x"] = 700, ["y"] = 600 },
+                    ["under"] = new JsonObject
+                    {
+                        ["target"] = new JsonObject { ["role"] = "img" },
+                        ["fx"] = 0,
+                        ["fy"] = 2,
+                    },
+                }));
     }
 }

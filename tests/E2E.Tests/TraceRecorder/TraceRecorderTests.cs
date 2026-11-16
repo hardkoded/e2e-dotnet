@@ -21,11 +21,28 @@ namespace E2E.Tests.TraceRecorder;
 /// </summary>
 public sealed class TraceRecorderTests
 {
-    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Relaxed = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
-    private static readonly SemanticNode UpgradeButton = new() { Ref = "n42", Role = "button", Name = "Upgrade", Text = "Upgrade", TestId = "upgrade-cta" };
+    private static readonly SemanticNode UpgradeButton = new()
+    {
+        Ref = "n42",
+        Role = "button",
+        Name = "Upgrade",
+        Text = "Upgrade",
+        TestId = "upgrade-cta",
+    };
 
-    private static readonly SemanticNode PasswordField = new() { Ref = "n7", Role = "textbox", Name = "Password", InputPurpose = "password", States = new NodeStates { Secure = true } };
+    private static readonly SemanticNode PasswordField = new()
+    {
+        Ref = "n7",
+        Role = "textbox",
+        Name = "Password",
+        InputPurpose = "password",
+        States = new NodeStates { Secure = true },
+    };
 
     private static CacheEntry Step => new() { Test = "tests/billing::upgrade", Engine = "web" };
 
@@ -42,7 +59,8 @@ public sealed class TraceRecorderTests
         return new Recorder(() => redactor, maxActions: maxActions);
     }
 
-    internal static CacheEntry? Finalize(Recorder recorder, string route = "/settings") => recorder.Finalize(Step, route, route, [], []);
+    internal static CacheEntry? Finalize(Recorder recorder, string route = "/settings") =>
+        recorder.Finalize(Step, route, route, [], []);
 
     /// <summary>The entry as JSON, the form the store holds and a patch breaks a field of (upstream's <c>JSON.parse(JSON.stringify(buildTraceEntry(trace)))</c>).</summary>
     internal static JsonNode Stored(CacheEntry entry) => JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!;
@@ -80,7 +98,18 @@ public sealed class TraceRecorderTests
     {
         var recorder = MakeRecorder();
         recorder.Record(new RecordedAction { Kind = "navigate", Url = "/billing" });
-        recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Upgrade", Text = "Upgrade", TestId = "upgrade-cta", Selector = "[data-testid=\"upgrade-cta\"]" });
+        recorder.Record(
+            "tap",
+            new SemanticNode
+            {
+                Ref = "n42",
+                Role = "button",
+                Name = "Upgrade",
+                Text = "Upgrade",
+                TestId = "upgrade-cta",
+                Selector = "[data-testid=\"upgrade-cta\"]",
+            }
+        );
         recorder.Record("fill", UpgradeButton, value: "yearly");
 
         var entry = Finalize(recorder, "/settings");
@@ -89,11 +118,19 @@ public sealed class TraceRecorderTests
         Assert.Equal("/settings", entry.Route);
         Assert.Null(entry.Truncated);
         Assert.Equal(
-            [("navigate", "/billing", null, null, null, null), ("tap", null, "button", "Upgrade", "upgrade-cta", null), ("fill", null, "button", "Upgrade", "upgrade-cta", "yearly")],
-            entry.Actions.Select(action => (action.Kind, action.Url, action.Role, action.Name, action.TestId, action.Value)));
+            [
+                ("navigate", "/billing", null, null, null, null),
+                ("tap", null, "button", "Upgrade", "upgrade-cta", null),
+                ("fill", null, "button", "Upgrade", "upgrade-cta", "yearly"),
+            ],
+            entry.Actions.Select(action =>
+                (action.Kind, action.Url, action.Role, action.Name, action.TestId, action.Value)
+            )
+        );
         Assert.Equal(
             ["navigate to \"/billing\"", "tap button \"Upgrade\"", "type \"yearly\" into button \"Upgrade\""],
-            entry.Actions.Select(action => action.Summary));
+            entry.Actions.Select(action => action.Summary)
+        );
         Assert.Equal("[data-testid=\"upgrade-cta\"]", entry.Actions[1].Selector);
         Assert.Null(entry.Actions[2].Selector);
     }
@@ -117,7 +154,16 @@ public sealed class TraceRecorderTests
     {
         var recorder = MakeRecorder(Secret.Create("member-password", "hunter2", "password"));
         recorder.Record("fill", PasswordField, value: "<secret:member-password>");
-        recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Greeting hunter2", TestId = "upgrade-cta" });
+        recorder.Record(
+            "tap",
+            new SemanticNode
+            {
+                Ref = "n42",
+                Role = "button",
+                Name = "Greeting hunter2",
+                TestId = "upgrade-cta",
+            }
+        );
 
         var entry = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: "example/hunter2")!;
 
@@ -177,7 +223,13 @@ public sealed class TraceRecorderTests
     {
         var redactor = Redactor.None;
         var recorder = new Recorder(() => redactor);
-        var field = new SemanticNode { Ref = "n7", Role = "textbox", Name = "Code token-2718-value", InputPurpose = "password" };
+        var field = new SemanticNode
+        {
+            Ref = "n7",
+            Role = "textbox",
+            Name = "Code token-2718-value",
+            InputPurpose = "password",
+        };
         // A provider-backed fill resolves the value only inside the action.
         redactor = Redactor.For([Secret.Create("token", "token-2718-value")]);
         recorder.Record("fill", field, value: "<secret:token>");
@@ -201,33 +253,108 @@ public sealed class TraceRecorderTests
 
         var entry = Finalize(recorder)!;
 
-        Assert.Equal([("down", (int?)5), ("up", null)], entry.Actions.Select(action => (action.Direction, action.Times)));
+        Assert.Equal(
+            [("down", (int?)5), ("up", null)],
+            entry.Actions.Select(action => (action.Direction, action.Times))
+        );
         Assert.Null(entry.Truncated);
         var read = RoundTrip(entry);
-        Assert.Equal(("scroll", "down", (int?)5), (read.Actions[0].Kind, read.Actions[0].Direction, read.Actions[0].Times));
+        Assert.Equal(
+            ("scroll", "down", (int?)5),
+            (read.Actions[0].Kind, read.Actions[0].Direction, read.Actions[0].Times)
+        );
     }
 
     [Fact]
     public void Keeps_the_smallest_coverage_when_folding_scrolls_and_none_when_a_repeat_lacks_one()
     {
         var recorder = MakeRecorder();
-        recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
-        recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.4 });
+        recorder.RecordScroll(
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Role = "group",
+                Name = "Rows",
+                Spans = 0.6,
+            }
+        );
+        recorder.RecordScroll(
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Role = "group",
+                Name = "Rows",
+                Spans = 0.4,
+            }
+        );
         var folded = Finalize(recorder)!.Actions[0];
         Assert.Equal(("scroll", 2, 0.4), (folded.Kind, folded.Times, folded.Spans));
 
         var paged = MakeRecorder();
-        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 4322", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6, Screens = 7 });
-        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 12", Direction = "up", Screens = 1 });
+        paged.Record(
+            new RecordedAction
+            {
+                Kind = "scrollUntil",
+                Text = "Row 4322",
+                Direction = "down",
+                Role = "group",
+                Name = "Rows",
+                Spans = 0.6,
+                Screens = 7,
+            }
+        );
+        paged.Record(
+            new RecordedAction
+            {
+                Kind = "scrollUntil",
+                Text = "Row 12",
+                Direction = "up",
+                Screens = 1,
+            }
+        );
         var entry = Finalize(paged)!;
-        Assert.Equal(["scroll down on group \"Rows\" until \"Row 4322\" shows (7 screens)", "scroll up until \"Row 12\" shows (1 screen)"], entry.Actions.Select(action => action.Summary));
-        Assert.Equal([("Row 4322", "down", (double?)0.6, "group"), ("Row 12", "up", null, null)], entry.Actions.Select(action => (action.Text, action.Direction, action.Spans, action.Role)));
-        Assert.Equal(entry.Actions.Select(action => action.Spans), RoundTrip(entry).Actions.Select(action => action.Spans));
-        Assert.Equal(entry.Actions.Select(action => action.Summary), RoundTrip(entry).Actions.Select(action => action.Summary));
+        Assert.Equal(
+            [
+                "scroll down on group \"Rows\" until \"Row 4322\" shows (7 screens)",
+                "scroll up until \"Row 12\" shows (1 screen)",
+            ],
+            entry.Actions.Select(action => action.Summary)
+        );
+        Assert.Equal(
+            [("Row 4322", "down", (double?)0.6, "group"), ("Row 12", "up", null, null)],
+            entry.Actions.Select(action => (action.Text, action.Direction, action.Spans, action.Role))
+        );
+        Assert.Equal(
+            entry.Actions.Select(action => action.Spans),
+            RoundTrip(entry).Actions.Select(action => action.Spans)
+        );
+        Assert.Equal(
+            entry.Actions.Select(action => action.Summary),
+            RoundTrip(entry).Actions.Select(action => action.Summary)
+        );
 
         var mixed = MakeRecorder();
-        mixed.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
-        mixed.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows" });
+        mixed.RecordScroll(
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Role = "group",
+                Name = "Rows",
+                Spans = 0.6,
+            }
+        );
+        mixed.RecordScroll(
+            new RecordedAction
+            {
+                Kind = "scroll",
+                Direction = "down",
+                Role = "group",
+                Name = "Rows",
+            }
+        );
         var unfolded = Finalize(mixed)!.Actions[0];
         Assert.Equal(2, unfolded.Times);
         Assert.Null(unfolded.Spans);
@@ -243,7 +370,10 @@ public sealed class TraceRecorderTests
 
         var entry = Finalize(recorder)!;
 
-        Assert.Equal(("tool", "seed_cart", "tool seed_cart"), (entry.Actions[1].Kind, entry.Actions[1].Text, entry.Actions[1].Summary));
+        Assert.Equal(
+            ("tool", "seed_cart", "tool seed_cart"),
+            (entry.Actions[1].Kind, entry.Actions[1].Text, entry.Actions[1].Summary)
+        );
     }
 
     [Fact]
@@ -271,7 +401,13 @@ public sealed class TraceRecorderTests
         Assert.DoesNotContain("hunter2", JsonSerializer.Serialize(leaked, Relaxed), StringComparison.Ordinal);
 
         var oversized = MakeRecorder();
-        oversized.Record(new RecordedAction { Kind = "navigate", Url = "/callback?token=" + new string('x', Trace.MaxTraceInputChars) });
+        oversized.Record(
+            new RecordedAction
+            {
+                Kind = "navigate",
+                Url = "/callback?token=" + new string('x', Trace.MaxTraceInputChars),
+            }
+        );
         Assert.True(Finalize(oversized)?.Truncated);
 
         // Every other replay input, and a location, is kept or poisoned the same way (upstream's one `verbatim`).
@@ -279,9 +415,34 @@ public sealed class TraceRecorderTests
         [
             recorder => recorder.Record("press", UpgradeButton, key: "hunter2"),
             recorder => recorder.Record("select", UpgradeButton, value: "hunter2"),
-            recorder => recorder.Record(new RecordedAction { Kind = "upload", Role = "button", Name = "Upgrade", Paths = ["fixtures/hunter2.txt"] }),
-            recorder => recorder.Record(new RecordedAction { Kind = "scrollUntil", Text = "hunter2", Direction = "down" }),
-            recorder => recorder.Record(new RecordedAction { Kind = "typeText", Value = "hunter2", Replace = false }),
+            recorder =>
+                recorder.Record(
+                    new RecordedAction
+                    {
+                        Kind = "upload",
+                        Role = "button",
+                        Name = "Upgrade",
+                        Paths = ["fixtures/hunter2.txt"],
+                    }
+                ),
+            recorder =>
+                recorder.Record(
+                    new RecordedAction
+                    {
+                        Kind = "scrollUntil",
+                        Text = "hunter2",
+                        Direction = "down",
+                    }
+                ),
+            recorder =>
+                recorder.Record(
+                    new RecordedAction
+                    {
+                        Kind = "typeText",
+                        Value = "hunter2",
+                        Replace = false,
+                    }
+                ),
             recorder => recorder.Record(new RecordedAction { Kind = "pressKey", Key = "hunter2" }),
         ];
         foreach (var record in inputs)
@@ -343,7 +504,16 @@ public sealed class TraceRecorderTests
         }
 
         var drag = Recorder.ActionOf("drag", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
-        drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
+        drag.Destination = Recorder.DescribeTarget(
+            new SemanticNode
+            {
+                Ref = "e9",
+                Role = "region",
+                Name = "Done column",
+            },
+            Redactor.None,
+            "Board"
+        );
         recorder.Record(drag);
         var upload = Recorder.ActionOf("upload", Recorder.DescribeTarget(UpgradeButton, Redactor.None));
         upload.Paths = ["fixtures/a.txt", "fixtures/b.txt"];
@@ -374,15 +544,32 @@ public sealed class TraceRecorderTests
                 "switch to tab 1",
                 "close tab 2",
             ],
-            entry.Actions.Select(action => action.Summary));
+            entry.Actions.Select(action => action.Summary)
+        );
         Assert.Equal("uncheck", entry.Actions[5].Kind);
-        Assert.Equal(("region", "Done column", "Board"), (entry.Actions[6].Destination?.Role, entry.Actions[6].Destination?.Name, entry.Actions[6].Destination?.Within));
+        Assert.Equal(
+            ("region", "Done column", "Board"),
+            (
+                entry.Actions[6].Destination?.Role,
+                entry.Actions[6].Destination?.Name,
+                entry.Actions[6].Destination?.Within
+            )
+        );
         Assert.Equal(["fixtures/a.txt", "fixtures/b.txt"], entry.Actions[7].Paths);
-        Assert.Equal((new Point(10, 20), new TraceViewport(1280, 720)), (read.Actions[10].Point!.Value, read.Actions[10].Viewport));
+        Assert.Equal(
+            (new Point(10, 20), new TraceViewport(1280, 720)),
+            (read.Actions[10].Point!.Value, read.Actions[10].Viewport)
+        );
         Assert.Equal(new TraceViewport(390, 844), read.Actions[9].Size);
         Assert.Equal("resize", entry.Actions[9].Kind);
-        Assert.Equal(("switchTab", "switch to tab 1", 0), (entry.Actions[11].Kind, entry.Actions[11].Summary, entry.Actions[11].Tab));
-        Assert.Equal(("closeTab", "close tab 2", 1), (entry.Actions[12].Kind, entry.Actions[12].Summary, entry.Actions[12].Tab));
+        Assert.Equal(
+            ("switchTab", "switch to tab 1", 0),
+            (entry.Actions[11].Kind, entry.Actions[11].Summary, entry.Actions[11].Tab)
+        );
+        Assert.Equal(
+            ("closeTab", "close tab 2", 1),
+            (entry.Actions[12].Kind, entry.Actions[12].Summary, entry.Actions[12].Tab)
+        );
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
     }
 
@@ -397,7 +584,10 @@ public sealed class TraceRecorderTests
         recorder.Record("check", UpgradeButton);
         recorder.Record("clear", UpgradeButton);
 
-        Assert.Equal(["check button \"Upgrade\"", "type \"\" into button \"Upgrade\""], Finalize(recorder)!.Actions.Select(action => action.Summary));
+        Assert.Equal(
+            ["check button \"Upgrade\"", "type \"\" into button \"Upgrade\""],
+            Finalize(recorder)!.Actions.Select(action => action.Summary)
+        );
     }
 
     /// <summary>
@@ -426,11 +616,19 @@ public sealed class TraceRecorderTests
         Assert.Null(ReadPatched(stored, 1, action => action["paths"] = new JsonArray("")));
         Assert.Null(ReadPatched(stored, 2, action => action.Remove("destination")));
         Assert.Null(ReadPatched(stored, 3, action => action.Remove("size")));
-        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390.5, ["height"] = 844 }));
+        Assert.Null(
+            ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390.5, ["height"] = 844 })
+        );
         Assert.Equal(new TraceViewport(390, 844), RoundTrip(entry).Actions[3].Size);
-        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 }));
-        Assert.Null(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 }));
-        Assert.NotNull(ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 }));
+        Assert.Null(
+            ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 199, ["height"] = 844 })
+        );
+        Assert.Null(
+            ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 4097 })
+        );
+        Assert.NotNull(
+            ReadPatched(stored, 3, action => action["size"] = new JsonObject { ["width"] = 200, ["height"] = 4096 })
+        );
         Assert.Null(ReadPatched(stored, 4, action => action.Remove("tab")));
         Assert.Null(ReadPatched(stored, 5, action => action["tab"] = -1));
         Assert.Null(ReadPatched(stored, 4, action => action["tab"] = -1));
@@ -438,8 +636,14 @@ public sealed class TraceRecorderTests
         Assert.Null(ReadPatched(stored, 0, action => action["kind"] = "fly"));
 
         // .NET-only: a field on an action of another kind, and a destination that names nothing, are rejected too.
-        Assert.Null(ReadPatched(stored, 0, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 844 }));
-        Assert.Null(ReadPatched(stored, 0, action => action["destination"] = new JsonObject { ["role"] = "region", ["name"] = "Done column" }));
+        Assert.Null(
+            ReadPatched(stored, 0, action => action["size"] = new JsonObject { ["width"] = 390, ["height"] = 844 })
+        );
+        Assert.Null(
+            ReadPatched(stored, 0, action =>
+                action["destination"] = new JsonObject { ["role"] = "region", ["name"] = "Done column" }
+            )
+        );
         Assert.Null(ReadPatched(stored, 2, action => action["destination"] = new JsonObject()));
     }
 }

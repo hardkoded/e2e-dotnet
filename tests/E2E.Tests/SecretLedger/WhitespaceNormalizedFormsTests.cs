@@ -16,8 +16,14 @@ public sealed class WhitespaceNormalizedFormsTests
         var ledger = Ledger.Of(("note", Note));
         Assert.Equal("<pre><secret:note></pre>", ledger.Redact("<pre>" + Note + "</pre>"));
         Assert.Equal("text \"<secret:note>\"", ledger.Redact("text \"first line 4417 second line Qx\""));
-        Assert.Equal("""{"actual":"<secret:note>"}""", ledger.Redact("""{"actual":"first line 4417 second line Qx"}"""));
-        Assert.Equal("""{"actual":"<secret:note>"}""", ledger.Redact("""{"actual":"first line 4417\nsecond  line\tQx"}"""));
+        Assert.Equal(
+            """{"actual":"<secret:note>"}""",
+            ledger.Redact("""{"actual":"first line 4417 second line Qx"}""")
+        );
+        Assert.Equal(
+            """{"actual":"<secret:note>"}""",
+            ledger.Redact("""{"actual":"first line 4417\nsecond  line\tQx"}""")
+        );
     }
 
     [Fact]
@@ -58,7 +64,10 @@ public sealed class WhitespaceNormalizedFormsTests
     public void Leaves_whitespace_runs_the_value_does_not_have_and_a_value_whose_words_are_glued_together()
     {
         var ledger = Ledger.Of(("phrase", "correct horse battery"));
-        Assert.Equal("correct  horse battery correcthorse battery", ledger.Redact("correct  horse battery correcthorse battery"));
+        Assert.Equal(
+            "correct  horse battery correcthorse battery",
+            ledger.Redact("correct  horse battery correcthorse battery")
+        );
     }
 
     [Fact]

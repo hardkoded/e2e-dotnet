@@ -12,7 +12,10 @@ namespace E2E.Tests.SkipAfterFailure;
 /// </summary>
 public sealed class ARuntimeSkipAfterAFailureTests : IDisposable
 {
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-skip-cleanup-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-skip-cleanup-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
@@ -20,13 +23,15 @@ public sealed class ARuntimeSkipAfterAFailureTests : IDisposable
     [Fact]
     public async Task Exits_3_when_a_skipped_test_cleanup_fails_keeping_the_test_skipped_PARTIAL_a_session_stands_for_the_run()
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new FailingCloseEngine(new InvalidOperationException("cleanup failed")),
-            TestTitle = "clean skip",
-            ResultsDirectory = _results,
-            ProjectRoot = _results,
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new FailingCloseEngine(new InvalidOperationException("cleanup failed")),
+                TestTitle = "clean skip",
+                ResultsDirectory = _results,
+                ProjectRoot = _results,
+            }
+        );
         session.Complete(new SkipException("not applicable"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => session.DisposeAsync().AsTask());
 

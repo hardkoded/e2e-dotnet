@@ -39,7 +39,9 @@ public sealed class OpenHostReportTests : IDisposable
         {
             Assert.Null(session.Report());
             await session.App.OpenAsync("/");
-            await Expect.Soft(session.Screen.GetByRole("button", "Submit")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200));
+            await Expect
+                .Soft(session.Screen.GetByRole("button", "Submit"))
+                .ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200));
             var soft = session.CloseSoftFailures();
             Assert.NotNull(soft);
             session.Complete(soft);
@@ -100,7 +102,10 @@ public sealed class OpenHostReportTests : IDisposable
 
         // The typed report tells the whole document, bar the serial groups the port has none of.
         document["run"]!.AsObject().Remove("serialGroups");
-        Assert.True(JsonNode.DeepEquals(document, JsonNode.Parse(ReportJsonWriter.Write(written))), "The typed report must tell the document of report.json.");
+        Assert.True(
+            JsonNode.DeepEquals(document, JsonNode.Parse(ReportJsonWriter.Write(written))),
+            "The typed report must tell the document of report.json."
+        );
         var report = session.Report()!;
         var fromFile = written.Run.Results[0];
         Assert.NotEqual("unknown", fromFile.Source.File);
@@ -123,7 +128,9 @@ public sealed class OpenHostReportTests : IDisposable
         var session = await StartAsync(new EvidenceEngine("Submit"), "failed write");
         try
         {
-            Directory.CreateDirectory(Path.Combine(Results, AttemptReport.ResultSegmentOf(null, "failed write"), "trace.md"));
+            Directory.CreateDirectory(
+                Path.Combine(Results, AttemptReport.ResultSegmentOf(null, "failed write"), "trace.md")
+            );
             session.Complete(new TestException("TEST_FAILED", "nope"));
             await session.DisposeAsync();
             Assert.Null(session.Report());
@@ -137,16 +144,19 @@ public sealed class OpenHostReportTests : IDisposable
     }
 
     private Task<E2ESession> StartAsync(EvidenceEngine engine, string title) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            TestTitle = title,
-            BaseUrl = "http://127.0.0.1:4599",
-            ProjectRoot = ProjectRoot(),
-            ResultsDirectory = Results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                TestTitle = title,
+                BaseUrl = "http://127.0.0.1:4599",
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = Results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            }
+        );
 
-    private static string ProjectRoot([CallerFilePath] string testFile = "") => Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
+    private static string ProjectRoot([CallerFilePath] string testFile = "") =>
+        Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
 }

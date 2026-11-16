@@ -15,7 +15,9 @@ public sealed class BrowserStackLiveFactAttribute : FactAttribute
 {
     public BrowserStackLiveFactAttribute()
     {
-        var missing = new[] { "BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY", "BROWSERSTACK_APP" }.Where(name => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(name))).ToArray();
+        var missing = new[] { "BROWSERSTACK_USERNAME", "BROWSERSTACK_ACCESS_KEY", "BROWSERSTACK_APP" }
+            .Where(name => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(name)))
+            .ToArray();
         if (missing.Length > 0)
         {
             Skip = $"{string.Join(", ", missing)} not set";
@@ -41,13 +43,15 @@ public sealed class BrowserStackLiveTests
             ["PATH"] = Environment.GetEnvironmentVariable("PATH"),
             ["HOME"] = Environment.GetEnvironmentVariable("HOME"),
         };
-        var provider = new BrowserStackDevices(new BrowserStackDevicesOptions
-        {
-            Device = Environment.GetEnvironmentVariable("BROWSERSTACK_DEVICE") ?? "Google Pixel 9",
-            OsVersion = Environment.GetEnvironmentVariable("BROWSERSTACK_OS_VERSION") ?? "16.0",
-            App = Environment.GetEnvironmentVariable("BROWSERSTACK_APP")!,
-            AppiumVersion = "3.2.0",
-        });
+        var provider = new BrowserStackDevices(
+            new BrowserStackDevicesOptions
+            {
+                Device = Environment.GetEnvironmentVariable("BROWSERSTACK_DEVICE") ?? "Google Pixel 9",
+                OsVersion = Environment.GetEnvironmentVariable("BROWSERSTACK_OS_VERSION") ?? "16.0",
+                App = Environment.GetEnvironmentVariable("BROWSERSTACK_APP")!,
+                AppiumVersion = "3.2.0",
+            }
+        );
         using var budget = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         DeviceLease? lease = null;
         try
@@ -65,7 +69,8 @@ public sealed class BrowserStackLiveTests
                     Env = env,
                     Log = _ => { },
                 },
-                budget.Token);
+                budget.Token
+            );
 
             var client = DeviceClientConfig.For("e2e-live-0", new DeviceConnection { Client = lease.Client }).Connect();
             var snapshot = await client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), budget.Token);
@@ -77,7 +82,17 @@ public sealed class BrowserStackLiveTests
             {
                 // The release throws unless agent-device confirms it ended the BrowserStack session.
                 using var cleanup = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-                await provider.ReleaseAsync(lease, new DeviceReleaseContext { RunId = "live", TargetName = "live", Env = env, Log = _ => { } }, cleanup.Token);
+                await provider.ReleaseAsync(
+                    lease,
+                    new DeviceReleaseContext
+                    {
+                        RunId = "live",
+                        TargetName = "live",
+                        Env = env,
+                        Log = _ => { },
+                    },
+                    cleanup.Token
+                );
             }
         }
     }

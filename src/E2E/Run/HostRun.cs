@@ -21,7 +21,8 @@ internal sealed class HostRun : IDisposable
     private static Func<string, string> _redactEngineLine = static line => line;
 
     /// <summary>Redacts the progress lines the process's engines write with the secrets of the config its fixtures run with (CLAUDE.md: provider text is redacted).</summary>
-    internal static void RedactEngineLinesWith(E2EConfig config) => Volatile.Write(ref _redactEngineLine, Redactor.For(config.AllSecrets).Redact);
+    internal static void RedactEngineLinesWith(E2EConfig config) =>
+        Volatile.Write(ref _redactEngineLine, Redactor.For(config.AllSecrets).Redact);
 
     private static readonly Lazy<PreparedEngines> PreparedOnce = new(() =>
     {
@@ -77,14 +78,18 @@ internal sealed class HostRun : IDisposable
     /// The run ended: finishes every engine the process prepared, within one cleanup budget, and reports each failure on stderr. Upstream's <c>finish</c>
     /// runs once per run and target, after the last worker is gone. A run fixture calls this in its teardown. Never throws.
     /// </summary>
-    public static Task FinishPreparedAsync() => Prepared.FinishAsync(new FinishScope
-    {
-        RunId = AttemptReport.RunId,
-        Env = PreparedEngines.ProcessEnvironment(),
-        CleanupTimeout = E2EDefaults.CleanupTimeout,
-        Notice = (target, line) => Console.Error.WriteLine($"e2e: {target}: {Volatile.Read(ref _redactEngineLine)(line)}"),
-        OnFailure = failure => Console.Error.WriteLine($"e2e: cleanup failed: {failure.Message}"),
-    });
+    public static Task FinishPreparedAsync() =>
+        Prepared.FinishAsync(
+            new FinishScope
+            {
+                RunId = AttemptReport.RunId,
+                Env = PreparedEngines.ProcessEnvironment(),
+                CleanupTimeout = E2EDefaults.CleanupTimeout,
+                Notice = (target, line) =>
+                    Console.Error.WriteLine($"e2e: {target}: {Volatile.Read(ref _redactEngineLine)(line)}"),
+                OnFailure = failure => Console.Error.WriteLine($"e2e: cleanup failed: {failure.Message}"),
+            }
+        );
 
     /// <summary>
     /// The directory the attempts of this process go in, inside each test's, when the run is a <c>--last-failed</c> rerun (.NET-only: upstream's runner hands
@@ -105,18 +110,20 @@ internal sealed class HostRun : IDisposable
         ArgumentNullException.ThrowIfNull(config);
         var agent = config.Agents.GetValueOrDefault(agentName);
         var judge = agent?.Judge is { } judged && judged != agent.Model ? ModelLabel(agent, judged) : null;
-        RunEvents.Emit(new RunStartedEvent
-        {
-            RunId = AttemptReport.RunId,
-            ProjectId = Path.GetFileName(Path.TrimEndingDirectorySeparator(config.ProjectRoot)),
-            ProjectRoot = config.ProjectRoot,
-            ArtifactsRoot = OutputLayout.Of(config.Output).Results,
-            Ci = config.Ci,
-            Targets = targets ?? [.. config.Targets.Select(target => target.Name)],
-            Agents = agentName == "default" ? null : [agentName],
-            Model = agent?.Model is { } model ? ModelLabel(agent, model) : null,
-            Judge = judge,
-        });
+        RunEvents.Emit(
+            new RunStartedEvent
+            {
+                RunId = AttemptReport.RunId,
+                ProjectId = Path.GetFileName(Path.TrimEndingDirectorySeparator(config.ProjectRoot)),
+                ProjectRoot = config.ProjectRoot,
+                ArtifactsRoot = OutputLayout.Of(config.Output).Results,
+                Ci = config.Ci,
+                Targets = targets ?? [.. config.Targets.Select(target => target.Name)],
+                Agents = agentName == "default" ? null : [agentName],
+                Model = agent?.Model is { } model ? ModelLabel(agent, model) : null,
+                Judge = judge,
+            }
+        );
     }
 
     /// <summary>Finds the tests of the run (the <c>collect</c> setup step, with how long it took).</summary>
@@ -127,7 +134,9 @@ internal sealed class HostRun : IDisposable
         RunEvents.Emit(new SetupEvent(step, SetupState.Started));
         var started = Stopwatch.GetTimestamp();
         var found = find();
-        RunEvents.Emit(new SetupEvent(step, SetupState.Finished, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds));
+        RunEvents.Emit(
+            new SetupEvent(step, SetupState.Finished, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds)
+        );
         return found;
     }
 
@@ -137,7 +146,11 @@ internal sealed class HostRun : IDisposable
     /// is not counted; a test the framework cases expand, or that skips itself while it runs, is counted as the method it is. The file is the
     /// full name of the test's class, as a session names it (see <see cref="E2ESessionOptions.TestFile"/>).
     /// </summary>
-    public static void Planned(string target, IReadOnlyList<DiscoveredTest> discovered, IReadOnlyDictionary<string, string> excluded)
+    public static void Planned(
+        string target,
+        IReadOnlyList<DiscoveredTest> discovered,
+        IReadOnlyDictionary<string, string> excluded
+    )
     {
         ArgumentNullException.ThrowIfNull(discovered);
         ArgumentNullException.ThrowIfNull(excluded);
@@ -156,7 +169,9 @@ internal sealed class HostRun : IDisposable
         ArgumentNullException.ThrowIfNull(failure);
         try
         {
-            RunEvents.Emit(new RunErrorEvent(EventWire.Error(failure, config.ProjectRoot, Redactor.For(config.AllSecrets).Redact)));
+            RunEvents.Emit(
+                new RunErrorEvent(EventWire.Error(failure, config.ProjectRoot, Redactor.For(config.AllSecrets).Redact))
+            );
         }
 #pragma warning disable CA1031 // Events are a courtesy: a failure to describe the failure must not hide it.
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -181,20 +196,24 @@ internal sealed class HostRun : IDisposable
         {
             foreach (var finished in await ReportFile.FinishedRunsAsync().ConfigureAwait(false))
             {
-                RunEvents.Emit(new RunFinishedEvent
-                {
-                    Status = finished.Status,
-                    ExitCode = finished.ExitCode,
-                    ReportPath = finished.ReportPath,
-                    AiTracePath = finished.AiTracePath,
-                    Traces = finished.Traces.Count == 0 ? null : finished.Traces,
-                });
+                RunEvents.Emit(
+                    new RunFinishedEvent
+                    {
+                        Status = finished.Status,
+                        ExitCode = finished.ExitCode,
+                        ReportPath = finished.ReportPath,
+                        AiTracePath = finished.AiTracePath,
+                        Traces = finished.Traces.Count == 0 ? null : finished.Traces,
+                    }
+                );
                 if (_reporters.Count == 0)
                 {
                     continue;
                 }
 
-                var rows = await Runner.RunReportersAsync(_reporters, finished, timeout ?? Runner.ReporterTimeout, force).ConfigureAwait(false);
+                var rows = await Runner
+                    .RunReportersAsync(_reporters, finished, timeout ?? Runner.ReporterTimeout, force)
+                    .ConfigureAwait(false);
                 foreach (var row in rows)
                 {
                     Console.Out.WriteLine($"{row.Label}  {row.Text}");
@@ -219,7 +238,8 @@ internal sealed class HostRun : IDisposable
     }
 
     // The class a session names as its test file; a nested class is joined with `+`, as the runtime's full name does.
-    private static string FileOf(DiscoveredTest test) => test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName;
+    private static string FileOf(DiscoveredTest test) =>
+        test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName;
 
     private static string ModelLabel(AgentConfig agent, string model) => agent.Provider + "/" + model;
 

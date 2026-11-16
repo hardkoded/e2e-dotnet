@@ -22,14 +22,19 @@ internal sealed class ObservedDocumentEngine(DocumentWorld world, object sync, A
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
-        return new Session(sync, beforeObserve, await _inner.StartAsync(options, cancellationToken).ConfigureAwait(false));
+        return new Session(
+            sync,
+            beforeObserve,
+            await _inner.StartAsync(options, cancellationToken).ConfigureAwait(false)
+        );
     }
 
     private sealed class Session(object sync, Action beforeObserve, IEngineSession inner) : IEngineSession
     {
         public string Route => inner.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            inner.OpenAsync(url, cancellationToken);
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
@@ -40,11 +45,14 @@ internal sealed class ObservedDocumentEngine(DocumentWorld world, object sync, A
             }
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            inner.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            inner.PressAsync(key, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => inner.SwipeAsync(direction, cancellationToken);
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+            inner.SwipeAsync(direction, cancellationToken);
 
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }

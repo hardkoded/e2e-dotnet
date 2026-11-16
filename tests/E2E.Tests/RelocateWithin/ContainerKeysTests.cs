@@ -17,10 +17,23 @@ public sealed class ContainerKeysTests
 {
     private static int _next;
 
-    private static SemanticNode Node(string role, string? name = null, string? text = null, params SemanticNode[] children) =>
-        new() { Ref = "n" + Interlocked.Increment(ref _next), Role = role, Name = name, Text = text, Children = children };
+    private static SemanticNode Node(
+        string role,
+        string? name = null,
+        string? text = null,
+        params SemanticNode[] children
+    ) =>
+        new()
+        {
+            Ref = "n" + Interlocked.Increment(ref _next),
+            Role = role,
+            Name = name,
+            Text = text,
+            Children = children,
+        };
 
-    private static PreparedObservation Screen(params SemanticNode[] roots) => global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
+    private static PreparedObservation Screen(params SemanticNode[] roots) =>
+        global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = "/", Roots = roots }, Redactor.None);
 
     private static string? KeyOf(SemanticNode root, SemanticNode node) =>
         AgentActions.ContainerKey(node, AgentActions.ParentsOf([root]), Redactor.None);
@@ -65,7 +78,10 @@ public sealed class ContainerKeysTests
         var screen = Screen(table);
 
         // The match is the prepared (redacted) node of the screen, so it is the same node by its ref, not the same object.
-        Assert.Same(screen.Nodes[delete2.Ref], Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list")));
+        Assert.Same(
+            screen.Nodes[delete2.Ref],
+            Assert.Single(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Vendor list"))
+        );
         Assert.Equal(2, E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None).Count);
         // The row is gone: not found, never the other row's button.
         Assert.Empty(E2E.Agent.Find(screen, "button", "Delete", null, null, Redactor.None, "Offsite plan"));
@@ -78,16 +94,18 @@ public sealed class ContainerKeysTests
         static (SemanticNode List, SemanticNode Alpha) List(params string[] order)
         {
             SemanticNode? alpha = null;
-            var items = order.Select(label =>
-            {
-                var button = Node("button");
-                if (label == "Alpha")
+            var items = order
+                .Select(label =>
                 {
-                    alpha = button;
-                }
+                    var button = Node("button");
+                    if (label == "Alpha")
+                    {
+                        alpha = button;
+                    }
 
-                return Node("listitem", label, null, button);
-            }).ToArray();
+                    return Node("listitem", label, null, button);
+                })
+                .ToArray();
             return (Node("list", null, null, items), alpha!);
         }
 
@@ -99,7 +117,16 @@ public sealed class ContainerKeysTests
 
         var (live, liveAlpha) = List("Beta", "Alpha");
 
-        var found = Relocate.RelocateDescriptor(new RecordedTarget { Role = "button", Within = within, Position = position }, Screen(live), Redactor.None);
+        var found = Relocate.RelocateDescriptor(
+            new RecordedTarget
+            {
+                Role = "button",
+                Within = within,
+                Position = position,
+            },
+            Screen(live),
+            Redactor.None
+        );
         Assert.Equal(new RelocationResult.Found(liveAlpha.Ref), found);
     }
 
@@ -114,7 +141,17 @@ public sealed class ContainerKeysTests
             {
                 var label = "Row " + n.ToString("D4", System.Globalization.CultureInfo.InvariantCulture);
                 var text = Node("text", text: label);
-                rows[n] = (new SemanticNode { Ref = "row-" + n, Role = "group", Name = label, TestId = "row-" + n, Children = [text] }, text);
+                rows[n] = (
+                    new SemanticNode
+                    {
+                        Ref = "row-" + n,
+                        Role = "group",
+                        Name = label,
+                        TestId = "row-" + n,
+                        Children = [text],
+                    },
+                    text
+                );
             }
 
             return (Node("group", null, null, rows.Values.Select(row => row.Item1).ToArray()), rows);
@@ -129,7 +166,10 @@ public sealed class ContainerKeysTests
 
         var (live, liveRows) = List(501);
         var liveScreen = Screen(live);
-        Assert.Same(liveScreen.Nodes[liveRows[512].Row.Ref], Assert.Single(E2E.Agent.Find(liveScreen, "group", "Row 0512", "row-512", null, Redactor.None)));
+        Assert.Same(
+            liveScreen.Nodes[liveRows[512].Row.Ref],
+            Assert.Single(E2E.Agent.Find(liveScreen, "group", "Row 0512", "row-512", null, Redactor.None))
+        );
     }
 
     [Fact]

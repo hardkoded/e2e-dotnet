@@ -29,7 +29,8 @@ public sealed class ExpectSoftToMatchSchemaTests
         Assert.Matches(@"^1 soft assertion failed\n1\. expected ""1"" to match the schema:", error.Message);
     }
 
-    private static StandardSchemaV1Result<int> Validate(object? value) => value is int number
-        ? StandardSchemaV1Result<int>.Success(number)
-        : StandardSchemaV1Result<int>.Failure([new StandardSchemaV1Issue("expected a number")]);
+    private static StandardSchemaV1Result<int> Validate(object? value) =>
+        value is int number
+            ? StandardSchemaV1Result<int>.Success(number)
+            : StandardSchemaV1Result<int>.Failure([new StandardSchemaV1Issue("expected a number")]);
 }

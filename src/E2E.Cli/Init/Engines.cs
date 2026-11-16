@@ -29,7 +29,8 @@ internal sealed record EnginePreset(
     Func<FrameworkPreset, IReadOnlyList<string>> Dependencies,
     Func<FrameworkPreset, EngineExample> Example,
     Func<FrameworkPreset, string> AiExample,
-    bool NeedsAppUrl);
+    bool NeedsAppUrl
+);
 
 /// <summary>Upstream's <c>cli/init/engines.ts</c>: CLI scaffold presets, with a `targets` entry in place of generated source.</summary>
 internal static class Engines
@@ -47,12 +48,13 @@ internal static class Engines
                 "web",
                 "Web",
                 "Playwright",
-                () => new JsonObject
-                {
-                    ["name"] = "web",
-                    ["platform"] = "web",
-                    ["app"] = new JsonObject { ["url"] = "http://localhost:3000" },
-                },
+                () =>
+                    new JsonObject
+                    {
+                        ["name"] = "web",
+                        ["platform"] = "web",
+                        ["app"] = new JsonObject { ["url"] = "http://localhost:3000" },
+                    },
                 framework => ["E2E", "E2E." + framework.AdapterSuffix],
                 framework => new EngineExample(
                     framework.Namespace,
@@ -64,30 +66,34 @@ internal static class Engines
                             await App.OpenAsync("/");
                             await Expect.That(Browser.Locator("body")).ToBeVisibleAsync();
                         }
-                    """),
-                framework => $$"""
+                    """
+                ),
+                framework =>
+                    $$"""
 
-                        // With the model key in the environment, uncomment:
-                        // [{{framework.TestAttribute}}]
-                        // public async Task The_agent_drives_a_flow()
-                        // {
-                        //     await App.OpenAsync("/");
-                        //     await Agent.ActAsync("one goal in natural language");
-                        //     await Agent.AssertAsync("one question about the screen");
-                        // }
-                    """,
-                true),
+                            // With the model key in the environment, uncomment:
+                            // [{{framework.TestAttribute}}]
+                            // public async Task The_agent_drives_a_flow()
+                            // {
+                            //     await App.OpenAsync("/");
+                            //     await Agent.ActAsync("one goal in natural language");
+                            //     await Agent.AssertAsync("one question about the screen");
+                            // }
+                        """,
+                true
+            ),
             new EnginePreset(
                 "mobile",
                 "Mobile (iOS/Android)",
                 "agent-device",
-                () => new JsonObject
-                {
-                    ["name"] = ios ? "ios" : "android",
-                    ["platform"] = ios ? "ios" : "android",
-                    // Replace the id with your app's bundle id or package name.
-                    ["app"] = new JsonObject { ["bundleId"] = ios ? "Settings" : "com.android.settings" },
-                },
+                () =>
+                    new JsonObject
+                    {
+                        ["name"] = ios ? "ios" : "android",
+                        ["platform"] = ios ? "ios" : "android",
+                        // Replace the id with your app's bundle id or package name.
+                        ["app"] = new JsonObject { ["bundleId"] = ios ? "Settings" : "com.android.settings" },
+                    },
                 framework => ["E2E.Mobile." + framework.AdapterSuffix],
                 framework => new EngineExample(
                     "E2E.Mobile." + framework.AdapterSuffix,
@@ -96,35 +102,41 @@ internal static class Engines
                         [{{framework.TestAttribute}}]
                         public async Task Settings_opens()
                         {
-                            await Expect.That({{(ios ? "Screen.GetByRole(\"button\", \"General\")" : "Screen.GetByText(\"Network & internet\")")}}).ToBeVisibleAsync();
+                            await Expect.That({{(
+                        ios ? "Screen.GetByRole(\"button\", \"General\")" : "Screen.GetByText(\"Network & internet\")"
+                    )}}).ToBeVisibleAsync();
                         }
-                    """),
-                framework => ios
-                    ? $$"""
+                    """
+                ),
+                framework =>
+                    ios
+                        ? $$"""
 
-                            // With the model key in the environment, uncomment:
-                            // [{{framework.TestAttribute}}]
-                            // public async Task The_agent_opens_General()
-                            // {
-                            //     await Agent.ActAsync("open General settings");
-                            //     await Expect.That(Device.Locator("role=NavigationBar id=General")).ToBeVisibleAsync();
-                            // }
-                        """
-                    : $$"""
+                                // With the model key in the environment, uncomment:
+                                // [{{framework.TestAttribute}}]
+                                // public async Task The_agent_opens_General()
+                                // {
+                                //     await Agent.ActAsync("open General settings");
+                                //     await Expect.That(Device.Locator("role=NavigationBar id=General")).ToBeVisibleAsync();
+                                // }
+                            """
+                        : $$"""
 
-                            // With the model key in the environment, uncomment:
-                            // [{{framework.TestAttribute}}]
-                            // public async Task The_agent_opens_Network_settings()
-                            // {
-                            //     await Agent.ActAsync("open Network & internet settings");
-                            //     await Expect.That(Device.Locator("id=com.android.settings:id/collapsing_toolbar")).ToHaveTextAsync("Network & internet");
-                            // }
-                        """,
-                false),
+                                // With the model key in the environment, uncomment:
+                                // [{{framework.TestAttribute}}]
+                                // public async Task The_agent_opens_Network_settings()
+                                // {
+                                //     await Agent.ActAsync("open Network & internet settings");
+                                //     await Expect.That(Device.Locator("id=com.android.settings:id/collapsing_toolbar")).ToHaveTextAsync("Network & internet");
+                                // }
+                            """,
+                false
+            ),
         ];
     }
 
     /// <summary>Resolves a preset by id.</summary>
     public static EnginePreset GetEnginePreset(string id) =>
-        GetEnginePresets().FirstOrDefault(entry => entry.Id == id) ?? throw new ArgumentException("unknown engine: " + id, nameof(id));
+        GetEnginePresets().FirstOrDefault(entry => entry.Id == id)
+        ?? throw new ArgumentException("unknown engine: " + id, nameof(id));
 }

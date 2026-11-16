@@ -19,17 +19,24 @@ public sealed class ModalFlow : Component
         var (confirmOpen, setConfirmOpen) = UseState(false);
         var (confirmed, setConfirmed) = UseState(false);
 
-        var screen = VStack(12, confirmed
-            ? Success("Flow completed")
-            : Button("Open modal", () => setModalVisible(true)).AutomationId("open-modal-button"))
+        var screen = VStack(
+                12,
+                confirmed
+                    ? Success("Flow completed")
+                    : Button("Open modal", () => setModalVisible(true)).AutomationId("open-modal-button")
+            )
             .Padding(24);
 
-        var card = ScrollViewer(VStack(12,
-                Subtitle("Benchmark modal"),
-                Body("Tap Continue, then accept the dialog to finish.").TextWrapping(),
-                Button("Continue", () => setConfirmOpen(true)).AutomationId("continue-button"),
-                Button("Close", () => setModalVisible(false)).AutomationId("close-modal-button"))
-                .Padding(20))
+        var card = ScrollViewer(
+                VStack(
+                        12,
+                        Subtitle("Benchmark modal"),
+                        Body("Tap Continue, then accept the dialog to finish.").TextWrapping(),
+                        Button("Continue", () => setConfirmOpen(true)).AutomationId("continue-button"),
+                        Button("Close", () => setModalVisible(false)).AutomationId("close-modal-button")
+                    )
+                    .Padding(20)
+            )
             .AutomationId("modal-card")
             .Background(Theme.CardBackground)
             .CornerRadius(16, 16, 0, 0)
@@ -55,6 +62,7 @@ public sealed class ModalFlow : Component
                         setConfirmed(true);
                     }
                 },
-            });
+            }
+        );
     }
 }

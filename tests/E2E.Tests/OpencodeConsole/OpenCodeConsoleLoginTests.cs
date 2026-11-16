@@ -33,15 +33,24 @@ public sealed class OpenCodeConsoleLoginTests
             if (request.Uri.AbsolutePath == "/console/auth/device/code")
             {
                 Assert.Equal("true", form["supports_org_scope"]);
-                return (HttpStatusCode.OK, """{ "device_code": "dc", "user_code": "ABCD-EFGH", "verification_uri": "/console/device", "verification_uri_complete": "/console/device?user_code=ABCD-EFGH&client_id=e2e", "expires_in": 600, "interval": 0.001 }""");
+                return (
+                    HttpStatusCode.OK,
+                    """{ "device_code": "dc", "user_code": "ABCD-EFGH", "verification_uri": "/console/device", "verification_uri_complete": "/console/device?user_code=ABCD-EFGH&client_id=e2e", "expires_in": 600, "interval": 0.001 }"""
+                );
             }
 
             Assert.Equal("/console/auth/device/token", request.Uri.AbsolutePath);
             Assert.Equal("urn:ietf:params:oauth:grant-type:device_code", form["grant_type"]);
             Assert.Equal("dc", form["device_code"]);
             return ++polls == 1
-                ? (HttpStatusCode.BadRequest, """{ "error": "authorization_pending", "error_description": "The authorization request is still pending" }""")
-                : (HttpStatusCode.OK, """{ "access_token": "st_1", "refresh_token": "rt_1", "token_type": "Bearer", "expires_in": 2592000, "org_id": "org_1" }""");
+                ? (
+                    HttpStatusCode.BadRequest,
+                    """{ "error": "authorization_pending", "error_description": "The authorization request is still pending" }"""
+                )
+                : (
+                    HttpStatusCode.OK,
+                    """{ "access_token": "st_1", "refresh_token": "rt_1", "token_type": "Bearer", "expires_in": 2592000, "org_id": "org_1" }"""
+                );
         });
         var provider = new OpenCodeConsoleProvider(new HttpClient(console), ConsoleUrl);
         OAuthAuthInfo? shown = null;
@@ -50,7 +59,8 @@ public sealed class OpenCodeConsoleLoginTests
         var credentials = await provider.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = info => shown = info, OnPrompt = (_, _) => Task.FromResult("") },
             new OAuthLoginOptions(),
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         const string Page = "https://console.test/console/device?user_code=ABCD-EFGH&client_id=e2e";
         Assert.Equal(Page, shown!.Url);
@@ -70,7 +80,10 @@ public sealed class OpenCodeConsoleLoginTests
             Assert.Equal("refresh_token", form["grant_type"]);
             Assert.Equal("e2e", form["client_id"]);
             Assert.Equal("rt_1", form["refresh_token"]);
-            return (HttpStatusCode.OK, """{ "access_token": "st_2", "refresh_token": "rt_2", "token_type": "Bearer", "expires_in": 60 }""");
+            return (
+                HttpStatusCode.OK,
+                """{ "access_token": "st_2", "refresh_token": "rt_2", "token_type": "Bearer", "expires_in": 60 }"""
+            );
         });
         var provider = new OpenCodeConsoleProvider(new HttpClient(console), ConsoleUrl);
 
@@ -82,7 +95,9 @@ public sealed class OpenCodeConsoleLoginTests
     [Fact]
     public async Task Keeps_the_refresh_token_when_a_refresh_grant_omits_a_new_one()
     {
-        var console = new FakeApi(_ => (HttpStatusCode.OK, """{ "access_token": "st_2", "token_type": "Bearer", "expires_in": 60 }"""));
+        var console = new FakeApi(_ =>
+            (HttpStatusCode.OK, """{ "access_token": "st_2", "token_type": "Bearer", "expires_in": 60 }""")
+        );
         var provider = new OpenCodeConsoleProvider(new HttpClient(console), ConsoleUrl);
 
         var renewed = await provider.RefreshAsync(Login, CancellationToken.None);

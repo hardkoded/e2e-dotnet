@@ -20,7 +20,8 @@ internal static class Keys
         throw new TestException(
             "INVALID_ARGUMENT",
             $"press key {(key is null ? "null" : JsonQuote.Of(key))} is not a key: use zero or more modifiers ({string.Join(", ", KeyModifiers.Names)}) "
-            + $"and one key joined by \"+\", where the key is a single character or one of {string.Join(", ", KeyGrammar.KeyNames)} "
-            + "(for example \"Enter\", \"Control+a\", \"Shift+Tab\")");
+                + $"and one key joined by \"+\", where the key is a single character or one of {string.Join(", ", KeyGrammar.KeyNames)} "
+                + "(for example \"Enter\", \"Control+a\", \"Shift+Tab\")"
+        );
     }
 }

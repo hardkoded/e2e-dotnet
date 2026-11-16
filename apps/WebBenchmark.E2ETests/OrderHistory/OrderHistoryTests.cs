@@ -20,7 +20,9 @@ public sealed class OrderHistoryTests : BenchmarkTest
         await Expect.That(Screen.GetByTestId("overview-panel")).ToBeHiddenAsync();
         await Expect.That(Screen.GetByTestId("settings-panel")).ToContainTextAsync("Email: alex@example.com");
         await Screen.GetByRole("button", "Overview").TapAsync();
-        await Expect.That(Screen.GetByTestId("overview-panel")).ToContainTextAsync("You have 3 orders and 1 active subscription.");
+        await Expect
+            .That(Screen.GetByTestId("overview-panel"))
+            .ToContainTextAsync("You have 3 orders and 1 active subscription.");
     }
 
     [Test]

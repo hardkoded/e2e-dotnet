@@ -21,7 +21,11 @@ internal static class Secrecy
     /// The plaintext of one secret an engine option carries, a provider's value computed fresh. The value joins <paramref name="ledger"/>
     /// before it is returned, so it is redacted from the moment it exists, whoever it is handed to. Upstream's <c>resolveSecretValue</c>.
     /// </summary>
-    public static async Task<string> ResolveSecretValueAsync(Secret secret, ICollection<(string Name, string Value)> ledger, CancellationToken cancellationToken)
+    public static async Task<string> ResolveSecretValueAsync(
+        Secret secret,
+        ICollection<(string Name, string Value)> ledger,
+        CancellationToken cancellationToken
+    )
     {
         var resolved = await secret.ResolveAsync(cancellationToken).ConfigureAwait(false);
         Register(ledger, resolved.Name, resolved.Value);
@@ -33,7 +37,11 @@ internal static class Secrecy
     /// secret's name in <paramref name="ledger"/>, so what the app sees in place of the value is redacted wherever the
     /// value is. Registered before the engine hands a form to the app, since the resolve that computes them has not returned yet.
     /// </summary>
-    public static void RegisterDerivedSecrets(string name, IEnumerable<string> derived, ICollection<(string Name, string Value)> ledger)
+    public static void RegisterDerivedSecrets(
+        string name,
+        IEnumerable<string> derived,
+        ICollection<(string Name, string Value)> ledger
+    )
     {
         foreach (var value in derived.Where(value => value.Length > 0))
         {

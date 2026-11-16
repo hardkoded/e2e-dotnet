@@ -16,7 +16,8 @@ public sealed class ScreenshotsTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -28,7 +29,9 @@ public sealed class ScreenshotsTests : E2ETest
     [Test]
     public Task Compares_a_block_with_a_changing_part_masked()
     {
-        return Expect.That(Screen.GetByTestId("palette")).ToHaveScreenshotAsync("palette.png", new ScreenshotOptions { Mask = [Screen.GetByTestId("noise")] });
+        return Expect
+            .That(Screen.GetByTestId("palette"))
+            .ToHaveScreenshotAsync("palette.png", new ScreenshotOptions { Mask = [Screen.GetByTestId("noise")] });
     }
 
     [Test]
@@ -40,7 +43,9 @@ public sealed class ScreenshotsTests : E2ETest
     [Test]
     public Task Compares_a_block_inside_a_frame()
     {
-        return Expect.That(Browser.FrameLocator("#swatch-frame").GetByTestId("framed")).ToHaveScreenshotAsync("framed.png");
+        return Expect
+            .That(Browser.FrameLocator("#swatch-frame").GetByTestId("framed"))
+            .ToHaveScreenshotAsync("framed.png");
     }
 
     [Test]

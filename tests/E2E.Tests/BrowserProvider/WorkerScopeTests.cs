@@ -33,19 +33,33 @@ public sealed class WorkerScopeTests
         Assert.Equal(2, result.Workers);
         Assert.Equal(
             [(0, 2, (string?)null, "run-1", "web"), (1, 2, null, "run-1", "web")],
-            cloud.Acquired.OrderBy(request => request.Slot).Select(request => (request.Slot, request.Slots, request.AttemptId, request.RunId, request.TargetName)));
+            cloud
+                .Acquired.OrderBy(request => request.Slot)
+                .Select(request => (request.Slot, request.Slots, request.AttemptId, request.RunId, request.TargetName))
+        );
         Assert.Equal("t", cloud.Acquired[0].Env["BROWSER_TOKEN"]);
         Assert.Single(cloud.Acquired[0].Env);
 
         // The slots lease at once, so their lines come in no fixed order.
         Assert.Equal("leasing 2 browser(s) from toy-cloud", lines[0]);
         Assert.Equal(
-            ["toy-cloud (1 of 2): starting", "toy-cloud (2 of 2): starting", "toy-cloud: leased lease-0", "toy-cloud: leased lease-1"],
-            lines.Skip(1).Order(StringComparer.Ordinal));
+            [
+                "toy-cloud (1 of 2): starting",
+                "toy-cloud (2 of 2): starting",
+                "toy-cloud: leased lease-0",
+                "toy-cloud: leased lease-1",
+            ],
+            lines.Skip(1).Order(StringComparer.Ordinal)
+        );
         var variable = Runner.LeasesVariableIn(result.Env.Keys);
-        Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("""{"slots":2,"leases":[{"id":"lease-0","cdpEndpoint":"wss://0.example"},{"id":"lease-1","cdpEndpoint":"wss://1.example"}]}"""),
-            JsonNode.Parse(result.Env[variable])));
+        Assert.True(
+            JsonNode.DeepEquals(
+                JsonNode.Parse(
+                    """{"slots":2,"leases":[{"id":"lease-0","cdpEndpoint":"wss://0.example"},{"id":"lease-1","cdpEndpoint":"wss://1.example"}]}"""
+                ),
+                JsonNode.Parse(result.Env[variable])
+            )
+        );
 
         // Nothing was attached in the runner: leasing is not connecting.
         Assert.Empty(dialer.Endpoints);
@@ -91,7 +105,11 @@ public sealed class WorkerScopeTests
         var runner = new WebEngine(new WebEngineOptions { Browser = cloud });
         var error = await Assert.ThrowsAsync<EngineException>(() => runner.PrepareAsync(Runner.PrepareInfo(2), None));
         Assert.Equal("ENGINE_FAILURE", error.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not lease a browser: no capacity for slot 1", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not lease a browser: no capacity for slot 1",
+            error.Message,
+            StringComparison.Ordinal
+        );
         await runner.FinishAsync(Runner.FinishInfo(), None);
         Assert.Equal(["lease-0"], cloud.ReleasedIds);
     }
@@ -114,7 +132,11 @@ public sealed class WorkerScopeTests
         await runner.PrepareAsync(Runner.PrepareInfo(2), None);
         var error = await Assert.ThrowsAsync<EngineException>(() => runner.FinishAsync(Runner.FinishInfo(), None));
         Assert.Equal("ENGINE_FAILURE", error.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not release a browser: stop failed", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not release a browser: stop failed",
+            error.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(["lease-0", "lease-1"], cloud.ReleasedIds.Order(StringComparer.Ordinal));
     }
 
@@ -122,7 +144,11 @@ public sealed class WorkerScopeTests
     public async Task Rejects_leases_too_large_for_a_worker_environment_by_bytes()
     {
         // Multi-byte characters: the cap is on bytes, not string length.
-        var oversized = new InlineProvider("huge", request => Task.FromResult(new BrowserLease { Id = $"l-{request.Slot}", CdpEndpoint = "wss://d.example/" + new string('ż', 9_000) }));
+        var oversized = new InlineProvider("huge", request =>
+            Task.FromResult(
+                new BrowserLease { Id = $"l-{request.Slot}", CdpEndpoint = "wss://d.example/" + new string('ż', 9_000) }
+            )
+        );
         var runner = new WebEngine(new WebEngineOptions { Browser = oversized });
         var error = await Assert.ThrowsAsync<EngineException>(() => runner.PrepareAsync(Runner.PrepareInfo(1), None));
         Assert.Contains("the worker environment carries at most 16384", error.Message, StringComparison.Ordinal);
@@ -139,14 +165,25 @@ public sealed class WorkerScopeTests
             new BrowserLease { Id = "bare" },
             new BrowserLease { CdpEndpoint = "wss://d.example" },
             new BrowserLease { Id = " ", CdpEndpoint = "wss://d.example" },
-            new BrowserLease { Id = "x", CdpEndpoint = "wss://d.example", ReconnectEndpoint = " " },
+            new BrowserLease
+            {
+                Id = "x",
+                CdpEndpoint = "wss://d.example",
+                ReconnectEndpoint = " ",
+            },
         ];
         foreach (var lease in leases)
         {
             var odd = new InlineProvider("odd", _ => Task.FromResult(lease!));
             var runner = new WebEngine(new WebEngineOptions { Browser = odd });
-            var error = await Assert.ThrowsAsync<EngineException>(() => runner.PrepareAsync(Runner.PrepareInfo(1), None));
-            Assert.Contains("browser provider \"odd\" returned a lease without an id and a cdpEndpoint", error.Message, StringComparison.Ordinal);
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                runner.PrepareAsync(Runner.PrepareInfo(1), None)
+            );
+            Assert.Contains(
+                "browser provider \"odd\" returned a lease without an id and a cdpEndpoint",
+                error.Message,
+                StringComparison.Ordinal
+            );
             await runner.FinishAsync(Runner.FinishInfo(), None);
             Assert.Empty(odd.Released);
         }
@@ -161,15 +198,37 @@ public sealed class WorkerScopeTests
         var variable = Runner.LeasesVariableIn(env.Keys);
         var bare = Assert.Throws<EngineException>(() => dialer.Engine(cloud).Init(Runner.InitInfo(0)));
         Assert.Equal("ENGINE_FAILURE", bare.Code);
-        Assert.Contains("browser provider \"toy-cloud\" prepared nothing for target \"web\"", bare.Message, StringComparison.Ordinal);
-        foreach (var raw in new[] { "not json", "[]", """{"slots":1,"leases":[{"id":"x"}]}""", """{"slots":-1,"leases":[]}""" })
+        Assert.Contains(
+            "browser provider \"toy-cloud\" prepared nothing for target \"web\"",
+            bare.Message,
+            StringComparison.Ordinal
+        );
+        foreach (
+            var raw in new[]
+            {
+                "not json",
+                "[]",
+                """{"slots":1,"leases":[{"id":"x"}]}""",
+                """{"slots":-1,"leases":[]}""",
+            }
+        )
         {
-            var unreadable = Assert.Throws<EngineException>(() => dialer.Engine(cloud).Init(Runner.InitInfo(0, new Dictionary<string, string?> { [variable] = raw })));
+            var unreadable = Assert.Throws<EngineException>(() =>
+                dialer.Engine(cloud).Init(Runner.InitInfo(0, new Dictionary<string, string?> { [variable] = raw }))
+            );
             Assert.Contains("prepared nothing for target \"web\"", unreadable.Message, StringComparison.Ordinal);
         }
 
-        var outside = Assert.Throws<EngineException>(() => dialer.Engine(cloud).Init(Runner.InitInfo(1, new Dictionary<string, string?> { [variable] = env[variable] })));
-        Assert.Contains("worker slot 1 is outside the 1 browser(s) \"toy-cloud\" leased", outside.Message, StringComparison.Ordinal);
+        var outside = Assert.Throws<EngineException>(() =>
+            dialer
+                .Engine(cloud)
+                .Init(Runner.InitInfo(1, new Dictionary<string, string?> { [variable] = env[variable] }))
+        );
+        Assert.Contains(
+            "worker slot 1 is outside the 1 browser(s) \"toy-cloud\" leased",
+            outside.Message,
+            StringComparison.Ordinal
+        );
         Assert.Empty(dialer.Endpoints);
     }
 
@@ -197,7 +256,10 @@ public sealed class WorkerScopeTests
         Assert.Equal(["wss://0.example", "wss://0.example", "wss://2.example"], dialer.Endpoints);
 
         // The replacement is asked for the same slot, from the worker, with no attempt id.
-        Assert.Equal((0, 2, "run-1", "web"), (cloud.Acquired[^1].Slot, cloud.Acquired[^1].Slots, cloud.Acquired[^1].RunId, cloud.Acquired[^1].TargetName));
+        Assert.Equal(
+            (0, 2, "run-1", "web"),
+            (cloud.Acquired[^1].Slot, cloud.Acquired[^1].Slots, cloud.Acquired[^1].RunId, cloud.Acquired[^1].TargetName)
+        );
         Assert.Null(cloud.Acquired[^1].AttemptId);
 
         // The dead lease came from prepare: the runner's finish releases it, not the worker.
@@ -283,7 +345,11 @@ public sealed class WorkerScopeTests
         cloud.OnAcquire = (request, token) => throw new InvalidOperationException("quota exhausted");
         var error = await Assert.ThrowsAsync<EngineException>(() => worker.StartAsync(Runner.Attempt("a2"), None));
         Assert.Equal("ENGINE_FAILURE", error.Code);
-        Assert.Contains("browser provider \"toy-cloud\" could not lease a browser: quota exhausted", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "browser provider \"toy-cloud\" could not lease a browser: quota exhausted",
+            error.Message,
+            StringComparison.Ordinal
+        );
         await worker.DisposeAsync();
         Assert.Empty(cloud.Released);
     }
@@ -308,6 +374,10 @@ public sealed class WorkerScopeTests
                 ? throw new InvalidOperationException("token missing")
                 : Task.FromResult(new BrowserLease { Id = $"l-{request.Slot}", CdpEndpoint = "wss://d.example" });
 
-        public Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task ReleaseAsync(
+            BrowserLease lease,
+            BrowserReleaseContext context,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
     }
 }

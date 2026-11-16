@@ -13,17 +13,41 @@ namespace E2E.Tests.AgentObservation;
 public sealed class ObservationShapeTests
 {
     private static string ShapeOfPixels(params byte[] data) =>
-        global::E2E.AgentObservation.Shape(new Observation
-        {
-            Route = "/",
-            Roots = [new SemanticNode { Ref = "e1", Role = "document", Name = "Map" }],
-            Pixels = new EngineScreenshot(data, 1, 0),
-        });
+        global::E2E.AgentObservation.Shape(
+            new Observation
+            {
+                Route = "/",
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "e1",
+                        Role = "document",
+                        Name = "Map",
+                    },
+                ],
+                Pixels = new EngineScreenshot(data, 1, 0),
+            }
+        );
 
     [Fact]
     public void Is_shaped_by_the_pixels_when_a_capture_carries_them_so_a_canvas_that_redrew_counts_as_changed()
     {
-        var bare = global::E2E.AgentObservation.Shape(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "e1", Role = "document", Name = "Map" }] });
+        var bare = global::E2E.AgentObservation.Shape(
+            new Observation
+            {
+                Route = "/",
+                Roots =
+                [
+                    new SemanticNode
+                    {
+                        Ref = "e1",
+                        Role = "document",
+                        Name = "Map",
+                    },
+                ],
+            }
+        );
         Assert.Equal(ShapeOfPixels(1, 2, 3), ShapeOfPixels(1, 2, 3));
         Assert.NotEqual(ShapeOfPixels(1, 2, 3), ShapeOfPixels(1, 2, 4));
         Assert.NotEqual(ShapeOfPixels(1, 2, 3), bare);
@@ -36,7 +60,8 @@ public sealed class ObservationShapeTests
     {
         Assert.Equal(
             ShapeOf("#e1 button \"Save\"\n #e2 link \"Home\""),
-            ShapeOf("#e9 button \"Save\"\n #e7 link \"Home\""));
+            ShapeOf("#e9 button \"Save\"\n #e7 link \"Home\"")
+        );
     }
 
     [Fact]
@@ -45,7 +70,10 @@ public sealed class ObservationShapeTests
         // The browser settling focus after load, a script claiming it, a widget
         // stealing it: none of it changes what a judgment would answer.
         Assert.Equal(ShapeOf("#e1 textbox \"Email\" [focused]"), ShapeOf("#e1 textbox \"Email\""));
-        Assert.Equal(ShapeOf("#e1 checkbox \"Terms\" [checked] [focused]"), ShapeOf("#e1 checkbox \"Terms\" [checked]"));
+        Assert.Equal(
+            ShapeOf("#e1 checkbox \"Terms\" [checked] [focused]"),
+            ShapeOf("#e1 checkbox \"Terms\" [checked]")
+        );
     }
 
     [Fact]
@@ -71,6 +99,7 @@ public sealed class ObservationShapeTests
         Assert.NotEqual(ShapeOf("#e1 status \"Loading\""), ShapeOf("#e1 status \"Ready\""));
         Assert.NotEqual(
             ShapeOf("#e1 list\n #e2 listitem \"A\""),
-            ShapeOf("#e1 list\n #e2 listitem \"A\"\n #e3 listitem \"B\""));
+            ShapeOf("#e1 list\n #e2 listitem \"A\"\n #e3 listitem \"B\"")
+        );
     }
 }

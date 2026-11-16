@@ -18,7 +18,8 @@ public sealed class ControlInventoryTests : BenchmarkTest
     public async Task OpenTheInventory() => await OpenScenarioAsync("Control Inventory");
 
     /// <summary>Shows one of the scenario's sections; every control of it fits on screen.</summary>
-    private async Task ShowSectionAsync(string name) => await Screen.GetByTestId($"tab-{name.ToLowerInvariant()}").TapAsync();
+    private async Task ShowSectionAsync(string name) =>
+        await Screen.GetByTestId($"tab-{name.ToLowerInvariant()}").TapAsync();
 
     [Test]
     public async Task A_label_query_resolves_a_labeled_text_field()
@@ -298,7 +299,9 @@ public sealed class ControlInventoryTests : BenchmarkTest
     public async Task An_ambiguous_locator_fails_at_once()
     {
         await ShowSectionAsync("Gestures");
-        var ambiguous = await Assert.ThrowsAsync<TestException>(async () => await Screen.GetByTestId("fruit-row").TapAsync());
+        var ambiguous = await Assert.ThrowsAsync<TestException>(async () =>
+            await Screen.GetByTestId("fruit-row").TapAsync()
+        );
         Assert.That(ambiguous!.Code, Is.EqualTo("LOCATOR_AMBIGUOUS"));
     }
 

@@ -12,12 +12,13 @@ namespace E2E.OAuth;
 internal static class LoginModel
 {
     /// <summary>The <c>e2e login</c> provider id whose stored login models of the config <paramref name="provider"/> read, or null for a provider that reads an API key.</summary>
-    public static string? LoginOf(string provider) => provider switch
-    {
-        "chatgpt" => "openai",
-        "copilot" => "github-copilot",
-        "grok" => "spacexai",
-        "opencode-console" => "opencode-console",
-        _ => null,
-    };
+    public static string? LoginOf(string provider) =>
+        provider switch
+        {
+            "chatgpt" => "openai",
+            "copilot" => "github-copilot",
+            "grok" => "spacexai",
+            "opencode-console" => "opencode-console",
+            _ => null,
+        };
 }

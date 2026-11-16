@@ -26,7 +26,14 @@ public static partial class DeviceLinks
     /// <summary>What the report shows for a link that did not parse, or an app id that looks like a link.</summary>
     private const string LinkPlaceholder = "<link>";
 
-    private static readonly Dictionary<string, int> DefaultPorts = new() { ["http"] = 80, ["https"] = 443, ["ftp"] = 21, ["ws"] = 80, ["wss"] = 443 };
+    private static readonly Dictionary<string, int> DefaultPorts = new()
+    {
+        ["http"] = 80,
+        ["https"] = 443,
+        ["ftp"] = 21,
+        ["ws"] = 80,
+        ["wss"] = 443,
+    };
 
     /// <summary>
     /// What agent-device opens as a URL instead of resolving as an app: a <c>scheme:rest</c> string with
@@ -55,12 +62,15 @@ public static partial class DeviceLinks
     public static Uri LinkTarget(string input)
     {
         // As a browser reads a URL: edge whitespace and control characters go, and so do tabs and line breaks anywhere.
-        var text = new string(input.Where(character => character is not ('\t' or '\n' or '\r')).ToArray()).Trim(EdgeCharacters);
+        var text = new string(input.Where(character => character is not ('\t' or '\n' or '\r')).ToArray()).Trim(
+            EdgeCharacters
+        );
         if (!SchemePrefix().IsMatch(text) || !Uri.TryCreate(text, UriKind.Absolute, out var url))
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
-                "openLink needs an absolute URL such as myapp://orders/42 or https://example.com/verify");
+                "openLink needs an absolute URL such as myapp://orders/42 or https://example.com/verify"
+            );
         }
 
         DenyForbiddenScheme(url.Scheme + ":");
@@ -85,7 +95,8 @@ public static partial class DeviceLinks
         DenyForbiddenScheme(link.Groups[1].Value.ToLowerInvariant() + ":");
         throw new TestException(
             "INVALID_ARGUMENT",
-            "openApp opens an app by bundle id, package, or display name; open a deep link or web link with device.openLink");
+            "openApp opens an app by bundle id, package, or display name; open a deep link or web link with device.openLink"
+        );
     }
 
     /// <summary>
@@ -97,7 +108,9 @@ public static partial class DeviceLinks
     public static string LinkLabel(string input)
     {
         // As a URL parser reads it: tabs and line breaks go anywhere, and edge whitespace and control characters go.
-        var text = new string(input.Where(character => character is not ('\t' or '\n' or '\r')).ToArray()).Trim(EdgeCharacters);
+        var text = new string(input.Where(character => character is not ('\t' or '\n' or '\r')).ToArray()).Trim(
+            EdgeCharacters
+        );
         var scheme = SchemeSplit().Match(text);
         if (!scheme.Success)
         {
@@ -129,7 +142,10 @@ public static partial class DeviceLinks
             return LinkPlaceholder;
         }
 
-        var portText = port is null || port == defaultPort ? string.Empty : ":" + port.Value.ToString(CultureInfo.InvariantCulture);
+        var portText =
+            port is null || port == defaultPort
+                ? string.Empty
+                : ":" + port.Value.ToString(CultureInfo.InvariantCulture);
         return name + "://" + host + portText + PathLabel(path, special: true);
     }
 
@@ -158,7 +174,11 @@ public static partial class DeviceLinks
             return LinkPlaceholder;
         }
 
-        return scheme + "://" + host + (port is null ? string.Empty : ":" + port.Value.ToString(CultureInfo.InvariantCulture)) + PathLabel(path, special: false);
+        return scheme
+            + "://"
+            + host
+            + (port is null ? string.Empty : ":" + port.Value.ToString(CultureInfo.InvariantCulture))
+            + PathLabel(path, special: false);
     }
 
     /// <summary>The host and port of an authority, without its userinfo; <c>null</c> when it has a host or port no URL parser accepts.</summary>
@@ -173,7 +193,11 @@ public static partial class DeviceLinks
             host = host[..colon];
             if (digits.Length > 0)
             {
-                if (!digits.All(char.IsAsciiDigit) || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number > 65535)
+                if (
+                    !digits.All(char.IsAsciiDigit)
+                    || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out var number)
+                    || number > 65535
+                )
                 {
                     return null;
                 }
@@ -182,7 +206,12 @@ public static partial class DeviceLinks
             }
         }
 
-        if (host.Any(character => character <= ' ' || character is '#' or '/' or '<' or '>' or '?' or '@' or '\\' or '^' or '|' or '%' or '\u007f'))
+        if (
+            host.Any(character =>
+                character <= ' '
+                || character is '#' or '/' or '<' or '>' or '?' or '@' or '\\' or '^' or '|' or '%' or '\u007f'
+            )
+        )
         {
             return null;
         }

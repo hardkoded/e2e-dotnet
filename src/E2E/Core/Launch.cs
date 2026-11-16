@@ -170,9 +170,13 @@ public class Session : IAsyncDisposable
 public sealed class Session<TFixtures> : Session
     where TFixtures : class
 {
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, Action onClosed, Func<IEngineSession, Session, TFixtures> fixtures)
-        : base(attempt, identity, onClosed) =>
-        Fixtures = fixtures(EngineSession, this);
+    internal Session(
+        StandaloneAttempt attempt,
+        StateIdentity identity,
+        Action onClosed,
+        Func<IEngineSession, Session, TFixtures> fixtures
+    )
+        : base(attempt, identity, onClosed) => Fixtures = fixtures(EngineSession, this);
 
     /// <summary>What the engine contributes beside <see cref="Session.Screen"/>, <see cref="Session.App"/>, and <see cref="Session.Platform"/>.</summary>
     public TFixtures Fixtures { get; }
@@ -197,9 +201,23 @@ public sealed class Host : IAsyncDisposable
     private readonly Lazy<Task> _closing;
     private Session? _open;
 
-    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession = null)
+    internal Host(
+        StandaloneHost host,
+        IEngine engine,
+        string target,
+        string projectRoot,
+        string output,
+        bool ownsArtifacts,
+        IReadOnlyDictionary<string, string> secrets,
+        StateIdentity identity,
+        TimeSpan? timeout,
+        LaunchApp? app,
+        bool headed,
+        Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession = null
+    )
     {
-        _newSession = newSession ?? ((attempt, sessionIdentity, onClosed) => new Session(attempt, sessionIdentity, onClosed));
+        _newSession = newSession
+            ?? ((attempt, sessionIdentity, onClosed) => new Session(attempt, sessionIdentity, onClosed));
         _headed = headed;
         _app = app;
         _host = host;
@@ -225,14 +243,18 @@ public sealed class Host : IAsyncDisposable
             var known = _secrets.Keys.ToList();
             throw new ConfigurationException(
                 "SECRET_UNAVAILABLE",
-                $"secret {System.Text.Json.JsonSerializer.Serialize(name)} was not passed to launch; {(known.Count == 0 ? "it was given no secrets" : "it has " + string.Join(", ", known))}");
+                $"secret {System.Text.Json.JsonSerializer.Serialize(name)} was not passed to launch; {(known.Count == 0 ? "it was given no secrets" : "it has " + string.Join(", ", known))}"
+            );
         }
 
         return E2E.Secret.Create(name, value);
     }
 
     /// <summary>Opens a session. One at a time: the previous one must be closed.</summary>
-    public Task<Session> NewSessionAsync(NewSessionOptions? options = null, CancellationToken cancellationToken = default) =>
+    public Task<Session> NewSessionAsync(
+        NewSessionOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) =>
         OpeningRedaction.RedactOpening(async () =>
         {
             if (_closing.IsValueCreated)
@@ -241,7 +263,9 @@ public sealed class Host : IAsyncDisposable
             }
 
             var restored = options?.State is { } state ? SessionState.RestoredStateFor(state, _identity) : null;
-            var attempt = await _host.OpenAttemptAsync(SessionOptions(restored), cancellationToken, hosted: true).ConfigureAwait(false);
+            var attempt = await _host
+                .OpenAttemptAsync(SessionOptions(restored), cancellationToken, hosted: true)
+                .ConfigureAwait(false);
             try
             {
                 var session = _newSession(attempt, _identity, () => Release(attempt));
@@ -337,37 +361,37 @@ public sealed class Host : IAsyncDisposable
         Launch.ThrowClosingErrors(errors, "closing the host");
     }
 
-    private E2ESessionOptions SessionOptions(SavedSession? restored) => new()
-    {
-        Engine = _engine,
-        TargetName = _target,
-        ProjectRoot = _projectRoot,
-        ResultsDirectory = _output,
-        AppIdentity = _identity.AppIdentity,
-        BaseUrl = _app?.Url,
-        BundleId = _app?.BundleId,
-        AppPath = _app?.AppPath,
-        LinkBase = _app?.LinkBase,
-        LaunchArguments = _app?.LaunchArguments,
-        Permissions = _app?.Permissions,
-        TestTitle = "core",
-        Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
-        Video = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
-        CacheEnabled = false,
-        CacheMode = CacheMode.Off,
-        EmitRunEvents = false,
-        // No session deadline: each operation keeps its own timeout.
-        TestTimeout = System.Threading.Timeout.InfiniteTimeSpan,
-        ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
-        AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
-        Headed = _headed,
-        Closed = () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
-        // No report stands between an operation's error and the program, so the error itself is classified and redacted.
-        RedactThrown = true,
-        RetainSteps = Launch.RetainedSteps,
-        State = restored,
-    };
-
+    private E2ESessionOptions SessionOptions(SavedSession? restored) =>
+        new()
+        {
+            Engine = _engine,
+            TargetName = _target,
+            ProjectRoot = _projectRoot,
+            ResultsDirectory = _output,
+            AppIdentity = _identity.AppIdentity,
+            BaseUrl = _app?.Url,
+            BundleId = _app?.BundleId,
+            AppPath = _app?.AppPath,
+            LinkBase = _app?.LinkBase,
+            LaunchArguments = _app?.LaunchArguments,
+            Permissions = _app?.Permissions,
+            TestTitle = "core",
+            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            Video = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            CacheEnabled = false,
+            CacheMode = CacheMode.Off,
+            EmitRunEvents = false,
+            // No session deadline: each operation keeps its own timeout.
+            TestTimeout = System.Threading.Timeout.InfiniteTimeSpan,
+            ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
+            AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
+            Headed = _headed,
+            Closed = () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
+            // No report stands between an operation's error and the program, so the error itself is classified and redacted.
+            RedactThrown = true,
+            RetainSteps = Launch.RetainedSteps,
+            State = restored,
+        };
 }
 
 /// <summary>
@@ -388,8 +412,10 @@ public sealed class Host<TFixtures> : IAsyncDisposable
     public Secret Secret(string name) => _host.Secret(name);
 
     /// <inheritdoc cref="Host.NewSessionAsync"/>
-    public async Task<Session<TFixtures>> NewSessionAsync(NewSessionOptions? options = null, CancellationToken cancellationToken = default) =>
-        (Session<TFixtures>)await _host.NewSessionAsync(options, cancellationToken).ConfigureAwait(false);
+    public async Task<Session<TFixtures>> NewSessionAsync(
+        NewSessionOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => (Session<TFixtures>)await _host.NewSessionAsync(options, cancellationToken).ConfigureAwait(false);
 
     /// <inheritdoc cref="Host.CloseAsync"/>
     public Task CloseAsync() => _host.CloseAsync();
@@ -416,33 +442,54 @@ public static class Launch
     /// Launches <paramref name="engine"/>: prepares it (a first-run browser download, a device lease), initializes one worker, and returns the host that
     /// opens sessions on it. Each launch needs its own engine instance.
     /// </summary>
-    public static Task<Host> LaunchAsync(IEngine engine, LaunchOptions? options = null, CancellationToken cancellationToken = default) =>
-        LaunchCoreAsync(engine, options, null, cancellationToken);
+    public static Task<Host> LaunchAsync(
+        IEngine engine,
+        LaunchOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => LaunchCoreAsync(engine, options, null, cancellationToken);
 
     /// <summary>
     /// Launches an engine that contributes fixtures (<see cref="IEngine{TFixtures}"/>), so each session of the host holds them as <see cref="Session{TFixtures}.Fixtures"/>.
     /// Upstream's <c>launch&lt;Fixtures&gt;</c>.
     /// </summary>
-    public static async Task<Host<TFixtures>> LaunchAsync<TFixtures>(IEngine<TFixtures> engine, LaunchOptions? options = null, CancellationToken cancellationToken = default)
+    public static async Task<Host<TFixtures>> LaunchAsync<TFixtures>(
+        IEngine<TFixtures> engine,
+        LaunchOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
         where TFixtures : class
     {
         var host = await LaunchCoreAsync(
-            engine,
-            options,
-            (attempt, identity, onClosed) => new Session<TFixtures>(attempt, identity, onClosed, engine.CreateFixtures),
-            cancellationToken).ConfigureAwait(false);
+                engine,
+                options,
+                (attempt, identity, onClosed) =>
+                    new Session<TFixtures>(attempt, identity, onClosed, engine.CreateFixtures),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return new Host<TFixtures>(host);
     }
 
-    private static async Task<Host> LaunchCoreAsync(IEngine engine, LaunchOptions? options, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession, CancellationToken cancellationToken)
+    private static async Task<Host> LaunchCoreAsync(
+        IEngine engine,
+        LaunchOptions? options,
+        Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession,
+        CancellationToken cancellationToken
+    )
     {
         if (engine is null)
         {
-            throw new TestException("INVALID_ARGUMENT", "launch takes an engine as its first argument and got null: pass an engine such as new WebEngine()");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "launch takes an engine as its first argument and got null: pass an engine such as new WebEngine()"
+            );
         }
 
         options ??= new LaunchOptions();
-        if (options.Timeout is { } timeout && (timeout <= TimeSpan.Zero || timeout == System.Threading.Timeout.InfiniteTimeSpan))
+        if (
+            options.Timeout is { } timeout
+            && (timeout <= TimeSpan.Zero || timeout == System.Threading.Timeout.InfiniteTimeSpan)
+        )
         {
             throw new TestException("INVALID_ARGUMENT", "launch timeout must be a positive, finite time span");
         }
@@ -456,42 +503,76 @@ public static class Launch
         Host? host = null;
         try
         {
-            return host = await OpeningRedaction.RedactOpening(async () =>
-            {
-                Claim(engine);
-                try
+            return host = await OpeningRedaction
+                .RedactOpening(async () =>
                 {
-                    var target = engine.Platform;
-                    var app = options.App;
-                    TargetApps.CheckLinkBase(app?.LinkBase, engine, "target \"" + target + "\" app");
-                    var resolved = TargetApps.ResolveTargetApp(
-                        target,
-                        new AppConfig { Url = app?.Url, BundleId = app?.BundleId, AppPath = app?.AppPath, LinkBase = app?.LinkBase, Identity = app?.Identity, LaunchArguments = app?.LaunchArguments, Permissions = app?.Permissions },
-                        projectRoot);
-                    var identity = new StateIdentity(
-                        engine.Name,
-                        target,
-                        Sessions.TargetIdentity(target, target, engine, resolved).AppIdentity,
-                        resolved.Identity);
-                    OpenSession.RegisterStaticSecrets(secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value)));
-                    var worker = await Standalone.OpenWorkerAsync(new StandaloneHostOptions
+                    Claim(engine);
+                    try
                     {
-                        Engine = engine,
-                        TargetName = target,
-                        ProjectRoot = projectRoot,
-                        Env = options.Env,
-                        CancellationToken = cancellationToken,
-                        Headed = options.Headed,
-                        Notice = options.OnNotice is { } notice ? (_, message) => OpenSession.Notify(notice, message) : null,
-                    }).ConfigureAwait(false);
-                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed, newSession);
-                }
-                catch
-                {
-                    Unclaim(engine);
-                    throw;
-                }
-            }).ConfigureAwait(false);
+                        var target = engine.Platform;
+                        var app = options.App;
+                        TargetApps.CheckLinkBase(app?.LinkBase, engine, "target \"" + target + "\" app");
+                        var resolved = TargetApps.ResolveTargetApp(
+                            target,
+                            new AppConfig
+                            {
+                                Url = app?.Url,
+                                BundleId = app?.BundleId,
+                                AppPath = app?.AppPath,
+                                LinkBase = app?.LinkBase,
+                                Identity = app?.Identity,
+                                LaunchArguments = app?.LaunchArguments,
+                                Permissions = app?.Permissions,
+                            },
+                            projectRoot
+                        );
+                        var identity = new StateIdentity(
+                            engine.Name,
+                            target,
+                            Sessions.TargetIdentity(target, target, engine, resolved).AppIdentity,
+                            resolved.Identity
+                        );
+                        OpenSession.RegisterStaticSecrets(
+                            secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value))
+                        );
+                        var worker = await Standalone
+                            .OpenWorkerAsync(
+                                new StandaloneHostOptions
+                                {
+                                    Engine = engine,
+                                    TargetName = target,
+                                    ProjectRoot = projectRoot,
+                                    Env = options.Env,
+                                    CancellationToken = cancellationToken,
+                                    Headed = options.Headed,
+                                    Notice = options.OnNotice is { } notice
+                                        ? (_, message) => OpenSession.Notify(notice, message)
+                                        : null,
+                                }
+                            )
+                            .ConfigureAwait(false);
+                        return new Host(
+                            worker,
+                            engine,
+                            target,
+                            projectRoot,
+                            output,
+                            ownsArtifacts,
+                            secrets,
+                            identity,
+                            options.Timeout,
+                            app,
+                            options.Headed,
+                            newSession
+                        );
+                    }
+                    catch
+                    {
+                        Unclaim(engine);
+                        throw;
+                    }
+                })
+                .ConfigureAwait(false);
         }
         catch when (host is null)
         {
@@ -527,7 +608,10 @@ public static class Launch
             return;
         }
 
-        throw new AggregateException($"{what} failed: {string.Join("; ", errors.Select(error => error.Message))}", errors);
+        throw new AggregateException(
+            $"{what} failed: {string.Join("; ", errors.Select(error => error.Message))}",
+            errors
+        );
     }
 
     // No host may drive an engine instance another host owns.
@@ -556,7 +640,8 @@ public static class Launch
             {
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    $"launch secret \"{name}\" must be a string of at least {Secret.MinLength.ToString(CultureInfo.InvariantCulture)} characters, so that redacting it does not take ordinary text with it");
+                    $"launch secret \"{name}\" must be a string of at least {Secret.MinLength.ToString(CultureInfo.InvariantCulture)} characters, so that redacting it does not take ordinary text with it"
+                );
             }
 
             checkedSecrets[name] = value;

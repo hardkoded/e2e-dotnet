@@ -9,7 +9,8 @@ namespace E2E.Mobile.Tests.Tools;
 
 public sealed class AgentToolPackTests
 {
-    private static Harness Android() => Harness.Create(options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" });
+    private static Harness Android() =>
+        Harness.Create(options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" });
 
     private static Task<string> Run(IReadOnlyDictionary<string, AgentTool> tools, string name, string input) =>
         tools[name].ExecuteAsync((JsonObject)JsonNode.Parse(input)!, CancellationToken.None);
@@ -41,11 +42,20 @@ public sealed class AgentToolPackTests
         Assert.Equal("Opened Clock.", await Run(tools, "open_app", """{"app":"Clock","relaunch":true}"""));
         Assert.Matches("Swiped", await Run(tools, "swipe", """{"from":{"x":300,"y":200},"to":{"x":20,"y":200}}"""));
         Assert.Equal("Alert dismissed.", await Run(tools, "alert", """{"action":"dismiss"}"""));
-        Assert.Equal(["devices.boot", "apps.open", "interactions.swipe", "command.alert"], androidHarness.Fake.Methods());
-        JsonAssert.Args("""{"app":"Clock","platform":"android","serial":"emulator-5554","relaunch":true}""", androidHarness.Fake.LastArgs("apps.open"));
+        Assert.Equal(
+            ["devices.boot", "apps.open", "interactions.swipe", "command.alert"],
+            androidHarness.Fake.Methods()
+        );
+        JsonAssert.Args(
+            """{"app":"Clock","platform":"android","serial":"emulator-5554","relaunch":true}""",
+            androidHarness.Fake.LastArgs("apps.open")
+        );
 
         // The alert carries the worker's device, as it can run with no app open.
-        JsonAssert.Args("""{"platform":"android","serial":"emulator-5554","action":"dismiss"}""", androidHarness.Fake.LastArgs("command.alert"));
+        JsonAssert.Args(
+            """{"platform":"android","serial":"emulator-5554","action":"dismiss"}""",
+            androidHarness.Fake.LastArgs("command.alert")
+        );
         Assert.Empty(iosHarness.Fake.Methods());
         await androidSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
 
@@ -64,7 +74,10 @@ public sealed class AgentToolPackTests
         var ios = iosHarness.Engine;
         var android = androidHarness.Engine;
 
-        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+        Assert.Equal(
+            "INVALID_STATE",
+            Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code
+        );
 
         var androidSession = await androidHarness.Boot("android");
         var raw = MobileTools.UnstableDeviceSession(ios, android);
@@ -79,7 +92,10 @@ public sealed class AgentToolPackTests
 
         await iosSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         await androidSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
-        Assert.Equal("INVALID_STATE", Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code);
+        Assert.Equal(
+            "INVALID_STATE",
+            Assert.Throws<EngineException>(() => MobileTools.UnstableDeviceSession(ios, android)).Code
+        );
 
         await iosSession.DisposeAsync();
         await androidSession.DisposeAsync();
@@ -94,26 +110,44 @@ public sealed class AgentToolPackTests
         await h.Boot("ios");
         var tools = MobileTools.Create(h.Engine);
         var before = h.Fake.Calls.Count;
-        foreach (var denied in new[] { "file:///etc/passwd", "data:text/html,hi", "javascript:alert(1)", "view-source:file:///etc/passwd" })
+        foreach (
+            var denied in new[]
+            {
+                "file:///etc/passwd",
+                "data:text/html,hi",
+                "javascript:alert(1)",
+                "view-source:file:///etc/passwd",
+            }
+        )
         {
-            var failure = await Assert.ThrowsAsync<ConfigurationException>(() => Run(tools, "open_app", $$"""{"app":"{{denied}}"}"""));
+            var failure = await Assert.ThrowsAsync<ConfigurationException>(() =>
+                Run(tools, "open_app", $$"""{"app":"{{denied}}"}""")
+            );
             Assert.Equal("POLICY_DENIED", failure.Code);
         }
 
         foreach (var link in new[] { "https://example.com/verify", "myapp://orders/42" })
         {
-            var failure = await Assert.ThrowsAsync<TestException>(() => Run(tools, "open_app", $$"""{"app":"{{link}}"}"""));
+            var failure = await Assert.ThrowsAsync<TestException>(() =>
+                Run(tools, "open_app", $$"""{"app":"{{link}}"}""")
+            );
             Assert.Equal("INVALID_ARGUMENT", failure.Code);
             Assert.Contains("device.openLink", failure.Message, StringComparison.Ordinal);
         }
 
         Assert.Equal(before, h.Fake.Calls.Count);
         Assert.Contains("not a URL", tools["open_app"].Description, StringComparison.Ordinal);
-        Assert.Equal("Opened com.apple.Preferences.", await Run(tools, "open_app", """{"app":"com.apple.Preferences"}"""));
+        Assert.Equal(
+            "Opened com.apple.Preferences.",
+            await Run(tools, "open_app", """{"app":"com.apple.Preferences"}""")
+        );
         JsonAssert.Args("""{"app":"com.apple.Preferences","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
     }
 
-    private static async Task<(Harness Harness, Func<string, Task<string>> Open)> AttemptTools(Func<MobileApp, MobileApp>? app = null, bool pinned = true)
+    private static async Task<(Harness Harness, Func<string, Task<string>> Open)> AttemptTools(
+        Func<MobileApp, MobileApp>? app = null,
+        bool pinned = true
+    )
     {
         var h = Harness.Create(pinned: pinned, app: app);
         await h.Boot("ios");
@@ -129,7 +163,10 @@ public sealed class AgentToolPackTests
         Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("{}"));
         JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios"}""", h.Fake.LastArgs("apps.open"));
         Assert.Equal("Opened the app under test (dev.e2e.benchmark).", await open("""{"relaunch":true}"""));
-        JsonAssert.Args("""{"app":"dev.e2e.benchmark","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
+        JsonAssert.Args(
+            """{"app":"dev.e2e.benchmark","platform":"ios","relaunch":true}""",
+            h.Fake.LastArgs("apps.open")
+        );
     }
 
     [Fact]
@@ -147,12 +184,17 @@ public sealed class AgentToolPackTests
     public async Task Points_a_name_no_installed_app_matches_at_the_app_under_test_without_CLI_advice()
     {
         var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
-        h.Fake.Respond(
-            DeviceMethods.AppsOpen,
-            _ => throw new AgentDeviceError(
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ =>
+            throw new AgentDeviceError(
                 "APP_NOT_INSTALLED",
                 "No app found matching \"e2eBenchmark\"",
-                new Dictionary<string, object?> { ["hint"] = "Run apps to discover the exact installed package or bundle id, or install the app before open." }));
+                new Dictionary<string, object?>
+                {
+                    ["hint"] =
+                        "Run apps to discover the exact installed package or bundle id, or install the app before open.",
+                }
+            )
+        );
         var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":"e2eBenchmark"}"""));
         Assert.Equal("INVALID_ARGUMENT", failure.Code);
         Assert.Contains("Omit app to return to the app under test", failure.Message, StringComparison.Ordinal);
@@ -163,9 +205,9 @@ public sealed class AgentToolPackTests
     public async Task Keeps_the_device_error_when_the_app_under_test_is_not_installed()
     {
         var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
-        h.Fake.Respond(
-            DeviceMethods.AppsOpen,
-            _ => throw new AgentDeviceError("APP_NOT_INSTALLED", "No app found matching \"dev.e2e.benchmark\""));
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ =>
+            throw new AgentDeviceError("APP_NOT_INSTALLED", "No app found matching \"dev.e2e.benchmark\"")
+        );
         var failure = await Assert.ThrowsAsync<EngineException>(() => open("{}"));
         Assert.Contains("No app found matching \"dev.e2e.benchmark\"", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("Omit app", failure.Message, StringComparison.Ordinal);

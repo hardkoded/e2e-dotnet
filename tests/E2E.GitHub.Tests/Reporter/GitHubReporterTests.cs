@@ -16,12 +16,21 @@ public sealed class GitHubReporterTests
 
     private static async Task<string> PostedMarker(GitHubReporter reporter, Dictionary<string, string> env)
     {
-        var fake = new FakeGitHub(new Dictionary<string, Func<Call, HttpResponseMessage>>
-        {
-            ["GET *"] = _ => Json(200, Array.Empty<object>()),
-            ["POST *"] = _ => Json(201, new { id = 1, html_url = "https://github.com/octo/app/pull/41#issuecomment-1" }),
-        });
-        var deps = new ReportDeps(FakeGitHub.Env(env), ReadEvent, fake.Client, (_, _, _) => Task.CompletedTask, _ => false);
+        var fake = new FakeGitHub(
+            new Dictionary<string, Func<Call, HttpResponseMessage>>
+            {
+                ["GET *"] = _ => Json(200, Array.Empty<object>()),
+                ["POST *"] = _ =>
+                    Json(201, new { id = 1, html_url = "https://github.com/octo/app/pull/41#issuecomment-1" }),
+            }
+        );
+        var deps = new ReportDeps(
+            FakeGitHub.Env(env),
+            ReadEvent,
+            fake.Client,
+            (_, _, _) => Task.CompletedTask,
+            _ => false
+        );
         await reporter.ReportRunAsync(Finished(ReportOf()), deps, CancellationToken.None);
         return fake.Calls.Single(call => call.Method == "POST").BodyText.Split('\n', 2)[0];
     }
@@ -46,7 +55,10 @@ public sealed class GitHubReporterTests
     [Fact]
     public async Task Reads_the_key_from_E2E_GITHUB_KEY_when_it_has_no_options()
     {
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->", await PostedMarker(new GitHubReporter(), Authorized()));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->",
+            await PostedMarker(new GitHubReporter(), Authorized())
+        );
     }
 
     [Fact]
@@ -54,16 +66,25 @@ public sealed class GitHubReporterTests
     {
         var padded = Authorized();
         padded["E2E_GITHUB_KEY"] = " chromium ";
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->", await PostedMarker(new GitHubReporter(), padded));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->",
+            await PostedMarker(new GitHubReporter(), padded)
+        );
         var blank = Authorized();
         blank["E2E_GITHUB_KEY"] = "  ";
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->", await PostedMarker(new GitHubReporter(), blank));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->",
+            await PostedMarker(new GitHubReporter(), blank)
+        );
     }
 
     [Fact]
     public async Task Takes_the_key_from_the_options_a_derived_reporter_passes_over_the_variable()
     {
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=from%20code -->", await PostedMarker(new MatrixReporter(), Authorized()));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=from%20code -->",
+            await PostedMarker(new MatrixReporter(), Authorized())
+        );
     }
 
     [Fact]
@@ -72,7 +93,10 @@ public sealed class GitHubReporterTests
         var reporter = new GitHubReporter();
         reporter.Configure(Parse("""{ "key": "firefox" }"""));
 
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=firefox -->", await PostedMarker(reporter, Authorized()));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=firefox -->",
+            await PostedMarker(reporter, Authorized())
+        );
     }
 
     [Fact]
@@ -81,13 +105,18 @@ public sealed class GitHubReporterTests
         var reporter = new GitHubReporter();
         reporter.Configure(Parse("{}"));
 
-        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->", await PostedMarker(reporter, Authorized()));
+        Assert.Equal(
+            "<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->",
+            await PostedMarker(reporter, Authorized())
+        );
     }
 
     [Fact]
     public void Configure_rejects_an_unknown_option_naming_it_and_not_its_value()
     {
-        var error = Assert.Throws<ArgumentException>(() => new GitHubReporter().Configure(Parse("""{ "token": "ghs_secret" }""")));
+        var error = Assert.Throws<ArgumentException>(() =>
+            new GitHubReporter().Configure(Parse("""{ "token": "ghs_secret" }"""))
+        );
 
         Assert.Contains("\"token\"", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("ghs_secret", error.Message, StringComparison.Ordinal);

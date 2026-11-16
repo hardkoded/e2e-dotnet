@@ -23,7 +23,10 @@ public sealed class ImageOnlyUiTests : BenchmarkTest
     public async Task The_icons_have_no_names_so_the_bare_svg_locator_is_ambiguous()
     {
         var error = await Support.FailureAsync(() => Browser.Locator("svg").TapAsync());
-        Assert.That(error, Is.InstanceOf<E2EException>().And.Property(nameof(E2EException.Code)).EqualTo("LOCATOR_AMBIGUOUS"));
+        Assert.That(
+            error,
+            Is.InstanceOf<E2EException>().And.Property(nameof(E2EException.Code)).EqualTo("LOCATOR_AMBIGUOUS")
+        );
     }
 
     [Test]

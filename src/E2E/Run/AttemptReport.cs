@@ -18,12 +18,14 @@ namespace E2E;
 internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir, string? RerunDir = null)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
-    public string TestDir => RerunDir is null
-        ? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!
-        : Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!)!;
+    public string TestDir =>
+        RerunDir is null
+            ? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!
+            : Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!)!;
 
     /// <summary>The attempt's directory below the test's, as a report path: <c>attempt-&lt;n&gt;</c>, with the rerun's directory before it in a rerun.</summary>
-    public string AttemptPath => RerunDir is null ? Path.GetFileName(AttemptDir) : RerunDir + "/" + Path.GetFileName(AttemptDir);
+    public string AttemptPath =>
+        RerunDir is null ? Path.GetFileName(AttemptDir) : RerunDir + "/" + Path.GetFileName(AttemptDir);
 
     /// <summary>The results directory.</summary>
     public string ResultsRoot => Path.GetDirectoryName(TestDir)!;
@@ -48,14 +50,19 @@ internal static class AttemptReport
     /// file hashes the title alone.
     /// </summary>
     public static string ResultId(string? file, string title) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + Ids.TestId(file, [title]))));
+        Convert.ToHexStringLower(
+            SHA256.HashData(
+                Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + Ids.TestId(file, [title]))
+            )
+        );
 
     /// <summary>
     /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
     /// (<see cref="ArtifactPaths.ResultSegment"/>). A .NET test has no source file of its own, so the file is the test class: its simple
     /// name reads in the segment and its full name goes into the id.
     /// </summary>
-    public static string ResultSegmentOf(string? file, string title) => ArtifactPaths.ResultSegment(ResultId(file, title), file is null ? "" : SimpleName(file), [title]);
+    public static string ResultSegmentOf(string? file, string title) =>
+        ArtifactPaths.ResultSegment(ResultId(file, title), file is null ? "" : SimpleName(file), [title]);
 
     /// <summary>The name of a type without its namespace and its declaring types.</summary>
     private static string SimpleName(string typeName)
@@ -74,7 +81,8 @@ internal static class AttemptReport
         long durationMs,
         ReportExplore? explore = null,
         FailureEvidence? evidence = null,
-        IReadOnlyList<Exception>? cleanupErrors = null)
+        IReadOnlyList<Exception>? cleanupErrors = null
+    )
     {
         var steps = scope.Steps.All();
         var id = ResultId(scope.TestFile, scope.TestTitle);
@@ -85,26 +93,66 @@ internal static class AttemptReport
         ReportArtifact[] kept =
         [
             .. scope.Attached.Select(Artifact),
-            .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
-            .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
+            .. failed && evidence?.Screen is { } screen
+                ? new[]
+                {
+                    new ReportArtifact(
+                        screen,
+                        "log",
+                        directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile
+                    ),
+                }
+                : [],
+            .. failed && evidence?.Screenshot is { } shot
+                ? new[]
+                {
+                    new ReportArtifact(
+                        shot,
+                        "screenshot",
+                        directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile
+                    ),
+                }
+                : [],
         ];
-        var serialized = error is null ? null : ErrorSerializer.Serialize(error, scope.ProjectRoot, scope.Redactor.Redact);
+        var serialized = error is null
+            ? null
+            : ErrorSerializer.Serialize(error, scope.ProjectRoot, scope.Redactor.Redact);
         var attempt = new ReportAttempt
         {
             Id = scope.AttemptId,
             StartedAt = scope.StartedAt,
-            Skip = status == AttemptStatus.Skipped ? new ReportSkip("explicit", TextRules.TruncateUtf8(TextRules.SanitizeText(scope.Redactor.Redact(serialized?.Message ?? "skipped")), TextRules.MaxSkipReasonBytes)) : null,
+            Skip =
+                status == AttemptStatus.Skipped
+                    ? new ReportSkip(
+                        "explicit",
+                        TextRules.TruncateUtf8(
+                            TextRules.SanitizeText(scope.Redactor.Redact(serialized?.Message ?? "skipped")),
+                            TextRules.MaxSkipReasonBytes
+                        )
+                    )
+                    : null,
             Status = status,
             DurationMs = durationMs,
             Error = serialized is null ? null : ReportError.Of(serialized),
             Steps = steps,
             Failure = failed ? evidence : null,
-            Artifacts = [.. kept.Select(artifact => artifact with { Size = SizeOf(output.ResultsRoot, artifact.Path) })],
+            Artifacts =
+            [
+                .. kept.Select(artifact => artifact with { Size = SizeOf(output.ResultsRoot, artifact.Path) }),
+            ],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
             AppLog = scope.Steps.AppLog(),
             // A teardown that threw does not change the verdict: it marks the cleanup failed and adds a cleanup-phase secondary error (upstream's closeSession).
             Cleanup = cleanupErrors is { Count: > 0 } ? AttemptCleanup.Failed : AttemptCleanup.Complete,
-            SecondaryErrors = [.. (cleanupErrors ?? []).Select(cause => ReportError.Of(ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact), "cleanup"))],
+            SecondaryErrors =
+            [
+                .. (cleanupErrors ?? []).Select(cause =>
+                    ReportError.Of(
+                        ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact),
+                        "cleanup"
+                    )
+                ),
+            ],
         };
         var result = new ReportResult
         {
@@ -132,7 +180,30 @@ internal static class AttemptReport
             result = result with { TestId = Ids.TestId(testFile, [method]) };
         }
 
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
+        return (
+            new Report1Document(
+                new ReportRun(
+                    RunId,
+                    ModelHttp.PackageVersion(),
+                    [
+                        new ReportTarget(
+                            scope.TargetName,
+                            0,
+                            scope.EnginePlatform,
+                            BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities),
+                            "test",
+                            BuildReport.BaseOrigin(scope.BaseUrl)
+                        ),
+                    ],
+                    [result],
+                    explore
+                )
+                {
+                    Limits = ResolvedAgent.RunLimits(scope.Agents.Values),
+                }
+            ),
+            id
+        );
     }
 
     // The size of a file the attempt kept, which the run's usage adds up; null for a link and for a file that cannot be read.
@@ -140,7 +211,9 @@ internal static class AttemptReport
     {
         try
         {
-            return path is null ? null : new FileInfo(Path.Combine(resultsRoot, path)) is { Exists: true } file ? file.Length : null;
+            return path is null ? null
+                : new FileInfo(Path.Combine(resultsRoot, path)) is { Exists: true } file ? file.Length
+                : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
@@ -150,5 +223,14 @@ internal static class AttemptReport
 
     // The kept file or link, as the sink registered it: its path already starts at the results directory, as upstream's records do.
     private static ReportArtifact Artifact(ArtifactRecord record) =>
-        new(record.Id, record.Kind.ToString().ToLowerInvariant(), record.Path, record.Url, record.StartedAt, Redaction: record.Redaction, Ref: record.Ref, Producer: record.Producer);
+        new(
+            record.Id,
+            record.Kind.ToString().ToLowerInvariant(),
+            record.Path,
+            record.Url,
+            record.StartedAt,
+            Redaction: record.Redaction,
+            Ref: record.Ref,
+            Producer: record.Producer
+        );
 }

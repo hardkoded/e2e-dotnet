@@ -22,7 +22,9 @@ public sealed class ToolLoopForcedToolChoiceTests
     [Fact]
     public async Task Retries_with_auto_under_the_same_instructions_when_the_model_rejects_a_forced_choice()
     {
-        var loop = new FakeLoopModel(RefusingForcedChoice(call => call.Turn == 2 ? ModelResponses.Call("peek", new { }) : Done()));
+        var loop = new FakeLoopModel(
+            RefusingForcedChoice(call => call.Turn == 2 ? ModelResponses.Call("peek", new { }) : Done())
+        );
         ActResult? result = null;
 
         var attempt = await RunAsync(
@@ -33,7 +35,8 @@ public sealed class ToolLoopForcedToolChoiceTests
             },
             Page(),
             loop.Model,
-            agentTools: Peek());
+            agentTools: Peek()
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["required", "auto", "auto"], loop.Calls.Select(call => call.ToolChoice));
@@ -59,7 +62,8 @@ public sealed class ToolLoopForcedToolChoiceTests
                 await ctx.Agent.ActAsync("second");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["required", "auto", "auto"], loop.Calls.Select(call => call.ToolChoice));
@@ -68,8 +72,11 @@ public sealed class ToolLoopForcedToolChoiceTests
     [Fact]
     public async Task Offers_only_complete_step_under_auto_on_the_forced_conclusion_turns()
     {
-        var loop = new FakeLoopModel(RefusingForcedChoice(call =>
-            call.ToolNames is ["complete_step"] ? Done() : ModelResponses.Call("peek", new { })));
+        var loop = new FakeLoopModel(
+            RefusingForcedChoice(call =>
+                call.ToolNames is ["complete_step"] ? Done() : ModelResponses.Call("peek", new { })
+            )
+        );
 
         var attempt = await RunAsync(
             async ctx =>
@@ -79,7 +86,8 @@ public sealed class ToolLoopForcedToolChoiceTests
             },
             Page(),
             loop.Model,
-            agentTools: Peek());
+            agentTools: Peek()
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(["complete_step"], loop.Calls[^1].ToolNames);
@@ -89,7 +97,11 @@ public sealed class ToolLoopForcedToolChoiceTests
     [Fact]
     public async Task Asks_again_when_a_turn_comes_back_as_prose_without_a_tool_call()
     {
-        var loop = new FakeLoopModel(RefusingForcedChoice(call => call.Turn == 2 ? new ModelResponse { Content = "I will look around first." } : Done()));
+        var loop = new FakeLoopModel(
+            RefusingForcedChoice(call =>
+                call.Turn == 2 ? new ModelResponse { Content = "I will look around first." } : Done()
+            )
+        );
         ActResult? result = null;
 
         var attempt = await RunAsync(
@@ -99,7 +111,8 @@ public sealed class ToolLoopForcedToolChoiceTests
                 result = await ctx.Agent.ActAsync("do the thing");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, loop.Calls.Count);
@@ -121,7 +134,8 @@ public sealed class ToolLoopForcedToolChoiceTests
                 await ctx.Agent.ActAsync("do the thing", new ActOptions { MaxModelCalls = 3 });
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Equal("STEP_NO_CONCLUSION", Assert.IsType<AgentException>(attempt.Error).Code);
         // One refusal, then three prose turns: the budget, not the loop, ends it.
@@ -140,19 +154,22 @@ public sealed class ToolLoopForcedToolChoiceTests
                 await ctx.Agent.ActAsync("do the thing");
             },
             Page(),
-            loop.Model);
+            loop.Model
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", Assert.IsType<AgentException>(attempt.Error).Code);
         Assert.Single(loop.Calls);
     }
 
     /// <summary>A read-only project tool, so a turn can do something other than conclude.</summary>
-    internal static IReadOnlyDictionary<string, AgentTool> Peek() => new Dictionary<string, AgentTool>
-    {
-        ["peek"] = new AgentTool(
-            "looks around",
-            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
-            false,
-            (_, _) => Task.FromResult("looked")),
-    };
+    internal static IReadOnlyDictionary<string, AgentTool> Peek() =>
+        new Dictionary<string, AgentTool>
+        {
+            ["peek"] = new AgentTool(
+                "looks around",
+                new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() },
+                false,
+                (_, _) => Task.FromResult("looked")
+            ),
+        };
 }

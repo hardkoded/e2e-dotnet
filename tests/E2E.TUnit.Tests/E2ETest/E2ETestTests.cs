@@ -23,10 +23,13 @@ public sealed class E2ETestTests : BrowserTest
     [Arguments("a, b")]
     public async Task Titles_the_test_by_its_class_method_and_arguments(string argument)
     {
-        await Assert.That(Title).IsEqualTo(
-            argument == "a"
-                ? "E2E.TUnit.Tests.E2ETest.E2ETestTests.Titles_the_test_by_its_class_method_and_arguments(a)"
-                : "E2E.TUnit.Tests.E2ETest.E2ETestTests.Titles_the_test_by_its_class_method_and_arguments(a, b)");
+        await Assert
+            .That(Title)
+            .IsEqualTo(
+                argument == "a"
+                    ? "E2E.TUnit.Tests.E2ETest.E2ETestTests.Titles_the_test_by_its_class_method_and_arguments(a)"
+                    : "E2E.TUnit.Tests.E2ETest.E2ETestTests.Titles_the_test_by_its_class_method_and_arguments(a, b)"
+            );
     }
 
     [Test]

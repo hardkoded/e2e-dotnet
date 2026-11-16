@@ -23,7 +23,8 @@ public sealed class ControlInventoryTests : ControlInventoryTest
           "agents": { "default": { "model": "claude-sonnet-5.5", "provider": "copilot" } }
         }
         """,
-        AppContext.BaseDirectory);
+        AppContext.BaseDirectory
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 

@@ -22,11 +22,13 @@ public sealed class ObservedRefsTests
         var scripted = new ScriptedList();
         var list = new EngineElementList(scripted.Handle);
         var capture = registry.BeginCapture();
-        registry.Publish(capture, new CapturedObservation(Snapshot(), new Dictionary<string, ListedTarget>
-        {
-            ["n1"] = Target(list, 0),
-            ["n2"] = Target(list, 1),
-        }));
+        registry.Publish(
+            capture,
+            new CapturedObservation(
+                Snapshot(),
+                new Dictionary<string, ListedTarget> { ["n1"] = Target(list, 0), ["n2"] = Target(list, 1) }
+            )
+        );
         var resolved = await registry.LookupAsync("n2");
         Assert.Equal([1], scripted.Made.Select(element => element.Index));
         Assert.Equal(new ElementTarget((IElementHandle)scripted.Made[0].Handle), resolved);
@@ -38,12 +40,18 @@ public sealed class ObservedRefsTests
         var registry = new RefRegistry();
         var scripted = new ScriptedList();
         var list = new EngineElementList(scripted.Handle);
-        registry.Publish(registry.BeginCapture(), new CapturedObservation(Snapshot(), new Dictionary<string, ListedTarget>
-        {
-            ["n1"] = Target(list, 0),
-            ["n2"] = Target(list, 1),
-            ["n3"] = Target(list, 2),
-        }));
+        registry.Publish(
+            registry.BeginCapture(),
+            new CapturedObservation(
+                Snapshot(),
+                new Dictionary<string, ListedTarget>
+                {
+                    ["n1"] = Target(list, 0),
+                    ["n2"] = Target(list, 1),
+                    ["n3"] = Target(list, 2),
+                }
+            )
+        );
         registry.Publish(registry.BeginCapture(), new CapturedObservation(Snapshot(), []));
         await Task.Yield();
         Assert.Equal(1, scripted.Disposed);

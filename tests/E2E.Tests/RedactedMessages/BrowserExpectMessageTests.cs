@@ -19,7 +19,8 @@ public sealed class BrowserExpectMessageTests
         RedactionSite.Know(session);
 
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            Expect.That(session.Browser).ToHaveTitleAsync("something else", TimeSpan.FromMilliseconds(300)));
+            Expect.That(session.Browser).ToHaveTitleAsync("something else", TimeSpan.FromMilliseconds(300))
+        );
 
         Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
@@ -34,7 +35,8 @@ public sealed class BrowserExpectMessageTests
         RedactionSite.Know(session);
 
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            Expect.That(session.Browser).ToHaveURLAsync("/other", timeout: TimeSpan.FromMilliseconds(300)));
+            Expect.That(session.Browser).ToHaveURLAsync("/other", timeout: TimeSpan.FromMilliseconds(300))
+        );
 
         Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);

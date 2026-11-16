@@ -33,19 +33,35 @@ public sealed class BrowserExpect
     /// Both sides are compared normalized (default port, trailing slash, dot segments, percent-encoding).
     /// <paramref name="ignoreCase"/> compares without case.
     /// </summary>
-    public Task ToHaveURLAsync(string expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveURLAsync(
+        string expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(expected);
         var target = Routes.Absolute(_browser.BaseUrl, expected).AbsoluteUri;
         var comparison = ignoreCase == true ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return UrlAsync(target, ignoreCase, timeout, current => string.Equals(Normalize(current), target, comparison), cancellationToken);
+        return UrlAsync(
+            target,
+            ignoreCase,
+            timeout,
+            current => string.Equals(Normalize(current), target, comparison),
+            cancellationToken
+        );
     }
 
     /// <summary>
     /// Waits for the URL to match <paramref name="expected"/>, tested against the complete URL.
     /// <paramref name="ignoreCase"/> true adds <see cref="RegexOptions.IgnoreCase"/> to the pattern, and false removes it.
     /// </summary>
-    public Task ToHaveURLAsync(Regex expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveURLAsync(
+        Regex expected,
+        bool? ignoreCase = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(expected);
         var pattern = ignoreCase switch
@@ -54,11 +70,21 @@ public sealed class BrowserExpect
             false => new Regex(expected.ToString(), expected.Options & ~RegexOptions.IgnoreCase, expected.MatchTimeout),
             null => expected,
         };
-        return UrlAsync(TextMatch.FromRegex(expected).ToString(), ignoreCase, timeout, pattern.IsMatch, cancellationToken);
+        return UrlAsync(
+            TextMatch.FromRegex(expected).ToString(),
+            ignoreCase,
+            timeout,
+            pattern.IsMatch,
+            cancellationToken
+        );
     }
 
     /// <summary>Waits for the title to equal <paramref name="expected"/> after whitespace normalization, or to match it.</summary>
-    public Task ToHaveTitleAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveTitleAsync(
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(expected);
         return PollAsync(
@@ -68,9 +94,13 @@ public sealed class BrowserExpect
             async token =>
             {
                 var title = await _browser.ReadTitleAsync(token).ConfigureAwait(false);
-                return (TextRules.Compare(title, expected, contains: false, normalize: true, ignoreCase: null), "title " + LocatorExpect.Quote(title));
+                return (
+                    TextRules.Compare(title, expected, contains: false, normalize: true, ignoreCase: null),
+                    "title " + LocatorExpect.Quote(title)
+                );
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -80,7 +110,12 @@ public sealed class BrowserExpect
     /// assertion observing no node, where a read of the same locator would fail with <c>LOCATOR_NOT_FOUND</c>. Several matches fail at once with
     /// <c>LOCATOR_AMBIGUOUS</c>. Upstream's <c>expect(browser).toHaveClass</c>.
     /// </summary>
-    public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    public Task ToHaveClassAsync(
+        Locator target,
+        TextMatch expected,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(expected);
@@ -115,9 +150,13 @@ public sealed class BrowserExpect
                     return (false, "no class attribute");
                 }
 
-                return (TextRules.Compare(value, expected, contains: false, normalize: true, ignoreCase: null), "class " + LocatorExpect.Quote(value));
+                return (
+                    TextRules.Compare(value, expected, contains: false, normalize: true, ignoreCase: null),
+                    "class " + LocatorExpect.Quote(value)
+                );
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
@@ -136,9 +175,16 @@ public sealed class BrowserExpect
     }
 
     // The URL is compared as the browser serializes it, so the expected side goes through the same Uri form as the read one.
-    private static string Normalize(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.AbsoluteUri : url;
+    private static string Normalize(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.AbsoluteUri : url;
 
-    private Task UrlAsync(string label, bool? ignoreCase, TimeSpan? timeout, Func<string, bool> matches, CancellationToken cancellationToken)
+    private Task UrlAsync(
+        string label,
+        bool? ignoreCase,
+        TimeSpan? timeout,
+        Func<string, bool> matches,
+        CancellationToken cancellationToken
+    )
     {
         return PollAsync(
             "toHaveURL",
@@ -149,48 +195,94 @@ public sealed class BrowserExpect
                 var url = await _browser.ReadUrlAsync(token).ConfigureAwait(false);
                 return (matches(url), "URL " + url);
             },
-            cancellationToken);
+            cancellationToken
+        );
     }
 
     /// <summary>
     /// Polls until the condition holds, or, negated, until it has been false for the negation grace in a row, as
     /// the locator matchers do (see <see cref="Time.PollConditionAsync"/>). Each read is bounded by the time left.
     /// </summary>
-    private Task PollAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken) =>
-        _browser.RunStepAsync(StepKind.Assertion, "expect." + (_negated ? "not." : "") + matcher, "page", () => PollCoreAsync(matcher, describeExpected, timeout, read, cancellationToken), verifies: true);
+    private Task PollAsync(
+        string matcher,
+        string describeExpected,
+        TimeSpan? timeout,
+        Func<CancellationToken, Task<(bool? Holds, string Observed)>> read,
+        CancellationToken cancellationToken
+    ) =>
+        _browser.RunStepAsync(
+            StepKind.Assertion,
+            "expect." + (_negated ? "not." : "") + matcher,
+            "page",
+            () => PollCoreAsync(matcher, describeExpected, timeout, read, cancellationToken),
+            verifies: true
+        );
 
-    private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken)
+    private async Task PollCoreAsync(
+        string matcher,
+        string describeExpected,
+        TimeSpan? timeout,
+        Func<CancellationToken, Task<(bool? Holds, string Observed)>> read,
+        CancellationToken cancellationToken
+    )
     {
         var token = _browser.Token(cancellationToken);
         var clock = TimeProvider.System;
-        var deadline = Time.StepDeadline(timeout, "expect." + (_negated ? "not." : "") + matcher, _browser.AssertionTimeout, _browser.BudgetDeadline, clock);
+        var deadline = Time.StepDeadline(
+            timeout,
+            "expect." + (_negated ? "not." : "") + matcher,
+            _browser.AssertionTimeout,
+            _browser.BudgetDeadline,
+            clock
+        );
         string? observed = null;
         try
         {
-            await Time.PollConditionAsync(new PollConditionOptions
-            {
-                Deadline = deadline,
-                Clock = clock,
-                Token = token,
-                Negated = _negated,
-                Evaluate = async () =>
-                {
-                    var left = deadline.Remaining(clock.GetUtcNow());
-                    using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    bounded.CancelAfter(left > Time.Unbounded ? Time.Unbounded : left > Time.PollInterval ? left : Time.PollInterval);
-                    try
+            await Time.PollConditionAsync(
+                    new PollConditionOptions
                     {
-                        var sample = await read(bounded.Token).ConfigureAwait(false);
-                        observed = sample.Observed;
-                        return sample.Holds;
+                        Deadline = deadline,
+                        Clock = clock,
+                        Token = token,
+                        Negated = _negated,
+                        Evaluate = async () =>
+                        {
+                            var left = deadline.Remaining(clock.GetUtcNow());
+                            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+                            bounded.CancelAfter(
+                                left > Time.Unbounded ? Time.Unbounded
+                                : left > Time.PollInterval ? left
+                                : Time.PollInterval
+                            );
+                            try
+                            {
+                                var sample = await read(bounded.Token).ConfigureAwait(false);
+                                observed = sample.Observed;
+                                return sample.Holds;
+                            }
+                            catch (Exception ex)
+                                when (bounded.IsCancellationRequested
+                                    && !token.IsCancellationRequested
+                                    && ex
+                                        is OperationCanceledException
+                                            or EngineException
+                                            {
+                                                Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout
+                                            }
+                                )
+                            {
+                                throw new EngineException(
+                                    EngineErrorCodes.OperationTimeout,
+                                    "expect." + matcher + " read timed out",
+                                    retryable: false,
+                                    ex
+                                );
+                            }
+                        },
+                        OnTimeout = cause => Failure(matcher, describeExpected, observed!, cause),
                     }
-                    catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested && ex is OperationCanceledException or EngineException { Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout })
-                    {
-                        throw new EngineException(EngineErrorCodes.OperationTimeout, "expect." + matcher + " read timed out", retryable: false, ex);
-                    }
-                },
-                OnTimeout = cause => Failure(matcher, describeExpected, observed!, cause),
-            }).ConfigureAwait(false);
+                )
+                .ConfigureAwait(false);
             _browser.NotifyVerified();
         }
         catch (TestException)
@@ -206,7 +298,15 @@ public sealed class BrowserExpect
 
     private TestException Failure(string matcher, string describeExpected, string observed, Exception? cause = null)
     {
-        var message = "expect." + (_negated ? "not." : "") + matcher + " failed\nexpected: " + (_negated ? "not " : "") + describeExpected + "\nobserved: " + observed;
+        var message =
+            "expect."
+            + (_negated ? "not." : "")
+            + matcher
+            + " failed\nexpected: "
+            + (_negated ? "not " : "")
+            + describeExpected
+            + "\nobserved: "
+            + observed;
         return ErrorRedaction.Failure("ASSERTION_FAILED", message, cause, _browser.Redact);
     }
 }

@@ -31,10 +31,28 @@ public sealed class ReplayThroughTheActTests
             _ => tap,
             _ => ModelResponses.Fill("textbox", "Email", "a@b.c"),
             _ => tap,
-            request => ModelResponses.Call("type_secret", new { target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""), name = "password" }),
+            request =>
+                ModelResponses.Call(
+                    "type_secret",
+                    new
+                    {
+                        target = E2E.Tests.AgentActVerbs.GesturesSession.RefFor(request, "textbox \"Password\""),
+                        name = "password",
+                    }
+                ),
             _ => tap,
-            _ => ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
-            _ => tap);
+            _ =>
+                ModelResponses.Call(
+                    "select",
+                    new
+                    {
+                        role = "combobox",
+                        name = "Plan",
+                        value = "Pro",
+                    }
+                ),
+            _ => tap
+        );
 
         // The start holds still and serves the first tap; so does the look after each tap or select. The look
         // after a typed fill waits for its value only. A secret fill is masked out of the tree, so the look after
@@ -50,13 +68,26 @@ public sealed class ReplayThroughTheActTests
                 SettleMode.HeldStill,
                 SettleMode.Raw,
             ],
-            looks);
+            looks
+        );
     }
 
     [Fact]
     public async Task Partial_Takes_one_look_per_repeat_of_a_folded_scroll_on_a_list()
     {
-        var looks = await RecordThenReplayAsync(ScrollWorld, ModelResponses.Call("scroll", new { role = "group", name = "Rows 1 to 12", direction = "down", times = 3 }));
+        var looks = await RecordThenReplayAsync(
+            ScrollWorld,
+            ModelResponses.Call(
+                "scroll",
+                new
+                {
+                    role = "group",
+                    name = "Rows 1 to 12",
+                    direction = "down",
+                    times = 3,
+                }
+            )
+        );
         Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
     }
 
@@ -66,20 +97,44 @@ public sealed class ReplayThroughTheActTests
     {
         var directory = CoreTests.TempCache();
         var next = 0;
-        ModelResponse[] steps = [ModelResponses.Call("scroll", new { role = "group", name = "Rows 1 to 12", direction = "down", times = 2 })];
+        ModelResponse[] steps =
+        [
+            ModelResponses.Call(
+                "scroll",
+                new
+                {
+                    role = "group",
+                    name = "Rows 1 to 12",
+                    direction = "down",
+                    times = 2,
+                }
+            ),
+        ];
         DocumentWorld World(bool list) => new DocumentWorld().Map("/plan", page =>
-        {
-            var scrolls = 0;
-            var status = page.Status("Scrolled 0");
-            if (list)
             {
-                page.Roots.Add(new DocumentElement { Role = "group", Name = "Rows 1 to 12", Rect = new BoundingBox(0, 0, 1280, 720), OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls });
-            }
+                var scrolls = 0;
+                var status = page.Status("Scrolled 0");
+                if (list)
+                {
+                    page.Roots.Add(
+                        new DocumentElement
+                        {
+                            Role = "group",
+                            Name = "Rows 1 to 12",
+                            Rect = new BoundingBox(0, 0, 1280, 720),
+                            OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls,
+                        }
+                    );
+                }
 
-            page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
-        });
+                page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
+            });
 
-        var recorded = await ActAsync(World(list: true), directory, new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")));
+        var recorded = await ActAsync(
+            World(list: true),
+            directory,
+            new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done."))
+        );
         Assert.Equal("missed", recorded.Mode);
         var scroll = Assert.Single(ScrollTests.ReadEntry(directory).Actions);
         Assert.Equal((2, 1.0), (scroll.Times, scroll.Spans));
@@ -87,32 +142,58 @@ public sealed class ReplayThroughTheActTests
         Assert.InRange(ScrollTests.ReadEntry(directory).EndWaitMs ?? -1, 10_000, 15_000);
 
         // The list is gone from the page, but it covered the screen: the viewport takes its scrolls.
-        var replayed = await ActAsync(World(list: false), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
+        var replayed = await ActAsync(
+            World(list: false),
+            directory,
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected"))
+        );
         Assert.Equal("self-finalized", replayed.Mode);
     }
 
     [Fact]
     public async Task Partial_Repeats_a_folded_viewport_scroll_as_many_times_as_recorded_with_a_settled_look_between_repeats()
     {
-        var looks = await RecordThenReplayAsync(ScrollWorld, ModelResponses.Call("scroll", new { direction = "down", times = 4 }));
+        var looks = await RecordThenReplayAsync(
+            ScrollWorld,
+            ModelResponses.Call("scroll", new { direction = "down", times = 4 })
+        );
 
         // Nothing to relocate, so the first repeat takes no look; each later one holds still first.
-        Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
+        Assert.Equal(
+            [SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw],
+            looks
+        );
     }
 
-    private static readonly ModelResponse[] NavigateThenUpgrade = [ModelResponses.Call("navigate", new { url = "/plan" }), ModelResponses.Tap("button", "Upgrade")];
+    private static readonly ModelResponse[] NavigateThenUpgrade =
+    [
+        ModelResponses.Call("navigate", new { url = "/plan" }),
+        ModelResponses.Tap("button", "Upgrade"),
+    ];
 
-    private static Task<Step> ReplayStepAsync(DocumentWorld world, string directory, Func<TestContext, Task>? check, params ModelResponse[] steps)
+    private static Task<Step> ReplayStepAsync(
+        DocumentWorld world,
+        string directory,
+        Func<TestContext, Task>? check,
+        params ModelResponse[] steps
+    )
     {
         var next = 0;
-        var model = new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done."));
+        var model = new ScriptedModel(_ =>
+            next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")
+        );
         return StepAsync(world, new FileStepCache(directory), "/home", check, model);
     }
 
     private static async Task<string> RecordAsync(Func<DocumentWorld> world, params ModelResponse[] steps)
     {
         var directory = CoreTests.TempCache();
-        var recorded = await ReplayStepAsync(world(), directory, ctx => Expect.That(ctx.Screen.GetByRole("status")).ToBeVisibleAsync(), steps);
+        var recorded = await ReplayStepAsync(
+            world(),
+            directory,
+            ctx => Expect.That(ctx.Screen.GetByRole("status")).ToBeVisibleAsync(),
+            steps
+        );
         Assert.Null(recorded.Error);
         Assert.Equal("missed", recorded.Cache?.Mode);
         return directory;
@@ -122,13 +203,11 @@ public sealed class ReplayThroughTheActTests
     public async Task Partial_Still_diverges_at_once_on_ambiguity_for_a_target_with_no_recorded_position()
     {
         var tapped = 0;
-        var directory = await RecordAsync(
-            () => new DocumentWorld().Map("/home", page =>
-            {
-                var status = page.Status("Idle");
-                page.Button("Upgrade", () => status.Name = status.Text = "Upgraded " + ++tapped);
-            }),
-            ModelResponses.Tap("button", "Upgrade"));
+        var directory = await RecordAsync(() => new DocumentWorld().Map("/home", page =>
+                {
+                    var status = page.Status("Idle");
+                    page.Button("Upgrade", () => status.Name = status.Text = "Upgraded " + ++tapped);
+                }), ModelResponses.Tap("button", "Upgrade"));
         tapped = 0;
         var twins = new DocumentWorld().Map("/home", page =>
         {
@@ -139,7 +218,10 @@ public sealed class ReplayThroughTheActTests
 
         var replay = await ReplayStepAsync(twins, directory, null, ModelResponses.Done("passed", "Done."));
 
-        Assert.Equal(("missed", "target-ambiguous", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "target-ambiguous", 0),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
         Assert.Equal(0, tapped);
     }
 
@@ -148,18 +230,18 @@ public sealed class ReplayThroughTheActTests
     {
         var failing = false;
         DocumentWorld World() => new DocumentWorld().Map("/home", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
             {
-                if (failing)
+                var status = page.Status("Idle");
+                page.Button("Upgrade", () =>
                 {
-                    throw new EngineException("ACTION_FAILED", "element detached");
-                }
+                    if (failing)
+                    {
+                        throw new EngineException("ACTION_FAILED", "element detached");
+                    }
 
-                status.Name = status.Text = "Upgraded";
+                    status.Name = status.Text = "Upgraded";
+                });
             });
-        });
         var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
         failing = true;
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
@@ -167,7 +249,10 @@ public sealed class ReplayThroughTheActTests
         var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
 
         Assert.Null(replay.Error);
-        Assert.Equal(("missed", "action-failed", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "action-failed", 0),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
         Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
     }
 
@@ -176,18 +261,21 @@ public sealed class ReplayThroughTheActTests
     {
         var uncertain = false;
         DocumentWorld World() => new DocumentWorld().Map("/home", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
             {
-                if (uncertain)
+                var status = page.Status("Idle");
+                page.Button("Upgrade", () =>
                 {
-                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
-                }
+                    if (uncertain)
+                    {
+                        throw new EngineException(
+                            EngineErrorCodes.ActionMayHaveCommitted,
+                            "input may have reached the app"
+                        );
+                    }
 
-                status.Name = status.Text = "Upgraded";
+                    status.Name = status.Text = "Upgraded";
+                });
             });
-        });
         var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
         uncertain = true;
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
@@ -195,7 +283,10 @@ public sealed class ReplayThroughTheActTests
         var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
 
         Assert.Null(replay.Error);
-        Assert.Equal(("missed", "action-uncertain", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "action-uncertain", 0),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
         Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
     }
 
@@ -203,26 +294,32 @@ public sealed class ReplayThroughTheActTests
     public async Task Partial_Absorbs_an_action_failure_as_divergence_never_as_a_step_failure()
     {
         var failing = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
-            {
-                if (failing)
+        DocumentWorld World() =>
+            new DocumentWorld()
+                .Map("/home", page => page.Heading("Home"))
+                .Map("/plan", page =>
                 {
-                    throw new EngineException("ACTION_FAILED", "element detached");
-                }
+                    var status = page.Status("Idle");
+                    page.Button("Upgrade", () =>
+                    {
+                        if (failing)
+                        {
+                            throw new EngineException("ACTION_FAILED", "element detached");
+                        }
 
-                status.Name = status.Text = "Upgraded";
-            });
-        });
+                        status.Name = status.Text = "Upgraded";
+                    });
+                });
         var directory = await RecordAsync(World, NavigateThenUpgrade);
         failing = true;
 
         var replay = await ReplayStepAsync(World(), directory, null, ModelResponses.Done("passed", "Done."));
 
         Assert.Null(replay.Error);
-        Assert.Equal(("agent-concluded", "action-failed", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("agent-concluded", "action-failed", 1),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
     }
 
     /// <summary>Reads the uncertain action as the hand-off notice words it, and the reason from the act's cache detail. <c>ReplayTraceTests</c> checks the outcome.</summary>
@@ -230,19 +327,25 @@ public sealed class ReplayThroughTheActTests
     public async Task Names_the_uncertain_action_in_the_hand_off_notice()
     {
         var uncertain = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
-            {
-                if (uncertain)
+        DocumentWorld World() =>
+            new DocumentWorld()
+                .Map("/home", page => page.Heading("Home"))
+                .Map("/plan", page =>
                 {
-                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
-                }
+                    var status = page.Status("Idle");
+                    page.Button("Upgrade", () =>
+                    {
+                        if (uncertain)
+                        {
+                            throw new EngineException(
+                                EngineErrorCodes.ActionMayHaveCommitted,
+                                "input may have reached the app"
+                            );
+                        }
 
-                status.Name = status.Text = "Upgraded";
-            });
-        });
+                        status.Name = status.Text = "Upgraded";
+                    });
+                });
         var directory = await RecordAsync(World, NavigateThenUpgrade);
         uncertain = true;
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
@@ -250,30 +353,44 @@ public sealed class ReplayThroughTheActTests
         var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
 
         Assert.Null(replay.Error);
-        Assert.Equal(("agent-concluded", "action-uncertain", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("agent-concluded", "action-uncertain", 1),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
         Assert.Contains("tap button \"Upgrade\"", replay.Cache?.Detail, StringComparison.Ordinal);
         var opening = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Replay stopped (action-uncertain) after 1 of 2 recorded actions.", opening, StringComparison.Ordinal);
-        Assert.Contains("WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state", opening, StringComparison.Ordinal);
+        Assert.Contains(
+            "Replay stopped (action-uncertain) after 1 of 2 recorded actions.",
+            opening,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state",
+            opening,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Partial_Rethrows_runtime_hard_stops_untouched()
     {
         var exhausted = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
-            {
-                if (exhausted)
+        DocumentWorld World() =>
+            new DocumentWorld()
+                .Map("/home", page => page.Heading("Home"))
+                .Map("/plan", page =>
                 {
-                    throw new AgentException("STEP_BUDGET_EXHAUSTED", "out of actions");
-                }
+                    var status = page.Status("Idle");
+                    page.Button("Upgrade", () =>
+                    {
+                        if (exhausted)
+                        {
+                            throw new AgentException("STEP_BUDGET_EXHAUSTED", "out of actions");
+                        }
 
-                status.Name = status.Text = "Upgraded";
-            });
-        });
+                        status.Name = status.Text = "Upgraded";
+                    });
+                });
         var directory = await RecordAsync(World, NavigateThenUpgrade);
         exhausted = true;
 
@@ -288,11 +405,27 @@ public sealed class ReplayThroughTheActTests
         var scrolled = 0;
         var directory = await RecordAsync(
             () => new DocumentWorld().Map("/home", page =>
-            {
-                var status = page.Status("Idle");
-                page.Roots.Add(new DocumentElement { Role = "group", Name = "Recommended", OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolled });
-            }),
-            ModelResponses.Call("scroll", new { role = "group", name = "Recommended", direction = "right" }));
+                {
+                    var status = page.Status("Idle");
+                    page.Roots.Add(
+                        new DocumentElement
+                        {
+                            Role = "group",
+                            Name = "Recommended",
+                            OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolled,
+                        }
+                    );
+                }),
+            ModelResponses.Call(
+                "scroll",
+                new
+                {
+                    role = "group",
+                    name = "Recommended",
+                    direction = "right",
+                }
+            )
+        );
         scrolled = 0;
         var viewportScrolls = 0;
         var without = new DocumentWorld().Map("/home", page =>
@@ -303,18 +436,29 @@ public sealed class ReplayThroughTheActTests
 
         var replay = await ReplayStepAsync(without, directory, null, ModelResponses.Done("passed", "Done."));
 
-        Assert.Equal(("missed", "target-not-found", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Equal(
+            ("missed", "target-not-found", 0),
+            (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions)
+        );
         Assert.Equal((0, 0), (scrolled, viewportScrolls));
     }
 
     private static DocumentWorld Signup() => new DocumentWorld().Map("/signup", page => page.Textbox("Email"));
 
-    private static ScriptedModel FillsEmail(string email) => new(request =>
-        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("Typed into", StringComparison.Ordinal)
-            ? ModelResponses.Done("passed", "filled")
-            : ModelResponses.Fill("textbox", "Email", email));
+    private static ScriptedModel FillsEmail(string email) =>
+        new(request =>
+            string.Join('\n', request.Messages.Select(message => message.Content))
+                .Contains("Typed into", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "filled")
+                : ModelResponses.Fill("textbox", "Email", email)
+        );
 
-    private static Task<CoreTests.Attempt> SignupAsync(string directory, IAgentModel model, Func<TestContext, ActResult, Task> after, IReadOnlyDictionary<string, object?> parameters) =>
+    private static Task<CoreTests.Attempt> SignupAsync(
+        string directory,
+        IAgentModel model,
+        Func<TestContext, ActResult, Task> after,
+        IReadOnlyDictionary<string, object?> parameters
+    ) =>
         CoreTests.RunAsync(
             async ctx =>
             {
@@ -324,18 +468,34 @@ public sealed class ReplayThroughTheActTests
             },
             Signup(),
             model,
-            directory);
+            directory
+        );
 
     /// <summary>A recorded value that a param expands to a secret's marker fills that secret, as replay always did.</summary>
     [Fact]
     public async Task A_param_that_expands_to_a_secret_marker_fills_the_declared_secret()
     {
         var directory = CoreTests.TempCache();
-        IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email), ["password"] = Secret.Create("password", "hunter2-long") };
-        var first = await SignupAsync(directory, FillsEmail("ada+1@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"), Params("ada+1@example.test"));
+        IReadOnlyDictionary<string, object?> Params(string email) =>
+            new Dictionary<string, object?>
+            {
+                ["email"] = Values.Unique(email),
+                ["password"] = Secret.Create("password", "hunter2-long"),
+            };
+        var first = await SignupAsync(
+            directory,
+            FillsEmail("ada+1@example.test"),
+            (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"),
+            Params("ada+1@example.test")
+        );
         Assert.Null(first.Error);
 
-        var second = await SignupAsync(directory, FillsEmail("unused"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("hunter2-long"), Params("<secret:password>"));
+        var second = await SignupAsync(
+            directory,
+            FillsEmail("unused"),
+            (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("hunter2-long"),
+            Params("<secret:password>")
+        );
 
         Assert.Null(second.Error);
         Assert.Equal((1, 0), (second.Replayed, second.ModelCalls));
@@ -346,10 +506,20 @@ public sealed class ReplayThroughTheActTests
     {
         var directory = CoreTests.TempCache();
         var none = new Dictionary<string, object?>();
-        var first = await SignupAsync(directory, FillsEmail("plain@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"), none);
+        var first = await SignupAsync(
+            directory,
+            FillsEmail("plain@example.test"),
+            (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"),
+            none
+        );
         Assert.Null(first.Error);
 
-        var second = await SignupAsync(directory, FillsEmail("unused"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"), none);
+        var second = await SignupAsync(
+            directory,
+            FillsEmail("unused"),
+            (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"),
+            none
+        );
 
         Assert.Null(second.Error);
         Assert.Equal((1, 0), (second.Replayed, second.ModelCalls));
@@ -359,20 +529,35 @@ public sealed class ReplayThroughTheActTests
     public async Task A_secret_marker_the_step_did_not_declare_misses_as_action_failed()
     {
         var directory = CoreTests.TempCache();
-        IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email) };
-        var first = await SignupAsync(directory, FillsEmail("ada+1@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"), Params("ada+1@example.test"));
+        IReadOnlyDictionary<string, object?> Params(string email) =>
+            new Dictionary<string, object?> { ["email"] = Values.Unique(email) };
+        var first = await SignupAsync(
+            directory,
+            FillsEmail("ada+1@example.test"),
+            (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"),
+            Params("ada+1@example.test")
+        );
         Assert.Null(first.Error);
         CacheInfo? cache = null;
 
-        var second = await SignupAsync(directory, new ScriptedModel(_ => ModelResponses.Done("passed", "ok")), (_, result) =>
-        {
-            cache = result.Cache;
-            return Task.CompletedTask;
-        }, Params("<secret:absent>"));
+        var second = await SignupAsync(
+            directory,
+            new ScriptedModel(_ => ModelResponses.Done("passed", "ok")),
+            (_, result) =>
+            {
+                cache = result.Cache;
+                return Task.CompletedTask;
+            },
+            Params("<secret:absent>")
+        );
 
         Assert.Null(second.Error);
         Assert.Equal(("missed", "action-failed"), (cache?.Mode, cache?.Reason));
-        Assert.Contains("secret \"absent\" was not declared in this step's params", cache?.Detail, StringComparison.Ordinal);
+        Assert.Contains(
+            "secret \"absent\" was not declared in this step's params",
+            cache?.Detail,
+            StringComparison.Ordinal
+        );
     }
 
     [Theory]
@@ -388,8 +573,24 @@ public sealed class ReplayThroughTheActTests
             await Expect.That(ctx.Screen.GetByRole("status")).ToContainTextAsync("Opened Row 12");
         }
 
-        object scroll = onList ? new { text = "Row 12", role = "list", name = "Rows" } : new { text = "Row 12" };
-        var first = await ScrollTests.RunAsync(Body, ScrollTests.Rows(), ScrollTests.Sequence(ModelResponses.Call("scroll_to", scroll), ModelResponses.Tap("button", "Row 12"), ModelResponses.Done("passed", "opened")), directory);
+        object scroll = onList
+            ? new
+            {
+                text = "Row 12",
+                role = "list",
+                name = "Rows",
+            }
+            : new { text = "Row 12" };
+        var first = await ScrollTests.RunAsync(
+            Body,
+            ScrollTests.Rows(),
+            ScrollTests.Sequence(
+                ModelResponses.Call("scroll_to", scroll),
+                ModelResponses.Tap("button", "Row 12"),
+                ModelResponses.Done("passed", "opened")
+            ),
+            directory
+        );
         Assert.Null(first.Error);
         Assert.Equal(onList ? "list" : null, ScrollTests.ReadEntry(directory).Actions[0].Role);
 
@@ -401,62 +602,99 @@ public sealed class ReplayThroughTheActTests
 
     // Every action changes what the page shows, so no look waits out a change window.
     private static DocumentWorld TapWorld() => new DocumentWorld().Map("/plan", page =>
-    {
-        var taps = 0;
-        var status = page.Status("Taps 0");
-        page.Button("Upgrade", () => status.Name = status.Text = "Taps " + ++taps);
-        page.Textbox("Email");
-        page.Textbox("Password", secure: true);
-        page.Roots.Add(new DocumentElement { Role = "combobox", Name = "Plan", Value = "Free" });
-    });
+        {
+            var taps = 0;
+            var status = page.Status("Taps 0");
+            page.Button("Upgrade", () => status.Name = status.Text = "Taps " + ++taps);
+            page.Textbox("Email");
+            page.Textbox("Password", secure: true);
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "combobox",
+                    Name = "Plan",
+                    Value = "Free",
+                }
+            );
+        });
 
     private static DocumentWorld ScrollWorld() => new DocumentWorld().Map("/plan", page =>
-    {
-        var scrolls = 0;
-        var status = page.Status("Scrolled 0");
-        page.Roots.Add(new DocumentElement { Role = "group", Name = "Rows 1 to 12", OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls });
-        page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
-    });
+        {
+            var scrolls = 0;
+            var status = page.Status("Scrolled 0");
+            page.Roots.Add(
+                new DocumentElement
+                {
+                    Role = "group",
+                    Name = "Rows 1 to 12",
+                    OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls,
+                }
+            );
+            page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
+        });
 
     /// <summary>Records the steps live on a fresh cache, then replays them, and returns the replaying act's looks.</summary>
-    private static Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params ModelResponse[] steps) =>
-        RecordThenReplayAsync(world, [.. steps.Select(step => (Func<ModelRequest, ModelResponse>)(_ => step))]);
+    private static Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(
+        Func<DocumentWorld> world,
+        params ModelResponse[] steps
+    ) => RecordThenReplayAsync(world, [.. steps.Select(step => (Func<ModelRequest, ModelResponse>)(_ => step))]);
 
-    private static async Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params Func<ModelRequest, ModelResponse>[] steps)
+    private static async Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(
+        Func<DocumentWorld> world,
+        params Func<ModelRequest, ModelResponse>[] steps
+    )
     {
         var directory = CoreTests.TempCache();
         var next = 0;
-        var recorded = await ActAsync(world(), directory, new ScriptedModel(request => next < steps.Length ? steps[next++](request) : ModelResponses.Done("passed", "Done.")));
+        var recorded = await ActAsync(
+            world(),
+            directory,
+            new ScriptedModel(request =>
+                next < steps.Length ? steps[next++](request) : ModelResponses.Done("passed", "Done.")
+            )
+        );
         Assert.Equal("missed", recorded.Mode);
 
-        var replayed = await ActAsync(world(), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
+        var replayed = await ActAsync(
+            world(),
+            directory,
+            new ScriptedModel(_ => throw new InvalidOperationException("no model call expected"))
+        );
         Assert.Equal("self-finalized", replayed.Mode);
         return replayed.Looks;
     }
 
-    private static async Task<(string? Mode, IReadOnlyList<SettleMode> Looks)> ActAsync(DocumentWorld world, string directory, IAgentModel model)
+    private static async Task<(string? Mode, IReadOnlyList<SettleMode> Looks)> ActAsync(
+        DocumentWorld world,
+        string directory,
+        IAgentModel model
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            Cache = new FileStepCache(directory),
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "replay > looks",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(30),
-            StepTimeout = TimeSpan.FromSeconds(20),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(world),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                Cache = new FileStepCache(directory),
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "replay > looks",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+                TestTimeout = TimeSpan.FromSeconds(30),
+                StepTimeout = TimeSpan.FromSeconds(20),
+            }
+        );
         Exception? error = null;
         string? mode = null;
         try
         {
             await session.Context.App.OpenAsync("/plan");
             var parameters = new Dictionary<string, object?> { ["password"] = Secret.Create("password", "hunter2") };
-            mode = (await session.Context.Agent.ActAsync("work the plan page", new ActOptions { Params = parameters })).Cache?.Mode;
+            mode = (await session.Context.Agent.ActAsync("work the plan page", new ActOptions { Params = parameters }))
+                .Cache
+                ?.Mode;
 
             // A passing check verifies the act, so its recording is written.
             await Expect.That(session.Context.Screen.GetByRole("heading", "Missing")).ToBeHiddenAsync();

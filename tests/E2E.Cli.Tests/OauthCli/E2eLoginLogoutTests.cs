@@ -50,8 +50,13 @@ public sealed class E2eLoginLogoutTests : IDisposable
     [Fact]
     public async Task Prints_the_sign_in_URL_on_one_unbordered_line_in_a_terminal_so_it_copies_whole()
     {
-        var url = "https://auth.example.test/oauth/authorize?" + string.Concat(Enumerable.Repeat("scope=openid+profile+email&", 8)) + "state=xyz";
-        OAuthProviders.Replacements["openai"] = new AuthDouble(new OAuthAuthInfo(url, "Sign in in the browser.", "ABCD-1234"));
+        var url =
+            "https://auth.example.test/oauth/authorize?"
+            + string.Concat(Enumerable.Repeat("scope=openid+profile+email&", 8))
+            + "state=xyz";
+        OAuthProviders.Replacements["openai"] = new AuthDouble(
+            new OAuthAuthInfo(url, "Sign in in the browser.", "ABCD-1234")
+        );
         var previous = Program.OpenUrl;
         var configHome = Directory.CreateTempSubdirectory("e2e-login-").FullName;
         var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
@@ -63,7 +68,15 @@ public sealed class E2eLoginLogoutTests : IDisposable
         try
         {
             await Assert.ThrowsAsync<OAuthException>(() =>
-                Program.RunAsync(["login", "openai"], stdout, new StringWriter(), TextReader.Null, interactive: true, CancellationToken.None));
+                Program.RunAsync(
+                    ["login", "openai"],
+                    stdout,
+                    new StringWriter(),
+                    TextReader.Null,
+                    interactive: true,
+                    CancellationToken.None
+                )
+            );
         }
         finally
         {
@@ -84,7 +97,11 @@ public sealed class E2eLoginLogoutTests : IDisposable
 
         public string Name => "double";
 
-        public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+        public Task<OAuthCredentials> LoginAsync(
+            OAuthLoginCallbacks callbacks,
+            OAuthLoginOptions options,
+            CancellationToken cancellationToken
+        )
         {
             callbacks.OnAuth(info);
             throw new OAuthException(OAuthException.Cancelled, "the login was cancelled");
@@ -93,12 +110,25 @@ public sealed class E2eLoginLogoutTests : IDisposable
         public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("a login is never refreshed here");
 
-        public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PrepareAsync(
+            HttpRequestMessage request,
+            OAuthCredentials credentials,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
 
-        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
-            throw new InvalidOperationException("models are never listed here");
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+            HttpClient http,
+            CancellationToken cancellationToken
+        ) => throw new InvalidOperationException("models are never listed here");
     }
 
     private static Task<int> Run(params string[] args) =>
-        Program.RunAsync(args, new StringWriter(), new StringWriter(), TextReader.Null, interactive: false, CancellationToken.None);
+        Program.RunAsync(
+            args,
+            new StringWriter(),
+            new StringWriter(),
+            TextReader.Null,
+            interactive: false,
+            CancellationToken.None
+        );
 }

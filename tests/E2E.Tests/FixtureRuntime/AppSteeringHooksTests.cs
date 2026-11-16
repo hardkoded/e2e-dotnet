@@ -82,22 +82,34 @@ public sealed class AppSteeringHooksTests
     public async Task App_open_keeps_the_engines_own_reason_it_cannot_launch()
     {
         const string Reason = "launching the app needs the build installed first with device.installApp()";
-        await using var session = await StartAsync([], baseUrl: null, device: true, restartFailure: new EngineException("UNSUPPORTED_CAPABILITY", Reason));
+        await using var session = await StartAsync(
+            [],
+            baseUrl: null,
+            device: true,
+            restartFailure: new EngineException("UNSUPPORTED_CAPABILITY", Reason)
+        );
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
         Assert.Equal(Reason, error.Message);
         session.Complete();
     }
 
-    private static Task<E2ESession> StartAsync(List<string> calls, string? baseUrl, bool device = false, Exception? restartFailure = null)
+    private static Task<E2ESession> StartAsync(
+        List<string> calls,
+        string? baseUrl,
+        bool device = false,
+        Exception? restartFailure = null
+    )
     {
-        return E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new SteerableEngine(calls, device, restartFailure),
-            BaseUrl = baseUrl,
-            TestTitle = "steerable",
-            CacheEnabled = false,
-        });
+        return E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new SteerableEngine(calls, device, restartFailure),
+                BaseUrl = baseUrl,
+                TestTitle = "steerable",
+                CacheEnabled = false,
+            }
+        );
     }
 
     private sealed class SteerableEngine(List<string> calls, bool device, Exception? restartFailure) : IEngine
@@ -125,7 +137,8 @@ public sealed class AppSteeringHooksTests
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new Observation { Route = "/", Roots = [] });
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 

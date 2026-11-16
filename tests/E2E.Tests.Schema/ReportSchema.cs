@@ -16,7 +16,9 @@ namespace E2E.Tests;
 /// </summary>
 public static class ReportSchema
 {
-    private static readonly Lazy<JsonSchema> Schema = new(() => JsonSchema.FromText(File.ReadAllText(SchemaPath("report-v1.schema.json"))));
+    private static readonly Lazy<JsonSchema> Schema = new(() =>
+        JsonSchema.FromText(File.ReadAllText(SchemaPath("report-v1.schema.json")))
+    );
 
     /// <summary>The <c>schema</c> directory at the root of the repository.</summary>
     public static string Root => RootDirectory.Value;
@@ -31,26 +33,41 @@ public static class ReportSchema
             directory = directory.Parent;
         }
 
-        return Path.Combine(directory?.FullName ?? throw new InvalidOperationException("E2E.slnx not found above " + AppContext.BaseDirectory), "schema");
+        return Path.Combine(
+            directory?.FullName
+                ?? throw new InvalidOperationException("E2E.slnx not found above " + AppContext.BaseDirectory),
+            "schema"
+        );
     }
 
     /// <summary>The path of a file under the <c>schema</c> directory.</summary>
     public static string SchemaPath(params string[] segments) => Path.Combine([Root, .. segments]);
 
     /// <summary>A fresh copy of a JSON file under the <c>schema</c> directory, which a test may change.</summary>
-    public static JsonNode ReadJson(params string[] segments) => JsonNode.Parse(File.ReadAllText(SchemaPath(segments)))!;
+    public static JsonNode ReadJson(params string[] segments) =>
+        JsonNode.Parse(File.ReadAllText(SchemaPath(segments)))!;
 
     /// <summary>Every failure the schema found in the document, each as <c>(keyword, message, location in the document)</c>; empty when it is valid.</summary>
     public static IReadOnlyList<(string Keyword, string Message, string Location)> Violations(JsonNode? document)
     {
         // Format is asserted, as upstream's Ajv does with ajv-formats.
-        var results = Schema.Value.Evaluate(JsonSerializer.SerializeToElement(document), new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true });
+        var results = Schema.Value.Evaluate(
+            JsonSerializer.SerializeToElement(document),
+            new EvaluationOptions { OutputFormat = OutputFormat.List, RequireFormatValidation = true }
+        );
         if (results.IsValid)
         {
             return [];
         }
 
-        IReadOnlyList<(string Keyword, string Message, string Location)> violations = [.. (results.Details ?? []).SelectMany(detail => (detail.Errors ?? new Dictionary<string, string>()).Select(error => (error.Key, error.Value, detail.InstanceLocation.ToString())))];
+        IReadOnlyList<(string Keyword, string Message, string Location)> violations =
+        [
+            .. (results.Details ?? []).SelectMany(detail =>
+                (detail.Errors ?? new Dictionary<string, string>()).Select(error =>
+                    (error.Key, error.Value, detail.InstanceLocation.ToString())
+                )
+            ),
+        ];
 
         // A failure the list does not spell out must still read as one.
         if (violations.Count > 0)
@@ -64,7 +81,8 @@ public static class ReportSchema
     public static bool IsValid(JsonNode? document) => Violations(document).Count == 0;
 
     /// <summary>Every message the failed evaluation gave for the keyword <paramref name="keyword"/>.</summary>
-    public static IReadOnlyList<string> Errors(JsonNode? document, string keyword) => [.. Violations(document).Where(each => each.Keyword == keyword).Select(each => each.Message)];
+    public static IReadOnlyList<string> Errors(JsonNode? document, string keyword) =>
+        [.. Violations(document).Where(each => each.Keyword == keyword).Select(each => each.Message)];
 
     /// <summary>Asserts the document is schema-valid report-1 with unique result ids; throws with details otherwise.</summary>
     public static void AssertValidReport(JsonNode document)
@@ -72,7 +90,13 @@ public static class ReportSchema
         var violations = Violations(document);
         if (violations.Count > 0)
         {
-            throw new InvalidOperationException("report-1 schema violation:\n" + string.Join('\n', violations.Select(each => each.Location + " " + each.Keyword + ": " + each.Message)));
+            throw new InvalidOperationException(
+                "report-1 schema violation:\n"
+                    + string.Join(
+                        '\n',
+                        violations.Select(each => each.Location + " " + each.Keyword + ": " + each.Message)
+                    )
+            );
         }
 
         var ids = document["run"]!["results"]!.AsArray().Select(result => (string)result!["id"]!).ToList();

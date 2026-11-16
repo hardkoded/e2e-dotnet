@@ -62,8 +62,14 @@ public sealed class PlanMcpRegistrationTests : IDisposable
         var plan = Config.PlanMcpRegistration(_dir, [.. Config.McpLocations.Select(location => location.File)]);
         Assert.Equal(
             [(".mcp.json", false), (".cursor/mcp.json", false), (".codex/config.toml", false)],
-            plan.Registrations.Select(registration => (registration.Relative, registration.Existing)));
-        Assert.True(JsonNode.DeepEquals(new JsonObject { ["mcpServers"] = new JsonObject { ["e2e"] = Entry() } }, JsonNode.Parse(plan.Registrations[0].Content)));
+            plan.Registrations.Select(registration => (registration.Relative, registration.Existing))
+        );
+        Assert.True(
+            JsonNode.DeepEquals(
+                new JsonObject { ["mcpServers"] = new JsonObject { ["e2e"] = Entry() } },
+                JsonNode.Parse(plan.Registrations[0].Content)
+            )
+        );
         Assert.EndsWith("\n", plan.Registrations[0].Content, StringComparison.Ordinal);
     }
 
@@ -82,9 +88,13 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [Theory]
     [InlineData("# My settings\nmodel = \"custom\"\n")]
     [InlineData("# My settings\n[mcp_servers.other]\ncommand = \"other\"\n")]
-    [InlineData("# My settings\n[mcp_servers.\"e2e\"] # server\ncommand = \"npx\" # launch\nargs = [\n  \"e2e\",\n  \"mcp\",\n]\nenabled = false\n[mcp_servers.e2e.env]\nAPP_ENV = \"staging\"\n")]
+    [InlineData(
+        "# My settings\n[mcp_servers.\"e2e\"] # server\ncommand = \"npx\" # launch\nargs = [\n  \"e2e\",\n  \"mcp\",\n]\nenabled = false\n[mcp_servers.e2e.env]\nAPP_ENV = \"staging\"\n"
+    )]
     [InlineData("# My settings\n[mcp_servers]\ne2e.command = \"npx\"\ne2e.args = [\"e2e\", \"mcp\"]\n")]
-    [InlineData("# My settings\nmcp_servers = { e2e = { command = \"npx\", env = { APP_ENV = \"staging\" } }, other = { command = \"other\" } }\n")]
+    [InlineData(
+        "# My settings\nmcp_servers = { e2e = { command = \"npx\", env = { APP_ENV = \"staging\" } }, other = { command = \"other\" } }\n"
+    )]
     [InlineData("# My settings\nmcp_servers.e2e.env.APP_ENV = \"staging\"\n")]
     [InlineData("# My settings\n[mcp_servers.e2e.env]\nAPP_ENV = \"staging\"\n")]
     [InlineData("# My settings\nmcp_servers = { e2e = { env = { APP_ENV = \"staging\" }, }, }\n")]
@@ -104,7 +114,17 @@ public sealed class PlanMcpRegistrationTests : IDisposable
         servers["e2e"] = server;
         expected["mcp_servers"] = servers;
         Assert.True(JsonNode.DeepEquals(expected, after), after.ToJsonString());
-        foreach (var setting in new[] { "APP_ENV = \"staging\"", "command = \"other\"", "enabled = false", "# My settings", "# server", "# launch" })
+        foreach (
+            var setting in new[]
+            {
+                "APP_ENV = \"staging\"",
+                "command = \"other\"",
+                "enabled = false",
+                "# My settings",
+                "# server",
+                "# launch",
+            }
+        )
         {
             if (original.Contains(setting, StringComparison.Ordinal))
             {
@@ -120,7 +140,8 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [Fact]
     public void Leaves_a_current_Codex_registration_byte_for_byte_unchanged()
     {
-        const string original = "# Keep this comment\n[mcp_servers.e2e]\nargs = ['mcp']\ncommand = 'e2e'\nstartup_timeout_sec = 30\n";
+        const string original =
+            "# Keep this comment\n[mcp_servers.e2e]\nargs = ['mcp']\ncommand = 'e2e'\nstartup_timeout_sec = 30\n";
         Write(".codex/config.toml", original);
         Assert.Empty(Config.PlanMcpRegistration(_dir, CodexOnly).Registrations);
         Assert.Equal(original, File.ReadAllText(P(".codex/config.toml")));
@@ -151,11 +172,14 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [Fact]
     public void Merges_into_an_existing_file_keeping_other_servers_keys_and_indentation()
     {
-        const string existing = "{\n    \"mcpServers\": {\n        \"figma\": { \"command\": \"figma-mcp\" }\n    },\n    \"other\": true\n}\n";
+        const string existing =
+            "{\n    \"mcpServers\": {\n        \"figma\": { \"command\": \"figma-mcp\" }\n    },\n    \"other\": true\n}\n";
         Write(".mcp.json", existing);
         var plan = Config.PlanMcpRegistration(_dir, [".mcp.json"]).Registrations[0];
         Assert.True(plan.Existing);
-        var expected = JsonNode.Parse("""{ "mcpServers": { "figma": { "command": "figma-mcp" }, "e2e": { "command": "e2e", "args": ["mcp"] } }, "other": true }""");
+        var expected = JsonNode.Parse(
+            """{ "mcpServers": { "figma": { "command": "figma-mcp" }, "e2e": { "command": "e2e", "args": ["mcp"] } }, "other": true }"""
+        );
         Assert.True(JsonNode.DeepEquals(expected, JsonNode.Parse(plan.Content)));
         Assert.Contains("\n    \"mcpServers\"", plan.Content, StringComparison.Ordinal);
     }
@@ -175,7 +199,8 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [Fact]
     public void Keeps_extra_settings_on_an_already_current_server_without_rewriting_the_file()
     {
-        const string original = "{\n    \"mcpServers\": {\n        \"e2e\": {\n            \"command\": \"e2e\",\n            \"args\": [\n                \"mcp\"\n            ],\n            \"env\": {\n                \"APP_ENV\": \"staging\"\n            },\n            \"timeout\": 30000\n        }\n    }\n}\n";
+        const string original =
+            "{\n    \"mcpServers\": {\n        \"e2e\": {\n            \"command\": \"e2e\",\n            \"args\": [\n                \"mcp\"\n            ],\n            \"env\": {\n                \"APP_ENV\": \"staging\"\n            },\n            \"timeout\": 30000\n        }\n    }\n}\n";
         Write(".mcp.json", original);
         Assert.Empty(Config.PlanMcpRegistration(_dir, [".mcp.json"]).Registrations);
         Assert.Equal(original, File.ReadAllText(P(".mcp.json")));
@@ -184,9 +209,14 @@ public sealed class PlanMcpRegistrationTests : IDisposable
     [Fact]
     public void Repairs_a_stale_launch_command_without_dropping_environment_or_client_settings()
     {
-        Write(".mcp.json", """{"mcpServers":{"e2e":{"command":"npx","args":["e2e","mcp"],"env":{"APP_ENV":"staging"},"timeout":30000}},"other":true}""");
+        Write(
+            ".mcp.json",
+            """{"mcpServers":{"e2e":{"command":"npx","args":["e2e","mcp"],"env":{"APP_ENV":"staging"},"timeout":30000}},"other":true}"""
+        );
         var plan = Config.PlanMcpRegistration(_dir, [".mcp.json"]).Registrations[0];
-        var expected = JsonNode.Parse("""{ "mcpServers": { "e2e": { "command": "e2e", "args": ["mcp"], "env": { "APP_ENV": "staging" }, "timeout": 30000 } }, "other": true }""");
+        var expected = JsonNode.Parse(
+            """{ "mcpServers": { "e2e": { "command": "e2e", "args": ["mcp"], "env": { "APP_ENV": "staging" }, "timeout": 30000 } }, "other": true }"""
+        );
         Assert.True(JsonNode.DeepEquals(expected, JsonNode.Parse(plan.Content)));
     }
 
@@ -215,7 +245,12 @@ public sealed class PlanMcpRegistrationTests : IDisposable
         {
             // The target already registers e2e: discovery must not follow the link and call it registered.
             var file = directory == ".cursor" ? "mcp.json" : "config.toml";
-            File.WriteAllText(Path.Combine(elsewhere, file), file.EndsWith(".json", StringComparison.Ordinal) ? """{"mcpServers":{"e2e":{"command":"e2e","args":["mcp"]}}}""" : "[mcp_servers.e2e]\ncommand = \"node\"\n");
+            File.WriteAllText(
+                Path.Combine(elsewhere, file),
+                file.EndsWith(".json", StringComparison.Ordinal)
+                    ? """{"mcpServers":{"e2e":{"command":"e2e","args":["mcp"]}}}"""
+                    : "[mcp_servers.e2e]\ncommand = \"node\"\n"
+            );
             Directory.CreateSymbolicLink(P(directory), elsewhere);
             var plan = Config.PlanMcpRegistration(_dir, [directory + "/" + file]);
             Assert.Empty(plan.Registrations);
@@ -243,7 +278,8 @@ public sealed class PlanMcpRegistrationTests : IDisposable
         {
             var target = Path.Combine(elsewhere, "real.json");
             // The target already registers e2e: discovery must not follow the link and call it registered.
-            const string original = """{"mcpServers":{"e2e":{"command":"e2e","args":["mcp"]},"other":{"command":"x"}}}""";
+            const string original =
+                """{"mcpServers":{"e2e":{"command":"e2e","args":["mcp"]},"other":{"command":"x"}}}""";
             File.WriteAllText(target, original);
             File.CreateSymbolicLink(P(".mcp.json"), target);
             var plan = Config.PlanMcpRegistration(_dir, [".mcp.json"]);

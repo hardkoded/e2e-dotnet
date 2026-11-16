@@ -16,24 +16,36 @@ internal static class Fixtures
         AttemptStatus status = AttemptStatus.Passed,
         long durationMs = 1200,
         ReportError? error = null,
-        IReadOnlyList<ArtifactKind>? artifacts = null) =>
+        IReadOnlyList<ArtifactKind>? artifacts = null
+    ) =>
         new()
         {
             Id = "attempt-1",
             Status = status,
             StartedAt = new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero),
             DurationMs = durationMs,
-            Artifacts = (artifacts ?? []).Select((kind, index) => new ArtifactRecord
-            {
-                Id = $"attempt-1:artifact:{index}",
-                Kind = kind,
-                MediaType = kind == ArtifactKind.Video ? "video/webm" : "image/png",
-                Path = $"attempt-1/{index}.{(kind == ArtifactKind.Video ? "webm" : "png")}",
-            }).ToList(),
+            Artifacts = (artifacts ?? [])
+                .Select(
+                    (kind, index) =>
+                        new ArtifactRecord
+                        {
+                            Id = $"attempt-1:artifact:{index}",
+                            Kind = kind,
+                            MediaType = kind == ArtifactKind.Video ? "video/webm" : "image/png",
+                            Path = $"attempt-1/{index}.{(kind == ArtifactKind.Video ? "webm" : "png")}",
+                        }
+                )
+                .ToList(),
             Error = error,
         };
 
-    public static ReportError Error(string code, string message) => new() { Category = ErrorCategory.Test, Code = code, Message = message };
+    public static ReportError Error(string code, string message) =>
+        new()
+        {
+            Category = ErrorCategory.Test,
+            Code = code,
+            Message = message,
+        };
 
     public static ReportResult Result(
         string title,
@@ -44,7 +56,8 @@ internal static class Fixtures
         IReadOnlyList<ReportAttempt>? attempts = null,
         bool selected = true,
         SkipInfo? skip = null,
-        int repeat = 0)
+        int repeat = 0
+    )
     {
         var testId = $"{file}::{Uri.EscapeDataString(title)}";
         return new()
@@ -55,7 +68,12 @@ internal static class Fixtures
             TitlePath = [title],
             Repeat = repeat,
             File = file,
-            Source = new ReportSource { File = file, Line = line, Column = 1 },
+            Source = new ReportSource
+            {
+                File = file,
+                Line = line,
+                Column = 1,
+            },
             TargetId = target,
             Platform = "web",
             Agent = "default",
@@ -74,7 +92,8 @@ internal static class Fixtures
         IReadOnlyList<ReportError>? errors = null,
         ReportCarried? carried = null,
         IReadOnlyList<ReportFilter>? filters = null,
-        ReportChanges? changes = null) =>
+        ReportChanges? changes = null
+    ) =>
         new()
         {
             Run = new ReportRun
@@ -86,7 +105,15 @@ internal static class Fixtures
                 StartedAt = new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero),
                 FinishedAt = new DateTimeOffset(2026, 7, 24, 12, 0, 8, 400, TimeSpan.Zero),
                 Project = new ReportProject { Id = projectId },
-                Targets = [new ReportTarget { Id = "web", Index = 0, Platform = "web" }],
+                Targets =
+                [
+                    new ReportTarget
+                    {
+                        Id = "web",
+                        Index = 0,
+                        Platform = "web",
+                    },
+                ],
                 Results = results ?? [],
                 Errors = errors ?? [],
                 Carried = carried,
@@ -97,5 +124,15 @@ internal static class Fixtures
         };
 
     public static FinishedRun Finished(Report report, Report? lastRun = null) =>
-        new(report, report.Run.Status, report.Run.ExitCode, "/work/app", "/work/app/.e2e/report.json", "/work/app/.e2e/artifacts") { LastRun = lastRun };
+        new(
+            report,
+            report.Run.Status,
+            report.Run.ExitCode,
+            "/work/app",
+            "/work/app/.e2e/report.json",
+            "/work/app/.e2e/artifacts"
+        )
+        {
+            LastRun = lastRun,
+        };
 }

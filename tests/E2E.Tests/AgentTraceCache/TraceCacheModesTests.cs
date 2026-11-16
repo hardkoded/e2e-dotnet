@@ -14,7 +14,11 @@ public sealed class TraceCacheModesTests
     {
         var project = RunProject.CreateProject();
         var cacheDirectory = Path.Combine(project.Dir, ".e2e", "cache");
-        RunProjectOptions Options(TwoTapCounter.ExecutorRecord record, bool noCache) => TwoTapCounter.RunOptions(record) with { NoCache = noCache };
+        RunProjectOptions Options(TwoTapCounter.ExecutorRecord record, bool noCache) =>
+            TwoTapCounter.RunOptions(record) with
+            {
+                NoCache = noCache,
+            };
         try
         {
             var uncached = new TwoTapCounter.ExecutorRecord();
@@ -47,8 +51,10 @@ public sealed class TraceCacheModesTests
     {
         var project = RunProject.CreateProject();
         var cacheDirectory = Path.Combine(project.Dir, ".e2e", "cache");
-        RunProjectOptions Options(TwoTapCounter.ExecutorRecord record, IReadOnlyDictionary<string, string?>? env = null) =>
-            TwoTapCounter.RunOptions(record) with { Config = null, Env = env };
+        RunProjectOptions Options(
+            TwoTapCounter.ExecutorRecord record,
+            IReadOnlyDictionary<string, string?>? env = null
+        ) => TwoTapCounter.RunOptions(record) with { Config = null, Env = env };
         try
         {
             var first = await RunProject.RunExistingAsync(project, Options(new TwoTapCounter.ExecutorRecord()));
@@ -65,11 +71,17 @@ public sealed class TraceCacheModesTests
             cache.Write(key, entry);
             var legacy = TwoTapCounter.FileState(cacheDirectory);
             var inCi = new TwoTapCounter.ExecutorRecord();
-            var second = await RunProject.RunExistingAsync(project, Options(inCi, new Dictionary<string, string?> { ["CI"] = "1" }));
+            var second = await RunProject.RunExistingAsync(
+                project,
+                Options(inCi, new Dictionary<string, string?> { ["CI"] = "1" })
+            );
             Assert.Equal(0, second.ExitCode);
             Assert.Equal(0, inCi.Calls);
             var cached = TwoTapCounter.ActStep(second).Cache!;
-            Assert.Equal((E2E.Reports.CacheMode.SelfFinalized, 2, 2), (cached.Mode, cached.ReplayedActions, cached.TotalActions));
+            Assert.Equal(
+                (E2E.Reports.CacheMode.SelfFinalized, 2, 2),
+                (cached.Mode, cached.ReplayedActions, cached.TotalActions)
+            );
             Assert.Matches(new Regex("^[0-9a-f]{64}$"), cached.Entry);
             Assert.Equal(legacy, TwoTapCounter.FileState(cacheDirectory));
         }

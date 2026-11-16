@@ -20,7 +20,17 @@ public sealed class CreateOAuthFetchTests
     public async Task Does_not_refresh_or_send_a_request_whose_signal_was_already_aborted()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 1 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = 1,
+                },
+            }
+        );
         var provider = new RotatingProvider();
         using var http = Client(provider, store, api);
         using var cancellation = new CancellationTokenSource();
@@ -36,7 +46,17 @@ public sealed class CreateOAuthFetchTests
     public async Task Cancels_one_refresh_waiter_without_cancelling_the_shared_refresh_another_request_needs()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 1 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = 1,
+                },
+            }
+        );
         var provider = new GatedProvider();
         using var first = Client(provider, store, api);
         using var second = Client(provider, store, api);
@@ -55,7 +75,14 @@ public sealed class CreateOAuthFetchTests
         }
         finally
         {
-            provider.Release.SetResult(new OAuthCredentials { Access = "fresh", Refresh = "rotated", Expires = RotatingProvider.Later() });
+            provider.Release.SetResult(
+                new OAuthCredentials
+                {
+                    Access = "fresh",
+                    Refresh = "rotated",
+                    Expires = RotatingProvider.Later(),
+                }
+            );
         }
 
         using var response = await active;
@@ -71,9 +98,22 @@ public sealed class CreateOAuthFetchTests
     public async Task Swaps_the_SDK_key_header_for_the_bearer_token_and_names_the_product()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "tok", Refresh = "r", Expires = 0 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "tok",
+                    Refresh = "r",
+                    Expires = 0,
+                },
+            }
+        );
         using var http = Client(new RotatingProvider(), store, api);
-        using var request = new HttpRequestMessage(HttpMethod.Post, Url + "v1/thing") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+        using var request = new HttpRequestMessage(HttpMethod.Post, Url + "v1/thing")
+        {
+            Content = new StringContent("{}", Encoding.UTF8, "application/json"),
+        };
         request.Headers.TryAddWithoutValidation("x-api-key", "oauth");
         request.Headers.TryAddWithoutValidation("authorization", "Bearer oauth");
 
@@ -90,7 +130,12 @@ public sealed class CreateOAuthFetchTests
     [Fact]
     public async Task Fails_with_NOT_LOGGED_IN_and_the_hint_when_nothing_is_stored()
     {
-        using var http = Client(new RotatingProvider(), new MemoryCredentialStore(), new FakeApi(_ => (HttpStatusCode.OK, "{}")), "run e2e login test");
+        using var http = Client(
+            new RotatingProvider(),
+            new MemoryCredentialStore(),
+            new FakeApi(_ => (HttpStatusCode.OK, "{}")),
+            "run e2e login test"
+        );
         var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
         Assert.Equal(OAuthException.NotLoggedIn, error.Code);
         Assert.Contains("run e2e login test", error.Message, StringComparison.Ordinal);
@@ -100,7 +145,17 @@ public sealed class CreateOAuthFetchTests
     public async Task Refreshes_an_expiring_token_once_across_model_instances_that_share_a_store()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = RotatingProvider.Soon() } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = RotatingProvider.Soon(),
+                },
+            }
+        );
         var provider = new RotatingProvider();
         using var first = Client(provider, store, api);
         using var second = Client(provider, store, api);
@@ -108,7 +163,10 @@ public sealed class CreateOAuthFetchTests
         await Task.WhenAll(first.GetAsync(new Uri(Url)), second.GetAsync(new Uri(Url)), first.GetAsync(new Uri(Url)));
 
         Assert.Equal(["rt-0"], provider.Refreshes);
-        Assert.Equal(["Bearer fresh-1", "Bearer fresh-1", "Bearer fresh-1"], api.Requests.Select(request => request.Header("authorization")));
+        Assert.Equal(
+            ["Bearer fresh-1", "Bearer fresh-1", "Bearer fresh-1"],
+            api.Requests.Select(request => request.Header("authorization"))
+        );
         var stored = await store.GetAsync("test");
         Assert.Equal(("fresh-1", "rt-1"), (stored!.Access, stored.Refresh));
     }
@@ -120,7 +178,15 @@ public sealed class CreateOAuthFetchTests
         try
         {
             var file = Path.Combine(directory, "oauth.json");
-            await new FileCredentialStore(file).SetAsync("test", new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = RotatingProvider.Soon() });
+            await new FileCredentialStore(file).SetAsync(
+                "test",
+                new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = RotatingProvider.Soon(),
+                }
+            );
             var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
             var provider = new RotatingProvider();
             using var first = Client(provider, new FileCredentialStore(file), api);
@@ -129,7 +195,10 @@ public sealed class CreateOAuthFetchTests
             await Task.WhenAll(first.GetAsync(new Uri(Url)), second.GetAsync(new Uri(Url)));
 
             Assert.Equal(["rt-0"], provider.Refreshes);
-            Assert.Equal(["Bearer fresh-1", "Bearer fresh-1"], api.Requests.Select(request => request.Header("authorization")));
+            Assert.Equal(
+                ["Bearer fresh-1", "Bearer fresh-1"],
+                api.Requests.Select(request => request.Header("authorization"))
+            );
         }
         finally
         {
@@ -145,7 +214,9 @@ public sealed class CreateOAuthFetchTests
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
         var expires = RotatingProvider.Soon().ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var store = new EnvironmentCredentialStore("""{ "test": { "access": "stale", "refresh": "rt-0", "expires": """ + expires + " } }");
+        var store = new EnvironmentCredentialStore(
+            """{ "test": { "access": "stale", "refresh": "rt-0", "expires": """ + expires + " } }"
+        );
         var provider = new RotatingProvider();
         using var http = Client(provider, store, api);
 
@@ -153,16 +224,34 @@ public sealed class CreateOAuthFetchTests
         await http.GetAsync(new Uri(Url));
 
         Assert.Equal(["rt-0"], provider.Refreshes);
-        Assert.Equal(["Bearer fresh-1", "Bearer fresh-1"], api.Requests.Select(request => request.Header("authorization")));
+        Assert.Equal(
+            ["Bearer fresh-1", "Bearer fresh-1"],
+            api.Requests.Select(request => request.Header("authorization"))
+        );
     }
 
     [Fact]
     public async Task Fails_with_LOGIN_REQUIRED_and_the_hint_when_the_refresh_token_is_rejected_for_good()
     {
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = RotatingProvider.Soon() } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = RotatingProvider.Soon(),
+                },
+            }
+        );
         var provider = new RotatingProvider();
         provider.Refreshes.Add("rt-0");
-        using var http = Client(provider, store, new FakeApi(_ => (HttpStatusCode.OK, "{}")), "run `npx e2e login test`");
+        using var http = Client(
+            provider,
+            store,
+            new FakeApi(_ => (HttpStatusCode.OK, "{}")),
+            "run `npx e2e login test`"
+        );
 
         var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
 
@@ -174,7 +263,17 @@ public sealed class CreateOAuthFetchTests
     public async Task Uses_the_credentials_another_process_stored_when_its_own_refresh_token_was_already_rotated()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = RotatingProvider.Soon() } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = RotatingProvider.Soon(),
+                },
+            }
+        );
         var provider = new RotatingProvider();
         provider.Refreshes.Add("rt-0");
         using var http = Client(provider, store, api);
@@ -183,7 +282,15 @@ public sealed class CreateOAuthFetchTests
         _ = Task.Run(async () =>
         {
             await Task.Delay(300);
-            await store.SetAsync("test", new OAuthCredentials { Access = "theirs", Refresh = "rt-1", Expires = RotatingProvider.Later() });
+            await store.SetAsync(
+                "test",
+                new OAuthCredentials
+                {
+                    Access = "theirs",
+                    Refresh = "rt-1",
+                    Expires = RotatingProvider.Later(),
+                }
+            );
         });
         await http.GetAsync(new Uri(Url));
 
@@ -193,10 +300,22 @@ public sealed class CreateOAuthFetchTests
     [Fact]
     public async Task Retries_once_with_a_refreshed_token_after_a_401_also_for_a_Request_input()
     {
-        var api = new FakeApi(request => request.Header("authorization") == "Bearer stale"
-            ? (HttpStatusCode.Unauthorized, """{ "error": "expired" }""")
-            : (HttpStatusCode.OK, "{\"echo\":\"" + request.Body + "\"}"));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 0 } });
+        var api = new FakeApi(request =>
+            request.Header("authorization") == "Bearer stale"
+                ? (HttpStatusCode.Unauthorized, """{ "error": "expired" }""")
+                : (HttpStatusCode.OK, "{\"echo\":\"" + request.Body + "\"}")
+        );
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "stale",
+                    Refresh = "rt-0",
+                    Expires = 0,
+                },
+            }
+        );
         using var http = Client(new RotatingProvider(), store, api);
 
         using var response = await http.PostAsync(new Uri(Url), new StringContent("payload"));
@@ -210,7 +329,17 @@ public sealed class CreateOAuthFetchTests
     public async Task Fails_with_LOGIN_REQUIRED_and_the_hint_on_a_401_for_a_token_that_cannot_be_refreshed_without_a_retry()
     {
         var api = new FakeApi(_ => (HttpStatusCode.Unauthorized, """{ "message": "Bad credentials" }"""));
-        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "gh", Refresh = "", Expires = 0 } });
+        var store = new MemoryCredentialStore(
+            new()
+            {
+                ["test"] = new OAuthCredentials
+                {
+                    Access = "gh",
+                    Refresh = "",
+                    Expires = 0,
+                },
+            }
+        );
         using var http = Client(new RotatingProvider(), store, api, "run `npx e2e login test`");
 
         var error = await Assert.ThrowsAsync<OAuthException>(() => http.GetAsync(new Uri(Url)));
@@ -220,8 +349,12 @@ public sealed class CreateOAuthFetchTests
         Assert.Single(api.Requests);
     }
 
-    private static HttpClient Client(IOAuthProvider provider, ICredentialStore store, HttpMessageHandler api, string? loginHint = null) =>
-        new(new OAuthHandler(provider, store, loginHint, api));
+    private static HttpClient Client(
+        IOAuthProvider provider,
+        ICredentialStore store,
+        HttpMessageHandler api,
+        string? loginHint = null
+    ) => new(new OAuthHandler(provider, store, loginHint, api));
 
     /// <summary>A provider whose refresh waits until the test releases it, so a second request can queue behind it.</summary>
     private sealed class GatedProvider : IOAuthProvider
@@ -230,7 +363,8 @@ public sealed class CreateOAuthFetchTests
 
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public TaskCompletionSource<OAuthCredentials> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<OAuthCredentials> Release { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public int RefreshCount => _refreshCount;
 
@@ -238,8 +372,11 @@ public sealed class CreateOAuthFetchTests
 
         public string Name => "Test";
 
-        public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken) =>
-            Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
+        public Task<OAuthCredentials> LoginAsync(
+            OAuthLoginCallbacks callbacks,
+            OAuthLoginOptions options,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
 
         public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
         {
@@ -248,9 +385,15 @@ public sealed class CreateOAuthFetchTests
             return Release.Task;
         }
 
-        public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PrepareAsync(
+            HttpRequestMessage request,
+            OAuthCredentials credentials,
+            CancellationToken cancellationToken
+        ) => Task.CompletedTask;
 
-        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+            HttpClient http,
+            CancellationToken cancellationToken
+        ) => Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
     }
 }

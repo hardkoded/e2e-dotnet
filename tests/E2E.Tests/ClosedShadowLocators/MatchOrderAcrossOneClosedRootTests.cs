@@ -14,10 +14,17 @@ public sealed class MatchOrderAcrossOneClosedRootTests
     public async Task Lists_light_DOM_matches_first_and_the_closed_root_after_where_the_observed_tree_lists_them_in_place()
     {
         using var site = await FixtureApp.StartAsync();
-        await using (var engine = await WebSemanticsTests.OpenAsync(site.Url + "closed-order", new WebEngineOptions { Headless = true }))
+        await using (
+            var engine = await WebSemanticsTests.OpenAsync(
+                site.Url + "closed-order",
+                new WebEngineOptions { Headless = true }
+            )
+        )
         {
             // The host comes before the light-DOM button, so the reader reads Alpha first.
-            var observed = WebSemanticsTests.Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots).Where(node => node.Role == "button");
+            var observed = WebSemanticsTests
+                .Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
+                .Where(node => node.Role == "button");
             Assert.Equal(["Alpha", "Beta"], observed.Select(node => node.Name));
         }
 
@@ -27,8 +34,14 @@ public sealed class MatchOrderAcrossOneClosedRootTests
             await session.App.OpenAsync("/closed-order");
             // A locator searches the light DOM as one root and the closed root as the next.
             var buttons = session.Screen.GetByRole("button");
-            Assert.Equal(["Beta", "Alpha"], (await buttons.ResolveAsync(CancellationToken.None)).Select(node => node.Name));
-            Assert.Equal(["Beta"], (await buttons.First().ResolveAsync(CancellationToken.None)).Select(node => node.Name));
+            Assert.Equal(
+                ["Beta", "Alpha"],
+                (await buttons.ResolveAsync(CancellationToken.None)).Select(node => node.Name)
+            );
+            Assert.Equal(
+                ["Beta"],
+                (await buttons.First().ResolveAsync(CancellationToken.None)).Select(node => node.Name)
+            );
         });
     }
 }

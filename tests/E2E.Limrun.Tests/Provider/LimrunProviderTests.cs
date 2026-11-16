@@ -16,7 +16,11 @@ namespace E2E.Limrun.Tests.Provider;
 /// </summary>
 public sealed class LimrunProviderTests
 {
-    private static readonly IReadOnlyDictionary<string, string?> RunEnvironment = new Dictionary<string, string?> { ["LIMRUN_API_KEY"] = "run-key", ["PATH"] = "/bin" };
+    private static readonly IReadOnlyDictionary<string, string?> RunEnvironment = new Dictionary<string, string?>
+    {
+        ["LIMRUN_API_KEY"] = "run-key",
+        ["PATH"] = "/bin",
+    };
 
     private readonly FakeLimrun _api = new();
     private readonly FakeLimrunHost _host = new();
@@ -31,7 +35,9 @@ public sealed class LimrunProviderTests
         IReadOnlyDictionary<string, string?>? env = null,
         string? app = null,
         string? appPath = null,
-        string agentDeviceVersion = AgentDeviceVersion.Pinned) => new()
+        string agentDeviceVersion = AgentDeviceVersion.Pinned
+    ) =>
+        new()
         {
             Platform = platform,
             RunId = "run-a",
@@ -47,17 +53,27 @@ public sealed class LimrunProviderTests
         };
 
     private static DeviceReleaseContext Cleanup(IReadOnlyDictionary<string, string?>? env = null) =>
-        new() { RunId = "run-a", TargetName = "ios", Env = env ?? RunEnvironment, Log = _ => { } };
+        new()
+        {
+            RunId = "run-a",
+            TargetName = "ios",
+            Env = env ?? RunEnvironment,
+            Log = _ => { },
+        };
 
     [Fact]
     public async Task Requires_the_run_key_and_matching_driver_before_creating_a_device()
     {
         var provider = Provider();
 
-        var missingKey = await Assert.ThrowsAsync<ConfigurationException>(() => provider.AcquireAsync(Request(env: new Dictionary<string, string?>()), CancellationToken.None));
+        var missingKey = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            provider.AcquireAsync(Request(env: new Dictionary<string, string?>()), CancellationToken.None)
+        );
         Assert.Contains("LIMRUN_API_KEY", missingKey.Message, StringComparison.Ordinal);
 
-        var mismatch = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.AcquireAsync(Request(agentDeviceVersion: "0.0.1"), CancellationToken.None));
+        var mismatch = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.AcquireAsync(Request(agentDeviceVersion: "0.0.1"), CancellationToken.None)
+        );
         Assert.Contains("0.0.1", mismatch.Message, StringComparison.Ordinal);
         Assert.Contains(AgentDeviceVersion.Pinned, mismatch.Message, StringComparison.Ordinal);
 
@@ -76,7 +92,10 @@ public sealed class LimrunProviderTests
 
         var create = Assert.Single(_api.Of("POST", "ios_instances"));
         Assert.Equal("Bearer run-key", create.Authorization);
-        Assert.Equal($"{baseUrl ?? "https://api.limrun.com"}/v1/ios_instances", create.Uri.GetLeftPart(UriPartial.Path));
+        Assert.Equal(
+            $"{baseUrl ?? "https://api.limrun.com"}/v1/ios_instances",
+            create.Uri.GetLeftPart(UriPartial.Path)
+        );
         await provider.ReleaseAsync(lease, Cleanup(), CancellationToken.None);
     }
 
@@ -84,13 +103,15 @@ public sealed class LimrunProviderTests
     public async Task Isolates_concurrent_slots_and_targets_uses_run_credentials_and_never_mutates_process_env()
     {
         var before = Environment.GetEnvironmentVariables();
-        var provider = Provider(new LimrunSimulatorsOptions
-        {
-            Region = "eu",
-            HardTimeout = "30m",
-            Ios = new LimrunIosOptions { Model = LimrunIosModel.Ipad },
-            Android = new LimrunAndroidOptions { OsVersion = "16" },
-        });
+        var provider = Provider(
+            new LimrunSimulatorsOptions
+            {
+                Region = "eu",
+                HardTimeout = "30m",
+                Ios = new LimrunIosOptions { Model = LimrunIosModel.Ipad },
+                Android = new LimrunAndroidOptions { OsVersion = "16" },
+            }
+        );
         var env = new Dictionary<string, string?>
         {
             ["LIMRUN_API_KEY"] = "run-key",
@@ -102,16 +123,19 @@ public sealed class LimrunProviderTests
 
         var leases = await Task.WhenAll(
             provider.AcquireAsync(Request(env: env), CancellationToken.None),
-            provider.AcquireAsync(Request(MobilePlatform.Android, "android", 1, env), CancellationToken.None));
+            provider.AcquireAsync(Request(MobilePlatform.Android, "android", 1, env), CancellationToken.None)
+        );
         try
         {
             Assert.All(_api.Calls, call => Assert.Equal("Bearer run-key", call.Authorization));
             JsonAssert.Args(
                 """{"hardTimeout":"30m","region":"eu","model":"ipad"}""",
-                Assert.Single(_api.Of("POST", "ios_instances")).Body!["spec"]);
+                Assert.Single(_api.Of("POST", "ios_instances")).Body!["spec"]
+            );
             JsonAssert.Args(
                 """{"hardTimeout":"30m","region":"eu","clues":[{"kind":"OSVersion","osVersion":"16"}]}""",
-                Assert.Single(_api.Of("POST", "android_instances")).Body!["spec"]);
+                Assert.Single(_api.Of("POST", "android_instances")).Body!["spec"]
+            );
             var ios = Assert.Single(_host.Started, started => started.Request.Platform == MobilePlatform.Ios);
             var android = Assert.Single(_host.Started, started => started.Request.Platform == MobilePlatform.Android);
             Assert.NotEqual(ios.Request.StateDirectory, android.Request.StateDirectory);
@@ -137,9 +161,13 @@ public sealed class LimrunProviderTests
             }
         }
 
-        Assert.Contains(_api.Of("DELETE", "ios_instances"), call => call.Uri.AbsolutePath.EndsWith("/ios-test", StringComparison.Ordinal));
+        Assert.Contains(_api.Of("DELETE", "ios_instances"), call =>
+            call.Uri.AbsolutePath.EndsWith("/ios-test", StringComparison.Ordinal)
+        );
         Assert.Equal(2, _host.HeartbeatsStopped);
-        Assert.Contains(_api.Of("DELETE", "android_instances"), call => call.Uri.AbsolutePath.EndsWith("/android-test", StringComparison.Ordinal));
+        Assert.Contains(_api.Of("DELETE", "android_instances"), call =>
+            call.Uri.AbsolutePath.EndsWith("/android-test", StringComparison.Ordinal)
+        );
     }
 
     [Fact]
@@ -148,7 +176,10 @@ public sealed class LimrunProviderTests
         _host.OnStart = _ => new LimrunBinding(new JsonObject { ["stateDir"] = "/state" }, "device", "dev.example");
         var provider = Provider();
 
-        var lease = await provider.AcquireAsync(Request(app: "dev.example", appPath: "/project/build/App.app"), CancellationToken.None);
+        var lease = await provider.AcquireAsync(
+            Request(app: "dev.example", appPath: "/project/build/App.app"),
+            CancellationToken.None
+        );
 
         Assert.Equal("dev.example", lease.InstalledApp);
         var started = Assert.Single(_host.Started).Request;
@@ -167,7 +198,9 @@ public sealed class LimrunProviderTests
             throw new InvalidOperationException("install failed");
         };
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider().AcquireAsync(Request(), run.Token));
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Provider().AcquireAsync(Request(), run.Token)
+        );
 
         Assert.Contains("install failed", failure.Message, StringComparison.Ordinal);
         Assert.NotEmpty(_host.Stopped);
@@ -196,7 +229,9 @@ public sealed class LimrunProviderTests
         var lease = await provider.AcquireAsync(Request(), CancellationToken.None);
         _host.StopFailures.Enqueue(new InvalidOperationException("daemon did not stop"));
 
-        var failure = await Assert.ThrowsAsync<AggregateException>(() => provider.ReleaseAsync(lease, Cleanup(), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<AggregateException>(() =>
+            provider.ReleaseAsync(lease, Cleanup(), CancellationToken.None)
+        );
 
         Assert.Contains("Could not fully release", failure.Message, StringComparison.Ordinal);
         Assert.NotEmpty(_api.Of("DELETE", "ios_instances"));
@@ -221,7 +256,9 @@ public sealed class LimrunProviderTests
     {
         _host.AndroidToolsFailure = new InvalidOperationException("adb missing");
 
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider().AcquireAsync(Request(MobilePlatform.Android), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Provider().AcquireAsync(Request(MobilePlatform.Android), CancellationToken.None)
+        );
 
         Assert.Contains("adb missing", failure.Message, StringComparison.Ordinal);
         Assert.Empty(_api.Of("POST", "android_instances"));

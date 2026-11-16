@@ -26,7 +26,10 @@ internal static class Repeats
     private static readonly HashSet<string> Undecided = new(["interrupted", "skipped"], StringComparer.Ordinal);
 
     /// <summary>Groups runs by key, keeping only tests that ran more than once and did not skip every run, in first-seen order.</summary>
-    public static List<RepeatGroup> RepeatGroups<T>(IEnumerable<T> items, Func<T, (string Key, string Label, RepeatRun Run)> describe)
+    public static List<RepeatGroup> RepeatGroups<T>(
+        IEnumerable<T> items,
+        Func<T, (string Key, string Label, RepeatRun Run)> describe
+    )
     {
         List<string> order = [];
         Dictionary<string, (string Label, List<RepeatRun> Runs)> groups = new(StringComparer.Ordinal);
@@ -42,18 +45,22 @@ internal static class Repeats
             group.Runs.Add(run);
         }
 
-        return [.. order
-            .Select(key => groups[key])
-            .Where(group => group.Runs.Count > 1 && group.Runs.Any(run => run.Status != "skipped"))
-            .Select(group =>
-            {
-                var runs = group.Runs.OrderBy(run => run.Repeat).ToList();
-                return new RepeatGroup(
-                    group.Label,
-                    runs,
-                    runs.Count(run => run.Status == "passed"),
-                    runs.Any(run => run.Status != "passed" && !Undecided.Contains(run.Status)));
-            })];
+        return
+        [
+            .. order
+                .Select(key => groups[key])
+                .Where(group => group.Runs.Count > 1 && group.Runs.Any(run => run.Status != "skipped"))
+                .Select(group =>
+                {
+                    var runs = group.Runs.OrderBy(run => run.Repeat).ToList();
+                    return new RepeatGroup(
+                        group.Label,
+                        runs,
+                        runs.Count(run => run.Status == "passed"),
+                        runs.Any(run => run.Status != "passed" && !Undecided.Contains(run.Status))
+                    );
+                }),
+        ];
     }
 
     /// <summary><c>2 of 3 tests passed all 5 runs</c>; the run count is the most any test had.</summary>
@@ -61,7 +68,14 @@ internal static class Repeats
     {
         var stable = groups.Count(group => group.Passed == group.Runs.Count);
         var runs = groups.Max(group => group.Runs.Count);
-        return stable.ToString(CultureInfo.InvariantCulture) + " of " + groups.Count.ToString(CultureInfo.InvariantCulture) + " test" + (groups.Count == 1 ? "" : "s") + " passed all " + runs.ToString(CultureInfo.InvariantCulture) + " runs";
+        return stable.ToString(CultureInfo.InvariantCulture)
+            + " of "
+            + groups.Count.ToString(CultureInfo.InvariantCulture)
+            + " test"
+            + (groups.Count == 1 ? "" : "s")
+            + " passed all "
+            + runs.ToString(CultureInfo.InvariantCulture)
+            + " runs";
     }
 
     /// <summary>A run that did not pass, in a word: its error code, <c>flaky</c> with the code its retry recovered from, or why it reached no verdict.</summary>
@@ -78,9 +92,18 @@ internal static class Repeats
     /// <summary><c>3/5 passed · repeat 0 ASSERTION_FAILED · repeat 2 flaky · repeat 4 interrupted</c>, naming each run that did not pass.</summary>
     public static string RepeatLine(RepeatGroup group)
     {
-        var misses = group.Runs
-            .Where(run => run.Status != "passed")
+        var misses = group
+            .Runs.Where(run => run.Status != "passed")
             .Select(run => "repeat " + run.Repeat.ToString(CultureInfo.InvariantCulture) + " " + OutcomeOf(run));
-        return string.Join(" · ", [group.Passed.ToString(CultureInfo.InvariantCulture) + "/" + group.Runs.Count.ToString(CultureInfo.InvariantCulture) + " passed", .. misses]);
+        return string.Join(
+            " · ",
+            [
+                group.Passed.ToString(CultureInfo.InvariantCulture)
+                    + "/"
+                    + group.Runs.Count.ToString(CultureInfo.InvariantCulture)
+                    + " passed",
+                .. misses,
+            ]
+        );
     }
 }

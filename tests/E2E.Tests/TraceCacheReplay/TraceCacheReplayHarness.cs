@@ -15,7 +15,14 @@ internal static class TraceCacheReplayHarness
     public static async Task<(ActResult Result, int ModelCalls)> RunTargetAsync(string directory, string? target)
     {
         var calls = 0;
-        await using var session = await ConfigTests.StartAsync(directory, CacheMode.ReadWrite, strict: false, "Upgrade to Pro", () => calls++, targetName: target);
+        await using var session = await ConfigTests.StartAsync(
+            directory,
+            CacheMode.ReadWrite,
+            strict: false,
+            "Upgrade to Pro",
+            () => calls++,
+            targetName: target
+        );
         await session.App.OpenAsync("/settings/billing");
         var result = await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");

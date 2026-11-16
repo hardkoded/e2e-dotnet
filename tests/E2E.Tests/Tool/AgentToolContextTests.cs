@@ -20,7 +20,9 @@ public sealed class AgentToolContextTests
     public async Task Refuses_a_mutating_tool_that_asks_for_a_look_and_tells_the_model_to_look_in_a_separate_call()
     {
         var turns = 0;
-        var model = new ScriptedModel(_ => turns++ == 0 ? ModelResponses.Call("change", new { }) : ModelResponses.Done("passed", "done"));
+        var model = new ScriptedModel(_ =>
+            turns++ == 0 ? ModelResponses.Call("change", new { }) : ModelResponses.Done("passed", "done")
+        );
         var tools = new Dictionary<string, AgentTool>
         {
             ["change"] = new AgentTool("changes the app", EmptySchema, true, async (_, context, token) =>
@@ -38,21 +40,34 @@ public sealed class AgentToolContextTests
             },
             CounterPage.World(),
             model,
-            agentTools: tools);
+            agentTools: tools
+        );
 
         Assert.Null(result.Error);
-        Assert.Contains("only read-only tools may request observations; observe in a separate tool call", model.Requests[^1].Messages.First(message => message.Role == "tool").Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "only read-only tools may request observations; observe in a separate tool call",
+            model.Requests[^1].Messages.First(message => message.Role == "tool").Content,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
     public async Task Fails_a_tool_that_reads_its_context_when_it_runs_outside_a_step()
     {
-        var tool = new AgentTool("looks", EmptySchema, false, async (_, context, token) => (await context.ObserveAsync(cancellationToken: token)).Text);
+        var tool = new AgentTool("looks", EmptySchema, false, async (_, context, token) =>
+            (await context.ObserveAsync(cancellationToken: token)).Text
+        );
 
-        var error = await Assert.ThrowsAsync<TestException>(() => tool.ExecuteAsync(new JsonObject(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            tool.ExecuteAsync(new JsonObject(), CancellationToken.None)
+        );
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
-        Assert.Contains("needs the observation context the built-in agent supplies", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "needs the observation context the built-in agent supplies",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]

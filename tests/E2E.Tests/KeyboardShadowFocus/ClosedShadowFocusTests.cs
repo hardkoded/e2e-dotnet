@@ -22,7 +22,9 @@ public sealed class ClosedShadowFocusTests
         {
             await ShadowFocusPage.FocusShadowAsync(page, Mode, html);
 
-            var error = await Assert.ThrowsAsync<EngineException>(() => session.TypeTextAsync("lost", replace: true, CancellationToken.None));
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                session.TypeTextAsync("lost", replace: true, CancellationToken.None)
+            );
 
             Assert.Equal("NOT_ACTIONABLE", error.Code);
             Assert.Null(await ShadowFocusPage.AttributeAsync(page, "data-keys"));

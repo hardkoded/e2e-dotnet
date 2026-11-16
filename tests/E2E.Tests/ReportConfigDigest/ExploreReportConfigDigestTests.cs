@@ -19,14 +19,23 @@ public sealed class ExploreReportConfigDigestTests
     [Fact]
     public async Task An_explorations_report_carries_the_digest_of_the_config_it_ran_under()
     {
-        var model = new ExploreModel(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
+        var model = new ExploreModel(
+            _ => ExploreModel.Finish("Nothing here."),
+            _ => ExploreModel.Done("passed", "unused")
+        );
         var root = TempRoot();
         var config = ExploreHarness.Config(root, "\"actionTimeout\": 10000");
         var options = Options(root, model.Model, [], config: config);
         await Explorer.ExploreAsync(options);
 
-        using var report = JsonDocument.Parse(await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json")));
-        var digest = report.RootElement.GetProperty("run").GetProperty("project").GetProperty("configDigest").GetString();
+        using var report = JsonDocument.Parse(
+            await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json"))
+        );
+        var digest = report
+            .RootElement.GetProperty("run")
+            .GetProperty("project")
+            .GetProperty("configDigest")
+            .GetString();
         Assert.Equal(HostTestFilters.Resolve(config, [], options.Agents).ConfigDigest, digest);
         Assert.NotEqual(new string('0', 64), digest);
 

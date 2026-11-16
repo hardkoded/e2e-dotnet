@@ -15,17 +15,20 @@ public sealed class DefineToolPlatformsTests
     /// <summary>A step context of a host from before reads: it observes and does not override <see cref="StepExecutorContext.ReadAsync"/>.</summary>
     private sealed class OlderContext : StepExecutorContext
     {
-        public static OlderContext Create() => new()
-        {
-            Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = "inspect" },
-            Attempt = new ExecutorAttempt { TestId = "t", AttemptId = "a" },
-            Target = new ExecutorTargetInfo { Name = "web", Platform = "web" },
-            Budgets = null!,
-            Actions = null!,
-        };
+        public static OlderContext Create() =>
+            new()
+            {
+                Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = "inspect" },
+                Attempt = new ExecutorAttempt { TestId = "t", AttemptId = "a" },
+                Target = new ExecutorTargetInfo { Name = "web", Platform = "web" },
+                Budgets = null!,
+                Actions = null!,
+            };
 
-        public override Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ExecutorObservation("screen"));
+        public override Task<ExecutorObservation> ObserveAsync(
+            ExecutorObserveOptions? options = null,
+            CancellationToken cancellationToken = default
+        ) => Task.FromResult(new ExecutorObservation("screen"));
     }
 
     // Upstream's `it('reports unsupported reads from an older tool context')` of `describe('defineTool platforms')` (tester-army/e2e#1633).
@@ -34,7 +37,9 @@ public sealed class DefineToolPlatformsTests
     {
         var context = new AgentToolContext(OlderContext.Create(), mutates: false);
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => context.ReadAsync(new ExecutorTarget("n1"), new ExecutorReadOptions { Style = ["color"] }));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            context.ReadAsync(new ExecutorTarget("n1"), new ExecutorReadOptions { Style = ["color"] })
+        );
 
         Assert.Equal("POLICY_DENIED", error.Code);
     }
@@ -52,7 +57,15 @@ public sealed class DefineToolPlatformsTests
     [Fact]
     public void Rejects_an_empty_or_malformed_platforms_list()
     {
-        Assert.Contains("platforms", Assert.Throws<TestException>(() => Define(false, [])).Message, StringComparison.Ordinal);
-        Assert.Contains("platforms", Assert.Throws<TestException>(() => Define(false, [""])).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "platforms",
+            Assert.Throws<TestException>(() => Define(false, [])).Message,
+            StringComparison.Ordinal
+        );
+        Assert.Contains(
+            "platforms",
+            Assert.Throws<TestException>(() => Define(false, [""])).Message,
+            StringComparison.Ordinal
+        );
     }
 }

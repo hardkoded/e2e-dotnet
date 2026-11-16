@@ -13,7 +13,12 @@ public sealed class ModelResolutionTests
     [Fact]
     public void Has_no_implicit_model_nothing_configured_and_no_environment_variable_is_read()
     {
-        var environment = new Dictionary<string, string>(StringComparer.Ordinal) { ["E2E_MODEL"] = "gpt-4.1-mini", ["AI_GATEWAY_API_KEY"] = "x", ["OPENAI_API_KEY"] = "x" };
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["E2E_MODEL"] = "gpt-4.1-mini",
+            ["AI_GATEWAY_API_KEY"] = "x",
+            ["OPENAI_API_KEY"] = "x",
+        };
 
         var config = E2EConfig.Parse("{}", Root, name => environment.GetValueOrDefault(name));
 

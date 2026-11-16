@@ -17,7 +17,8 @@ public sealed class PointerTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -53,7 +54,11 @@ public sealed class PointerTests : E2ETest
         await App.OpenAsync("/pointer");
 
         var started = System.Diagnostics.Stopwatch.StartNew();
-        var error = await Failure(() => Screen.GetByLabel("Hidden pad").TapAsync(new TapOptions { Position = new Point(1, 1), Timeout = TimeSpan.FromSeconds(1) }));
+        var error = await Failure(() =>
+            Screen
+                .GetByLabel("Hidden pad")
+                .TapAsync(new TapOptions { Position = new Point(1, 1), Timeout = TimeSpan.FromSeconds(1) })
+        );
 
         Assert.That(error, Is.InstanceOf<E2EException>());
         Assert.That(((E2EException)error!).Code, Is.EqualTo("ACTION_FAILED"));
@@ -67,7 +72,9 @@ public sealed class PointerTests : E2ETest
         await App.OpenAsync("/pointer");
 
         var box = await BoxOf(Screen.GetByRole("image", "Pointer pad"));
-        await Screen.SwipeAsync(new SwipePathOptions { From = new Point(box.X + 10, box.Y + 20), To = new Point(box.X + 250, box.Y + 20) });
+        await Screen.SwipeAsync(
+            new SwipePathOptions { From = new Point(box.X + 10, box.Y + 20), To = new Point(box.X + 250, box.Y + 20) }
+        );
 
         await Expect.That(Screen.GetByLabel("Pad state")).ToHaveTextAsync("swiped from 10,20 to 250,20");
     }
@@ -104,18 +111,24 @@ public sealed class PointerTests : E2ETest
               return { tag: target?.localName ?? null, node: target?.closest('#diagram-node')?.id ?? null };
             }
             """,
-            new { x = point.X, y = point.Y });
+            new { x = point.X, y = point.Y }
+        );
         Assert.That(hit, Is.EqualTo(new Dictionary<string, string?> { ["tag"] = "path", ["node"] = "diagram-node" }));
 
         await Screen.DoubleTapAtAsync(point);
 
-        var events = await Browser.EvaluateAsync<string>("() => document.querySelector('#diagram-node').dataset.events ?? ''");
-        var at = $"{Math.Round(point.X, MidpointRounding.AwayFromZero)},{Math.Round(point.Y, MidpointRounding.AwayFromZero)}";
+        var events = await Browser.EvaluateAsync<string>(
+            "() => document.querySelector('#diagram-node').dataset.events ?? ''"
+        );
+        var at =
+            $"{Math.Round(point.X, MidpointRounding.AwayFromZero)},{Math.Round(point.Y, MidpointRounding.AwayFromZero)}";
         Assert.That(
             events,
             Is.EqualTo(
-                $"mousedown|true|0|1|{at};mouseup|true|0|1|{at};click|true|0|1|{at};" +
-                $"mousedown|true|0|2|{at};mouseup|true|0|2|{at};click|true|0|2|{at};dblclick|true|0|2|{at};"));
+                $"mousedown|true|0|1|{at};mouseup|true|0|1|{at};click|true|0|1|{at};"
+                    + $"mousedown|true|0|2|{at};mouseup|true|0|2|{at};click|true|0|2|{at};dblclick|true|0|2|{at};"
+            )
+        );
         await label.FillAsync("Renamed");
         await Expect.That(label).ToHaveValueAsync("Renamed");
     }

@@ -24,10 +24,13 @@ public sealed class RetryingObserveTests
             () =>
             {
                 attempts++;
-                return attempts < 3 ? Task.FromException<Observation>(EngineError("NODE_STALE", true)) : Task.FromResult(Screen);
+                return attempts < 3
+                    ? Task.FromException<Observation>(EngineError("NODE_STALE", true))
+                    : Task.FromResult(Screen);
             },
             _ => { },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.Same(Screen, observation);
         Assert.Equal(3, attempts);
     }
@@ -36,14 +39,17 @@ public sealed class RetryingObserveTests
     public async Task Partial_Surfaces_a_non_retryable_engine_failure_at_once()
     {
         var attempts = 0;
-        var thrown = await Assert.ThrowsAsync<EngineException>(() => Phases.RetryingObserveAsync(
-            () =>
-            {
-                attempts++;
-                return Task.FromException<Observation>(EngineError("OPERATION_TIMEOUT", false));
-            },
-            _ => { },
-            CancellationToken.None));
+        var thrown = await Assert.ThrowsAsync<EngineException>(() =>
+            Phases.RetryingObserveAsync(
+                () =>
+                {
+                    attempts++;
+                    return Task.FromException<Observation>(EngineError("OPERATION_TIMEOUT", false));
+                },
+                _ => { },
+                CancellationToken.None
+            )
+        );
         Assert.Contains("OPERATION_TIMEOUT", thrown.Message, StringComparison.Ordinal);
         Assert.Equal(1, attempts);
     }
@@ -52,10 +58,13 @@ public sealed class RetryingObserveTests
     public async Task Partial_Reports_the_step_clock_when_the_capture_timed_out_at_the_deadline()
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(50), TimeProvider.System);
-        var thrown = await Assert.ThrowsAsync<AgentException>(() => Phases.RetryingObserveAsync(
-            () => Task.FromException<Observation>(EngineError("OPERATION_TIMEOUT", false)),
-            cause => Phases.CheckStepClock(CancellationToken.None, deadline, "agent.act", 3_000, cause),
-            CancellationToken.None));
+        var thrown = await Assert.ThrowsAsync<AgentException>(() =>
+            Phases.RetryingObserveAsync(
+                () => Task.FromException<Observation>(EngineError("OPERATION_TIMEOUT", false)),
+                cause => Phases.CheckStepClock(CancellationToken.None, deadline, "agent.act", 3_000, cause),
+                CancellationToken.None
+            )
+        );
         Assert.Equal("STEP_TIMEOUT", thrown.Code);
     }
 }

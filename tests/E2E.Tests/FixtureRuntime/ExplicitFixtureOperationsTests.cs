@@ -30,22 +30,45 @@ public sealed class ExplicitFixtureOperationsTests
     public async Task Partial_Maps_an_EngineError_a_contributed_method_throws_onto_the_runner_taxonomy_and_leaves_other_errors_as_thrown()
     {
         var engine = new GadgetEngine();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, BaseUrl = "https://gadget.test", TestTitle = "gadget", CacheEnabled = false });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                BaseUrl = "https://gadget.test",
+                TestTitle = "gadget",
+                CacheEnabled = false,
+            }
+        );
         var context = engine.Context!;
 
-        var lost = await Assert.ThrowsAsync<TestException>(() => Run(context, "gadget.lost", "", new EngineException("INVALID_STATE", "appstate requires an active session")));
+        var lost = await Assert.ThrowsAsync<TestException>(() =>
+            Run(context, "gadget.lost", "", new EngineException("INVALID_STATE", "appstate requires an active session"))
+        );
         Assert.Equal(("APP_NOT_OPEN", "appstate requires an active session"), (lost.Code, lost.Message));
 
-        var slow = await Assert.ThrowsAsync<TestException>(() => Run(context, "gadget.slow", "", new EngineException("OPERATION_TIMEOUT", "appstate timed out")));
+        var slow = await Assert.ThrowsAsync<TestException>(() =>
+            Run(context, "gadget.slow", "", new EngineException("OPERATION_TIMEOUT", "appstate timed out"))
+        );
         Assert.Equal(("ACTION_FAILED", "operation timed out in gadget.slow"), (slow.Code, slow.Message));
 
-        var wait = await Assert.ThrowsAsync<TestException>(() => Run(context, "gadget.wait", JsonSerializer.Serialize("foo.css"), new EngineException("OPERATION_TIMEOUT", "wait timed out")));
+        var wait = await Assert.ThrowsAsync<TestException>(() =>
+            Run(
+                context,
+                "gadget.wait",
+                JsonSerializer.Serialize("foo.css"),
+                new EngineException("OPERATION_TIMEOUT", "wait timed out")
+            )
+        );
         Assert.Equal(("ACTION_FAILED", "operation timed out in gadget.wait \"foo.css\""), (wait.Code, wait.Message));
 
-        var denied = await Assert.ThrowsAsync<TestException>(() => Run(context, "gadget.denied", "", new TestException("POLICY_DENIED", "no")));
+        var denied = await Assert.ThrowsAsync<TestException>(() =>
+            Run(context, "gadget.denied", "", new TestException("POLICY_DENIED", "no"))
+        );
         Assert.Equal("POLICY_DENIED", denied.Code);
 
-        var plain = await Assert.ThrowsAsync<InvalidOperationException>(() => Run(context, "gadget.plain", "", new InvalidOperationException("plain failure")));
+        var plain = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Run(context, "gadget.plain", "", new InvalidOperationException("plain failure"))
+        );
         Assert.Equal("plain failure", plain.Message);
     }
 
@@ -54,7 +77,15 @@ public sealed class ExplicitFixtureOperationsTests
     public async Task App_steps_map_the_engine_error_the_session_throws_with_the_operation_in_the_message()
     {
         var engine = new GadgetEngine { OpenFailure = new EngineException("OPERATION_TIMEOUT", "open timed out") };
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, BaseUrl = "https://gadget.test", TestTitle = "gadget", CacheEnabled = false });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                BaseUrl = "https://gadget.test",
+                TestTitle = "gadget",
+                CacheEnabled = false,
+            }
+        );
         var timeout = await Assert.ThrowsAsync<TestException>(() => session.App.OpenAsync("/orders"));
         Assert.Equal(("ACTION_FAILED", "operation timed out in app.open /orders"), (timeout.Code, timeout.Message));
 
@@ -72,12 +103,29 @@ public sealed class ExplicitFixtureOperationsTests
     [Fact]
     public async Task Browser_calls_that_need_a_browser_engine_report_a_configuration_error_inside_their_step()
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = new GadgetEngine(), BaseUrl = "https://gadget.test", TestTitle = "gadget", CacheEnabled = false });
-        var dialog = await Assert.ThrowsAsync<ConfigurationException>(() => session.Browser.OnDialogAsync(DialogHandler.Accept));
-        var download = await Assert.ThrowsAsync<ConfigurationException>(() => session.Browser.WaitForDownloadAsync(() => Task.CompletedTask));
-        var downloads = await Assert.ThrowsAsync<ConfigurationException>(() => session.Browser.WaitForDownloadsAsync(() => Task.CompletedTask, 1));
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new GadgetEngine(),
+                BaseUrl = "https://gadget.test",
+                TestTitle = "gadget",
+                CacheEnabled = false,
+            }
+        );
+        var dialog = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            session.Browser.OnDialogAsync(DialogHandler.Accept)
+        );
+        var download = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            session.Browser.WaitForDownloadAsync(() => Task.CompletedTask)
+        );
+        var downloads = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            session.Browser.WaitForDownloadsAsync(() => Task.CompletedTask, 1)
+        );
         Assert.All([dialog, download, downloads], error => Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code));
-        Assert.Equal(["browser.onDialog", "browser.waitForDownload", "browser.waitForDownloads"], session.StepRecords.Select(step => step.Api));
+        Assert.Equal(
+            ["browser.onDialog", "browser.waitForDownload", "browser.waitForDownloads"],
+            session.StepRecords.Select(step => step.Api)
+        );
     }
 
     private static Task Run(EngineFixtureContext context, string api, string label, Exception failure) =>
@@ -108,7 +156,8 @@ public sealed class ExplicitFixtureOperationsTests
             public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
                 Task.FromResult(new Observation { Route = "/", Roots = [] });
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                Task.CompletedTask;
 
             public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 

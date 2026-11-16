@@ -10,15 +10,26 @@ namespace E2E.Tests.DeviceCode;
 [Collection(InstantDeviceFlow.Name)]
 public sealed class RunDeviceFlowTests
 {
-    private static readonly DeviceAuthorization Authorization = new("dev", "ABCD-1234", "https://x/device", null, 60, 5);
+    private static readonly DeviceAuthorization Authorization = new(
+        "dev",
+        "ABCD-1234",
+        "https://x/device",
+        null,
+        60,
+        5
+    );
 
-    private static Task<DevicePoll<string>> Pending(DeviceAuthorization authorization, CancellationToken cancellationToken) =>
-        Task.FromResult(new DevicePoll<string>(DevicePollStatus.Pending));
+    private static Task<DevicePoll<string>> Pending(
+        DeviceAuthorization authorization,
+        CancellationToken cancellationToken
+    ) => Task.FromResult(new DevicePoll<string>(DevicePollStatus.Pending));
 
     private static OAuthLoginCallbacks Callbacks(Action<OAuthAuthInfo>? onAuth = null) =>
         new() { OnAuth = onAuth ?? (_ => { }), OnPrompt = (_, _) => Task.FromResult("") };
 
-    private static async Task<(string Result, List<double> Sleeps, OAuthAuthInfo? Info)> RunAsync(params DevicePoll<string>[] polls)
+    private static async Task<(string Result, List<double> Sleeps, OAuthAuthInfo? Info)> RunAsync(
+        params DevicePoll<string>[] polls
+    )
     {
         var queue = new Queue<DevicePoll<string>>(polls);
         var sleeps = new List<double>();
@@ -33,10 +44,14 @@ public sealed class RunDeviceFlowTests
         {
             var result = await DeviceFlow.RunAsync<string>(
                 _ => Task.FromResult(Authorization),
-                (_, _) => Task.FromResult(queue.Count > 0 ? queue.Dequeue() : new DevicePoll<string>(DevicePollStatus.Pending)),
+                (_, _) =>
+                    Task.FromResult(
+                        queue.Count > 0 ? queue.Dequeue() : new DevicePoll<string>(DevicePollStatus.Pending)
+                    ),
                 Callbacks(shown => info = shown),
                 null,
-                CancellationToken.None);
+                CancellationToken.None
+            );
             return (result, sleeps, info);
         }
         finally
@@ -50,16 +65,19 @@ public sealed class RunDeviceFlowTests
     {
         var starts = 0;
         var displays = 0;
-        var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-            _ =>
-            {
-                starts++;
-                return Task.FromResult(Authorization);
-            },
-            Pending,
-            Callbacks(_ => displays++),
-            null,
-            new CancellationToken(canceled: true)));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            DeviceFlow.RunAsync<string>(
+                _ =>
+                {
+                    starts++;
+                    return Task.FromResult(Authorization);
+                },
+                Pending,
+                Callbacks(_ => displays++),
+                null,
+                new CancellationToken(canceled: true)
+            )
+        );
         Assert.Equal(OAuthException.Cancelled, error.Code);
         Assert.Equal(0, starts);
         Assert.Equal(0, displays);
@@ -69,22 +87,25 @@ public sealed class RunDeviceFlowTests
     public async Task Passes_cancellation_to_the_initial_request_and_reports_a_cancelled_login()
     {
         using var cts = new CancellationTokenSource();
-        var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-            async token =>
-            {
-                if (!token.CanBeCanceled)
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            DeviceFlow.RunAsync<string>(
+                async token =>
                 {
-                    throw new InvalidOperationException("initial request received no token");
-                }
+                    if (!token.CanBeCanceled)
+                    {
+                        throw new InvalidOperationException("initial request received no token");
+                    }
 
-                await cts.CancelAsync();
-                await Task.Delay(Timeout.Infinite, token);
-                return Authorization;
-            },
-            Pending,
-            Callbacks(),
-            null,
-            cts.Token));
+                    await cts.CancelAsync();
+                    await Task.Delay(Timeout.Infinite, token);
+                    return Authorization;
+                },
+                Pending,
+                Callbacks(),
+                null,
+                cts.Token
+            )
+        );
         Assert.Equal(OAuthException.Cancelled, error.Code);
     }
 
@@ -93,16 +114,19 @@ public sealed class RunDeviceFlowTests
     {
         using var cts = new CancellationTokenSource();
         var displays = 0;
-        var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-            async _ =>
-            {
-                await cts.CancelAsync();
-                return Authorization;
-            },
-            Pending,
-            Callbacks(_ => displays++),
-            null,
-            cts.Token));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            DeviceFlow.RunAsync<string>(
+                async _ =>
+                {
+                    await cts.CancelAsync();
+                    return Authorization;
+                },
+                Pending,
+                Callbacks(_ => displays++),
+                null,
+                cts.Token
+            )
+        );
         Assert.Equal(OAuthException.Cancelled, error.Code);
         Assert.Equal(0, displays);
     }
@@ -115,16 +139,19 @@ public sealed class RunDeviceFlowTests
         DeviceFlow.Delay = (_, _) => Task.CompletedTask;
         try
         {
-            var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-                _ => Task.FromResult(Authorization),
-                async (_, _) =>
-                {
-                    await cts.CancelAsync();
-                    throw new OperationCanceledException();
-                },
-                Callbacks(),
-                null,
-                cts.Token));
+            var error = await Assert.ThrowsAsync<OAuthException>(() =>
+                DeviceFlow.RunAsync<string>(
+                    _ => Task.FromResult(Authorization),
+                    async (_, _) =>
+                    {
+                        await cts.CancelAsync();
+                        throw new OperationCanceledException();
+                    },
+                    Callbacks(),
+                    null,
+                    cts.Token
+                )
+            );
             Assert.Equal(OAuthException.Cancelled, error.Code);
         }
         finally
@@ -137,12 +164,9 @@ public sealed class RunDeviceFlowTests
     public async Task Preserves_a_non_cancellation_initial_request_failure()
     {
         var failure = new InvalidOperationException("device endpoint failed");
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => DeviceFlow.RunAsync<string>(
-            _ => throw failure,
-            Pending,
-            Callbacks(),
-            null,
-            CancellationToken.None));
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            DeviceFlow.RunAsync<string>(_ => throw failure, Pending, Callbacks(), null, CancellationToken.None)
+        );
         Assert.Same(failure, thrown);
     }
 
@@ -153,7 +177,8 @@ public sealed class RunDeviceFlowTests
             new DevicePoll<string>(DevicePollStatus.Pending),
             new DevicePoll<string>(DevicePollStatus.SlowDown),
             new DevicePoll<string>(DevicePollStatus.Pending),
-            new DevicePoll<string>(DevicePollStatus.Granted, "tok"));
+            new DevicePoll<string>(DevicePollStatus.Granted, "tok")
+        );
         Assert.Equal("tok", result);
         Assert.Equal(("https://x/device", "ABCD-1234"), (info!.Url, info.UserCode));
 
@@ -166,15 +191,30 @@ public sealed class RunDeviceFlowTests
     {
         var (_, sleeps, _) = await RunAsync(
             new DevicePoll<string>(DevicePollStatus.SlowDown, IntervalSeconds: 2),
-            new DevicePoll<string>(DevicePollStatus.Granted, "ok"));
+            new DevicePoll<string>(DevicePollStatus.Granted, "ok")
+        );
         Assert.Equal([5000, 2000], sleeps);
     }
 
     [Fact]
     public async Task Turns_denial_and_expiry_into_OAuthExceptions()
     {
-        Assert.Equal(OAuthException.Cancelled, (await Assert.ThrowsAsync<OAuthException>(() => RunAsync(new DevicePoll<string>(DevicePollStatus.Denied)))).Code);
-        Assert.Equal(OAuthException.Timeout, (await Assert.ThrowsAsync<OAuthException>(() => RunAsync(new DevicePoll<string>(DevicePollStatus.Expired)))).Code);
+        Assert.Equal(
+            OAuthException.Cancelled,
+            (
+                await Assert.ThrowsAsync<OAuthException>(() =>
+                    RunAsync(new DevicePoll<string>(DevicePollStatus.Denied))
+                )
+            ).Code
+        );
+        Assert.Equal(
+            OAuthException.Timeout,
+            (
+                await Assert.ThrowsAsync<OAuthException>(() =>
+                    RunAsync(new DevicePoll<string>(DevicePollStatus.Expired))
+                )
+            ).Code
+        );
     }
 
     [Fact]
@@ -185,12 +225,15 @@ public sealed class RunDeviceFlowTests
         DeviceFlow.Delay = (_, _) => Task.CompletedTask;
         try
         {
-            var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-                _ => Task.FromResult(Authorization with { ExpiresIn = 0.05 }),
-                Pending,
-                Callbacks(),
-                null,
-                CancellationToken.None));
+            var error = await Assert.ThrowsAsync<OAuthException>(() =>
+                DeviceFlow.RunAsync<string>(
+                    _ => Task.FromResult(Authorization with { ExpiresIn = 0.05 }),
+                    Pending,
+                    Callbacks(),
+                    null,
+                    CancellationToken.None
+                )
+            );
             Assert.Equal(OAuthException.Timeout, error.Code);
         }
         finally
@@ -203,12 +246,15 @@ public sealed class RunDeviceFlowTests
     public async Task Stops_at_an_abort_signal()
     {
         using var cts = new CancellationTokenSource();
-        var error = await Assert.ThrowsAsync<OAuthException>(() => DeviceFlow.RunAsync<string>(
-            _ => Task.FromResult(Authorization),
-            Pending,
-            Callbacks(_ => cts.Cancel()),
-            null,
-            cts.Token));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            DeviceFlow.RunAsync<string>(
+                _ => Task.FromResult(Authorization),
+                Pending,
+                Callbacks(_ => cts.Cancel()),
+                null,
+                cts.Token
+            )
+        );
         Assert.Equal(OAuthException.Cancelled, error.Code);
     }
 }

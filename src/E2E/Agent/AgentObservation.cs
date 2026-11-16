@@ -140,7 +140,10 @@ internal static partial class AgentObservation
     /// <summary>Poll interval for shape-stability settling.</summary>
     internal static readonly TimeSpan SettlePoll = TimeSpan.FromMilliseconds(75);
 
-    private static readonly Regex Reference = new(@"^( *)#\S+ ", RegexOptions.CultureInvariant | RegexOptions.Multiline);
+    private static readonly Regex Reference = new(
+        @"^( *)#\S+ ",
+        RegexOptions.CultureInvariant | RegexOptions.Multiline
+    );
 
     private static readonly Regex Focus = new(@" \[focused\]", RegexOptions.CultureInvariant);
 
@@ -156,7 +159,9 @@ internal static partial class AgentObservation
     /// scroll the tree does not, and the port's observations carry no screenshot.
     /// </summary>
     public static string Shape(Observation observation) =>
-        Shape(observation.TreeUnavailable ? "" : SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition
+        Shape(observation.TreeUnavailable ? "" : SnapshotText.Render(observation, Redactor.None))
+        + "\n"
+        + observation.ScrollPosition
         + (observation.Pixels is { } pixels ? "\n<pixels " + PixelDigest(pixels.Png) + ">" : "");
 
     /// <summary>
@@ -164,12 +169,32 @@ internal static partial class AgentObservation
     /// <c>observationShape</c> returns undefined for <c>kind: 'pixels'</c>: its pixels are the only evidence, and a beat of waiting for
     /// them to hold would read the same screen twice before the cache probe could use it.
     /// </summary>
-    public static string? SettleShape(Observation observation) => observation.TreeUnavailable ? null : Shape(observation);
+    public static string? SettleShape(Observation observation) =>
+        observation.TreeUnavailable ? null : Shape(observation);
 
     /// <summary>Roles the model can act on by name: the lines that mark a screen as one the tree can drive at all (upstream's <c>INTERACTIVE_ROLES</c>).</summary>
     internal static readonly HashSet<string> InteractiveRoles = new(
-        ["button", "link", "textbox", "searchbox", "combobox", "listbox", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "slider", "spinbutton", "treeitem"],
-        StringComparer.Ordinal);
+        [
+            "button",
+            "link",
+            "textbox",
+            "searchbox",
+            "combobox",
+            "listbox",
+            "checkbox",
+            "radio",
+            "switch",
+            "tab",
+            "menuitem",
+            "menuitemcheckbox",
+            "menuitemradio",
+            "option",
+            "slider",
+            "spinbutton",
+            "treeitem",
+        ],
+        StringComparer.Ordinal
+    );
 
     /// <summary>
     /// How many listed nodes the model could act on, read off the rendered <c>#id role</c> lines (upstream's <c>interactiveNodeCount</c>). A screen
@@ -236,7 +261,9 @@ internal static partial class AgentObservation
     /// shown the address, so the address is left out of it. An engine that reports no location compares the whole screen, its route included, unless the tree is withheld.
     /// </summary>
     public static string JudgmentShape(string tree, string listing, JudgedLocation? judged, bool treeWithheld) =>
-        treeWithheld ? Shape(WithoutNodeIds(listing)) : judged is null ? Shape(WithoutNodeIds(tree)) : Shape(WithoutNodeIds(listing)) + JudgedLocationShape(judged);
+        treeWithheld ? Shape(WithoutNodeIds(listing))
+        : judged is null ? Shape(WithoutNodeIds(tree))
+        : Shape(WithoutNodeIds(listing)) + JudgedLocationShape(judged);
 
     /// <summary>
     /// The listing with each line's node id taken out (upstream's <c>observationShape</c> drops node ids, which an engine may mint per
@@ -286,7 +313,10 @@ internal static partial class AgentObservation
         }
 
         // The larger of the engine's count and the tree's, so a reported count never weakens the proof (.NET-only; upstream trusts the engine's count, and a missing count is zero).
-        var secure = Math.Max(observation.SecureNodeCount ?? 0, LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure));
+        var secure = Math.Max(
+            observation.SecureNodeCount ?? 0,
+            LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure)
+        );
         return screenshot.MaskedRegionCount is not { } masked || masked < secure
             ? new PixelsOutcome(null, VisionDegradation.MaskingUnproven)
             : new PixelsOutcome(Pixels.SizeForModel(screenshot), null);
@@ -305,12 +335,17 @@ internal static partial class AgentObservation
         ArgumentNullException.ThrowIfNull(options);
         var location = observation.Location is null ? null : options.Redactor.Redact(observation.Location);
         var path = PathOf(observation, options.Redactor);
-        var pixels = observation.Pixels is null ? new PixelsOutcome(null, null) : PixelsForModel(observation, observation.Pixels);
+        var pixels = observation.Pixels is null
+            ? new PixelsOutcome(null, null)
+            : PixelsForModel(observation, observation.Pixels);
         if (observation.TreeUnavailable)
         {
             if (!options.PixelsAllowed || pixels.Pixels is null)
             {
-                throw new TestException("UNSUPPORTED_CAPABILITY", "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it");
+                throw new TestException(
+                    "UNSUPPORTED_CAPABILITY",
+                    "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it"
+                );
             }
 
             return new PreparedObservation
@@ -367,7 +402,9 @@ internal static partial class AgentObservation
     /// route. .NET-only helper: the feed reads it for a screen with no tree, which is not prepared.
     /// </summary>
     internal static string PathOf(Observation observation, Redactor redactor) =>
-        observation.Location is null ? redactor.Redact(observation.Route) : ObservationPath(redactor.Redact(observation.Location));
+        observation.Location is null
+            ? redactor.Redact(observation.Route)
+            : ObservationPath(redactor.Redact(observation.Location));
 
     /// <summary>
     /// Upstream's <c>observationPath</c>: the address without its origin, so trace and executor locations share the capture. What the
@@ -387,7 +424,11 @@ internal static partial class AgentObservation
     [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9+.\-]*:", RegexOptions.CultureInvariant)]
     private static partial Regex UrlScheme();
 
-    private static void IndexNodes(SemanticNode node, Dictionary<string, SemanticNode> into, Dictionary<string, string> parents)
+    private static void IndexNodes(
+        SemanticNode node,
+        Dictionary<string, SemanticNode> into,
+        Dictionary<string, string> parents
+    )
     {
         into[node.Ref] = node;
         foreach (var child in node.Children)
@@ -454,7 +495,10 @@ internal static partial class AgentObservation
     /// secret a provider resolved after the capture masks text the capture still shows, so the two captures read alike wherever the
     /// screen did not change (upstream's <c>redactNodesAgain</c>).
     /// </summary>
-    public static IReadOnlyDictionary<string, SemanticNode> RedactNodesAgain(IReadOnlyDictionary<string, SemanticNode> nodes, Redactor redactor)
+    public static IReadOnlyDictionary<string, SemanticNode> RedactNodesAgain(
+        IReadOnlyDictionary<string, SemanticNode> nodes,
+        Redactor redactor
+    )
     {
         ArgumentNullException.ThrowIfNull(nodes);
         var again = new Dictionary<string, SemanticNode>(StringComparer.Ordinal);
@@ -466,7 +510,10 @@ internal static partial class AgentObservation
             }
 
             var node = nodes[reference];
-            var children = node.Children.Where(child => nodes.ContainsKey(child.Ref)).Select(child => Redo(child.Ref)).ToList();
+            var children = node
+                .Children.Where(child => nodes.ContainsKey(child.Ref))
+                .Select(child => Redo(child.Ref))
+                .ToList();
             return again[reference] = RedactFields(node, redactor, children);
         }
 
@@ -484,7 +531,11 @@ internal static partial class AgentObservation
     /// a target on <paramref name="appOrigin"/> keeps that origin and loses no more of its path than the line does. A node
     /// the screen hides is left out and its children take its place, as the text leaves it out.
     /// </summary>
-    public static IReadOnlyList<ExecutorNode> ProjectTree(IReadOnlyList<SemanticNode> nodes, Redactor redactor, string? appOrigin)
+    public static IReadOnlyList<ExecutorNode> ProjectTree(
+        IReadOnlyList<SemanticNode> nodes,
+        Redactor redactor,
+        string? appOrigin
+    )
     {
         var projected = new List<ExecutorNode>();
         foreach (var node in nodes)
@@ -496,21 +547,27 @@ internal static partial class AgentObservation
                 continue;
             }
 
-            projected.Add(new ExecutorNode
-            {
-                Id = node.Ref,
-                Role = node.Role is null ? null : RedactText(node.Role, redactor),
-                Name = node.Name is null ? null : RedactText(node.Name, redactor, ObservationLimits.Name),
-                Text = node.Text is null ? null : RedactText(node.Text, redactor, ObservationLimits.Text),
-                Value = node.Value is null || node.States.Secure ? null : RedactText(node.Value, redactor, ObservationLimits.Text),
-                Selection = node.States.Secure ? null : SnapshotText.Selection(node, redactor),
-                InputPurpose = node.InputPurpose,
-                States = node.States,
-                Attributes = node.Attributes.Count == 0 ? null : TreeAttributes(node.Attributes, redactor, appOrigin),
-                Rect = node.Rect,
-                FramePath = node.FramePath?.Select(selector => RedactText(selector, redactor)).ToList(),
-                Children = children,
-            });
+            projected.Add(
+                new ExecutorNode
+                {
+                    Id = node.Ref,
+                    Role = node.Role is null ? null : RedactText(node.Role, redactor),
+                    Name = node.Name is null ? null : RedactText(node.Name, redactor, ObservationLimits.Name),
+                    Text = node.Text is null ? null : RedactText(node.Text, redactor, ObservationLimits.Text),
+                    Value =
+                        node.Value is null || node.States.Secure
+                            ? null
+                            : RedactText(node.Value, redactor, ObservationLimits.Text),
+                    Selection = node.States.Secure ? null : SnapshotText.Selection(node, redactor),
+                    InputPurpose = node.InputPurpose,
+                    States = node.States,
+                    Attributes =
+                        node.Attributes.Count == 0 ? null : TreeAttributes(node.Attributes, redactor, appOrigin),
+                    Rect = node.Rect,
+                    FramePath = node.FramePath?.Select(selector => RedactText(selector, redactor)).ToList(),
+                    Children = children,
+                }
+            );
         }
 
         return projected;
@@ -518,12 +575,18 @@ internal static partial class AgentObservation
 
     // The attributes of an executor node: the key is page text too, so it is redacted like the value (a later key that reads the
     // same replaces an earlier one, as upstream's Object.fromEntries does).
-    private static Dictionary<string, string> TreeAttributes(IReadOnlyDictionary<string, string> attributes, Redactor redactor, string? appOrigin)
+    private static Dictionary<string, string> TreeAttributes(
+        IReadOnlyDictionary<string, string> attributes,
+        Redactor redactor,
+        string? appOrigin
+    )
     {
         var projected = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (key, value) in attributes)
         {
-            projected[RedactText(key, redactor)] = string.Equals(key, "href", StringComparison.Ordinal) ? TreeHref(value, redactor, appOrigin) : RedactText(value, redactor);
+            projected[RedactText(key, redactor)] = string.Equals(key, "href", StringComparison.Ordinal)
+                ? TreeHref(value, redactor, appOrigin)
+                : RedactText(value, redactor);
         }
 
         return projected;
@@ -555,7 +618,12 @@ internal static partial class AgentObservation
 
         var visible = observation.Roots.Where(root => !(root.States.Hidden || root.States.AriaHidden)).ToList();
         return visible.Count == 0
-            || (visible.Count == 1 && visible[0].Role is { } role && EmptyRoots.Contains(role) && visible[0].Children.All(child => child.States.Hidden || child.States.AriaHidden));
+            || (
+                visible.Count == 1
+                && visible[0].Role is { } role
+                && EmptyRoots.Contains(role)
+                && visible[0].Children.All(child => child.States.Hidden || child.States.AriaHidden)
+            );
     }
 
     /// <summary>
@@ -576,7 +644,8 @@ internal static partial class AgentObservation
         Func<T, string?> shapeOf,
         SettleOptions<T> options,
         TimeProvider time,
-        CancellationToken token)
+        CancellationToken token
+    )
     {
         var poll = options.Poll ?? SettlePoll;
         var transitional = options.Transitional ?? (_ => false);
@@ -589,8 +658,10 @@ internal static partial class AgentObservation
 
         if (options.ChangedFrom is { } changedFrom)
         {
-            while ((string.Equals(shape, changedFrom.Shape, StringComparison.Ordinal) || transitional(value))
-                && time.GetUtcNow() < changedFrom.Deadline)
+            while (
+                (string.Equals(shape, changedFrom.Shape, StringComparison.Ordinal) || transitional(value))
+                && time.GetUtcNow() < changedFrom.Deadline
+            )
             {
                 await Task.Delay(poll, time, token).ConfigureAwait(false);
                 value = await capture(token).ConfigureAwait(false);

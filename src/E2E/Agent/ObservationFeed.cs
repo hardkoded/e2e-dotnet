@@ -116,12 +116,13 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     private static bool EchoesInput(SemanticNode node) => Roles.IsEditable(node) || node.Value is not null;
 
     /// <summary>The step's observation and pixel record for the report (upstream's <c>reportDetails</c>).</summary>
-    public StepAgentDetails ReportDetails() => new()
-    {
-        ObservationTruncated = _observationTruncated ? true : null,
-        VisionInput = _pixelsSent ? true : null,
-        VisionDegraded = _visionDegraded,
-    };
+    public StepAgentDetails ReportDetails() =>
+        new()
+        {
+            ObservationTruncated = _observationTruncated ? true : null,
+            VisionInput = _pixelsSent ? true : null,
+            VisionDegraded = _visionDegraded,
+        };
 
     /// <summary>
     /// The limits the step's observations are cut under, upstream's <c>ObservationFeedOptions</c>. Null for a feed that cuts nothing,
@@ -151,24 +152,36 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <paramref name="name"/> tells apart when the look is not the step's own (<c>relocate</c>, <c>page</c>), and which books the
     /// observation's size.
     /// </summary>
-    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) => ObserveAsync(mode, name, false, null, token);
+    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) =>
+        ObserveAsync(mode, name, false, null, token);
 
     /// <summary>
     /// Upstream's <c>look(mode, settledWhen)</c>: <see cref="ObserveAsync(SettleMode, string?, CancellationToken)"/> where a
     /// held-still look the caller can already vouch for (<paramref name="settledWhen"/>) returns that capture without the
     /// proof that it holds still.
     /// </summary>
-    public Task<Observation> ObserveAsync(SettleMode mode, string? name, Func<Observation, bool>? settledWhen, CancellationToken token) =>
-        ObserveAsync(mode, name, false, settledWhen, token);
+    public Task<Observation> ObserveAsync(
+        SettleMode mode,
+        string? name,
+        Func<Observation, bool>? settledWhen,
+        CancellationToken token
+    ) => ObserveAsync(mode, name, false, settledWhen, token);
 
     // Whether the look asks for pixels is this look's own, so a concurrent look books its size by its own ask. Pixels reserve part
     // of the token ceiling the tree is cut under.
-    private Task<Observation> ObserveAsync(SettleMode mode, string? name, bool pixels, Func<Observation, bool>? settledWhen, CancellationToken token) =>
+    private Task<Observation> ObserveAsync(
+        SettleMode mode,
+        string? name,
+        bool pixels,
+        Func<Observation, bool>? settledWhen,
+        CancellationToken token
+    ) =>
         Phases.InstrumentPhaseAsync(
             new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe, name),
             () => LookAsync(mode, pixels, settledWhen, token),
-            observation => Book(observation, pixels));
+            observation => Book(observation, pixels)
+        );
 
     /// <summary>The size in bytes of the largest observation the step read, as a model reads it (upstream's <c>metrics.observationBytes</c>).</summary>
     public int MaxObservationBytes { get; private set; }
@@ -182,7 +195,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return new PhaseDetail(count);
         }
 
-        var bytes = observation.TreeUnavailable ? System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker) : Prepare(observation, pixels).Bytes;
+        var bytes = observation.TreeUnavailable
+            ? System.Text.Encoding.UTF8.GetByteCount(UnavailableTreeMarker)
+            : Prepare(observation, pixels).Bytes;
         MaxObservationBytes = Math.Max(MaxObservationBytes, bytes);
         return new PhaseDetail(count, bytes);
     }
@@ -195,12 +210,29 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         Observation observation;
         try
         {
-            observation = await Phases.RetryingObserveAsync(
-                () => Scope is { } scope ? scope.ObserveAsync(PixelsAllowed ? PixelFallbackLook : SemanticOnlyLook, OperationContext.Agent, token) : session.ObserveAsync(OperationContext.Agent, token),
-                cause => Accounting?.Checkpoint(cause),
-                token).ConfigureAwait(false);
+            observation = await Phases
+                .RetryingObserveAsync(
+                    () =>
+                        Scope is { } scope
+                            ? scope.ObserveAsync(
+                                PixelsAllowed ? PixelFallbackLook : SemanticOnlyLook,
+                                OperationContext.Agent,
+                                token
+                            )
+                            : session.ObserveAsync(OperationContext.Agent, token),
+                    cause => Accounting?.Checkpoint(cause),
+                    token
+                )
+                .ConfigureAwait(false);
         }
-        catch (TestException ex) when (!PixelsAllowed && ex.Code == "UNSUPPORTED_CAPABILITY" && ex.Message.StartsWith("unavailable semantics require permitted fallback pixels", StringComparison.Ordinal))
+        catch (TestException ex)
+            when (!PixelsAllowed
+                && ex.Code == "UNSUPPORTED_CAPABILITY"
+                && ex.Message.StartsWith(
+                    "unavailable semantics require permitted fallback pixels",
+                    StringComparison.Ordinal
+                )
+            )
         {
             // A step that asked for the tree alone has no use for pixels the engine answers a screen without a tree with.
             throw SemanticOnlyDenied(ex);
@@ -231,8 +263,15 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // A screen with no tree cannot be answered with pixels to a step limited to semantic evidence. Upstream's tests name POLICY_DENIED for it.
     private static TestException SemanticOnlyDenied(Exception? cause = null) =>
         cause is null
-            ? new("POLICY_DENIED", "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it")
-            : new("POLICY_DENIED", "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it", cause);
+            ? new(
+                "POLICY_DENIED",
+                "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it"
+            )
+            : new(
+                "POLICY_DENIED",
+                "semantic capture is unavailable and this step is limited to semantic evidence, so no screenshot can replace it",
+                cause
+            );
 
     // A step limited to semantic evidence asks the engine for the tree alone (upstream's `pixelFallback: this.options.pixelsAllowed`).
     private static readonly ObserveOptions SemanticOnlyLook = new() { PixelFallback = false };
@@ -240,7 +279,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // False when the step asked for semantic evidence only (upstream's options.pixelsAllowed). A feed with no limits allows pixels.
     private bool PixelsAllowed => Options?.PixelsAllowed ?? true;
 
-    private async Task<Observation> LookAsync(SettleMode mode, bool pixels, Func<Observation, bool>? settledWhen, CancellationToken token)
+    private async Task<Observation> LookAsync(
+        SettleMode mode,
+        bool pixels,
+        Func<Observation, bool>? settledWhen,
+        CancellationToken token
+    )
     {
         Looks.Add(mode);
         Observation observation;
@@ -252,18 +296,21 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         {
             var changedFrom = _pending;
             _pending = null;
-            observation = await AgentObservation.SettleAsync(
-                SeeAsync,
-                AgentObservation.SettleShape,
-                new SettleOptions<Observation>
-                {
-                    ChangedFrom = changedFrom,
-                    Transitional = AgentObservation.IsTransitional,
-                    StableWait = mode == SettleMode.HeldStill ? SettlePolicy.HeldStill : TimeSpan.Zero,
-                    SettledWhen = mode == SettleMode.HeldStill ? settledWhen : null,
-                },
-                time,
-                token).ConfigureAwait(false);
+            observation = await AgentObservation
+                .SettleAsync(
+                    SeeAsync,
+                    AgentObservation.SettleShape,
+                    new SettleOptions<Observation>
+                    {
+                        ChangedFrom = changedFrom,
+                        Transitional = AgentObservation.IsTransitional,
+                        StableWait = mode == SettleMode.HeldStill ? SettlePolicy.HeldStill : TimeSpan.Zero,
+                        SettledWhen = mode == SettleMode.HeldStill ? settledWhen : null,
+                    },
+                    time,
+                    token
+                )
+                .ConfigureAwait(false);
         }
 
         Publish(observation, pixels);
@@ -355,7 +402,8 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var wantsPixels = options?.Pixels == true && PixelsAllowed;
-        var observation = await ObserveAsync(SettleMode.HeldStill, null, wantsPixels, null, token).ConfigureAwait(false);
+        var observation = await ObserveAsync(SettleMode.HeldStill, null, wantsPixels, null, token)
+            .ConfigureAwait(false);
 
         var view = View(PreparedOf(observation), scope, options);
         if (!wantsPixels && !observation.TreeUnavailable)
@@ -364,13 +412,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         // A screen with no tree carries its pixels with it; any other look is photographed now.
-        var captured = observation.TreeUnavailable ? observation.Pixels : await scope.CaptureAsync(token).ConfigureAwait(false);
+        var captured = observation.TreeUnavailable
+            ? observation.Pixels
+            : await scope.CaptureAsync(token).ConfigureAwait(false);
         var outcome = AgentObservation.PixelsForModel(observation, captured);
         if (outcome.Pixels is not { } pixels)
         {
             if (observation.TreeUnavailable)
             {
-                throw new TestException("UNSUPPORTED_CAPABILITY", "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it");
+                throw new TestException(
+                    "UNSUPPORTED_CAPABILITY",
+                    "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it"
+                );
             }
 
             scope.VisionDegraded = true;
@@ -382,14 +435,28 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         _pixelsSent = true;
         PixelBytes = Math.Max(PixelBytes ?? 0, pixels.Png.Length);
         var size = Pixels.ReadPngSize(pixels.Png);
-        return view with { Pixels = new ExecutorPixels(pixels.Png, "image/png", size?.Width ?? 0, size?.Height ?? 0, pixels.Scale, pixels.MaskedRegionCount ?? 0) };
+        return view with
+        {
+            Pixels = new ExecutorPixels(
+                pixels.Png,
+                "image/png",
+                size?.Width ?? 0,
+                size?.Height ?? 0,
+                pixels.Scale,
+                pixels.MaskedRegionCount ?? 0
+            ),
+        };
     }
 
     /// <summary>
     /// Upstream's <c>read</c>: reads a currently listed node, under the step deadline and secret redactor. The id is never relocated: a
     /// read measures the element the newest observation listed, or fails. The caller runs it in the step's queue order.
     /// </summary>
-    public async Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken token)
+    public async Task<ExecutorReadResult> ReadAsync(
+        ExecutorTarget target,
+        ExecutorReadOptions options,
+        CancellationToken token
+    )
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(options);
@@ -405,14 +472,25 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 IReadOnlyDictionary<string, string> result;
                 try
                 {
-                    result = await scope.Session.ReadStyleAsync(node, properties, accounting.Operation(OperationContext.Agent, scope.ActionTimeout), token).ConfigureAwait(false);
+                    result = await scope
+                        .Session.ReadStyleAsync(
+                            node,
+                            properties,
+                            accounting.Operation(OperationContext.Agent, scope.ActionTimeout),
+                            token
+                        )
+                        .ConfigureAwait(false);
                 }
                 catch (Exception cause) when (cause is not OperationCanceledException)
                 {
                     accounting.Checkpoint(cause);
                     if (cause is EngineException { Code: EngineErrorCodes.NodeStale })
                     {
-                        throw new TestException("LOCATOR_NOT_FOUND", "node #" + id + " left the screen before it was read; observe again", cause);
+                        throw new TestException(
+                            "LOCATOR_NOT_FOUND",
+                            "node #" + id + " left the screen before it was read; observe again",
+                            cause
+                        );
                     }
 
                     throw;
@@ -424,7 +502,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 {
                     if (result is null || !result.TryGetValue(property, out var value) || value is null)
                     {
-                        throw new EngineException(EngineErrorCodes.EngineFailure, "engine readStyle returned no string for \"" + property + "\"", retryable: false);
+                        throw new EngineException(
+                            EngineErrorCodes.EngineFailure,
+                            "engine readStyle returned no string for \"" + property + "\"",
+                            retryable: false
+                        );
                     }
 
                     style[property] = scope.Redactor.Redact(value);
@@ -432,20 +514,27 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
                 return new ExecutorReadResult(style);
             },
-            properties);
+            properties
+        );
     }
 
     // The read as one recorded observation event, as an instrumented phase translates it onto the closed agent error set (upstream's
     // instrumentPhase ends with toAgentError, which the port's phase does not: the observe phase's callers map their own failures).
-    private async Task<ExecutorReadResult> ReadPhaseAsync(Func<Task<ExecutorReadResult>> body, IReadOnlyList<string> properties)
+    private async Task<ExecutorReadResult> ReadPhaseAsync(
+        Func<Task<ExecutorReadResult>> body,
+        IReadOnlyList<string> properties
+    )
     {
         try
         {
-            return await Phases.InstrumentPhaseAsync(
-                new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
-                new PhaseSpec(StepEventKind.Observation, Phases.Observe, "readStyle"),
-                body,
-                _ => new PhaseDetail(Detail: "style: " + string.Join(", ", properties))).ConfigureAwait(false);
+            return await Phases
+                .InstrumentPhaseAsync(
+                    new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
+                    new PhaseSpec(StepEventKind.Observation, Phases.Observe, "readStyle"),
+                    body,
+                    _ => new PhaseDetail(Detail: "style: " + string.Join(", ", properties))
+                )
+                .ConfigureAwait(false);
         }
         catch (Exception cause) when (cause is not (OperationCanceledException or AgentException))
         {
@@ -457,7 +546,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// Upstream's <c>view</c>: one capture as the executor sees it, redacted, with the text, the truncation, the keyboard state
     /// and the route, and the tree when asked for. The step's start observation and <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> both read it.
     /// </summary>
-    internal ExecutorObservation View(PreparedObservation observation, AttemptScope scope, ExecutorObserveOptions? options = null)
+    internal ExecutorObservation View(
+        PreparedObservation observation,
+        AttemptScope scope,
+        ExecutorObserveOptions? options = null
+    )
     {
         // A screen with no tree is the marker and its pixels; any other is the prepared capture.
         var semantic = observation.Kind == PreparedKind.Semantic;
@@ -469,7 +562,10 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             Path = observation.Path,
             Tabs = observation.Tabs,
             Revision = observation.Revision.Length > 0 ? observation.Revision : null,
-            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Tree, scope.Redactor, scope.AppOrigin) : null,
+            Tree =
+                options?.Tree == true
+                    ? AgentObservation.ProjectTree(observation.Tree, scope.Redactor, scope.AppOrigin)
+                    : null,
             Viewport = observation.Viewport,
         };
     }
@@ -491,14 +587,26 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     private PreparedObservation Prepare(Observation observation, bool pixels)
     {
         var redactor = Scope?.Redactor ?? Redactor.None;
-        if (_prepared is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels && ReferenceEquals(last.Redactor, redactor))
+        if (
+            _prepared is { } last
+            && ReferenceEquals(last.Observation, observation)
+            && last.Pixels == pixels
+            && ReferenceEquals(last.Redactor, redactor)
+        )
         {
             return last.Value;
         }
 
         var value = AgentObservation.PrepareObservation(
             observation,
-            new PrepareObservationOptions { Redactor = redactor, MaxBytes = ByteBudget(pixels), PixelsAllowed = PixelsAllowed, AppOrigin = Scope?.AppOrigin });
+            new PrepareObservationOptions
+            {
+                Redactor = redactor,
+                MaxBytes = ByteBudget(pixels),
+                PixelsAllowed = PixelsAllowed,
+                AppOrigin = Scope?.AppOrigin,
+            }
+        );
         if (value.Truncated)
         {
             _observationTruncated = true;
@@ -518,7 +626,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             ? E2EDefaults.MaxObservationBytes
             : ObservationBudget.ObservationByteBudget(
                 new ObservationBudgetLimits(options.MaxObservationBytes, options.MaxInputTokens),
-                new ObservationBudgetRequest(options.ContextBytes + options.LedgerBytes, options.InstructionBytes, pixels));
+                new ObservationBudgetRequest(
+                    options.ContextBytes + options.LedgerBytes,
+                    options.InstructionBytes,
+                    pixels
+                )
+            );
 
     /// <summary>What <paramref name="reference"/> named in the newest observation of the step that carried it, with that observation (upstream's <c>lastSeen</c>).</summary>
     public Resolved? LastSeen(string reference)
@@ -554,14 +667,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var latest = Latest ?? throw NodeGone(id);
         if (latest.Kind == PreparedKind.Pixels)
         {
-            throw new TestException("LOCATOR_NOT_FOUND", "semantic capture is unavailable; previous node ids are no longer valid, so use the current screenshot");
+            throw new TestException(
+                "LOCATOR_NOT_FOUND",
+                "semantic capture is unavailable; previous node ids are no longer valid, so use the current screenshot"
+            );
         }
 
         return (id, latest);
     }
 
     /// <summary>What a screen with no semantic tree lists in place of one (upstream's <c>UNAVAILABLE_TREE_MARKER</c>).</summary>
-    internal const string UnavailableTreeMarker = "[semantic capture unavailable: no nodes were read; previous node ids are no longer valid. Use the screenshot, never infer absence from this listing]";
+    internal const string UnavailableTreeMarker =
+        "[semantic capture unavailable: no nodes were read; previous node ids are no longer valid. Use the screenshot, never infer absence from this listing]";
 
     /// <summary>Upstream's <c>nodeGone</c>: the error for a target id the newest screen no longer lists.</summary>
     public static TestException NodeGone(string id) =>
@@ -641,8 +758,13 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
         return RelocateRules.RelocateDescriptor(descriptor, observation, redactor) switch
         {
-            RelocationResult.Found found => RelocateRules.NodeOf(observation, found.Id) is { } relocated ? [relocated] : [],
-            RelocationResult.Failed { Candidates: { } candidates } => [.. candidates.Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>()],
+            RelocationResult.Found found => RelocateRules.NodeOf(observation, found.Id) is { } relocated
+                ? [relocated]
+                : [],
+            RelocationResult.Failed { Candidates: { } candidates } =>
+            [
+                .. candidates.Select(id => RelocateRules.NodeOf(observation, id)).OfType<SemanticNode>(),
+            ],
             _ => [],
         };
     }
@@ -661,4 +783,11 @@ internal sealed record Lookup(string Id, SemanticNode? Node, PreparedObservation
 /// <param name="ContextBytes">Bytes of the project context every turn resends (upstream reads them from the step's metrics).</param>
 /// <param name="LedgerBytes">Bytes of the prior-step ledger every turn resends (upstream reads them from the step's metrics).</param>
 /// <param name="PixelsAllowed">False when the step asked for semantic evidence only (upstream's <c>pixelsAllowed</c>).</param>
-internal sealed record ObservationFeedOptions(int MaxObservationBytes, int MaxInputTokens, int InstructionBytes, int ContextBytes, int LedgerBytes, bool PixelsAllowed = true);
+internal sealed record ObservationFeedOptions(
+    int MaxObservationBytes,
+    int MaxInputTokens,
+    int InstructionBytes,
+    int ContextBytes,
+    int LedgerBytes,
+    bool PixelsAllowed = true
+);

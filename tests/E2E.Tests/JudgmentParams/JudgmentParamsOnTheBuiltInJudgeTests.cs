@@ -28,12 +28,17 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
         await session.App.OpenAsync("/");
         await session.Agent.AssertAsync(
             "the table shows company {name} on the {plan} plan",
-            new AssertOptions { Params = new Dictionary<string, object?> { ["name"] = Values.Unique("acme-4821"), ["plan"] = "pro" } });
+            new AssertOptions
+            {
+                Params = new Dictionary<string, object?> { ["name"] = Values.Unique("acme-4821"), ["plan"] = "pro" },
+            }
+        );
 
         Assert.Contains(
             "Statement: the table shows company {name} on the {plan} plan\nParameters: {\"name\":\"acme-4821\",\"plan\":\"pro\"}\n\n",
             judge.Requests[0].Messages[0].Content,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -44,12 +49,18 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
         await session.App.OpenAsync("/");
         await session.Agent.WaitForAsync(
             "the table shows company {name}",
-            new WaitForOptions { Params = new Dictionary<string, object?> { ["name"] = Values.Unique("acme-7310") }, Interval = TimeSpan.FromMilliseconds(100) });
+            new WaitForOptions
+            {
+                Params = new Dictionary<string, object?> { ["name"] = Values.Unique("acme-7310") },
+                Interval = TimeSpan.FromMilliseconds(100),
+            }
+        );
 
         Assert.Contains(
             "Statement: the table shows company {name}\nParameters: {\"name\":\"acme-7310\"}\n\n",
             judge.Requests[0].Messages[0].Content,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -60,9 +71,20 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
         await session.App.OpenAsync("/");
         await session.Agent.AssertAsync(
             "the password field holds {password}",
-            new AssertOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("member.password", SecretValue, "password") } });
+            new AssertOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["password"] = Secret.Create("member.password", SecretValue, "password"),
+                },
+            }
+        );
 
-        Assert.Contains("\"password\":{\"kind\":\"secret\",\"name\":\"member.password\"", judge.Requests[0].Messages[0].Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "\"password\":{\"kind\":\"secret\",\"name\":\"member.password\"",
+            judge.Requests[0].Messages[0].Content,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain(SecretValue, Everything(judge), StringComparison.Ordinal);
     }
 
@@ -75,12 +97,17 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
         await session.App.OpenAsync("/");
         await session.Agent.AssertAsync(
             "the note reads {note}",
-            new AssertOptions { Params = new Dictionary<string, object?> { ["note"] = QuotedSecret } });
+            new AssertOptions { Params = new Dictionary<string, object?> { ["note"] = QuotedSecret } }
+        );
 
         Assert.Matches(NoteParameter(), judge.Requests[0].Messages[0].Content);
         var sent = Everything(judge);
         Assert.DoesNotContain(QuotedSecret, sent, StringComparison.Ordinal);
-        Assert.DoesNotContain(QuotedSecret.Replace("\"", "\\\"", StringComparison.Ordinal), sent, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            QuotedSecret.Replace("\"", "\\\"", StringComparison.Ordinal),
+            sent,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
@@ -93,17 +120,24 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
         await using var session = await StartAsync(Judge());
         await session.App.OpenAsync("/");
 
-        var assertError = await Assert.ThrowsAsync<TestException>(() => session.Agent.AssertAsync(
-            "the Home heading is visible",
-            new AssertOptions { Params = new Dictionary<string, object?> { ["n"] = double.NaN } }));
+        var assertError = await Assert.ThrowsAsync<TestException>(() =>
+            session.Agent.AssertAsync(
+                "the Home heading is visible",
+                new AssertOptions { Params = new Dictionary<string, object?> { ["n"] = double.NaN } }
+            )
+        );
         Assert.Equal("INVALID_ARGUMENT", assertError.Code);
-        Assert.Contains("agent.assert params contains a non-finite number", assertError.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "agent.assert params contains a non-finite number",
+            assertError.Message,
+            StringComparison.Ordinal
+        );
 
         var looped = new Dictionary<string, object?> { ["name"] = "acme" };
         looped["self"] = looped;
-        var waitForError = await Assert.ThrowsAsync<TestException>(() => session.Agent.WaitForAsync(
-            "the Home heading is visible",
-            new WaitForOptions { Params = looped }));
+        var waitForError = await Assert.ThrowsAsync<TestException>(() =>
+            session.Agent.WaitForAsync("the Home heading is visible", new WaitForOptions { Params = looped })
+        );
         Assert.Equal("INVALID_ARGUMENT", waitForError.Code);
         Assert.Contains("agent.waitFor params contains a cycle", waitForError.Message, StringComparison.Ordinal);
     }
@@ -111,18 +145,25 @@ public sealed partial class JudgmentParamsOnTheBuiltInJudgeTests
     private static ScriptedModel Judge() => new(_ => ModelResponses.Judgment("holds", "the observation supports it"));
 
     private static string Everything(ScriptedModel judge) =>
-        string.Join('\n', judge.Requests.Select(request => request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))));
+        string.Join(
+            '\n',
+            judge.Requests.Select(request =>
+                request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))
+            )
+        );
 
     private static Task<E2ESession> StartAsync(ScriptedModel judge) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            TestTitle = "judgment params",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "judgment params",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+            }
+        );
 
     [GeneratedRegex("Parameters: \\{\"note\":\"<secret:[^>]+>\"\\}")]
     private static partial Regex NoteParameter();

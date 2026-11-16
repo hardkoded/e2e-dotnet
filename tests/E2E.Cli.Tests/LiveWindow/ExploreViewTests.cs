@@ -31,7 +31,15 @@ public sealed class ExploreViewTests
     {
         using var terminal = Format.WithTerminalSize(rows: 40, columns: 60);
         var view = new ExploreView(Plain, new ExploreProgress.Started("checkout", Budgets));
-        var step = new ReportExploreStep(1, "Cart", "Open the cart", ReportExploreStepStatus.Failed, DateTimeOffset.Parse("2026-01-01T00:00:00.000Z", System.Globalization.CultureInfo.InvariantCulture), TimeSpan.FromMilliseconds(32_000), new string('日', 40));
+        var step = new ReportExploreStep(
+            1,
+            "Cart",
+            "Open the cart",
+            ReportExploreStepStatus.Failed,
+            DateTimeOffset.Parse("2026-01-01T00:00:00.000Z", System.Globalization.CultureInfo.InvariantCulture),
+            TimeSpan.FromMilliseconds(32_000),
+            new string('日', 40)
+        );
         var summary = view.StepLines(new ExploreView.FinishedStep(step, 0, 0))[1];
         Assert.Equal($"        {new string('日', 24)}…", summary);
         Assert.Equal(57, Format.VisibleWidth(summary));

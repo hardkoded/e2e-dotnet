@@ -29,10 +29,18 @@ public sealed class VisionOnWaitForAndExtractTests
                 await ctx.App.OpenAsync("/about");
                 await ctx.Agent.WaitForAsync(
                     "the animation has finished",
-                    new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromSeconds(2), MaxModelCalls = 4, Vision = VisionMode.On });
+                    new WaitForOptions
+                    {
+                        Interval = TimeSpan.FromMilliseconds(100),
+                        Timeout = TimeSpan.FromSeconds(2),
+                        MaxModelCalls = 4,
+                        Vision = VisionMode.On,
+                    }
+                );
             },
             engine,
-            judge);
+            judge
+        );
 
         Assert.Equal("STEP_BUDGET_EXHAUSTED", Assert.IsType<AgentException>(result.Error).Code);
         Assert.Equal(4, judge.CallCount);
@@ -47,16 +55,29 @@ public sealed class VisionOnWaitForAndExtractTests
             async ctx =>
             {
                 await ctx.App.OpenAsync("/about");
-                Assert.Equal("About", (await ctx.Agent.ExtractAsync<Reading>("the heading", new ExtractOptions { Vision = VisionMode.On })).Heading);
+                Assert.Equal(
+                    "About",
+                    (
+                        await ctx.Agent.ExtractAsync<Reading>(
+                            "the heading",
+                            new ExtractOptions { Vision = VisionMode.On }
+                        )
+                    ).Heading
+                );
             },
             new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            judge);
+            judge
+        );
 
         Assert.Null(result.Error);
         var message = judge.Requests[0].Messages[0];
         Assert.Single(message.Images!);
         Assert.Contains("heading \"About\"", message.Content, StringComparison.Ordinal);
-        Assert.Contains("A screenshot of the current screen is attached, 4x2 pixels.", message.Content, StringComparison.Ordinal);
+        Assert.Contains(
+            "A screenshot of the current screen is attached, 4x2 pixels.",
+            message.Content,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -70,7 +91,8 @@ public sealed class VisionOnWaitForAndExtractTests
                 await ctx.Agent.ExtractAsync<Reading>("the heading", new ExtractOptions { Vision = VisionMode.Only });
             },
             new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            judge);
+            judge
+        );
 
         Assert.Null(result.Error);
         var message = judge.Requests[0].Messages[0];
@@ -90,7 +112,8 @@ public sealed class VisionOnWaitForAndExtractTests
                 await ctx.Agent.WaitForAsync("the heading is About", new WaitForOptions { Vision = VisionMode.Only });
             },
             new ScreenshotEngine(World()),
-            judge);
+            judge
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("POLICY_DENIED", error.Code);
@@ -109,12 +132,15 @@ public sealed class VisionOnWaitForAndExtractTests
             {
                 await ctx.App.OpenAsync("/login");
                 await ctx.Agent.AssertAsync("a password field is shown", new AssertOptions { Vision = VisionMode.On });
-                var denied = await Assert.ThrowsAsync<AgentException>(() => ctx.Agent.AssertAsync("a password field is shown", new AssertOptions { Vision = VisionMode.Only }));
+                var denied = await Assert.ThrowsAsync<AgentException>(() =>
+                    ctx.Agent.AssertAsync("a password field is shown", new AssertOptions { Vision = VisionMode.Only })
+                );
                 Assert.Equal("POLICY_DENIED", denied.Code);
                 Assert.Contains("MASKING_UNPROVEN", denied.Message, StringComparison.Ordinal);
             },
             engine,
-            judge);
+            judge
+        );
 
         Assert.Null(result.Error);
         Assert.Equal(1, judge.CallCount);
@@ -131,26 +157,37 @@ public sealed class VisionOnWaitForAndExtractTests
                 await ctx.Agent.AssertAsync("the heading is About", new AssertOptions { Vision = (VisionMode)7 });
             },
             new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            new ScriptedModel(_ => ModelResponses.Done("passed", "it does")));
+            new ScriptedModel(_ => ModelResponses.Done("passed", "it does"))
+        );
 
         Assert.Equal("INVALID_ARGUMENT", Assert.IsType<TestException>(result.Error).Code);
     }
 
     private static DocumentWorld World() => CounterPage.World().Map("/about", page => page.Heading("About"));
 
-    private static async Task<CoreTests.Attempt> RunAsync(Func<TestContext, Task> body, IEngine engine, ScriptedModel judge)
+    private static async Task<CoreTests.Attempt> RunAsync(
+        Func<TestContext, Task> body,
+        IEngine engine,
+        ScriptedModel judge
+    )
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            TestTitle = "vision on waitFor and extract",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N"), "results"),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                TestTitle = "vision on waitFor and extract",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
+                ResultsDirectory = Path.Combine(
+                    Path.GetTempPath(),
+                    "e2e-vision-" + Guid.NewGuid().ToString("N"),
+                    "results"
+                ),
+            }
+        );
         Exception? error = null;
         try
         {
@@ -188,13 +225,17 @@ public sealed class VisionOnWaitForAndExtractTests
         {
             public string Route => inner.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                inner.OpenAsync(url, cancellationToken);
 
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+                inner.ObserveAsync(cancellationToken);
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                inner.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                inner.PressAsync(key, cancellationToken);
 
             public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
                 Task.FromResult(new EngineScreenshot(ScreenshotEngine.Png(), 1, 0));

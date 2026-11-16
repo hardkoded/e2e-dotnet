@@ -27,7 +27,11 @@ internal static class Decide
     /// change where the recording begins, so both are passed over.
     /// </summary>
     public static bool OpensWithNavigate(CacheEntry entry) =>
-        string.Equals(entry.Actions.FirstOrDefault(action => action.Kind is not ("tool" or "resize"))?.Kind, "navigate", StringComparison.Ordinal);
+        string.Equals(
+            entry.Actions.FirstOrDefault(action => action.Kind is not ("tool" or "resize"))?.Kind,
+            "navigate",
+            StringComparison.Ordinal
+        );
 
     /// <summary>
     /// Decides whether one entry replays for the current step. A truncated recording never replays. A recording that does not open with a navigate carries a start

@@ -25,10 +25,15 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         _app = FixtureApp.Start();
-        _project = new FixtureProject(new Dictionary<string, string>
-        {
-            ["e2e.config.json"] = FixtureProject.Config(_app.Url, credentials: $"\"admin\": {{ \"username\": \"{Username}\", \"password\": \"{Password}\" }}"),
-        });
+        _project = new FixtureProject(
+            new Dictionary<string, string>
+            {
+                ["e2e.config.json"] = FixtureProject.Config(
+                    _app.Url,
+                    credentials: $"\"admin\": {{ \"username\": \"{Username}\", \"password\": \"{Password}\" }}"
+                ),
+            }
+        );
         _cli = await ServedCli.StartAsync(_project.Directory);
     }
 
@@ -44,36 +49,70 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
     {
         var opened = await _cli.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
-        Assert.Contains($"Credentials: \"admin\" (username \"{Username}\", password secret \"admin.password\"). Type the username with type; fill the password with type_secret and its password secret's name.", opened.Text, StringComparison.Ordinal);
+        Assert.Contains(
+            $"Credentials: \"admin\" (username \"{Username}\", password secret \"admin.password\"). Type the username with type; fill the password with type_secret and its password secret's name.",
+            opened.Text,
+            StringComparison.Ordinal
+        );
         Assert.Contains("type_secret", ServedCli.CatalogNames(opened.Text));
         Assert.DoesNotContain(Password, opened.Text, StringComparison.Ordinal);
 
         var navigated = await _cli.CallAsync("navigate", new() { ["url"] = _app.Url + "/test-lines" });
-        Assert.Equal(["Navigated to " + _app.Url + "/test-lines.", "Test line: await App.OpenAsync(\"/test-lines\");"], navigated.Text.Split('\n').Take(2));
+        Assert.Equal(
+            ["Navigated to " + _app.Url + "/test-lines.", "Test line: await App.OpenAsync(\"/test-lines\");"],
+            navigated.Text.Split('\n').Take(2)
+        );
         var screen = (await _cli.CallAsync("observe")).Text;
         var afterOfferB = screen[screen.IndexOf("Offer B", StringComparison.Ordinal)..];
         var afterRowTwo = screen[screen.IndexOf("Row two", StringComparison.Ordinal)..];
 
         (string Tool, Dictionary<string, object?> Args, string Line)[] steps =
         [
-            ("type", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Username\""), ["text"] = Username }, "await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);"),
-            ("type_secret", new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["name"] = "admin.password" }, "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);"),
-            ("select", new() { ["target"] = ServedCli.RefOf(screen, "combobox \"Plan\""), ["value"] = "Pro" }, "await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");"),
-            ("check", new() { ["target"] = ServedCli.RefOf(screen, "checkbox \"Accept terms\"") }, "await Screen.GetByRole(\"checkbox\", \"Accept terms\").CheckAsync();"),
+            (
+                "type",
+                new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Username\""), ["text"] = Username },
+                "await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);"
+            ),
+            (
+                "type_secret",
+                new() { ["target"] = ServedCli.RefOf(screen, "textbox \"Password\""), ["name"] = "admin.password" },
+                "await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);"
+            ),
+            (
+                "select",
+                new() { ["target"] = ServedCli.RefOf(screen, "combobox \"Plan\""), ["value"] = "Pro" },
+                "await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");"
+            ),
+            (
+                "check",
+                new() { ["target"] = ServedCli.RefOf(screen, "checkbox \"Accept terms\"") },
+                "await Screen.GetByRole(\"checkbox\", \"Accept terms\").CheckAsync();"
+            ),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterOfferB, "button \"Reserve\"") },
-                "await Screen.GetByRole(\"listitem\").Filter(\"Offer B\").GetByRole(\"button\", \"Reserve\").TapAsync();"),
+                "await Screen.GetByRole(\"listitem\").Filter(\"Offer B\").GetByRole(\"button\", \"Reserve\").TapAsync();"
+            ),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(screen, "button \"Keep\"") },
-                "await Screen.GetByRole(\"button\", \"Keep\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"),
+                "await Screen.GetByRole(\"button\", \"Keep\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"
+            ),
             (
                 "tap",
                 new() { ["target"] = ServedCli.RefOf(afterRowTwo, "button \"Pick\"") },
-                "await Screen.GetByRole(\"button\", \"Pick\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"),
-            ("tap", new() { ["target"] = ServedCli.RefOf(screen, "testid=\"star\"") }, "await Screen.GetByTestId(\"star\").TapAsync();"),
-            ("tap", new() { ["target"] = ServedCli.RefOf(screen, "button \"Sign in\"") }, "await Screen.GetByRole(\"button\", \"Sign in\").TapAsync();"),
+                "await Screen.GetByRole(\"button\", \"Pick\").Nth(1).TapAsync(); // 2 of 2 matches, by position; a unique name or test id holds up better"
+            ),
+            (
+                "tap",
+                new() { ["target"] = ServedCli.RefOf(screen, "testid=\"star\"") },
+                "await Screen.GetByTestId(\"star\").TapAsync();"
+            ),
+            (
+                "tap",
+                new() { ["target"] = ServedCli.RefOf(screen, "button \"Sign in\"") },
+                "await Screen.GetByRole(\"button\", \"Sign in\").TapAsync();"
+            ),
         ];
         foreach (var (tool, args, line) in steps)
         {
@@ -86,21 +125,38 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         Assert.Contains(
             "status \"Summary\" text=\"user=ada@example.test password=set plan=Pro terms=true offer=B kept=shadow picked=2 starred=true\"",
             (await _cli.CallAsync("observe")).Text,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
 
         var drafted = await _cli.CallAsync("test_lines");
         Assert.False(drafted.IsError, drafted.Text);
         Assert.DoesNotContain(Password, drafted.Text, StringComparison.Ordinal);
-        Assert.Contains("Paste it into a test method, and add an Expect after each step that should change the screen.", drafted.Text, StringComparison.Ordinal);
-        string[] body = [.. drafted.Text.Split('\n').Where(line => line.StartsWith("await ", StringComparison.Ordinal) || line.StartsWith("// ", StringComparison.Ordinal))];
-        Assert.Equal(["await App.OpenAsync();", "await App.OpenAsync(\"/test-lines\");", .. steps.Select(step => step.Line)], body);
+        Assert.Contains(
+            "Paste it into a test method, and add an Expect after each step that should change the screen.",
+            drafted.Text,
+            StringComparison.Ordinal
+        );
+        string[] body =
+        [
+            .. drafted
+                .Text.Split('\n')
+                .Where(line =>
+                    line.StartsWith("await ", StringComparison.Ordinal)
+                    || line.StartsWith("// ", StringComparison.Ordinal)
+                ),
+        ];
+        Assert.Equal(
+            ["await App.OpenAsync();", "await App.OpenAsync(\"/test-lines\");", .. steps.Select(step => step.Line)],
+            body
+        );
         await _cli.InvokeAsync("close_session");
 
         // The real proof: the draft, pasted as is, replays the flow in a run.
         var run = await DraftedTestRun.RunAsync(
             _project.Directory,
             body,
-            "await Expect.That(Screen.GetByRole(\"status\", \"Summary\")).ToHaveTextAsync(\"user=ada@example.test password=set plan=Pro terms=true offer=B kept=shadow picked=2 starred=true\");");
+            "await Expect.That(Screen.GetByRole(\"status\", \"Summary\")).ToHaveTextAsync(\"user=ada@example.test password=set plan=Pro terms=true offer=B kept=shadow picked=2 starred=true\");"
+        );
         Assert.True(run.Code == 0, run.Output);
     }
 }

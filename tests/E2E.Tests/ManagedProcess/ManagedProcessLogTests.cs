@@ -53,7 +53,12 @@ public sealed class ManagedProcessLogTests : IDisposable
     [Fact]
     public async Task Discards_output_when_log_is_unset()
     {
-        await new ManagedProcessUnderTest("app.command", AppProgram.Command(["chatter", "0"]), _dir, Readiness.WaitForExit).StartAsync();
+        await new ManagedProcessUnderTest(
+            "app.command",
+            AppProgram.Command(["chatter", "0"]),
+            _dir,
+            Readiness.WaitForExit
+        ).StartAsync();
         Assert.Empty(Directory.GetFileSystemEntries(_dir));
     }
 }

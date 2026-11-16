@@ -68,11 +68,15 @@ public sealed partial class WebEngine
 
         /// <summary>Shows the open tab at <paramref name="index"/>, in opening order, for the agent's <c>switchTab</c> verb, and shows the screen after it (upstream's <c>switchTab</c>).</summary>
         public Task SwitchTabAsync(int index, OperationContext context, CancellationToken cancellationToken) =>
-            ActedAsync(cancellationToken, () => GuardAsync("switch tab", cancellationToken, () => ShowTabAtAsync(index)));
+            ActedAsync(cancellationToken, () =>
+                GuardAsync("switch tab", cancellationToken, () => ShowTabAtAsync(index))
+            );
 
         /// <summary>Closes the open tab at <paramref name="index"/>, in opening order, for the agent's <c>closeTab</c> verb, and shows the screen after it (upstream's <c>closeTabAt</c>).</summary>
         public Task CloseTabAsync(int index, OperationContext context, CancellationToken cancellationToken) =>
-            ActedAsync(cancellationToken, () => GuardAsync("close tab", cancellationToken, () => CloseTabAtAsync(index)));
+            ActedAsync(cancellationToken, () =>
+                GuardAsync("close tab", cancellationToken, () => CloseTabAtAsync(index))
+            );
 
         // --- tabs shared with the browser fixture ---
 
@@ -119,81 +123,91 @@ public sealed partial class WebEngine
         /// trigger is test code, so its errors keep their classification; the wait for the tab is bounded apart from it. A timeout names the
         /// page a tab was still loading, if any, as such a tab has no page to show yet.
         /// </summary>
-        public async Task<IAttemptTab> WaitForPopupAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<IAttemptTab> WaitForPopupAsync(
+            Func<Task> trigger,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
             const string Api = "browser.waitForPopup";
             return await GuardAsync("popup", cancellationToken, async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var budget = Budget("popup", cancellationToken, timeout);
-                var waitMs = (long)timeout.TotalMilliseconds;
-                using var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                Exception? triggerFailure = null;
-                long? triggerMs = null;
-                Func<string?> loading = static () => null;
-
-                TestException TimedOut(Exception inner)
                 {
-                    var url = loading();
-                    if (url is not null)
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var budget = Budget("popup", cancellationToken, timeout);
+                    var waitMs = (long)timeout.TotalMilliseconds;
+                    using var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    Exception? triggerFailure = null;
+                    long? triggerMs = null;
+                    Func<string?> loading = static () => null;
+
+                    TestException TimedOut(Exception inner)
                     {
-                        return new TestException("ACTION_FAILED", $"the tab the app opened did not load {url} within {waitMs}ms", inner);
+                        var url = loading();
+                        if (url is not null)
+                        {
+                            return new TestException(
+                                "ACTION_FAILED",
+                                $"the tab the app opened did not load {url} within {waitMs}ms",
+                                inner
+                            );
+                        }
+
+                        return new TestException(
+                            "ACTION_FAILED",
+                            triggerMs is null
+                                ? $"{Api} exceeded its timeout of {waitMs}ms"
+                                : $"no tab opened within {waitMs}ms; the trigger resolved after {triggerMs}ms",
+                            inner
+                        );
                     }
 
-                    return new TestException(
-                        "ACTION_FAILED",
-                        triggerMs is null
-                            ? $"{Api} exceeded its timeout of {waitMs}ms"
-                            : $"no tab opened within {waitMs}ms; the trigger resolved after {triggerMs}ms",
-                        inner);
-                }
+                    async Task RunTriggerAsync()
+                    {
+                        var begun = _seams.Clock.GetTimestamp();
+                        try
+                        {
+                            await trigger().ConfigureAwait(false);
+                        }
+                        catch (Exception cause)
+                        {
+                            triggerFailure = cause;
+                            throw;
+                        }
 
-                async Task RunTriggerAsync()
-                {
-                    var begun = _seams.Clock.GetTimestamp();
+                        triggerMs = (long)_seams.Clock.GetElapsedTime(begun).TotalMilliseconds;
+                    }
+
                     try
                     {
-                        await trigger().ConfigureAwait(false);
+                        var popup = NextPopupCore(scope.Token);
+                        loading = popup.Loading;
+                        ObserveFault(popup.Opened);
+                        var running = RunTriggerAsync();
+
+                        // A trigger abandoned at the deadline that fails later is already reported as the timeout.
+                        ObserveFault(running);
+                        await budget.WithinAsync(running).ConfigureAwait(false);
+                        return (IAttemptTab)await budget.WithinAsync(popup.Opened).ConfigureAwait(false);
                     }
-                    catch (Exception cause)
+                    catch (Exception cause) when (triggerFailure is not null && ReferenceEquals(cause, triggerFailure))
                     {
-                        triggerFailure = cause;
+                        // The trigger is test code, so its errors keep their original classification.
                         throw;
                     }
-
-                    triggerMs = (long)_seams.Clock.GetElapsedTime(begun).TotalMilliseconds;
-                }
-
-                try
-                {
-                    var popup = NextPopupCore(scope.Token);
-                    loading = popup.Loading;
-                    ObserveFault(popup.Opened);
-                    var running = RunTriggerAsync();
-
-                    // A trigger abandoned at the deadline that fails later is already reported as the timeout.
-                    ObserveFault(running);
-                    await budget.WithinAsync(running).ConfigureAwait(false);
-                    return (IAttemptTab)await budget.WithinAsync(popup.Opened).ConfigureAwait(false);
-                }
-                catch (Exception cause) when (triggerFailure is not null && ReferenceEquals(cause, triggerFailure))
-                {
-                    // The trigger is test code, so its errors keep their original classification.
-                    throw;
-                }
-                catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
-                {
-                    throw TimedOut(ex);
-                }
-                catch (Exception cause) when (WebErrors.IsPlaywright(cause))
-                {
-                    throw WebErrors.Translate(cause, "popup");
-                }
-                finally
-                {
-                    await scope.CancelAsync().ConfigureAwait(false);
-                }
-            }).ConfigureAwait(false);
+                    catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+                    {
+                        throw TimedOut(ex);
+                    }
+                    catch (Exception cause) when (WebErrors.IsPlaywright(cause))
+                    {
+                        throw WebErrors.Translate(cause, "popup");
+                    }
+                    finally
+                    {
+                        await scope.CancelAsync().ConfigureAwait(false);
+                    }
+                })
+                .ConfigureAwait(false);
         }
 
         /// <summary>The attempt's open tabs, in the order they opened.</summary>
@@ -235,11 +249,15 @@ public sealed partial class WebEngine
             Open();
 
             // Checked again in turn: a change queued before this one may be the tab closing.
-            await InTurnAsync(async () =>
-            {
-                Open();
-                await ShowAsync(tab).ConfigureAwait(false);
-            }, rethrow: true).ConfigureAwait(false);
+            await InTurnAsync(
+                    async () =>
+                    {
+                        Open();
+                        await ShowAsync(tab).ConfigureAwait(false);
+                    },
+                    rethrow: true
+                )
+                .ConfigureAwait(false);
         }
 
         /// <summary>The tabs the observation reports, when more than one is open (upstream's <c>withTabs</c>); null with one tab, or when no open tab is shown.</summary>
@@ -268,22 +286,32 @@ public sealed partial class WebEngine
 
             if (LastOpen())
             {
-                throw new TestException("ACTION_FAILED", $"tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)} is the only open tab");
+                throw new TestException(
+                    "ACTION_FAILED",
+                    $"tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)} is the only open tab"
+                );
             }
 
             // Checked again in turn: a change queued before this one may be another tab closing.
-            await InTurnAsync(async () =>
-            {
-                if (LastOpen())
-                {
-                    throw new TestException("ACTION_FAILED", $"tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)} is the only open tab");
-                }
+            await InTurnAsync(
+                    async () =>
+                    {
+                        if (LastOpen())
+                        {
+                            throw new TestException(
+                                "ACTION_FAILED",
+                                $"tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)} is the only open tab"
+                            );
+                        }
 
-                if (!tab.Page.IsClosed)
-                {
-                    await tab.Page.CloseAsync().ConfigureAwait(false);
-                }
-            }, rethrow: true).ConfigureAwait(false);
+                        if (!tab.Page.IsClosed)
+                        {
+                            await tab.Page.CloseAsync().ConfigureAwait(false);
+                        }
+                    },
+                    rethrow: true
+                )
+                .ConfigureAwait(false);
             await TabsSettledAsync().ConfigureAwait(false);
         }
 
@@ -300,7 +328,8 @@ public sealed partial class WebEngine
                 var open = _tabs.Count;
                 throw new TestException(
                     "ACTION_FAILED",
-                    $"there is no tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}: {open.ToString(System.Globalization.CultureInfo.InvariantCulture)} tab{(open == 1 ? " is" : "s are")} open");
+                    $"there is no tab {(index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}: {open.ToString(System.Globalization.CultureInfo.InvariantCulture)} tab{(open == 1 ? " is" : "s are")} open"
+                );
             }
         }
 
@@ -338,7 +367,8 @@ public sealed partial class WebEngine
         }
 
         /// <summary>Whether <paramref name="page"/> closed as a tab does, with the browser still connected, rather than with the connection.</summary>
-        internal bool TabClosed(IPage page) => page.IsClosed && !_disposed && _context is not null && _browser.IsConnected;
+        internal bool TabClosed(IPage page) =>
+            page.IsClosed && !_disposed && _context is not null && _browser.IsConnected;
 
         /// <summary>Settles once every tab change queued so far has finished.</summary>
         internal async Task TabsSettledAsync()
@@ -373,7 +403,8 @@ public sealed partial class WebEngine
                     _ => opened.TrySetResult(tab),
                     CancellationToken.None,
                     TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
+                    TaskScheduler.Default
+                );
             };
             lock (_tabsLock)
             {
@@ -427,16 +458,20 @@ public sealed partial class WebEngine
             }
 
             var registration = cancellationToken.Register(Forget);
-            var result = opened.Task.WaitAsync(cancellationToken).ContinueWith(
-                task =>
-                {
-                    Forget();
-                    registration.Dispose();
-                    return task;
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default).Unwrap();
+            var result = opened
+                .Task.WaitAsync(cancellationToken)
+                .ContinueWith(
+                    task =>
+                    {
+                        Forget();
+                        registration.Dispose();
+                        return task;
+                    },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default
+                )
+                .Unwrap();
             return new PopupWait(result, () =>
             {
                 lock (loading)
@@ -474,7 +509,8 @@ public sealed partial class WebEngine
                 },
                 CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+                TaskScheduler.Default
+            );
             return creating;
         }
 
@@ -594,7 +630,8 @@ public sealed partial class WebEngine
                     _ => Join(popup, opener, target),
                     CancellationToken.None,
                     TaskContinuationOptions.OnlyOnRanToCompletion,
-                    TaskScheduler.Default);
+                    TaskScheduler.Default
+                );
                 return;
             }
 
@@ -631,11 +668,13 @@ public sealed partial class WebEngine
             if (_persistent is not null && target is null)
             {
                 // A reconnect finds each tab by its target, a tab in the background too, so a tab joins with it.
-                _ = TargetIdentityAsync(popup).ContinueWith(
-                    read => Join(popup, opener, read.Result),
-                    CancellationToken.None,
-                    TaskContinuationOptions.OnlyOnRanToCompletion,
-                    TaskScheduler.Default);
+                _ = TargetIdentityAsync(popup)
+                    .ContinueWith(
+                        read => Join(popup, opener, read.Result),
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnRanToCompletion,
+                        TaskScheduler.Default
+                    );
                 return;
             }
 
@@ -680,7 +719,13 @@ public sealed partial class WebEngine
             AttemptTab? next;
             lock (_tabsLock)
             {
-                if (!ReferenceEquals(tab.Page, page) || !_tabs.Contains(tab) || _context is null || _disposed || !_browser.IsConnected)
+                if (
+                    !ReferenceEquals(tab.Page, page)
+                    || !_tabs.Contains(tab)
+                    || _context is null
+                    || _disposed
+                    || !_browser.IsConnected
+                )
                 {
                     return;
                 }
@@ -761,7 +806,9 @@ public sealed partial class WebEngine
                 await page.SetViewportSizeAsync(size.Width, size.Height).ConfigureAwait(false);
             }
 
-            await (_emulated.TryGetValue(page, out var emulated) ? emulated : ApplyMediaAsync(page)).ConfigureAwait(false);
+            await (_emulated.TryGetValue(page, out var emulated) ? emulated : ApplyMediaAsync(page)).ConfigureAwait(
+                false
+            );
             if (_persistent is not null)
             {
                 tab.Target ??= await TargetIdentityAsync(page).ConfigureAwait(false);
@@ -805,11 +852,24 @@ public sealed partial class WebEngine
                         await before.ConfigureAwait(false);
                         await work().ConfigureAwait(false);
                     },
-                    CancellationToken.None);
-                _tabWork = run.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    CancellationToken.None
+                );
+                _tabWork = run.ContinueWith(
+                    static _ => { },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default
+                );
             }
 
-            return rethrow ? run : run.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            return rethrow
+                ? run
+                : run.ContinueWith(
+                    static _ => { },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default
+                );
         }
 
         /// <summary>
@@ -826,17 +886,20 @@ public sealed partial class WebEngine
 
             lock (_tabsLock)
             {
-                _tabs = [.. _tabs.Where(tab =>
-                {
-                    if (tab.Target is null || !byTarget.TryGetValue(tab.Target.TargetId, out var page))
+                _tabs =
+                [
+                    .. _tabs.Where(tab =>
                     {
-                        return false;
-                    }
+                        if (tab.Target is null || !byTarget.TryGetValue(tab.Target.TargetId, out var page))
+                        {
+                            return false;
+                        }
 
-                    tab.Page = page;
-                    WatchTab(tab);
-                    return true;
-                })];
+                        tab.Page = page;
+                        WatchTab(tab);
+                        return true;
+                    }),
+                ];
             }
         }
 
@@ -881,16 +944,33 @@ public sealed partial class WebEngine
             {
                 return await read().ConfigureAwait(false);
             }
-            catch (Exception cause) when (page is null ? false : !cancellationToken.IsCancellationRequested && cause is not EngineException { Code: EngineErrorCodes.Cancelled } && TabClosed(page))
+            catch (Exception cause)
+                when (page is null
+                        ? false
+                        : !cancellationToken.IsCancellationRequested
+                            && cause is not EngineException { Code: EngineErrorCodes.Cancelled }
+                            && TabClosed(page)
+                )
             {
-                throw new EngineException(EngineErrorCodes.NodeStale, "the tab closed while it was read", retryable: true, cause);
+                throw new EngineException(
+                    EngineErrorCodes.NodeStale,
+                    "the tab closed while it was read",
+                    retryable: true,
+                    cause
+                );
             }
         }
 
         /// <summary>The first request of a tab being opened: a navigation Playwright has no frame for yet, since the page it loads in is not reported (upstream's <c>opensTab</c>).</summary>
         private static bool OpensTab(IRequest request)
         {
-            if (!request.IsNavigationRequest || !(request.Url.StartsWith("http:", StringComparison.Ordinal) || request.Url.StartsWith("https:", StringComparison.Ordinal)))
+            if (
+                !request.IsNavigationRequest
+                || !(
+                    request.Url.StartsWith("http:", StringComparison.Ordinal)
+                    || request.Url.StartsWith("https:", StringComparison.Ordinal)
+                )
+            )
             {
                 return false;
             }

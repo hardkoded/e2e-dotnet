@@ -44,13 +44,20 @@ public sealed class ErrorStacksTests
             DurationMs = 1,
             Error = error,
         };
-        var result = plain with { Attempts = [plain.Attempts[0] with { SecondaryErrors = [withStack], Steps = [step] }] };
+        var result = plain with
+        {
+            Attempts = [plain.Attempts[0] with { SecondaryErrors = [withStack], Steps = [step] }],
+        };
 
         var document = Build([result], ReportRunStatus.Error, 3, [ReportError.Of(error, "report")]);
         var json = JsonSerializer.Serialize(ReportWire.Document(document, "results"));
 
         Assert.Contains("expected the dashboard", json, StringComparison.Ordinal);
         Assert.DoesNotContain("\"stack\"", json, StringComparison.Ordinal);
-        Assert.DoesNotContain(Path.GetDirectoryName(thisFile)!.Replace("\\", "\\\\", StringComparison.Ordinal), json, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            Path.GetDirectoryName(thisFile)!.Replace("\\", "\\\\", StringComparison.Ordinal),
+            json,
+            StringComparison.Ordinal
+        );
     }
 }

@@ -87,11 +87,15 @@ public sealed class PageRouteTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         await Browser.RouteAsync("**/*", route => route.ContinueAsync());
-        await Browser.GotoAsync(Content("""
-            <form action='/redirect?to=/empty.html' method='post'>
-              <input type="hidden" id="foo" name="foo" value="FOOBAR">
-            </form>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <form action='/redirect?to=/empty.html' method='post'>
+                  <input type="hidden" id="foo" name="foo" value="FOOBAR">
+                </form>
+                """
+            )
+        );
         var navigation = Browser.WaitForURLAsync("/empty.html");
         await Browser.EvaluateAsync<object>("() => { document.querySelector('form').submit(); }");
         await navigation;
@@ -100,7 +104,11 @@ public sealed class PageRouteTests : PlaywrightTest
     [Test]
     public async Task Should_work_when_header_manipulation_headers_with_redirect()
     {
-        await Browser.RouteAsync("**/*", route => route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("foo", "bar")) }));
+        await Browser.RouteAsync("**/*", route =>
+            route.ContinueAsync(
+                new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("foo", "bar")) }
+            )
+        );
         await Browser.GotoAsync("/redirect?to=/empty.html");
     }
 
@@ -114,9 +122,14 @@ public sealed class PageRouteTests : PlaywrightTest
             headers.Remove("foo");
             await route.ContinueAsync(new RouteContinueOverrides { Headers = headers });
         });
-        var served = Served.Parse((await Browser.EvaluateAsync<string>(
-            "(url) => fetch(url, { headers: { foo: 'bar' } }).then((response) => response.text())",
-            $"{PREFIX}/cors-echo"))!);
+        var served = Served.Parse(
+            (
+                await Browser.EvaluateAsync<string>(
+                    "(url) => fetch(url, { headers: { foo: 'bar' } }).then((response) => response.text())",
+                    $"{PREFIX}/cors-echo"
+                )
+            )!
+        );
         Assert.That(served.Header("foo"), Is.Null);
     }
 
@@ -139,7 +152,14 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_properly_return_navigation_response_when_URL_has_cookies()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.SetCookiesAsync([new BrowserCookie { Url = EmptyPage, Name = "foo", Value = "bar" }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Url = EmptyPage,
+                Name = "foo",
+                Value = "bar",
+            },
+        ]);
         await Browser.RouteAsync("**/*", route => route.ContinueAsync());
         var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.ReloadAsync());
         Assert.That(response.Status, Is.EqualTo(200));
@@ -154,7 +174,12 @@ public sealed class PageRouteTests : PlaywrightTest
         await Browser.RouteAsync("**", async route =>
         {
             cookieValueInRoute = route.Request.Headers.GetValueOrDefault("cookie");
-            await route.ContinueAsync(new RouteContinueOverrides { Headers = WithHeaders(route.Request.Headers, ("cookie", "overridden=value")) });
+            await route.ContinueAsync(
+                new RouteContinueOverrides
+                {
+                    Headers = WithHeaders(route.Request.Headers, ("cookie", "overridden=value")),
+                }
+            );
         });
         await Browser.GotoAsync("/cors-echo");
         var served = Served.Parse((await TextContentAsync())!);
@@ -172,14 +197,16 @@ public sealed class PageRouteTests : PlaywrightTest
             await route.ContinueAsync();
             continued = true;
         });
-        var status = await Browser.EvaluateAsync<int>("""
+        var status = await Browser.EvaluateAsync<int>(
+            """
             () => {
               const request = new XMLHttpRequest();
               request.open('GET', '/redirect?to=/pptr.png', false);
               request.send(null);
               return request.status;
             }
-            """);
+            """
+        );
         Assert.That(status, Is.EqualTo(200));
         Assert.That(continued, Is.True);
     }
@@ -199,14 +226,16 @@ public sealed class PageRouteTests : PlaywrightTest
         var xhrFinished = false;
         var statusPromise = Task.Run(async () =>
         {
-            var status = await Browser.EvaluateAsync<int>("""
+            var status = await Browser.EvaluateAsync<int>(
+                """
                 () => {
                   const request = new XMLHttpRequest();
                   request.open('GET', '/global-var.html', false);
                   request.send(null);
                   return request.status;
                 }
-                """);
+                """
+            );
             xhrFinished = true;
             return status;
         });
@@ -247,9 +276,15 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_be_abortable()
     {
         await Browser.RouteAsync(new Regex(@"\.css$"), route => route.AbortAsync());
-        var response = await AllAsync(Browser.WaitForResponseAsync("**/one-style.html"), Browser.GotoAsync("/one-style.html"));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync("**/one-style.html"),
+            Browser.GotoAsync("/one-style.html")
+        );
         Assert.That(response.Status, Is.EqualTo(200));
-        Assert.That(await Browser.EvaluateAsync<string>("getComputedStyle(document.body).backgroundColor"), Is.Not.EqualTo("rgb(255, 192, 203)"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("getComputedStyle(document.body).backgroundColor"),
+            Is.Not.EqualTo("rgb(255, 192, 203)")
+        );
     }
 
     [Test]
@@ -264,14 +299,20 @@ public sealed class PageRouteTests : PlaywrightTest
             await route.AbortAsync();
         });
         await Browser.GotoAsync(EmptyPage);
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             (url) => {
               globalThis.controller = new AbortController();
               globalThis.failure = fetch(url, { signal: globalThis.controller.signal }).then(() => 'loaded', (error) => error.name);
             }
-            """, $"{PREFIX}/data.json");
+            """,
+            $"{PREFIX}/data.json"
+        );
         await routed.Task;
-        Assert.That(await Browser.EvaluateAsync<string>("() => { globalThis.controller.abort(); return globalThis.failure; }"), Is.EqualTo("AbortError"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => { globalThis.controller.abort(); return globalThis.failure; }"),
+            Is.EqualTo("AbortError")
+        );
         release.TrySetResult();
         await Browser.EvaluateAsync<object>("() => new Promise((resolve) => setTimeout(resolve, 100))");
     }
@@ -293,7 +334,13 @@ public sealed class PageRouteTests : PlaywrightTest
             await route.ContinueAsync();
             intercepted.Enqueue(route.Request);
         });
-        string[] chain = ["/non-existing-page.html", "/non-existing-page-2.html", "/non-existing-page-3.html", "/non-existing-page-4.html"];
+        string[] chain =
+        [
+            "/non-existing-page.html",
+            "/non-existing-page-2.html",
+            "/non-existing-page-3.html",
+            "/non-existing-page-4.html",
+        ];
         var start = "/empty.html";
         foreach (var from in chain.Reverse())
         {
@@ -350,7 +397,12 @@ public sealed class PageRouteTests : PlaywrightTest
         var results = new List<string?>();
         for (var i = 0; i < 3; i++)
         {
-            results.Add(await Browser.EvaluateAsync<string>("(key) => fetch('/count?key=' + key).then((response) => response.text()).catch(() => 'FAILED')", key));
+            results.Add(
+                await Browser.EvaluateAsync<string>(
+                    "(key) => fetch('/count?key=' + key).then((response) => response.text()).catch(() => 'FAILED')",
+                    key
+                )
+            );
         }
 
         Assert.That(results, Is.EqualTo(new[] { "11", "FAILED", "22" }));
@@ -366,7 +418,10 @@ public sealed class PageRouteTests : PlaywrightTest
             requests.Enqueue(route.Request);
             await route.ContinueAsync();
         });
-        var text = await Browser.EvaluateAsync<string>("(url) => fetch(url).then((response) => response.text())", "data:text/html,<div>yo</div>");
+        var text = await Browser.EvaluateAsync<string>(
+            "(url) => fetch(url).then((response) => response.text())",
+            "data:text/html,<div>yo</div>"
+        );
         Assert.That(text, Is.EqualTo("<div>yo</div>"));
         Assert.That(requests, Is.Empty);
     }
@@ -380,7 +435,10 @@ public sealed class PageRouteTests : PlaywrightTest
             requests.Enqueue(route.Request);
             await route.ContinueAsync();
         });
-        var response = await AllAsync(Browser.WaitForResponseAsync("**/empty.html"), Browser.GotoAsync($"{EmptyPage}#hash"));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync("**/empty.html"),
+            Browser.GotoAsync($"{EmptyPage}#hash")
+        );
         Assert.That(response.Status, Is.EqualTo(200));
         Assert.That(response.Url, Is.EqualTo(EmptyPage));
         var seen = requests.ToArray();
@@ -392,7 +450,10 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_work_with_encoded_server()
     {
         await Browser.RouteAsync("**/*", route => route.ContinueAsync());
-        var response = await AllAsync(Browser.WaitForResponseAsync(new Regex("nonexisting")), Browser.GotoAsync($"{PREFIX}/some nonexisting page"));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync(new Regex("nonexisting")),
+            Browser.GotoAsync($"{PREFIX}/some nonexisting page")
+        );
         Assert.That(response.Status, Is.EqualTo(404));
     }
 
@@ -400,7 +461,10 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_work_with_badly_encoded_server()
     {
         await Browser.RouteAsync("**/*", route => route.ContinueAsync());
-        var response = await AllAsync(Browser.WaitForResponseAsync(new Regex("rnd=")), Browser.GotoAsync($"{PREFIX}/status?rnd=%911"));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync(new Regex("rnd=")),
+            Browser.GotoAsync($"{PREFIX}/status?rnd=%911")
+        );
         Assert.That(response.Status, Is.EqualTo(200));
     }
 
@@ -419,7 +483,8 @@ public sealed class PageRouteTests : PlaywrightTest
         });
         var response = await AllAsync(
             Browser.WaitForResponseAsync(new Regex(@"/fonts\?")),
-            Browser.GotoAsync(Content($"""<link rel="stylesheet" href="{PREFIX}/fonts?helvetica|arial"/>""")));
+            Browser.GotoAsync(Content($"""<link rel="stylesheet" href="{PREFIX}/fonts?helvetica|arial"/>"""))
+        );
         Assert.That(requests, Has.Count.EqualTo(1));
         Assert.That(response.Status, Is.EqualTo(404));
     }
@@ -453,7 +518,10 @@ public sealed class PageRouteTests : PlaywrightTest
             intercepted = true;
             await route.ContinueAsync();
         });
-        var response = await AllAsync(Browser.WaitForResponseAsync($"{CROSS}/empty.html"), Browser.GotoAsync($"{CROSS}/empty.html"));
+        var response = await AllAsync(
+            Browser.WaitForResponseAsync($"{CROSS}/empty.html"),
+            Browser.GotoAsync($"{CROSS}/empty.html")
+        );
         Assert.That(response.Status, Is.EqualTo(200));
         Assert.That(intercepted, Is.True);
     }
@@ -470,9 +538,18 @@ public sealed class PageRouteTests : PlaywrightTest
                 return;
             }
 
-            await route.FulfillAsync(new RouteFulfillResponse { Status = 301, Headers = new Dictionary<string, string> { ["location"] = "/status?body=foo" } });
+            await route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    Status = 301,
+                    Headers = new Dictionary<string, string> { ["location"] = "/status?body=foo" },
+                }
+            );
         });
-        var text = await Browser.EvaluateAsync<string>("async (url) => (await fetch(url)).text()", $"{PREFIX}/redirect_this");
+        var text = await Browser.EvaluateAsync<string>(
+            "async (url) => (await fetch(url)).text()",
+            $"{PREFIX}/redirect_this"
+        );
         Assert.That(text, Is.EqualTo("foo"));
     }
 
@@ -482,12 +559,31 @@ public sealed class PageRouteTests : PlaywrightTest
         await Browser.GotoAsync(EmptyPage);
         await Browser.RouteAsync("**/cars*", async route =>
         {
-            var headers = new Dictionary<string, string> { ["access-control-allow-origin"] = route.Request.Url.EndsWith("allow", StringComparison.Ordinal) ? "*" : "none" };
-            await route.FulfillAsync(new RouteFulfillResponse { ContentType = "application/json", Headers = headers, Status = 200, Body = """["electric","gas"]""" });
+            var headers = new Dictionary<string, string>
+            {
+                ["access-control-allow-origin"] = route.Request.Url.EndsWith("allow", StringComparison.Ordinal)
+                    ? "*"
+                    : "none",
+            };
+            await route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Headers = headers,
+                    Status = 200,
+                    Body = """["electric","gas"]""",
+                }
+            );
         });
-        var resp = await Browser.EvaluateAsync<string[]>("async () => (await fetch('https://example.com/cars?allow', { mode: 'cors' })).json()");
+        var resp = await Browser.EvaluateAsync<string[]>(
+            "async () => (await fetch('https://example.com/cars?allow', { mode: 'cors' })).json()"
+        );
         Assert.That(resp, Is.EqualTo(new[] { "electric", "gas" }));
-        var error = await Assert.CatchAsync(() => Browser.EvaluateAsync<string[]>("async () => (await fetch('https://example.com/cars?reject', { mode: 'cors' })).json()"));
+        var error = await Assert.CatchAsync(() =>
+            Browser.EvaluateAsync<string[]>(
+                "async () => (await fetch('https://example.com/cars?reject', { mode: 'cors' })).json()"
+            )
+        );
         Assert.That(error!.Message, Does.Contain("Failed"));
     }
 
@@ -495,9 +591,17 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_add_Access_Control_Allow_Origin_by_default_when_fulfill()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(new RouteFulfillResponse { ContentType = "application/json", Status = 200, Body = """["electric","gas"]""" }));
+        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Status = 200,
+                    Body = """["electric","gas"]""",
+                }
+            ));
         var waiting = Browser.WaitForResponseAsync("https://example.com/cars");
-        var result = await Browser.EvaluateAsync<string[]>("""
+        var result = await Browser.EvaluateAsync<string[]>(
+            """
             async () => {
               const response = await fetch('https://example.com/cars', {
                 method: 'POST',
@@ -507,7 +611,8 @@ public sealed class PageRouteTests : PlaywrightTest
               });
               return response.json();
             }
-            """);
+            """
+        );
         var response = await waiting;
         Assert.That(result, Is.EqualTo(new[] { "electric", "gas" }));
         Assert.That(response.Headers["access-control-allow-origin"], Is.EqualTo(PREFIX));
@@ -518,14 +623,24 @@ public sealed class PageRouteTests : PlaywrightTest
     {
         // e2e opens no page before the first goto, where Playwright starts on about:blank.
         await Browser.GotoAsync("about:blank");
-        await Browser.RouteAsync("**/something", route => route.FulfillAsync(new RouteFulfillResponse { ContentType = "text/plain", Status = 200, Body = "done" }));
+        await Browser.RouteAsync("**/something", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "text/plain",
+                    Status = 200,
+                    Body = "done",
+                }
+            ));
         var waiting = Browser.WaitForResponseAsync($"{CROSS}/something");
-        var text = await Browser.EvaluateAsync<string>("""
+        var text = await Browser.EvaluateAsync<string>(
+            """
             async (url) => {
               const data = await fetch(url, { method: 'GET', headers: { 'X-PINGOTHER': 'pingpong' } });
               return data.text();
             }
-            """, $"{CROSS}/something");
+            """,
+            $"{CROSS}/something"
+        );
         var response = await waiting;
         Assert.That(text, Is.EqualTo("done"));
         Assert.That(response.Headers["access-control-allow-origin"], Is.EqualTo("null"));
@@ -535,19 +650,29 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_respect_cors_overrides()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/something", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "text/plain",
-            Status = 200,
-            Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "http://non-existent" },
-            Body = "done",
-        }));
-        var error = await Assert.CatchAsync(() => Browser.EvaluateAsync<string>("""
-            async (url) => {
-              const data = await fetch(url, { method: 'GET', headers: { 'X-PINGOTHER': 'pingpong' } });
-              return data.text();
-            }
-            """, $"{CROSS}/something"));
+        await Browser.RouteAsync("**/something", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "text/plain",
+                    Status = 200,
+                    Headers = new Dictionary<string, string>
+                    {
+                        ["Access-Control-Allow-Origin"] = "http://non-existent",
+                    },
+                    Body = "done",
+                }
+            ));
+        var error = await Assert.CatchAsync(() =>
+            Browser.EvaluateAsync<string>(
+                """
+                async (url) => {
+                  const data = await fetch(url, { method: 'GET', headers: { 'X-PINGOTHER': 'pingpong' } });
+                  return data.text();
+                }
+                """,
+                $"{CROSS}/something"
+            )
+        );
         Assert.That(error!.Message, Does.Contain("Failed to fetch"));
     }
 
@@ -560,8 +685,12 @@ public sealed class PageRouteTests : PlaywrightTest
         Assert.That(texts![0], Is.EqualTo("Hello"));
         Assert.That(texts[1], Is.EqualTo("World"));
         Assert.That(
-            await Browser.EvaluateAsync<string[]>("(key) => fetch(`/options-log?key=${key}`).then((response) => response.json())", key),
-            Is.EqualTo(new[] { "OPTIONS:/options", "OPTIONS:/options", "GET:/options" }));
+            await Browser.EvaluateAsync<string[]>(
+                "(key) => fetch(`/options-log?key=${key}`).then((response) => response.json())",
+                key
+            ),
+            Is.EqualTo(new[] { "OPTIONS:/options", "OPTIONS:/options", "GET:/options" })
+        );
     }
 
     [Test]
@@ -573,7 +702,10 @@ public sealed class PageRouteTests : PlaywrightTest
         var texts = await Browser.EvaluateAsync<string[]>(OptionsRequests, $"{CROSS}/options?key={key}");
         Assert.That(texts![0], Is.EqualTo("Hello"));
         Assert.That(texts[1], Is.EqualTo("World"));
-        var requests = await Browser.EvaluateAsync<string[]>("(key) => fetch(`/options-log?key=${key}`).then((response) => response.json())", key);
+        var requests = await Browser.EvaluateAsync<string[]>(
+            "(key) => fetch(`/options-log?key=${key}`).then((response) => response.json())",
+            key
+        );
         Assert.That(requests, Is.EqualTo(new[] { "OPTIONS:/options", "GET:/options" }));
     }
 
@@ -603,13 +735,15 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_support_cors_with_POST()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "application/json",
-            Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
-            Status = 200,
-            Body = """["electric","gas"]""",
-        }));
+        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
+                    Status = 200,
+                    Body = """["electric","gas"]""",
+                }
+            ));
         var resp = await Browser.EvaluateAsync<string[]>(PostCars);
         Assert.That(resp, Is.EqualTo(new[] { "electric", "gas" }));
     }
@@ -618,14 +752,21 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_support_cors_with_credentials()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "application/json",
-            Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = PREFIX, ["Access-Control-Allow-Credentials"] = "true" },
-            Status = 200,
-            Body = """["electric","gas"]""",
-        }));
-        var resp = await Browser.EvaluateAsync<string[]>("""
+        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Headers = new Dictionary<string, string>
+                    {
+                        ["Access-Control-Allow-Origin"] = PREFIX,
+                        ["Access-Control-Allow-Credentials"] = "true",
+                    },
+                    Status = 200,
+                    Body = """["electric","gas"]""",
+                }
+            ));
+        var resp = await Browser.EvaluateAsync<string[]>(
+            """
             async () => {
               const response = await fetch('https://example.com/cars', {
                 method: 'POST',
@@ -636,7 +777,8 @@ public sealed class PageRouteTests : PlaywrightTest
               });
               return response.json();
             }
-            """);
+            """
+        );
         Assert.That(resp, Is.EqualTo(new[] { "electric", "gas" }));
     }
 
@@ -645,13 +787,16 @@ public sealed class PageRouteTests : PlaywrightTest
     {
         await Browser.GotoAsync(EmptyPage);
         await Browser.RouteAsync("**/never-matches", route => route.ContinueAsync());
-        var result = await Browser.EvaluateAsync<string>("""
+        var result = await Browser.EvaluateAsync<string>(
+            """
             async (url) => {
               const response = await fetch(url, { credentials: 'include', headers: { 'X-App-Version': '1.2.3' } });
               const served = await response.json();
               return response.status + ' ' + served.method + ' ' + served.headers['x-app-version'];
             }
-            """, $"{CROSS}/bounce?to={Uri.EscapeDataString($"{PREFIX}/cors-echo?preflight")}");
+            """,
+            $"{CROSS}/bounce?to={Uri.EscapeDataString($"{PREFIX}/cors-echo?preflight")}"
+        );
         Assert.That(result, Is.EqualTo("200 GET 1.2.3"));
     }
 
@@ -659,25 +804,31 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_reject_cors_with_disallowed_credentials()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "application/json",
-            Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = PREFIX },
-            Status = 200,
-            Body = """["electric","gas"]""",
-        }));
-        var error = await Assert.CatchAsync(() => Browser.EvaluateAsync<string[]>("""
-            async () => {
-              const response = await fetch('https://example.com/cars', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                mode: 'cors',
-                body: JSON.stringify({ number: 1 }),
-                credentials: 'include',
-              });
-              return response.json();
-            }
-            """));
+        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = PREFIX },
+                    Status = 200,
+                    Body = """["electric","gas"]""",
+                }
+            ));
+        var error = await Assert.CatchAsync(() =>
+            Browser.EvaluateAsync<string[]>(
+                """
+                async () => {
+                  const response = await fetch('https://example.com/cars', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    mode: 'cors',
+                    body: JSON.stringify({ number: 1 }),
+                    credentials: 'include',
+                  });
+                  return response.json();
+                }
+                """
+            )
+        );
         Assert.That(error, Is.Not.Null);
     }
 
@@ -685,21 +836,25 @@ public sealed class PageRouteTests : PlaywrightTest
     public async Task Should_support_cors_for_different_methods()
     {
         await Browser.GotoAsync(EmptyPage);
-        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(new RouteFulfillResponse
-        {
-            ContentType = "application/json",
-            Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
-            Status = 200,
-            Json = new[] { route.Request.Method, "electric", "gas" },
-        }));
+        await Browser.RouteAsync("**/cars", route => route.FulfillAsync(
+                new RouteFulfillResponse
+                {
+                    ContentType = "application/json",
+                    Headers = new Dictionary<string, string> { ["Access-Control-Allow-Origin"] = "*" },
+                    Status = 200,
+                    Json = new[] { route.Request.Method, "electric", "gas" },
+                }
+            ));
         var post = await Browser.EvaluateAsync<string[]>(PostCars);
         Assert.That(post, Is.EqualTo(new[] { "POST", "electric", "gas" }));
-        var remove = await Browser.EvaluateAsync<string[]>("""
+        var remove = await Browser.EvaluateAsync<string[]>(
+            """
             async () => {
               const response = await fetch('https://example.com/cars', { method: 'DELETE', headers: {}, mode: 'cors', body: '' });
               return response.json();
             }
-            """);
+            """
+        );
         Assert.That(remove, Is.EqualTo(new[] { "DELETE", "electric", "gas" }));
     }
 
@@ -725,13 +880,14 @@ public sealed class PageRouteTests : PlaywrightTest
         var handled = Deferred<Exception>();
         await Browser.RouteAsync("**/*", async route =>
         {
-            Task Decide() => method switch
-            {
-                "fulfill" => route.FulfillAsync(new RouteFulfillResponse()),
-                "continue" => route.ContinueAsync(),
-                "fallback" => route.FallbackAsync(),
-                _ => route.AbortAsync(),
-            };
+            Task Decide() =>
+                method switch
+                {
+                    "fulfill" => route.FulfillAsync(new RouteFulfillResponse()),
+                    "continue" => route.ContinueAsync(),
+                    "fallback" => route.FallbackAsync(),
+                    _ => route.AbortAsync(),
+                };
 
             await Decide();
             try
@@ -761,7 +917,10 @@ public sealed class PageRouteTests : PlaywrightTest
             await route.AbortAsync();
             intercepted.TrySetResult(route.Request.PostData);
         });
-        await Browser.EvaluateAsync<object>("(body) => fetch('/404.html', { method: 'POST', body }).then(() => null, () => null)", postBody);
+        await Browser.EvaluateAsync<object>(
+            "(body) => fetch('/404.html', { method: 'POST', body }).then(() => null, () => null)",
+            postBody
+        );
         Assert.That(await intercepted.Task, Is.EqualTo(postBody));
     }
 }

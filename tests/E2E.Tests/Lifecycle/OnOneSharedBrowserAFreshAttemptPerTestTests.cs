@@ -55,7 +55,8 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             Assert.False(nodes.First(node => node.Name == "Mute").States.Pressed);
             Assert.All(nodes.Where(node => node.Role != "heading"), node => Assert.Null(node.Level));
 
-            async Task<List<string?>> Names(Locator locator) => (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.Name).ToList();
+            async Task<List<string?>> Names(Locator locator) =>
+                (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.Name).ToList();
             Assert.Equal(["Pointer"], await Names(screen.GetByRole("heading", new RoleOptions { Level = 2 })));
             Assert.Empty(await Names(screen.GetByRole("heading", new RoleOptions { Level = 1 })));
 
@@ -68,26 +69,77 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             Assert.Equal("context menu", await screen.GetByTestId("menu-target").TextContentAsync());
 
             // Every pointer kind at a bare point, read back from the page's event log.
-            Assert.Equal(["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"], session.Screen.PointerActionKinds);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(150, 350), new PointerAction.Tap(), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(160, 360), new PointerAction.DoubleTap(), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(170, 370), new PointerAction.SecondaryTap(), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(180, 380), new PointerAction.LongPress(TimeSpan.FromMilliseconds(120)), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(190, 390), new PointerAction.Hover(), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(200, 400), new PointerAction.DragTo(new Point(300, 450)), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(210, 410), new PointerAction.Swipe(ScrollDirection.Down), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
+            Assert.Equal(
+                ["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"],
+                session.Screen.PointerActionKinds
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(150, 350),
+                new PointerAction.Tap(),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(160, 360),
+                new PointerAction.DoubleTap(),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(170, 370),
+                new PointerAction.SecondaryTap(),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(180, 380),
+                new PointerAction.LongPress(TimeSpan.FromMilliseconds(120)),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(190, 390),
+                new PointerAction.Hover(),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(200, 400),
+                new PointerAction.DragTo(new Point(300, 450)),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(210, 410),
+                new PointerAction.Swipe(ScrollDirection.Down),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
             // A fractional path lands on whole pixels: the browser would truncate it a pixel early.
-            await session.Screen.Engine.SessionPerformAtAsync(new Point(220.6, 420.4), new PointerAction.SwipeTo(new Point(320.5, 460.5)), session.Screen.Engine.DeadlineFor(), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(
+                new Point(220.6, 420.4),
+                new PointerAction.SwipeTo(new Point(320.5, 460.5)),
+                session.Screen.Engine.DeadlineFor(),
+                CancellationToken.None
+            );
             // The port's text read folds the log's line breaks into spaces; no entry holds one.
-            var lines = ((await screen.GetByTestId("log").TextContentAsync()) ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            var lines = ((await screen.GetByTestId("log").TextContentAsync()) ?? "")
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
             Assert.Contains("click:150,350", lines);
-            Assert.Equal(["dblclick:160,360"], lines.Where(line => line.StartsWith("dblclick:", StringComparison.Ordinal)));
+            Assert.Equal(
+                ["dblclick:160,360"],
+                lines.Where(line => line.StartsWith("dblclick:", StringComparison.Ordinal))
+            );
             Assert.Contains("contextmenu:170,370", lines);
             Assert.Contains("mousedown:180,380", lines);
             Assert.Contains("mouseup:180,380", lines);
             Assert.Contains("mousedown:200,400", lines);
             Assert.Contains("mouseup:300,450", lines);
-            Assert.Contains(lines, line => line.StartsWith("wheel:210,410:", StringComparison.Ordinal) && double.Parse(line.Split(':')[2], System.Globalization.CultureInfo.InvariantCulture) > 0);
+            Assert.Contains(lines, line =>
+                line.StartsWith("wheel:210,410:", StringComparison.Ordinal)
+                && double.Parse(line.Split(':')[2], System.Globalization.CultureInfo.InvariantCulture) > 0
+            );
             Assert.Contains("mousedown:221,420", lines);
             Assert.Contains("mouseup:321,461", lines);
         });
@@ -162,7 +214,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             // through any one associated label; the port's getByLabel matches the accessible name, which
             // joins both labels (COMPATIBILITY.md).
             // Every labelable element carries its labels: a button and a meter too, not only text fields.
-            Assert.Equal("button", (await screen.GetByLabel("Run the check").ResolveAsync(CancellationToken.None)).Single().Role);
+            Assert.Equal(
+                "button",
+                (await screen.GetByLabel("Run the check").ResolveAsync(CancellationToken.None)).Single().Role
+            );
             Assert.Equal(1, await screen.GetByLabel("Score").CountAsync());
             // Not ported: text "Display name*" matches the label element itself. The tree does not list
             // text inside a control's label; the control carries it as its name (COMPATIBILITY.md).
@@ -205,7 +260,8 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         {
             await session.App.OpenAsync("/twins");
             var screen = session.Screen;
-            Locator Text(string value, bool visible) => screen.GetByText(value, new TextMatchOptions { Visible = visible });
+            Locator Text(string value, bool visible) =>
+                screen.GetByText(value, new TextMatchOptions { Visible = visible });
 
             // The hidden paragraph comes first in document order.
             Assert.True(await Text("Decorative twin", false).First().IsHiddenAsync());
@@ -224,8 +280,14 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
 
             // As a has-filter, only the shown twin's ancestor qualifies: the body holds both, so it still matches,
             // while a section that holds neither does not.
-            Assert.Equal(1, await session.Browser.Locator("body").Filter(has: Text("Decorative twin", true)).CountAsync());
-            Assert.Equal(0, await session.Browser.Locator("#live").Filter(has: Text("Decorative twin", true)).CountAsync());
+            Assert.Equal(
+                1,
+                await session.Browser.Locator("body").Filter(has: Text("Decorative twin", true)).CountAsync()
+            );
+            Assert.Equal(
+                0,
+                await session.Browser.Locator("#live").Filter(has: Text("Decorative twin", true)).CountAsync()
+            );
 
             // As a scope, a visible test-id query drops the hidden panel before the child query runs.
             var inAnyPanel = screen.GetByTestId("memory-panel").GetByText("Open");
@@ -252,7 +314,8 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             await session.App.OpenAsync("/values");
             var screen = session.Screen;
             var shared = screen.GetByDisplayValue("shared");
-            async Task<List<string?>> Names(Locator locator) => (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.Name).ToList();
+            async Task<List<string?>> Names(Locator locator) =>
+                (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.Name).ToList();
 
             // Positions are relative to the value-filtered matches, not to every
             // form control on the page: "Other" sits between none of them.
@@ -286,7 +349,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             // compositions those are.
             var child = await Assert.ThrowsAnyAsync<E2EException>(() => Names(shared.GetByRole("textbox")));
             Assert.Equal("UNSUPPORTED_CAPABILITY", child.Code);
-            Assert.Equal("displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine", child.Message);
+            Assert.Equal(
+                "displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine",
+                child.Message
+            );
             var has = await Assert.ThrowsAnyAsync<E2EException>(() => Names(screen.GetByRole("main").Filter(shared)));
             Assert.Equal("UNSUPPORTED_CAPABILITY", has.Code);
         });
@@ -301,8 +367,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         {
             await session.App.OpenAsync("/twins");
             var screen = session.Screen;
-            Locator Alpha(bool visible) => screen.GetByDisplayValue("alpha", new TextMatchOptions { Visible = visible });
-            async Task<List<bool>> Hidden(Locator locator) => (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.States.Hidden).ToList();
+            Locator Alpha(bool visible) =>
+                screen.GetByDisplayValue("alpha", new TextMatchOptions { Visible = visible });
+            async Task<List<bool>> Hidden(Locator locator) =>
+                (await locator.ResolveAsync(CancellationToken.None)).Select(node => node.States.Hidden).ToList();
 
             // The display:none control comes first in document order, so without
             // visible the first position is the hidden twin.
@@ -330,7 +398,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     public async Task Keeps_a_node_id_across_observations_while_its_element_lives_and_reports_it_stale_once_it_is_gone()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true });
+        await using var session = await WebSemanticsTests.OpenAsync(
+            site.Url + "form",
+            new WebEngineOptions { Headless = true }
+        );
         var first = await session.ObserveAsync(CancellationToken.None);
         var textbox = WebSemanticsTests.Flatten(first.Roots).First(node => node.Role == "textbox");
         await session.PerformAsync(textbox, new LocatorAction.Fill("fresh"), CancellationToken.None);
@@ -346,7 +417,9 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         await session.OpenAsync(site.Url, CancellationToken.None);
         var third = await session.ObserveAsync(CancellationToken.None);
         Assert.DoesNotContain(WebSemanticsTests.Flatten(third.Roots), node => node.Ref == textbox.Ref);
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(textbox, new LocatorAction.Fill("gone"), CancellationToken.None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(textbox, new LocatorAction.Fill("gone"), CancellationToken.None)
+        );
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
     }
@@ -358,10 +431,20 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();
         await page.SetContentAsync("<script>window.taps = 0</script><button onclick=\"taps++\">Go</button>");
-        var go = (await session.LocateAsync(LocatorExpression.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
-        await page.EvaluateAsync("() => document.body.insertAdjacentHTML('beforeend', '<button onclick=\"taps++\">Go</button>')");
+        var go = (
+            await session.LocateAsync(
+                LocatorExpression.ForRole("button", null, new RoleOptions()),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None
+            )
+        )[0];
+        await page.EvaluateAsync(
+            "() => document.body.insertAdjacentHTML('beforeend', '<button onclick=\"taps++\">Go</button>')"
+        );
 
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(go, new LocatorAction.Tap(), CancellationToken.None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(go, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
         Assert.Equal(0, await page.EvaluateAsync<int>("() => window.taps"));
@@ -373,15 +456,31 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.SetContentAsync("""
+        await page.SetContentAsync(
+            """
             <script>window.downs = 0</script>
             <button onmousedown="downs++; document.body.insertAdjacentHTML('beforeend', '<div role=region>Drop</div>')">Card</button>
             <div role="region">Drop</div>
-            """);
-        var card = (await session.LocateAsync(LocatorExpression.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
-        var zone = (await session.LocateAsync(LocatorExpression.ForRole("region", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+            """
+        );
+        var card = (
+            await session.LocateAsync(
+                LocatorExpression.ForRole("button", null, new RoleOptions()),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None
+            )
+        )[0];
+        var zone = (
+            await session.LocateAsync(
+                LocatorExpression.ForRole("region", null, new RoleOptions()),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None
+            )
+        )[0];
 
-        var committed = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(card, new LocatorAction.DragTo(zone), CancellationToken.None));
+        var committed = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(card, new LocatorAction.DragTo(zone), CancellationToken.None)
+        );
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", committed.Code);
         Assert.False(committed.Retryable);
         Assert.Equal(1, await page.EvaluateAsync<int>("() => window.downs"));
@@ -391,7 +490,10 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     public async Task Partial_Mints_one_root_id_that_survives_navigation_and_swipes_the_viewport_when_it_is_the_target()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true });
+        await using var session = await WebSemanticsTests.OpenAsync(
+            site.Url + "form",
+            new WebEngineOptions { Headless = true }
+        );
         var first = await session.ObserveAsync(CancellationToken.None);
         // The element ids are stamped in the page.
         Assert.All(WebSemanticsTests.Flatten(first.Roots), node => Assert.Matches(@"^e\d+$", node.Ref));
@@ -417,12 +519,22 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.SetContentAsync("""
+        await page.SetContentAsync(
+            """
             <body style="margin: 0"><ul aria-label="Feed" style="display: contents"><li style="display: block; height: 400px">Item</li></ul></body>
-            """);
-        var feed = (await session.LocateAsync(LocatorExpression.ForRole("list", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+            """
+        );
+        var feed = (
+            await session.LocateAsync(
+                LocatorExpression.ForRole("list", null, new RoleOptions()),
+                TimeSpan.FromSeconds(5),
+                CancellationToken.None
+            )
+        )[0];
 
-        var refused = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(feed, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None));
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(feed, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None)
+        );
         Assert.Equal("NOT_ACTIONABLE", refused.Code);
     }
 
@@ -430,20 +542,30 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     public async Task Walks_through_a_display_contents_element_to_the_fields_it_lays_out()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "contents", new WebEngineOptions { Headless = true });
-        var fields = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Where(node => node.Role == "textbox").Select(node => node.Name);
+        await using var session = await WebSemanticsTests.OpenAsync(
+            site.Url + "contents",
+            new WebEngineOptions { Headless = true }
+        );
+        var fields = WebSemanticsTests
+            .Flatten((await session.ObserveAsync(CancellationToken.None)).Roots)
+            .Where(node => node.Role == "textbox")
+            .Select(node => node.Name);
         Assert.Equal(["Email", "First name"], fields);
     }
 
     [Fact]
     public async Task Masks_a_password_inside_an_iframe_in_artifact_screenshots_and_observed_pixels_PARTIAL_one_screenshot_path()
     {
-        const string Field = "position:absolute;left:20px;width:160px;height:40px;border:0;padding:0;background:#f00;color:#f00";
-        var frame = $"<body style=\"margin:0\"><input type=\"password\" value=\"hunter2\" style=\"{Field};top:20px\"><input value=\"plain\" style=\"{Field};top:100px\"></body>";
+        const string Field =
+            "position:absolute;left:20px;width:160px;height:40px;border:0;padding:0;background:#f00;color:#f00";
+        var frame =
+            $"<body style=\"margin:0\"><input type=\"password\" value=\"hunter2\" style=\"{Field};top:20px\"><input value=\"plain\" style=\"{Field};top:100px\"></body>";
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.SetContentAsync($"<body style=\"margin:0\"><iframe srcdoc='{frame}' style=\"position:absolute;left:0;top:0;width:400px;height:200px;border:0\"></iframe></body>");
+        await page.SetContentAsync(
+            $"<body style=\"margin:0\"><iframe srcdoc='{frame}' style=\"position:absolute;left:0;top:0;width:400px;height:200px;border:0\"></iframe></body>"
+        );
         await page.FrameLocator("iframe").Locator("input[type=password]").WaitForAsync();
 
         // The port has one screenshot path: the artifact shot and the observed pixels are the same masked image.
@@ -464,18 +586,29 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     public async Task Masks_a_password_inside_a_closed_shadow_root_in_artifact_screenshots()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "closed-login", new WebEngineOptions { Headless = true });
+        await using var session = await WebSemanticsTests.OpenAsync(
+            site.Url + "closed-login",
+            new WebEngineOptions { Headless = true }
+        );
         var nodes = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).ToList();
         var user = nodes.First(node => node.Role == "textbox" && node.Name == "User");
         var password = nodes.First(node => node.States.Secure);
         Assert.NotNull(user.Rect);
         Assert.NotNull(password.Rect);
-        await session.PerformAsync(password, new LocatorAction.Fill("hunter2", Sensitive: true), CancellationToken.None);
+        await session.PerformAsync(
+            password,
+            new LocatorAction.Fill("hunter2", Sensitive: true),
+            CancellationToken.None
+        );
 
         var image = ImageOps.DecodePng((await session.ScreenshotAsync(CancellationToken.None)).Png);
         (byte R, byte G, byte B) PixelAtCentre(BoundingBox rect)
         {
-            var at = ((((int)Math.Round(rect.Y + (rect.Height / 2), MidpointRounding.AwayFromZero)) * image.Width) + (int)Math.Round(rect.X + (rect.Width / 2), MidpointRounding.AwayFromZero)) * 4;
+            var at =
+                (
+                    (((int)Math.Round(rect.Y + (rect.Height / 2), MidpointRounding.AwayFromZero)) * image.Width)
+                    + (int)Math.Round(rect.X + (rect.Width / 2), MidpointRounding.AwayFromZero)
+                ) * 4;
             return (image.Data[at], image.Data[at + 1], image.Data[at + 2]);
         }
 

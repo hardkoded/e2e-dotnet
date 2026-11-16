@@ -42,12 +42,21 @@ internal sealed class ScreenEngine : IEngine
     public string Version => "0";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Scroll | EngineCapabilities.Screenshot;
+        EngineCapabilities.Observation
+        | EngineCapabilities.Actions
+        | EngineCapabilities.Location
+        | EngineCapabilities.Scroll
+        | EngineCapabilities.Screenshot;
 
-    public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => Task.FromResult<IEngineSession>(new Session(this));
+    public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+        Task.FromResult<IEngineSession>(new Session(this));
 
     /// <summary>A screen of one background color with the button drawn in another, <paramref name="scale"/> image pixels per viewport pixel.</summary>
-    public static EngineScreenshot Shot((byte R, byte G, byte B) background, (byte R, byte G, byte B) button, int scale = 1)
+    public static EngineScreenshot Shot(
+        (byte R, byte G, byte B) background,
+        (byte R, byte G, byte B) button,
+        int scale = 1
+    )
     {
         var width = Width * scale;
         var height = Height * scale;
@@ -56,7 +65,11 @@ internal sealed class ScreenEngine : IEngine
         {
             for (var x = 0; x < width; x++)
             {
-                var inButton = x >= Button.X * scale && x < (Button.X + Button.Width) * scale && y >= Button.Y * scale && y < (Button.Y + Button.Height) * scale;
+                var inButton =
+                    x >= Button.X * scale
+                    && x < (Button.X + Button.Width) * scale
+                    && y >= Button.Y * scale
+                    && y < (Button.Y + Button.Height) * scale;
                 var (r, g, b) = inButton ? button : background;
                 var at = ((y * width) + x) * 4;
                 data[at] = r;
@@ -79,18 +92,55 @@ internal sealed class ScreenEngine : IEngine
         {
             List<SemanticNode> children =
             [
-                new SemanticNode { Ref = "button", Role = "button", Name = "Submit", Rect = Button },
-                new SemanticNode { Ref = "clock", Role = "text", Name = "Clock", TestId = "clock", Rect = new BoundingBox(300, 10, 50, 10) },
+                new SemanticNode
+                {
+                    Ref = "button",
+                    Role = "button",
+                    Name = "Submit",
+                    Rect = Button,
+                },
+                new SemanticNode
+                {
+                    Ref = "clock",
+                    Role = "text",
+                    Name = "Clock",
+                    TestId = "clock",
+                    Rect = new BoundingBox(300, 10, 50, 10),
+                },
             ];
             if (engine.WithSecureField)
             {
-                children.Add(new SemanticNode { Ref = "password", Role = "textbox", Name = "Password", States = new NodeStates { Secure = true }, Rect = new BoundingBox(500, 100, 60, 20) });
+                children.Add(
+                    new SemanticNode
+                    {
+                        Ref = "password",
+                        Role = "textbox",
+                        Name = "Password",
+                        States = new NodeStates { Secure = true },
+                        Rect = new BoundingBox(500, 100, 60, 20),
+                    }
+                );
             }
 
-            return Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "root", Role = "document", Children = children }] });
+            return Task.FromResult(
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "root",
+                            Role = "document",
+                            Children = children,
+                        },
+                    ],
+                }
+            );
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
 
@@ -103,7 +153,12 @@ internal sealed class ScreenEngine : IEngine
             }
 
             var shot = engine.Current();
-            return shot with { MaskedRegionCount = engine.ReportsMaskedRegions ? engine.MaskedRegions ?? (engine.WithSecureField ? 1 : 0) : null };
+            return shot with
+            {
+                MaskedRegionCount = engine.ReportsMaskedRegions
+                    ? engine.MaskedRegions ?? (engine.WithSecureField ? 1 : 0)
+                    : null,
+            };
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

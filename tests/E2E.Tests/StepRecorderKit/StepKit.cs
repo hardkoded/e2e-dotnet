@@ -29,7 +29,14 @@ internal static class StepKit
     public static (StepRecorder Steps, List<Progress> Heard) Recorder([CallerFilePath] string testFile = "")
     {
         var heard = new List<Progress>();
-        var steps = new StepRecorder("attempt", new StepRecorderOptions { ProjectRoot = Path.GetDirectoryName(Path.GetDirectoryName(testFile)), OnProgress = heard.Add });
+        var steps = new StepRecorder(
+            "attempt",
+            new StepRecorderOptions
+            {
+                ProjectRoot = Path.GetDirectoryName(Path.GetDirectoryName(testFile)),
+                OnProgress = heard.Add,
+            }
+        );
         return (steps, heard);
     }
 

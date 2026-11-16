@@ -42,7 +42,13 @@ internal static class SecretFill
     /// The plaintext is the registered secret's, so name, purpose and value come from one object. The checks: a secret the attempt knows, an enabled editable field, and a password field for a password (judged by the secret the
     /// attempt registered, not by the handle). There is no origin check.
     /// </summary>
-    public static async Task<Secret> AuthorizeSecretFillAsync(ISecretFillHost host, ISecretFillRuntime runtime, Secret secret, SemanticNode node, CancellationToken cancellationToken = default)
+    public static async Task<Secret> AuthorizeSecretFillAsync(
+        ISecretFillHost host,
+        ISecretFillRuntime runtime,
+        Secret secret,
+        SemanticNode node,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(runtime);
@@ -65,7 +71,11 @@ internal static class SecretFill
         if (!Roles.IsEditable(node))
         {
             host.RecordPolicy("secret.sink", PolicyDecision.Denied, "POLICY_DENIED");
-            throw Denied("the target is not an editable input (role " + (node.Role is null ? "none" : AgentObservation.RedactText(node.Role, runtime.Redactor)) + ")");
+            throw Denied(
+                "the target is not an editable input (role "
+                    + (node.Role is null ? "none" : AgentObservation.RedactText(node.Role, runtime.Redactor))
+                    + ")"
+            );
         }
 
         // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
@@ -75,7 +85,9 @@ internal static class SecretFill
         if (registered.Purpose == "password" && inputPurpose != "password")
         {
             host.RecordPolicy("secret.purpose", PolicyDecision.Denied, "POLICY_DENIED");
-            throw Denied("field purpose " + inputPurpose + " is incompatible with secret purpose " + registered.Purpose);
+            throw Denied(
+                "field purpose " + inputPurpose + " is incompatible with secret purpose " + registered.Purpose
+            );
         }
 
         host.RecordPolicy("secret.fill", PolicyDecision.Allowed);

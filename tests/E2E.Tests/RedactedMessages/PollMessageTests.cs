@@ -10,7 +10,11 @@ namespace E2E.Tests.RedactedMessages;
 [Collection(BrowserCollection.Name)]
 public sealed class PollMessageTests
 {
-    private static readonly PollOptions Short = new() { Timeout = TimeSpan.FromMilliseconds(300), Interval = TimeSpan.FromMilliseconds(20) };
+    private static readonly PollOptions Short = new()
+    {
+        Timeout = TimeSpan.FromMilliseconds(300),
+        Interval = TimeSpan.FromMilliseconds(20),
+    };
 
     [Fact]
     public async Task Redacts_a_secret_the_last_read_value_holds()
@@ -19,7 +23,9 @@ public sealed class PollMessageTests
         await using var session = await RedactionSite.StartAsync(site, "poll message");
         RedactionSite.Know(session);
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => "Token " + RedactionSite.Token, Short).ToBeAsync("something else"));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Poll(() => "Token " + RedactionSite.Token, Short).ToBeAsync("something else")
+        );
 
         Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
@@ -31,10 +37,21 @@ public sealed class PollMessageTests
         using var site = await TinySite.StartAsync(RedactionSite.Page);
         await using var session = await RedactionSite.StartAsync(site, "poll read error");
         RedactionSite.Know(session);
-        var options = new PollOptions { Timeout = Short.Timeout, Interval = Short.Interval, Message = "while reading " + RedactionSite.Token };
+        var options = new PollOptions
+        {
+            Timeout = Short.Timeout,
+            Interval = Short.Interval,
+            Message = "while reading " + RedactionSite.Token,
+        };
 
         var failure = await Assert.ThrowsAsync<TestException>(() =>
-            Expect.Poll<string>((Func<string>)(() => throw new InvalidOperationException("no node reads " + RedactionSite.Token)), options).ToBeAsync("x"));
+            Expect
+                .Poll<string>(
+                    (Func<string>)(() => throw new InvalidOperationException("no node reads " + RedactionSite.Token)),
+                    options
+                )
+                .ToBeAsync("x")
+        );
 
         Assert.Equal(2, failure.Message.Split("<secret:token>").Length - 1);
         Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
@@ -48,7 +65,9 @@ public sealed class PollMessageTests
         RedactionSite.Know(session);
         await session.DisposeAsync();
 
-        var failure = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => "Token " + RedactionSite.Token, Short).ToBeAsync("something else"));
+        var failure = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.Poll(() => "Token " + RedactionSite.Token, Short).ToBeAsync("something else")
+        );
 
         Assert.Contains(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
     }

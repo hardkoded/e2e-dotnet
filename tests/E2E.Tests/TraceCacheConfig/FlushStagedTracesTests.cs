@@ -20,7 +20,11 @@ public sealed class FlushStagedTracesTests
         store.Write(KeyB, Trace("stale trailing flow"));
 
         // A trailing act nothing asserted on: the attempt passing is not a check.
-        E2ESession.Flush(store, [Recorded(KeyA, "one", verified: true), Recorded(KeyB, "two", verified: false)], preserve: false);
+        E2ESession.Flush(
+            store,
+            [Recorded(KeyA, "one", verified: true), Recorded(KeyB, "two", verified: false)],
+            preserve: false
+        );
 
         Assert.Equal([KeyA], store.Entries.Keys);
     }
@@ -41,7 +45,11 @@ public sealed class FlushStagedTracesTests
         var store = new MemoryCache();
         store.Write(KeyB, Trace("stale good flow"));
 
-        E2ESession.Flush(store, [Recorded(KeyA, "confirmed", verified: true), Recorded(KeyB, "implicated", verified: false)], preserve: false);
+        E2ESession.Flush(
+            store,
+            [Recorded(KeyA, "confirmed", verified: true), Recorded(KeyB, "implicated", verified: false)],
+            preserve: false
+        );
 
         Assert.True(store.Entries.ContainsKey(KeyA));
         Assert.False(store.Entries.ContainsKey(KeyB));
@@ -55,7 +63,11 @@ public sealed class FlushStagedTracesTests
         store.Write(KeyB, Trace("replayed flow"));
         var stored = store.Entries[KeyA];
 
-        E2ESession.Flush(store, [Kept(KeyA, store, verified: true), Kept(KeyB, store, verified: false)], preserve: false);
+        E2ESession.Flush(
+            store,
+            [Kept(KeyA, store, verified: true), Kept(KeyB, store, verified: false)],
+            preserve: false
+        );
 
         // The same bytes: a replay is not a rewrite.
         Assert.Same(stored, store.Entries[KeyA]);
@@ -117,8 +129,12 @@ public sealed class FlushStagedTracesTests
 
         var writes = E2ESession.Flush(
             store,
-            [Kept(KeyB, store, verified: false, stepIndex: 3), Recorded(KeyA, "confirmed", verified: true, stepIndex: 1)],
-            preserve: false);
+            [
+                Kept(KeyB, store, verified: false, stepIndex: 3),
+                Recorded(KeyA, "confirmed", verified: true, stepIndex: 1),
+            ],
+            preserve: false
+        );
 
         Assert.Equal(stored, store.Entries[KeyB]);
         Assert.Equal(CacheWrite.Unconfirmed, writes[3]);
@@ -131,7 +147,11 @@ public sealed class FlushStagedTracesTests
     {
         var store = new MemoryCache { DeleteFails = true };
 
-        var writes = E2ESession.Flush(store, [Recorded(KeyA, "unconfirmed", verified: false, stepIndex: 3)], preserve: false);
+        var writes = E2ESession.Flush(
+            store,
+            [Recorded(KeyA, "unconfirmed", verified: false, stepIndex: 3)],
+            preserve: false
+        );
 
         Assert.Equal([KeyValuePair.Create(3, CacheWrite.Unconfirmed)], writes);
     }
@@ -164,8 +184,13 @@ public sealed class FlushStagedTracesTests
 
         E2ESession.Flush(
             store,
-            [Recorded(KeyA, "confirmed", verified: true), Recorded(KeyB, "re-recorded, unconfirmed", verified: false), Kept(keyC, store, verified: false)],
-            preserve: true);
+            [
+                Recorded(KeyA, "confirmed", verified: true),
+                Recorded(KeyB, "re-recorded, unconfirmed", verified: false),
+                Kept(keyC, store, verified: false),
+            ],
+            preserve: true
+        );
 
         Assert.True(store.Entries.ContainsKey(KeyA));
         Assert.Equal(stored, store.Entries[KeyB]);
@@ -196,7 +221,13 @@ public sealed class FlushStagedTracesTests
 
         var first = scope.ClaimKey("open billing", null, agent, out _, out _);
         var repeat = scope.ClaimKey("open billing", null, agent, out _, out _);
-        var other = scope.ClaimKey("open billing", new Dictionary<string, object?> { ["fast"] = true }, agent, out _, out _);
+        var other = scope.ClaimKey(
+            "open billing",
+            new Dictionary<string, object?> { ["fast"] = true },
+            agent,
+            out _,
+            out _
+        );
 
         Assert.Matches("^[a-f0-9]{64}$", first);
         Assert.NotEqual(first, repeat);
@@ -230,7 +261,14 @@ public sealed class FlushStagedTracesTests
     // An act that ran live and passed, with its recording.
     private static PendingAct Recorded(string key, string summary, bool verified, int? stepIndex = null)
     {
-        return new PendingAct { Key = key, Completed = true, Verified = verified, Entry = Trace(summary), StepIndex = stepIndex };
+        return new PendingAct
+        {
+            Key = key,
+            Completed = true,
+            Verified = verified,
+            Entry = Trace(summary),
+            StepIndex = stepIndex,
+        };
     }
 
     // An act a replay finished whole: the stored entry is already its flow.
@@ -265,7 +303,13 @@ public sealed class FlushStagedTracesTests
 
     private static string Claim(AttemptScope scope, string agent, string? context)
     {
-        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context }, out _, out _);
+        return scope.ClaimKey(
+            "approve the order",
+            null,
+            new ResolvedAgent { Name = agent, Context = context },
+            out _,
+            out _
+        );
     }
 
     /// <summary>A store that keeps each entry as the JSON text it was written as.</summary>

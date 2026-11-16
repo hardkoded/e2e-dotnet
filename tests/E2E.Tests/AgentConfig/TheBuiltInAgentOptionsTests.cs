@@ -12,21 +12,33 @@ public sealed class TheBuiltInAgentOptionsTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
 
-    private static AgentTool ReadOnlyTool() => new("looks", new JsonObject { ["type"] = "object" }, false, (_, _) => Task.FromResult("ok"));
+    private static AgentTool ReadOnlyTool() =>
+        new("looks", new JsonObject { ["type"] = "object" }, false, (_, _) => Task.FromResult("ok"));
 
     /// <summary>The JSON config holds no tools, so they are read from the options the agent is built from.</summary>
     [Fact]
     public void Keeps_system_and_the_agent_tools_and_rejects_a_system_that_is_not_a_string()
     {
-        var config = E2EConfig.Parse("""{ "agents": { "default": { "system": "Verify every total." } } }""", Root, _ => null);
+        var config = E2EConfig.Parse("""{ "agents": { "default": { "system": "Verify every total." } } }""", Root, _ =>
+            null
+        );
         var lookup = ReadOnlyTool();
-        var agent = ResolvedAgent.From("default", new AgentOptions { System = config.Agent.System, Tools = new Dictionary<string, AgentTool> { ["lookup"] = lookup } });
+        var agent = ResolvedAgent.From(
+            "default",
+            new AgentOptions
+            {
+                System = config.Agent.System,
+                Tools = new Dictionary<string, AgentTool> { ["lookup"] = lookup },
+            }
+        );
 
         Assert.Equal("Verify every total.", config.Agent.System);
         Assert.Equal("Verify every total.", config.Agent.CreateOptions().System);
         Assert.Equal("Verify every total.", agent.System);
         Assert.Same(lookup, Assert.Single(agent.Tools!).Value);
-        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "agents": { "default": { "system": 5 } } }""", Root, _ => null));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            E2EConfig.Parse("""{ "agents": { "default": { "system": 5 } } }""", Root, _ => null)
+        );
         Assert.Equal("agents.default.system must be a string", error.Message);
     }
 
@@ -34,16 +46,29 @@ public sealed class TheBuiltInAgentOptionsTests
     [Fact]
     public void Digests_tools_by_name_and_live_values_by_identity_so_a_recursive_tool_schema_loads()
     {
-        var schema = JsonNode.Parse(
-            """
-            { "type": "object", "properties": { "root": { "$ref": "#/$defs/Node" } },
-              "$defs": { "Node": { "type": "object", "properties": { "name": { "type": "string" }, "children": { "type": "array", "items": { "$ref": "#/$defs/Node" } } } } } }
-            """)!.AsObject();
+        var schema = JsonNode
+            .Parse(
+                """
+                { "type": "object", "properties": { "root": { "$ref": "#/$defs/Node" } },
+                  "$defs": { "Node": { "type": "object", "properties": { "name": { "type": "string" }, "children": { "type": "array", "items": { "$ref": "#/$defs/Node" } } } } } }
+                """
+            )!
+            .AsObject();
         var tree = new AgentTool("walks a tree", schema, false, (_, _) => Task.FromResult("ok"));
         var config = E2EConfig.Parse("{}", Root, _ => null).WithCacheStore(new CircularStore());
-        string Of(string name) => ResolvedConfig.ComputeConfigDigest(config, new Dictionary<string, AgentOptions> { ["default"] = new() { Tools = new Dictionary<string, AgentTool> { [name] = tree } } });
+        string Of(string name) =>
+            ResolvedConfig.ComputeConfigDigest(
+                config,
+                new Dictionary<string, AgentOptions>
+                {
+                    ["default"] = new() { Tools = new Dictionary<string, AgentTool> { [name] = tree } },
+                }
+            );
 
-        var agent = ResolvedAgent.From("default", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["tree"] = tree } });
+        var agent = ResolvedAgent.From(
+            "default",
+            new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["tree"] = tree } }
+        );
         Assert.Same(tree, Assert.Single(agent.Tools!).Value);
         Assert.Equal(Of("tree"), Of("tree"));
         Assert.NotEqual(Of("tree"), Of("walk"));
@@ -82,10 +107,18 @@ public sealed class TheBuiltInAgentOptionsTests
         };
         foreach (var (name, surface) in where)
         {
-            var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
+            var error = Assert.Throws<ConfigurationException>(() =>
+                ResolvedAgent.From(
+                    "ux",
+                    new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }
+                )
+            );
 
             Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Equal($"agents.ux.tools.{name}: the {name} tool name is reserved for the tool the harness adds in {surface}; rename it", error.Message);
+            Assert.Equal(
+                $"agents.ux.tools.{name}: the {name} tool name is reserved for the tool the harness adds in {surface}; rename it",
+                error.Message
+            );
         }
     }
 
@@ -99,10 +132,18 @@ public sealed class TheBuiltInAgentOptionsTests
     {
         foreach (var name in new[] { "tap", "observe", "type_secret" })
         {
-            var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
+            var error = Assert.Throws<ConfigurationException>(() =>
+                ResolvedAgent.From(
+                    "ux",
+                    new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }
+                )
+            );
 
             Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Equal($"agents.ux.tools.{name}: the {name} tool name is reserved for the agent's own tools", error.Message);
+            Assert.Equal(
+                $"agents.ux.tools.{name}: the {name} tool name is reserved for the agent's own tools",
+                error.Message
+            );
         }
     }
 }

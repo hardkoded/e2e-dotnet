@@ -26,48 +26,86 @@ public sealed class TargetIdentityTests
 
         public EngineCapabilities Capabilities => EngineCapabilities.None;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
-    public static TheoryData<string, string, string, string, string, string> Targets => new()
-    {
+    public static TheoryData<string, string, string, string, string, string> Targets =>
+        new()
         {
-            "a web app on a free port, keeping the declared :0", "chromium", "web",
-            """{ "url": "http://127.0.0.1:0/app/", "command": { "executable": "node", "args": ["server.js", "{port}"] } }""",
-            "web", "523f3dfa502c50418a9443ae5ceb42dc8d1f671cd5108fd96d0d75270f8c534b"
-        },
-        {
-            "a staging web app", "staging", "web", """{ "url": "https://staging.shop.dev", "environment": "staging" }""",
-            "web", "899e517e7f0e747facda088c5a45964dc5548314f50680d4095e6f74eb299157"
-        },
-        {
-            "a preview with an explicit identity", "preview", "web", """{ "url": "https://pr-1.preview.dev", "identity": "shop" }""",
-            "web", "564358d83d8dcd7955d6793d5872f8c2f0830ef5ca03ebf343970456e2d59e54"
-        },
-        {
-            "a device app by bundle id, beside its build", "ios", "ios", """{ "bundleId": "dev.shop.app", "appPath": "./build/Shop.app" }""",
-            "mobile", "b5bc6a10395c7172343172f0b5ed1fab7dcb73c839c7a7756d339d02f7dafcb0"
-        },
-        {
-            "a device app by its build alone", "android", "android", """{ "appPath": "./build/shop.apk" }""",
-            "mobile", "a7df5f55b4b581f3f8c97ff111f527376a6093f8e24f98badfa8f23faf5d03d8"
-        },
-        {
-            "a device app with an explicit identity and environment", "ios2", "ios",
-            """{ "bundleId": "dev.shop.app", "identity": "shop-ios", "environment": "staging" }""",
-            "mobile", "3e1a4768138dcfb789a335b5cd12e679c7c0818d71dea9d2a85c996e63b95616"
-        },
-    };
+            {
+                "a web app on a free port, keeping the declared :0",
+                "chromium",
+                "web",
+                """{ "url": "http://127.0.0.1:0/app/", "command": { "executable": "node", "args": ["server.js", "{port}"] } }""",
+                "web",
+                "523f3dfa502c50418a9443ae5ceb42dc8d1f671cd5108fd96d0d75270f8c534b"
+            },
+            {
+                "a staging web app",
+                "staging",
+                "web",
+                """{ "url": "https://staging.shop.dev", "environment": "staging" }""",
+                "web",
+                "899e517e7f0e747facda088c5a45964dc5548314f50680d4095e6f74eb299157"
+            },
+            {
+                "a preview with an explicit identity",
+                "preview",
+                "web",
+                """{ "url": "https://pr-1.preview.dev", "identity": "shop" }""",
+                "web",
+                "564358d83d8dcd7955d6793d5872f8c2f0830ef5ca03ebf343970456e2d59e54"
+            },
+            {
+                "a device app by bundle id, beside its build",
+                "ios",
+                "ios",
+                """{ "bundleId": "dev.shop.app", "appPath": "./build/Shop.app" }""",
+                "mobile",
+                "b5bc6a10395c7172343172f0b5ed1fab7dcb73c839c7a7756d339d02f7dafcb0"
+            },
+            {
+                "a device app by its build alone",
+                "android",
+                "android",
+                """{ "appPath": "./build/shop.apk" }""",
+                "mobile",
+                "a7df5f55b4b581f3f8c97ff111f527376a6093f8e24f98badfa8f23faf5d03d8"
+            },
+            {
+                "a device app with an explicit identity and environment",
+                "ios2",
+                "ios",
+                """{ "bundleId": "dev.shop.app", "identity": "shop-ios", "environment": "staging" }""",
+                "mobile",
+                "3e1a4768138dcfb789a335b5cd12e679c7c0818d71dea9d2a85c996e63b95616"
+            },
+        };
 
     [Theory]
     [MemberData(nameof(Targets))]
-    public void Keys_a_target_as_it_did_before_the_move(string label, string name, string platform, string app, string engineName, string appIdentity)
+    public void Keys_a_target_as_it_did_before_the_move(
+        string label,
+        string name,
+        string platform,
+        string app,
+        string engineName,
+        string appIdentity
+    )
     {
         Assert.NotEmpty(label);
-        var target = E2EConfig.Parse($$"""{ "targets": [{ "name": "{{name}}", "platform": "{{platform}}", "app": {{app}} }] }""", Root).Target;
+        var target = E2EConfig
+            .Parse($$"""{ "targets": [{ "name": "{{name}}", "platform": "{{platform}}", "app": {{app}} }] }""", Root)
+            .Target;
         var resolved = TargetApps.ResolveTargetApp(target.Name, target.App, Root, port: 45678);
 
-        var identity = Sessions.TargetIdentity(target.Name, target.Platform, new IdentityEngine(engineName, platform), resolved);
+        var identity = Sessions.TargetIdentity(
+            target.Name,
+            target.Platform,
+            new IdentityEngine(engineName, platform),
+            resolved
+        );
 
         Assert.Equal(new SessionIdentity(name, engineName, "1.2.3", 1, platform, appIdentity), identity);
     }

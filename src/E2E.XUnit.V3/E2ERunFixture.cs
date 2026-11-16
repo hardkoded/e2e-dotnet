@@ -48,7 +48,10 @@ public class E2ERunFixture : IAsyncLifetime
         _run = HostRun.Begin(() => Config);
 
         // A session the host opens on a named test is never filtered out (upstream's open-session path applies no changedSince), and is no run.
-        if (SessionHandover.IsActive || TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is not { } testAssembly)
+        if (
+            SessionHandover.IsActive
+            || TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is not { } testAssembly
+        )
         {
             return;
         }
@@ -58,7 +61,10 @@ public class E2ERunFixture : IAsyncLifetime
         {
             config = Config;
         }
-        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null && !HostTestFilters.ResolveLastFailed(LastFailed))
+        catch (Exception)
+            when (HostTestFilters.ResolveChangedSince(ChangedSince) is null
+                && !HostTestFilters.ResolveLastFailed(LastFailed)
+            )
         {
             // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since or last-failed selection needs it here.
             return;
@@ -74,7 +80,9 @@ public class E2ERunFixture : IAsyncLifetime
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
             if (changedSince is not null || lastFailed)
             {
-                var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed).ConfigureAwait(false);
+                var selection = await HostTestFilters
+                    .ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed)
+                    .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
@@ -123,6 +131,7 @@ public class E2ERunFixture : IAsyncLifetime
     private static Assembly? TestAssemblyOf(string? path) =>
         path is null
             ? Assembly.GetEntryAssembly()
-            : Array.Find(AppDomain.CurrentDomain.GetAssemblies(), assembly => !assembly.IsDynamic && string.Equals(assembly.Location, path, StringComparison.OrdinalIgnoreCase))
-                ?? Assembly.LoadFrom(path);
+            : Array.Find(AppDomain.CurrentDomain.GetAssemblies(), assembly =>
+                !assembly.IsDynamic && string.Equals(assembly.Location, path, StringComparison.OrdinalIgnoreCase)
+            ) ?? Assembly.LoadFrom(path);
 }

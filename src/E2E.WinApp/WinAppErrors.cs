@@ -45,8 +45,18 @@ public static class WinAppErrors
 
         return driver.Fault switch
         {
-            DriverFault.ElementVanished => new EngineException(EngineErrorCodes.NodeStale, text, retryable: true, cause),
-            DriverFault.Offscreen or DriverFault.ValueRejected or DriverFault.ForegroundLost => new EngineException(EngineErrorCodes.NotActionable, text, retryable: false, cause),
+            DriverFault.ElementVanished => new EngineException(
+                EngineErrorCodes.NodeStale,
+                text,
+                retryable: true,
+                cause
+            ),
+            DriverFault.Offscreen or DriverFault.ValueRejected or DriverFault.ForegroundLost => new EngineException(
+                EngineErrorCodes.NotActionable,
+                text,
+                retryable: false,
+                cause
+            ),
             DriverFault.AppNotFound => WinAppSupport.InvalidState($"{text}; the app is not running, call app.open()"),
             DriverFault.Launch => WinAppSupport.Unavailable(text, cause),
             _ => WinAppSupport.Failure(text, cause),
@@ -54,7 +64,11 @@ public static class WinAppErrors
     }
 
     /// <summary>Runs one driver call under a cancellation token and translates its failure: the one boundary every call crosses.</summary>
-    public static async Task<T> RunAsync<T>(string label, Func<CancellationToken, Task<T>> work, CancellationToken cancellationToken)
+    public static async Task<T> RunAsync<T>(
+        string label,
+        Func<CancellationToken, Task<T>> work,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(work);
         try
@@ -68,16 +82,22 @@ public static class WinAppErrors
         }
     }
 
-    public static async Task RunAsync(string label, Func<CancellationToken, Task> work, CancellationToken cancellationToken)
+    public static async Task RunAsync(
+        string label,
+        Func<CancellationToken, Task> work,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(work);
         await RunAsync(
-            label,
-            async token =>
-            {
-                await work(token).ConfigureAwait(false);
-                return true;
-            },
-            cancellationToken).ConfigureAwait(false);
+                label,
+                async token =>
+                {
+                    await work(token).ConfigureAwait(false);
+                    return true;
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 }

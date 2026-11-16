@@ -51,21 +51,28 @@ internal static class RecordingModes
 {
     /// <summary>Every mode, in the order the error messages list them. Upstream <c>RECORDING_MODES</c>.</summary>
     public static readonly IReadOnlyList<RecordingMode> All =
-        [RecordingMode.Off, RecordingMode.On, RecordingMode.RetainOnFailure, RecordingMode.OnFirstRetry, RecordingMode.OnAllRetries];
+    [
+        RecordingMode.Off,
+        RecordingMode.On,
+        RecordingMode.RetainOnFailure,
+        RecordingMode.OnFirstRetry,
+        RecordingMode.OnAllRetries,
+    ];
 
     /// <summary>The modes as a sentence fragment every message that names one reads.</summary>
     public static string List => string.Join(", ", All.Select(Name));
 
     /// <summary>The spelling of a mode in the config and the environment.</summary>
-    public static string Name(RecordingMode mode) => mode switch
-    {
-        RecordingMode.Off => "off",
-        RecordingMode.On => "on",
-        RecordingMode.RetainOnFailure => "retain-on-failure",
-        RecordingMode.OnFirstRetry => "on-first-retry",
-        RecordingMode.OnAllRetries => "on-all-retries",
-        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
-    };
+    public static string Name(RecordingMode mode) =>
+        mode switch
+        {
+            RecordingMode.Off => "off",
+            RecordingMode.On => "on",
+            RecordingMode.RetainOnFailure => "retain-on-failure",
+            RecordingMode.OnFirstRetry => "on-first-retry",
+            RecordingMode.OnAllRetries => "on-all-retries",
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+        };
 
     /// <summary>Reads a mode from its spelling. Upstream <c>isRecordingMode</c>.</summary>
     public static bool TryParse(string? value, out RecordingMode mode)
@@ -88,7 +95,12 @@ internal static class RecordingModes
     /// and <c>retries</c> is <c>on-all-retries</c>, bare or as the block <c>{ record }</c>. <paramref name="was"/> spells
     /// the value as written. False for anything else. Upstream <c>legacyTraceSpelling</c>.
     /// </summary>
-    public static bool TryLegacyTraceSpelling(string? record, bool block, [NotNullWhen(true)] out string? was, out RecordingMode mode)
+    public static bool TryLegacyTraceSpelling(
+        string? record,
+        bool block,
+        [NotNullWhen(true)] out string? was,
+        out RecordingMode mode
+    )
     {
         mode = record == "retries" ? RecordingMode.OnAllRetries : RecordingMode.On;
         was = record is "retries" or "all" ? (block ? "{ record: '" + record + "' }" : "'" + record + "'") : null;
@@ -106,30 +118,36 @@ internal static class RecordingModes
     }
 
     /// <summary>Whether a mode records retries only, so a test with no retries records nothing under it.</summary>
-    public static bool IsRetryMode(RecordingMode mode) => mode is RecordingMode.OnFirstRetry or RecordingMode.OnAllRetries;
+    public static bool IsRetryMode(RecordingMode mode) =>
+        mode is RecordingMode.OnFirstRetry or RecordingMode.OnAllRetries;
 
     /// <summary>
     /// Which attempts keep what they capture under <paramref name="mode"/>, for the attempt at <paramref name="attemptIndex"/>
     /// (0 for the first run, 1 for the first retry). Null captures nothing.
     /// </summary>
-    public static Keep? AttemptKeep(RecordingMode mode, int attemptIndex) => mode switch
-    {
-        RecordingMode.Off => null,
-        RecordingMode.On => Keep.Always,
-        RecordingMode.RetainOnFailure => Keep.OnFailure,
-        RecordingMode.OnFirstRetry => attemptIndex == 1 ? Keep.Always : null,
-        RecordingMode.OnAllRetries => attemptIndex >= 1 ? Keep.Always : null,
-        _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
-    };
+    public static Keep? AttemptKeep(RecordingMode mode, int attemptIndex) =>
+        mode switch
+        {
+            RecordingMode.Off => null,
+            RecordingMode.On => Keep.Always,
+            RecordingMode.RetainOnFailure => Keep.OnFailure,
+            RecordingMode.OnFirstRetry => attemptIndex == 1 ? Keep.Always : null,
+            RecordingMode.OnAllRetries => attemptIndex >= 1 ? Keep.Always : null,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+        };
 
     /// <summary>The video an attempt at <paramref name="attemptIndex"/> records under <paramref name="recording"/>. Null records none.</summary>
     public static VideoRecording? AttemptVideo(ResolvedRecording recording, int attemptIndex)
     {
         return AttemptKeep(recording.Mode, attemptIndex) is { } keep
-            ? new VideoRecording(keep, recording.Source == RecordingSource.Default ? VideoPolicy.BestEffort : VideoPolicy.Required)
+            ? new VideoRecording(
+                keep,
+                recording.Source == RecordingSource.Default ? VideoPolicy.BestEffort : VideoPolicy.Required
+            )
             : null;
     }
 
     /// <summary>Whether any attempt of a test with <paramref name="retries"/> records under <paramref name="mode"/>: what the engine has to be able to honour before the run starts.</summary>
-    public static bool RecordsOnSomeAttempt(RecordingMode mode, int retries) => IsRetryMode(mode) ? retries >= 1 : mode != RecordingMode.Off;
+    public static bool RecordsOnSomeAttempt(RecordingMode mode, int retries) =>
+        IsRetryMode(mode) ? retries >= 1 : mode != RecordingMode.Off;
 }

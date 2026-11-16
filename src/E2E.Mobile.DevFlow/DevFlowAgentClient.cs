@@ -17,7 +17,12 @@ namespace E2E.Mobile.DevFlow;
 internal sealed record LeaseIdentity(string LeaseId, string HolderKind = "e2e", string? Label = null);
 
 /// <summary>The agent answered with an error, could not be reached, or did not answer in time.</summary>
-internal sealed class DevFlowAgentException(HttpStatusCode? status, string? code, string message, JsonObject? details = null) : Exception(message)
+internal sealed class DevFlowAgentException(
+    HttpStatusCode? status,
+    string? code,
+    string message,
+    JsonObject? details = null
+) : Exception(message)
 {
     /// <summary>The HTTP status, or null when the agent never answered.</summary>
     public HttpStatusCode? Status { get; } = status;
@@ -68,7 +73,11 @@ internal sealed class DevFlowAgentClient
         _resolved = endpoint;
     }
 
-    public DevFlowAgentClient(HttpClient http, Func<MobilePlatform?, CancellationToken, Task<Uri>> endpoint, LeaseIdentity? lease)
+    public DevFlowAgentClient(
+        HttpClient http,
+        Func<MobilePlatform?, CancellationToken, Task<Uri>> endpoint,
+        LeaseIdentity? lease
+    )
     {
         _http = http;
         _endpoint = endpoint;
@@ -109,14 +118,16 @@ internal sealed class DevFlowAgentClient
     public async Task<JsonNode?> PostAsync(string path, JsonObject? body, CancellationToken cancellationToken)
     {
         await ClaimLeaseAsync(cancellationToken).ConfigureAwait(false);
-        return await SendJsonAsync(HttpMethod.Post, path, body ?? new JsonObject(), cancellationToken).ConfigureAwait(false);
+        return await SendJsonAsync(HttpMethod.Post, path, body ?? new JsonObject(), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>A request that changes the app. The lease is claimed first, when this client holds one.</summary>
     public async Task<JsonNode?> PutAsync(string path, JsonObject? body, CancellationToken cancellationToken)
     {
         await ClaimLeaseAsync(cancellationToken).ConfigureAwait(false);
-        return await SendJsonAsync(HttpMethod.Put, path, body ?? new JsonObject(), cancellationToken).ConfigureAwait(false);
+        return await SendJsonAsync(HttpMethod.Put, path, body ?? new JsonObject(), cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -131,29 +142,48 @@ internal sealed class DevFlowAgentClient
             return;
         }
 
-        var body = new JsonObject { ["action"] = "claim", ["leaseId"] = _lease.LeaseId, ["holderKind"] = _lease.HolderKind, ["label"] = _lease.Label };
-        var status = await SendJsonAsync(HttpMethod.Post, LeasePath, body, cancellationToken).ConfigureAwait(false) as JsonObject;
+        var body = new JsonObject
+        {
+            ["action"] = "claim",
+            ["leaseId"] = _lease.LeaseId,
+            ["holderKind"] = _lease.HolderKind,
+            ["label"] = _lease.Label,
+        };
+        var status =
+            await SendJsonAsync(HttpMethod.Post, LeasePath, body, cancellationToken).ConfigureAwait(false)
+            as JsonObject;
         if (status is null || Flag(status["youHold"]) != false)
         {
             return;
         }
 
         var details = new JsonObject { ["HolderKind"] = Text(status["holderKind"]), ["Label"] = Text(status["label"]) };
-        throw new DevFlowAgentException(HttpStatusCode.Conflict, "lease", Text(status["error"]) ?? "another DevFlow host holds the app's mutation lease", details);
+        throw new DevFlowAgentException(
+            HttpStatusCode.Conflict,
+            "lease",
+            Text(status["error"]) ?? "another DevFlow host holds the app's mutation lease",
+            details
+        );
     }
 
     /// <summary>Gives the lease back, so another host can drive the app. Nothing is sent when this client has no identity.</summary>
     public Task ReleaseLeaseAsync(CancellationToken cancellationToken) =>
         _lease is null
             ? Task.CompletedTask
-            : SendJsonAsync(HttpMethod.Post, LeasePath, new JsonObject { ["action"] = "release", ["leaseId"] = _lease.LeaseId }, cancellationToken);
+            : SendJsonAsync(
+                HttpMethod.Post,
+                LeasePath,
+                new JsonObject { ["action"] = "release", ["leaseId"] = _lease.LeaseId },
+                cancellationToken
+            );
 
     /// <summary>A PNG the agent returns, with the capture epoch its headers name.</summary>
     public async Task<(byte[] Bytes, long? CaptureEpoch)> GetPngAsync(string path, CancellationToken cancellationToken)
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(CommandTimeout);
-        using var response = await SendAsync(HttpMethod.Get, path, null, "image/png", limit.Token, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(HttpMethod.Get, path, null, "image/png", limit.Token, cancellationToken)
+            .ConfigureAwait(false);
         if ((int)response.StatusCode >= 400)
         {
             var text = await ReadTextAsync(response, limit.Token, cancellationToken).ConfigureAwait(false);
@@ -167,22 +197,40 @@ internal sealed class DevFlowAgentClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new DevFlowAgentException(null, "timeout", $"the DevFlow agent did not finish sending the screenshot within {CommandTimeout.TotalSeconds:0} seconds");
+            throw new DevFlowAgentException(
+                null,
+                "timeout",
+                $"the DevFlow agent did not finish sending the screenshot within {CommandTimeout.TotalSeconds:0} seconds"
+            );
         }
         catch (HttpRequestException cause)
         {
-            throw new DevFlowAgentException(null, "unreachable", $"the DevFlow agent closed the connection: {cause.Message}");
+            throw new DevFlowAgentException(
+                null,
+                "unreachable",
+                $"the DevFlow agent closed the connection: {cause.Message}"
+            );
         }
 
-        long? epoch = response.Headers.TryGetValues("X-DevFlow-Capture-Epoch", out var values) && long.TryParse(values.FirstOrDefault(), out var parsed) ? parsed : null;
+        long? epoch =
+            response.Headers.TryGetValues("X-DevFlow-Capture-Epoch", out var values)
+            && long.TryParse(values.FirstOrDefault(), out var parsed)
+                ? parsed
+                : null;
         return (bytes, epoch);
     }
 
-    private async Task<JsonNode?> SendJsonAsync(HttpMethod method, string path, JsonNode? body, CancellationToken cancellationToken)
+    private async Task<JsonNode?> SendJsonAsync(
+        HttpMethod method,
+        string path,
+        JsonNode? body,
+        CancellationToken cancellationToken
+    )
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(CommandTimeout);
-        using var response = await SendAsync(method, path, body, "application/json", limit.Token, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(method, path, body, "application/json", limit.Token, cancellationToken)
+            .ConfigureAwait(false);
         var text = await ReadTextAsync(response, limit.Token, cancellationToken).ConfigureAwait(false);
         var root = Parse(text);
         if ((int)response.StatusCode >= 400)
@@ -199,7 +247,14 @@ internal sealed class DevFlowAgentClient
         return root;
     }
 
-    private async Task<HttpResponseMessage> SendAsync(HttpMethod method, string path, JsonNode? body, string accept, CancellationToken limit, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendAsync(
+        HttpMethod method,
+        string path,
+        JsonNode? body,
+        string accept,
+        CancellationToken limit,
+        CancellationToken cancellationToken
+    )
     {
         var endpoint = await EndpointAsync(limit).ConfigureAwait(false);
         using var message = new HttpRequestMessage(method, new Uri(endpoint, path));
@@ -226,7 +281,9 @@ internal sealed class DevFlowAgentClient
                 Console.Error.WriteLine($"[devflow] -> {method} {message.RequestUri}");
             }
 
-            var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, limit).ConfigureAwait(false);
+            var response = await _http
+                .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, limit)
+                .ConfigureAwait(false);
             if (Trace)
             {
                 Console.Error.WriteLine($"[devflow] <- {(int)response.StatusCode} {method} {path}");
@@ -236,15 +293,27 @@ internal sealed class DevFlowAgentClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new DevFlowAgentException(null, "timeout", $"the DevFlow agent did not answer {method} {path} within {CommandTimeout.TotalSeconds:0} seconds");
+            throw new DevFlowAgentException(
+                null,
+                "timeout",
+                $"the DevFlow agent did not answer {method} {path} within {CommandTimeout.TotalSeconds:0} seconds"
+            );
         }
         catch (HttpRequestException cause)
         {
-            throw new DevFlowAgentException(null, "unreachable", $"the DevFlow agent at {endpoint} could not be reached ({cause.Message}); is the app running with the agent registered?");
+            throw new DevFlowAgentException(
+                null,
+                "unreachable",
+                $"the DevFlow agent at {endpoint} could not be reached ({cause.Message}); is the app running with the agent registered?"
+            );
         }
     }
 
-    private static async Task<string> ReadTextAsync(HttpResponseMessage response, CancellationToken limit, CancellationToken cancellationToken)
+    private static async Task<string> ReadTextAsync(
+        HttpResponseMessage response,
+        CancellationToken limit,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -252,11 +321,19 @@ internal sealed class DevFlowAgentClient
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new DevFlowAgentException(null, "timeout", $"the DevFlow agent did not finish answering within {CommandTimeout.TotalSeconds:0} seconds");
+            throw new DevFlowAgentException(
+                null,
+                "timeout",
+                $"the DevFlow agent did not finish answering within {CommandTimeout.TotalSeconds:0} seconds"
+            );
         }
         catch (HttpRequestException cause)
         {
-            throw new DevFlowAgentException(null, "unreachable", $"the DevFlow agent closed the connection: {cause.Message}");
+            throw new DevFlowAgentException(
+                null,
+                "unreachable",
+                $"the DevFlow agent closed the connection: {cause.Message}"
+            );
         }
     }
 
@@ -287,10 +364,14 @@ internal sealed class DevFlowAgentClient
     private static string Short(string text)
     {
         var line = text.Trim();
-        return line.Length == 0 ? "no body" : line.Length > 200 ? line[..200] + "..." : line;
+        return line.Length == 0 ? "no body"
+            : line.Length > 200 ? line[..200] + "..."
+            : line;
     }
 
-    private static bool? Flag(JsonNode? node) => node is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
+    private static bool? Flag(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

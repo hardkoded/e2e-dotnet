@@ -17,13 +17,21 @@ public sealed class SurfaceLifecycleTests
     [Fact]
     public async Task Partial_Refuses_headers_or_basicAuth_from_a_runner_that_passes_no_app_origin()
     {
-        foreach (var options in new[]
+        foreach (
+            var options in new[]
+            {
+                new WebEngineOptions
+                {
+                    Headless = true,
+                    Headers = new Dictionary<string, string> { ["x-gate"] = "on" },
+                },
+                new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth("ada", "pw") },
+            }
+        )
         {
-            new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["x-gate"] = "on" } },
-            new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth("ada", "pw") },
-        })
-        {
-            var error = await Assert.ThrowsAsync<EngineException>(() => new WebEngine(options).StartAsync(new EngineStartOptions(), CancellationToken.None));
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                new WebEngine(options).StartAsync(new EngineStartOptions(), CancellationToken.None)
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
         }
     }

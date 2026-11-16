@@ -111,7 +111,8 @@ internal sealed class ArrayContainingMatcher(IReadOnlyList<object?> sample) : As
 
 internal sealed class StringContainingMatcher(string sample) : AsymmetricMatcher
 {
-    public override bool AsymmetricMatch(object? other) => other is string text && text.Contains(sample, StringComparison.Ordinal);
+    public override bool AsymmetricMatch(object? other) =>
+        other is string text && text.Contains(sample, StringComparison.Ordinal);
 
     public override string ToString() => "StringContaining";
 

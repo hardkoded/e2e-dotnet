@@ -48,7 +48,8 @@ internal sealed class ScriptedNode
 
     public bool Pressed { get; set; }
 
-    public IReadOnlyDictionary<string, string> Attributes { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, string> Attributes { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     public BoundingBox? Rect { get; init; }
 

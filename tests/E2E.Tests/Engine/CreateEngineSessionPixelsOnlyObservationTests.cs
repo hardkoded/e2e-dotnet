@@ -22,21 +22,25 @@ public sealed class CreateEngineSessionPixelsOnlyObservationTests
             Pixels = Pixels(),
         };
         var received = new List<ObserveOptions?>();
-        var session = EngineSessions.CreateEngineSession(new EngineSessionOptions
-        {
-            Engine = EngineManifest.DefineEngine(new EngineSpec
+        var session = EngineSessions.CreateEngineSession(
+            new EngineSessionOptions
             {
-                Name = "toy",
-                Version = "1.0.0",
-                SpiVersion = 1,
-                Observe = (_, options) =>
-                {
-                    received.Add(options);
-                    return Task.FromResult(raw);
-                },
-            }),
-            TargetName = "toy",
-        });
+                Engine = EngineManifest.DefineEngine(
+                    new EngineSpec
+                    {
+                        Name = "toy",
+                        Version = "1.0.0",
+                        SpiVersion = 1,
+                        Observe = (_, options) =>
+                        {
+                            received.Add(options);
+                            return Task.FromResult(raw);
+                        },
+                    }
+                ),
+                TargetName = "toy",
+            }
+        );
 
         var refused = await Assert.ThrowsAsync<TestException>(() => session.ObserveAsync(Snapshot.Operation));
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused.Code);
@@ -47,16 +51,23 @@ public sealed class CreateEngineSessionPixelsOnlyObservationTests
         Assert.Null(captured.Tree);
         Assert.Equal(captured.Revision, captured.Root.Revision);
 
-        raw = new EngineSnapshot(new EngineNode(new NodeRef("root", ""), Children: [Snapshot.Node("stale", "Old control")]), Snapshot.Viewport)
+        raw = new EngineSnapshot(
+            new EngineNode(new NodeRef("root", ""), Children: [Snapshot.Node("stale", "Old control")]),
+            Snapshot.Viewport
+        )
         {
             TreeUnavailable = true,
             Pixels = Pixels(),
         };
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(Snapshot.Operation, new ObserveOptions { PixelFallback = true }));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.ObserveAsync(Snapshot.Operation, new ObserveOptions { PixelFallback = true })
+        );
         Assert.Equal("INVALID_STATE", stale.Code);
 
         raw = new EngineSnapshot(new EngineNode(new NodeRef("root", "")), Snapshot.Viewport) { TreeUnavailable = true };
-        var noPixels = await Assert.ThrowsAsync<TestException>(() => session.ObserveAsync(Snapshot.Operation, new ObserveOptions { PixelFallback = true }));
+        var noPixels = await Assert.ThrowsAsync<TestException>(() =>
+            session.ObserveAsync(Snapshot.Operation, new ObserveOptions { PixelFallback = true })
+        );
         Assert.Equal("UNSUPPORTED_CAPABILITY", noPixels.Code);
     }
 
@@ -64,17 +75,21 @@ public sealed class CreateEngineSessionPixelsOnlyObservationTests
     public async Task Accepts_a_snapshot_with_no_nodes_and_pixels_a_vision_only_body_is_observable()
     {
         var pixels = new ObservationPixels(new byte[8], "image/png", 4, 2, 1);
-        var session = EngineSessions.CreateEngineSession(new EngineSessionOptions
-        {
-            Engine = EngineManifest.DefineEngine(new EngineSpec
+        var session = EngineSessions.CreateEngineSession(
+            new EngineSessionOptions
             {
-                Name = "vision",
-                Version = "1.0.0",
-                SpiVersion = 1,
-                Observe = (_, _) => Task.FromResult(Snapshot.Of([], pixels: pixels, maskedRegionCount: 0)),
-            }),
-            TargetName = "desktop",
-        });
+                Engine = EngineManifest.DefineEngine(
+                    new EngineSpec
+                    {
+                        Name = "vision",
+                        Version = "1.0.0",
+                        SpiVersion = 1,
+                        Observe = (_, _) => Task.FromResult(Snapshot.Of([], pixels: pixels, maskedRegionCount: 0)),
+                    }
+                ),
+                TargetName = "desktop",
+            }
+        );
 
         var observation = await session.ObserveAsync(Snapshot.Operation, new ObserveOptions { Pixels = true });
 

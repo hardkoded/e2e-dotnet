@@ -18,7 +18,8 @@ internal sealed record FindingInput(
     IReadOnlyList<string> Reproduction,
     string? Path = null,
     string? ArtifactId = null,
-    string? ObservationRevision = null);
+    string? ObservationRevision = null
+);
 
 /// <summary>
 /// The record of one exploration: the goal, its budgets, the change it plans from, the steps the agent planned and ran, and the findings it reported.
@@ -28,7 +29,13 @@ internal sealed record FindingInput(
 /// redactor runs over it here, before it reaches the outcome, the report, a progress event, or the next step's parameters. Each change is announced to
 /// the listeners <see cref="Subscribe"/> registered, as <see cref="ExploreProgress"/>.
 /// </summary>
-internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null, Redactor? redactor = null, ReportExploreChange? change = null)
+internal sealed class ExploreState(
+    string goal,
+    ExploreBudgets budgets,
+    TimeProvider? time = null,
+    Redactor? redactor = null,
+    ReportExploreChange? change = null
+)
 {
     /// <summary>Ceilings the report keeps, as upstream's schema does.</summary>
     public const int MaxTitleChars = 200;
@@ -104,7 +111,8 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
     }
 
     /// <summary>The findings of kind <see cref="ReportExploreFindingKind.Issue"/>.</summary>
-    public IReadOnlyList<ReportExploreFinding> Issues => [.. Findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue)];
+    public IReadOnlyList<ReportExploreFinding> Issues =>
+        [.. Findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue)];
 
     /// <summary>
     /// Registers a listener for every change from here on. A listener runs synchronously, in order, as upstream's does. Unlike
@@ -133,11 +141,18 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
         {
             if (_open is not null)
             {
-                throw new InvalidOperationException("exploration step " + _open.Index.ToString(CultureInfo.InvariantCulture) + " is still open");
+                throw new InvalidOperationException(
+                    "exploration step " + _open.Index.ToString(CultureInfo.InvariantCulture) + " is still open"
+                );
             }
 
             var now = _time.GetUtcNow();
-            _open = new OpenStep(_steps.Count + 1, Clip(_redactor.Redact(title), MaxTitleChars), Clip(_redactor.Redact(instruction), MaxInstructionChars), now);
+            _open = new OpenStep(
+                _steps.Count + 1,
+                Clip(_redactor.Redact(title), MaxTitleChars),
+                Clip(_redactor.Redact(instruction), MaxInstructionChars),
+                now
+            );
             var step = new OpenedStep(_open.Index, _open.Title, _open.Instruction);
             Notify(new ExploreProgress.StepStarted(step));
             return step;
@@ -159,7 +174,8 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 open.StartedAt,
                 TimeSpan.FromMilliseconds(Math.Max(0, (_time.GetUtcNow() - open.StartedAt).TotalMilliseconds)),
                 string.IsNullOrEmpty(summary) ? null : Clip(_redactor.Redact(summary), MaxSummaryChars),
-                errorCode);
+                errorCode
+            );
             _steps.Add(step);
             Notify(new ExploreProgress.StepFinished(step));
             return step;
@@ -190,7 +206,8 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 now,
                 input.Path is null ? null : Clip(_redactor.Redact(input.Path), MaxPathChars),
                 input.ArtifactId,
-                input.ObservationRevision);
+                input.ObservationRevision
+            );
             _findings.Add(finding);
             Notify(new ExploreProgress.FindingReported(finding));
             return finding;

@@ -17,13 +17,15 @@ public sealed class ScreenTreeTests
     [Fact]
     public async Task Redacts_the_secrets_the_run_knows()
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new EvidenceEngine("Token " + Token),
-            TestTitle = "reads the tree",
-            BaseUrl = "http://127.0.0.1:4599",
-            CacheEnabled = false,
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new EvidenceEngine("Token " + Token),
+                TestTitle = "reads the tree",
+                BaseUrl = "http://127.0.0.1:4599",
+                CacheEnabled = false,
+            }
+        );
         session.Remember([Secret.Create("apiToken", Token)]);
         await session.App.OpenAsync("/");
 

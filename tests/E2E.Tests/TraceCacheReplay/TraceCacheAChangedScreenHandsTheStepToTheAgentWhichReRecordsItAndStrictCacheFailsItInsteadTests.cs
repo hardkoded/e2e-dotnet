@@ -21,22 +21,25 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         "/companies/new",
         "/companies/new",
         renamed => new DocumentWorld().Map("/companies/new", page =>
-        {
-            var status = page.Status("Company", hidden: true);
-            page.Textbox("Name");
-            page.Button(renamed ? "Save company" : "Save", () => status.Hidden = false);
-        }),
-        renamed => ["fill Name", renamed ? "Save company" : "Save"]);
+            {
+                var status = page.Status("Company", hidden: true);
+                page.Textbox("Name");
+                page.Button(renamed ? "Save company" : "Save", () => status.Hidden = false);
+            }),
+        renamed => ["fill Name", renamed ? "Save company" : "Save"]
+    );
 
     private static readonly Flow Archives = new(
         "archives a record",
         "archive the record",
         "/records/1a2b3c4d5e6f",
         "/drafts/1a2b3c4d5e6f",
-        _ => new DocumentWorld()
-            .Map("/records/1a2b3c4d5e6f", page => Archivable(page))
-            .Map("/drafts/1a2b3c4d5e6f", page => Archivable(page)),
-        _ => ["Archive"]);
+        _ =>
+            new DocumentWorld()
+                .Map("/records/1a2b3c4d5e6f", page => Archivable(page))
+                .Map("/drafts/1a2b3c4d5e6f", page => Archivable(page)),
+        _ => ["Archive"]
+    );
 
     private static readonly Flow Retires = new(
         "retires a record",
@@ -44,16 +47,24 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         "/records/7a8b9c0d1e2f",
         "/records/7a8b9c0d1e2f",
         renamed => new DocumentWorld().Map("/records/7a8b9c0d1e2f", page =>
-        {
-            var status = page.Status("Retired", hidden: true);
-            page.Button(renamed ? "Remove" : "Retire", () => status.Hidden = false);
-        }),
-        renamed => [renamed ? "Remove" : "Retire"]);
+            {
+                var status = page.Status("Retired", hidden: true);
+                page.Button(renamed ? "Remove" : "Retire", () => status.Hidden = false);
+            }),
+        renamed => [renamed ? "Remove" : "Retire"]
+    );
 
     [Fact]
     public async Task Fails_every_diverged_step_with_REPLAY_STALE_naming_its_reason_without_a_model_call()
     {
-        foreach (var (flow, reason) in new[] { (Company, "target-not-found"), (Archives, "wrong-context"), (Retires, "target-not-found") })
+        foreach (
+            var (flow, reason) in new[]
+            {
+                (Company, "target-not-found"),
+                (Archives, "wrong-context"),
+                (Retires, "target-not-found"),
+            }
+        )
         {
             var directory = TempCache();
             Assert.Null((await RunAsync(flow, directory, replay: false, strict: false)).Error);
@@ -66,7 +77,11 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
             Assert.Equal("REPLAY_STALE", error.Code);
             Assert.Equal(2, Runner.ExitCodeOf(error));
             Assert.Contains(reason, error.Message, StringComparison.Ordinal);
-            Assert.Contains("re-record it with a read-write run with cache.strict set to false", error.Message, StringComparison.Ordinal);
+            Assert.Contains(
+                "re-record it with a read-write run with cache.strict set to false",
+                error.Message,
+                StringComparison.Ordinal
+            );
             Assert.Equal(0, stale.ModelCalls);
             Assert.Equal(bytes, await File.ReadAllBytesAsync(recorded));
         }
@@ -96,7 +111,15 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         var replayed = await RunAsync(Company, directory, replay: true, strict: false);
 
         Assert.Null(replayed.Error);
-        Assert.Equal(("agent-concluded", "target-not-found", 1, 2), (replayed.Result?.Cache?.Mode, replayed.Result?.Cache?.Reason, replayed.Result?.Cache?.ReplayedActions, replayed.Result?.Cache?.TotalActions));
+        Assert.Equal(
+            ("agent-concluded", "target-not-found", 1, 2),
+            (
+                replayed.Result?.Cache?.Mode,
+                replayed.Result?.Cache?.Reason,
+                replayed.Result?.Cache?.ReplayedActions,
+                replayed.Result?.Cache?.TotalActions
+            )
+        );
         Assert.True(replayed.ModelCalls > 0);
         var notice = replayed.Model.Requests[0].Messages[0].Content!;
         Assert.Contains("1. type \"Acme\" into textbox \"Name\"", notice, StringComparison.Ordinal);
@@ -168,19 +191,21 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
                 ? ModelResponses.Fill("textbox", steps[next]["fill ".Length..], "Acme")
                 : ModelResponses.Tap("button", steps[next]);
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(flow.World(replay)),
-            Model = model,
-            BaseUrl = "https://app.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            CacheStrict = strict,
-            TestTitle = flow.Title,
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(flow.World(replay)),
+                Model = model,
+                BaseUrl = "https://app.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                CacheStrict = strict,
+                TestTitle = flow.Title,
+                ActionTimeout = TimeSpan.FromMilliseconds(300),
+                ReplayTimeout = TimeSpan.FromMilliseconds(300),
+            }
+        );
         await session.App.OpenAsync(replay ? flow.ReplayRoute : flow.RecordRoute);
         ActResult? result = null;
         Exception? error = null;
@@ -198,7 +223,14 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         return new Run(result, error, session.ModelCalls, model);
     }
 
-    private sealed record Flow(string Title, string Instruction, string RecordRoute, string ReplayRoute, Func<bool, DocumentWorld> World, Func<bool, string[]> Steps);
+    private sealed record Flow(
+        string Title,
+        string Instruction,
+        string RecordRoute,
+        string ReplayRoute,
+        Func<bool, DocumentWorld> World,
+        Func<bool, string[]> Steps
+    );
 
     private sealed record Run(ActResult? Result, Exception? Error, int ModelCalls, ScriptedModel Model);
 }

@@ -19,7 +19,13 @@ public sealed class AgentDeviceLeasesTests : IDisposable
 
     private static readonly Dictionary<string, string?> RunEnvironment = new() { ["PATH"] = "/bin" };
 
-    private static readonly DeviceReleaseContext ReleaseContext = new() { RunId = "run-1", TargetName = "ios", Env = RunEnvironment, Log = _ => { } };
+    private static readonly DeviceReleaseContext ReleaseContext = new()
+    {
+        RunId = "run-1",
+        TargetName = "ios",
+        Env = RunEnvironment,
+        Log = _ => { },
+    };
 
     private readonly FakeLeaseHost _host = new();
 
@@ -27,26 +33,42 @@ public sealed class AgentDeviceLeasesTests : IDisposable
 
     private AgentDeviceLeases Leases() => new(Options, _host);
 
-    private static AgentDeviceLeaseRequest Allocation(Func<string, CancellationToken, Task>? prepareHome = null, IReadOnlyDictionary<string, string>? env = null) => new()
-    {
-        Env = env ?? new Dictionary<string, string> { ["CLOUD_USERNAME"] = "ada", ["CLOUD_ACCESS_KEY"] = "cloud-key" },
-        Selectors = new LeaseSelectors { Device = "Google Pixel 9", ProviderOsVersion = "16.0", ProviderApp = "cloud://APP0" },
-        Summary = "Google Pixel 9, android 16.0",
-        PrepareHome = prepareHome,
-    };
+    private static AgentDeviceLeaseRequest Allocation(
+        Func<string, CancellationToken, Task>? prepareHome = null,
+        IReadOnlyDictionary<string, string>? env = null
+    ) =>
+        new()
+        {
+            Env = env
+                ?? new Dictionary<string, string> { ["CLOUD_USERNAME"] = "ada", ["CLOUD_ACCESS_KEY"] = "cloud-key" },
+            Selectors = new LeaseSelectors
+            {
+                Device = "Google Pixel 9",
+                ProviderOsVersion = "16.0",
+                ProviderApp = "cloud://APP0",
+            },
+            Summary = "Google Pixel 9, android 16.0",
+            PrepareHome = prepareHome,
+        };
 
-    private static DeviceRequest Request(MobilePlatform platform = MobilePlatform.Android, int slot = 0, IReadOnlyDictionary<string, string?>? env = null, Action<string>? log = null) => new()
-    {
-        Platform = platform,
-        RunId = "run-1",
-        TargetName = "android",
-        Slot = slot,
-        Slots = 2,
-        AgentDeviceVersion = AgentDeviceVersion.Pinned,
-        ProjectRoot = "/project",
-        Env = env ?? RunEnvironment,
-        Log = log ?? (_ => { }),
-    };
+    private static DeviceRequest Request(
+        MobilePlatform platform = MobilePlatform.Android,
+        int slot = 0,
+        IReadOnlyDictionary<string, string?>? env = null,
+        Action<string>? log = null
+    ) =>
+        new()
+        {
+            Platform = platform,
+            RunId = "run-1",
+            TargetName = "android",
+            Slot = slot,
+            Slots = 2,
+            AgentDeviceVersion = AgentDeviceVersion.Pinned,
+            ProjectRoot = "/project",
+            Env = env ?? RunEnvironment,
+            Log = log ?? (_ => { }),
+        };
 
     [Fact]
     public async Task Allocates_a_retained_lease_from_its_own_daemon_with_the_selectors_and_the_platform_backend()
@@ -55,7 +77,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
 
         JsonAssert.Args(
             """{"tenant":"cloud","runId":"run-1","leaseBackend":"android-instance","leaseProvider":"cloud","platform":"android","target":"mobile","device":"Google Pixel 9","providerOsVersion":"16.0","providerApp":"cloud://APP0","retainOnClose":true}""",
-            _host.Starts[0].Request.Allocate);
+            _host.Starts[0].Request.Allocate
+        );
         Assert.Equal("Cloud", _host.Starts[0].Label);
         Assert.True(Directory.Exists(_host.DirectoryOf()));
         await Leases().AcquireAsync(Request(MobilePlatform.Ios), Allocation(), CancellationToken.None);
@@ -74,12 +97,14 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         Assert.Equal("lease-1", lease.Id);
         JsonAssert.Args(
             $$"""{"stateDir":{{JsonValue.Create(stateDirectory)!.ToJsonString()}},"tenant":"cloud","runId":"run-1","leaseId":"lease-1","leaseBackend":"android-instance","leaseProvider":"cloud","platform":"android","target":"mobile","device":"Google Pixel 9","providerOsVersion":"16.0","providerApp":"cloud://APP0"}""",
-            lease.Client);
+            lease.Client
+        );
         Assert.DoesNotContain("cloud-key", lease.Client!.ToJsonString(), StringComparison.Ordinal);
         var (scope, log) = Assert.Single(_host.Heartbeats);
         JsonAssert.Args(
             $$"""{"stateDir":{{JsonValue.Create(stateDirectory)!.ToJsonString()}},"tenant":"cloud","runId":"run-1","leaseId":"lease-1","leaseBackend":"android-instance","leaseProvider":"cloud"}""",
-            scope);
+            scope
+        );
         Assert.Same(request.Log, log);
     }
 
@@ -97,11 +122,20 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     public async Task Releases_a_granted_lease_when_the_runs_log_throws_instead_of_losing_it()
     {
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Leases().AcquireAsync(Request(log: _ => throw new InvalidOperationException("log closed")), Allocation(), CancellationToken.None));
+            Leases()
+                .AcquireAsync(
+                    Request(log: _ => throw new InvalidOperationException("log closed")),
+                    Allocation(),
+                    CancellationToken.None
+                )
+        );
 
         Assert.Equal("log closed", error.Message);
         var stop = Assert.Single(_host.Stops);
-        Assert.Equal((_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"), (stop.StateDirectory, stop.LeaseId, stop.Label));
+        Assert.Equal(
+            (_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"),
+            (stop.StateDirectory, stop.LeaseId, stop.Label)
+        );
         Assert.Same(_host.Starts[0].Env, stop.Env);
         Assert.Equal(1, _host.HeartbeatsStopped);
     }
@@ -122,7 +156,8 @@ public sealed class AgentDeviceLeasesTests : IDisposable
 
         await Task.WhenAll(
             provider.AcquireAsync(Request(env: runEnvironment), Allocation(), CancellationToken.None),
-            provider.AcquireAsync(Request(slot: 1, env: runEnvironment), Allocation(), CancellationToken.None));
+            provider.AcquireAsync(Request(slot: 1, env: runEnvironment), Allocation(), CancellationToken.None)
+        );
 
         Assert.NotEqual(_host.Starts[0].Request.StateDirectory, _host.Starts[1].Request.StateDirectory);
         Assert.NotEqual(_host.Starts[0].Env["AGENT_DEVICE_HOME"], _host.Starts[1].Env["AGENT_DEVICE_HOME"]);
@@ -160,15 +195,19 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         string? prepared = null;
         var startedBefore = -1;
 
-        await Leases().AcquireAsync(
-            Request(),
-            Allocation((home, _) =>
-            {
-                prepared = home;
-                startedBefore = _host.Starts.Count;
-                return File.WriteAllTextAsync(Path.Combine(home, "..", "prepared"), home);
-            }),
-            CancellationToken.None);
+        await Leases()
+            .AcquireAsync(
+                Request(),
+                Allocation(
+                    (home, _) =>
+                    {
+                        prepared = home;
+                        startedBefore = _host.Starts.Count;
+                        return File.WriteAllTextAsync(Path.Combine(home, "..", "prepared"), home);
+                    }
+                ),
+                CancellationToken.None
+            );
 
         Assert.Equal(_host.Starts[0].Env["AGENT_DEVICE_HOME"], prepared);
         Assert.Equal(prepared, await File.ReadAllTextAsync(Path.Combine(_host.DirectoryOf(), "prepared")));
@@ -181,7 +220,9 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Leases().AcquireAsync(Request(), Allocation(), cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Leases().AcquireAsync(Request(), Allocation(), cancelled.Token)
+        );
 
         Assert.Empty(_host.Starts);
     }
@@ -196,10 +237,15 @@ public sealed class AgentDeviceLeasesTests : IDisposable
             return new DriverGrant("lease-1", "cloud", "run-1", true);
         });
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Leases().AcquireAsync(Request(), Allocation(), cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Leases().AcquireAsync(Request(), Allocation(), cancelled.Token)
+        );
 
         var stop = Assert.Single(_host.Stops);
-        Assert.Equal((_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"), (stop.StateDirectory, stop.LeaseId, stop.Label));
+        Assert.Equal(
+            (_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"),
+            (stop.StateDirectory, stop.LeaseId, stop.Label)
+        );
         Assert.Empty(_host.Heartbeats);
         Assert.False(Directory.Exists(_host.DirectoryOf()));
     }
@@ -209,9 +255,14 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     {
         _host.NextStarts.Enqueue(_ => Task.FromResult(new DriverGrant("lease-1", "cloud", "run-1", false)));
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None)
+        );
 
-        Assert.Equal("agent-device did not acknowledge retainOnClose. Closing the engine session could end the Cloud lease before run-end release", error.Message);
+        Assert.Equal(
+            "agent-device did not acknowledge retainOnClose. Closing the engine session could end the Cloud lease before run-end release",
+            error.Message
+        );
         Assert.Single(_host.Stops);
     }
 
@@ -219,22 +270,39 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     public async Task Stops_the_daemon_after_a_failed_allocation_or_home_setup_and_reports_a_failed_cleanup_with_the_cause()
     {
         _host.NextStarts.Enqueue(_ => throw new InvalidOperationException("no capacity"));
-        var failed = await Assert.ThrowsAsync<InvalidOperationException>(() => Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None));
+        var failed = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None)
+        );
         Assert.Equal("no capacity", failed.Message);
         var stop = Assert.Single(_host.Stops);
 
         // Nothing was granted, so a stop that finds no daemon has nothing to confirm.
-        Assert.Equal((_host.Starts[0].Request.StateDirectory, (string?)null, "Cloud"), (stop.StateDirectory, stop.LeaseId, stop.Label));
+        Assert.Equal(
+            (_host.Starts[0].Request.StateDirectory, (string?)null, "Cloud"),
+            (stop.StateDirectory, stop.LeaseId, stop.Label)
+        );
         Assert.Empty(_host.Heartbeats);
 
         _host.NextStarts.Enqueue(_ => throw new InvalidOperationException("no capacity"));
         _host.NextStops.Enqueue((_, _) => throw new InvalidOperationException("daemon did not stop"));
-        var both = await Assert.ThrowsAsync<AggregateException>(() => Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None));
-        Assert.StartsWith("Cloud lease failed: no capacity; cleanup also failed: daemon did not stop", both.Message, StringComparison.Ordinal);
+        var both = await Assert.ThrowsAsync<AggregateException>(() =>
+            Leases().AcquireAsync(Request(), Allocation(), CancellationToken.None)
+        );
+        Assert.StartsWith(
+            "Cloud lease failed: no capacity; cleanup also failed: daemon did not stop",
+            both.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(["no capacity", "daemon did not stop"], both.InnerExceptions.Select(inner => inner.Message));
 
         var home = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Leases().AcquireAsync(Request(), Allocation((_, _) => throw new InvalidOperationException("plugin missing")), CancellationToken.None));
+            Leases()
+                .AcquireAsync(
+                    Request(),
+                    Allocation((_, _) => throw new InvalidOperationException("plugin missing")),
+                    CancellationToken.None
+                )
+        );
         Assert.Equal("plugin missing", home.Message);
         Assert.Equal(2, _host.Starts.Count);
         Assert.Equal(3, _host.Stops.Count);
@@ -247,12 +315,18 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         using var token = new CancellationTokenSource();
 
-        await Task.WhenAll(provider.ReleaseAsync(lease, ReleaseContext, token.Token), provider.ReleaseAsync(lease, ReleaseContext, token.Token));
+        await Task.WhenAll(
+            provider.ReleaseAsync(lease, ReleaseContext, token.Token),
+            provider.ReleaseAsync(lease, ReleaseContext, token.Token)
+        );
         await provider.ReleaseAsync(lease, ReleaseContext, token.Token);
 
         Assert.Equal(1, _host.HeartbeatsStopped);
         var stop = Assert.Single(_host.Stops);
-        Assert.Equal((_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"), (stop.StateDirectory, stop.LeaseId, stop.Label));
+        Assert.Equal(
+            (_host.Starts[0].Request.StateDirectory, "lease-1", "Cloud"),
+            (stop.StateDirectory, stop.LeaseId, stop.Label)
+        );
         Assert.False(Directory.Exists(_host.DirectoryOf()));
     }
 
@@ -263,7 +337,9 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         _host.NextStops.Enqueue((_, _) => throw new InvalidOperationException("daemon busy"));
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None)
+        );
         await provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None);
 
         Assert.Equal("daemon busy", error.Message);
@@ -274,8 +350,34 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     public async Task Keeps_failing_to_release_a_lease_whose_session_end_is_unknown_once_its_daemon_is_gone()
     {
         static string Stop(object data) => System.Text.Json.JsonSerializer.Serialize(new { success = true, data });
-        var forced = Stop(new { stopped = true, mode = "forced", providerReleases = new { status = "unknown", released = Array.Empty<object>(), pending = (object?)null }, warnings = Array.Empty<string>() });
-        var notRunning = Stop(new { stopped = false, mode = "not-running", providerReleases = new { status = "completed", released = Array.Empty<object>(), pending = Array.Empty<object>() }, warnings = Array.Empty<string>() });
+        var forced = Stop(
+            new
+            {
+                stopped = true,
+                mode = "forced",
+                providerReleases = new
+                {
+                    status = "unknown",
+                    released = Array.Empty<object>(),
+                    pending = (object?)null,
+                },
+                warnings = Array.Empty<string>(),
+            }
+        );
+        var notRunning = Stop(
+            new
+            {
+                stopped = false,
+                mode = "not-running",
+                providerReleases = new
+                {
+                    status = "completed",
+                    released = Array.Empty<object>(),
+                    pending = Array.Empty<object>(),
+                },
+                warnings = Array.Empty<string>(),
+            }
+        );
         _host.Stop = (leaseId, count) =>
         {
             Mobile.Lease.LeaseDaemon.AssertSessionsEnded(count == 1 ? forced : notRunning, leaseId, "Cloud");
@@ -285,14 +387,31 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         var directory = _host.DirectoryOf();
 
-        var first = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
-        Assert.Contains("agent-device could not confirm its Cloud sessions ended", first.Message, StringComparison.Ordinal);
+        var first = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None)
+        );
+        Assert.Contains(
+            "agent-device could not confirm its Cloud sessions ended",
+            first.Message,
+            StringComparison.Ordinal
+        );
 
         // The forced stop killed the daemon, so every later stop finds none: the release never resolves without evidence.
-        var second = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
-        Assert.Equal("agent-device found no daemon running for lease lease-1, so nothing confirms its Cloud session ended", second.Message);
-        var third = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
-        Assert.Contains("agent-device found no daemon running for lease lease-1", third.Message, StringComparison.Ordinal);
+        var second = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None)
+        );
+        Assert.Equal(
+            "agent-device found no daemon running for lease lease-1, so nothing confirms its Cloud session ended",
+            second.Message
+        );
+        var third = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None)
+        );
+        Assert.Contains(
+            "agent-device found no daemon running for lease lease-1",
+            third.Message,
+            StringComparison.Ordinal
+        );
         Assert.Equal(3, _host.Stops.Count);
         Assert.True(Directory.Exists(directory));
     }
@@ -304,7 +423,9 @@ public sealed class AgentDeviceLeasesTests : IDisposable
         var lease = await provider.AcquireAsync(Request(), Allocation(), CancellationToken.None);
         _host.NextDeleteFailures.Enqueue(new IOException("EBUSY: resource busy or locked"));
 
-        var error = await Assert.ThrowsAsync<IOException>(() => provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<IOException>(() =>
+            provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None)
+        );
         await provider.ReleaseAsync(lease, ReleaseContext, CancellationToken.None);
 
         Assert.Contains("EBUSY", error.Message, StringComparison.Ordinal);
@@ -316,11 +437,23 @@ public sealed class AgentDeviceLeasesTests : IDisposable
     [Fact]
     public async Task Ignores_a_lease_it_does_not_hold()
     {
-        await Leases().ReleaseAsync(new DeviceLease { Id = "other", Client = new JsonObject { ["stateDir"] = "/tmp/x" } }, ReleaseContext, CancellationToken.None);
+        await Leases()
+            .ReleaseAsync(
+                new DeviceLease
+                {
+                    Id = "other",
+                    Client = new JsonObject { ["stateDir"] = "/tmp/x" },
+                },
+                ReleaseContext,
+                CancellationToken.None
+            );
 
         Assert.Empty(_host.Stops);
     }
 
     private static Dictionary<string, string> Snapshot() =>
-        Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value ?? "");
+        Environment
+            .GetEnvironmentVariables()
+            .Cast<DictionaryEntry>()
+            .ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value ?? "");
 }

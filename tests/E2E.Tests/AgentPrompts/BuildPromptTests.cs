@@ -31,7 +31,10 @@ public sealed class BuildPromptTests
     public void Partial_keeps_the_query_and_fragment_as_the_acting_agent_reads_them()
     {
         // The location arrives already redacted, so its secret marker reads percent-encoded in the address.
-        var judged = E2E.AgentObservation.JudgeLocation("https://app.test/tasks?status=active&token=%3Csecret:token%3E#done", App);
+        var judged = E2E.AgentObservation.JudgeLocation(
+            "https://app.test/tasks?status=active&token=%3Csecret:token%3E#done",
+            App
+        );
         Assert.Equal("/tasks?status=active&token=%3Csecret:token%3E#done", judged.Text);
     }
 
@@ -74,6 +77,9 @@ public sealed class BuildPromptTests
     public void Partial_keeps_a_location_that_is_not_a_URL_inside_its_text()
     {
         // A device reports `<app> / <screen title>`, and the title is the app's text.
-        Assert.Equal("com.example / Say \"hi\"", E2E.AgentObservation.JudgeLocation("com.example / Say \"hi\"", App).Text);
+        Assert.Equal(
+            "com.example / Say \"hi\"",
+            E2E.AgentObservation.JudgeLocation("com.example / Say \"hi\"", App).Text
+        );
     }
 }

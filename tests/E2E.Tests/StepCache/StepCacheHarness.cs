@@ -17,28 +17,50 @@ internal static class StepCacheHarness
 {
     public const string Key = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
-    public static SemanticNode SavedMarker { get; } = new() { Ref = "m1", Role = "status", Name = "Marker", Text = "saved" };
+    public static SemanticNode SavedMarker { get; } =
+        new()
+        {
+            Ref = "m1",
+            Role = "status",
+            Name = "Marker",
+            Text = "saved",
+        };
 
-    public static RecordedTarget SavedAnchor { get; } = new() { Role = "status", Name = "Marker", Text = "saved" };
+    public static RecordedTarget SavedAnchor { get; } =
+        new()
+        {
+            Role = "status",
+            Name = "Marker",
+            Text = "saved",
+        };
 
     /// <summary>The step every session here runs, as an entry records it.</summary>
-    public static CacheEntry ExampleStep => new()
-    {
-        Schema = FileStepCache.SchemaVersion,
-        Test = "tests/example > step",
-        Instruction = "open billing",
-        Engine = "web",
-        ParamsDigest = CacheKeys.ParamsDigest(null),
-        CallIndex = 0,
-        Agent = "default",
-    };
+    public static CacheEntry ExampleStep =>
+        new()
+        {
+            Schema = FileStepCache.SchemaVersion,
+            Test = "tests/example > step",
+            Instruction = "open billing",
+            Engine = "web",
+            ParamsDigest = CacheKeys.ParamsDigest(null),
+            CallIndex = 0,
+            Agent = "default",
+        };
 
     public static StepHost MakeHost(string[] paths, params SemanticNode[][] screens) => new(paths, screens);
 
     /// <summary>A host on <paramref name="time"/>, which a test fakes as upstream fakes its timers.</summary>
-    public static StepHost MakeHost(TimeProvider time, string[] paths, params SemanticNode[][] screens) => new(paths, screens, time);
+    public static StepHost MakeHost(TimeProvider time, string[] paths, params SemanticNode[][] screens) =>
+        new(paths, screens, time);
 
-    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null, string? appOrigin = null)
+    public static StepTraceSession MakeSession(
+        CacheContext context,
+        StepHost host,
+        IReadOnlyDictionary<string, object?>? parameters = null,
+        CacheEntry? step = null,
+        int? stepIndex = null,
+        string? appOrigin = null
+    )
     {
         return new StepTraceSession(
             host,
@@ -47,7 +69,15 @@ internal static class StepCacheHarness
                 Cache = context.Store,
                 Write = context.Write,
                 Strict = context.Strict,
-                StrictAdvice = context.Strict ? CacheContexts.CreateAgentCacheContext(new CacheConfig { Strict = true, Store = context.Store }, Path.GetTempPath(), 0)!.Strict!.Advice : "",
+                StrictAdvice = context.Strict
+                    ? CacheContexts
+                        .CreateAgentCacheContext(
+                            new CacheConfig { Strict = true, Store = context.Store },
+                            Path.GetTempPath(),
+                            0
+                        )!
+                        .Strict!.Advice
+                    : "",
                 ReplayEligible = context.ReplayEligible,
                 Claim = new ClaimedKey(Key, step ?? ExampleStep),
                 Instruction = "open billing",
@@ -55,7 +85,8 @@ internal static class StepCacheHarness
                 Recorder = host.Recorder,
                 StepIndex = stepIndex,
                 AppOrigin = appOrigin,
-            });
+            }
+        );
     }
 
     public static CacheContext FakeContext(Func<CacheLookup> read) => new(new StubCache(read));
@@ -71,7 +102,8 @@ internal static class StepCacheHarness
         RecordedAction[]? actions = null,
         int? endWaitMs = null,
         bool truncated = false,
-        string? summary = null)
+        string? summary = null
+    )
     {
         var entry = new CacheEntry
         {
@@ -90,12 +122,30 @@ internal static class StepCacheHarness
 
     public static RecordedAction Navigate(string url) => new() { Kind = "navigate", Url = url };
 
-    public static RecordedAction Tap(string role, string name) => new() { Kind = "tap", Role = role, Name = name };
+    public static RecordedAction Tap(string role, string name) =>
+        new()
+        {
+            Kind = "tap",
+            Role = role,
+            Name = name,
+        };
 
-    public static SemanticNode Node(string reference, string role, string name, string? text = null) => new() { Ref = reference, Role = role, Name = name, Text = text };
+    public static SemanticNode Node(string reference, string role, string name, string? text = null) =>
+        new()
+        {
+            Ref = reference,
+            Role = role,
+            Name = name,
+            Text = text,
+        };
 
     /// <summary>What a kind of change leaves in the cache after the attempt settles: upstream's <c>settleStagedTraces</c>.</summary>
-    public static IReadOnlyDictionary<int, CacheWrite> Settle(CacheContext context, StepTraceSession session, bool verified, bool preserve = false)
+    public static IReadOnlyDictionary<int, CacheWrite> Settle(
+        CacheContext context,
+        StepTraceSession session,
+        bool verified,
+        bool preserve = false
+    )
     {
         session.Pending.Verified = verified && session.Pending.Completed;
         return E2ESession.Flush(context.Store, [session.Pending], preserve);
@@ -115,11 +165,29 @@ internal sealed class CacheContext(IStepCache store)
 
     public bool ReplayEligible { get; init; } = true;
 
-    public CacheContext ReadOnly() => new(Store) { Write = false, Strict = Strict, ReplayEligible = ReplayEligible };
+    public CacheContext ReadOnly() =>
+        new(Store)
+        {
+            Write = false,
+            Strict = Strict,
+            ReplayEligible = ReplayEligible,
+        };
 
-    public CacheContext Under(bool strict) => new(Store) { Write = !strict && Write, Strict = strict, ReplayEligible = ReplayEligible };
+    public CacheContext Under(bool strict) =>
+        new(Store)
+        {
+            Write = !strict && Write,
+            Strict = strict,
+            ReplayEligible = ReplayEligible,
+        };
 
-    public CacheContext Retry() => new(Store) { Write = Write, Strict = Strict, ReplayEligible = false };
+    public CacheContext Retry() =>
+        new(Store)
+        {
+            Write = Write,
+            Strict = Strict,
+            ReplayEligible = false,
+        };
 
     public int Reads => (Store as StubCache)?.Reads ?? 0;
 
@@ -232,7 +300,12 @@ internal sealed class StepHost : IStepCacheHost
             _nodes = _screens.Count > 1 ? _screens.Dequeue() : _screens.Peek();
         }
 
-        return Task.FromResult(Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(new Observation { Route = _path, Roots = _nodes }, Redact));
+        return Task.FromResult(
+            Latest = global::E2E.Tests.TraceReplay.TestHost.Prepare(
+                new Observation { Route = _path, Roots = _nodes },
+                Redact
+            )
+        );
     }
 
     public bool TryReserve() => true;
@@ -247,49 +320,99 @@ internal sealed class StepHost : IStepCacheHost
 
     private sealed class Grammar(StepHost host) : IExecutorActions
     {
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DoubleTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SecondaryTapAsync(
+            ExecutorTarget target,
+            ClickOptions? options,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DragAsync(
+            ExecutorTarget source,
+            ExecutorTarget destination,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TypeSecretAsync(
+            ExecutorTarget target,
+            string secretName,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TypeTextAsync(
+            string value,
+            TypeTextOptions? options = null,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
         public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task UploadAsync(
+            ExecutorTarget target,
+            IReadOnlyList<string> paths,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
 
-        public Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+        public Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PointTapResult(point, null, ""));
 
-        public Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+        public Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PointTapResult(point, null, ""));
 
-        public Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default) => Task.FromResult(new PointDragResult(from, to, null, null, ""));
+        public Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PointDragResult(from, to, null, null, ""));
 
-        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new PointHit(point, null, null, ""));
 
-        public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ScrollUntilAsync(
+            string text,
+            ScrollDirection direction,
+            ExecutorTarget? list = null,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
-        public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task ScrollAsync(
+            ExecutorTarget? list,
+            ScrollDirection direction,
+            int times = 1,
+            CancellationToken cancellationToken = default
+        ) => Task.CompletedTask;
 
         public Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {

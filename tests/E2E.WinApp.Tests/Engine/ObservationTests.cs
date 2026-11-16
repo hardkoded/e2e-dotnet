@@ -35,7 +35,26 @@ public sealed class ObservationTests
     {
         await using var harness = new Harness();
         var session = await harness.OpenAsync();
-        harness.Driver.Script(session.App!.ProcessId, 0x2000, "", RawElements.Element("popup", "Window", null, null, new Rect(300, 250, 200, 100), RawElements.ListItem("opt-1", "Large") with { Bounds = new Rect(300, 250, 200, 24) }) with { ClassName = "Xaml_WindowedPopupClass" }, new Rect(300, 250, 200, 100));
+        harness.Driver.Script(
+            session.App!.ProcessId,
+            0x2000,
+            "",
+            RawElements.Element(
+                "popup",
+                "Window",
+                null,
+                null,
+                new Rect(300, 250, 200, 100),
+                RawElements.ListItem("opt-1", "Large") with
+                {
+                    Bounds = new Rect(300, 250, 200, 24),
+                }
+            ) with
+            {
+                ClassName = "Xaml_WindowedPopupClass",
+            },
+            new Rect(300, 250, 200, 100)
+        );
         var observation = await session.ObserveAsync(CancellationToken.None);
         var roots = observation.Roots[0].Children;
         Assert.Equal(2, roots.Count);
@@ -50,7 +69,14 @@ public sealed class ObservationTests
     {
         await using var harness = new Harness();
         var session = await harness.OpenAsync();
-        harness.Driver.Script(session.App!.ProcessId, FakeWindowDriver.MainHandle, "Settings", RawElements.Settings(), new Rect(100, 50, 1600, 1200), scale: 2);
+        harness.Driver.Script(
+            session.App!.ProcessId,
+            FakeWindowDriver.MainHandle,
+            "Settings",
+            RawElements.Settings(),
+            new Rect(100, 50, 1600, 1200),
+            scale: 2
+        );
         var observation = await session.ObserveAsync(CancellationToken.None);
         Assert.Equal(new BoundingBox(0, 0, 800, 600), observation.Roots[0].Rect);
         Assert.Equal(new TraceViewport(800, 600), observation.Viewport);
@@ -71,7 +97,9 @@ public sealed class ObservationTests
         Assert.Contains("invoke btn-save Auto", harness.Driver.Calls);
 
         harness.Driver.Vanished.Add("btn-save");
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(save, new LocatorAction.Tap(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(save, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.NodeStale, error.Code);
         Assert.True(error.Retryable);
     }
@@ -82,7 +110,9 @@ public sealed class ObservationTests
         await using var harness = new Harness();
         var session = await harness.OpenAsync();
         await session.ObserveAsync(CancellationToken.None);
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(new SemanticNode { Ref = "n999" }, new LocatorAction.Tap(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(new SemanticNode { Ref = "n999" }, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.NodeStale, error.Code);
         Assert.Contains("n999 is not part of the newest observation", error.Message, StringComparison.Ordinal);
     }
@@ -115,7 +145,10 @@ public sealed class ObservationTests
     public async Task Marks_the_observation_truncated_when_the_node_budget_runs_out()
     {
         await using var harness = new Harness();
-        var items = Enumerable.Range(1, ObservationLimits.Nodes + 5).Select(index => RawElements.ListItem($"i{index}", $"Item {index}")).ToArray();
+        var items = Enumerable
+            .Range(1, ObservationLimits.Nodes + 5)
+            .Select(index => RawElements.ListItem($"i{index}", $"Item {index}"))
+            .ToArray();
         var session = await harness.OpenAsync(RawElements.Window("Big", RawElements.List("l", "Items", items)));
         var observation = await session.ObserveAsync(CancellationToken.None);
         Assert.True(observation.Truncated);

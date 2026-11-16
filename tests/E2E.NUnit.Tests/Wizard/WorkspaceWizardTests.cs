@@ -16,7 +16,8 @@ public sealed class WorkspaceWizardTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     private string _chosenPlan = "";
 
@@ -46,6 +47,8 @@ public sealed class WorkspaceWizardTests : E2ETest
     public async Task Step_3_confirm_with_state_from_earlier_members()
     {
         await Screen.GetByRole("button", "Create workspace").TapAsync();
-        await Expect.That(Screen.GetByRole("status", "Summary")).ToHaveTextAsync($"Created \"Rocketry\" on the {_chosenPlan} plan");
+        await Expect
+            .That(Screen.GetByRole("status", "Summary"))
+            .ToHaveTextAsync($"Created \"Rocketry\" on the {_chosenPlan} plan");
     }
 }

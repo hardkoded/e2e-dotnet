@@ -25,7 +25,9 @@ public sealed class SerializeErrorTests
     {
         var serialized = ErrorSerializer.Serialize(new ConfigurationException("X", "a\u0007b\u0001c"));
         Assert.Equal("a�b�c", serialized.Message);
-        var colored = ErrorSerializer.Serialize(new ConfigurationException("X", "\u001b[1m\u001b[31mUnauthenticated\u001b[0m request"));
+        var colored = ErrorSerializer.Serialize(
+            new ConfigurationException("X", "\u001b[1m\u001b[31mUnauthenticated\u001b[0m request")
+        );
         Assert.Equal("Unauthenticated request", colored.Message);
     }
 }

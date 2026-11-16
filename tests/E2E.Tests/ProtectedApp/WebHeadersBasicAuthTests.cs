@@ -24,7 +24,14 @@ public sealed class WebHeadersBasicAuthTests
         using var app = await StartAsync();
         using var otherPort = await StartAsync();
         using var otherSite = await StartAsync("localhost");
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["X-Fixture-Header"] = "let-me-in" } });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                Headers = new Dictionary<string, string> { ["X-Fixture-Header"] = "let-me-in" },
+            }
+        );
 
         Assert.Equal("let-me-in", await HeadingAtAsync(session, app.Url + "headers"));
         // Another port on the same host, and a third-party site, get the request without them.
@@ -41,12 +48,15 @@ public sealed class WebHeadersBasicAuthTests
         using var app = await StartAsync();
         using var otherPort = await StartAsync();
         using var otherSite = await StartAsync("localhost");
-        await using var session = await StartSessionAsync(app, new WebEngineOptions
-        {
-            Headless = true,
-            Headers = new Dictionary<string, string> { ["x-fixture-header"] = "listed" },
-            CredentialOrigins = [otherPort.Url],
-        });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                Headers = new Dictionary<string, string> { ["x-fixture-header"] = "listed" },
+                CredentialOrigins = [otherPort.Url],
+            }
+        );
 
         Assert.Equal("listed", await HeadingAtAsync(session, otherPort.Url + "headers"));
         Assert.Equal("none", await HeadingAtAsync(session, otherSite.Url + "headers"));
@@ -57,7 +67,14 @@ public sealed class WebHeadersBasicAuthTests
     {
         using var app = await StartAsync();
         using var otherSite = await StartAsync("localhost");
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["x-fixture-header"] = "rides-redirects" } });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                Headers = new Dictionary<string, string> { ["x-fixture-header"] = "rides-redirects" },
+            }
+        );
 
         // Playwright reapplies a routed request's headers to its redirects without routing them:
         // they reach whatever origin a redirect names, and a redirect into the app's origin gets none.
@@ -71,7 +88,14 @@ public sealed class WebHeadersBasicAuthTests
     public async Task Keeps_the_headers_on_a_request_an_attempt_route_lets_through()
     {
         using var app = await StartAsync();
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["x-fixture-header"] = "through-the-route" } });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                Headers = new Dictionary<string, string> { ["x-fixture-header"] = "through-the-route" },
+            }
+        );
         var routed = 0;
         // Registered after the header route, so it runs first, as a browser route handler does.
         await ((IBrowserSession)session).RouteAsync(
@@ -81,7 +105,8 @@ public sealed class WebHeadersBasicAuthTests
                 routed++;
                 return route.FallbackAsync();
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal("through-the-route", await HeadingAtAsync(session, app.Url + "headers"));
         Assert.Equal(1, routed);
@@ -106,7 +131,14 @@ public sealed class WebHeadersBasicAuthTests
             Assert.Equal(1, await WebEngine.SurfaceOf(plain)!.Page().EvaluateAsync<int>(Registrations));
         }
 
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, Headers = new Dictionary<string, string> { ["x-fixture-header"] = "no-workers" } });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                Headers = new Dictionary<string, string> { ["x-fixture-header"] = "no-workers" },
+            }
+        );
         await HeadingAtAsync(session, app.Url);
         Assert.Equal(0, await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync<int>(Registrations));
     }
@@ -122,7 +154,10 @@ public sealed class WebHeadersBasicAuthTests
             Assert.Equal("Unauthorized", await HeadingAtAsync(unauthenticated, app.Url + "protected"));
         }
 
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth(Username, Password) });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth(Username, Password) }
+        );
         Assert.Equal("Protected", await HeadingAtAsync(session, app.Url + "protected"));
         Assert.Equal("Unauthorized", await HeadingAtAsync(session, otherPort.Url + "protected"));
         Assert.Equal("Unauthorized", await HeadingAtAsync(session, otherSite.Url + "protected"));
@@ -137,12 +172,15 @@ public sealed class WebHeadersBasicAuthTests
         using var app = await StartAsync();
         using var otherPort = await StartAsync();
         using var otherSite = await StartAsync("localhost");
-        await using var session = await StartSessionAsync(app, new WebEngineOptions
-        {
-            Headless = true,
-            BasicAuth = new WebBasicAuth(Username, Password),
-            CredentialOrigins = [otherPort.Url],
-        });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                BasicAuth = new WebBasicAuth(Username, Password),
+                CredentialOrigins = [otherPort.Url],
+            }
+        );
 
         Assert.Equal("Protected", await HeadingAtAsync(session, app.Url + "protected"));
         Assert.Equal("Protected", await HeadingAtAsync(session, otherPort.Url + "protected"));
@@ -154,7 +192,14 @@ public sealed class WebHeadersBasicAuthTests
     {
         using var app = await StartAsync();
         // The port has no deferred secret: the password is a Secret value, so there is no resolver to ask.
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, BasicAuth = new WebBasicAuth(Username, Secret.Create("previewPassword", Password)) });
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions
+            {
+                Headless = true,
+                BasicAuth = new WebBasicAuth(Username, Secret.Create("previewPassword", Password)),
+            }
+        );
 
         Assert.Equal("Protected", await HeadingAtAsync(session, app.Url + "protected"));
     }
@@ -163,8 +208,19 @@ public sealed class WebHeadersBasicAuthTests
     public async Task Reports_the_configured_user_agent_to_the_page_after_a_context_reset_too()
     {
         using var app = await StartAsync();
-        await using var session = await StartSessionAsync(app, new WebEngineOptions { Headless = true, UserAgent = "Mozilla/5.0 e2e-probe playwright" });
-        async Task<string?> UserAgent() => (await ((IBrowserSession)session).EvaluateAsync("() => navigator.userAgent", null, false, CancellationToken.None))?.GetString();
+        await using var session = await StartSessionAsync(
+            app,
+            new WebEngineOptions { Headless = true, UserAgent = "Mozilla/5.0 e2e-probe playwright" }
+        );
+        async Task<string?> UserAgent() =>
+            (
+                await ((IBrowserSession)session).EvaluateAsync(
+                    "() => navigator.userAgent",
+                    null,
+                    false,
+                    CancellationToken.None
+                )
+            )?.GetString();
 
         await session.OpenAsync(app.Url, CancellationToken.None);
         Assert.Equal("Mozilla/5.0 e2e-probe playwright", await UserAgent());
@@ -176,14 +232,21 @@ public sealed class WebHeadersBasicAuthTests
     [Fact]
     public async Task Runs_the_page_in_the_configured_locale_and_time_zone_after_a_context_reset_too()
     {
-        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, "<!DOCTYPE html><html><body></body></html>"));
-        await using var session = (IBrowserSession)await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions
-        {
-            Headless = true,
-            Locale = "de-DE",
-            TimezoneId = "Asia/Tokyo",
-        });
-        const string Read = "() => [navigator.language, Intl.DateTimeFormat().resolvedOptions().timeZone, new Date('2026-01-01T00:00:00Z').getTimezoneOffset()].join(' ')";
+        using var site = await TinySite.StartAsync(context =>
+            TinySite.RespondAsync(context, "<!DOCTYPE html><html><body></body></html>")
+        );
+        await using var session = (IBrowserSession)
+            await WebSemanticsTests.OpenAsync(
+                site.Url,
+                new WebEngineOptions
+                {
+                    Headless = true,
+                    Locale = "de-DE",
+                    TimezoneId = "Asia/Tokyo",
+                }
+            );
+        const string Read =
+            "() => [navigator.language, Intl.DateTimeFormat().resolvedOptions().timeZone, new Date('2026-01-01T00:00:00Z').getTimezoneOffset()].join(' ')";
         const string Expected = "de-DE Asia/Tokyo -540";
 
         Assert.Equal(Expected, (await session.EvaluateAsync(Read, null, false, CancellationToken.None))?.GetString());
@@ -193,12 +256,18 @@ public sealed class WebHeadersBasicAuthTests
     }
 
     private static Task<IEngineSession> StartSessionAsync(ProtectedFixtureApp app, WebEngineOptions options) =>
-        new WebEngine(options).StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None);
+        new WebEngine(options).StartAsync(
+            new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
+            CancellationToken.None
+        );
 
     /// <summary>Navigates and reads the page's one heading.</summary>
     private static async Task<string?> HeadingAtAsync(IEngineSession session, string url)
     {
         await session.OpenAsync(url, CancellationToken.None);
-        return WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).First(node => node.Role == "heading").Name;
+        return WebSemanticsTests
+            .Flatten((await session.ObserveAsync(CancellationToken.None)).Roots)
+            .First(node => node.Role == "heading")
+            .Name;
     }
 }

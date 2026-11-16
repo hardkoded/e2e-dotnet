@@ -46,15 +46,27 @@ internal sealed class FakeKernel : HttpMessageHandler
     public static HttpResponseMessage Json(JsonNode body, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
 
-    public static HttpResponseMessage Text(HttpStatusCode status, string text) => new(status) { Content = new StringContent(text, Encoding.UTF8, "text/plain") };
+    public static HttpResponseMessage Text(HttpStatusCode status, string text) =>
+        new(status) { Content = new StringContent(text, Encoding.UTF8, "text/plain") };
 
     public HttpResponseMessage NextBrowser()
     {
         var n = Interlocked.Increment(ref _counter);
-        return Json(new JsonObject { ["session_id"] = $"b{n}", ["cdp_ws_url"] = $"wss://kernel/b{n}", ["browser_live_view_url"] = $"https://view/b{n}" }, HttpStatusCode.Created);
+        return Json(
+            new JsonObject
+            {
+                ["session_id"] = $"b{n}",
+                ["cdp_ws_url"] = $"wss://kernel/b{n}",
+                ["browser_live_view_url"] = $"https://view/b{n}",
+            },
+            HttpStatusCode.Created
+        );
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         var segments = request.RequestUri!.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var (route, id) = (request.Method.Method, segments.Length, segments.ElementAtOrDefault(2)) switch
@@ -68,7 +80,9 @@ internal sealed class FakeKernel : HttpMessageHandler
             ("GET", 4, "fs") => ("readFile", segments[1]),
             _ => throw new InvalidOperationException($"unexpected request {request.Method} {request.RequestUri}"),
         };
-        var body = request.Content is null ? null : JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken));
+        var body = request.Content is null
+            ? null
+            : JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken));
         lock (Calls)
         {
             Calls.Add(new KernelCall(route, id, request.RequestUri, request.Headers.Authorization?.ToString(), body));
@@ -79,11 +93,16 @@ internal sealed class FakeKernel : HttpMessageHandler
             "create" => Create?.Invoke() ?? NextBrowser(),
             "delete" => Delete?.Invoke(id) ?? new HttpResponseMessage(HttpStatusCode.NoContent),
             "list" when List is not null => List(request.RequestUri),
-            "list" => Json(new JsonArray([.. Active.Select(active => (JsonNode)new JsonObject { ["session_id"] = active })])),
+            "list" => Json(
+                new JsonArray([.. Active.Select(active => (JsonNode)new JsonObject { ["session_id"] = active })])
+            ),
             "startReplay" => Json(new JsonObject { ["replay_id"] = "r1" }),
             "stopReplay" => new HttpResponseMessage(HttpStatusCode.OK),
             "downloadReplay" when DownloadFailures > 0 => Fail(),
-            "downloadReplay" => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("mp4 bytes", Encoding.UTF8, "video/mp4") },
+            "downloadReplay" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("mp4 bytes", Encoding.UTF8, "video/mp4"),
+            },
             _ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("file bytes") },
         };
     }

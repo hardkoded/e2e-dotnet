@@ -14,7 +14,10 @@ public sealed class LiveFactAttribute : FactAttribute
 {
     public LiveFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LT_USERNAME")) || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LT_ACCESS_KEY")))
+        if (
+            string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LT_USERNAME"))
+            || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("LT_ACCESS_KEY"))
+        )
         {
             Skip = "LT_USERNAME and LT_ACCESS_KEY are not set.";
         }
@@ -38,10 +41,22 @@ public sealed class TestMuLiveTests
         var user = Environment.GetEnvironmentVariable("LT_USERNAME")!;
         var accessKey = Environment.GetEnvironmentVariable("LT_ACCESS_KEY")!;
         var build = "e2e-live-" + Guid.NewGuid().ToString("n")[..12];
-        var engine = new WebEngine(new WebEngineOptions { Browser = new TestMuBrowsers(new TestMuBrowsersOptions { Build = build }) });
+        var engine = new WebEngine(
+            new WebEngineOptions { Browser = new TestMuBrowsers(new TestMuBrowsersOptions { Build = build }) }
+        );
         var env = new Dictionary<string, string?> { ["LT_USERNAME"] = user, ["LT_ACCESS_KEY"] = accessKey };
 
-        await using (var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = "https://example.com/", ActionTimeout = TimeSpan.FromSeconds(60), Env = env }, CancellationToken.None))
+        await using (
+            var session = await engine.StartAsync(
+                new EngineStartOptions
+                {
+                    BaseUrl = "https://example.com/",
+                    ActionTimeout = TimeSpan.FromSeconds(60),
+                    Env = env,
+                },
+                CancellationToken.None
+            )
+        )
         {
             await session.OpenAsync("https://example.com/", CancellationToken.None);
             var observation = await session.ObserveAsync(CancellationToken.None);
@@ -51,13 +66,21 @@ public sealed class TestMuLiveTests
 
         // The session is the one of this build, named e2e-<run id>-<target>-<slot>, so it ends in the target and slot the engine leased.
         using var http = new HttpClient();
-        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(user + ":" + accessKey)));
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Basic",
+            Convert.ToBase64String(Encoding.UTF8.GetBytes(user + ":" + accessKey))
+        );
         var ended = await WaitForEndedSessionAsync(http, build, "-web-1", TimeSpan.FromSeconds(90));
         Assert.True(ended, "the grid did not end the session after the connection closed");
     }
 
     /// <summary>Polls the sessions list, which is eventually consistent, until the build's session shows an end time.</summary>
-    private static async Task<bool> WaitForEndedSessionAsync(HttpClient http, string build, string name, TimeSpan budget)
+    private static async Task<bool> WaitForEndedSessionAsync(
+        HttpClient http,
+        string build,
+        string name,
+        TimeSpan budget
+    )
     {
         var deadline = DateTime.UtcNow + budget;
         while (DateTime.UtcNow < deadline)
@@ -67,7 +90,12 @@ public sealed class TestMuLiveTests
             {
                 foreach (var entry in data.EnumerateArray())
                 {
-                    if (Text(entry, "build_name") == build && (Text(entry, "name") ?? "").StartsWith("e2e-", StringComparison.Ordinal) && (Text(entry, "name") ?? "").EndsWith(name, StringComparison.Ordinal) && !string.IsNullOrEmpty(Text(entry, "end_timestamp")))
+                    if (
+                        Text(entry, "build_name") == build
+                        && (Text(entry, "name") ?? "").StartsWith("e2e-", StringComparison.Ordinal)
+                        && (Text(entry, "name") ?? "").EndsWith(name, StringComparison.Ordinal)
+                        && !string.IsNullOrEmpty(Text(entry, "end_timestamp"))
+                    )
                     {
                         return true;
                     }
@@ -81,5 +109,7 @@ public sealed class TestMuLiveTests
     }
 
     private static string? Text(JsonElement entry, string property) =>
-        entry.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        entry.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 }

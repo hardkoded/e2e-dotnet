@@ -17,42 +17,43 @@ namespace E2E.Tests.TextQuery;
 public sealed class TextQueryTests
 {
     [Fact]
-    public Task A_text_query_answers_with_the_label_not_the_control_it_names() => RunAsync(
-        """<div><label for="target">Name</label><input id="target" type="text"></div>""",
-        async screen =>
+    public Task A_text_query_answers_with_the_label_not_the_control_it_names() =>
+        RunAsync("""<div><label for="target">Name</label><input id="target" type="text"></div>""", async screen =>
         {
             Assert.Equal("target", await screen.GetByText("Name").GetAttributeAsync("for"));
             Assert.Equal("target", await screen.GetByLabel("Name").GetAttributeAsync("id"));
         });
 
     [Fact]
-    public Task A_text_query_does_not_match_a_placeholder_a_title_or_an_aria_label() => RunAsync(
-        """<input placeholder="foo"><input title="foo"><button aria-label="foo">x</button><div>foo</div>""",
-        async screen => Assert.Equal(1, await screen.GetByText("foo").CountAsync()));
+    public Task A_text_query_does_not_match_a_placeholder_a_title_or_an_aria_label() =>
+        RunAsync(
+            """<input placeholder="foo"><input title="foo"><button aria-label="foo">x</button><div>foo</div>""",
+            async screen => Assert.Equal(1, await screen.GetByText("foo").CountAsync())
+        );
 
     [Fact]
-    public Task A_text_query_matches_the_value_of_a_button_input() => RunAsync(
-        """<input type="submit" value="Send"><input type="text" value="Send">""",
-        async screen => Assert.Equal(1, await screen.GetByText("Send").CountAsync()));
+    public Task A_text_query_matches_the_value_of_a_button_input() =>
+        RunAsync("""<input type="submit" value="Send"><input type="text" value="Send">""", async screen =>
+            Assert.Equal(1, await screen.GetByText("Send").CountAsync())
+        );
 
     [Fact]
-    public Task A_label_query_finds_a_control_by_its_label_not_by_its_content() => RunAsync(
-        """<button>foo</button><label>foo<input></label><input placeholder="foo">""",
-        async screen => Assert.Equal(1, await screen.GetByLabel("foo").CountAsync()));
+    public Task A_label_query_finds_a_control_by_its_label_not_by_its_content() =>
+        RunAsync("""<button>foo</button><label>foo<input></label><input placeholder="foo">""", async screen =>
+            Assert.Equal(1, await screen.GetByLabel("foo").CountAsync())
+        );
 
     [Fact]
-    public Task A_text_query_finds_the_text_of_an_inline_element_inside_a_button() => RunAsync(
-        "<button>let's let's<span>hello</span></button>",
-        async screen =>
+    public Task A_text_query_finds_the_text_of_an_inline_element_inside_a_button() =>
+        RunAsync("<button>let's let's<span>hello</span></button>", async screen =>
         {
             Assert.Equal(1, await screen.GetByText("hello").CountAsync());
             Assert.Equal(1, await screen.GetByRole("button").GetByText("hello").CountAsync());
         });
 
     [Fact]
-    public Task Has_text_reads_two_adjacent_blocks_with_no_space_between_them() => RunAsync(
-        """<div data-testid="box"><h5>First/"and"</h5><h2><i>Second\</i></h2></div>""",
-        async screen =>
+    public Task Has_text_reads_two_adjacent_blocks_with_no_space_between_them() =>
+        RunAsync("""<div data-testid="box"><h5>First/"and"</h5><h2><i>Second\</i></h2></div>""", async screen =>
         {
             var box = screen.GetByTestId("box");
             Assert.Equal(1, await box.Filter(new Regex(@"^First/"".*""Second\\$")).CountAsync());
@@ -62,16 +63,18 @@ public sealed class TextQueryTests
     private static async Task RunAsync(string body, Func<Screen, Task> test)
     {
         using var site = await TinySite.StartAsync($"<!DOCTYPE html><html><body>{body}</body></html>");
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
-            BaseUrl = site.Url,
-            TestTitle = "text query",
-            ProjectRoot = Directory.CreateTempSubdirectory("e2e-text-query-").FullName,
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+                BaseUrl = site.Url,
+                TestTitle = "text query",
+                ProjectRoot = Directory.CreateTempSubdirectory("e2e-text-query-").FullName,
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+            }
+        );
         await session.App.OpenAsync("/");
         await test(session.Screen);
         session.Complete(null);

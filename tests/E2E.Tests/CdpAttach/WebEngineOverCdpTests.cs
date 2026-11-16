@@ -22,12 +22,26 @@ public sealed class WebEngineOverCdpTests
         using var app = await LifecycleApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         var resolved = 0;
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult<CdpTarget>(remote.Endpoint); } },
-        });
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Connect = new WebConnectOptions
+                {
+                    CdpEndpoint = _ =>
+                    {
+                        resolved++;
+                        return Task.FromResult<CdpTarget>(remote.Endpoint);
+                    },
+                },
+            }
+        );
 
-        await using (var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None))
+        await using (
+            var session = await engine.StartAsync(
+                new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) },
+                CancellationToken.None
+            )
+        )
         {
             Assert.Equal(1, resolved);
             await session.OpenAsync(app.Url, CancellationToken.None);
@@ -46,10 +60,19 @@ public sealed class WebEngineOverCdpTests
         using var app = await LifecycleApp.StartAsync();
         var current = await RemoteChrome.LaunchAsync();
         var resolved = 0;
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Connect = new WebConnectOptions { CdpEndpoint = _ => { resolved++; return Task.FromResult<CdpTarget>(current.Endpoint); } },
-        });
+        var engine = new WebEngine(
+            new WebEngineOptions
+            {
+                Connect = new WebConnectOptions
+                {
+                    CdpEndpoint = _ =>
+                    {
+                        resolved++;
+                        return Task.FromResult<CdpTarget>(current.Endpoint);
+                    },
+                },
+            }
+        );
         try
         {
             await using (var first = await StartAsync(engine, app.Url))
@@ -83,20 +106,22 @@ public sealed class WebEngineOverCdpTests
         await using var remote = await RemoteChrome.LaunchAsync();
         var resolved = 0;
         using var controller = new CancellationTokenSource();
-        var engine = new WebEngine(new WebEngineOptions
-        {
-            Connect = new WebConnectOptions
+        var engine = new WebEngine(
+            new WebEngineOptions
             {
-                CdpEndpoint = _ =>
+                Connect = new WebConnectOptions
                 {
-                    resolved++;
-                    // Cancel right as the endpoint is handed back, so the attach
-                    // completes into an already-cancelled start.
-                    controller.Cancel();
-                    return Task.FromResult<CdpTarget>(remote.Endpoint);
+                    CdpEndpoint = _ =>
+                    {
+                        resolved++;
+                        // Cancel right as the endpoint is handed back, so the attach
+                        // completes into an already-cancelled start.
+                        controller.Cancel();
+                        return Task.FromResult<CdpTarget>(remote.Endpoint);
+                    },
                 },
-            },
-        });
+            }
+        );
         var options = new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) };
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => engine.StartAsync(options, controller.Token));
@@ -114,8 +139,14 @@ public sealed class WebEngineOverCdpTests
     }
 
     private static Task<IEngineSession> StartAsync(WebEngine engine, string url) =>
-        engine.StartAsync(new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None);
+        engine.StartAsync(
+            new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) },
+            CancellationToken.None
+        );
 
     private static async Task<string?> HeadingAsync(IEngineSession session) =>
-        WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).First(node => node.Role == "heading").Name;
+        WebSemanticsTests
+            .Flatten((await session.ObserveAsync(CancellationToken.None)).Roots)
+            .First(node => node.Role == "heading")
+            .Name;
 }

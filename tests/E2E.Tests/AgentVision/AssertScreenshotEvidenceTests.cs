@@ -24,7 +24,10 @@ public sealed class AssertScreenshotEvidenceTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.NotNull(error.Screenshot);
-        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf(null, "evidence") + "/attempt-1/screenshots/001-assert.png", error.Screenshot);
+        Assert.Equal(
+            ".e2e/results/" + AttemptReport.ResultSegmentOf(null, "evidence") + "/attempt-1/screenshots/001-assert.png",
+            error.Screenshot
+        );
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, error.Screenshot!)));
     }
 
@@ -32,10 +35,26 @@ public sealed class AssertScreenshotEvidenceTests
     public async Task Keeps_the_screenshot_of_a_passing_assertion_too()
     {
         var root = TempRoot();
-        var result = await RunAsync(root, ctx => ctx.Agent.AssertAsync("the page is About"), new ScriptedModel(_ => ModelResponses.Done("passed", "it is")));
+        var result = await RunAsync(
+            root,
+            ctx => ctx.Agent.AssertAsync("the page is About"),
+            new ScriptedModel(_ => ModelResponses.Done("passed", "it is"))
+        );
 
         Assert.Null(result.Error);
-        Assert.True(File.Exists(Path.Combine(root, ".e2e", "results", AttemptReport.ResultSegmentOf(null, "evidence"), "attempt-1", "screenshots", "001-assert.png")));
+        Assert.True(
+            File.Exists(
+                Path.Combine(
+                    root,
+                    ".e2e",
+                    "results",
+                    AttemptReport.ResultSegmentOf(null, "evidence"),
+                    "attempt-1",
+                    "screenshots",
+                    "001-assert.png"
+                )
+            )
+        );
     }
 
     [Fact]
@@ -43,7 +62,11 @@ public sealed class AssertScreenshotEvidenceTests
     {
         var root = TempRoot();
         var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the page is About"));
-        var result = await RunAsync(root, ctx => ctx.Agent.AssertAsync("the page is Home", new AssertOptions { Screenshot = false }), judge);
+        var result = await RunAsync(
+            root,
+            ctx => ctx.Agent.AssertAsync("the page is Home", new AssertOptions { Screenshot = false }),
+            judge
+        );
 
         Assert.Null(Assert.IsType<AgentException>(result.Error).Screenshot);
 
@@ -56,38 +79,54 @@ public sealed class AssertScreenshotEvidenceTests
     {
         var root = TempRoot();
         var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the page is About"));
-        var result = await RunAsync(root, ctx => ctx.Agent.AssertAsync("the page is Home"), judge, new ScreenshotEngine(World()));
+        var result = await RunAsync(
+            root,
+            ctx => ctx.Agent.AssertAsync("the page is Home"),
+            judge,
+            new ScreenshotEngine(World())
+        );
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Null(error.Screenshot);
     }
 
-    private static string TempRoot() => Path.Combine(Path.GetTempPath(), "e2e-evidence-" + Guid.NewGuid().ToString("N"));
+    private static string TempRoot() =>
+        Path.Combine(Path.GetTempPath(), "e2e-evidence-" + Guid.NewGuid().ToString("N"));
 
-    private static DocumentWorld World() => CounterPage.World().Map("/about", page =>
-    {
-        page.Heading("About");
-        page.Textbox("Password", "", secure: true);
-    });
+    private static DocumentWorld World() =>
+        CounterPage
+            .World()
+            .Map("/about", page =>
+            {
+                page.Heading("About");
+                page.Textbox("Password", "", secure: true);
+            });
 
-    private static async Task<CoreTests.Attempt> RunAsync(string root, Func<TestContext, Task> body, ScriptedModel judge, ScreenshotEngine? engine = null)
+    private static async Task<CoreTests.Attempt> RunAsync(
+        string root,
+        Func<TestContext, Task> body,
+        ScriptedModel judge,
+        ScreenshotEngine? engine = null
+    )
     {
         Directory.CreateDirectory(root);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine ?? new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            ProjectRoot = root,
-            TestTitle = "evidence",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine ?? new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
+                Judge = judge,
+                BaseUrl = "https://app.test",
+                ProjectRoot = root,
+                TestTitle = "evidence",
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                TestTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(5),
 
-            // The tests look for what the assertion writes, so no trace page is written beside it.
-            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
-        });
+                // The tests look for what the assertion writes, so no trace page is written beside it.
+                Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            }
+        );
         Exception? error = null;
         try
         {

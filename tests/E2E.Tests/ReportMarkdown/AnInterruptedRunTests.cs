@@ -15,9 +15,14 @@ public sealed class AnInterruptedRunTests
     private static readonly ReportResult Cut = Named(
         "cut short",
         ResultStatus.Interrupted,
-        attempts: [Attempt(AttemptStatus.Interrupted, error: new ReportError("INTERRUPTED", "run interrupted in phase body"))]);
+        attempts:
+        [
+            Attempt(AttemptStatus.Interrupted, error: new ReportError("INTERRUPTED", "run interrupted in phase body")),
+        ]
+    );
 
-    private static string Render(Report1Document document) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document));
+    private static string Render(Report1Document document) =>
+        MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document));
 
     [Fact]
     public void Counts_an_interrupted_test_apart_from_failures_and_gives_it_no_failure_block()
@@ -38,8 +43,12 @@ public sealed class AnInterruptedRunTests
             attempts:
             [
                 Attempt(AttemptStatus.Failed, error: new ReportError("ASSERTION_FAILED", "no cart")),
-                Attempt(AttemptStatus.Interrupted, error: new ReportError("INTERRUPTED", "run interrupted in phase body")),
-            ]);
+                Attempt(
+                    AttemptStatus.Interrupted,
+                    error: new ReportError("INTERRUPTED", "run interrupted in phase body")
+                ),
+            ]
+        );
 
         var body = Render(Page(ReportRunStatus.Interrupted, [retried]));
 

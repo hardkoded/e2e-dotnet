@@ -20,7 +20,12 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     public async Task Resolves_every_query_kind_to_the_node_the_observed_tree_names()
     {
         using var site = await FixtureApp.StartAsync();
-        await using (var engine = await WebSemanticsTests.OpenAsync(site.Url + "closed-form", new WebEngineOptions { Headless = true }))
+        await using (
+            var engine = await WebSemanticsTests.OpenAsync(
+                site.Url + "closed-form",
+                new WebEngineOptions { Headless = true }
+            )
+        )
         {
             var observed = WebSemanticsTests.Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots);
             Assert.Equal("submit", observed.First(node => node.Role == "button" && node.Name == "Submit").TestId);
@@ -34,8 +39,18 @@ public sealed class LocatorsInsideClosedShadowRootsTests
             Assert.Equal(["ada"], await ValuesAsync(screen.GetByLabel("Nickname")));
             Assert.Equal(["ada"], await ValuesAsync(screen.GetByLabel("nick", exact: false)));
 
-            Assert.Equal(["hint"], await TestIdsAsync(screen.GetByText("Access code hint: SHADOW-42", new TextMatchOptions { Visible = true })));
-            Assert.Equal(["hint"], await TestIdsAsync(screen.GetByText("code hint", new TextMatchOptions { Exact = false, Visible = true })));
+            Assert.Equal(
+                ["hint"],
+                await TestIdsAsync(
+                    screen.GetByText("Access code hint: SHADOW-42", new TextMatchOptions { Visible = true })
+                )
+            );
+            Assert.Equal(
+                ["hint"],
+                await TestIdsAsync(
+                    screen.GetByText("code hint", new TextMatchOptions { Exact = false, Visible = true })
+                )
+            );
 
             var valued = await screen.GetByDisplayValue("ada").ResolveAsync(CancellationToken.None);
             Assert.Equal(["nickname"], valued.Select(node => node.Attributes["name"]));
@@ -53,7 +68,8 @@ public sealed class LocatorsInsideClosedShadowRootsTests
             var buttons = await screen.GetByRole("button").ResolveAsync(CancellationToken.None);
             Assert.Equal(
                 ["Twin", "Submit", "Twin", "Twin", "Open inside closed", "Closed inside open", "Sidecar"],
-                buttons.Select(node => node.Name));
+                buttons.Select(node => node.Name)
+            );
         });
     }
 
@@ -75,7 +91,10 @@ public sealed class LocatorsInsideClosedShadowRootsTests
         await WithScreenAsync(async screen =>
         {
             const string Hint = "Access code hint: SHADOW-42";
-            Assert.Equal(["hint", "hint-ghost"], (await TestIdsAsync(screen.GetByText(Hint))).Order(StringComparer.Ordinal));
+            Assert.Equal(
+                ["hint", "hint-ghost"],
+                (await TestIdsAsync(screen.GetByText(Hint))).Order(StringComparer.Ordinal)
+            );
             Assert.Equal(["hint"], await TestIdsAsync(screen.GetByText(Hint, new TextMatchOptions { Visible = true })));
             // A role query never matches a hidden node, as outside a closed root.
             Assert.Equal(["submit"], await TestIdsAsync(screen.GetByRole("button", "Submit")));
@@ -87,7 +106,10 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     {
         await WithSessionAsync(async session =>
         {
-            var nested = await session.Screen.GetByRole("region", "Advanced").GetByRole("button").ResolveAsync(CancellationToken.None);
+            var nested = await session
+                .Screen.GetByRole("region", "Advanced")
+                .GetByRole("button")
+                .ResolveAsync(CancellationToken.None);
             Assert.Equal(["Open inside closed", "Closed inside open"], nested.Select(node => node.Name));
 
             // The host is a light-DOM element; the button it must contain is inside its closed root.
@@ -127,10 +149,17 @@ public sealed class LocatorsInsideClosedShadowRootsTests
         {
             var buttons = screen.GetByRole("button");
             var retained = await buttons.Filter(hasNotText: "twin").ResolveAsync(CancellationToken.None);
-            Assert.Equal(["Submit", "Open inside closed", "Closed inside open", "Sidecar"], retained.Select(node => node.Name));
-            var regex = await buttons.Filter(hasNotText: new Regex("^Twin$", RegexOptions.IgnoreCase)).ResolveAsync(CancellationToken.None);
+            Assert.Equal(
+                ["Submit", "Open inside closed", "Closed inside open", "Sidecar"],
+                retained.Select(node => node.Name)
+            );
+            var regex = await buttons
+                .Filter(hasNotText: new Regex("^Twin$", RegexOptions.IgnoreCase))
+                .ResolveAsync(CancellationToken.None);
             Assert.Equal(retained.Select(node => node.Name), regex.Select(node => node.Name));
-            Assert.Empty(await buttons.Filter(hasText: "Twin", hasNotText: "Twin").ResolveAsync(CancellationToken.None));
+            Assert.Empty(
+                await buttons.Filter(hasText: "Twin", hasNotText: "Twin").ResolveAsync(CancellationToken.None)
+            );
         });
     }
 
@@ -138,9 +167,16 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     public async Task Matches_a_label_an_aria_labelledby_id_names_in_the_controls_own_tree_in_a_closed_root_and_an_open_one_below_it()
     {
         using var site = await FixtureApp.StartAsync();
-        await using (var engine = await WebSemanticsTests.OpenAsync(site.Url + "closed-form", new WebEngineOptions { Headless = true }))
+        await using (
+            var engine = await WebSemanticsTests.OpenAsync(
+                site.Url + "closed-form",
+                new WebEngineOptions { Headless = true }
+            )
+        )
         {
-            var observed = WebSemanticsTests.Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots).ToList();
+            var observed = WebSemanticsTests
+                .Flatten((await engine.ObserveAsync(CancellationToken.None)).Roots)
+                .ToList();
             var pin = observed.First(node => node.TestId == "pin");
             Assert.Equal(("textbox", "PIN"), (pin.Role, pin.Name));
             var tone = observed.First(node => node.TestId == "tone");
@@ -161,9 +197,13 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     {
         await WithScreenAsync(async screen =>
         {
-            async Task<bool> FocusedAsync(string testId) => (await screen.GetByTestId(testId).ResolveAsync(CancellationToken.None))[0].States.Focused;
+            async Task<bool> FocusedAsync(string testId) =>
+                (await screen.GetByTestId(testId).ResolveAsync(CancellationToken.None))[0].States.Focused;
             async Task<List<string?>> FocusedTestIdsAsync() =>
-                (await screen.GetByTestId(new Regex(".*")).ResolveAsync(CancellationToken.None)).Where(node => node.States.Focused).Select(node => node.TestId).ToList();
+                (await screen.GetByTestId(new Regex(".*")).ResolveAsync(CancellationToken.None))
+                    .Where(node => node.States.Focused)
+                    .Select(node => node.TestId)
+                    .ToList();
 
             await screen.GetByTestId("pin").TapAsync();
             Assert.True(await FocusedAsync("pin"));
@@ -189,13 +229,15 @@ public sealed class LocatorsInsideClosedShadowRootsTests
 
             await code.FillAsync("SHADOW-42");
             await screen.GetByRole("button", "Submit").TapAsync();
-            Assert.Equal("granted", (await screen.GetByText("granted").ResolveAsync(CancellationToken.None)).Single().Text);
+            Assert.Equal(
+                "granted",
+                (await screen.GetByText("granted").ResolveAsync(CancellationToken.None)).Single().Text
+            );
             Assert.Equal(["code"], await TestIdsAsync(screen.GetByDisplayValue("SHADOW-42")));
         });
     }
 
-    private static Task WithScreenAsync(Func<Screen, Task> body) =>
-        WithSessionAsync(session => body(session.Screen));
+    private static Task WithScreenAsync(Func<Screen, Task> body) => WithSessionAsync(session => body(session.Screen));
 
     private static Task WithScreenAsync(TinySite site, Func<Screen, Task> body) =>
         WithSessionAsync(site, session => body(session.Screen));

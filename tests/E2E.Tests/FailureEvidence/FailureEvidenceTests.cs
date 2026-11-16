@@ -38,7 +38,10 @@ public sealed class FailureEvidenceTests : IDisposable
         var engine = new EvidenceEngine("Submit", "Themes", "Cancel");
 
         var attempt = await FailAsync(engine, "waits for a button named a little differently", async screen =>
-            await screen.GetByRole("button", "Submits the order").WaitForAsync(new LocatorWaitForOptions { Timeout = Short }));
+            await screen
+                .GetByRole("button", "Submits the order")
+                .WaitForAsync(new LocatorWaitForOptions { Timeout = Short })
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Equal("getByRole(\"button\", \"Submits the order\")", attempt.Error.Details?.Locator);
@@ -54,7 +57,9 @@ public sealed class FailureEvidenceTests : IDisposable
     {
         var engine = new EvidenceEngine("Submit");
 
-        var attempt = await FailAsync(engine, "taps a button that is not there", async screen => await screen.GetByRole("button", "Submit now").TapAsync());
+        var attempt = await FailAsync(engine, "taps a button that is not there", async screen =>
+            await screen.GetByRole("button", "Submit now").TapAsync()
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Equal("getByRole(\"button\", \"Submit now\")", attempt.Error.Details?.Locator);
@@ -102,7 +107,8 @@ public sealed class FailureEvidenceTests : IDisposable
             engine,
             "taps a button that is not there",
             async screen => await screen.GetByRole("button", "Submit now").TapAsync(),
-            () => engine.OnObserve = _ => throw new InvalidOperationException("the page stopped answering"));
+            () => engine.OnObserve = _ => throw new InvalidOperationException("the page stopped answering")
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Null(attempt.Session.Evidence);
@@ -114,7 +120,9 @@ public sealed class FailureEvidenceTests : IDisposable
     {
         var engine = new EvidenceEngine("Submit");
 
-        var attempt = await FailAsync(engine, "expects the wrong count", async screen => await Expect.That(screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200)));
+        var attempt = await FailAsync(engine, "expects the wrong count", async screen =>
+            await Expect.That(screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(200))
+        );
 
         Assert.Equal("ASSERTION_FAILED", attempt.Error.Code);
         Assert.Equal("getByRole(\"button\")", attempt.Error.Details?.Locator);
@@ -131,7 +139,9 @@ public sealed class FailureEvidenceTests : IDisposable
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Looks_once_and_gives_up_at_the_evidence_budget_when_the_screen_never_answers_and_the_engine_honors_or_ignores_its_cancellation_keeping_the_original_failure(bool honorsCancellation)
+    public async Task Looks_once_and_gives_up_at_the_evidence_budget_when_the_screen_never_answers_and_the_engine_honors_or_ignores_its_cancellation_keeping_the_original_failure(
+        bool honorsCancellation
+    )
     {
         var engine = new EvidenceEngine("Submit");
         var watch = Stopwatch.StartNew();
@@ -140,9 +150,11 @@ public sealed class FailureEvidenceTests : IDisposable
             engine,
             "fails, then the screen hangs",
             async screen => await screen.GetByRole("button", "Submit now").TapAsync(),
-            () => engine.OnObserve = honorsCancellation
-                ? token => Task.Delay(Timeout.Infinite, token)
-                : _ => new TaskCompletionSource().Task);
+            () =>
+                engine.OnObserve = honorsCancellation
+                    ? token => Task.Delay(Timeout.Infinite, token)
+                    : _ => new TaskCompletionSource().Task
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Null(attempt.Session.Evidence);
@@ -156,21 +168,43 @@ public sealed class FailureEvidenceTests : IDisposable
     public async Task Keeps_the_evidence_of_two_tests_with_one_title_in_two_classes_apart()
     {
         var results = Results();
-        var first = await FailAsync(new EvidenceEngine("Alpha"), "same title", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results, file: "Shop.CartTests");
-        var second = await FailAsync(new EvidenceEngine("Omega"), "same title", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results, file: "Shop.CheckoutTests");
+        var first = await FailAsync(
+            new EvidenceEngine("Alpha"),
+            "same title",
+            async screen => await screen.GetByRole("button", "Missing").TapAsync(),
+            results: results,
+            file: "Shop.CartTests"
+        );
+        var second = await FailAsync(
+            new EvidenceEngine("Omega"),
+            "same title",
+            async screen => await screen.GetByRole("button", "Missing").TapAsync(),
+            results: results,
+            file: "Shop.CheckoutTests"
+        );
 
         Assert.NotEqual(first.Dir, second.Dir);
         foreach (var (attempt, name) in new[] { (first, "Alpha"), (second, "Omega") })
         {
-            Assert.Contains("button \"" + name + "\"", File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")), StringComparison.Ordinal);
+            Assert.Contains(
+                "button \"" + name + "\"",
+                File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")),
+                StringComparison.Ordinal
+            );
         }
     }
 
     [Fact]
     public void Gives_a_title_with_a_separator_in_it_another_id_than_the_same_text_split_into_file_and_title()
     {
-        Assert.NotEqual(AttemptReport.ResultId("Shop.CartTests", "same title"), AttemptReport.ResultId(null, "Shop.CartTests::same title"));
-        Assert.NotEqual(AttemptReport.ResultId("Shop", "CartTests::same"), AttemptReport.ResultId("Shop::CartTests", "same"));
+        Assert.NotEqual(
+            AttemptReport.ResultId("Shop.CartTests", "same title"),
+            AttemptReport.ResultId(null, "Shop.CartTests::same title")
+        );
+        Assert.NotEqual(
+            AttemptReport.ResultId("Shop", "CartTests::same"),
+            AttemptReport.ResultId("Shop::CartTests", "same")
+        );
         Assert.NotEqual(AttemptReport.ResultId("Shop", "cart"), AttemptReport.ResultId(null, "Shop::cart"));
         Assert.Equal("caf%C3%A9", E2E.Internal.Ids.EncodeTitle("cafe\u0301"));
         Assert.Equal("Shop::a%3A%3Ab%20c", E2E.Internal.Ids.TestId("Shop", ["a::b c"]));
@@ -181,18 +215,33 @@ public sealed class FailureEvidenceTests : IDisposable
     public async Task Keeps_the_evidence_of_two_tests_whose_titles_slug_alike_apart()
     {
         var results = Results();
-        var first = await FailAsync(new EvidenceEngine("Alpha"), "artifact a", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results);
-        var second = await FailAsync(new EvidenceEngine("Omega"), "artifact-a", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results);
+        var first = await FailAsync(
+            new EvidenceEngine("Alpha"),
+            "artifact a",
+            async screen => await screen.GetByRole("button", "Missing").TapAsync(),
+            results: results
+        );
+        var second = await FailAsync(
+            new EvidenceEngine("Omega"),
+            "artifact-a",
+            async screen => await screen.GetByRole("button", "Missing").TapAsync(),
+            results: results
+        );
 
         Assert.NotEqual(first.Dir, second.Dir);
         foreach (var (attempt, name) in new[] { (first, "Alpha"), (second, "Omega") })
         {
-            Assert.Contains("button \"" + name + "\"", File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")), StringComparison.Ordinal);
+            Assert.Contains(
+                "button \"" + name + "\"",
+                File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")),
+                StringComparison.Ordinal
+            );
             Assert.True(File.Exists(Path.Combine(attempt.Dir, "screenshots", "failure.png")));
         }
     }
 
-    private static string ProjectRoot([CallerFilePath] string testFile = "") => Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
+    private static string ProjectRoot([CallerFilePath] string testFile = "") =>
+        Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
 
     private string Results()
     {
@@ -205,21 +254,30 @@ public sealed class FailureEvidenceTests : IDisposable
     }
 
     /// <summary>Runs <paramref name="body"/> as one attempt that must fail, then releases the session, which is when the evidence is taken. <paramref name="afterFailure"/> runs in between.</summary>
-    private async Task<Attempt> FailAsync(EvidenceEngine engine, string title, Func<Screen, Task> body, Action? afterFailure = null, string? results = null, string? file = null)
+    private async Task<Attempt> FailAsync(
+        EvidenceEngine engine,
+        string title,
+        Func<Screen, Task> body,
+        Action? afterFailure = null,
+        string? results = null,
+        string? file = null
+    )
     {
         results ??= Results();
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            TestTitle = title,
-            TestFile = file,
-            BaseUrl = "http://127.0.0.1:4599",
-            ActionTimeout = Short,
-            ProjectRoot = ProjectRoot(),
-            ResultsDirectory = results,
-            CacheEnabled = false,
-            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                TestTitle = title,
+                TestFile = file,
+                BaseUrl = "http://127.0.0.1:4599",
+                ActionTimeout = Short,
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            }
+        );
         E2EException error;
         try
         {
@@ -236,7 +294,12 @@ public sealed class FailureEvidenceTests : IDisposable
         afterFailure?.Invoke();
         session.Complete(error);
         await session.DisposeAsync();
-        return new Attempt(session, error, Path.Combine(results, AttemptReport.ResultSegmentOf(file, title), "attempt-1"), observedBefore);
+        return new Attempt(
+            session,
+            error,
+            Path.Combine(results, AttemptReport.ResultSegmentOf(file, title), "attempt-1"),
+            observedBefore
+        );
     }
 
     private sealed record Attempt(E2ESession Session, E2EException Error, string Dir, int ObservedBefore);

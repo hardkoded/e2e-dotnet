@@ -18,7 +18,13 @@ namespace E2E.Tests.RelocatePosition;
 /// </summary>
 public sealed class RelocationWithARecordedPositionTests
 {
-    private static RecordedTarget Descriptor() => new() { Role = "button", Name = "Set up", Position = new TracePosition { Index = 1, Of = 3 } };
+    private static RecordedTarget Descriptor() =>
+        new()
+        {
+            Role = "button",
+            Name = "Set up",
+            Position = new TracePosition { Index = 1, Of = 3 },
+        };
 
     internal static void AssertAmbiguous(RelocationResult result, params string[] candidates)
     {
@@ -30,7 +36,11 @@ public sealed class RelocationWithARecordedPositionTests
     [Fact]
     public void Relocates_to_the_same_twin_when_the_live_screen_shows_the_same_number_of_them()
     {
-        var result = Relocate.RelocateDescriptor(Descriptor(), Screen(Button("p"), Button("q"), Button("r")), Redactor.None);
+        var result = Relocate.RelocateDescriptor(
+            Descriptor(),
+            Screen(Button("p"), Button("q"), Button("r")),
+            Redactor.None
+        );
 
         Assert.Equal(new RelocationResult.Found("q"), result);
     }
@@ -38,14 +48,32 @@ public sealed class RelocationWithARecordedPositionTests
     [Fact]
     public void Diverges_as_ambiguous_when_a_twin_appeared_or_vanished()
     {
-        AssertAmbiguous(Relocate.RelocateDescriptor(Descriptor(), Screen(Button("p"), Button("q")), Redactor.None), "p", "q");
-        AssertAmbiguous(Relocate.RelocateDescriptor(Descriptor(), Screen(Button("p"), Button("q"), Button("r"), Button("s")), Redactor.None), "p", "q", "r", "s");
+        AssertAmbiguous(
+            Relocate.RelocateDescriptor(Descriptor(), Screen(Button("p"), Button("q")), Redactor.None),
+            "p",
+            "q"
+        );
+        AssertAmbiguous(
+            Relocate.RelocateDescriptor(
+                Descriptor(),
+                Screen(Button("p"), Button("q"), Button("r"), Button("s")),
+                Redactor.None
+            ),
+            "p",
+            "q",
+            "r",
+            "s"
+        );
     }
 
     [Fact]
     public void Still_diverges_without_a_recorded_position()
     {
-        var result = Relocate.RelocateDescriptor(new RecordedTarget { Role = "button", Name = "Set up" }, Screen(Button("p"), Button("q")), Redactor.None);
+        var result = Relocate.RelocateDescriptor(
+            new RecordedTarget { Role = "button", Name = "Set up" },
+            Screen(Button("p"), Button("q")),
+            Redactor.None
+        );
 
         AssertAmbiguous(result, "p", "q");
     }
@@ -68,8 +96,19 @@ public sealed class RelocationWithARecordedPositionTests
         var directory = CoreTests.TempCache();
         var store = new FileStepCache(directory);
         var recorder = new Recorder(() => Redactor.None);
-        recorder.Record(new RecordedAction { Kind = "tap", Role = "button", Name = "Set up", Position = new TracePosition { Index = 1, Of = 3 } });
-        store.Write(StepCacheHarness.Key, recorder.Finalize(StepCacheHarness.ExampleStep, "/integrations", "/integrations", [], [])!);
+        recorder.Record(
+            new RecordedAction
+            {
+                Kind = "tap",
+                Role = "button",
+                Name = "Set up",
+                Position = new TracePosition { Index = 1, Of = 3 },
+            }
+        );
+        store.Write(
+            StepCacheHarness.Key,
+            recorder.Finalize(StepCacheHarness.ExampleStep, "/integrations", "/integrations", [], [])!
+        );
 
         var stored = Assert.IsType<CacheEntry>(store.Read(StepCacheHarness.Key).Entry);
 
@@ -78,7 +117,16 @@ public sealed class RelocationWithARecordedPositionTests
         Assert.NotEqual("invalid-entry", await ReasonAsync(stored));
         var file = Directory.GetFiles(directory).Single();
         var document = File.ReadAllText(file);
-        foreach (var position in new[] { "{\"index\":3,\"of\":3}", "{\"index\":-1,\"of\":3}", "{\"index\":0,\"of\":0}", "{\"index\":\"1\",\"of\":3}", "\"second\"" })
+        foreach (
+            var position in new[]
+            {
+                "{\"index\":3,\"of\":3}",
+                "{\"index\":-1,\"of\":3}",
+                "{\"index\":0,\"of\":0}",
+                "{\"index\":\"1\",\"of\":3}",
+                "\"second\"",
+            }
+        )
         {
             var broken = JsonNode.Parse(document)!;
             broken["actions"]![0]!["position"] = JsonNode.Parse(position);
@@ -93,7 +141,10 @@ public sealed class RelocationWithARecordedPositionTests
     // What a session reads of an entry a store returned: the step's cache reason.
     private static async Task<string?> ReasonAsync(CacheEntry entry)
     {
-        var session = StepCacheHarness.MakeSession(StepCacheHarness.FakeContext(() => new CacheLookup { Entry = entry }), StepCacheHarness.MakeHost(["/"], [StepCacheHarness.Node("n1", "button", "Set up")]));
+        var session = StepCacheHarness.MakeSession(
+            StepCacheHarness.FakeContext(() => new CacheLookup { Entry = entry }),
+            StepCacheHarness.MakeHost(["/"], [StepCacheHarness.Node("n1", "button", "Set up")])
+        );
         await session.BeginAsync();
         return session.CacheInfo?.Reason;
     }

@@ -46,7 +46,11 @@ internal static class ObservationBudget
     /// </summary>
     public static int ObservationByteBudget(ObservationBudgetLimits limits, ObservationBudgetRequest request)
     {
-        var overhead = (long)request.FixedBytes + request.InstructionBytes + InstructionReserve + (request.Pixels ? PixelReserve : 0);
+        var overhead =
+            (long)request.FixedBytes
+            + request.InstructionBytes
+            + InstructionReserve
+            + (request.Pixels ? PixelReserve : 0);
         var withinTokenCeiling = Math.Max(MinObservationBytes, limits.MaxInputTokens - overhead);
         return (int)Math.Min(limits.MaxObservationBytes, withinTokenCeiling);
     }

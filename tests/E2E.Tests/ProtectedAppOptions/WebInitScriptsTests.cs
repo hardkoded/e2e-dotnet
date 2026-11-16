@@ -22,7 +22,9 @@ public sealed class WebInitScriptsTests
         };
         foreach (var (scripts, message) in cases)
         {
-            var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { InitScripts = scripts! }));
+            var error = Assert.Throws<EngineException>(() =>
+                new WebEngine(new WebEngineOptions { InitScripts = scripts! })
+            );
             Assert.Equal("INVALID_CONFIG", error.Code);
             Assert.Matches(message, error.Message);
         }

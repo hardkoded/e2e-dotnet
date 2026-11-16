@@ -9,12 +9,16 @@ namespace E2E.Tests.ExplorePlan;
 
 public sealed class PlanInstructionTests
 {
-    private static State Fresh() => new("Explore checkout like a first-time buyer", new ExploreBudgets(6, TimeSpan.FromMinutes(10)));
+    private static State Fresh() =>
+        new("Explore checkout like a first-time buyer", new ExploreBudgets(6, TimeSpan.FromMinutes(10)));
 
     [Fact]
     public void Opens_with_the_goal_an_empty_record_and_the_two_decisions()
     {
-        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(540_000), TimeSpan.FromMilliseconds(60_000)));
+        var text = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(false, TimeSpan.FromMilliseconds(540_000), TimeSpan.FromMilliseconds(60_000))
+        );
         Assert.Contains("Goal: Explore checkout like a first-time buyer", text, StringComparison.Ordinal);
         Assert.Contains("0 of 6 steps used, about 9 minute(s) left", text, StringComparison.Ordinal);
         Assert.Contains("(none yet: this is the first step)", text, StringComparison.Ordinal);
@@ -30,8 +34,13 @@ public sealed class PlanInstructionTests
         state.EndStep(ReportExploreStepStatus.Passed, "Cart opened");
         state.BeginStep("Pay", "pay for the cart");
         state.EndStep(ReportExploreStepStatus.Exhausted, "ran out of actions", "STEP_BUDGET_EXHAUSTED");
-        state.AddFinding(new FindingInput(ReportExploreFindingKind.Issue, 4, "Total is $0.00", "a total", "$0.00", ["open the cart"]));
-        var text = Plan.PlanInstruction(state, new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
+        state.AddFinding(
+            new FindingInput(ReportExploreFindingKind.Issue, 4, "Total is $0.00", "a total", "$0.00", ["open the cart"])
+        );
+        var text = Plan.PlanInstruction(
+            state,
+            new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000))
+        );
         Assert.Contains("1. [passed] Cart — Cart opened", text, StringComparison.Ordinal);
         Assert.Contains("2. [ended at its limit] Pay — ran out of actions", text, StringComparison.Ordinal);
         Assert.Contains("- [issue, severity 4] Total is $0.00", text, StringComparison.Ordinal);
@@ -40,7 +49,15 @@ public sealed class PlanInstructionTests
     [Fact]
     public void Asks_only_for_the_assessment_when_the_run_must_finish()
     {
-        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(true, TimeSpan.FromMilliseconds(100_000), TimeSpan.FromMilliseconds(60_000), Reason: "the step limit of 6 is reached"));
+        var text = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(
+                true,
+                TimeSpan.FromMilliseconds(100_000),
+                TimeSpan.FromMilliseconds(60_000),
+                Reason: "the step limit of 6 is reached"
+            )
+        );
         Assert.Contains("The run must end now: the step limit of 6 is reached.", text, StringComparison.Ordinal);
         Assert.Contains("\"decision\": \"finish\"", text, StringComparison.Ordinal);
         Assert.DoesNotContain("\"decision\": \"step\"", text, StringComparison.Ordinal);
@@ -49,11 +66,26 @@ public sealed class PlanInstructionTests
     [Fact]
     public void Says_the_run_starts_signed_in_from_a_restored_session_and_plans_no_sign_in()
     {
-        var signedOut = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
+        var signedOut = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000))
+        );
         Assert.DoesNotContain("starts signed in", signedOut, StringComparison.Ordinal);
         Assert.Contains("sign in with the accounts listed above", signedOut, StringComparison.Ordinal);
-        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Session: "admin"));
-        Assert.Contains("The app starts signed in: the run restored the session \"admin\" a setup test saved.", text, StringComparison.Ordinal);
+        var text = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(
+                false,
+                TimeSpan.FromMilliseconds(300_000),
+                TimeSpan.FromMilliseconds(60_000),
+                Session: "admin"
+            )
+        );
+        Assert.Contains(
+            "The app starts signed in: the run restored the session \"admin\" a setup test saved.",
+            text,
+            StringComparison.Ordinal
+        );
         Assert.Contains("work as the signed-in user rather than signing in again", text, StringComparison.Ordinal);
         Assert.DoesNotContain("sign in with the accounts listed above", text, StringComparison.Ordinal);
     }
@@ -68,7 +100,10 @@ public sealed class PlanInstructionTests
             state.EndStep(ReportExploreStepStatus.Passed, "summary-" + index + " " + new string('x', 4_000));
         }
 
-        var text = Plan.PlanInstruction(state, new PlanRequest(false, TimeSpan.FromMilliseconds(600_000), TimeSpan.FromMilliseconds(60_000)));
+        var text = Plan.PlanInstruction(
+            state,
+            new PlanRequest(false, TimeSpan.FromMilliseconds(600_000), TimeSpan.FromMilliseconds(60_000))
+        );
         Assert.Contains("1. [passed] Area 1\n", text, StringComparison.Ordinal);
         Assert.DoesNotContain("summary-92 ", text, StringComparison.Ordinal);
         Assert.Contains("summary-93 ", text, StringComparison.Ordinal);
@@ -81,7 +116,16 @@ public sealed class PlanInstructionTests
     {
         PlanAccount[] accounts = [new("ada", "ada@example.test"), new("bob", "bob@example.test")];
         string PlanFor(IReadOnlyList<PlanAccount> list, string? session = null) =>
-            Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), list, Session: session));
+            Plan.PlanInstruction(
+                Fresh(),
+                new PlanRequest(
+                    false,
+                    TimeSpan.FromMilliseconds(300_000),
+                    TimeSpan.FromMilliseconds(60_000),
+                    list,
+                    Session: session
+                )
+            );
         Assert.Contains("another account or role", PlanFor(accounts), StringComparison.Ordinal);
         Assert.DoesNotContain("another account or role", PlanFor(accounts[..1]), StringComparison.Ordinal);
         Assert.DoesNotContain("another account or role", PlanFor(accounts, "admin"), StringComparison.Ordinal);
@@ -90,15 +134,46 @@ public sealed class PlanInstructionTests
     [Fact]
     public void Plans_from_the_change_the_context_holds_only_when_the_run_explores_one()
     {
-        var without = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
+        var without = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000))
+        );
         Assert.DoesNotContain("<change>", without, StringComparison.Ordinal);
-        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Change: new PlanChange(false)));
-        Assert.Contains("Plan from the code change between <change> and </change> in the context.", text, StringComparison.Ordinal);
+        var text = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(
+                false,
+                TimeSpan.FromMilliseconds(300_000),
+                TimeSpan.FromMilliseconds(60_000),
+                Change: new PlanChange(false)
+            )
+        );
+        Assert.Contains(
+            "Plan from the code change between <change> and </change> in the context.",
+            text,
+            StringComparison.Ordinal
+        );
         Assert.Contains("never plan a step that expects it", text, StringComparison.Ordinal);
-        Assert.Contains("(server code, configuration, build or CI files, tests, docs), cover the main\n  flows that rely on it briefly and finish early", text, StringComparison.Ordinal);
+        Assert.Contains(
+            "(server code, configuration, build or CI files, tests, docs), cover the main\n  flows that rely on it briefly and finish early",
+            text,
+            StringComparison.Ordinal
+        );
         Assert.DoesNotContain("\"skip\"", text, StringComparison.Ordinal);
-        var skippable = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Change: new PlanChange(true)));
+        var skippable = Plan.PlanInstruction(
+            Fresh(),
+            new PlanRequest(
+                false,
+                TimeSpan.FromMilliseconds(300_000),
+                TimeSpan.FromMilliseconds(60_000),
+                Change: new PlanChange(true)
+            )
+        );
         Assert.Contains("Anything else, or any doubt, is a step", skippable, StringComparison.Ordinal);
-        Assert.Contains("or {\"decision\": \"skip\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}.", skippable, StringComparison.Ordinal);
+        Assert.Contains(
+            "or {\"decision\": \"skip\", \"title\": \"\", \"instruction\": \"\", \"summary\": \"...\"}.",
+            skippable,
+            StringComparison.Ordinal
+        );
     }
 }

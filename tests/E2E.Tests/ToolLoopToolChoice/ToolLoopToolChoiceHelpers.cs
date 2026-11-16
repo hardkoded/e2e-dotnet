@@ -12,7 +12,15 @@ namespace E2E.Tests.ToolLoopToolChoice;
 /// <param name="LastPrompt">The text of the newest message (upstream's <c>lastPrompt</c>).</param>
 /// <param name="UserMessages">How many user messages the history held (upstream's <c>userMessages</c>).</param>
 /// <param name="ToolNames">The tools offered (upstream's <c>toolNames</c>).</param>
-internal sealed record LoopCall(int Turn, string ToolChoice, string System, string Prompt, string LastPrompt, int UserMessages, IReadOnlyList<string> ToolNames);
+internal sealed record LoopCall(
+    int Turn,
+    string ToolChoice,
+    string System,
+    string Prompt,
+    string LastPrompt,
+    int UserMessages,
+    IReadOnlyList<string> ToolNames
+);
 
 /// <summary>The port's counterpart of upstream's <c>installFakeLoopModel</c> and <c>loopCalls</c>.</summary>
 internal sealed class FakeLoopModel
@@ -23,19 +31,23 @@ internal sealed class FakeLoopModel
         {
             var call = new LoopCall(
                 Calls.Count + 1,
-                request.ToolChoice is null ? "auto" : request.ToolChoice.Type == "tool" ? "tool:" + request.ToolChoice.ToolName : request.ToolChoice.Type,
+                request.ToolChoice is null ? "auto"
+                    : request.ToolChoice.Type == "tool" ? "tool:" + request.ToolChoice.ToolName
+                    : request.ToolChoice.Type,
                 request.System ?? "",
                 string.Join('\n', request.Messages.Select(E2E.MessageShape.ShapeOf)),
                 request.Messages[^1].Content ?? "",
                 request.Messages.Count(message => message.Role == "user"),
-                [.. request.Tools.Select(tool => tool.Name)]);
+                [.. request.Tools.Select(tool => tool.Name)]
+            );
             Calls.Add(call);
             return respond(call);
         });
     }
 
     /// <summary>What Anthropic answers, and the gateway forwards, when a model does not take a forced tool choice.</summary>
-    public static AgentException Rejection { get; } = Http400("tool_choice: type \"tool\" and \"any\" are not supported for this model.");
+    public static AgentException Rejection { get; } =
+        Http400("tool_choice: type \"tool\" and \"any\" are not supported for this model.");
 
     public ScriptedModel Model { get; }
 

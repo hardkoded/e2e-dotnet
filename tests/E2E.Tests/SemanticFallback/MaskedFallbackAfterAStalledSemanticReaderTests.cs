@@ -27,19 +27,37 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         using var site = await TinySite.StartAsync("<!doctype html><title>Fallback</title>");
         var engine = new WebEngine(new WebEngineOptions { Headless = true, Viewport = new WebViewport(320, 200) })
         {
-            ReadFrame = (frame, arguments) => stalled ? new TaskCompletionSource<IJSHandle>().Task : frame.EvaluateHandleAsync(PageScript.Collect, arguments),
+            ReadFrame = (frame, arguments) =>
+                stalled
+                    ? new TaskCompletionSource<IJSHandle>().Task
+                    : frame.EvaluateHandleAsync(PageScript.Collect, arguments),
         };
-        await using var session = await engine.StartAsync(new EngineStartOptions { ActionTimeout = operation }, CancellationToken.None);
+        await using var session = await engine.StartAsync(
+            new EngineStartOptions { ActionTimeout = operation },
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.SetContentAsync("<style>input{position:absolute;left:20px;top:20px;width:100px;height:30px;border:0;padding:0;background:red}</style><input data-testid=\"password\" type=\"password\" value=\"private-value\">");
+        await page.SetContentAsync(
+            "<style>input{position:absolute;left:20px;top:20px;width:100px;height:30px;border:0;padding:0;background:red}</style><input data-testid=\"password\" type=\"password\" value=\"private-value\">"
+        );
         await session.ObserveAsync(CancellationToken.None);
-        var password = Assert.Single(await session.LocateAsync(LocatorExpression.For("testid", "password", new TextMatchOptions { Exact = true }, "testId"), operation, CancellationToken.None));
+        var password = Assert.Single(
+            await session.LocateAsync(
+                LocatorExpression.For("testid", "password", new TextMatchOptions { Exact = true }, "testId"),
+                operation,
+                CancellationToken.None
+            )
+        );
         await page.EvaluateAsync("() => { setTimeout(() => { document.body.style.background = 'blue'; }, 1000); }");
         stalled = true;
 
         var started = Stopwatch.StartNew();
-        var fallback = await session.ObserveAsync(new ObserveOptions { Pixels = true, PixelFallback = true }, operation, CancellationToken.None);
+        var fallback = await session.ObserveAsync(
+            new ObserveOptions { Pixels = true, PixelFallback = true },
+            operation,
+            CancellationToken.None
+        );
 
         Assert.True(started.Elapsed > TimeSpan.FromMilliseconds(1250));
         Assert.True(started.Elapsed < operation);
@@ -49,7 +67,9 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         var image = ImageOps.DecodePng(fallback.Pixels.Png);
         Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 30));
         Assert.Equal([0, 0, 255, 255], PixelAt(image, 200, 100));
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(password, new LocatorAction.Tap(), CancellationToken.None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(password, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.NodeStale, stale.Code);
     }
 
@@ -73,23 +93,34 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
                 return captured;
             },
         };
-        await using var session = await engine.StartAsync(new EngineStartOptions { ActionTimeout = Budget }, CancellationToken.None);
+        await using var session = await engine.StartAsync(
+            new EngineStartOptions { ActionTimeout = Budget },
+            CancellationToken.None
+        );
         await session.OpenAsync(site.Url, CancellationToken.None);
         var page = WebEngine.SurfaceOf(session)!.Page();
-        await page.SetContentAsync("<button data-testid=\"a\" onclick=\"document.body.dataset.clicked='A'\">Button A</button>");
+        await page.SetContentAsync(
+            "<button data-testid=\"a\" onclick=\"document.body.dataset.clicked='A'\">Button A</button>"
+        );
         await session.ObserveAsync(CancellationToken.None);
-        await page.EvaluateAsync("""
+        await page.EvaluateAsync(
+            """
             () => {
               const button = document.createElement('button');
               button.textContent = 'Button B';
               button.addEventListener('click', () => { document.body.dataset.clicked = 'B'; });
               document.body.append(button);
             }
-            """);
+            """
+        );
         spy = true;
         try
         {
-            var fallback = await session.ObserveAsync(new ObserveOptions { PixelFallback = true }, TimeSpan.FromSeconds(2), CancellationToken.None);
+            var fallback = await session.ObserveAsync(
+                new ObserveOptions { PixelFallback = true },
+                TimeSpan.FromSeconds(2),
+                CancellationToken.None
+            );
             Assert.True(fallback.TreeUnavailable);
         }
         finally
@@ -98,8 +129,15 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
             delayed.SetResult();
         }
 
-        var located = Assert.Single(await session.LocateAsync(LocatorExpression.For("testid", "a", new TextMatchOptions { Exact = true }, "testId"), Budget, CancellationToken.None));
-        await page.EvaluateAsync("""
+        var located = Assert.Single(
+            await session.LocateAsync(
+                LocatorExpression.For("testid", "a", new TextMatchOptions { Exact = true }, "testId"),
+                Budget,
+                CancellationToken.None
+            )
+        );
+        await page.EvaluateAsync(
+            """
             () => {
               const button = document.createElement('button');
               button.textContent = 'Button C';
@@ -109,7 +147,8 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
               frame.srcdoc = '<button onclick="document.body.dataset.clicked=\'D\'">Button D</button>';
               document.body.append(frame);
             }
-            """);
+            """
+        );
         await page.FrameLocator("iframe").GetByRole(AriaRole.Button, new() { Name = "Button D" }).WaitForAsync();
 
         var fresh = await session.ObserveAsync(CancellationToken.None);
@@ -124,9 +163,10 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
             await page.Locator("body").EvaluateAsync("body => { delete body.dataset.clicked; }");
             await page.FrameLocator("iframe").Locator("body").EvaluateAsync("body => { delete body.dataset.clicked; }");
             await session.PerformAsync(target, new LocatorAction.Tap(), CancellationToken.None);
-            var clicked = name == "Button D"
-                ? await page.FrameLocator("iframe").Locator("body").GetAttributeAsync("data-clicked")
-                : await page.Locator("body").GetAttributeAsync("data-clicked");
+            var clicked =
+                name == "Button D"
+                    ? await page.FrameLocator("iframe").Locator("body").GetAttributeAsync("data-clicked")
+                    : await page.Locator("body").GetAttributeAsync("data-clicked");
             Assert.Equal(name[^1].ToString(), clicked);
         }
     }
@@ -137,5 +177,6 @@ public sealed class MaskedFallbackAfterAStalledSemanticReaderTests
         return image.Data[at..(at + 4)];
     }
 
-    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) => nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);
+    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) =>
+        nodes.SelectMany(node => (IEnumerable<SemanticNode>)[node, .. Flatten(node.Children)]);
 }

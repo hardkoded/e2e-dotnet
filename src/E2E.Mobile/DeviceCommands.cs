@@ -8,13 +8,19 @@ using System.Text.Json.Nodes;
 namespace E2E.Mobile;
 
 /// <summary>One daemon request: the command, its positional arguments, its flags, and the structured input a few commands take beside them.</summary>
-public sealed record DeviceCommand(string Name, IReadOnlyList<string> Positionals, JsonObject Flags, JsonObject? Input = null)
+public sealed record DeviceCommand(
+    string Name,
+    IReadOnlyList<string> Positionals,
+    JsonObject Flags,
+    JsonObject? Input = null
+)
 {
     /// <summary>
     /// The JSON-RPC method that carries it. A lease command has a method of its own, <c>agent_device.lease.allocate</c>
     /// and its two siblings, and takes its fields as params; every other command goes through <c>agent_device.command</c>.
     /// </summary>
-    public string RpcMethod => DeviceCommands.IsLease(Name) ? $"agent_device.lease.{Name["lease_".Length..]}" : "agent_device.command";
+    public string RpcMethod =>
+        DeviceCommands.IsLease(Name) ? $"agent_device.lease.{Name["lease_".Length..]}" : "agent_device.command";
 }
 
 /// <summary>
@@ -71,7 +77,11 @@ public static class DeviceCommands
             case DeviceMethods.InteractionsPress:
                 return new DeviceCommand("press", Target(flags), flags);
             case DeviceMethods.InteractionsLongPress:
-                return new DeviceCommand("longpress", [.. Target(flags), .. Number(flags, "durationMs", remove: false)], flags);
+                return new DeviceCommand(
+                    "longpress",
+                    [.. Target(flags), .. Number(flags, "durationMs", remove: false)],
+                    flags
+                );
             case DeviceMethods.InteractionsHover:
                 return new DeviceCommand("hover", Target(flags), flags);
             case DeviceMethods.InteractionsFill:
@@ -85,7 +95,12 @@ public static class DeviceCommands
             case DeviceMethods.InteractionsPan:
                 return Gesture("pan", flags, ("origin", Point(flags, "x", "y")), ("delta", Point(flags, "dx", "dy")));
             case DeviceMethods.InteractionsDrag:
-                return Gesture("drag", flags, ("source", Remove(flags, "source")), ("destination", Remove(flags, "destination")));
+                return Gesture(
+                    "drag",
+                    flags,
+                    ("source", Remove(flags, "source")),
+                    ("destination", Remove(flags, "destination"))
+                );
             case DeviceMethods.CommandKeyboard:
                 return new DeviceCommand("keyboard", Take(flags, "action"), flags);
             case DeviceMethods.CommandAlert:
@@ -169,12 +184,38 @@ public static class DeviceCommands
     /// </summary>
     private static readonly string[] LeaseSelectorKeys =
     [
-        "platform", "target", "device", "udid", "serial", "iosSimulatorDeviceSet", "androidDeviceAllowlist",
-        "providerApp", "providerOsVersion", "providerDeviceType", "providerProject", "providerBuild", "providerSessionName",
-        "providerDeviceOrientation", "providerGeoLocation", "providerTimezone", "providerAppiumVersion", "providerLanguage",
-        "providerLocale", "providerNetworkProfile", "providerCustomNetwork", "providerNoResignApp", "providerNetworkLogs",
-        "providerNetworkHosts", "awsProjectArn", "awsDeviceArn", "awsAppArn", "awsRegion", "awsInteractionMode",
-        "osVersion", "imageTag", "physical",
+        "platform",
+        "target",
+        "device",
+        "udid",
+        "serial",
+        "iosSimulatorDeviceSet",
+        "androidDeviceAllowlist",
+        "providerApp",
+        "providerOsVersion",
+        "providerDeviceType",
+        "providerProject",
+        "providerBuild",
+        "providerSessionName",
+        "providerDeviceOrientation",
+        "providerGeoLocation",
+        "providerTimezone",
+        "providerAppiumVersion",
+        "providerLanguage",
+        "providerLocale",
+        "providerNetworkProfile",
+        "providerCustomNetwork",
+        "providerNoResignApp",
+        "providerNetworkLogs",
+        "providerNetworkHosts",
+        "awsProjectArn",
+        "awsDeviceArn",
+        "awsAppArn",
+        "awsRegion",
+        "awsInteractionMode",
+        "osVersion",
+        "imageTag",
+        "physical",
     ];
 
     /// <summary>Copies the string and boolean selectors of an allocate call's flags into its params, as agent-device's client does.</summary>
@@ -195,7 +236,11 @@ public static class DeviceCommands
         var positionals = new List<string>();
         foreach (var name in names)
         {
-            if (!flags.Remove(name, out var node) || node is not JsonValue value || !value.TryGetValue<string>(out var text))
+            if (
+                !flags.Remove(name, out var node)
+                || node is not JsonValue value
+                || !value.TryGetValue<string>(out var text)
+            )
             {
                 continue;
             }
@@ -225,8 +270,14 @@ public static class DeviceCommands
     /// <summary>Moves a number out of the flags as a positional argument, as the client writes it: as text. A missing one is skipped.</summary>
     private static string[] Number(JsonObject flags, string name, bool remove = true)
     {
-        var found = remove ? flags.Remove(name, out var taken) ? taken : null : flags[name];
-        return found is JsonValue value && value.TryGetValue<double>(out var number) ? [number.ToString("R", CultureInfo.InvariantCulture)] : [];
+        var found = remove
+            ? flags.Remove(name, out var taken)
+                ? taken
+                : null
+            : flags[name];
+        return found is JsonValue value && value.TryGetValue<double>(out var number)
+            ? [number.ToString("R", CultureInfo.InvariantCulture)]
+            : [];
     }
 
     /// <summary>Moves the named options out of the flags into the structured input a command takes beside its positionals.</summary>
@@ -283,15 +334,30 @@ public static class DeviceCommands
         {
             case "permission":
                 var arguments = Take(flags, "state", "permission");
-                return arguments.Length == 2 ? ["permission", .. arguments] : throw new ArgumentException("settings permission needs a state and a permission.");
+                return arguments.Length == 2
+                    ? ["permission", .. arguments]
+                    : throw new ArgumentException("settings permission needs a state and a permission.");
             case "clear-app-state":
                 flags.Remove("state");
                 return ["clear-app-state", .. Take(flags, "app")];
             case "reset-keychain":
                 return ["reset-keychain", .. Take(flags, "state")];
             case "location":
-                return ["location", .. Take(flags, "state"), .. Number(flags, "latitude"), .. Number(flags, "longitude")];
-            case "wifi" or "airplane" or "appearance" or "text-size" or "animations" or "faceid" or "touchid" or "fingerprint":
+                return
+                [
+                    "location",
+                    .. Take(flags, "state"),
+                    .. Number(flags, "latitude"),
+                    .. Number(flags, "longitude"),
+                ];
+            case "wifi"
+            or "airplane"
+            or "appearance"
+            or "text-size"
+            or "animations"
+            or "faceid"
+            or "touchid"
+            or "fingerprint":
                 return [setting[0], .. Take(flags, "state")];
             default:
                 throw new NotSupportedException($"The device client does not support the {setting[0]} setting yet.");

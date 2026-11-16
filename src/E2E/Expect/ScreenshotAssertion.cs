@@ -14,7 +14,16 @@ namespace E2E;
 internal static partial class ScreenshotAssertion
 {
     /// <summary>One call in one attempt.</summary>
-    private sealed class Run(Screen screen, ScreenshotContext store, string api, ScreenshotCall call, string file, string shown, Func<CancellationToken, Task<Capture>> capture, ReadWindow reads)
+    private sealed class Run(
+        Screen screen,
+        ScreenshotContext store,
+        string api,
+        ScreenshotCall call,
+        string file,
+        string shown,
+        Func<CancellationToken, Task<Capture>> capture,
+        ReadWindow reads
+    )
     {
         public Screen Screen { get; } = screen;
 
@@ -35,19 +44,39 @@ internal static partial class ScreenshotAssertion
     }
 
     /// <summary>Runs one call as an assertion: of the whole screen when <paramref name="subject"/> is null, else of the one node it matches.</summary>
-    public static Task ExpectScreenshotAsync(Screen screen, Locator? subject, bool negated, string? name, ScreenshotOptions? options, string? callerFile, CancellationToken cancellationToken) =>
+    public static Task ExpectScreenshotAsync(
+        Screen screen,
+        Locator? subject,
+        bool negated,
+        string? name,
+        ScreenshotOptions? options,
+        string? callerFile,
+        CancellationToken cancellationToken
+    ) =>
         screen.RunStepAsync(
             StepKind.Assertion,
             "expect." + (negated ? "not." : "") + "toHaveScreenshot",
             Subject(subject),
             () => ExpectScreenshotCoreAsync(screen, subject, negated, name, options, callerFile, cancellationToken),
-            verifies: true);
+            verifies: true
+        );
 
-    private static async Task ExpectScreenshotCoreAsync(Screen screen, Locator? subject, bool negated, string? name, ScreenshotOptions? options, string? callerFile, CancellationToken cancellationToken)
+    private static async Task ExpectScreenshotCoreAsync(
+        Screen screen,
+        Locator? subject,
+        bool negated,
+        string? name,
+        ScreenshotOptions? options,
+        string? callerFile,
+        CancellationToken cancellationToken
+    )
     {
         var api = (negated ? "not." : "") + "toHaveScreenshot";
         var store = screen.Screenshots
-            ?? throw new TestException("UNSUPPORTED_CAPABILITY", api + " keeps screenshots beside a test file, so it runs only inside a test");
+            ?? throw new TestException(
+                "UNSUPPORTED_CAPABILITY",
+                api + " keeps screenshots beside a test file, so it runs only inside a test"
+            );
         var call = ParseScreenshotCall(api, store, name, options);
         var directory = store.DirectoryOf(callerFile)
             ?? throw new TestException("INVALID_ARGUMENT", api + " could not tell which test file it was called from");
@@ -62,7 +91,13 @@ internal static partial class ScreenshotAssertion
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;
         if (expected is not null && (negated || !store.Update) && store.HasWritten(file))
         {
-            throw Failure(run, subject, shown + " was written earlier in this run and is not reviewed yet: look at it, commit it, and run again", "unreviewed stored screenshot");
+            throw Failure(
+                run,
+                subject,
+                shown
+                    + " was written earlier in this run and is not reviewed yet: look at it, commit it, and run again",
+                "unreviewed stored screenshot"
+            );
         }
 
         if (negated)
@@ -82,7 +117,9 @@ internal static partial class ScreenshotAssertion
     internal static string Shown(ScreenshotContext store, string file)
     {
         var relative = Path.GetRelativePath(store.ProjectRoot, file);
-        return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? file : relative.Replace(Path.DirectorySeparatorChar, '/');
+        return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative)
+            ? file
+            : relative.Replace(Path.DirectorySeparatorChar, '/');
     }
 
     private static RgbaImage ReadStored(Run run)
@@ -93,7 +130,14 @@ internal static partial class ScreenshotAssertion
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            throw new TestException("INVALID_ARGUMENT", run.Api + " could not read the stored screenshot " + run.Shown + " as a PNG; delete it or run with E2E_UPDATE_SNAPSHOTS=1", ex);
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                run.Api
+                    + " could not read the stored screenshot "
+                    + run.Shown
+                    + " as a PNG; delete it or run with E2E_UPDATE_SNAPSHOTS=1",
+                ex
+            );
         }
     }
 
@@ -104,7 +148,13 @@ internal static partial class ScreenshotAssertion
     /// still: two captures in a row the same within the call's tolerance. Returns the screen that held still, to
     /// keep; null when it matched.
     /// </summary>
-    private static async Task<RgbaImage?> MatchOrSettleAsync(Run run, Locator? subject, RgbaImage? expected, Deadline deadline, CancellationToken token)
+    private static async Task<RgbaImage?> MatchOrSettleAsync(
+        Run run,
+        Locator? subject,
+        RgbaImage? expected,
+        Deadline deadline,
+        CancellationToken token
+    )
     {
         var settles = expected is null || run.Store.Update;
         // The newest capture with pixels, and why the newest without had none: a read the deadline cut short can
@@ -117,129 +167,198 @@ internal static partial class ScreenshotAssertion
         RgbaImage? settled = null;
         var captures = 0;
         await PollAsync(
-            run,
-            deadline,
-            token,
-            async () =>
-            {
-                var capture = await run.Capture(token).ConfigureAwait(false);
-                if (capture.Image is null)
+                run,
+                deadline,
+                token,
+                async () =>
                 {
-                    missing = capture.Missing;
-                    return null;
-                }
-
-                captures++;
-                var current = capture.Image;
-                var comparison = expected is null ? null : ImageOps.CompareImages(expected, current, run.Call.Tolerance);
-                latest = current;
-                latestComparison = comparison;
-                if (comparison is ImageComparison.Match)
-                {
-                    return true;
-                }
-
-                if (!settles)
-                {
-                    return false;
-                }
-
-                var before = previous;
-                previous = current;
-                if (before is null)
-                {
-                    return false;
-                }
-
-                if (ImageOps.CompareImages(before, current, run.Call.Tolerance) is ImageComparison.Match)
-                {
-                    settled = current;
-                    return true;
-                }
-
-                unsettled = (before, current);
-                return false;
-            },
-            cause =>
-            {
-                if (latest is null)
-                {
-                    return Failure(run, subject, missing ?? (cause is null ? "no screenshot was taken" : "the last screenshot ran past the timeout"), "no screenshot", cause);
-                }
-
-                if (!settles && expected is not null && latestComparison is { } comparison and not ImageComparison.Match)
-                {
-                    return Mismatch(run, subject, expected, latest, comparison, cause);
-                }
-
-                var images = new List<string>();
-                if (unsettled is var (first, second))
-                {
-                    if (ImageOps.CompareImages(first, second, new ImageTolerance(0, null, null)) is ImageComparison.Pixels pixels)
+                    var capture = await run.Capture(token).ConfigureAwait(false);
+                    if (capture.Image is null)
                     {
-                        images.Add("diff: " + Attach(run, run.Call.Stem + "-diff", pixels.Diff));
+                        missing = capture.Missing;
+                        return null;
                     }
 
-                    images.Add("previous: " + Attach(run, run.Call.Stem + "-previous", first));
-                    images.Add("actual: " + Attach(run, run.Call.Stem + "-actual", second));
-                }
+                    captures++;
+                    var current = capture.Image;
+                    var comparison = expected is null
+                        ? null
+                        : ImageOps.CompareImages(expected, current, run.Call.Tolerance);
+                    latest = current;
+                    latestComparison = comparison;
+                    if (comparison is ImageComparison.Match)
+                    {
+                        return true;
+                    }
 
-                var message = captures < 2
-                    ? "took " + Number(captures) + " screenshot" + (captures == 1 ? "" : "s") + " before the timeout and needs two the same; give it a longer timeout"
-                    : "the screen never held still: no two of " + Number(captures) + " screenshots in a row were the same";
-                return Failure(run, subject, string.Join('\n', new[] { message }.Concat(images)), "no stable screenshot", cause);
-            },
-            negated: false).ConfigureAwait(false);
+                    if (!settles)
+                    {
+                        return false;
+                    }
+
+                    var before = previous;
+                    previous = current;
+                    if (before is null)
+                    {
+                        return false;
+                    }
+
+                    if (ImageOps.CompareImages(before, current, run.Call.Tolerance) is ImageComparison.Match)
+                    {
+                        settled = current;
+                        return true;
+                    }
+
+                    unsettled = (before, current);
+                    return false;
+                },
+                cause =>
+                {
+                    if (latest is null)
+                    {
+                        return Failure(
+                            run,
+                            subject,
+                            missing
+                                ?? (
+                                    cause is null
+                                        ? "no screenshot was taken"
+                                        : "the last screenshot ran past the timeout"
+                                ),
+                            "no screenshot",
+                            cause
+                        );
+                    }
+
+                    if (
+                        !settles
+                        && expected is not null
+                        && latestComparison is { } comparison and not ImageComparison.Match
+                    )
+                    {
+                        return Mismatch(run, subject, expected, latest, comparison, cause);
+                    }
+
+                    var images = new List<string>();
+                    if (unsettled is var (first, second))
+                    {
+                        if (
+                            ImageOps.CompareImages(first, second, new ImageTolerance(0, null, null))
+                            is ImageComparison.Pixels pixels
+                        )
+                        {
+                            images.Add("diff: " + Attach(run, run.Call.Stem + "-diff", pixels.Diff));
+                        }
+
+                        images.Add("previous: " + Attach(run, run.Call.Stem + "-previous", first));
+                        images.Add("actual: " + Attach(run, run.Call.Stem + "-actual", second));
+                    }
+
+                    var message =
+                        captures < 2
+                            ? "took "
+                                + Number(captures)
+                                + " screenshot"
+                                + (captures == 1 ? "" : "s")
+                                + " before the timeout and needs two the same; give it a longer timeout"
+                            : "the screen never held still: no two of "
+                                + Number(captures)
+                                + " screenshots in a row were the same";
+                    return Failure(
+                        run,
+                        subject,
+                        string.Join('\n', new[] { message }.Concat(images)),
+                        "no stable screenshot",
+                        cause
+                    );
+                },
+                negated: false
+            )
+            .ConfigureAwait(false);
         return settled;
     }
 
     /// <summary><c>.Not</c>: waits for the screen to differ from the stored screenshot, which must exist.</summary>
-    private static async Task ExpectDifferentAsync(Run run, Locator? subject, RgbaImage? expected, Deadline deadline, CancellationToken token)
+    private static async Task ExpectDifferentAsync(
+        Run run,
+        Locator? subject,
+        RgbaImage? expected,
+        Deadline deadline,
+        CancellationToken token
+    )
     {
         if (expected is null)
         {
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + " to differ from", "no stored screenshot");
+            throw Failure(
+                run,
+                subject,
+                "no stored screenshot at " + run.Shown + " to differ from",
+                "no stored screenshot"
+            );
         }
 
         var compared = false;
         string? missing = null;
         await PollAsync(
-            run,
-            deadline,
-            token,
-            async () =>
-            {
-                var capture = await run.Capture(token).ConfigureAwait(false);
-                if (capture.Image is null)
+                run,
+                deadline,
+                token,
+                async () =>
                 {
-                    missing = capture.Missing;
-                    return null;
-                }
+                    var capture = await run.Capture(token).ConfigureAwait(false);
+                    if (capture.Image is null)
+                    {
+                        missing = capture.Missing;
+                        return null;
+                    }
 
-                compared = true;
-                return ImageOps.CompareImages(expected, capture.Image, run.Call.Tolerance) is ImageComparison.Match;
-            },
-            cause => compared
-                ? Failure(run, subject, "the screen still matches " + run.Shown, "matching", cause)
-                : Failure(run, subject, missing ?? (cause is null ? "no screenshot was taken" : "the last screenshot ran past the timeout"), "no screenshot", cause),
-            negated: true).ConfigureAwait(false);
+                    compared = true;
+                    return ImageOps.CompareImages(expected, capture.Image, run.Call.Tolerance) is ImageComparison.Match;
+                },
+                cause =>
+                    compared
+                        ? Failure(run, subject, "the screen still matches " + run.Shown, "matching", cause)
+                        : Failure(
+                            run,
+                            subject,
+                            missing
+                                ?? (
+                                    cause is null
+                                        ? "no screenshot was taken"
+                                        : "the last screenshot ran past the timeout"
+                                ),
+                            "no screenshot",
+                            cause
+                        ),
+                negated: true
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
     /// Polls the capture for a call (see <see cref="Time.PollReadsAsync"/>).
     /// <paramref name="evaluate"/> returns null when the condition cannot be evaluated yet.
     /// </summary>
-    private static Task PollAsync(Run run, Deadline deadline, CancellationToken token, Func<Task<bool?>> evaluate, Func<Exception?, Exception> onTimeout, bool negated) =>
-        Time.PollReadsAsync(new PollReadsOptions
-        {
-            Deadline = deadline,
-            Reads = run.Reads,
-            Clock = run.Screen.Clock,
-            Token = token,
-            Negated = negated,
-            Evaluate = _ => evaluate(),
-            OnTimeout = onTimeout,
-        });
+    private static Task PollAsync(
+        Run run,
+        Deadline deadline,
+        CancellationToken token,
+        Func<Task<bool?>> evaluate,
+        Func<Exception?, Exception> onTimeout,
+        bool negated
+    ) =>
+        Time.PollReadsAsync(
+            new PollReadsOptions
+            {
+                Deadline = deadline,
+                Reads = run.Reads,
+                Clock = run.Screen.Clock,
+                Token = token,
+                Negated = negated,
+                Evaluate = _ => evaluate(),
+                OnTimeout = onTimeout,
+            }
+        );
 
     // --- keeping ---
 
@@ -253,8 +372,20 @@ internal static partial class ScreenshotAssertion
         var store = run.Store;
         if (expected is null && !store.Update && store.Ci)
         {
-            var kept = Attach(run, Path.Combine("snapshots", Path.IsPathRooted(run.Shown) ? Path.GetFileName(run.File) : run.Shown), settled);
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + ", and CI writes none without E2E_UPDATE_SNAPSHOTS=1; commit this run's there\nactual: " + kept, "no stored screenshot");
+            var kept = Attach(
+                run,
+                Path.Combine("snapshots", Path.IsPathRooted(run.Shown) ? Path.GetFileName(run.File) : run.Shown),
+                settled
+            );
+            throw Failure(
+                run,
+                subject,
+                "no stored screenshot at "
+                    + run.Shown
+                    + ", and CI writes none without E2E_UPDATE_SNAPSHOTS=1; commit this run's there\nactual: "
+                    + kept,
+                "no stored screenshot"
+            );
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(run.File)!);
@@ -262,12 +393,26 @@ internal static partial class ScreenshotAssertion
         store.MarkWritten(run.File);
         if (expected is null && !store.Update)
         {
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + "; wrote this run's there. Look at it, commit it, and run again", "no stored screenshot");
+            throw Failure(
+                run,
+                subject,
+                "no stored screenshot at "
+                    + run.Shown
+                    + "; wrote this run's there. Look at it, commit it, and run again",
+                "no stored screenshot"
+            );
         }
     }
 
     /// <summary>The failure of a comparison that never matched, the diff, actual, and stored images attached and named in the message.</summary>
-    private static TestException Mismatch(Run run, Locator? subject, RgbaImage expected, RgbaImage actual, ImageComparison comparison, Exception? cause)
+    private static TestException Mismatch(
+        Run run,
+        Locator? subject,
+        RgbaImage expected,
+        RgbaImage actual,
+        ImageComparison comparison,
+        Exception? cause
+    )
     {
         var stem = run.Call.Stem;
         var images = new List<string>();
@@ -279,21 +424,56 @@ internal static partial class ScreenshotAssertion
         images.Add("actual: " + Attach(run, stem + "-actual", actual));
         images.Add("expected: " + Attach(run, stem + "-expected", expected));
         var observed = comparison is ImageComparison.SizeMismatch size
-            ? "a " + Number(size.Actual.Width) + "x" + Number(size.Actual.Height) + " screenshot where " + run.Shown + " is " + Number(size.Expected.Width) + "x" + Number(size.Expected.Height)
-            : Number(((ImageComparison.Pixels)comparison).DiffPixels) + " pixels (" + FormatRatio(((ImageComparison.Pixels)comparison).Ratio) + " of the image) differ from " + run.Shown;
-        return Failure(run, subject, string.Join('\n', new[] { observed + "; run with E2E_UPDATE_SNAPSHOTS=1 to keep this run's" }.Concat(images)), observed, cause);
+            ? "a "
+                + Number(size.Actual.Width)
+                + "x"
+                + Number(size.Actual.Height)
+                + " screenshot where "
+                + run.Shown
+                + " is "
+                + Number(size.Expected.Width)
+                + "x"
+                + Number(size.Expected.Height)
+            : Number(((ImageComparison.Pixels)comparison).DiffPixels)
+                + " pixels ("
+                + FormatRatio(((ImageComparison.Pixels)comparison).Ratio)
+                + " of the image) differ from "
+                + run.Shown;
+        return Failure(
+            run,
+            subject,
+            string.Join(
+                '\n',
+                new[] { observed + "; run with E2E_UPDATE_SNAPSHOTS=1 to keep this run's" }.Concat(images)
+            ),
+            observed,
+            cause
+        );
     }
 
     /// <summary>An assertion failure naming the stored screenshot.</summary>
-    private static TestException Failure(Run run, Locator? subject, string message, string observed, Exception? cause = null)
+    private static TestException Failure(
+        Run run,
+        Locator? subject,
+        string message,
+        string observed,
+        Exception? cause = null
+    )
     {
         var text = "expect(" + Subject(subject) + ")." + run.Api + " failed\n" + message;
-        return ErrorRedaction.Failure("ASSERTION_FAILED", text, cause, run.Screen.Redact, new ErrorDetails { Expected = run.Shown, Observed = observed });
+        return ErrorRedaction.Failure(
+            "ASSERTION_FAILED",
+            text,
+            cause,
+            run.Screen.Redact,
+            new ErrorDetails { Expected = run.Shown, Observed = observed }
+        );
     }
 
     /// <summary>A share as a percentage with two significant digits at most: <c>0.04%</c>, <c>12%</c>.</summary>
     private static string FormatRatio(double ratio) =>
-        double.Parse((ratio * 100).ToString("G2", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture).ToString("0.################", CultureInfo.InvariantCulture) + "%";
+        double.Parse((ratio * 100).ToString("G2", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+            .ToString("0.################", CultureInfo.InvariantCulture) + "%";
 
     /// <summary>
     /// Writes an image into the attempt's results, at <c>screenshots/&lt;name&gt;.png</c> (or at <paramref name="name"/>
@@ -301,7 +481,9 @@ internal static partial class ScreenshotAssertion
     /// </summary>
     private static string Attach(Run run, string name, RgbaImage image)
     {
-        var relative = name.EndsWith(".png", StringComparison.Ordinal) ? name : Path.Combine("screenshots", name + ".png");
+        var relative = name.EndsWith(".png", StringComparison.Ordinal)
+            ? name
+            : Path.Combine("screenshots", name + ".png");
         var absolute = Path.Combine(run.Store.ResultsDirectory, relative);
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
         System.IO.File.WriteAllBytes(absolute, ImageOps.EncodePng(image));
@@ -309,5 +491,4 @@ internal static partial class ScreenshotAssertion
     }
 
     private static string Number(int value) => value.ToString(CultureInfo.InvariantCulture);
-
 }

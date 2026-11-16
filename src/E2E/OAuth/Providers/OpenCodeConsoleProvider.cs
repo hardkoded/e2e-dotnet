@@ -43,7 +43,11 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
 
     internal string ConsoleUrl { get; }
 
-    public async Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)
+    public async Task<OAuthCredentials> LoginAsync(
+        OAuthLoginCallbacks callbacks,
+        OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(callbacks);
         var deviceCodeUrl = ConsoleUrl + "/auth/device/code";
@@ -56,22 +60,32 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
             OnAuth = info =>
             {
                 var url = new Uri(new Uri(deviceCodeUrl), info.Url).AbsoluteUri;
-                callbacks.OnAuth(info with
-                {
-                    Url = url,
-                    Instructions = "Open " + url + " on any device, pick the workspace to sign in to" + (info.UserCode is null ? "" : ", and confirm the code " + info.UserCode) + ".",
-                });
+                callbacks.OnAuth(
+                    info with
+                    {
+                        Url = url,
+                        Instructions =
+                            "Open "
+                            + url
+                            + " on any device, pick the workspace to sign in to"
+                            + (info.UserCode is null ? "" : ", and confirm the code " + info.UserCode)
+                            + ".",
+                    }
+                );
             },
         };
-        var tokens = await DeviceFlow.Rfc8628Async(
-            _http,
-            Name,
-            deviceCodeUrl,
-            ConsoleUrl + "/auth/device/token",
-            ClientId,
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["supports_org_scope"] = "true" },
-            relative,
-            cancellationToken).ConfigureAwait(false);
+        var tokens = await DeviceFlow
+            .Rfc8628Async(
+                _http,
+                Name,
+                deviceCodeUrl,
+                ConsoleUrl + "/auth/device/token",
+                ClientId,
+                new Dictionary<string, string>(StringComparer.Ordinal) { ["supports_org_scope"] = "true" },
+                relative,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return ToCredentials(tokens, null);
     }
 
@@ -80,27 +94,43 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
         ArgumentNullException.ThrowIfNull(credentials);
         if (credentials.Refresh.Length == 0)
         {
-            throw new OAuthException(OAuthException.LoginRequired, "OpenCode Console has no refresh token for this login");
+            throw new OAuthException(
+                OAuthException.LoginRequired,
+                "OpenCode Console has no refresh token for this login"
+            );
         }
 
-        var tokens = await TokenEndpoint.RequestAsync(
-            _http,
-            Name,
-            ConsoleUrl + "/auth/device/token",
-            new Dictionary<string, string>(StringComparer.Ordinal) { ["grant_type"] = "refresh_token", ["refresh_token"] = credentials.Refresh, ["client_id"] = ClientId },
-            OAuthException.LoginRequired,
-            cancellationToken).ConfigureAwait(false);
+        var tokens = await TokenEndpoint
+            .RequestAsync(
+                _http,
+                Name,
+                ConsoleUrl + "/auth/device/token",
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = credentials.Refresh,
+                    ["client_id"] = ClientId,
+                },
+                OAuthException.LoginRequired,
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         return ToCredentials(tokens, credentials);
     }
 
     /// <summary>Names the workspace as each API expects it.</summary>
-    public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken)
+    public Task PrepareAsync(
+        HttpRequestMessage request,
+        OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(credentials);
         if (credentials.Get("orgId") is { } org)
         {
-            var console = request.RequestUri?.AbsoluteUri.StartsWith(ConsoleUrl + "/", StringComparison.Ordinal) == true;
+            var console =
+                request.RequestUri?.AbsoluteUri.StartsWith(ConsoleUrl + "/", StringComparison.Ordinal) == true;
             request.Headers.TryAddWithoutValidation(console ? "x-org-id" : "x-opencode-org-id", org);
         }
 
@@ -108,7 +138,10 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
     }
 
     /// <summary>Leaves out disabled models and Zen's free ones, which only OpenCode's own clients may use.</summary>
-    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         var providers = await ReadConfigAsync(http, cancellationToken).ConfigureAwait(false);
         return [.. Listed(providers, ZenProvider, "", "Zen"), .. Listed(providers, GoProvider, GoPrefix, "Go")];
@@ -119,7 +152,11 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
     /// <c>anthropic</c>, <c>google</c>), the API root, and the vendor's model id. Null when the config could not be
     /// read, so the caller asks again rather than remembering a guess.
     /// </summary>
-    internal async Task<OpenCodeRoute?> RouteForAsync(string modelId, HttpClient http, CancellationToken cancellationToken)
+    internal async Task<OpenCodeRoute?> RouteForAsync(
+        string modelId,
+        HttpClient http,
+        CancellationToken cancellationToken
+    )
     {
         JsonObject providers;
         try
@@ -142,22 +179,35 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
                 OAuthException.Misconfigured,
                 go
                     ? "OpenCode Go is not available to this login: the workspace has no Go subscription, or the signed-in user is not its subscriber; sign in to the Go workspace with `e2e login opencode-console`"
-                    : "OpenCode Zen is turned off for this OpenCode Console workspace");
+                    : "OpenCode Zen is turned off for this OpenCode Console workspace"
+            );
         }
 
         if (provider["models"]?[id] is not JsonObject model || IsTrue(model["disabled"]))
         {
-            throw new OAuthException(OAuthException.Misconfigured, "the OpenCode Console workspace does not serve " + modelId + "; `e2e models opencode-console` lists the ids");
+            throw new OAuthException(
+                OAuthException.Misconfigured,
+                "the OpenCode Console workspace does not serve "
+                    + modelId
+                    + "; `e2e models opencode-console` lists the ids"
+            );
         }
 
-        var npm = (model["provider"] is JsonObject own ? TokenEndpoint.Text(own, "npm") : null) ?? TokenEndpoint.Text(provider, "npm");
-        var api = (model["provider"] is JsonObject ownApi ? TokenEndpoint.Text(ownApi, "api") : null) ?? TokenEndpoint.Text(provider, "api");
+        var npm = (model["provider"] is JsonObject own ? TokenEndpoint.Text(own, "npm") : null)
+            ?? TokenEndpoint.Text(provider, "npm");
+        var api = (model["provider"] is JsonObject ownApi ? TokenEndpoint.Text(ownApi, "api") : null)
+            ?? TokenEndpoint.Text(provider, "api");
         if (npm is null || api is null)
         {
             return null;
         }
 
-        return new OpenCodeRoute(go, Protocol(npm), api, TokenEndpoint.Text(model, "id") is { Length: > 0 } vendorId ? vendorId : id);
+        return new OpenCodeRoute(
+            go,
+            Protocol(npm),
+            api,
+            TokenEndpoint.Text(model, "id") is { Length: > 0 } vendorId ? vendorId : id
+        );
     }
 
     /// <summary>The plan's chat completions route, used until the config is read.</summary>
@@ -169,7 +219,9 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
 
     internal static (bool Go, string Id) Split(string modelId)
     {
-        return modelId.StartsWith(GoPrefix, StringComparison.Ordinal) ? (true, modelId[GoPrefix.Length..]) : (false, modelId);
+        return modelId.StartsWith(GoPrefix, StringComparison.Ordinal)
+            ? (true, modelId[GoPrefix.Length..])
+            : (false, modelId);
     }
 
     private static string Protocol(string npm)
@@ -189,16 +241,27 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
         using var response = await OAuthHttp.SendAsync(http, request, Name, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
-            throw new OAuthException(OAuthException.FlowFailed, "OpenCode Console did not return the workspace config: " + await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false));
+            throw new OAuthException(
+                OAuthException.FlowFailed,
+                "OpenCode Console did not return the workspace config: "
+                    + await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false)
+            );
         }
 
         try
         {
-            return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))?["config"]?["provider"] as JsonObject ?? [];
+            return JsonNode
+                    .Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false))
+                    ?["config"]?["provider"] as JsonObject
+                ?? [];
         }
         catch (JsonException ex)
         {
-            throw new OAuthException(OAuthException.FlowFailed, "OpenCode Console returned a workspace config that is not JSON", ex);
+            throw new OAuthException(
+                OAuthException.FlowFailed,
+                "OpenCode Console returned a workspace config that is not JSON",
+                ex
+            );
         }
     }
 
@@ -217,23 +280,43 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
             }
 
             var detail = new List<string> { plan };
-            if (key == ZenProvider && model["cost"] is JsonObject cost && TokenEndpoint.Number(cost, "input") is { } input && TokenEndpoint.Number(cost, "output") is { } output)
+            if (
+                key == ZenProvider
+                && model["cost"] is JsonObject cost
+                && TokenEndpoint.Number(cost, "input") is { } input
+                && TokenEndpoint.Number(cost, "output") is { } output
+            )
             {
-                detail.Add("$" + input.ToString(CultureInfo.InvariantCulture) + " in, $" + output.ToString(CultureInfo.InvariantCulture) + " out per 1M");
+                detail.Add(
+                    "$"
+                        + input.ToString(CultureInfo.InvariantCulture)
+                        + " in, $"
+                        + output.ToString(CultureInfo.InvariantCulture)
+                        + " out per 1M"
+                );
             }
 
-            if (model["modalities"]?["input"] is JsonArray modalities && modalities.Any(kind => kind?.ToString() == "image"))
+            if (
+                model["modalities"]?["input"] is JsonArray modalities
+                && modalities.Any(kind => kind?.ToString() == "image")
+            )
             {
                 detail.Add("vision");
             }
 
-            yield return new SubscriptionModel(prefix + id, TokenEndpoint.Text(model, "name") is { Length: > 0 } name ? name : null, string.Join(", ", detail));
+            yield return new SubscriptionModel(
+                prefix + id,
+                TokenEndpoint.Text(model, "name") is { Length: > 0 } name ? name : null,
+                string.Join(", ", detail)
+            );
         }
     }
 
     private static bool IsFree(JsonObject model)
     {
-        return model["cost"] is JsonObject cost && TokenEndpoint.Number(cost, "input") == 0 && TokenEndpoint.Number(cost, "output") == 0;
+        return model["cost"] is JsonObject cost
+            && TokenEndpoint.Number(cost, "input") == 0
+            && TokenEndpoint.Number(cost, "output") == 0;
     }
 
     private static bool IsTrue(JsonNode? node)

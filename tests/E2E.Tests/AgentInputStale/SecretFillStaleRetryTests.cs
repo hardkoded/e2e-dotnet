@@ -20,7 +20,8 @@ public sealed class SecretFillStaleRetryTests
 
     private const string Title = "fills the account password";
 
-    private const string Config = """{ "cache": { "mode": "read-write" }, "credentials": { "member": { "username": "example", "password": "private-fixture-value" } } }""";
+    private const string Config =
+        """{ "cache": { "mode": "read-write" }, "credentials": { "member": { "username": "example", "password": "private-fixture-value" } } }""";
 
     [Theory]
     [InlineData(false)]
@@ -74,8 +75,17 @@ public sealed class SecretFillStaleRetryTests
 
         // A denied replay hands off to the executor, whose own denied action also counts.
         Assert.Equal(replay && disabled ? 2 : 1, step.Metrics!.ActionSteps);
-        Assert.Single(step.Events, item => item.Kind == E2E.Reports.StepEventKind.Observation && item.Name == "relocate");
-        Assert.Equal(disabled ? 1 : 2, step.Events.Count(item => item.Kind == E2E.Reports.StepEventKind.Policy && item.Name == "secret.fill" && item.Status == E2E.Reports.StepEventStatus.Passed));
+        Assert.Single(step.Events, item =>
+            item.Kind == E2E.Reports.StepEventKind.Observation && item.Name == "relocate"
+        );
+        Assert.Equal(
+            disabled ? 1 : 2,
+            step.Events.Count(item =>
+                item.Kind == E2E.Reports.StepEventKind.Policy
+                && item.Name == "secret.fill"
+                && item.Status == E2E.Reports.StepEventStatus.Passed
+            )
+        );
         if (disabled)
         {
             Assert.Contains("POLICY_DENIED", JsonSerializer.Serialize(step), StringComparison.Ordinal);
@@ -93,7 +103,11 @@ public sealed class SecretFillStaleRetryTests
     /// Upstream's suite: <c>agent.act('fill the password', { params: { password: credentials.user('member').password } })</c>, then the
     /// status it shows is visible. The fill is the step's one action.
     /// </summary>
-    private static async Task<(RunOutcome Outcome, Recorder Recorder)> RunFillAsync(FixtureProject project, bool disabled, bool stale)
+    private static async Task<(RunOutcome Outcome, Recorder Recorder)> RunFillAsync(
+        FixtureProject project,
+        bool disabled,
+        bool stale
+    )
     {
         var recorder = new Recorder();
         var field = new DocumentElement
@@ -115,19 +129,27 @@ public sealed class SecretFillStaleRetryTests
             recorder.Current = page;
             page.Roots.Add(field);
         });
-        var engine = new StaleOnceEngine(new DocumentEngine(world), () =>
-        {
-            // The input moved and, in the disabled case, was disabled, before the engine saw the fill.
-            field.Rect = new BoundingBox(40, 126, 322, 49);
-            field.Disabled = disabled;
-        }, recorder)
+        var engine = new StaleOnceEngine(
+            new DocumentEngine(world),
+            () =>
+            {
+                // The input moved and, in the disabled case, was disabled, before the engine saw the fill.
+                field.Rect = new BoundingBox(40, 126, 322, 49);
+                field.Disabled = disabled;
+            },
+            recorder
+        )
         {
             Stale = stale,
         };
         var executor = new TestExecutor("stale-secret", async (context, token) =>
         {
             var observation = await context.ObserveAsync(cancellationToken: token);
-            await context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Password\""), "member.password", token);
+            await context.Actions.TypeSecretAsync(
+                TargetFor(observation.Text, "textbox \"Password\""),
+                "member.password",
+                token
+            );
             return Passed("filled");
         });
         var test = new InMemoryTest(Title, async session =>
@@ -135,16 +157,26 @@ public sealed class SecretFillStaleRetryTests
             await session.App.OpenAsync("/");
             await session.Agent.ActAsync(
                 "fill the password",
-                new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Credentials.User("member").Password } });
+                new ActOptions
+                {
+                    Params = new Dictionary<string, object?> { ["password"] = Credentials.User("member").Password },
+                }
+            );
             await Expect.That(session.Screen.GetByRole("status")).ToBeVisibleAsync();
         });
-        var outcome = await RunProject.RunExistingAsync(project, new RunProjectOptions
-        {
-            Tests = [test],
-            Engine = engine,
-            Config = Config,
-            Agents = new Dictionary<string, AgentOptions> { ["default"] = new AgentOptions { Executor = executor } },
-        });
+        var outcome = await RunProject.RunExistingAsync(
+            project,
+            new RunProjectOptions
+            {
+                Tests = [test],
+                Engine = engine,
+                Config = Config,
+                Agents = new Dictionary<string, AgentOptions>
+                {
+                    ["default"] = new AgentOptions { Executor = executor },
+                },
+            }
+        );
         return (outcome, recorder);
     }
 
@@ -188,19 +220,30 @@ public sealed class SecretFillStaleRetryTests
 
             public bool CanLocate => session.CanLocate;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                session.OpenAsync(url, cancellationToken);
 
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => session.ObserveAsync(cancellationToken);
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+                session.ObserveAsync(cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                session.PressAsync(key, cancellationToken);
 
-            public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
-                session.LocateAsync(expression, timeout, cancellationToken);
+            public Task<IReadOnlyList<SemanticNode>> LocateAsync(
+                LocatorExpression expression,
+                TimeSpan timeout,
+                CancellationToken cancellationToken
+            ) => session.LocateAsync(expression, timeout, cancellationToken);
 
             public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
                 PerformAsync(node, action, OperationContext.Agent, cancellationToken);
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken)
+            public Task PerformAsync(
+                SemanticNode node,
+                LocatorAction action,
+                OperationContext context,
+                CancellationToken cancellationToken
+            )
             {
                 if (action is LocatorAction.Fill)
                 {
@@ -210,7 +253,11 @@ public sealed class SecretFillStaleRetryTests
                     {
                         owner.Stale = false;
                         owner.OnStale();
-                        throw new EngineException(EngineErrorCodes.NodeStale, "input moved before mutation", retryable: true);
+                        throw new EngineException(
+                            EngineErrorCodes.NodeStale,
+                            "input moved before mutation",
+                            retryable: true
+                        );
                     }
                 }
 

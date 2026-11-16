@@ -14,28 +14,54 @@ namespace E2E.Tests.ProviderHints;
 /// </summary>
 public sealed class ProviderHintsForAnthropicAfterAnEditTests
 {
-    private static readonly JsonElement Reasoning = JsonDocument.Parse("""{ "type": "thinking", "thinking": "", "signature": "sig" }""").RootElement.Clone();
+    private static readonly JsonElement Reasoning = JsonDocument
+        .Parse("""{ "type": "thinking", "thinking": "", "signature": "sig" }""")
+        .RootElement.Clone();
 
     private static readonly ModelToolCall C1 = Call("c1");
 
     private static readonly ModelToolCall C2 = Call("c2");
 
-    private static ModelToolCall Call(string id) => new() { Id = id, Name = "tap", Arguments = JsonDocument.Parse("{}").RootElement.Clone() };
+    private static ModelToolCall Call(string id) =>
+        new()
+        {
+            Id = id,
+            Name = "tap",
+            Arguments = JsonDocument.Parse("{}").RootElement.Clone(),
+        };
 
-    private static ModelMessage Result(string id) => new() { Role = "tool", ToolCallId = id, Name = "tap", Content = "ok" };
+    private static ModelMessage Result(string id) =>
+        new()
+        {
+            Role = "tool",
+            ToolCallId = id,
+            Name = "tap",
+            Content = "ok",
+        };
 
     private static List<ModelMessage> History() =>
-    [
-        new() { Role = "user", Content = "step" },
-        new() { Role = "assistant", ToolCalls = [C1], ReasoningItems = [Reasoning] },
-        Result("c1"),
-        new() { Role = "assistant", ReasoningItems = [Reasoning] },
-        new() { Role = "user", Content = "notice" },
-        new() { Role = "assistant", ToolCalls = [C2], ReasoningItems = [Reasoning] },
-        Result("c2"),
-    ];
+        [
+            new() { Role = "user", Content = "step" },
+            new()
+            {
+                Role = "assistant",
+                ToolCalls = [C1],
+                ReasoningItems = [Reasoning],
+            },
+            Result("c1"),
+            new() { Role = "assistant", ReasoningItems = [Reasoning] },
+            new() { Role = "user", Content = "notice" },
+            new()
+            {
+                Role = "assistant",
+                ToolCalls = [C2],
+                ReasoningItems = [Reasoning],
+            },
+            Result("c2"),
+        ];
 
-    private static AnthropicModel Model() => new(new AnthropicModelOptions { Model = "claude-opus-5.5", ApiKey = "k" }, new HttpClient());
+    private static AnthropicModel Model() =>
+        new(new AnthropicModelOptions { Model = "claude-opus-5.5", ApiKey = "k" }, new HttpClient());
 
     [Fact]
     public void Drops_the_reasoning_from_the_edited_message_on_and_a_reply_that_was_only_reasoning()
@@ -69,7 +95,10 @@ public sealed class ProviderHintsForAnthropicAfterAnEditTests
     public void Does_not_touch_the_messages_of_a_model_that_binds_no_reasoning_to_the_prefix()
     {
         var history = History();
-        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt-5.6", ApiKey = "k" }, new HttpClient());
+        using var model = new OpenAiCompatibleModel(
+            new OpenAiCompatibleModelOptions { Model = "gpt-5.6", ApiKey = "k" },
+            new HttpClient()
+        );
 
         Assert.Same(history, E2E.ProviderHints.AfterEdit(model, history, 0));
     }

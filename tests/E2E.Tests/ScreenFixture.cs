@@ -24,6 +24,7 @@ internal static class ScreenFixture
             () => CancellationToken.None,
             () => { },
             Timeout,
-            Timeout);
+            Timeout
+        );
     }
 }

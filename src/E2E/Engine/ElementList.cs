@@ -50,7 +50,11 @@ internal sealed class ElementList(IJSHandle handle) : IDisposable
         }
 
         WebSupport.DisposeQuietly(made);
-        throw new EngineException(EngineErrorCodes.NodeStale, $"observation node {index} lost its element", retryable: true);
+        throw new EngineException(
+            EngineErrorCodes.NodeStale,
+            $"observation node {index} lost its element",
+            retryable: true
+        );
     }
 
     /// <summary>The element of one node, made once and kept until the list is disposed.</summary>

@@ -22,23 +22,26 @@ public sealed class AppPortAllocationTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "name": "web", "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(
+                AppProgram.Executable
+            )}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-appports-").FullName,
-            _ => null);
+            _ => null
+        );
         var steps = new List<AppSetupStep>();
 
         // The process's events hear every app this process starts at once, so the steps are read by the URL they name below.
         using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent =>
-        {
-            if (runEvent.Fact is SetupEvent { Step: AppSetupStep step })
             {
-                lock (steps)
+                if (runEvent.Fact is SetupEvent { Step: AppSetupStep step })
                 {
-                    steps.Add(step);
+                    lock (steps)
+                    {
+                        steps.Add(step);
+                    }
                 }
-            }
-        }));
+            }));
 
         try
         {

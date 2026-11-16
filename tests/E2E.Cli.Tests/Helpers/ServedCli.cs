@@ -40,22 +40,30 @@ internal sealed partial class ServedCli : IAsyncDisposable
     public static async Task<ServedCli> StartAsync(string workingDirectory, params string[] flags)
     {
         var stderr = new StringBuilder();
-        var transport = new StdioClientTransport(new StdioClientTransportOptions
-        {
-            Name = "e2e",
-            Command = "dotnet",
-            Arguments = [Path.Combine(AppContext.BaseDirectory, "E2E.Cli.dll"), "mcp", .. flags],
-            WorkingDirectory = workingDirectory,
-            EnvironmentVariables = new Dictionary<string, string?> { ["CI"] = "" },
-            StandardErrorLines = line =>
+        var transport = new StdioClientTransport(
+            new StdioClientTransportOptions
             {
-                lock (stderr)
+                Name = "e2e",
+                Command = "dotnet",
+                Arguments = [Path.Combine(AppContext.BaseDirectory, "E2E.Cli.dll"), "mcp", .. flags],
+                WorkingDirectory = workingDirectory,
+                EnvironmentVariables = new Dictionary<string, string?> { ["CI"] = "" },
+                StandardErrorLines = line =>
                 {
-                    stderr.AppendLine(line);
-                }
-            },
-        });
-        var client = await McpClient.CreateAsync(transport, new McpClientOptions { ClientInfo = new Implementation { Name = "e2e-mcp-test", Version = "0.0.0" } });
+                    lock (stderr)
+                    {
+                        stderr.AppendLine(line);
+                    }
+                },
+            }
+        );
+        var client = await McpClient.CreateAsync(
+            transport,
+            new McpClientOptions
+            {
+                ClientInfo = new Implementation { Name = "e2e-mcp-test", Version = "0.0.0" },
+            }
+        );
         return new ServedCli(client, stderr);
     }
 
@@ -66,7 +74,8 @@ internal sealed partial class ServedCli : IAsyncDisposable
         return new ToolText(
             string.Join('\n', result.Content.OfType<TextContentBlock>().Select(part => part.Text)),
             result.IsError == true,
-            result.Content.OfType<ImageContentBlock>().Count());
+            result.Content.OfType<ImageContentBlock>().Count()
+        );
     }
 
     /// <summary>A catalog tool through the server's <c>call</c> tool.</summary>
@@ -84,16 +93,22 @@ internal sealed partial class ServedCli : IAsyncDisposable
     /// <summary>The node id of the first observation line matching <paramref name="pattern"/>.</summary>
     public static string RefOf(string text, string pattern)
     {
-        var line = text.Split('\n').FirstOrDefault(candidate => Regex.IsMatch(candidate, pattern, RegexOptions.None, TimeSpan.FromSeconds(5)))
+        var line = text.Split('\n')
+            .FirstOrDefault(candidate => Regex.IsMatch(candidate, pattern, RegexOptions.None, TimeSpan.FromSeconds(5)))
             ?? throw new InvalidOperationException("no node matches " + pattern + " in:\n" + text);
         return Ref().Match(line).Groups[1].Value;
     }
 
     /// <summary>The catalog lines of an opening or a <c>tools</c> text.</summary>
     public static string[] CatalogLines(string text) =>
-        [.. text.Split('\n').SkipWhile(line => !line.StartsWith("- ", StringComparison.Ordinal)).TakeWhile(line => line.StartsWith("- ", StringComparison.Ordinal))];
+        [
+            .. text.Split('\n')
+                .SkipWhile(line => !line.StartsWith("- ", StringComparison.Ordinal))
+                .TakeWhile(line => line.StartsWith("- ", StringComparison.Ordinal)),
+        ];
 
-    public static string[] CatalogNames(string text) => [.. CatalogLines(text).Select(line => CatalogName().Match(line).Groups[1].Value)];
+    public static string[] CatalogNames(string text) =>
+        [.. CatalogLines(text).Select(line => CatalogName().Match(line).Groups[1].Value)];
 
     public async ValueTask DisposeAsync()
     {

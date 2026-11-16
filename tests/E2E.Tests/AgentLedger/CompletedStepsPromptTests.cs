@@ -17,14 +17,18 @@ public sealed class CompletedStepsPromptTests
     {
         var summaries = new[] { "opened the billing page", "chose the Pro plan" };
         var calls = 0;
-        var model = new ScriptedModel(_ => ModelResponses.Done("passed", calls < summaries.Length ? summaries[calls++] : "paid"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "ledger order",
-        });
+        var model = new ScriptedModel(_ =>
+            ModelResponses.Done("passed", calls < summaries.Length ? summaries[calls++] : "paid")
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "ledger order",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
 
         await session.Agent.ActAsync("open billing");
@@ -35,7 +39,8 @@ public sealed class CompletedStepsPromptTests
         Assert.Contains(
             "Completed steps:\n1. app.open passed :: /settings/billing\n2. agent.act passed :: open billing\n   observed: opened the billing page\n3. agent.act passed :: choose the plan\n   observed: chose the Pro plan\n",
             opening,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         session.Complete();
     }
 
@@ -43,13 +48,15 @@ public sealed class CompletedStepsPromptTests
     public async Task Tells_the_next_step_that_a_failed_step_failed()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("failed", "the plan list never loaded"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(BillingWorld.Create()),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            TestTitle = "ledger failure",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(BillingWorld.Create()),
+                Model = model,
+                BaseUrl = "https://billing.test",
+                TestTitle = "ledger failure",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("open billing"));
 
@@ -58,7 +65,8 @@ public sealed class CompletedStepsPromptTests
         Assert.Contains(
             "2. agent.act failed :: open billing\n   observed: the plan list never loaded\n",
             model.Requests[1].Messages[0].Content,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal
+        );
         session.Complete();
     }
 }

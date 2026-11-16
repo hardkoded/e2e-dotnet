@@ -9,9 +9,19 @@ namespace E2E.Tests.ExpectAsyncValue;
 
 public sealed class ToHaveValueTests
 {
-    private static readonly SemanticNode Textarea = new() { Ref = "node-1", Role = "textbox", Value = "line1\n\nline2  " };
+    private static readonly SemanticNode Textarea = new()
+    {
+        Ref = "node-1",
+        Role = "textbox",
+        Value = "line1\n\nline2  ",
+    };
 
-    private static readonly SemanticNode Heading = new() { Ref = "node-1", Role = "heading", Text = "Title" };
+    private static readonly SemanticNode Heading = new()
+    {
+        Ref = "node-1",
+        Role = "heading",
+        Text = "Title",
+    };
 
     [Fact]
     public async Task Compares_the_raw_value_newlines_and_trailing_spaces_included()
@@ -27,7 +37,10 @@ public sealed class ToHaveValueTests
     {
         var locator = ScreenFixture.Create(Textarea).GetByRole("textbox");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("line1 line2"));
-        Assert.True(error.Message.Contains("observed: value \"line1\\n\\nline2  \"", StringComparison.Ordinal), error.Message);
+        Assert.True(
+            error.Message.Contains("observed: value \"line1\\n\\nline2  \"", StringComparison.Ordinal),
+            error.Message
+        );
     }
 
     [Theory]
@@ -40,7 +53,16 @@ public sealed class ToHaveValueTests
     [InlineData("option")]
     public async Task Reads_a_control_the_platform_reports_without_a_value_as_the_empty_string(string role)
     {
-        var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = role, TestId = "field" }).GetByTestId("field");
+        var locator = ScreenFixture
+            .Create(
+                new SemanticNode
+                {
+                    Ref = "node-1",
+                    Role = role,
+                    TestId = "field",
+                }
+            )
+            .GetByTestId("field");
         await Expect.That(locator).ToHaveValueAsync("");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("x"));
         Assert.True(error.Message.Contains("observed: value \"\"", StringComparison.Ordinal), error.Message);
@@ -51,25 +73,53 @@ public sealed class ToHaveValueTests
     {
         var locator = ScreenFixture.Create(Heading).GetByRole("heading");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync(""));
-        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(
+            error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal),
+            error.Message
+        );
         error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).Not.ToHaveValueAsync("Title"));
-        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(
+            error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal),
+            error.Message
+        );
     }
 
     [Fact]
     public async Task Refuses_a_link_whose_name_and_text_are_not_a_value()
     {
-        var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = "link", Name = "Docs", Text = "Docs" }).GetByRole("link");
+        var locator = ScreenFixture
+            .Create(
+                new SemanticNode
+                {
+                    Ref = "node-1",
+                    Role = "link",
+                    Name = "Docs",
+                    Text = "Docs",
+                }
+            )
+            .GetByRole("link");
         var error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).ToHaveValueAsync("Docs"));
-        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(
+            error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal),
+            error.Message
+        );
         error = await Fails("ASSERTION_FAILED", () => Expect.That(locator).Not.ToHaveValueAsync(""));
-        Assert.True(error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal), error.Message);
+        Assert.True(
+            error.Message.Contains("observed: no value (not a form control)", StringComparison.Ordinal),
+            error.Message
+        );
     }
 
     [Fact]
     public async Task Refuses_to_judge_a_secure_field_whose_value_is_withheld_negated_or_not()
     {
-        var secure = new SemanticNode { Ref = "node-1", Role = "textbox", Name = "Password", States = new NodeStates { Secure = true } };
+        var secure = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "textbox",
+            Name = "Password",
+            States = new NodeStates { Secure = true },
+        };
         var locator = ScreenFixture.Create(secure).GetByRole("textbox");
         await Denied(() => Expect.That(locator).ToHaveValueAsync(""));
         await Denied(() => Expect.That(locator).Not.ToHaveValueAsync(""));
@@ -82,7 +132,13 @@ public sealed class ToHaveValueTests
     [Fact]
     public async Task Denies_text_value_and_attribute_reads_of_a_secure_field_but_answers_state_reads()
     {
-        var secure = new SemanticNode { Ref = "node-1", Role = "textbox", Name = "Password", States = new NodeStates { Secure = true } };
+        var secure = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "textbox",
+            Name = "Password",
+            States = new NodeStates { Secure = true },
+        };
         var locator = ScreenFixture.Create(secure).GetByRole("textbox");
         await Denied(() => locator.TextContentAsync());
         await Denied(() => locator.InputValueAsync());
@@ -94,7 +150,13 @@ public sealed class ToHaveValueTests
     [Fact]
     public async Task Still_reads_a_secure_field_for_state_and_name_matchers()
     {
-        var secure = new SemanticNode { Ref = "node-1", Role = "textbox", Name = "Password", States = new NodeStates { Secure = true, Focused = true } };
+        var secure = new SemanticNode
+        {
+            Ref = "node-1",
+            Role = "textbox",
+            Name = "Password",
+            States = new NodeStates { Secure = true, Focused = true },
+        };
         var locator = ScreenFixture.Create(secure).GetByRole("textbox");
         await Expect.That(locator).ToBeFocusedAsync();
         await Expect.That(locator).ToHaveAccessibleNameAsync("Password");
@@ -103,10 +165,24 @@ public sealed class ToHaveValueTests
     [Fact]
     public async Task Leaves_toHaveAccessibleName_normalized_like_text()
     {
-        var locator = ScreenFixture.Create(new SemanticNode { Ref = "node-1", Role = "button", Name = " Save  now " }).GetByRole("button");
+        var locator = ScreenFixture
+            .Create(
+                new SemanticNode
+                {
+                    Ref = "node-1",
+                    Role = "button",
+                    Name = " Save  now ",
+                }
+            )
+            .GetByRole("button");
         await Expect.That(locator).ToHaveAccessibleNameAsync("Save now");
-        var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(locator).ToHaveAccessibleNameAsync("Save"));
-        Assert.True(error.Message.Contains("observed: accessible name \"Save now\"", StringComparison.Ordinal), error.Message);
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            Expect.That(locator).ToHaveAccessibleNameAsync("Save")
+        );
+        Assert.True(
+            error.Message.Contains("observed: accessible name \"Save now\"", StringComparison.Ordinal),
+            error.Message
+        );
     }
 
     internal static async Task<TestException> Fails(string code, Func<Task> run)

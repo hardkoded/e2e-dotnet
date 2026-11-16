@@ -57,7 +57,9 @@ public abstract class E2ERunFixture
 
         foreach (var fixture in fixtures)
         {
-            await fixture.InitializeAsync(ReflectionAssembly.GetEntryAssembly()!, cancellationToken).ConfigureAwait(false);
+            await fixture
+                .InitializeAsync(ReflectionAssembly.GetEntryAssembly()!, cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 
@@ -115,7 +117,11 @@ public abstract class E2ERunFixture
         return
         [
             .. types
-                .Where(type => type is { IsAbstract: false, IsClass: true, IsVisible: true } && typeof(E2ERunFixture).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) is not null)
+                .Where(type =>
+                    type is { IsAbstract: false, IsClass: true, IsVisible: true }
+                    && typeof(E2ERunFixture).IsAssignableFrom(type)
+                    && type.GetConstructor(Type.EmptyTypes) is not null
+                )
                 .OrderBy(type => type.FullName, StringComparer.Ordinal)
                 .Select(type => (E2ERunFixture)Activator.CreateInstance(type)!),
         ];
@@ -140,7 +146,10 @@ public abstract class E2ERunFixture
         {
             config = Config;
         }
-        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null && !HostTestFilters.ResolveLastFailed(LastFailed))
+        catch (Exception)
+            when (HostTestFilters.ResolveChangedSince(ChangedSince) is null
+                && !HostTestFilters.ResolveLastFailed(LastFailed)
+            )
         {
             // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since or last-failed selection needs it here.
             return;
@@ -155,7 +164,9 @@ public abstract class E2ERunFixture
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
             if (changedSince is not null || lastFailed)
             {
-                var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed).ConfigureAwait(false);
+                var selection = await HostTestFilters
+                    .ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed)
+                    .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;

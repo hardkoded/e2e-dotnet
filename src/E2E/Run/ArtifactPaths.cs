@@ -55,7 +55,11 @@ internal static partial class ArtifactPaths
     /// <c>--last-failed</c> rerun starts this way rather than from an empty tree: the evidence the report it reruns names stays, since that report's
     /// results fold into the rerun's and its carried tests are not run again. Upstream's <c>pruneArtifacts</c>.
     /// </summary>
-    public static async Task PruneArtifactsAsync(string root, IReadOnlySet<string> keep, CancellationToken cancellationToken = default)
+    public static async Task PruneArtifactsAsync(
+        string root,
+        IReadOnlySet<string> keep,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(keep);
@@ -63,7 +67,12 @@ internal static partial class ArtifactPaths
     }
 
     // Whether the directory is empty once pruned; a directory that is not there counts as empty.
-    private static bool Prune(string directory, string relative, IReadOnlySet<string> keep, CancellationToken cancellationToken)
+    private static bool Prune(
+        string directory,
+        string relative,
+        IReadOnlySet<string> keep,
+        CancellationToken cancellationToken
+    )
     {
         if (!Directory.Exists(directory))
         {
@@ -112,9 +121,23 @@ internal static partial class ArtifactPaths
             var taken = 0;
             if (Directory.Exists(root))
             {
-                foreach (var name in Directory.EnumerateDirectories(root).SelectMany(Directory.EnumerateFileSystemEntries).Select(Path.GetFileName))
+                foreach (
+                    var name in Directory
+                        .EnumerateDirectories(root)
+                        .SelectMany(Directory.EnumerateFileSystemEntries)
+                        .Select(Path.GetFileName)
+                )
                 {
-                    if (RerunDir().Match(name!) is { Success: true } match && int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number < int.MaxValue)
+                    if (
+                        RerunDir().Match(name!) is { Success: true } match
+                        && int.TryParse(
+                            match.Groups[1].Value,
+                            NumberStyles.None,
+                            CultureInfo.InvariantCulture,
+                            out var number
+                        )
+                        && number < int.MaxValue
+                    )
                     {
                         taken = Math.Max(taken, number);
                     }
@@ -130,7 +153,11 @@ internal static partial class ArtifactPaths
     /// rerun, and <c>attempt-&lt;n&gt;</c>, numbered from 1. Upstream's <c>attemptSegments</c>.
     /// </summary>
     public static IReadOnlyList<string> AttemptSegments(string? rerunDir, string owner, int attemptIndex) =>
-        [owner, .. rerunDir is null ? (string[])[] : [rerunDir], "attempt-" + (attemptIndex + 1).ToString(CultureInfo.InvariantCulture)];
+        [
+            owner,
+            .. rerunDir is null ? (string[])[] : [rerunDir],
+            "attempt-" + (attemptIndex + 1).ToString(CultureInfo.InvariantCulture),
+        ];
 
     /// <summary>
     /// How much of each kind the runner masked. A screenshot masks secure fields at the source; a log passes through the secret redactor.
@@ -169,7 +196,12 @@ internal static partial class ArtifactPaths
         var plain = new StringBuilder();
         foreach (var letter in string.Join(' ', titlePath).Normalize(NormalizationForm.FormKD).ToLowerInvariant())
         {
-            if (CharUnicodeInfo.GetUnicodeCategory(letter) is UnicodeCategory.NonSpacingMark or UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
+            if (
+                CharUnicodeInfo.GetUnicodeCategory(letter)
+                is UnicodeCategory.NonSpacingMark
+                    or UnicodeCategory.SpacingCombiningMark
+                    or UnicodeCategory.EnclosingMark
+            )
             {
                 continue;
             }
@@ -183,7 +215,10 @@ internal static partial class ArtifactPaths
             words.RemoveAt(0);
         }
 
-        var title = words.Count == 0 ? "" : words[0].Length > MaxTitleSlugChars ? words[0][..MaxTitleSlugChars] : words[0];
+        var title =
+            words.Count == 0 ? ""
+            : words[0].Length > MaxTitleSlugChars ? words[0][..MaxTitleSlugChars]
+            : words[0];
         foreach (var word in words.Skip(1))
         {
             if (title.Length + 1 + word.Length > MaxTitleSlugChars)
@@ -194,7 +229,12 @@ internal static partial class ArtifactPaths
             title = title + "-" + word;
         }
 
-        return string.Join('-', new[] { stem, title, id.Length > ResultDigestChars ? id[..ResultDigestChars] : id }.Where(part => part.Length > 0));
+        return string.Join(
+            '-',
+            new[] { stem, title, id.Length > ResultDigestChars ? id[..ResultDigestChars] : id }.Where(part =>
+                part.Length > 0
+            )
+        );
     }
 
     /// <summary>The media type of a file by its extension (upstream's <c>mediaTypeFor</c>).</summary>
@@ -235,7 +275,10 @@ internal static partial class ArtifactPaths
             return "application/json";
         }
 
-        if (relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || relativePath.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
+        if (
+            relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+            || relativePath.EndsWith(".htm", StringComparison.OrdinalIgnoreCase)
+        )
         {
             return "text/html";
         }
@@ -244,7 +287,8 @@ internal static partial class ArtifactPaths
     }
 
     /// <summary>Whether the bytes of a media type are text the secret redactor can rewrite (upstream's <c>isTextLike</c>).</summary>
-    public static bool IsTextLike(string mediaType) => mediaType.StartsWith("text/", StringComparison.Ordinal) || mediaType == "application/json";
+    public static bool IsTextLike(string mediaType) =>
+        mediaType.StartsWith("text/", StringComparison.Ordinal) || mediaType == "application/json";
 
     /// <summary>
     /// Rewrites a text-like download through the session's ledger, and returns the redaction the record can claim: <c>Complete</c> once
@@ -273,18 +317,34 @@ internal static partial class ArtifactPaths
 
             return ArtifactRedaction.Complete;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException or RegexMatchTimeoutException)
+        catch (Exception ex)
+            when (ex
+                    is IOException
+                        or UnauthorizedAccessException
+                        or DecoderFallbackException
+                        or RegexMatchTimeoutException
+            )
         {
             return ArtifactRedaction.Incomplete;
         }
     }
 
     /// <summary>Size and SHA-256 of one file, streamed; null when it cannot be read (upstream's <c>measure</c>).</summary>
-    internal static async Task<(long Size, string Sha256)?> MeasureAsync(string absolute, CancellationToken cancellationToken)
+    internal static async Task<(long Size, string Sha256)?> MeasureAsync(
+        string absolute,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            var stream = new FileStream(absolute, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 4096, useAsync: true);
+            var stream = new FileStream(
+                absolute,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                4096,
+                useAsync: true
+            );
             await using (stream.ConfigureAwait(false))
             {
                 var hash = await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -415,7 +475,9 @@ internal sealed class AttemptArtifacts
     private string? StepId() => _options.CurrentStepId?.Invoke();
 
     private static ArtifactProducer ProducerOf(string? stepId) =>
-        stepId is null ? new ArtifactProducer { Kind = ArtifactProducerKind.Attempt } : new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = stepId };
+        stepId is null
+            ? new ArtifactProducer { Kind = ArtifactProducerKind.Attempt }
+            : new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = stepId };
 
     private string AttemptIdOf() => _options.Identity?.AttemptId ?? _options.AttemptId;
 
@@ -438,15 +500,17 @@ internal sealed class AttemptArtifacts
             {
                 index = owner._records.Count;
                 id = options.AttemptId + ":artifact:" + index.ToString(CultureInfo.InvariantCulture);
-                owner._records.Add(new ArtifactRecord
-                {
-                    Id = id,
-                    Kind = kind,
-                    MediaType = mediaType,
-                    StartedAt = startedAt,
-                    Redaction = ArtifactPaths.RedactionByKind(kind),
-                    Producer = ProducerOf(stepId),
-                });
+                owner._records.Add(
+                    new ArtifactRecord
+                    {
+                        Id = id,
+                        Kind = kind,
+                        MediaType = mediaType,
+                        StartedAt = startedAt,
+                        Redaction = ArtifactPaths.RedactionByKind(kind),
+                        Producer = ProducerOf(stepId),
+                    }
+                );
             }
 
             owner.Track(owner.RunAsync(index, kind, absolute, reportPath, mediaType, stepId, startedAt, ledger));
@@ -463,16 +527,18 @@ internal sealed class AttemptArtifacts
             {
                 index = owner._records.Count;
                 id = options.AttemptId + ":artifact:" + index.ToString(CultureInfo.InvariantCulture);
-                owner._records.Add(new ArtifactRecord
-                {
-                    Id = id,
-                    Kind = ArtifactKind.Video,
-                    MediaType = link.MediaType,
-                    Url = url,
-                    StartedAt = link.StartedAt,
-                    Redaction = ArtifactPaths.RedactionByKind(ArtifactKind.Video),
-                    Producer = ProducerOf(stepId),
-                });
+                owner._records.Add(
+                    new ArtifactRecord
+                    {
+                        Id = id,
+                        Kind = ArtifactKind.Video,
+                        MediaType = link.MediaType,
+                        Url = url,
+                        StartedAt = link.StartedAt,
+                        Redaction = ArtifactPaths.RedactionByKind(ArtifactKind.Video),
+                        Producer = ProducerOf(stepId),
+                    }
+                );
             }
 
             if (options.Store is { } store)
@@ -485,7 +551,16 @@ internal sealed class AttemptArtifacts
     }
 
     // Runs on the registering thread up to its first await, so a download's redaction label is on its record when Register returns.
-    private async Task RunAsync(int index, ArtifactKind kind, string absolute, string reportPath, string mediaType, string? stepId, DateTimeOffset? startedAt, Redactor? ledger)
+    private async Task RunAsync(
+        int index,
+        ArtifactKind kind,
+        string absolute,
+        string reportPath,
+        string mediaType,
+        string? stepId,
+        DateTimeOffset? startedAt,
+        Redactor? ledger
+    )
     {
         var token = _options.CancellationToken;
         if (ledger is not null && Secrecy.RedactsDownloads(ledger) && ArtifactPaths.IsTextLike(mediaType))
@@ -512,7 +587,8 @@ internal sealed class AttemptArtifacts
         {
             bytes = await File.ReadAllBytesAsync(absolute, token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        catch (Exception ex)
+            when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return;
         }
@@ -529,23 +605,26 @@ internal sealed class AttemptArtifacts
         // evidence that did not upload.
         try
         {
-            var reference = await store.PutAsync(
-                new StoredArtifact
-                {
-                    Kind = kind,
-                    MediaType = mediaType,
-                    Bytes = bytes,
-                    Size = bytes.LongLength,
-                    Sha256 = sha256,
-                    Path = reportPath,
-                    Redaction = labelled,
-                    RunId = _options.Identity?.RunId ?? "",
-                    TestId = _options.Identity?.TestId ?? "",
-                    AttemptId = AttemptIdOf(),
-                    StepId = stepId,
-                    StartedAt = startedAt,
-                },
-                token).ConfigureAwait(false);
+            var reference = await store
+                .PutAsync(
+                    new StoredArtifact
+                    {
+                        Kind = kind,
+                        MediaType = mediaType,
+                        Bytes = bytes,
+                        Size = bytes.LongLength,
+                        Sha256 = sha256,
+                        Path = reportPath,
+                        Redaction = labelled,
+                        RunId = _options.Identity?.RunId ?? "",
+                        TestId = _options.Identity?.TestId ?? "",
+                        AttemptId = AttemptIdOf(),
+                        StepId = stepId,
+                        StartedAt = startedAt,
+                    },
+                    token
+                )
+                .ConfigureAwait(false);
             if (!string.IsNullOrEmpty(reference))
             {
                 Update(index, record => record with { Ref = reference });
@@ -554,8 +633,7 @@ internal sealed class AttemptArtifacts
 #pragma warning disable CA1031 // Best-effort by contract: the store's failure never fails the run. A cancel of the caller still surfaces.
         catch (Exception) when (!token.IsCancellationRequested)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     // Best-effort like a put: the record keeps its URL either way.
@@ -564,18 +642,21 @@ internal sealed class AttemptArtifacts
         var token = _options.CancellationToken;
         try
         {
-            var reference = await store.PutLinkAsync(
-                new StoredArtifactLink
-                {
-                    Url = url,
-                    MediaType = link.MediaType,
-                    RunId = _options.Identity?.RunId ?? "",
-                    TestId = _options.Identity?.TestId ?? "",
-                    AttemptId = AttemptIdOf(),
-                    StartedAt = link.StartedAt,
-                    StepId = stepId,
-                },
-                token).ConfigureAwait(false);
+            var reference = await store
+                .PutLinkAsync(
+                    new StoredArtifactLink
+                    {
+                        Url = url,
+                        MediaType = link.MediaType,
+                        RunId = _options.Identity?.RunId ?? "",
+                        TestId = _options.Identity?.TestId ?? "",
+                        AttemptId = AttemptIdOf(),
+                        StartedAt = link.StartedAt,
+                        StepId = stepId,
+                    },
+                    token
+                )
+                .ConfigureAwait(false);
             if (!string.IsNullOrEmpty(reference))
             {
                 Update(index, record => record with { Ref = reference });
@@ -584,7 +665,6 @@ internal sealed class AttemptArtifacts
 #pragma warning disable CA1031 // Best-effort by contract: the store's failure never fails the run. A cancel of the caller still surfaces.
         catch (Exception) when (!token.IsCancellationRequested)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 }

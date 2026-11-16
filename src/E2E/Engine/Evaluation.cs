@@ -82,40 +82,46 @@ internal static class Evaluation
     /// back without Playwright serializing it in the page, so a page that deleted or replaced a global the serializer needs still
     /// returns its result; <see cref="DecodeEvaluation"/> reads it.
     /// </summary>
-    public static string CompileEvaluation(string expression, bool hasArg) => $$"""
-        (arg) => {
-          return (async (encode, run) => {
-            const report = (ok, key, text) => '{"ok":' + ok + (text === undefined ? '' : ',"' + key + '":' + text) + '}';
-            let value;
-            try {
-              value = await run();
-            } catch (cause) {
-              let message;
-              try {
-                message = typeof cause?.message === 'string' ? cause.message : `${cause}`;
-              } catch {
-                message = 'Page evaluation threw an unprintable value';
-              }
-              return report(false, 'message', encode(message));
+    public static string CompileEvaluation(string expression, bool hasArg) =>
+        $$"""
+            (arg) => {
+              return (async (encode, run) => {
+                const report = (ok, key, text) => '{"ok":' + ok + (text === undefined ? '' : ',"' + key + '":' + text) + '}';
+                let value;
+                try {
+                  value = await run();
+                } catch (cause) {
+                  let message;
+                  try {
+                    message = typeof cause?.message === 'string' ? cause.message : `${cause}`;
+                  } catch {
+                    message = 'Page evaluation threw an unprintable value';
+                  }
+                  return report(false, 'message', encode(message));
+                }
+                try {
+                  return report(true, 'value', encode(value));
+                } catch (cause) {
+                  if (cause !== null && typeof cause === 'object' && typeof cause.invalid === 'string') {
+                    return report(false, 'invalid', encode(cause.invalid));
+                  }
+                  return '{"ok":false,"message":"evaluate result cannot be read"}';
+                }
+              })(({{PageValueEncoder}})(), async () => ((result) => typeof result === 'function' ? result({{(
+                hasArg ? "arg" : ""
+            )}}) : result)(({{expression}}
+              )));
             }
-            try {
-              return report(true, 'value', encode(value));
-            } catch (cause) {
-              if (cause !== null && typeof cause === 'object' && typeof cause.invalid === 'string') {
-                return report(false, 'invalid', encode(cause.invalid));
-              }
-              return '{"ok":false,"message":"evaluate result cannot be read"}';
-            }
-          })(({{PageValueEncoder}})(), async () => ((result) => typeof result === 'function' ? result({{(hasArg ? "arg" : "")}}) : result)(({{expression}}
-          )));
-        }
-        """;
+            """;
 
     /// <summary>
     /// Options that read an evaluation result into a caller's type. A .NET-only concern: JavaScript strings are UTF-16 and may hold a
     /// lone surrogate, which <c>System.Text.Json</c> refuses to read as a <see cref="string"/>, so strings are read leniently.
     /// </summary>
-    public static readonly JsonSerializerOptions ResultOptions = new(JsonDefaults.Options) { Converters = { new LoneSurrogateStringConverter() } };
+    public static readonly JsonSerializerOptions ResultOptions = new(JsonDefaults.Options)
+    {
+        Converters = { new LoneSurrogateStringConverter() },
+    };
 
     internal sealed class LoneSurrogateStringConverter : JsonConverter<string>
     {
@@ -138,11 +144,16 @@ internal static class Evaluation
             catch (InvalidOperationException)
             {
                 // A lone surrogate escape, such as the six characters backslash-u-d-8-0-0: unescape the raw text by hand.
-                return Unescape(reader.HasValueSequence ? Encoding.UTF8.GetString(reader.ValueSequence) : Encoding.UTF8.GetString(reader.ValueSpan));
+                return Unescape(
+                    reader.HasValueSequence
+                        ? Encoding.UTF8.GetString(reader.ValueSequence)
+                        : Encoding.UTF8.GetString(reader.ValueSpan)
+                );
             }
         }
 
-        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value);
 
         internal static string Unescape(string raw)
         {
@@ -158,16 +169,35 @@ internal static class Evaluation
                 var next = raw[++i];
                 switch (next)
                 {
-                    case 'b': text.Append('\b'); break;
-                    case 'f': text.Append('\f'); break;
-                    case 'n': text.Append('\n'); break;
-                    case 'r': text.Append('\r'); break;
-                    case 't': text.Append('\t'); break;
-                    case 'u' when i + 4 < raw.Length && int.TryParse(raw.AsSpan(i + 1, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var code):
+                    case 'b':
+                        text.Append('\b');
+                        break;
+                    case 'f':
+                        text.Append('\f');
+                        break;
+                    case 'n':
+                        text.Append('\n');
+                        break;
+                    case 'r':
+                        text.Append('\r');
+                        break;
+                    case 't':
+                        text.Append('\t');
+                        break;
+                    case 'u'
+                        when i + 4 < raw.Length
+                            && int.TryParse(
+                                raw.AsSpan(i + 1, 4),
+                                NumberStyles.AllowHexSpecifier,
+                                CultureInfo.InvariantCulture,
+                                out var code
+                            ):
                         text.Append((char)code);
                         i += 4;
                         break;
-                    default: text.Append(next); break;
+                    default:
+                        text.Append(next);
+                        break;
                 }
             }
 

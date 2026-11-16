@@ -29,12 +29,16 @@ public sealed class ErrorLatchTests
         var latch = new ErrorLatch();
         var router = new DialogRouter(latch);
         var waiting = new TaskCompletionSource();
-        router.Add((DialogHandler)(async dialog =>
-        {
-            await dialog.AcceptAsync();
-            await waiting.Task;
-            throw new TestException("ASSERTION_FAILED", "late");
-        }));
+        router.Add(
+            (DialogHandler)(
+                async dialog =>
+                {
+                    await dialog.AcceptAsync();
+                    await waiting.Task;
+                    throw new TestException("ASSERTION_FAILED", "late");
+                }
+            )
+        );
         _ = router.DispatchAsync(new FakeDialog());
         var settling = latch.SettleAsync(Budget, CancellationToken.None);
         waiting.SetResult();
@@ -48,14 +52,20 @@ public sealed class ErrorLatchTests
     {
         var latch = new ErrorLatch();
         var router = new DialogRouter(latch);
-        router.Add((DialogHandler)(async dialog =>
-        {
-            await dialog.AcceptAsync();
-            await Task.Delay(300);
-            throw new TestException("ASSERTION_FAILED", "too late to count");
-        }));
+        router.Add(
+            (DialogHandler)(
+                async dialog =>
+                {
+                    await dialog.AcceptAsync();
+                    await Task.Delay(300);
+                    throw new TestException("ASSERTION_FAILED", "too late to count");
+                }
+            )
+        );
         var dispatched = router.DispatchAsync(new FakeDialog());
-        var error = await Assert.ThrowsAsync<EngineException>(() => latch.SettleAsync(TimeSpan.FromMilliseconds(20), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            latch.SettleAsync(TimeSpan.FromMilliseconds(20), CancellationToken.None)
+        );
         Assert.Equal("CLEANUP_TIMEOUT", error.Code);
         Assert.Contains("a dialog handler was still running", error.Message, StringComparison.Ordinal);
         await dispatched;
@@ -82,13 +92,17 @@ public sealed class ErrorLatchTests
         latch.Latch(new TestException("ASSERTION_FAILED", "landed in time"));
         latch.Track("route", new TaskCompletionSource().Task);
         latch.Track("dialog", new TaskCompletionSource().Task);
-        var landed = await Assert.ThrowsAsync<TestException>(() => latch.SettleAsync(TimeSpan.FromMinutes(1), CancellationToken.None));
+        var landed = await Assert.ThrowsAsync<TestException>(() =>
+            latch.SettleAsync(TimeSpan.FromMinutes(1), CancellationToken.None)
+        );
         Assert.Equal("ASSERTION_FAILED", landed.Code);
 
         var bare = new ErrorLatch();
         bare.Track("route", new TaskCompletionSource().Task);
         bare.Track("dialog", new TaskCompletionSource().Task);
-        var timedOut = await Assert.ThrowsAsync<EngineException>(() => bare.SettleAsync(TimeSpan.FromMilliseconds(20), CancellationToken.None));
+        var timedOut = await Assert.ThrowsAsync<EngineException>(() =>
+            bare.SettleAsync(TimeSpan.FromMilliseconds(20), CancellationToken.None)
+        );
         Assert.Contains("a dialog and route handler was still running", timedOut.Message, StringComparison.Ordinal);
     }
 

@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-
 namespace E2E.Tests.AgentFallbackHandoff;
 
 /// <summary>
@@ -10,7 +9,8 @@ namespace E2E.Tests.AgentFallbackHandoff;
 /// fallback reaches the vision judgment and the act a secret was filled before, and a tree-only judgment stops before a model call. The
 /// four sessions run once, in <see cref="MaskedFallbackRuns"/>.
 /// </summary>
-public sealed class AgentSemanticFallbackThroughTheEngineContractTests(MaskedFallbackRuns runs) : IClassFixture<MaskedFallbackRuns>
+public sealed class AgentSemanticFallbackThroughTheEngineContractTests(MaskedFallbackRuns runs)
+    : IClassFixture<MaskedFallbackRuns>
 {
     [Fact]
     public void Judges_the_current_screenshot_with_vision_enabled_a_secret_filled_or_not()
@@ -46,6 +46,8 @@ public sealed class AgentSemanticFallbackThroughTheEngineContractTests(MaskedFal
     {
         var error = Assert.IsAssignableFrom<E2EException>(runs.Outcomes[MaskedFallbackRuns.TreeOnlyJudgment].Error);
         Assert.Contains("timed out", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(runs.Judge.Requests, request => request.Messages[0].Content!.Contains("nothing is visible", StringComparison.Ordinal));
+        Assert.DoesNotContain(runs.Judge.Requests, request =>
+            request.Messages[0].Content!.Contains("nothing is visible", StringComparison.Ordinal)
+        );
     }
 }

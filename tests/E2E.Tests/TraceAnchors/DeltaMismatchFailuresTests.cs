@@ -17,9 +17,14 @@ public sealed class DeltaMismatchFailuresTests
         var declined = Node("alert", text: "Card declined");
 
         var mismatch = Anchors.Mismatch(
-            new CacheEntry { Appeared = [saved, Anchor("link", "PB-Twin-Alpha")], Gone = [Anchor("listitem", "Item A")] },
+            new CacheEntry
+            {
+                Appeared = [saved, Anchor("link", "PB-Twin-Alpha")],
+                Gone = [Anchor("listitem", "Item A")],
+            },
             Project([Heading, Row, itemA, declined]),
-            Project([Heading, itemA]));
+            Project([Heading, itemA])
+        );
 
         Assert.NotNull(mismatch);
         Assert.Equal([Shape(saved)], mismatch.Missing.Select(Shape));

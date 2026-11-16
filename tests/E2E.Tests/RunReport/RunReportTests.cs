@@ -16,8 +16,13 @@ public sealed class RunReportTests
     private static Report1Document Single(string id, AttemptStatus status) =>
         ReportBuilders.Document(ReportBuilders.Result(id: id, attempts: [ReportBuilders.Attempt(status)]));
 
-    private static (Report1Document Report, bool Traced, Func<string, string> Redact) Add(Report1Document report, string root, int attempt, bool kept, Func<string, string>? redact = null) =>
-        E2E.RunReport.Add(report, root, attempt, kept, redact ?? (text => text));
+    private static (Report1Document Report, bool Traced, Func<string, string> Redact) Add(
+        Report1Document report,
+        string root,
+        int attempt,
+        bool kept,
+        Func<string, string>? redact = null
+    ) => E2E.RunReport.Add(report, root, attempt, kept, redact ?? (text => text));
 
     private static string Root() => "root-" + Guid.NewGuid().ToString("N");
 
@@ -56,17 +61,25 @@ public sealed class RunReportTests
         var root = Root();
         Add(Single("a", AttemptStatus.Failed), root, 1, kept: true);
 
-        Assert.Single(Assert.Single(Add(Single("b", AttemptStatus.Failed), root, 2, kept: true).Report.Run.Results).Attempts);
-        Assert.Single(Assert.Single(Add(Single("a", AttemptStatus.Failed), Root(), 2, kept: true).Report.Run.Results).Attempts);
+        Assert.Single(
+            Assert.Single(Add(Single("b", AttemptStatus.Failed), root, 2, kept: true).Report.Run.Results).Attempts
+        );
+        Assert.Single(
+            Assert.Single(Add(Single("a", AttemptStatus.Failed), Root(), 2, kept: true).Report.Run.Results).Attempts
+        );
     }
 
     [Fact]
     public void Redacts_the_page_of_a_test_with_the_redactors_of_all_its_attempts()
     {
         var root = Root();
-        Add(Single("a", AttemptStatus.Failed), root, 1, kept: true, text => text.Replace("one", "<one>", StringComparison.Ordinal));
+        Add(Single("a", AttemptStatus.Failed), root, 1, kept: true, text =>
+            text.Replace("one", "<one>", StringComparison.Ordinal)
+        );
 
-        var (_, _, redact) = Add(Single("a", AttemptStatus.Passed), root, 2, kept: false, text => text.Replace("two", "<two>", StringComparison.Ordinal));
+        var (_, _, redact) = Add(Single("a", AttemptStatus.Passed), root, 2, kept: false, text =>
+            text.Replace("two", "<two>", StringComparison.Ordinal)
+        );
 
         Assert.Equal("<one> <two>", redact("one two"));
     }
@@ -106,7 +119,10 @@ public sealed class RunReportTests
         ];
         foreach (var (final, expected) in cases)
         {
-            Assert.Equal(expected, E2E.RunReport.StatusOf([ReportBuilders.Attempt(AttemptStatus.Failed), ReportBuilders.Attempt(final)]));
+            Assert.Equal(
+                expected,
+                E2E.RunReport.StatusOf([ReportBuilders.Attempt(AttemptStatus.Failed), ReportBuilders.Attempt(final)])
+            );
         }
     }
 
@@ -121,7 +137,12 @@ public sealed class RunReportTests
         Assert.Equal(ResultStatus.TimedOut, E2E.RunReport.StatusOf([timedOut, interrupted]));
         Assert.Equal(ResultStatus.Interrupted, E2E.RunReport.StatusOf([interrupted]));
 
-        var result = ReportBuilders.Result(attempts: [failed with { DurationMs = 7 }, interrupted with { DurationMs = 99 }]) with { Status = ResultStatus.Failed };
+        var result = ReportBuilders.Result(
+            attempts: [failed with { DurationMs = 7 }, interrupted with { DurationMs = 99 }]
+        ) with
+        {
+            Status = ResultStatus.Failed,
+        };
         Assert.Equal(7, Reports.Outcome.Of(Traces.ReportBuilders.Public(result)).Verdict.DurationMs);
     }
 }

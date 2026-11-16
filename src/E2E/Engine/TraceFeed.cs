@@ -42,7 +42,8 @@ internal sealed class TraceFeed
         Action<IReadOnlyDictionary<string, string>>? environment,
         Func<IPage?> page,
         Func<OperationBudget, Task<Observation>> capture,
-        TimeProvider clock)
+        TimeProvider clock
+    )
     {
         _screen = screen;
         _environment = environment;
@@ -78,8 +79,7 @@ internal sealed class TraceFeed
 #pragma warning disable CA1031 // The harness's sink never fails the attempt.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     // The browser and the user agent the page reports, within a second; null without a page or a browser to ask.
@@ -103,7 +103,9 @@ internal sealed class TraceFeed
             try
             {
                 var budget = new OperationBudget(EnvironmentTimeout, "user agent", CancellationToken.None, _clock);
-                facts["user agent"] = await budget.WithinAsync(page.EvaluateAsync<string>("navigator.userAgent")).ConfigureAwait(false);
+                facts["user agent"] = await budget
+                    .WithinAsync(page.EvaluateAsync<string>("navigator.userAgent"))
+                    .ConfigureAwait(false);
             }
             catch (Exception)
             {
@@ -137,9 +139,7 @@ internal sealed class TraceFeed
         {
             sink(observation);
         }
-        catch (Exception)
-        {
-        }
+        catch (Exception) { }
 #pragma warning restore CA1031
     }
 
@@ -162,9 +162,7 @@ internal sealed class TraceFeed
             var budget = new OperationBudget(TraceScreenTimeout, "trace screen", cancellationToken, _clock);
             sink(await _capture(budget).ConfigureAwait(false));
         }
-        catch (Exception)
-        {
-        }
+        catch (Exception) { }
 #pragma warning restore CA1031
     }
 }

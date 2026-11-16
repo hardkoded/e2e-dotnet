@@ -12,13 +12,22 @@ namespace E2E.WinApp.Tests.Fixture;
 public sealed class WindowFixtureTests
 {
     private static RawElement WithDialog(params RawElement[] buttons) =>
-        RawElements.Window("Settings", RawElements.Button("btn-save", "Save"), RawElements.Dialog("dlg", "Confirm action", buttons));
+        RawElements.Window(
+            "Settings",
+            RawElements.Button("btn-save", "Save"),
+            RawElements.Dialog("dlg", "Confirm action", buttons)
+        );
 
     [Fact]
     public async Task Accept_presses_the_primary_button_of_the_open_dialog()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(WithDialog(RawElements.Button("btn-cancel", "Cancel", "CloseButton"), RawElements.Button("btn-ok", "Confirm", "PrimaryButton")));
+        var session = await harness.OpenAsync(
+            WithDialog(
+                RawElements.Button("btn-cancel", "Cancel", "CloseButton"),
+                RawElements.Button("btn-ok", "Confirm", "PrimaryButton")
+            )
+        );
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         harness.Settles.Clear();
@@ -31,7 +40,9 @@ public sealed class WindowFixtureTests
     public async Task Accept_falls_back_to_the_first_button_and_dismiss_to_the_close_or_secondary_one()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(WithDialog(RawElements.Button("btn-yes", "Yes"), RawElements.Button("btn-no", "No", "SecondaryButton")));
+        var session = await harness.OpenAsync(
+            WithDialog(RawElements.Button("btn-yes", "Yes"), RawElements.Button("btn-no", "No", "SecondaryButton"))
+        );
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         await session.Window.AlertAsync(AlertAction.Accept);
@@ -43,14 +54,18 @@ public sealed class WindowFixtureTests
     public async Task Accept_never_presses_a_cancel_or_no_button_it_cannot_tell_from_an_accept_one()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-ok", "OK")));
+        var session = await harness.OpenAsync(
+            WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-ok", "OK"))
+        );
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         await session.Window.AlertAsync(AlertAction.Accept);
         Assert.Equal(["invoke btn-ok Invoke"], harness.Driver.Calls);
 
         await using var other = new Harness();
-        var bare = await other.OpenAsync(WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-no", "No")));
+        var bare = await other.OpenAsync(
+            WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-no", "No"))
+        );
         await bare.ObserveAsync(CancellationToken.None);
         var error = await Assert.ThrowsAsync<EngineException>(() => bare.Window.AlertAsync(AlertAction.Accept));
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
@@ -64,7 +79,10 @@ public sealed class WindowFixtureTests
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         await session.Window.AlertAsync(AlertAction.Dismiss);
-        Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} esc"], harness.Driver.Calls);
+        Assert.Equal(
+            [$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} esc"],
+            harness.Driver.Calls
+        );
     }
 
     [Fact]
@@ -89,7 +107,10 @@ public sealed class WindowFixtureTests
         await using var harness = new Harness();
         var session = await harness.OpenAsync(WithDialog(RawElements.Button("btn-ok", "Confirm", "PrimaryButton")));
         await session.ObserveAsync(CancellationToken.None);
-        harness.Driver.Trees[FakeWindowDriver.MainHandle] = RawElements.Window("Settings", RawElements.Button("btn-save", "Save"));
+        harness.Driver.Trees[FakeWindowDriver.MainHandle] = RawElements.Window(
+            "Settings",
+            RawElements.Button("btn-save", "Save")
+        );
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         var error = await Assert.ThrowsAsync<EngineException>(() => session.Window.AlertAsync(AlertAction.Dismiss));
@@ -101,7 +122,13 @@ public sealed class WindowFixtureTests
     public async Task A_button_outside_the_dialog_is_never_the_dialog_s_button()
     {
         await using var harness = new Harness();
-        var session = await harness.OpenAsync(RawElements.Window("Settings", RawElements.Dialog("dlg", "Confirm"), RawElements.Button("btn-save", "Save", "PrimaryButton")));
+        var session = await harness.OpenAsync(
+            RawElements.Window(
+                "Settings",
+                RawElements.Dialog("dlg", "Confirm"),
+                RawElements.Button("btn-save", "Save", "PrimaryButton")
+            )
+        );
         await session.ObserveAsync(CancellationToken.None);
         var error = await Assert.ThrowsAsync<EngineException>(() => session.Window.AlertAsync(AlertAction.Accept));
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
@@ -118,7 +145,10 @@ public sealed class WindowFixtureTests
         await session.Window.RestoreAsync();
         await session.Window.MinimizeAsync();
         var main = FakeWindowDriver.MainHandle;
-        Assert.Equal([$"resize {main} 640x480", $"show {main} Maximized", $"show {main} Normal", $"show {main} Minimized"], harness.Driver.Calls);
+        Assert.Equal(
+            [$"resize {main} 640x480", $"show {main} Maximized", $"show {main} Normal", $"show {main} Minimized"],
+            harness.Driver.Calls
+        );
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => session.Window.ResizeAsync(0, 10));
     }
 

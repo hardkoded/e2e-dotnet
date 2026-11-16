@@ -50,12 +50,21 @@ public sealed class ElementListPinTests
         var open = new TaskCompletionSource();
         var scripted = new ScriptedList(gate: open.Task);
         var list = new EngineElementList(scripted.Handle);
-        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, new Dictionary<string, ListedTarget> { ["n1"] = new(list, 0) }));
+        registry.Publish(
+            registry.BeginCapture(),
+            new CapturedObservation(
+                new Observation { Route = "", Roots = [] },
+                new Dictionary<string, ListedTarget> { ["n1"] = new(list, 0) }
+            )
+        );
         var lookup = registry.LookupPinnedAsync("n1");
         WebSupport.DisposePinWhenSettled(lookup);
 
         // The caller gave up; the list is then replaced while the lookup is still pending.
-        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, []));
+        registry.Publish(
+            registry.BeginCapture(),
+            new CapturedObservation(new Observation { Route = "", Roots = [] }, [])
+        );
         open.SetResult();
         await lookup;
         await Task.Yield();
@@ -71,10 +80,19 @@ public sealed class ElementListPinTests
         var registry = new RefRegistry();
         var scripted = new ScriptedList();
         var list = new EngineElementList(scripted.Handle);
-        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, new Dictionary<string, ListedTarget> { ["n1"] = new(list, 0) }));
+        registry.Publish(
+            registry.BeginCapture(),
+            new CapturedObservation(
+                new Observation { Route = "", Roots = [] },
+                new Dictionary<string, ListedTarget> { ["n1"] = new(list, 0) }
+            )
+        );
         var (_, pin) = await registry.LookupPinnedAsync("n1");
 
-        registry.Publish(registry.BeginCapture(), new CapturedObservation(new Observation { Route = "", Roots = [] }, []));
+        registry.Publish(
+            registry.BeginCapture(),
+            new CapturedObservation(new Observation { Route = "", Roots = [] }, [])
+        );
         await Task.Yield();
         Assert.Equal(0, scripted.Made[0].Disposed);
 

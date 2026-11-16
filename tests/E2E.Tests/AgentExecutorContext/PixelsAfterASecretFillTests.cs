@@ -27,18 +27,27 @@ public sealed class PixelsAfterASecretFillTests
             before.Add((after.PixelsWithheld, after.Pixels is not null));
             return Passed("filled the password");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new ScreenshotEngine(WorldWithAPassword(_ => { }), _ => ScreenshotEngine.Png()),
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            TestTitle = "filled",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new ScreenshotEngine(WorldWithAPassword(_ => { }), _ => ScreenshotEngine.Png()),
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                TestTitle = "filled",
+            }
+        );
         await session.App.OpenAsync("/");
 
         await session.Agent.ActAsync(
             "sign in",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["password"] = Secret.Create("admin.password", "admin-pass", "password"),
+                },
+            }
+        );
         session.Complete();
 
         Assert.Equal([(null, true), (null, true)], before);
@@ -53,13 +62,15 @@ public sealed class PixelsAfterASecretFillTests
             withheld = (await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true })).PixelsWithheld;
             return Passed("looked");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new E2E.Engine.DocumentEngine(CounterPage.World()),
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            TestTitle = "no pixels",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new E2E.Engine.DocumentEngine(CounterPage.World()),
+                AgentExecutor = executor,
+                BaseUrl = "https://counter.test",
+                TestTitle = "no pixels",
+            }
+        );
         await session.App.OpenAsync("/");
 
         await session.Agent.ActAsync("look at the screen");

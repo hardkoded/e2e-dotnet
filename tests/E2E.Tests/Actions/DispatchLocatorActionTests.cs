@@ -34,8 +34,15 @@ public sealed class DispatchLocatorActionTests
             {
                 if (action == "clear")
                 {
-                    await session.PerformAsync(await FindByNameAsync(session, "Note"), new LocatorAction.Clear(), CancellationToken.None);
-                    Assert.Equal("", await EvaluateAsync<string>(session, "() => document.querySelector('input').value"));
+                    await session.PerformAsync(
+                        await FindByNameAsync(session, "Note"),
+                        new LocatorAction.Clear(),
+                        CancellationToken.None
+                    );
+                    Assert.Equal(
+                        "",
+                        await EvaluateAsync<string>(session, "() => document.querySelector('input').value")
+                    );
                 }
                 else
                 {
@@ -46,9 +53,13 @@ public sealed class DispatchLocatorActionTests
                         _ => new LocatorAction.Select("Blue"),
                     };
                     await session.PerformAsync(await FindByNameAsync(session, "Color"), option, CancellationToken.None);
-                    Assert.Equal("Blue", await EvaluateAsync<string>(session, "() => document.querySelector('select').value"));
+                    Assert.Equal(
+                        "Blue",
+                        await EvaluateAsync<string>(session, "() => document.querySelector('select').value")
+                    );
                 }
-            });
+            }
+        );
     }
 
     [Fact]
@@ -64,7 +75,11 @@ public sealed class DispatchLocatorActionTests
             async session =>
             {
                 var box = await FindByNameAsync(session, "Box");
-                async Task<string> OffsetAsync() => await EvaluateAsync<string>(session, "() => document.querySelector('div').scrollLeft + ',' + document.querySelector('div').scrollTop");
+                async Task<string> OffsetAsync() =>
+                    await EvaluateAsync<string>(
+                        session,
+                        "() => document.querySelector('div').scrollLeft + ',' + document.querySelector('div').scrollTop"
+                    );
 
                 await session.PerformAsync(box, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
                 Assert.Equal("0,225", await OffsetAsync());
@@ -74,7 +89,8 @@ public sealed class DispatchLocatorActionTests
 
                 await session.PerformAsync(box, new LocatorAction.Swipe(ScrollDirection.Left), CancellationToken.None);
                 Assert.Equal("0,225", await OffsetAsync());
-            });
+            }
+        );
     }
 
     [Fact]
@@ -90,24 +106,37 @@ public sealed class DispatchLocatorActionTests
             """,
             async session =>
             {
-                await session.PerformAsync(await FindByNameAsync(session, "Choose avatar"), new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), CancellationToken.None);
-                Assert.Equal("avatar.png", await EvaluateAsync<string>(session, "() => document.getElementById('avatar').files[0].name"));
+                await session.PerformAsync(
+                    await FindByNameAsync(session, "Choose avatar"),
+                    new LocatorAction.SetInputFiles([UploadPage.AvatarFile]),
+                    CancellationToken.None
+                );
+                Assert.Equal(
+                    "avatar.png",
+                    await EvaluateAsync<string>(session, "() => document.getElementById('avatar').files[0].name")
+                );
                 Assert.Equal(2, await EvaluateAsync<int>(session, "() => window.clicks"));
-            });
+            }
+        );
     }
 
     [Fact]
     public async Task Partial_Sets_a_file_input_directly()
     {
         // Partial: upstream checks the element's setInputFiles call and that no click or chooser wait happened. The port checks the page saw no click.
-        await RunAsync(
-            $"""<input id="avatar" type="file" aria-label="Avatar">{CountClicks}""",
-            async session =>
-            {
-                await session.PerformAsync(await FindByNameAsync(session, "Avatar"), new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), CancellationToken.None);
-                Assert.Equal("avatar.png", await EvaluateAsync<string>(session, "() => document.getElementById('avatar').files[0].name"));
-                Assert.Equal(0, await EvaluateAsync<int>(session, "() => window.clicks"));
-            });
+        await RunAsync($"""<input id="avatar" type="file" aria-label="Avatar">{CountClicks}""", async session =>
+        {
+            await session.PerformAsync(
+                await FindByNameAsync(session, "Avatar"),
+                new LocatorAction.SetInputFiles([UploadPage.AvatarFile]),
+                CancellationToken.None
+            );
+            Assert.Equal(
+                "avatar.png",
+                await EvaluateAsync<string>(session, "() => document.getElementById('avatar').files[0].name")
+            );
+            Assert.Equal(0, await EvaluateAsync<int>(session, "() => window.clicks"));
+        });
     }
 
     [Fact]
@@ -118,13 +147,19 @@ public sealed class DispatchLocatorActionTests
             async session =>
             {
                 var pick = await FindByNameAsync(session, "Choose avatar");
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(pick, new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), CancellationToken.None));
+                var error = await Assert.ThrowsAsync<EngineException>(() =>
+                    session.PerformAsync(
+                        pick,
+                        new LocatorAction.SetInputFiles([UploadPage.AvatarFile]),
+                        CancellationToken.None
+                    )
+                );
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
             },
-
             // The click must finish inside the budget for the chooser wait to be what runs out; on a loaded runner a 2 s budget can end in the click.
-            actionTimeout: TimeSpan.FromSeconds(6));
+            actionTimeout: TimeSpan.FromSeconds(6)
+        );
     }
 
     [Fact]
@@ -140,14 +175,22 @@ public sealed class DispatchLocatorActionTests
             {
                 var pick = await FindByNameAsync(session, "Choose avatar");
                 using var cancel = new CancellationTokenSource();
-                var upload = session.PerformAsync(pick, new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), cancel.Token);
+                var upload = session.PerformAsync(
+                    pick,
+                    new LocatorAction.SetInputFiles([UploadPage.AvatarFile]),
+                    cancel.Token
+                );
                 await Task.Delay(TimeSpan.FromMilliseconds(300));
                 await cancel.CancelAsync();
                 Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => upload)).Code);
 
                 await Task.Delay(TimeSpan.FromMilliseconds(1500));
-                Assert.Equal(0, await EvaluateAsync<int>(session, "() => document.getElementById('avatar').files.length"));
-            });
+                Assert.Equal(
+                    0,
+                    await EvaluateAsync<int>(session, "() => document.getElementById('avatar').files.length")
+                );
+            }
+        );
     }
 
     [Fact]
@@ -173,17 +216,21 @@ public sealed class DispatchLocatorActionTests
         TaskScheduler.UnobservedTaskException += OnUnobserved;
         try
         {
-            await RunAsync(
-                """<button type="button" disabled>Choose avatar</button>""",
-                async session =>
-                {
-                    var pick = await FindByNameAsync(session, "Choose avatar");
-                    var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(pick, new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), CancellationToken.None));
-                    Assert.Equal("NOT_ACTIONABLE", error.Code);
+            await RunAsync("""<button type="button" disabled>Choose avatar</button>""", async session =>
+            {
+                var pick = await FindByNameAsync(session, "Choose avatar");
+                var error = await Assert.ThrowsAsync<EngineException>(() =>
+                    session.PerformAsync(
+                        pick,
+                        new LocatorAction.SetInputFiles([UploadPage.AvatarFile]),
+                        CancellationToken.None
+                    )
+                );
+                Assert.Equal("NOT_ACTIONABLE", error.Code);
 
-                    // Let the chooser wait fail on its own timeout, then collect it: an unobserved fault surfaces from the finalizer.
-                    await Task.Delay(TimeSpan.FromSeconds(1));
-                });
+                // Let the chooser wait fail on its own timeout, then collect it: an unobserved fault surfaces from the finalizer.
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            });
             for (var round = 0; round < 3; round++)
             {
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced, blocking: true);
@@ -199,10 +246,15 @@ public sealed class DispatchLocatorActionTests
         List<string> leaked;
         lock (unobserved)
         {
-            leaked = unobserved.Where(text => text.Contains("filechooser", StringComparison.OrdinalIgnoreCase)).ToList();
+            leaked = unobserved
+                .Where(text => text.Contains("filechooser", StringComparison.OrdinalIgnoreCase))
+                .ToList();
         }
 
-        Assert.True(leaked.Count == 0, "An unobserved task exception names the file chooser:\n" + string.Join("\n---\n", leaked));
+        Assert.True(
+            leaked.Count == 0,
+            "An unobserved task exception names the file chooser:\n" + string.Join("\n---\n", leaked)
+        );
     }
 
     private static async Task<SemanticNode> FindByNameAsync(IEngineSession session, string name)

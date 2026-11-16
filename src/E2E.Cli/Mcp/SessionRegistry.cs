@@ -64,7 +64,9 @@ internal sealed class SessionRegistry<TSession>(int limit)
         {
             if (_draining)
             {
-                return Task.FromException<string>(new ConfigurationException("SESSION_OPEN", "the server is shutting down; no session can open"));
+                return Task.FromException<string>(
+                    new ConfigurationException("SESSION_OPEN", "the server is shutting down; no session can open")
+                );
             }
 
             if (_entries.Count >= limit)
@@ -87,12 +89,19 @@ internal sealed class SessionRegistry<TSession>(int limit)
     {
         lock (_gate)
         {
-            var holder = _entries.FirstOrDefault(pair => pair.Key != id && pair.Value.ConfigPath is not null && pair.Value.ConfigPath != configPath);
+            var holder = _entries.FirstOrDefault(pair =>
+                pair.Key != id && pair.Value.ConfigPath is not null && pair.Value.ConfigPath != configPath
+            );
             if (holder.Value is not null)
             {
                 throw new ConfigurationException(
                     "CONFIG_IN_USE",
-                    "session " + holder.Key + " is open on config " + holder.Value.ConfigPath + "; sessions open at once share one config, because the secrets they redact are shared process-wide; open this one on that config, or close every session on it first");
+                    "session "
+                        + holder.Key
+                        + " is open on config "
+                        + holder.Value.ConfigPath
+                        + "; sessions open at once share one config, because the secrets they redact are shared process-wide; open this one on that config, or close every session on it first"
+                );
             }
 
             Require(id).ConfigPath = configPath;
@@ -112,7 +121,14 @@ internal sealed class SessionRegistry<TSession>(int limit)
             {
                 throw new ConfigurationException(
                     "ENGINE_IN_USE",
-                    "target \"" + targetName + "\" drives a device that runs one app, so every session on it shares it, and session " + holder.Key + " is driving it; close_session " + holder.Key + " first");
+                    "target \""
+                        + targetName
+                        + "\" drives a device that runs one app, so every session on it shares it, and session "
+                        + holder.Key
+                        + " is driving it; close_session "
+                        + holder.Key
+                        + " first"
+                );
             }
 
             Require(id).DeviceTarget = targetName;
@@ -188,11 +204,15 @@ internal sealed class SessionRegistry<TSession>(int limit)
             live = Live();
         }
 
-        var summaries = await Task.WhenAll(live.Select(session => CloseIfLiveAsync(session, reason, teardown))).ConfigureAwait(false);
+        var summaries = await Task.WhenAll(live.Select(session => CloseIfLiveAsync(session, reason, teardown)))
+            .ConfigureAwait(false);
         List<Task<string>> closing;
         lock (_gate)
         {
-            closing = [.. _entries.Values.Select(entry => entry.Phase).OfType<ClosingPhase>().Select(phase => phase.Closed)];
+            closing =
+            [
+                .. _entries.Values.Select(entry => entry.Phase).OfType<ClosingPhase>().Select(phase => phase.Closed),
+            ];
         }
 
         await Task.WhenAll(closing.Select(Settled)).ConfigureAwait(false);
@@ -221,8 +241,7 @@ internal sealed class SessionRegistry<TSession>(int limit)
 #pragma warning disable CA1031 // Only that it settled matters here; the caller of the task sees its outcome.
         catch (Exception)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     private static string Describe(IEnumerable<INamedSession> sessions) =>
@@ -278,56 +297,83 @@ internal sealed class SessionRegistry<TSession>(int limit)
 
                 if (entry.Phase is ClosingPhase closing)
                 {
-                    throw new ConfigurationException("NO_SESSION", "session \"" + id + "\" is closing (" + closing.Reason + ")");
+                    throw new ConfigurationException(
+                        "NO_SESSION",
+                        "session \"" + id + "\" is closing (" + closing.Reason + ")"
+                    );
                 }
             }
 
             var ended = _ended.FirstOrDefault(item => item.Id == id);
             if (ended.Id is not null)
             {
-                throw new ConfigurationException("NO_SESSION", "session \"" + id + "\" ended: " + ended.Reason + "; call open_session for a new one");
+                throw new ConfigurationException(
+                    "NO_SESSION",
+                    "session \"" + id + "\" ended: " + ended.Reason + "; call open_session for a new one"
+                );
             }
 
             var others = Live();
             throw new ConfigurationException(
                 "NO_SESSION",
-                "session \"" + id + "\" is not open; " + (others.Count == 0 ? "no session is open" : "open: " + Describe(others)));
+                "session \""
+                    + id
+                    + "\" is not open; "
+                    + (others.Count == 0 ? "no session is open" : "open: " + Describe(others))
+            );
         }
 
         var live = Live();
         if (live.Count == 0)
         {
             var previous = _ended.Count == 0 ? null : _ended[^1].Reason;
-            throw new ConfigurationException("NO_SESSION", "no session is open; call open_session first" + (previous is null ? "" : " (the previous session ended: " + previous + ")"));
+            throw new ConfigurationException(
+                "NO_SESSION",
+                "no session is open; call open_session first"
+                    + (previous is null ? "" : " (the previous session ended: " + previous + ")")
+            );
         }
 
         if (live.Count > 1)
         {
             throw new ConfigurationException(
                 "SESSION_REQUIRED",
-                live.Count.ToString(CultureInfo.InvariantCulture) + " sessions are open; pass session to name one: " + Describe(live));
+                live.Count.ToString(CultureInfo.InvariantCulture)
+                    + " sessions are open; pass session to name one: "
+                    + Describe(live)
+            );
         }
 
         return live[0];
     }
 
     /// <summary>The live sessions, in the order they were admitted.</summary>
-    private List<TSession> Live() => [.. _entries.Values.Select(entry => entry.Phase).OfType<LivePhase>().Select(phase => phase.Session)];
+    private List<TSession> Live() =>
+        [.. _entries.Values.Select(entry => entry.Phase).OfType<LivePhase>().Select(phase => phase.Session)];
 
     private Entry Require(string id) =>
-        _entries.TryGetValue(id, out var entry) ? entry : throw new InvalidOperationException("session " + id + " is not admitted");
+        _entries.TryGetValue(id, out var entry)
+            ? entry
+            : throw new InvalidOperationException("session " + id + " is not admitted");
 
     private ConfigurationException LimitReached()
     {
-        var slots = _entries.Values.Select(entry => entry.Phase switch
-        {
-            LivePhase live => Describe([live.Session]),
-            ClosingPhase closing => Describe([closing.Session]) + " (closing)",
-            _ => "one opening",
-        });
+        var slots = _entries.Values.Select(entry =>
+            entry.Phase switch
+            {
+                LivePhase live => Describe([live.Session]),
+                ClosingPhase closing => Describe([closing.Session]) + " (closing)",
+                _ => "one opening",
+            }
+        );
         return new ConfigurationException(
             "SESSION_OPEN",
-            "no session slot is free (e2e mcp --max-sessions " + limit.ToString(CultureInfo.InvariantCulture) + "): " + string.Join(", ", slots) + "; close_session one first");
+            "no session slot is free (e2e mcp --max-sessions "
+                + limit.ToString(CultureInfo.InvariantCulture)
+                + "): "
+                + string.Join(", ", slots)
+                + "; close_session one first"
+        );
     }
 
     private abstract record Phase;

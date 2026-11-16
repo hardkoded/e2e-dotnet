@@ -25,7 +25,8 @@ internal static class Provision
         Func<ManagedProcessHooks> hooks,
         DebugTrace debug,
         CancellationToken cancellationToken,
-        IProcessPool? pool = null)
+        IProcessPool? pool = null
+    )
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(hooks);
@@ -33,7 +34,8 @@ internal static class Provision
         var processes = new HeldProcesses();
 
         // A cleanup failure after a failed start is a notice at most: the startup failure is the one reported.
-        void OnCleanupFailure(Exception failure) => hooks().Notice?.Invoke("cleanup after a failed start: " + failure.Message);
+        void OnCleanupFailure(Exception failure) =>
+            hooks().Notice?.Invoke("cleanup after a failed start: " + failure.Message);
         try
         {
             foreach (var (label, command, readyUrl, key) in DeclaredProcesses.DeclaredCommands(targets))
@@ -49,7 +51,9 @@ internal static class Provision
                     var started = new StartedProcess(process);
                     try
                     {
-                        await debug.Time("app.start(" + label + ")", () => process.StartAsync(scope)).ConfigureAwait(false);
+                        await debug
+                            .Time("app.start(" + label + ")", () => process.StartAsync(scope))
+                            .ConfigureAwait(false);
                     }
                     catch
                     {
@@ -60,7 +64,10 @@ internal static class Provision
                     return started;
                 }
 
-                processes.Add(await pool.AcquireAsync(projectRoot + "\0command:" + key, Start, cancellationToken).ConfigureAwait(false));
+                processes.Add(
+                    await pool.AcquireAsync(projectRoot + "\0command:" + key, Start, cancellationToken)
+                        .ConfigureAwait(false)
+                );
             }
 
             return processes;

@@ -11,8 +11,19 @@ public sealed class PruneArtifactsTests
     public async Task Keeps_exactly_the_files_the_report_names_untouched_and_removes_the_rest_and_the_directories_left_empty()
     {
         using var tree = new RerunTree();
-        string[] kept = ["web/a/default/attempt-0/screenshots/001-landing.png", "web/b/default/attempt-0/video/video.webm", "rerun-1/web/b/default/attempt-0/failure/screen.txt"];
-        string[] dropped = ["web/a/default/attempt-0/stray.log", "web/c/default/attempt-0/video/video.webm", "web/sessions/0192/screen.png", "top-level.txt"];
+        string[] kept =
+        [
+            "web/a/default/attempt-0/screenshots/001-landing.png",
+            "web/b/default/attempt-0/video/video.webm",
+            "rerun-1/web/b/default/attempt-0/failure/screen.txt",
+        ];
+        string[] dropped =
+        [
+            "web/a/default/attempt-0/stray.log",
+            "web/c/default/attempt-0/video/video.webm",
+            "web/sessions/0192/screen.png",
+            "top-level.txt",
+        ];
         foreach (var file in kept.Concat(dropped))
         {
             tree.Plant(file);

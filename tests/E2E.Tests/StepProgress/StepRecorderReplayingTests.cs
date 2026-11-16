@@ -23,7 +23,8 @@ public sealed class StepRecorderReplayingTests
 
         Assert.Equal(
             [StepProgressPhase.Start, StepProgressPhase.Replay, StepProgressPhase.Replay, StepProgressPhase.End],
-            heard.Select(progress => progress.Phase));
+            heard.Select(progress => progress.Phase)
+        );
         Assert.All(heard, progress => Assert.Equal("agent.act", progress.Api));
         Assert.Equal(StepKind.Agent, heard[0].Kind);
         Assert.Equal("pay", heard[0].Label);
@@ -40,11 +41,13 @@ public sealed class StepRecorderReplayingTests
         steps.Replaying(true);
         Action? late = null;
 
-        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => steps.RunAsync(StepKind.Agent, "agent.act", "pay", () =>
-        {
-            late = () => steps.Replaying(false);
-            throw new InvalidOperationException("step timed out");
-        }));
+        var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            steps.RunAsync(StepKind.Agent, "agent.act", "pay", () =>
+            {
+                late = () => steps.Replaying(false);
+                throw new InvalidOperationException("step timed out");
+            })
+        );
 
         Assert.Equal("step timed out", thrown.Message);
         late?.Invoke();

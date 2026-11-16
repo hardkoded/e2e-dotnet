@@ -29,14 +29,25 @@ internal static partial class Git
     /// </summary>
     public static IReadOnlyList<string> RepositoryLocationVariables { get; } =
     [
-        "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX",
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_COMMON_DIR",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_PREFIX",
     ];
 
     /// <summary>
     /// One git command's trimmed stdout; null when git is missing, slow, or refuses. A cancelled <paramref name="cancellationToken"/>
     /// still surfaces as a cancellation. <paramref name="budget"/> replaces the one-second budget (.NET-only, for tests).
     /// </summary>
-    public static async Task<string?> RunAsync(string cwd, IReadOnlyList<string> args, CancellationToken cancellationToken = default, TimeSpan? budget = null)
+    public static async Task<string?> RunAsync(
+        string cwd,
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken = default,
+        TimeSpan? budget = null
+    )
     {
         var info = new ProcessStartInfo("git")
         {
@@ -114,7 +125,12 @@ internal static partial class Git
     /// missing or prints past <paramref name="maxBuffer"/> characters of either stream is a <see cref="GitFailure"/>; a cancelled token
     /// surfaces as a cancellation, and the caller reads its own token for why.
     /// </summary>
-    public static async Task<GitResult> RunGitAsync(string cwd, IReadOnlyList<string> args, CancellationToken cancellationToken = default, int maxBuffer = 1024 * 1024)
+    public static async Task<GitResult> RunGitAsync(
+        string cwd,
+        IReadOnlyList<string> args,
+        CancellationToken cancellationToken = default,
+        int maxBuffer = 1024 * 1024
+    )
     {
         var info = new ProcessStartInfo("git")
         {
@@ -162,8 +178,14 @@ internal static partial class Git
             var stdout = ReadBoundedAsync(process.StandardOutput, maxBuffer, cancellationToken);
             var stderr = ReadBoundedAsync(process.StandardError, maxBuffer, cancellationToken);
             // A reader the wait outlives is never left with an unobserved fault.
-            _ = stdout.ContinueWith(finished => finished.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
-            _ = stderr.ContinueWith(finished => finished.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+            _ = stdout.ContinueWith(
+                finished => finished.Exception,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously
+            );
+            _ = stderr.ContinueWith(
+                finished => finished.Exception,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously
+            );
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
             var text = await stdout.ConfigureAwait(false);
             var errors = await stderr.ConfigureAwait(false);
@@ -189,7 +211,11 @@ internal static partial class Git
     }
 
     /// <summary>The text of <paramref name="reader"/>, or null once it passes <paramref name="maxChars"/> characters. The rest is still drained, so git is never held on a full pipe.</summary>
-    private static async Task<string?> ReadBoundedAsync(StreamReader reader, int maxChars, CancellationToken cancellationToken)
+    private static async Task<string?> ReadBoundedAsync(
+        StreamReader reader,
+        int maxChars,
+        CancellationToken cancellationToken
+    )
     {
         var text = new System.Text.StringBuilder();
         var buffer = new char[8192];

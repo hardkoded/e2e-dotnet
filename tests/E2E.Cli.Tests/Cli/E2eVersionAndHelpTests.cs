@@ -19,7 +19,9 @@ public sealed class E2eVersionAndHelpTests
 
         Assert.Equal(0, code);
         Assert.StartsWith("Usage:", stdout, StringComparison.Ordinal);
-        foreach (var command in new[] { "e2e login", "e2e logout", "e2e models", "e2e guide", "e2e mcp", "e2e explore" })
+        foreach (
+            var command in new[] { "e2e login", "e2e logout", "e2e models", "e2e guide", "e2e mcp", "e2e explore" }
+        )
         {
             Assert.Contains(command, stdout, StringComparison.Ordinal);
         }
@@ -55,7 +57,14 @@ public sealed class E2eVersionAndHelpTests
     {
         var stdout = new StringWriter();
         var stderr = new StringWriter();
-        var code = await Program.RunAsync(args, stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(
+            args,
+            stdout,
+            stderr,
+            TextReader.Null,
+            interactive: false,
+            CancellationToken.None
+        );
         return (code, stdout.ToString(), stderr.ToString());
     }
 }

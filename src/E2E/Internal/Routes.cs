@@ -44,7 +44,9 @@ internal static partial class Routes
 
         if (SchemePattern().IsMatch(url) && Uri.TryCreate(url, UriKind.Absolute, out var absolute))
         {
-            return (string.IsNullOrEmpty(absolute.AbsolutePath) ? "/" : absolute.AbsolutePath) + absolute.Query + absolute.Fragment;
+            return (string.IsNullOrEmpty(absolute.AbsolutePath) ? "/" : absolute.AbsolutePath)
+                + absolute.Query
+                + absolute.Fragment;
         }
 
         return url.StartsWith('/') ? url : "/" + url;
@@ -75,7 +77,10 @@ internal static partial class Routes
             // Checked by scheme because on Unix Uri reads "/x" as the absolute file:///x.
             if (!SchemePattern().IsMatch(url))
             {
-                throw new TestException("APP_URL_REQUIRED", "Navigation to \"" + url + "\" needs an app URL; the test declares no base URL.");
+                throw new TestException(
+                    "APP_URL_REQUIRED",
+                    "Navigation to \"" + url + "\" needs an app URL; the test declares no base URL."
+                );
             }
 
             Uri.TryCreate(url, UriKind.Absolute, out resolved);
@@ -142,25 +147,36 @@ internal static partial class Routes
         pattern is Regex regex ? regex.IsMatch : CompilePattern((string)pattern).IsMatch;
 
     /// <summary>Structural equality for route patterns, used by unroute: the same glob, or the same regex source and options.</summary>
-    public static bool PatternsEqual(object a, object b) => (a, b) switch
-    {
-        (string x, string y) => string.Equals(x, y, StringComparison.Ordinal),
-        (Regex x, Regex y) => string.Equals(x.ToString(), y.ToString(), StringComparison.Ordinal) && x.Options == y.Options,
-        _ => false,
-    };
+    public static bool PatternsEqual(object a, object b) =>
+        (a, b) switch
+        {
+            (string x, string y) => string.Equals(x, y, StringComparison.Ordinal),
+            (Regex x, Regex y) => string.Equals(x.ToString(), y.ToString(), StringComparison.Ordinal)
+                && x.Options == y.Options,
+            _ => false,
+        };
 
     /// <summary>
     /// A URL pattern as steps and errors name it, upstream's <c>patternLabel</c>: a glob string quoted (<c>JSON.stringify</c>), a regex as
     /// <c>/source/flags</c> (<c>String(RegExp)</c>).
     /// </summary>
-    public static string PatternLabel(object pattern) => pattern switch
-    {
-        string glob => JsonSerializer.Serialize(glob, QuoteOptions),
-        Regex regex => "/" + regex + "/" + (regex.Options.HasFlag(RegexOptions.IgnoreCase) ? "i" : "") + (regex.Options.HasFlag(RegexOptions.Multiline) ? "m" : "") + (regex.Options.HasFlag(RegexOptions.Singleline) ? "s" : ""),
-        _ => throw new ArgumentException("A URL pattern is a string or a Regex.", nameof(pattern)),
-    };
+    public static string PatternLabel(object pattern) =>
+        pattern switch
+        {
+            string glob => JsonSerializer.Serialize(glob, QuoteOptions),
+            Regex regex => "/"
+                + regex
+                + "/"
+                + (regex.Options.HasFlag(RegexOptions.IgnoreCase) ? "i" : "")
+                + (regex.Options.HasFlag(RegexOptions.Multiline) ? "m" : "")
+                + (regex.Options.HasFlag(RegexOptions.Singleline) ? "s" : ""),
+            _ => throw new ArgumentException("A URL pattern is a string or a Regex.", nameof(pattern)),
+        };
 
-    private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions QuoteOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePattern();

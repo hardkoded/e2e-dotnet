@@ -42,11 +42,13 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
     private (string Key, Task<string> Id)? _uploaded;
 
     public BrowserStackDevices(BrowserStackDevicesOptions options)
-        : this(options, static leaseOptions => new AgentDeviceLeases(leaseOptions), SharedHttp)
-    {
-    }
+        : this(options, static leaseOptions => new AgentDeviceLeases(leaseOptions), SharedHttp) { }
 
-    internal BrowserStackDevices(BrowserStackDevicesOptions options, Func<AgentDeviceLeaseOptions, IAgentDeviceLeases> leases, HttpClient http)
+    internal BrowserStackDevices(
+        BrowserStackDevicesOptions options,
+        Func<AgentDeviceLeaseOptions, IAgentDeviceLeases> leases,
+        HttpClient http
+    )
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = Validated(options);
@@ -61,7 +63,9 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
     {
         if (request.AppPath is not null)
         {
-            throw new InvalidOperationException("BrowserStack installs the app from `App`; leave the target's `app.appPath` out");
+            throw new InvalidOperationException(
+                "BrowserStack installs the app from `App`; leave the target's `app.appPath` out"
+            );
         }
 
         if (_noResignApp && request.Platform != MobilePlatform.Ios)
@@ -94,43 +98,73 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
             // A flag is allocated only when set.
             ProviderNoResignApp = _noResignApp ? true : null,
         };
-        return await _leases.AcquireAsync(
-            request,
-            new AgentDeviceLeaseRequest
-            {
-                Env = new Dictionary<string, string> { ["BROWSERSTACK_USERNAME"] = credentials.Username, ["BROWSERSTACK_ACCESS_KEY"] = credentials.AccessKey },
-                Selectors = selectors,
-                Summary = $"{_options.Device}, {request.Platform.WireName()} {_options.OsVersion}; session {sessionName} reserved",
-            },
-            cancellationToken).ConfigureAwait(false);
+        return await _leases
+            .AcquireAsync(
+                request,
+                new AgentDeviceLeaseRequest
+                {
+                    Env = new Dictionary<string, string>
+                    {
+                        ["BROWSERSTACK_USERNAME"] = credentials.Username,
+                        ["BROWSERSTACK_ACCESS_KEY"] = credentials.AccessKey,
+                    },
+                    Selectors = selectors,
+                    Summary =
+                        $"{_options.Device}, {request.Platform.WireName()} {_options.OsVersion}; session {sessionName} reserved",
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
-    public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) => _leases.ReleaseAsync(lease, context, cancellationToken);
+    public Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken) =>
+        _leases.ReleaseAsync(lease, context, cancellationToken);
 
     /// <summary>Runs in the worker, from the lease alone. BrowserStack records the whole session, so its video starts when the session did.</summary>
-    public async Task<ProviderRecording?> RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
+    public async Task<ProviderRecording?> RecordAsync(
+        DeviceLease lease,
+        ProviderRecordContext context,
+        CancellationToken cancellationToken
+    )
     {
         var calledAt = DateTimeOffset.UtcNow;
         var session = SessionRefOf(lease)
-            ?? throw new InvalidOperationException($"lease {lease.Id} carries no BrowserStack build and session name to find its recording by");
+            ?? throw new InvalidOperationException(
+                $"lease {lease.Id} carries no BrowserStack build and session name to find its recording by"
+            );
         var credentials = BrowserStackCredentials.FromEnvironment(context.Env);
         var endpoint = BrowserStackSessions.ApiEndpoint(context.Env);
-        var found = await BrowserStackSessions.FindSessionAsync(_http, endpoint, credentials, session, cancellationToken).ConfigureAwait(false);
+        var found = await BrowserStackSessions
+            .FindSessionAsync(_http, endpoint, credentials, session, cancellationToken)
+            .ConfigureAwait(false);
 
         // Without a usable start time from BrowserStack, the moment recording was asked for is the closest known bound.
         return new SessionRecording(_http, endpoint, credentials, session, found.StartedAt ?? calledAt);
     }
 
     /// <summary>The recording of a session BrowserStack keeps: its video is linked once the session ends.</summary>
-    private sealed class SessionRecording(HttpClient http, string endpoint, BrowserStackCredentials credentials, SessionRef session, DateTimeOffset startedAt) : ProviderRecording
+    private sealed class SessionRecording(
+        HttpClient http,
+        string endpoint,
+        BrowserStackCredentials credentials,
+        SessionRef session,
+        DateTimeOffset startedAt
+    ) : ProviderRecording
     {
         public override DateTimeOffset StartedAt { get; } = startedAt;
 
-        public override async Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken)
+        public override async Task<ProviderRecordingResult> StopAsync(
+            ProviderRecordingStopContext context,
+            CancellationToken cancellationToken
+        )
         {
-            var ended = await BrowserStackSessions.FindSessionAsync(http, endpoint, credentials, session, cancellationToken).ConfigureAwait(false);
+            var ended = await BrowserStackSessions
+                .FindSessionAsync(http, endpoint, credentials, session, cancellationToken)
+                .ConfigureAwait(false);
             return ended.VideoUrl is null
-                ? throw new InvalidOperationException($"BrowserStack session {ended.Id} ({Json(session.SessionName)}, build {Json(session.Build)}) reports no video URL")
+                ? throw new InvalidOperationException(
+                    $"BrowserStack session {ended.Id} ({Json(session.SessionName)}, build {Json(session.Build)}) reports no video URL"
+                )
                 : new ProviderRecordingResult { Url = ended.VideoUrl, MediaType = "video/mp4" };
         }
     }
@@ -139,7 +173,11 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
     /// What the daemon is given as <c>providerApp</c>: an <c>https</c> build is uploaded once for the run and becomes its <c>bs://</c> id,
     /// anything else is read as <c>App</c> is.
     /// </summary>
-    private Task<string> ProviderAppAsync(DeviceRequest request, BrowserStackCredentials credentials, CancellationToken cancellationToken)
+    private Task<string> ProviderAppAsync(
+        DeviceRequest request,
+        BrowserStackCredentials credentials,
+        CancellationToken cancellationToken
+    )
     {
         if (!HttpsUrl().IsMatch(_options.App))
         {
@@ -156,7 +194,13 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
                 return existing.Id;
             }
 
-            upload = BrowserStackSessions.UploadAppFromUrlAsync(_http, endpoint, credentials, _options.App, cancellationToken);
+            upload = BrowserStackSessions.UploadAppFromUrlAsync(
+                _http,
+                endpoint,
+                credentials,
+                _options.App,
+                cancellationToken
+            );
             _uploaded = (key, upload);
         }
 
@@ -188,7 +232,8 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
             },
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
+            TaskScheduler.Default
+        );
         return upload;
     }
 
@@ -198,19 +243,21 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
         Required(nameof(options.Device), options.Device);
         Required(nameof(options.OsVersion), options.OsVersion);
         Required(nameof(options.App), options.App);
-        foreach (var (name, value) in new (string, string?)[]
-        {
-            (nameof(options.Project), options.Project),
-            (nameof(options.Build), options.Build),
-            (nameof(options.SessionName), options.SessionName),
-            (nameof(options.GeoLocation), options.GeoLocation),
-            (nameof(options.Timezone), options.Timezone),
-            (nameof(options.Language), options.Language),
-            (nameof(options.Locale), options.Locale),
-            (nameof(options.AppiumVersion), options.AppiumVersion),
-            (nameof(options.NetworkProfile), options.NetworkProfile),
-            (nameof(options.CustomNetwork), options.CustomNetwork),
-        })
+        foreach (
+            var (name, value) in new (string, string?)[]
+            {
+                (nameof(options.Project), options.Project),
+                (nameof(options.Build), options.Build),
+                (nameof(options.SessionName), options.SessionName),
+                (nameof(options.GeoLocation), options.GeoLocation),
+                (nameof(options.Timezone), options.Timezone),
+                (nameof(options.Language), options.Language),
+                (nameof(options.Locale), options.Locale),
+                (nameof(options.AppiumVersion), options.AppiumVersion),
+                (nameof(options.NetworkProfile), options.NetworkProfile),
+                (nameof(options.CustomNetwork), options.CustomNetwork),
+            }
+        )
         {
             if (value is not null && string.IsNullOrWhiteSpace(value))
             {
@@ -244,7 +291,8 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
         }
     }
 
-    private static ConfigurationException Invalid(string message) => new("INVALID_CONFIG", $"BrowserStackDevices: {message}");
+    private static ConfigurationException Invalid(string message) =>
+        new("INVALID_CONFIG", $"BrowserStackDevices: {message}");
 
     /// <summary>
     /// The dashboard name of a slot's session, unique among the run's slots of the target so <see cref="RecordAsync"/> can find the
@@ -266,13 +314,18 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
 
     /// <summary>The build and session name <see cref="AcquireAsync"/> put on a lease's <c>Client</c>, when they are there.</summary>
     private static SessionRef? SessionRefOf(DeviceLease lease) =>
-        Text(lease.Client?["providerBuild"]) is { Length: > 0 } build && Text(lease.Client?["providerSessionName"]) is { Length: > 0 } sessionName
+        Text(lease.Client?["providerBuild"]) is { Length: > 0 } build
+        && Text(lease.Client?["providerSessionName"]) is { Length: > 0 } sessionName
             ? new SessionRef(build, sessionName)
             : null;
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private static string Json(string text) => JsonSerializer.Serialize(text, JsonOptions);
 
@@ -289,10 +342,11 @@ public sealed partial class BrowserStackDevices : IDeviceProvider
 /// <summary>The wire names of <see cref="BrowserStackOrientation"/>.</summary>
 internal static class BrowserStackOrientations
 {
-    public static string WireName(this BrowserStackOrientation orientation) => orientation switch
-    {
-        BrowserStackOrientation.Portrait => "portrait",
-        BrowserStackOrientation.Landscape => "landscape",
-        _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, "Unknown orientation."),
-    };
+    public static string WireName(this BrowserStackOrientation orientation) =>
+        orientation switch
+        {
+            BrowserStackOrientation.Portrait => "portrait",
+            BrowserStackOrientation.Landscape => "landscape",
+            _ => throw new ArgumentOutOfRangeException(nameof(orientation), orientation, "Unknown orientation."),
+        };
 }

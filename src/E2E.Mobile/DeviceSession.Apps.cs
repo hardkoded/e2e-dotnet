@@ -61,7 +61,11 @@ public sealed partial class DeviceSession
     /// navigation rule. The engine's own launch options belong to a fresh launch of the pinned app: a foreground-only
     /// open of a running app takes no arguments, and a permission change there would terminate the app it means to keep.
     /// </summary>
-    public async Task OpenAppAsync(string app, OpenAppOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task OpenAppAsync(
+        string app,
+        OpenAppOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         ArgumentNullException.ThrowIfNull(app);
         DeviceLinks.AssertAppId(app);
@@ -93,16 +97,31 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>One <c>open</c> of an app, remembered as the session's app and as the screen's replacement.</summary>
-    private async Task LaunchAsync(string app, bool relaunch, IReadOnlyList<string>? launchArguments, CancellationToken cancellationToken)
+    private async Task LaunchAsync(
+        string app,
+        bool relaunch,
+        IReadOnlyList<string>? launchArguments,
+        CancellationToken cancellationToken
+    )
     {
         var result = await CommandAsync(
-            $"open {app}",
-            DeviceMethods.AppsOpen,
-            Selection.ToArgs(
-                ("app", JsonValue.Create(app)),
-                ("relaunch", relaunch ? JsonValue.Create(true) : null),
-                ("launchArgs", launchArguments is { Count: > 0 } ? new JsonArray([.. launchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]) : null)),
-            cancellationToken).ConfigureAwait(false);
+                $"open {app}",
+                DeviceMethods.AppsOpen,
+                Selection.ToArgs(
+                    ("app", JsonValue.Create(app)),
+                    ("relaunch", relaunch ? JsonValue.Create(true) : null),
+                    (
+                        "launchArgs",
+                        launchArguments is { Count: > 0 }
+                            ? new JsonArray([
+                                .. launchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument)),
+                            ])
+                            : null
+                    )
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         Launched(Text(result?["appBundleId"]) ?? Text(result?["appName"]) ?? app);
     }
 
@@ -127,14 +146,19 @@ public sealed partial class DeviceSession
     /// not define refused.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a permission or state outside <see cref="DevicePermission"/> and <see cref="PermissionState"/>.</exception>
-    public async Task SetPermissionAsync(DevicePermission permission, PermissionState state, CancellationToken cancellationToken = default)
+    public async Task SetPermissionAsync(
+        DevicePermission permission,
+        PermissionState state,
+        CancellationToken cancellationToken = default
+    )
     {
         // A cast number is the port's non-string name: upstream refuses a name that is not a string by its type (`got type number`).
         if (!Enum.IsDefined(permission))
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission permission must be one of {PermissionNames()}, got type number");
+                $"device.setPermission permission must be one of {PermissionNames()}, got type number"
+            );
         }
 
         AssertPermission("device.setPermission", permission, state);
@@ -147,14 +171,19 @@ public sealed partial class DeviceSession
     /// set is refused before any device command: a misspelled name with the name it means, a missing state as <c>undefined</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_ARGUMENT</c>: a name or state that is not one of the wire names.</exception>
-    public async Task SetPermissionAsync(string? permission, string? state, CancellationToken cancellationToken = default)
+    public async Task SetPermissionAsync(
+        string? permission,
+        string? state,
+        CancellationToken cancellationToken = default
+    )
     {
         if (permission is null)
         {
             // Upstream's `undefined` name: no string at all, so the type is named, as it is for a cast number.
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission permission must be one of {PermissionNames()}, got type undefined");
+                $"device.setPermission permission must be one of {PermissionNames()}, got type undefined"
+            );
         }
 
         var index = Array.IndexOf(PermissionWireNames, permission);
@@ -163,7 +192,9 @@ public sealed partial class DeviceSession
             var hint = Suggestions.DidYouMean(permission, PermissionWireNames);
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission has unknown key \"{permission}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
+                $"device.setPermission has unknown key \"{permission}\""
+                    + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint)
+            );
         }
 
         var states = Enum.GetValues<PermissionState>();
@@ -173,14 +204,19 @@ public sealed partial class DeviceSession
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"device.setPermission.{permission} must be one of {string.Join(", ", stateNames)}, got {(state is null ? "undefined" : $"\"{state}\"")}");
+                $"device.setPermission.{permission} must be one of {string.Join(", ", stateNames)}, got {(state is null ? "undefined" : $"\"{state}\"")}"
+            );
         }
 
-        await SetPermissionAsync(Enum.GetValues<DevicePermission>()[index], states[stateIndex], cancellationToken).ConfigureAwait(false);
+        await SetPermissionAsync(Enum.GetValues<DevicePermission>()[index], states[stateIndex], cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>The permission names agent-device sets, in the order upstream's <c>DEVICE_PERMISSIONS</c> lists them.</summary>
-    internal static readonly string[] PermissionWireNames = [.. Enum.GetValues<DevicePermission>().Select(known => known.WireName())];
+    internal static readonly string[] PermissionWireNames =
+    [
+        .. Enum.GetValues<DevicePermission>().Select(known => known.WireName()),
+    ];
 
     private static string PermissionNames() => string.Join(", ", PermissionWireNames);
 
@@ -196,7 +232,9 @@ public sealed partial class DeviceSession
             var hint = Suggestions.DidYouMean(name, PermissionWireNames);
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"{label} has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint));
+                $"{label} has unknown key \"{name}\""
+                    + (hint.Length == 0 ? "; expected one of " + PermissionNames() : hint)
+            );
         }
 
         if (!Enum.IsDefined(state))
@@ -204,22 +242,31 @@ public sealed partial class DeviceSession
             var states = Enum.GetValues<PermissionState>().Select(known => known.WireName());
             throw new TestException(
                 "INVALID_ARGUMENT",
-                $"{label}.{permission.WireName()} must be one of {string.Join(", ", states)}, got {(int)state}");
+                $"{label}.{permission.WireName()} must be one of {string.Join(", ", states)}, got {(int)state}"
+            );
         }
     }
 
     /// <summary>One permission change on <paramref name="app"/>, which needs no running app and no open in the session.</summary>
-    private async Task SetPermissionAsync(DevicePermission permission, PermissionState state, string? app, CancellationToken cancellationToken)
+    private async Task SetPermissionAsync(
+        DevicePermission permission,
+        PermissionState state,
+        string? app,
+        CancellationToken cancellationToken
+    )
     {
         await CommandAsync(
-            $"permission {permission.WireName()} {state.WireName()}",
-            DeviceMethods.SettingsUpdate,
-            Selection.ToArgs(
-                ("setting", JsonValue.Create("permission")),
-                ("permission", JsonValue.Create(permission.WireName())),
-                ("state", JsonValue.Create(state.WireName())),
-                ("app", app is null ? null : JsonValue.Create(app))),
-            cancellationToken).ConfigureAwait(false);
+                $"permission {permission.WireName()} {state.WireName()}",
+                DeviceMethods.SettingsUpdate,
+                Selection.ToArgs(
+                    ("setting", JsonValue.Create("permission")),
+                    ("permission", JsonValue.Create(permission.WireName())),
+                    ("state", JsonValue.Create(state.WireName())),
+                    ("app", app is null ? null : JsonValue.Create(app))
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -232,7 +279,8 @@ public sealed partial class DeviceSession
     /// identity, and the package that took the link as its bundle id when the OS told it. The next snapshot names the
     /// foreground app either way.
     /// </summary>
-    public Task OpenLinkAsync(Uri url, string? app = null, CancellationToken cancellationToken = default) => OpenLinkAsync(url, app, cancellationToken, null);
+    public Task OpenLinkAsync(Uri url, string? app = null, CancellationToken cancellationToken = default) =>
+        OpenLinkAsync(url, app, cancellationToken, null);
 
     /// <summary><see cref="OpenLinkAsync(Uri, string?, CancellationToken)"/> under <paramref name="input"/>, the budget of <c>session.openLink</c> (upstream's <c>inputBudget('open link', operation)</c>).</summary>
     internal async Task OpenLinkAsync(Uri url, string? app, CancellationToken cancellationToken, InputBudget? input)
@@ -243,16 +291,20 @@ public sealed partial class DeviceSession
         {
             throw new TestException(
                 "INVALID_ARGUMENT",
-                "openLink needs an app on iOS: pass `app`, or pin one with the target's app.bundleId or app.appPath; the session observes the app a link is opened into");
+                "openLink needs an app on iOS: pass `app`, or pin one with the target's app.bundleId or app.appPath; the session observes the app a link is opened into"
+            );
         }
 
         var args = target is null
             ? Selection.ToArgs(("app", JsonValue.Create(url.AbsoluteUri)))
             : Selection.ToArgs(("app", JsonValue.Create(target)), ("url", JsonValue.Create(url.AbsoluteUri)));
         var result = await CommandAsync(
-            "device.openLink",
-            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.AppsOpen, args, token), token),
-            cancellationToken).ConfigureAwait(false);
+                "device.openLink",
+                (client, token) =>
+                    SendInputAsync(input, () => client.CallAsync(DeviceMethods.AppsOpen, args, token), token),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         Launched(Text(result?["appBundleId"]) ?? (target is null ? null : Text(result?["appName"]) ?? target));
     }
 
@@ -265,7 +317,13 @@ public sealed partial class DeviceSession
     public async Task CloseAppAsync(CancellationToken cancellationToken = default)
     {
         var app = _appIdentity ?? PinnedApp;
-        await CommandAsync("device.closeApp", DeviceMethods.AppsClose, Selection.ToArgs(("app", app is null ? null : JsonValue.Create(app))), cancellationToken).ConfigureAwait(false);
+        await CommandAsync(
+                "device.closeApp",
+                DeviceMethods.AppsClose,
+                Selection.ToArgs(("app", app is null ? null : JsonValue.Create(app))),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         ScreenReplaced();
     }
 
@@ -274,30 +332,47 @@ public sealed partial class DeviceSession
     /// <see cref="InstallAppOptions.App"/> (else the pinned app) first, so the build starts with no data. A plain
     /// install replaces the binary and keeps its data. Without a path the target's <c>AppPath</c> is installed.
     /// </summary>
-    public async Task<InstalledApp> InstallAppAsync(string? appPath = null, InstallAppOptions? options = null, CancellationToken cancellationToken = default)
+    public async Task<InstalledApp> InstallAppAsync(
+        string? appPath = null,
+        InstallAppOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         options ??= new InstallAppOptions();
-        var build = appPath ?? _app.AppPath
-            ?? throw DeviceSupport.InvalidState("installApp needs a build: pass a path, or name one with the target's app.appPath");
+        var build = appPath
+            ?? _app.AppPath
+            ?? throw DeviceSupport.InvalidState(
+                "installApp needs a build: pass a path, or name one with the target's app.appPath"
+            );
         var resolved = Path.GetFullPath(build, _projectRoot);
-        var engineBuild = appPath is null || (_app.AppPath is not null && resolved == Path.GetFullPath(_app.AppPath, _projectRoot));
+        var engineBuild =
+            appPath is null || (_app.AppPath is not null && resolved == Path.GetFullPath(_app.AppPath, _projectRoot));
         var app = options.App ?? (engineBuild ? _app.BundleId : null) ?? (options.Reinstall ? PinnedApp : null);
         if (options.Reinstall && app is null)
         {
-            throw DeviceSupport.InvalidState("reinstall needs an app: pass `app`, or pin one with the target's app.bundleId or app.appPath");
+            throw DeviceSupport.InvalidState(
+                "reinstall needs an app: pass `app`, or pin one with the target's app.bundleId or app.appPath"
+            );
         }
 
         var result = await CommandAsync(
-            $"install {resolved}",
-            options.Reinstall && app is not null ? DeviceMethods.AppsReinstall : DeviceMethods.AppsInstall,
-            Selection.ToArgs(("app", app is null ? null : JsonValue.Create(app)), ("appPath", JsonValue.Create(resolved))),
-            cancellationToken).ConfigureAwait(false);
+                $"install {resolved}",
+                options.Reinstall && app is not null ? DeviceMethods.AppsReinstall : DeviceMethods.AppsInstall,
+                Selection.ToArgs(
+                    ("app", app is null ? null : JsonValue.Create(app)),
+                    ("appPath", JsonValue.Create(resolved))
+                ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         var identity = Text(result?["bundleId"]) ?? Text(result?["package"]);
-        var opensBy = identity ?? app
+        var opensBy = identity
+            ?? app
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"installed {resolved}, but agent-device reported no bundle id or package for it, so nothing can open it: name the app with the target's `app.bundleId` or installApp's `app` option",
-                retryable: false);
+                retryable: false
+            );
         var installed = new InstalledApp(opensBy, identity);
 
         // The engine's own build, installed: without an app, this is what app.open() launches from here on.
@@ -318,8 +393,14 @@ public sealed partial class DeviceSession
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) =>
         ScreenCommandAsync(
             "device.fold",
-            (client, token) => client.CallAsync(DeviceMethods.CommandFold, Selection.ToArgs(("pose", JsonValue.Create(pose.WireName()))), token),
-            cancellationToken);
+            (client, token) =>
+                client.CallAsync(
+                    DeviceMethods.CommandFold,
+                    Selection.ToArgs(("pose", JsonValue.Create(pose.WireName()))),
+                    token
+                ),
+            cancellationToken
+        );
 
     /// <summary>
     /// Resets the simulator's keychain through agent-device. simctl resets the whole simulator's, not one app's, and only
@@ -329,25 +410,31 @@ public sealed partial class DeviceSession
     {
         if (Options.Platform != MobilePlatform.Ios)
         {
-            return Task.FromException(DeviceSupport.Unsupported("device.clearKeychain resets an iOS simulator keychain; Android has none to reset"));
+            return Task.FromException(
+                DeviceSupport.Unsupported(
+                    "device.clearKeychain resets an iOS simulator keychain; Android has none to reset"
+                )
+            );
         }
 
         return CommandAsync(
             "device.clearKeychain",
             DeviceMethods.SettingsUpdate,
             Selection.ToArgs(("setting", JsonValue.Create("reset-keychain")), ("state", JsonValue.Create("clear"))),
-            cancellationToken);
+            cancellationToken
+        );
     }
 }
 
 /// <summary>The names agent-device knows a hinge pose by.</summary>
 public static class FoldPoses
 {
-    public static string WireName(this FoldPose pose) => pose switch
-    {
-        FoldPose.Closed => "closed",
-        FoldPose.HalfOpen => "half-open",
-        FoldPose.Open => "open",
-        _ => throw new ArgumentOutOfRangeException(nameof(pose), pose, "Unknown hinge pose."),
-    };
+    public static string WireName(this FoldPose pose) =>
+        pose switch
+        {
+            FoldPose.Closed => "closed",
+            FoldPose.HalfOpen => "half-open",
+            FoldPose.Open => "open",
+            _ => throw new ArgumentOutOfRangeException(nameof(pose), pose, "Unknown hinge pose."),
+        };
 }

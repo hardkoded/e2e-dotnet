@@ -26,8 +26,7 @@ internal static class FixtureRecording
     }
 
     /// <inheritdoc cref="Translated{T}(string, string, Func{Task{T}})"/>
-    internal static Task Translated(string api, string label, Func<Task> body) =>
-        Translated(api, label, async () =>
+    internal static Task Translated(string api, string label, Func<Task> body) => Translated(api, label, async () =>
         {
             await body().ConfigureAwait(false);
             return true;

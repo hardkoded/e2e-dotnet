@@ -59,7 +59,10 @@ public abstract class E2ERunFixture
         {
             config = Config;
         }
-        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null && !HostTestFilters.ResolveLastFailed(LastFailed))
+        catch (Exception)
+            when (HostTestFilters.ResolveChangedSince(ChangedSince) is null
+                && !HostTestFilters.ResolveLastFailed(LastFailed)
+            )
         {
             // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since or last-failed selection needs it here.
             return;
@@ -74,18 +77,27 @@ public abstract class E2ERunFixture
             var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
             if (changedSince is not null || lastFailed)
             {
-                var selection = await HostTestFilters.ExcludeAsync(
-                    config,
-                    Filters,
-                    changedSince,
-                    discovered,
-                    line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
-                    global::NUnit.Framework.TestContext.CurrentContext.CancellationToken,
-                    lastFailed).ConfigureAwait(false);
+                var selection = await HostTestFilters
+                    .ExcludeAsync(
+                        config,
+                        Filters,
+                        changedSince,
+                        discovered,
+                        line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
+                        global::NUnit.Framework.TestContext.CurrentContext.CancellationToken,
+                        lastFailed
+                    )
+                    .ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
                 HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
-                await HostTestFilters.WriteReportAsync(config, selection, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
+                await HostTestFilters
+                    .WriteReportAsync(
+                        config,
+                        selection,
+                        global::NUnit.Framework.TestContext.CurrentContext.CancellationToken
+                    )
+                    .ConfigureAwait(false);
             }
 
             HostRun.Planned(config.Target.Name, discovered, excluded);

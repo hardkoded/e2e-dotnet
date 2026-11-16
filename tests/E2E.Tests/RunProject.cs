@@ -67,20 +67,20 @@ internal static class RunProject
     /// </summary>
     public static Task<RunOutcome> RunExistingAsync(FixtureProject project, RunProjectOptions options)
     {
-        var config = options.Config is { } extra
-            ? extra
-            : "{}";
-        return Runner.RunAsync(new RunOptions
-        {
-            Cwd = project.Dir,
-            RawConfig = ConfigWithTarget(config, options.BaseUrl),
-            Tests = new InMemoryTests(SuiteFile, options.Tests),
-            Env = options.Env ?? new Dictionary<string, string?> { ["CI"] = "" },
-            NoCache = options.NoCache,
-            StrictCache = options.StrictCache,
-            Engine = options.Engine,
-            Agents = options.Agents,
-        });
+        var config = options.Config is { } extra ? extra : "{}";
+        return Runner.RunAsync(
+            new RunOptions
+            {
+                Cwd = project.Dir,
+                RawConfig = ConfigWithTarget(config, options.BaseUrl),
+                Tests = new InMemoryTests(SuiteFile, options.Tests),
+                Env = options.Env ?? new Dictionary<string, string?> { ["CI"] = "" },
+                NoCache = options.NoCache,
+                StrictCache = options.StrictCache,
+                Engine = options.Engine,
+                Agents = options.Agents,
+            }
+        );
     }
 
     /// <summary>
@@ -90,7 +90,9 @@ internal static class RunProject
     public static E2E.Reports.ReportResult ResultByTitle(RunOutcome outcome, string title)
     {
         return outcome.Report.Run.Results.FirstOrDefault(candidate => candidate.TitlePath.SequenceEqual([title]))
-            ?? throw new InvalidOperationException($"no result titled \"{title}\"; got: {string.Join(", ", outcome.Report.Run.Results.Select(result => string.Join(' ', result.TitlePath)))}; run errors: {string.Join("; ", outcome.Report.Run.Errors.Select(error => error.Message))}");
+            ?? throw new InvalidOperationException(
+                $"no result titled \"{title}\"; got: {string.Join(", ", outcome.Report.Run.Results.Select(result => string.Join(' ', result.TitlePath)))}; run errors: {string.Join("; ", outcome.Report.Run.Errors.Select(error => error.Message))}"
+            );
     }
 
     // The fixture config's target is the web target on the fixture app, as upstream's defaultTargets is.
@@ -99,11 +101,13 @@ internal static class RunProject
         var node = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
         if (!node.ContainsKey("targets") && !node.ContainsKey("target"))
         {
-            node["targets"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
-            {
-                ["name"] = "web",
-                ["app"] = new System.Text.Json.Nodes.JsonObject { ["url"] = baseUrl },
-            });
+            node["targets"] = new System.Text.Json.Nodes.JsonArray(
+                new System.Text.Json.Nodes.JsonObject
+                {
+                    ["name"] = "web",
+                    ["app"] = new System.Text.Json.Nodes.JsonObject { ["url"] = baseUrl },
+                }
+            );
         }
 
         return node.ToJsonString();

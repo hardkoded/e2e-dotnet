@@ -64,23 +64,25 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
 
         // The sandbox flags are what a containerized CI runner needs to start Chrome
         // at all; they change nothing about the attach under test.
-        foreach (var argument in new[]
-        {
-            "--headless=new",
-            "--remote-debugging-port=0",
-            "--no-first-run",
-            "--no-default-browser-check",
-            "--password-store=basic",
-            "--use-mock-keychain",
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-component-extensions-with-background-pages",
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--user-data-dir=" + userDataDir,
-            "about:blank",
-        })
+        foreach (
+            var argument in new[]
+            {
+                "--headless=new",
+                "--remote-debugging-port=0",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--password-store=basic",
+                "--use-mock-keychain",
+                "--disable-gpu",
+                "--disable-extensions",
+                "--disable-component-extensions-with-background-pages",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--user-data-dir=" + userDataDir,
+                "about:blank",
+            }
+        )
         {
             info.ArgumentList.Add(argument);
         }
@@ -114,7 +116,9 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
         {
             lock (buffered)
             {
-                ready.TrySetException(new InvalidOperationException("Chrome exited before it was ready:\n" + buffered.ToString().Trim()));
+                ready.TrySetException(
+                    new InvalidOperationException("Chrome exited before it was ready:\n" + buffered.ToString().Trim())
+                );
             }
         };
         try
@@ -233,7 +237,12 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
             return true;
         }
 
-        foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos("*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }))
+        foreach (
+            var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos(
+                "*",
+                new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }
+            )
+        )
         {
             if (entry.LastWriteTimeUtc >= cutoff)
             {

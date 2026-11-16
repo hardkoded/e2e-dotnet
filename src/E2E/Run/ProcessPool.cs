@@ -17,7 +17,11 @@ internal interface IProcessPool
     /// starts a fresh instance under the token it is given: the attempt's <paramref name="cancellationToken"/>, or for a shared process one that is
     /// cancelled once no attempt waits on the start any more.
     /// </summary>
-    Task<IAppProcesses> AcquireAsync(string key, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken);
+    Task<IAppProcesses> AcquireAsync(
+        string key,
+        Func<CancellationToken, Task<IAppProcesses>> start,
+        CancellationToken cancellationToken
+    );
 }
 
 /// <summary>The pools a run can start its processes through (upstream's <c>UNSHARED</c>).</summary>
@@ -28,8 +32,11 @@ internal static class ProcessPools
 
     private sealed class UnsharedPool : IProcessPool
     {
-        public Task<IAppProcesses> AcquireAsync(string key, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken) =>
-            start(cancellationToken);
+        public Task<IAppProcesses> AcquireAsync(
+            string key,
+            Func<CancellationToken, Task<IAppProcesses>> start,
+            CancellationToken cancellationToken
+        ) => start(cancellationToken);
     }
 }
 
@@ -48,7 +55,11 @@ internal sealed class SharedAppProcesses : IProcessPool
     // Stops still running, and starts abandoned, by key.
     private readonly Dictionary<string, Task> _draining = new(StringComparer.Ordinal);
 
-    public async Task<IAppProcesses> AcquireAsync(string key, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken)
+    public async Task<IAppProcesses> AcquireAsync(
+        string key,
+        Func<CancellationToken, Task<IAppProcesses>> start,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(start);
@@ -79,7 +90,8 @@ internal sealed class SharedAppProcesses : IProcessPool
                     },
                     CancellationToken.None,
                     TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
+                    TaskScheduler.Default
+                );
                 _entries[key] = existing;
             }
 
@@ -165,7 +177,11 @@ internal sealed class SharedAppProcesses : IProcessPool
         return new Hold(this, key, shared, processes);
     }
 
-    private static async Task<IAppProcesses> StartAfterAsync(Task drained, Func<CancellationToken, Task<IAppProcesses>> start, CancellationToken cancellationToken)
+    private static async Task<IAppProcesses> StartAfterAsync(
+        Task drained,
+        Func<CancellationToken, Task<IAppProcesses>> start,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
@@ -217,7 +233,8 @@ internal sealed class SharedAppProcesses : IProcessPool
         public Task<IAppProcesses> Started { get; set; } = null!;
     }
 
-    private sealed class Hold(SharedAppProcesses pool, string key, SharedEntry shared, IAppProcesses processes) : IAppProcesses
+    private sealed class Hold(SharedAppProcesses pool, string key, SharedEntry shared, IAppProcesses processes)
+        : IAppProcesses
     {
         private int _released;
 

@@ -69,7 +69,9 @@ public sealed class TrackedClientTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task A_request_that_fails_after_the_caller_left_blocks_later_attempts_only_without_a_daemon_answer(bool transportFailure)
+    public async Task A_request_that_fails_after_the_caller_left_blocks_later_attempts_only_without_a_daemon_answer(
+        bool transportFailure
+    )
     {
         var h = Harness.Create();
         var time = new FakeTimeProvider();
@@ -87,9 +89,15 @@ public sealed class TrackedClientTests
         await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await caller.CancelAsync();
         // The failure lands before the abort deadline.
-        daemon.SetException(transportFailure
-            ? new AgentDeviceError("COMMAND_FAILED", "Daemon request failed: connection reset", inner: new HttpRequestException("reset"))
-            : new AgentDeviceError("COMMAND_FAILED", "element not found") { Reported = true });
+        daemon.SetException(
+            transportFailure
+                ? new AgentDeviceError(
+                    "COMMAND_FAILED",
+                    "Daemon request failed: connection reset",
+                    inner: new HttpRequestException("reset")
+                )
+                : new AgentDeviceError("COMMAND_FAILED", "element not found") { Reported = true }
+        );
         await Assert.ThrowsAsync<AgentDeviceError>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
 
         if (transportFailure)

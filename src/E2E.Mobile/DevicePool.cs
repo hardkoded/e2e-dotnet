@@ -72,18 +72,22 @@ internal interface IDeviceSource
 }
 
 /// <summary>The fields agent-device commands select a device by: the platform, then one of a name, a simulator UDID, or an Android serial.</summary>
-public sealed record DeviceSelection(MobilePlatform Platform, string? Device = null, string? Udid = null, string? Serial = null)
+public sealed record DeviceSelection(
+    MobilePlatform Platform,
+    string? Device = null,
+    string? Udid = null,
+    string? Serial = null
+)
 {
     /// <summary>The selection as command options, with any further options beside it.</summary>
     public JsonObject ToArgs(params (string Key, JsonNode? Value)[] more) =>
-        DeviceArgs.Of(
-            [
-                ("platform", JsonValue.Create(Platform.WireName())),
-                ("device", Device is null ? null : JsonValue.Create(Device)),
-                ("udid", Udid is null ? null : JsonValue.Create(Udid)),
-                ("serial", Serial is null ? null : JsonValue.Create(Serial)),
-                .. more,
-            ]);
+        DeviceArgs.Of([
+            ("platform", JsonValue.Create(Platform.WireName())),
+            ("device", Device is null ? null : JsonValue.Create(Device)),
+            ("udid", Udid is null ? null : JsonValue.Create(Udid)),
+            ("serial", Serial is null ? null : JsonValue.Create(Serial)),
+            .. more,
+        ]);
 }
 
 /// <summary>
@@ -141,7 +145,8 @@ public sealed partial class DevicePool
             bindings = _bound.GetValueOrDefault(targetName);
         }
 
-        bindings ??= DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName))) ?? _source.Fallback;
+        bindings ??= DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName)))
+            ?? _source.Fallback;
         if (bindings is null)
         {
             return null;
@@ -152,7 +157,8 @@ public sealed partial class DevicePool
             throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"worker slot {slot} is outside a device pool of {bindings.Count}; the runner must cap the target at the engine's declared workers",
-                retryable: false);
+                retryable: false
+            );
         }
 
         return bindings[slot];
@@ -210,7 +216,10 @@ public sealed partial class DevicePool
         return new MobilePrepareResult
         {
             Workers = bindings.Count,
-            Env = new Dictionary<string, string> { [DeviceBindings.Variable(info.TargetName)] = DeviceBindings.Encode(bindings) },
+            Env = new Dictionary<string, string>
+            {
+                [DeviceBindings.Variable(info.TargetName)] = DeviceBindings.Encode(bindings),
+            },
         };
     }
 
@@ -239,7 +248,8 @@ public sealed partial class DevicePool
         var closing = CleanupBudget.WithinAsync(
             token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
             info.CleanupTimeout,
-            cancellationToken);
+            cancellationToken
+        );
         await Task.WhenAll(closing, _source.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
     }
 
@@ -261,10 +271,13 @@ public sealed partial class DevicePool
             clients = held ?? [];
         }
 
-        await CleanupBudget.WithinAsync(
-            token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
-            E2EDefaults.CleanupTimeout,
-            CancellationToken.None).ConfigureAwait(false);
+        await CleanupBudget
+            .WithinAsync(
+                token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
+                E2EDefaults.CleanupTimeout,
+                CancellationToken.None
+            )
+            .ConfigureAwait(false);
     }
 
     private static async Task CloseQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
@@ -292,7 +305,8 @@ public sealed partial class DevicePool
             return devices.Count == 0
                 ? throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    "mobile: `device` is an empty pool; name at least one simulator or emulator, or omit it to use every booted one")
+                    "mobile: `device` is an empty pool; name at least one simulator or emulator, or omit it to use every booted one"
+                )
                 : new ConfiguredDevices([.. devices.Select(NamedDevice)]);
         }
 
@@ -304,7 +318,10 @@ public sealed partial class DevicePool
     /// <summary>A device name from the options (upstream's <c>namedDevice</c>); a blank one would select no device, and the daemon would refuse several booted ones as ambiguous.</summary>
     private static string NamedDevice(string? device) =>
         string.IsNullOrWhiteSpace(device)
-            ? throw new ConfigurationException("INVALID_CONFIG", "mobile: `device` names a simulator, emulator, or phone by name, UDID, or serial, and must not be blank; omit it to use every booted one")
+            ? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                "mobile: `device` names a simulator, emulator, or phone by name, UDID, or serial, and must not be blank; omit it to use every booted one"
+            )
             : device;
 
     /// <summary>
@@ -320,7 +337,11 @@ public sealed partial class DevicePool
     /// lease says the build is already there. Each slot logs one line of how long its boot, runner start, and open
     /// took, a failed step included.
     /// </summary>
-    private async Task WarmAsync(IReadOnlyList<SlotBinding> bindings, MobilePrepareInfo info, CancellationToken cancellationToken)
+    private async Task WarmAsync(
+        IReadOnlyList<SlotBinding> bindings,
+        MobilePrepareInfo info,
+        CancellationToken cancellationToken
+    )
     {
         for (var slot = 0; slot < bindings.Count; slot++)
         {
@@ -335,12 +356,21 @@ public sealed partial class DevicePool
             var took = new List<string>();
             try
             {
-                await TimedAsync(took, "boot", () => DeviceErrors.RunCommandAsync(
-                    "boot",
-                    token => client.CallAsync(DeviceMethods.DevicesBoot, BootRequest(where), token),
-                    cancellationToken,
-                    at)).ConfigureAwait(false);
-                var runnerUp = _options.Platform != MobilePlatform.Ios || await TimedAsync(took, "iOS runner", () => PrepareRunnerAsync(client, where, info, at, cancellationToken)).ConfigureAwait(false);
+                await TimedAsync(took, "boot", () =>
+                        DeviceErrors.RunCommandAsync(
+                            "boot",
+                            token => client.CallAsync(DeviceMethods.DevicesBoot, BootRequest(where), token),
+                            cancellationToken,
+                            at
+                        )
+                    )
+                    .ConfigureAwait(false);
+                var runnerUp =
+                    _options.Platform != MobilePlatform.Ios
+                    || await TimedAsync(took, "iOS runner", () =>
+                            PrepareRunnerAsync(client, where, info, at, cancellationToken)
+                        )
+                        .ConfigureAwait(false);
                 var app = DeviceBindings.PinnedApp(info.App, binding.InstalledApp);
                 if (app is null || !runnerUp)
                 {
@@ -356,15 +386,27 @@ public sealed partial class DevicePool
 
                 try
                 {
-                    await TimedAsync(took, $"open {app}", () => DeviceErrors.RunCommandAsync(
-                        $"open {app}",
-                        token => client.CallAsync(DeviceMethods.AppsOpen, where.ToArgs(("app", JsonValue.Create(app))), token),
-                        cancellationToken,
-                        at)).ConfigureAwait(false);
+                    await TimedAsync(took, $"open {app}", () =>
+                            DeviceErrors.RunCommandAsync(
+                                $"open {app}",
+                                token =>
+                                    client.CallAsync(
+                                        DeviceMethods.AppsOpen,
+                                        where.ToArgs(("app", JsonValue.Create(app))),
+                                        token
+                                    ),
+                                cancellationToken,
+                                at
+                            )
+                        )
+                        .ConfigureAwait(false);
                 }
-                catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+                catch (Exception cause)
+                    when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
                 {
-                    info.Log($"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it");
+                    info.Log(
+                        $"{label}: {app} did not open ({DeviceErrors.Message(cause)}); the first attempt opens it"
+                    );
                 }
             }
             finally
@@ -387,7 +429,9 @@ public sealed partial class DevicePool
         }
         finally
         {
-            took.Add($"{name} {Stopwatch.GetElapsedTime(start).TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)}s");
+            took.Add(
+                $"{name} {Stopwatch.GetElapsedTime(start).TotalSeconds.ToString("F1", CultureInfo.InvariantCulture)}s"
+            );
         }
     }
 
@@ -397,20 +441,37 @@ public sealed partial class DevicePool
     /// loaded CI Mac outlasts. A runner that is busy or wedged ends the run
     /// here. Any other failure is logged and left to the first attempt. True when the runner is up.
     /// </summary>
-    private static async Task<bool> PrepareRunnerAsync(IDeviceClient client, DeviceSelection where, MobilePrepareInfo info, string at, CancellationToken cancellationToken)
+    private static async Task<bool> PrepareRunnerAsync(
+        IDeviceClient client,
+        DeviceSelection where,
+        MobilePrepareInfo info,
+        string at,
+        CancellationToken cancellationToken
+    )
     {
         try
         {
-            await DeviceErrors.RunCommandAsync(
-                "prepare ios-runner",
-                token => client.CallAsync(DeviceMethods.CommandPrepare, where.ToArgs(("action", JsonValue.Create("ios-runner"))), token),
-                cancellationToken,
-                at).ConfigureAwait(false);
+            await DeviceErrors
+                .RunCommandAsync(
+                    "prepare ios-runner",
+                    token =>
+                        client.CallAsync(
+                            DeviceMethods.CommandPrepare,
+                            where.ToArgs(("action", JsonValue.Create("ios-runner"))),
+                            token
+                        ),
+                    cancellationToken,
+                    at
+                )
+                .ConfigureAwait(false);
             return true;
         }
-        catch (Exception cause) when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
+        catch (Exception cause)
+            when (!cancellationToken.IsCancellationRequested && !DeviceErrors.IsRunnerFailure(cause))
         {
-            info.Log($"{at}: automation runner not prepared ({DeviceErrors.Message(cause)}); the first attempt starts it");
+            info.Log(
+                $"{at}: automation runner not prepared ({DeviceErrors.Message(cause)}); the first attempt starts it"
+            );
             return false;
         }
     }
@@ -447,13 +508,16 @@ public sealed partial class DevicePool
     public static DeviceSelection DeviceSelectionFor(MobilePlatform platform, SlotBinding? binding)
     {
         var device = binding?.Device;
-        var id = binding?.DeviceId ?? (device is not null && (Udid().IsMatch(device) || EmulatorSerial().IsMatch(device)) ? device : null);
+        var id = binding?.DeviceId
+            ?? (device is not null && (Udid().IsMatch(device) || EmulatorSerial().IsMatch(device)) ? device : null);
         if (id is null)
         {
             return new DeviceSelection(platform, device);
         }
 
-        return platform == MobilePlatform.Android ? new DeviceSelection(platform, Serial: id) : new DeviceSelection(platform, Udid: id);
+        return platform == MobilePlatform.Android
+            ? new DeviceSelection(platform, Serial: id)
+            : new DeviceSelection(platform, Udid: id);
     }
 
     /// <summary>An Apple simulator UDID.</summary>
@@ -489,7 +553,11 @@ internal sealed record BootedDevice(string Id, string Name, string? ClaimedBy = 
 /// Every booted device of the platform no other agent-device session holds, as many as the run has slots. With none
 /// booted, one slot that boots a shut-down simulator or emulator agent-device picks. A device held by one of this target's own slot sessions stays in the pool.
 /// </summary>
-internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory createClient, Func<string, int, string> session) : IDeviceSource
+internal sealed class BootedDevices(
+    MobilePlatform platform,
+    DeviceClientFactory createClient,
+    Func<string, int, string> session
+) : IDeviceSource
 {
     public int? Size => null;
 
@@ -507,17 +575,22 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
             throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 $"every booted {platform.WireName()} device is held by another agent-device session ({heldBy}); boot another one, close a holding session, or name the device in the target's `device` option",
-                retryable: false);
+                retryable: false
+            );
         }
 
         if (chosen.Count == 0)
         {
-            info.Log($"no booted {platform.WireName()} device; agent-device boots a shut-down one (iPhone over iPad over Apple TV on iOS, phone or tablet over TV on Android, then newest OS, then name)");
+            info.Log(
+                $"no booted {platform.WireName()} device; agent-device boots a shut-down one (iPhone over iPad over Apple TV on iOS, phone or tablet over TV on Android, then newest OS, then name)"
+            );
             return [new SlotBinding()];
         }
 
         var skipped = held.Count == 0 ? "" : $", skipping {held.Count} held by another agent-device session ({heldBy})";
-        info.Log($"{booted.Count} booted {platform.WireName()} device(s){skipped}; driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}");
+        info.Log(
+            $"{booted.Count} booted {platform.WireName()} device(s){skipped}; driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}"
+        );
         return [.. chosen.Select(device => new SlotBinding { DeviceId = device.Id })];
     }
 
@@ -525,10 +598,18 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
     private async Task<List<BootedDevice>> InventoryAsync(string targetName, CancellationToken cancellationToken)
     {
         var client = createClient(session(targetName, 0), null);
-        var inventory = await DeviceErrors.RunCommandAsync(
-            "devices",
-            token => client.CallAsync(DeviceMethods.DevicesList, DeviceArgs.Of(("platform", JsonValue.Create(platform.WireName()))), token),
-            cancellationToken).ConfigureAwait(false);
+        var inventory = await DeviceErrors
+            .RunCommandAsync(
+                "devices",
+                token =>
+                    client.CallAsync(
+                        DeviceMethods.DevicesList,
+                        DeviceArgs.Of(("platform", JsonValue.Create(platform.WireName()))),
+                        token
+                    ),
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         if (inventory is not JsonArray devices)
         {
             return [];
@@ -537,17 +618,28 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
         var result = new List<BootedDevice>();
         foreach (var node in devices)
         {
-            if (node is JsonObject device
+            if (
+                node is JsonObject device
                 && Text(device["id"]) is { } id
-                && device["booted"] is JsonValue { } booted && booted.TryGetValue<bool>(out var isBooted) && isBooted
-                && Text(device["platform"]) == platform.WireName())
+                && device["booted"] is JsonValue { } booted
+                && booted.TryGetValue<bool>(out var isBooted)
+                && isBooted
+                && Text(device["platform"]) == platform.WireName()
+            )
             {
-                result.Add(new BootedDevice(id, Text(device["name"]) ?? id, device["claimedBy"] is JsonObject claim ? Text(claim["session"]) : null));
+                result.Add(
+                    new BootedDevice(
+                        id,
+                        Text(device["name"]) ?? id,
+                        device["claimedBy"] is JsonObject claim ? Text(claim["session"]) : null
+                    )
+                );
             }
         }
 
         return result;
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
+    private static string? Text(JsonNode? node) =>
+        node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 }

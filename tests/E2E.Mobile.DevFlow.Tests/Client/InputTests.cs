@@ -14,7 +14,10 @@ public sealed class InputTests
     {
         var (client, agent) = await DevFlow.ReadAsync();
 
-        await client.CallAsync(DeviceMethods.InteractionsPress, """{"ref":"@btn_greet","settle":true,"settleQuietMs":150}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsPress,
+            """{"ref":"@btn_greet","settle":true,"settleQuietMs":150}"""
+        );
 
         var call = Assert.Single(agent.Calls);
         Assert.Equal("POST /api/v1/ui/actions/tap", call.Route);
@@ -35,8 +38,14 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.CaptureSnapshot, "{}");
 
         Assert.Equal(2, agent.LeaseCalls.Count);
-        Json.AssertEqual("""{"action":"claim","leaseId":"lease-1","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""", agent.LeaseCalls[0].Body);
-        Assert.Equal(["POST /api/v1/ui/actions/tap", "POST /api/v1/ui/actions/fill", "GET /api/v1/ui/tree"], agent.Calls.Select(call => call.Route));
+        Json.AssertEqual(
+            """{"action":"claim","leaseId":"lease-1","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""",
+            agent.LeaseCalls[0].Body
+        );
+        Assert.Equal(
+            ["POST /api/v1/ui/actions/tap", "POST /api/v1/ui/actions/fill", "GET /api/v1/ui/tree"],
+            agent.Calls.Select(call => call.Route)
+        );
     }
 
     [Fact]
@@ -75,7 +84,10 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.InteractionsPress, """{"x":100,"y":270.5}""");
 
         // The agent's tap takes an element, so a point is hit-tested to the topmost element there first.
-        Assert.Equal(["POST /api/v1/ui/actions/gesture", "GET /api/v1/ui/hit-test", "POST /api/v1/ui/actions/tap"], agent.Calls.Select(call => call.Route));
+        Assert.Equal(
+            ["POST /api/v1/ui/actions/gesture", "GET /api/v1/ui/hit-test", "POST /api/v1/ui/actions/tap"],
+            agent.Calls.Select(call => call.Route)
+        );
         Json.AssertEqual("""{"elementId":"btn_greet","captureEpoch":7,"type":"doubletap"}""", agent.Calls[0].Body);
         Assert.Equal(("100", "270.5"), (agent.Calls[1].Query("x"), agent.Calls[1].Query("y")));
         Json.AssertEqual("""{"elementId":"btn_greet","captureEpoch":7}""", agent.Calls[2].Body);
@@ -87,8 +99,20 @@ public sealed class InputTests
         var (client, agent) = await DevFlow.ReadAsync();
         var changing = 1;
         agent.Script("GET", "/api/v1/ui/hit-test", _ => changing-- > 0
-            ? FakeAgent.Failure(HttpStatusCode.Conflict, "The UI changed while it was being captured. Retry the tree, query, or hit-test request.", "capture-changed-during-read")
-            : FakeAgent.Json(new JsonObject { ["x"] = 100, ["y"] = 270.5, ["captureEpoch"] = 7, ["elements"] = new JsonArray(new JsonObject { ["id"] = "btn_greet" }) }));
+                ? FakeAgent.Failure(
+                    HttpStatusCode.Conflict,
+                    "The UI changed while it was being captured. Retry the tree, query, or hit-test request.",
+                    "capture-changed-during-read"
+                )
+                : FakeAgent.Json(
+                    new JsonObject
+                    {
+                        ["x"] = 100,
+                        ["y"] = 270.5,
+                        ["captureEpoch"] = 7,
+                        ["elements"] = new JsonArray(new JsonObject { ["id"] = "btn_greet" }),
+                    }
+                ));
 
         await client.CallAsync(DeviceMethods.InteractionsPress, """{"x":100,"y":270.5}""");
 
@@ -100,7 +124,17 @@ public sealed class InputTests
     public async Task A_tap_at_a_point_with_nothing_under_it_fails()
     {
         var (client, agent) = await DevFlow.ReadAsync();
-        agent.ScriptJson("GET", "/api/v1/ui/hit-test", new JsonObject { ["x"] = 1, ["y"] = 1, ["captureEpoch"] = 7, ["elements"] = new JsonArray() });
+        agent.ScriptJson(
+            "GET",
+            "/api/v1/ui/hit-test",
+            new JsonObject
+            {
+                ["x"] = 1,
+                ["y"] = 1,
+                ["captureEpoch"] = 7,
+                ["elements"] = new JsonArray(),
+            }
+        );
 
         var failure = await client.FailureAsync(DeviceMethods.InteractionsPress, """{"x":1,"y":1}""");
 
@@ -116,8 +150,14 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.InteractionsLongPress, """{"ref":"@lbl_link"}""");
         await client.CallAsync(DeviceMethods.InteractionsLongPress, """{"ref":"@lbl_link","durationMs":1500}""");
 
-        Json.AssertEqual("""{"elementId":"lbl_link","captureEpoch":7,"type":"longpress","durationMs":1000}""", agent.Calls[0].Body);
-        Json.AssertEqual("""{"elementId":"lbl_link","captureEpoch":7,"type":"longpress","durationMs":1500}""", agent.Calls[1].Body);
+        Json.AssertEqual(
+            """{"elementId":"lbl_link","captureEpoch":7,"type":"longpress","durationMs":1000}""",
+            agent.Calls[0].Body
+        );
+        Json.AssertEqual(
+            """{"elementId":"lbl_link","captureEpoch":7,"type":"longpress","durationMs":1500}""",
+            agent.Calls[1].Body
+        );
     }
 
     [Fact]
@@ -128,7 +168,10 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.InteractionsFill, """{"ref":"@entry_name","text":"Grace"}""");
         await client.CallAsync(DeviceMethods.InteractionsFill, """{"ref":"@entry_name","text":""}""");
 
-        Assert.Equal(["POST /api/v1/ui/actions/fill", "POST /api/v1/ui/actions/clear"], agent.Calls.Select(call => call.Route));
+        Assert.Equal(
+            ["POST /api/v1/ui/actions/fill", "POST /api/v1/ui/actions/clear"],
+            agent.Calls.Select(call => call.Route)
+        );
         Json.AssertEqual("""{"elementId":"entry_name","captureEpoch":7,"text":"Grace"}""", agent.Calls[0].Body);
         Json.AssertEqual("""{"elementId":"entry_name","captureEpoch":7}""", agent.Calls[1].Body);
     }
@@ -142,9 +185,23 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.InteractionsType, """{"text":"delete"}""");
 
         // The key is a word that names no key, so the agent appends the text instead of reading "delete" as the key it also is.
-        Assert.Equal(["GET /api/v1/ui/tree", "POST /api/v1/ui/actions/key", "GET /api/v1/ui/tree", "POST /api/v1/ui/actions/key"], agent.Calls.Select(call => call.Route));
-        Json.AssertEqual("""{"elementId":"entry_name","captureEpoch":7,"key":"text","text":"Ada"}""", agent.Calls[1].Body);
-        Json.AssertEqual("""{"elementId":"entry_name","captureEpoch":7,"key":"text","text":"delete"}""", agent.Calls[3].Body);
+        Assert.Equal(
+            [
+                "GET /api/v1/ui/tree",
+                "POST /api/v1/ui/actions/key",
+                "GET /api/v1/ui/tree",
+                "POST /api/v1/ui/actions/key",
+            ],
+            agent.Calls.Select(call => call.Route)
+        );
+        Json.AssertEqual(
+            """{"elementId":"entry_name","captureEpoch":7,"key":"text","text":"Ada"}""",
+            agent.Calls[1].Body
+        );
+        Json.AssertEqual(
+            """{"elementId":"entry_name","captureEpoch":7,"key":"text","text":"delete"}""",
+            agent.Calls[3].Body
+        );
     }
 
     [Fact]
@@ -167,7 +224,10 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.CommandKeyboard, """{"action":"enter"}""");
         var error = await client.FailureAsync(DeviceMethods.CommandKeyboard, """{"action":"dismiss"}""");
 
-        Json.AssertEqual("""{"elementId":"entry_name","captureEpoch":7,"key":"Enter"}""", agent.Sent("POST /api/v1/ui/actions/key").Single().Body);
+        Json.AssertEqual(
+            """{"elementId":"entry_name","captureEpoch":7,"key":"Enter"}""",
+            agent.Sent("POST /api/v1/ui/actions/key").Single().Body
+        );
         Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
     }
 
@@ -180,7 +240,10 @@ public sealed class InputTests
         await client.CallAsync(DeviceMethods.InteractionsScroll, """{"direction":"left","amount":0.25}""");
 
         Json.AssertEqual("""{"type":"swipe","direction":"up","distance":422,"durationMs":200}""", agent.Calls[0].Body);
-        Json.AssertEqual("""{"type":"swipe","direction":"right","distance":97.5,"durationMs":200}""", agent.Calls[1].Body);
+        Json.AssertEqual(
+            """{"type":"swipe","direction":"right","distance":97.5,"durationMs":200}""",
+            agent.Calls[1].Body
+        );
     }
 
     [Fact]
@@ -188,9 +251,15 @@ public sealed class InputTests
     {
         var (client, agent) = await DevFlow.ReadAsync();
 
-        await client.CallAsync(DeviceMethods.InteractionsScroll, """{"ref":"@scroll_0","direction":"down","amount":0.5}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsScroll,
+            """{"ref":"@scroll_0","direction":"down","amount":0.5}"""
+        );
 
-        Json.AssertEqual("""{"elementId":"scroll_0","captureEpoch":7,"type":"swipe","direction":"up","distance":375.5,"durationMs":200}""", Assert.Single(agent.Calls).Body);
+        Json.AssertEqual(
+            """{"elementId":"scroll_0","captureEpoch":7,"type":"swipe","direction":"up","distance":375.5,"durationMs":200}""",
+            Assert.Single(agent.Calls).Body
+        );
     }
 
     [Fact]
@@ -198,9 +267,15 @@ public sealed class InputTests
     {
         var (client, agent) = await DevFlow.ReadAsync();
 
-        await client.CallAsync(DeviceMethods.InteractionsSwipe, """{"from":{"x":200,"y":600},"to":{"x":200,"y":300}}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsSwipe,
+            """{"from":{"x":200,"y":600},"to":{"x":200,"y":300}}"""
+        );
 
-        Json.AssertEqual("""{"type":"swipe","direction":"up","distance":300,"durationMs":200}""", Assert.Single(agent.Calls).Body);
+        Json.AssertEqual(
+            """{"type":"swipe","direction":"up","distance":300,"durationMs":200}""",
+            Assert.Single(agent.Calls).Body
+        );
     }
 
     [Fact]
@@ -208,9 +283,15 @@ public sealed class InputTests
     {
         var (client, agent) = await DevFlow.ReadAsync();
 
-        await client.CallAsync(DeviceMethods.InteractionsPan, """{"ref":"@scroll_0","dx":-40,"dy":120,"durationMs":500}""");
+        await client.CallAsync(
+            DeviceMethods.InteractionsPan,
+            """{"ref":"@scroll_0","dx":-40,"dy":120,"durationMs":500}"""
+        );
 
-        Json.AssertEqual("""{"elementId":"scroll_0","captureEpoch":7,"type":"pan","deltaX":-40,"deltaY":120,"durationMs":500}""", Assert.Single(agent.Calls).Body);
+        Json.AssertEqual(
+            """{"elementId":"scroll_0","captureEpoch":7,"type":"pan","deltaX":-40,"deltaY":120,"durationMs":500}""",
+            Assert.Single(agent.Calls).Body
+        );
     }
 
     [Fact]
@@ -224,10 +305,18 @@ public sealed class InputTests
     }
 
     [Theory]
-    [InlineData(HttpStatusCode.Conflict, "The UI snapshot is stale. Capture the tree or hit-test again before acting.", "stale-capture-epoch")]
+    [InlineData(
+        HttpStatusCode.Conflict,
+        "The UI snapshot is stale. Capture the tree or hit-test again before acting.",
+        "stale-capture-epoch"
+    )]
     [InlineData(HttpStatusCode.BadRequest, "Element not found", null)]
     [InlineData(HttpStatusCode.NotFound, "No element found with ID 'btn_greet'.", "element-not-found")]
-    public async Task A_target_the_agent_no_longer_has_is_a_stale_node(HttpStatusCode status, string error, string? reason)
+    public async Task A_target_the_agent_no_longer_has_is_a_stale_node(
+        HttpStatusCode status,
+        string error,
+        string? reason
+    )
     {
         var (client, agent) = await DevFlow.ReadAsync();
         agent.ScriptFailure("POST", "/api/v1/ui/actions/tap", status, error, reason);
@@ -243,7 +332,12 @@ public sealed class InputTests
     public async Task An_action_the_agent_refuses_for_another_reason_fails_the_command()
     {
         var (client, agent) = await DevFlow.ReadAsync();
-        agent.ScriptFailure("POST", "/api/v1/ui/actions/fill", HttpStatusCode.BadRequest, "Element 'btn_greet' does not accept text input");
+        agent.ScriptFailure(
+            "POST",
+            "/api/v1/ui/actions/fill",
+            HttpStatusCode.BadRequest,
+            "Element 'btn_greet' does not accept text input"
+        );
 
         var failure = await client.FailureAsync(DeviceMethods.InteractionsFill, """{"ref":"@btn_greet","text":"x"}""");
 
@@ -256,7 +350,13 @@ public sealed class InputTests
     public async Task An_action_this_agent_does_not_serve_is_an_unsupported_capability()
     {
         var (client, agent) = await DevFlow.ReadAsync();
-        agent.ScriptFailure("POST", "/api/v1/ui/actions/gesture", HttpStatusCode.NotImplemented, "Not supported by the 'android-views' DevFlow backend.", "not_supported");
+        agent.ScriptFailure(
+            "POST",
+            "/api/v1/ui/actions/gesture",
+            HttpStatusCode.NotImplemented,
+            "Not supported by the 'android-views' DevFlow backend.",
+            "not_supported"
+        );
 
         var failure = await client.FailureAsync(DeviceMethods.InteractionsLongPress, """{"ref":"@lbl_link"}""");
 
@@ -274,7 +374,13 @@ public sealed class InputTests
             HttpStatusCode.Conflict,
             "Another DevFlow session is driving this app. Take control before mutating it.",
             "lease",
-            new JsonObject { ["HolderKind"] = "mcp", ["Label"] = "Copilot", ["ExpiresInMs"] = 8000 });
+            new JsonObject
+            {
+                ["HolderKind"] = "mcp",
+                ["Label"] = "Copilot",
+                ["ExpiresInMs"] = 8000,
+            }
+        );
 
         var failure = await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@btn_greet"}""");
 
@@ -287,7 +393,13 @@ public sealed class InputTests
     public async Task A_mutation_refused_for_a_lease_nobody_holds_says_the_lease_lapsed()
     {
         var (client, agent) = await DevFlow.ReadAsync();
-        agent.ScriptFailure("POST", "/api/v1/ui/actions/tap", HttpStatusCode.Conflict, "Another DevFlow session is driving this app.", "lease");
+        agent.ScriptFailure(
+            "POST",
+            "/api/v1/ui/actions/tap",
+            HttpStatusCode.Conflict,
+            "Another DevFlow session is driving this app.",
+            "lease"
+        );
 
         var failure = await client.FailureAsync(DeviceMethods.InteractionsPress, """{"ref":"@btn_greet"}""");
 
@@ -300,7 +412,10 @@ public sealed class InputTests
     [InlineData(DeviceMethods.InteractionsPress, """{"x":10,"y":10,"count":2}""")]
     [InlineData(DeviceMethods.InteractionsDrag, """{"source":"@btn_greet","destination":"@btn_increment"}""")]
     [InlineData(DeviceMethods.InteractionsHover, """{"ref":"@btn_greet"}""")]
-    public async Task Refuses_the_gestures_the_agent_has_no_equivalent_for_without_sending_anything(string method, string options)
+    public async Task Refuses_the_gestures_the_agent_has_no_equivalent_for_without_sending_anything(
+        string method,
+        string options
+    )
     {
         var (client, agent) = await DevFlow.ReadAsync();
 

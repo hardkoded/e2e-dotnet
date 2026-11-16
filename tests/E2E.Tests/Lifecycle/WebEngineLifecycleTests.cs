@@ -49,7 +49,12 @@ public sealed class WebEngineLifecycleTests
         var engine = new WebEngine(new WebEngineOptions { Headless = true });
         await using var first = await OpenAttemptAsync(engine, site.Url);
 
-        var refused = await Assert.ThrowsAsync<EngineException>(() => engine.StartAsync(new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None));
+        var refused = await Assert.ThrowsAsync<EngineException>(() =>
+            engine.StartAsync(
+                new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
+                CancellationToken.None
+            )
+        );
         Assert.Equal("INVALID_STATE", refused.Code);
         Assert.False(refused.Retryable);
 
@@ -67,7 +72,10 @@ public sealed class WebEngineLifecycleTests
     public async Task Round_trips_persisted_state_through_capture_and_restore_and_reset_drops_it()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await OpenAttemptAsync(new WebEngine(new WebEngineOptions { Headless = true }), site.Url);
+        await using var session = await OpenAttemptAsync(
+            new WebEngine(new WebEngineOptions { Headless = true }),
+            site.Url
+        );
 
         await session.OpenAsync(site.Url + "state?set=abc", CancellationToken.None);
         Assert.Equal("abc", await HeadingAsync(session));
@@ -90,7 +98,12 @@ public sealed class WebEngineLifecycleTests
         await session.OpenAsync(site.Url + "state", CancellationToken.None);
         Assert.Equal("abc", await HeadingAsync(session));
 
-        var invalid = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, System.Text.Json.Nodes.JsonValue.Create("/etc/passwd")), CancellationToken.None));
+        var invalid = await Assert.ThrowsAsync<EngineException>(() =>
+            session.RestoreStateAsync(
+                new EngineState("playwright-storage-state", 1, System.Text.Json.Nodes.JsonValue.Create("/etc/passwd")),
+                CancellationToken.None
+            )
+        );
         Assert.Equal("INVALID_STATE", invalid.Code);
     }
 
@@ -98,7 +111,10 @@ public sealed class WebEngineLifecycleTests
     public async Task Follows_the_window_under_viewport_null_and_swipes_by_it()
     {
         using var site = await FixtureApp.StartAsync();
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true, Viewport = null });
+        await using var session = await WebSemanticsTests.OpenAsync(
+            site.Url + "form",
+            new WebEngineOptions { Headless = true, Viewport = null }
+        );
         var page = WebEngine.SurfaceOf(session)!.Page();
         Assert.Null(page.ViewportSize);
         var measured = await page.EvaluateAsync<int[]>("() => [innerWidth, innerHeight]");
@@ -108,7 +124,10 @@ public sealed class WebEngineLifecycleTests
         await session.SwipeAsync(ScrollDirection.Down, CancellationToken.None);
         await page.WaitForFunctionAsync("() => window.scrollY > 0");
         // The swipe moves three quarters of the window height (upstream moves half).
-        Assert.Equal((int)Math.Round(measured[1] * 0.75, MidpointRounding.AwayFromZero), await page.EvaluateAsync<int>("() => window.scrollY"));
+        Assert.Equal(
+            (int)Math.Round(measured[1] * 0.75, MidpointRounding.AwayFromZero),
+            await page.EvaluateAsync<int>("() => window.scrollY")
+        );
     }
 
     [Fact]
@@ -117,7 +136,8 @@ public sealed class WebEngineLifecycleTests
         using var site = await FixtureApp.StartAsync();
         await using var session = await new WebEngine(new WebEngineOptions { Headless = true }).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         var error = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(CancellationToken.None));
         Assert.Equal("INVALID_STATE", error.Code);
     }
@@ -128,7 +148,8 @@ public sealed class WebEngineLifecycleTests
         using var site = await FixtureApp.StartAsync();
         await using var session = await new WebEngine(new WebEngineOptions { Headless = true }).StartAsync(
             new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
-            CancellationToken.None);
+            CancellationToken.None
+        );
         using var controller = new CancellationTokenSource();
         var started = System.Diagnostics.Stopwatch.StartNew();
         var pending = session.OpenAsync(site.Url + "slow", controller.Token);
@@ -141,25 +162,31 @@ public sealed class WebEngineLifecycleTests
     [Fact]
     public async Task Reports_the_configured_test_id_attribute_as_testId_on_observed_and_located_nodes_alike()
     {
-        using var site = await TinySite.StartAsync("""
+        using var site = await TinySite.StartAsync(
+            """
             <!DOCTYPE html>
             <html><body><button data-qa="go">Go</button><button data-testid="stop">Stop</button></body></html>
-            """);
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true, TestIdAttribute = "data-qa" }),
-            BaseUrl = site.Url,
-            TestTitle = "web engine lifecycle > test id",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+            """
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true, TestIdAttribute = "data-qa" }),
+                BaseUrl = site.Url,
+                TestTitle = "web engine lifecycle > test id",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         Exception? failure = null;
         try
         {
             await session.App.OpenAsync("/");
-            var observed = WebSemanticsTests.Flatten((await session.Screen.ObserveAsync(CancellationToken.None)).Roots).ToList();
+            var observed = WebSemanticsTests
+                .Flatten((await session.Screen.ObserveAsync(CancellationToken.None)).Roots)
+                .ToList();
             var go = observed.Single(node => node.Name == "Go");
             var stop = observed.Single(node => node.Name == "Stop");
             Assert.Equal("go", go.TestId);
@@ -167,7 +194,12 @@ public sealed class WebEngineLifecycleTests
             // The tree carries the id as a field, not as an attribute.
             Assert.False(go.Attributes.ContainsKey("data-qa"));
 
-            Assert.Equal(["go"], (await session.Screen.GetByTestId("go").ResolveAsync(CancellationToken.None)).Select(node => node.TestId));
+            Assert.Equal(
+                ["go"],
+                (await session.Screen.GetByTestId("go").ResolveAsync(CancellationToken.None)).Select(node =>
+                    node.TestId
+                )
+            );
             Assert.Empty(await session.Screen.GetByTestId("stop").ResolveAsync(CancellationToken.None));
         }
         catch (Exception ex)
@@ -189,10 +221,19 @@ public sealed class WebEngineLifecycleTests
         Assert.Equal("web", ((IEngine)engine).Name);
         // The port's capabilities are flags with no pointer, artifacts, or browser member: the pointer kinds are the session's own list,
         // and the browser fixture (Browser) is always there.
-        const EngineCapabilities Tier = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard | EngineCapabilities.ComputedStyle | EngineCapabilities.State;
+        const EngineCapabilities Tier =
+            EngineCapabilities.Observation
+            | EngineCapabilities.Actions
+            | EngineCapabilities.Location
+            | EngineCapabilities.Keyboard
+            | EngineCapabilities.ComputedStyle
+            | EngineCapabilities.State;
         Assert.Equal(Tier, engine.Capabilities & Tier);
         Assert.True(engine.Capabilities.HasFlag(EngineCapabilities.Screenshot | EngineCapabilities.Video));
-        await using var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None);
+        await using var session = await engine.StartAsync(
+            new EngineStartOptions { BaseUrl = site.Url, ActionTimeout = TimeSpan.FromSeconds(10) },
+            CancellationToken.None
+        );
         Assert.NotEmpty(session.PointerActionKinds);
     }
 
@@ -222,7 +263,17 @@ public sealed class WebEngineLifecycleTests
         var page = WebEngine.SurfaceOf(session)!.Page();
         var viewport = page.ViewportSize!;
         // Observations, actions, and captures run as they would without a recording.
-        var observed = WebSemanticsTests.Flatten((await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(10), CancellationToken.None)).Roots).ToList();
+        var observed = WebSemanticsTests
+            .Flatten(
+                (
+                    await session.ObserveAsync(
+                        new ObserveOptions { Pixels = true },
+                        TimeSpan.FromSeconds(10),
+                        CancellationToken.None
+                    )
+                ).Roots
+            )
+            .ToList();
         var textbox = observed.First(node => node.Role == "textbox" && node.Name == "First");
         await session.PerformAsync(textbox, new LocatorAction.Fill("recorded"), CancellationToken.None);
         await session.ScreenshotArtifactAsync("shot", CancellationToken.None);
@@ -239,7 +290,10 @@ public sealed class WebEngineLifecycleTests
         await session.OpenAsync(site.Url, CancellationToken.None);
         await SettleAsync(WebEngine.SurfaceOf(session)!.Page());
         var segments = VideoFiles(await session.StopVideoAsync(CancellationToken.None));
-        Assert.Equal(["video/video.webm", "video/video-part2.webm", "video/video-part3.webm"], segments.Select(segment => segment.Path));
+        Assert.Equal(
+            ["video/video.webm", "video/video-part2.webm", "video/video-part3.webm"],
+            segments.Select(segment => segment.Path)
+        );
         var viewer = WebEngine.SurfaceOf(session)!.Page();
         foreach (var segment in segments)
         {
@@ -269,7 +323,10 @@ public sealed class WebEngineLifecycleTests
         Assert.Equal(["video/video.webm", "video/video-part2.webm"], segments.Select(segment => segment.Path));
         foreach (var segment in segments)
         {
-            var frame = await LastFrameAsync(viewer, await File.ReadAllBytesAsync(Path.Combine(dir.Path, segment.Path)));
+            var frame = await LastFrameAsync(
+                viewer,
+                await File.ReadAllBytesAsync(Path.Combine(dir.Path, segment.Path))
+            );
             Assert.True(frame.Width == viewport.Width && frame.Height == viewport.Height, segment.Path);
             Assert.True(frame.Padded < 0.01, segment.Path + " padded");
             Assert.True(frame.Inked > 0.0005, segment.Path + " inked");
@@ -324,7 +381,10 @@ public sealed class WebEngineLifecycleTests
         await using (var first = await StartWithArtifactsAsync(engine, site.Url, dir.Path))
         {
             await first.OpenAsync(site.Url + "login", CancellationToken.None);
-            Assert.Equal("screenshots/001-first.png", await first.ScreenshotArtifactAsync("first", CancellationToken.None));
+            Assert.Equal(
+                "screenshots/001-first.png",
+                await first.ScreenshotArtifactAsync("first", CancellationToken.None)
+            );
         }
 
         await using var second = await StartWithArtifactsAsync(engine, site.Url, dir.Path);
@@ -354,7 +414,11 @@ public sealed class WebEngineLifecycleTests
 
     /// <summary>The segments as files: a local recording never links, so a link here is a failure.</summary>
     private static List<VideoFile> VideoFiles(IReadOnlyList<VideoSegment> segments) =>
-        [.. segments.Select(segment => segment as VideoFile ?? throw new InvalidOperationException("expected a video file, got a link"))];
+        [
+            .. segments.Select(segment =>
+                segment as VideoFile ?? throw new InvalidOperationException("expected a video file, got a link")
+            ),
+        ];
 
     // Upstream waits for a painted frame its spy on page.screencast.start saw. The port cannot spy, and the recorder exposes no frame signal, so
     // the wait is on what the page shows: it has loaded and has produced two animation frames, and a screenshot forces the repaint that makes
@@ -362,11 +426,19 @@ public sealed class WebEngineLifecycleTests
     private static async Task SettleAsync(IPage page)
     {
         await page.WaitForLoadStateAsync(LoadState.Load);
-        await page.EvaluateAsync("() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))");
+        await page.EvaluateAsync(
+            "() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))"
+        );
         await page.ScreenshotAsync();
     }
 
-    private static async Task AssertSegmentAtViewportAsync(IPage viewer, string dir, VideoFile segment, int width, int height)
+    private static async Task AssertSegmentAtViewportAsync(
+        IPage viewer,
+        string dir,
+        VideoFile segment,
+        int width,
+        int height
+    )
     {
         var absolute = Path.Combine(dir, segment.Path);
         Assert.True(File.Exists(absolute), segment.Path);
@@ -374,7 +446,14 @@ public sealed class WebEngineLifecycleTests
         var bytes = await File.ReadAllBytesAsync(absolute);
         // Every WebM file opens with the EBML magic.
         Assert.Equal("1a45dfa3", Convert.ToHexStringLower(bytes.AsSpan(0, 4)));
-        Assert.True(DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out _));
+        Assert.True(
+            DateTimeOffset.TryParse(
+                segment.StartedAt,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out _
+            )
+        );
         // Every segment shows the page at the attempt's viewport size: no grey padding from a screencast another client sized smaller,
         // and some ink, so the page painted into it.
         var frame = await LastFrameAsync(viewer, bytes);
@@ -423,15 +502,29 @@ public sealed class WebEngineLifecycleTests
               return { width: canvas.width, height: canvas.height, padded: padded / total, inked: inked / total };
             }
             """,
-            Convert.ToBase64String(webm));
-        return new Frame(result.GetProperty("width").GetInt32(), result.GetProperty("height").GetInt32(), result.GetProperty("padded").GetDouble(), result.GetProperty("inked").GetDouble());
+            Convert.ToBase64String(webm)
+        );
+        return new Frame(
+            result.GetProperty("width").GetInt32(),
+            result.GetProperty("height").GetInt32(),
+            result.GetProperty("padded").GetDouble(),
+            result.GetProperty("inked").GetDouble()
+        );
     }
 
     private static Task<IEngineSession> StartWithArtifactsAsync(string url, string artifactsDir) =>
         StartWithArtifactsAsync(new WebEngine(new WebEngineOptions { Headless = true }), url, artifactsDir);
 
     private static Task<IEngineSession> StartWithArtifactsAsync(WebEngine engine, string url, string artifactsDir) =>
-        engine.StartAsync(new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10), ArtifactsDir = artifactsDir }, CancellationToken.None);
+        engine.StartAsync(
+            new EngineStartOptions
+            {
+                BaseUrl = url,
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                ArtifactsDir = artifactsDir,
+            },
+            CancellationToken.None
+        );
 
     private sealed class TempDirectory : IDisposable
     {
@@ -453,11 +546,17 @@ public sealed class WebEngineLifecycleTests
     /// <summary>Starts an attempt on <paramref name="engine"/> and opens the home page.</summary>
     private static async Task<IEngineSession> OpenAttemptAsync(WebEngine engine, string url)
     {
-        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10) }, CancellationToken.None);
+        var session = await engine.StartAsync(
+            new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10) },
+            CancellationToken.None
+        );
         await session.OpenAsync(url, CancellationToken.None);
         return session;
     }
 
     private static async Task<string?> HeadingAsync(IEngineSession session) =>
-        WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).First(node => node.Role == "heading").Name;
+        WebSemanticsTests
+            .Flatten((await session.ObserveAsync(CancellationToken.None)).Roots)
+            .First(node => node.Role == "heading")
+            .Name;
 }

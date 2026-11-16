@@ -22,13 +22,18 @@ public sealed class StepRecorderRecordAppEventTests
     public async Task Keeps_a_line_with_the_running_step_a_late_one_with_the_last_step_and_an_early_one_with_none()
     {
         var steps = new StepRecorder("attempt");
-        steps.RecordAppEvent(Log(new AppLogEntry(AppLogSource.Network, AppLogLevel.Warning, "GET /favicon.ico 404")), DateTimeOffset.Parse("2026-01-01T00:00:00.000Z"));
+        steps.RecordAppEvent(
+            Log(new AppLogEntry(AppLogSource.Network, AppLogLevel.Warning, "GET /favicon.ico 404")),
+            DateTimeOffset.Parse("2026-01-01T00:00:00.000Z")
+        );
         await steps.RunAsync(StepKind.App, "app.open", "/", () =>
         {
             steps.RecordAppEvent(Log(Error));
             return Task.CompletedTask;
         });
-        steps.RecordAppEvent(Log(new AppLogEntry(AppLogSource.Error, AppLogLevel.Error, "TypeError:   x\n  is undefined")));
+        steps.RecordAppEvent(
+            Log(new AppLogEntry(AppLogSource.Error, AppLogLevel.Error, "TypeError:   x\n  is undefined"))
+        );
 
         Assert.Equal(
             [
@@ -36,7 +41,8 @@ public sealed class StepRecorderRecordAppEventTests
                 (AppLogSource.Console, AppLogLevel.Error, "boom", 0),
                 (AppLogSource.Error, AppLogLevel.Error, "TypeError: x is undefined", 0),
             ],
-            steps.AppLog().Select(entry => (entry.Source, entry.Level, entry.Text, entry.Step)));
+            steps.AppLog().Select(entry => (entry.Source, entry.Level, entry.Text, entry.Step))
+        );
         Assert.Empty(steps.All()[0].Events);
     }
 
@@ -61,10 +67,15 @@ public sealed class StepRecorderRecordAppEventTests
     [Fact]
     public async Task Redacts_a_line_before_cutting_it_to_the_report_bound_and_counts_errors_and_info_apart_against_their_caps()
     {
-        var steps = new StepRecorder("attempt", new StepRecorderOptions { Redact = text => text.Replace("hunter2", "[secret]", StringComparison.Ordinal) });
+        var steps = new StepRecorder(
+            "attempt",
+            new StepRecorderOptions { Redact = text => text.Replace("hunter2", "[secret]", StringComparison.Ordinal) }
+        );
         await steps.RunAsync(StepKind.App, "app.open", "/", () =>
         {
-            steps.RecordAppEvent(Log(new AppLogEntry(AppLogSource.Console, AppLogLevel.Error, new string('x', 295) + "hunter2 and more")));
+            steps.RecordAppEvent(
+                Log(new AppLogEntry(AppLogSource.Console, AppLogLevel.Error, new string('x', 295) + "hunter2 and more"))
+            );
             for (var index = 0; index < 300; index++)
             {
                 steps.RecordAppEvent(Log(Error));
@@ -91,7 +102,9 @@ public sealed class StepRecorderRecordAppEventTests
         steps.RecordAppEvent(new AppEvent.Navigation("navigated to /login"));
         await steps.RunAsync(StepKind.App, "app.open", "/", () =>
         {
-            steps.RecordAppEvent(new AppEvent.Navigation("the app opened a new tab at /help; the test stays on its page"));
+            steps.RecordAppEvent(
+                new AppEvent.Navigation("the app opened a new tab at /help; the test stays on its page")
+            );
             return Task.CompletedTask;
         });
 
@@ -100,7 +113,8 @@ public sealed class StepRecorderRecordAppEventTests
                 (StepEventKind.Navigation, "navigated to /login"),
                 (StepEventKind.Navigation, "the app opened a new tab at /help; the test stays on its page"),
             ],
-            steps.All()[0].Events.Select(item => (item.Kind, item.Detail)));
+            steps.All()[0].Events.Select(item => (item.Kind, item.Detail))
+        );
         Assert.Empty(steps.AppLog());
     }
 
@@ -115,6 +129,9 @@ public sealed class StepRecorderRecordAppEventTests
 
         await steps.RunAsync(StepKind.App, "app.open", "/", () => Task.CompletedTask);
 
-        Assert.Equal(["navigated to /0", "navigated to /1", "navigated to /2"], steps.All()[0].Events.Select(item => item.Detail));
+        Assert.Equal(
+            ["navigated to /0", "navigated to /1", "navigated to /2"],
+            steps.All()[0].Events.Select(item => item.Detail)
+        );
     }
 }

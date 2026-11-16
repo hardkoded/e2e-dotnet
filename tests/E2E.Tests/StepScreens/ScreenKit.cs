@@ -10,9 +10,14 @@ internal static class ScreenKit
     public static ScreenText Screen(params string[] lines) =>
         new(
             "http://app.test/todos",
-            [.. lines.SelectMany(line => line.Split('\n')).Select(line =>
-            {
-                var parts = line.Trim().Split(' ', 2);
-                return new ScreenLine(parts[0][1..], parts.Length > 1 ? parts[1] : "");
-            })]);
+            [
+                .. lines
+                    .SelectMany(line => line.Split('\n'))
+                    .Select(line =>
+                    {
+                        var parts = line.Trim().Split(' ', 2);
+                        return new ScreenLine(parts[0][1..], parts.Length > 1 ? parts[1] : "");
+                    }),
+            ]
+        );
 }

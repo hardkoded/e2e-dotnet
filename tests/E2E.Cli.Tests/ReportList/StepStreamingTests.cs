@@ -24,7 +24,17 @@ public sealed class StepStreamingTests
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.End, "add to cart")));
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.Start, "pay")));
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.End, "pay", StepStatus.Failed)));
-        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "t1", file: "tests/flow.e2e.ts", title: ["checkout"], attempts: [FailedAttempt("pay step failed")])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Failed,
+                    id: "t1",
+                    file: "tests/flow.e2e.ts",
+                    title: ["checkout"],
+                    attempts: [FailedAttempt("pay step failed")]
+                )
+            )
+        );
         Assert.Equal(
             [
                 "   ✓ checkout > agent.act \"add to cart\" 4.20s · 3 model calls",
@@ -33,7 +43,8 @@ public sealed class StepStreamingTests
                 "     → pay step failed",
                 " ❯ |chromium| tests/flow.e2e.ts (1 test | 1 failed) 120ms",
             ],
-            output.Lines);
+            output.Lines
+        );
     }
 
     [Fact]
@@ -48,11 +59,26 @@ public sealed class StepStreamingTests
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.Start, "pay")));
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.End, "pay", StepStatus.Failed)));
         Assert.Empty(output.Lines);
-        reporter.Handle(Finished(Result(ResultStatus.Failed, id: "t1", file: "tests/flow.e2e.ts", title: ["checkout"], declarationIndex: 0, attempts: [FailedAttempt("pay step failed")])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Failed,
+                    id: "t1",
+                    file: "tests/flow.e2e.ts",
+                    title: ["checkout"],
+                    declarationIndex: 0,
+                    attempts: [FailedAttempt("pay step failed")]
+                )
+            )
+        );
         reporter.Handle(TestStarted("t2", "refund", "chromium", "tests/flow.e2e.ts"));
         reporter.Handle(Step("t2", AgentStep(StepProgressPhase.Start, "refund order")));
         reporter.Handle(Step("t2", AgentStep(StepProgressPhase.End, "refund order")));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "t2", file: "tests/flow.e2e.ts", title: ["refund"], declarationIndex: 1)));
+        reporter.Handle(
+            Finished(
+                Result(ResultStatus.Passed, id: "t2", file: "tests/flow.e2e.ts", title: ["refund"], declarationIndex: 1)
+            )
+        );
         Assert.Equal(
             [
                 " ❯ |chromium| tests/flow.e2e.ts (2 tests | 1 failed) 240ms",
@@ -63,7 +89,8 @@ public sealed class StepStreamingTests
                 "   ✓ refund 120ms",
                 "     ✓ agent.act \"refund order\" 4.20s · 3 model calls",
             ],
-            output.Lines);
+            output.Lines
+        );
     }
 
     [Fact]
@@ -101,8 +128,33 @@ public sealed class StepStreamingTests
         var output = new Capture();
         var reporter = PlainReporter(output);
         reporter.Handle(TestStarted("t1", "checkout", "chromium"));
-        reporter.Handle(Step("t1", new StepProgress { Phase = StepProgressPhase.Start, Kind = StepKind.Locator, Api = "locator.tap", Label = "button" }));
-        reporter.Handle(Step("t1", new StepProgress { Phase = StepProgressPhase.End, Kind = StepKind.Locator, Api = "locator.tap", Label = "button", Status = StepStatus.Passed, DurationMs = 5, ModelCalls = 0 }));
+        reporter.Handle(
+            Step(
+                "t1",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Start,
+                    Kind = StepKind.Locator,
+                    Api = "locator.tap",
+                    Label = "button",
+                }
+            )
+        );
+        reporter.Handle(
+            Step(
+                "t1",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.End,
+                    Kind = StepKind.Locator,
+                    Api = "locator.tap",
+                    Label = "button",
+                    Status = StepStatus.Passed,
+                    DurationMs = 5,
+                    ModelCalls = 0,
+                }
+            )
+        );
         Assert.Empty(output.Lines);
     }
 }

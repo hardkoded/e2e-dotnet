@@ -275,28 +275,30 @@ internal static class FixtureApp
 
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
-        {
-            "/downloads" => TinySite.RespondAsync(context, Downloads),
-            "/wrappers" => TinySite.RespondAsync(context, Wrappers),
-            "/crowded" => TinySite.RespondAsync(context, Crowded),
-            "/exports" => TinySite.RespondAsync(context, Exports),
-            "/echo.csv" => RespondEchoCsvAsync(context),
-            "/dialog" => TinySite.RespondAsync(context, Dialog),
-            "/report.csv" => RespondCsvAsync(context),
-            "/" => TinySite.RespondAsync(context, Home),
-            "/about" => TinySite.RespondAsync(context, About),
-            "/classes" => TinySite.RespondAsync(context, Classes),
-            "/frame" => TinySite.RespondAsync(context, Frame),
-            "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
-            "/child" => TinySite.RespondAsync(context, Child),
-            "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
-            "/flags" => TinySite.RespondAsync(context, Flags),
-            "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
-            "/editor" => TinySite.RespondAsync(context, Editor),
-            "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
-            _ => NotFoundAsync(context),
-        });
+        return TinySite.StartAsync(context =>
+            context.Request.Url!.AbsolutePath switch
+            {
+                "/downloads" => TinySite.RespondAsync(context, Downloads),
+                "/wrappers" => TinySite.RespondAsync(context, Wrappers),
+                "/crowded" => TinySite.RespondAsync(context, Crowded),
+                "/exports" => TinySite.RespondAsync(context, Exports),
+                "/echo.csv" => RespondEchoCsvAsync(context),
+                "/dialog" => TinySite.RespondAsync(context, Dialog),
+                "/report.csv" => RespondCsvAsync(context),
+                "/" => TinySite.RespondAsync(context, Home),
+                "/about" => TinySite.RespondAsync(context, About),
+                "/classes" => TinySite.RespondAsync(context, Classes),
+                "/frame" => TinySite.RespondAsync(context, Frame),
+                "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
+                "/child" => TinySite.RespondAsync(context, Child),
+                "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
+                "/flags" => TinySite.RespondAsync(context, Flags),
+                "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
+                "/editor" => TinySite.RespondAsync(context, Editor),
+                "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
+                _ => NotFoundAsync(context),
+            }
+        );
     }
 
     private static async Task RespondCsvAsync(HttpListenerContext context)

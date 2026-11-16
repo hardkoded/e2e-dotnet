@@ -12,20 +12,31 @@ namespace E2E.Cli.Tests.McpTestLines;
 /// One node on the fake screen, as upstream's <c>Fake</c>: what observe lists and what the live look reads. Every node is 100 by 20
 /// at x 0, so no two boxes overlap.
 /// </summary>
-internal sealed record Fake(string Id, string? Role = null, string? Name = null, string? Text = null, string? TestId = null, string? Placeholder = null, double Y = 0, bool Hidden = false, params Fake[] Children)
+internal sealed record Fake(
+    string Id,
+    string? Role = null,
+    string? Name = null,
+    string? Text = null,
+    string? TestId = null,
+    string? Placeholder = null,
+    double Y = 0,
+    bool Hidden = false,
+    params Fake[] Children
+)
 {
-    public SemanticNode ToNode() => new()
-    {
-        Ref = Id,
-        Role = Role,
-        Name = Name,
-        Text = Text,
-        TestId = TestId,
-        Placeholder = Placeholder,
-        States = new NodeStates { Hidden = Hidden },
-        Rect = new BoundingBox(0, Y, 100, 20),
-        Children = [.. Children.Select(child => child.ToNode())],
-    };
+    public SemanticNode ToNode() =>
+        new()
+        {
+            Ref = Id,
+            Role = Role,
+            Name = Name,
+            Text = Text,
+            TestId = TestId,
+            Placeholder = Placeholder,
+            States = new NodeStates { Hidden = Hidden },
+            Rect = new BoundingBox(0, Y, 100, 20),
+            Children = [.. Children.Select(child => child.ToNode())],
+        };
 }
 
 /// <summary>
@@ -36,23 +47,38 @@ internal sealed class TestLineHarness
 {
     private int _resolves;
 
-    public TestLineHarness(IReadOnlyList<Fake> screen, IReadOnlyList<Fake>? live = null, bool observed = true, string? testRan = null)
+    public TestLineHarness(
+        IReadOnlyList<Fake> screen,
+        IReadOnlyList<Fake>? live = null,
+        bool observed = true,
+        string? testRan = null
+    )
     {
         var listed = new Fake("root", "document", "Page", Children: [.. screen]).ToNode();
-        var seen = new Observation { Route = "/", Roots = [new Fake("root", "document", "Page", Children: [.. live ?? screen]).ToNode()] };
-        Lines = new SessionTestLines(new TestLineOptions
+        var seen = new Observation
         {
-            Newest = () => observed ? [listed] : null,
-            Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
-            AppBase = new Uri("http://127.0.0.1:4100/"),
-            Fills = new TestLineFills([new TestLineCredential("admin", "ada@example.test", "admin.password")], ["apiKey"]),
-            TestRan = testRan,
-            Resolve = () => (expression, _) =>
+            Route = "/",
+            Roots = [new Fake("root", "document", "Page", Children: [.. live ?? screen]).ToNode()],
+        };
+        Lines = new SessionTestLines(
+            new TestLineOptions
             {
-                _resolves++;
-                return Task.FromResult(LocatorResolver.Resolve(seen, expression));
-            },
-        });
+                Newest = () => observed ? [listed] : null,
+                Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
+                AppBase = new Uri("http://127.0.0.1:4100/"),
+                Fills = new TestLineFills(
+                    [new TestLineCredential("admin", "ada@example.test", "admin.password")],
+                    ["apiKey"]
+                ),
+                TestRan = testRan,
+                Resolve = () =>
+                    (expression, _) =>
+                    {
+                        _resolves++;
+                        return Task.FromResult(LocatorResolver.Resolve(seen, expression));
+                    },
+            }
+        );
     }
 
     public SessionTestLines Lines { get; }

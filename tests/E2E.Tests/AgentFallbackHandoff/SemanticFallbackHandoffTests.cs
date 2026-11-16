@@ -32,15 +32,20 @@ public sealed class SemanticFallbackHandoffTests
             Observe = (options, _, _) =>
             {
                 captures.Add(options?.Pixels == true);
-                return Task.FromResult(options?.Pixels == true
-                    ? FallbackFixtures.TreeAt("/", null, FallbackFixtures.Screenshot(1), FallbackFixtures.Save)
-                    : FallbackFixtures.TreeOf(FallbackFixtures.Save));
+                return Task.FromResult(
+                    options?.Pixels == true
+                        ? FallbackFixtures.TreeAt("/", null, FallbackFixtures.Screenshot(1), FallbackFixtures.Save)
+                        : FallbackFixtures.TreeOf(FallbackFixtures.Save)
+                );
             },
         };
         var executor = new TestExecutor("requested-pixels-executor", async (context, token) =>
         {
             Assert.Equal(new[] { false, false }, captures);
-            var observation = await context.ObserveAsync(pixels ? new ExecutorObserveOptions { Pixels = true } : null, token);
+            var observation = await context.ObserveAsync(
+                pixels ? new ExecutorObserveOptions { Pixels = true } : null,
+                token
+            );
             Assert.Contains("Save", observation.Text, StringComparison.Ordinal);
             Assert.False(observation.TreeUnavailable);
             // Partial: the port takes the screenshot of a pixels look through the engine's screenshot, not as an observe with pixels, so the
@@ -74,19 +79,32 @@ public sealed class SemanticFallbackHandoffTests
         {
             LocatorKinds = ["fill", "press"],
             PointerKinds = ["tap"],
-            Perform = (_, _) => throw new EngineException("ACTION_FAILED", "fallback must use pointer and keyboard input"),
+            Perform = (_, _) =>
+                throw new EngineException("ACTION_FAILED", "fallback must use pointer and keyboard input"),
             Observe = (_, _, _) =>
             {
                 captures += 1;
                 return Task.FromResult(FallbackFixtures.PixelSnapshot((byte)captures));
             },
-            PerformAt = (point, action) => dispatched.Add($"{(action is PointerAction.Tap ? "tap" : action.ToString())} ({point.X}, {point.Y})"),
+            PerformAt = (point, action) =>
+                dispatched.Add($"{(action is PointerAction.Tap ? "tap" : action.ToString())} ({point.X}, {point.Y})"),
             TypeText = (text, replace) => dispatched.Add($"type {text} {replace}"),
         };
         var seen = new List<ModelRequest>();
-        var model = new ScriptedModel(request => Remember(seen, request).Messages.Count(message => message.Role == "tool") == 0
-            ? ModelResponses.Call("type_at", new { x = 1, y = 1, value = "hello", replace = true })
-            : ModelResponses.Done("passed", "typed into the drawn field"));
+        var model = new ScriptedModel(request =>
+            Remember(seen, request).Messages.Count(message => message.Role == "tool") == 0
+                ? ModelResponses.Call(
+                    "type_at",
+                    new
+                    {
+                        x = 1,
+                        y = 1,
+                        value = "hello",
+                        replace = true,
+                    }
+                )
+                : ModelResponses.Done("passed", "typed into the drawn field")
+        );
 
         var outcome = await FallbackRun.ActAsync(new FallbackSetup { Engine = engine, Model = model });
 
@@ -110,7 +128,12 @@ public sealed class SemanticFallbackHandoffTests
             {
                 var permitted = options?.PixelFallback == true;
                 captures.Add(permitted);
-                await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(permitted ? 350 : timeout.TotalMilliseconds, timeout.TotalMilliseconds)), token);
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(
+                        Math.Min(permitted ? 350 : timeout.TotalMilliseconds, timeout.TotalMilliseconds)
+                    ),
+                    token
+                );
                 if (!permitted || timeout < TimeSpan.FromMilliseconds(350) || token.IsCancellationRequested)
                 {
                     throw new EngineException("OPERATION_TIMEOUT", "semantic capture timed out");
@@ -121,7 +144,14 @@ public sealed class SemanticFallbackHandoffTests
         };
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "read screenshot"));
 
-        var outcome = await FallbackRun.ActAsync(new FallbackSetup { Engine = engine, Model = model, ActionTimeout = TimeSpan.FromSeconds(1) });
+        var outcome = await FallbackRun.ActAsync(
+            new FallbackSetup
+            {
+                Engine = engine,
+                Model = model,
+                ActionTimeout = TimeSpan.FromSeconds(1),
+            }
+        );
 
         Assert.Null(outcome.Error);
         Assert.True(outcome.ActPassed);
@@ -154,13 +184,22 @@ public sealed class SemanticFallbackHandoffTests
             },
         };
         var seen = new List<ModelRequest>();
-        var model = new ScriptedModel(request => Remember(seen, request).Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => ModelResponses.Tap("button", "Save"),
-            _ => ModelResponses.Done("passed", "read recovered screen"),
-        });
+        var model = new ScriptedModel(request =>
+            Remember(seen, request).Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => ModelResponses.Tap("button", "Save"),
+                _ => ModelResponses.Done("passed", "read recovered screen"),
+            }
+        );
 
-        var outcome = await FallbackRun.ActAsync(new FallbackSetup { Engine = engine, Model = model, CacheEnabled = false });
+        var outcome = await FallbackRun.ActAsync(
+            new FallbackSetup
+            {
+                Engine = engine,
+                Model = model,
+                CacheEnabled = false,
+            }
+        );
 
         Assert.Null(outcome.Error);
         Assert.True(outcome.ActPassed);
@@ -188,14 +227,18 @@ public sealed class SemanticFallbackHandoffTests
     /// <summary>The replay hand-off for the two scenarios whose replay the port runs to the executor.</summary>
     [Theory]
     [MemberData(nameof(HandOffs))]
-    public async Task Partial_Hands_off_current_evidence_after_replay_with(string scenario) => await RunHandOffAsync(scenario);
+    public async Task Partial_Hands_off_current_evidence_after_replay_with(string scenario) =>
+        await RunHandOffAsync(scenario);
 
     /// <summary>
     /// Partial, skipped: the replay's third look throws, and the port ends the step there, where upstream's executor takes a look of its own
     /// and the attempt passes. The port keeps the failure, so this scenario waits for the port's replay to match.
     /// </summary>
-    [Fact(Skip = "The port ends the step when the replay's own look throws; upstream's executor takes a look of its own and passes (see the PR report).")]
-    public async Task Partial_Hands_off_current_evidence_after_replay_with_failed_capture() => await RunHandOffAsync("failed-capture");
+    [Fact(
+        Skip = "The port ends the step when the replay's own look throws; upstream's executor takes a look of its own and passes (see the PR report)."
+    )]
+    public async Task Partial_Hands_off_current_evidence_after_replay_with_failed_capture() =>
+        await RunHandOffAsync("failed-capture");
 
     private static async Task RunHandOffAsync(string scenario)
     {
@@ -210,7 +253,9 @@ public sealed class SemanticFallbackHandoffTests
                 captures += 1;
                 if (captures <= 2)
                 {
-                    return Task.FromResult(FallbackFixtures.TreeAt("https://fixture.test/start", null, null, FallbackFixtures.Save));
+                    return Task.FromResult(
+                        FallbackFixtures.TreeAt("https://fixture.test/start", null, null, FallbackFixtures.Save)
+                    );
                 }
 
                 if (captures == 3 && handOff.Failure == HandOffFailure.Throw)
@@ -229,14 +274,23 @@ public sealed class SemanticFallbackHandoffTests
             Assert.True(current.TreeUnavailable);
             Assert.Empty(current.Tree ?? []);
             Assert.NotEmpty(current.Pixels!.Data);
-            var stale = await Assert.ThrowsAnyAsync<Exception>(() => context.Actions.TapAsync(new ExecutorTarget("save"), token));
+            var stale = await Assert.ThrowsAnyAsync<Exception>(() =>
+                context.Actions.TapAsync(new ExecutorTarget("save"), token)
+            );
             // Partial: the port words a stale id on a screen it cannot read as "not on the current screen"; upstream says "previous node ids are no longer valid".
             Assert.Contains("is not on the current screen", stale.Message, StringComparison.Ordinal);
             return Passed("read current evidence after replay");
         });
         var store = new FallbackRun.HitStore(handOff.Entry());
 
-        var outcome = await FallbackRun.ActAsync(new FallbackSetup { Engine = engine, Executor = executor, Cache = store });
+        var outcome = await FallbackRun.ActAsync(
+            new FallbackSetup
+            {
+                Engine = engine,
+                Executor = executor,
+                Cache = store,
+            }
+        );
 
         Assert.Null(outcome.Error);
         Assert.True(outcome.ActPassed);
@@ -300,7 +354,14 @@ public sealed class SemanticFallbackHandoffTests
     /// </summary>
     private static ModelRequest Remember(List<ModelRequest> seen, ModelRequest request)
     {
-        seen.Add(new ModelRequest { System = request.System, Messages = [.. request.Messages], Tools = request.Tools });
+        seen.Add(
+            new ModelRequest
+            {
+                System = request.System,
+                Messages = [.. request.Messages],
+                Tools = request.Tools,
+            }
+        );
         return request;
     }
 
@@ -316,30 +377,54 @@ public sealed class SemanticFallbackHandoffTests
     /// <summary>One scenario of the replay hand-off: the recorded actions, and how capture 3 fails.</summary>
     private sealed record HandOff(IReadOnlyList<RecordedAction> Recorded, HandOffFailure Failure)
     {
-        private static readonly RecordedAction TapSave = new() { Kind = "tap", Role = "button", Name = "Save", Summary = "saved" };
-
-        private static readonly RecordedAction ScrollDown = new() { Kind = "scroll", Direction = "down", Summary = "scrolled" };
-
-        public static HandOff For(string scenario) => scenario switch
+        private static readonly RecordedAction TapSave = new()
         {
-            "zero-actions" => new HandOff([new RecordedAction { Kind = "tap", Role = "button", Name = "Submit", Summary = "submitted" }], HandOffFailure.Pixels),
-            "failed-capture" => new HandOff([ScrollDown, TapSave], HandOffFailure.Throw),
-            "replayed-action" => new HandOff([ScrollDown, TapSave], HandOffFailure.Pixels),
-            _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null),
+            Kind = "tap",
+            Role = "button",
+            Name = "Save",
+            Summary = "saved",
         };
+
+        private static readonly RecordedAction ScrollDown = new()
+        {
+            Kind = "scroll",
+            Direction = "down",
+            Summary = "scrolled",
+        };
+
+        public static HandOff For(string scenario) =>
+            scenario switch
+            {
+                "zero-actions" => new HandOff(
+                    [
+                        new RecordedAction
+                        {
+                            Kind = "tap",
+                            Role = "button",
+                            Name = "Submit",
+                            Summary = "submitted",
+                        },
+                    ],
+                    HandOffFailure.Pixels
+                ),
+                "failed-capture" => new HandOff([ScrollDown, TapSave], HandOffFailure.Throw),
+                "replayed-action" => new HandOff([ScrollDown, TapSave], HandOffFailure.Pixels),
+                _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, null),
+            };
 
         /// <summary>The recording the replay reads: a navigate-free entry that starts on the fixture's start page.</summary>
-        public CacheEntry Entry() => new()
-        {
-            Schema = FileStepCache.SchemaVersion,
-            Summary = "saved",
-            Route = "https://fixture.test/start",
-            Instruction = "inspect the current result",
-            Engine = "fixture",
-            Agent = "default",
-            ParamsDigest = CacheKeys.ParamsDigest(null),
-            CallIndex = 0,
-            Actions = [.. Recorded],
-        };
+        public CacheEntry Entry() =>
+            new()
+            {
+                Schema = FileStepCache.SchemaVersion,
+                Summary = "saved",
+                Route = "https://fixture.test/start",
+                Instruction = "inspect the current result",
+                Engine = "fixture",
+                Agent = "default",
+                ParamsDigest = CacheKeys.ParamsDigest(null),
+                CallIndex = 0,
+                Actions = [.. Recorded],
+            };
     }
 }

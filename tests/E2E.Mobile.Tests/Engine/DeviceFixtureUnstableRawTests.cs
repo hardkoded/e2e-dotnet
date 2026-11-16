@@ -41,7 +41,11 @@ public sealed class DeviceFixtureUnstableRawTests
         Assert.Same(session.Client, raw.Client);
 
         var before = h.Fake.Calls.Count;
-        await device.UnstableRaw.Client.CallAsync("apps.list", device.UnstableRaw.Selection.ToArgs(), CancellationToken.None);
+        await device.UnstableRaw.Client.CallAsync(
+            "apps.list",
+            device.UnstableRaw.Selection.ToArgs(),
+            CancellationToken.None
+        );
         JsonAssert.Calls(h.Fake.Calls, before, ("apps.list", """{"platform":"ios","device":"iPhone 17 Pro"}"""));
     }
 

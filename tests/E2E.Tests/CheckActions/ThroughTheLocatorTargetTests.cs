@@ -26,8 +26,12 @@ public sealed class ThroughTheLocatorTargetTests
             async session =>
             {
                 await session.Screen.GetByRole("radio", "Pro").CheckAsync();
-                Assert.Equal("Pro selected", await session.Browser.EvaluateAsync<string>("() => document.getElementById('plan').textContent"));
-            });
+                Assert.Equal(
+                    "Pro selected",
+                    await session.Browser.EvaluateAsync<string>("() => document.getElementById('plan').textContent")
+                );
+            }
+        );
     }
 
     [Fact]
@@ -42,25 +46,31 @@ public sealed class ThroughTheLocatorTargetTests
             {
                 await session.Screen.GetByRole("checkbox", "Agree").CheckAsync();
                 Assert.False(await session.Browser.EvaluateAsync<bool>("() => document.getElementById('box').checked"));
-            });
+            }
+        );
     }
 
     [Fact]
     public async Task Checks_a_radio_that_navigates_on_change()
     {
-        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(
-            context,
-            context.Request.Url!.AbsolutePath == "/"
-                ? """<label><input type="radio" name="plan" id="pro" onchange="location.href = '/next'">Pro</label>"""
-                : "<p>Next page</p>"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new E2E.Engine.WebEngine(headless: true),
-            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
-            BaseUrl = site.Url,
-            TestTitle = "check actions > through the locator target",
-            ActionTimeout = TimeSpan.FromSeconds(2),
-        });
+        using var site = await TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath == "/"
+                    ? """<label><input type="radio" name="plan" id="pro" onchange="location.href = '/next'">Pro</label>"""
+                    : "<p>Next page</p>"
+            )
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new E2E.Engine.WebEngine(headless: true),
+                Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+                BaseUrl = site.Url,
+                TestTitle = "check actions > through the locator target",
+                ActionTimeout = TimeSpan.FromSeconds(2),
+            }
+        );
         await session.App.OpenAsync("/");
 
         await session.Screen.GetByRole("radio", "Pro").CheckAsync();
@@ -82,7 +92,8 @@ public sealed class ThroughTheLocatorTargetTests
                 await box.UncheckAsync();
                 Assert.False(await session.Browser.EvaluateAsync<bool>("() => document.getElementById('box').checked"));
                 Assert.Equal(2, await session.Browser.EvaluateAsync<int>("() => window.clicks"));
-            });
+            }
+        );
     }
 
     [Fact]
@@ -96,8 +107,14 @@ public sealed class ThroughTheLocatorTargetTests
             async session =>
             {
                 await session.Screen.GetByRole("checkbox", "Notify").CheckAsync();
-                Assert.Equal("true", await session.Browser.EvaluateAsync<string>("() => document.getElementById('box').getAttribute('aria-checked')"));
-            });
+                Assert.Equal(
+                    "true",
+                    await session.Browser.EvaluateAsync<string>(
+                        "() => document.getElementById('box').getAttribute('aria-checked')"
+                    )
+                );
+            }
+        );
     }
 
     [Fact]
@@ -113,7 +130,8 @@ public sealed class ThroughTheLocatorTargetTests
             {
                 await session.Screen.GetByRole("checkbox", "Notify").CheckAsync();
                 Assert.True(await session.Browser.EvaluateAsync<bool>("() => document.getElementById('box').checked"));
-            });
+            }
+        );
     }
 
     [Fact]
@@ -127,8 +145,14 @@ public sealed class ThroughTheLocatorTargetTests
             async session =>
             {
                 await session.Screen.GetByRole("switch", "Wi-Fi").UncheckAsync();
-                Assert.Equal("false", await session.Browser.EvaluateAsync<string>("() => document.getElementById('toggle').getAttribute('aria-checked')"));
-            });
+                Assert.Equal(
+                    "false",
+                    await session.Browser.EvaluateAsync<string>(
+                        "() => document.getElementById('toggle').getAttribute('aria-checked')"
+                    )
+                );
+            }
+        );
     }
 
     [Fact]
@@ -141,12 +165,18 @@ public sealed class ThroughTheLocatorTargetTests
             """,
             async session =>
             {
-                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("checkbox", "Agree").CheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() =>
+                    session.Screen.GetByRole("checkbox", "Agree").CheckAsync()
+                );
                 var error = Assert.IsType<EngineException>(failure.InnerException);
                 Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
-                Assert.Equal("check clicked the control but its checked state did not change before the control was replaced", error.Message);
-            });
+                Assert.Equal(
+                    "check clicked the control but its checked state did not change before the control was replaced",
+                    error.Message
+                );
+            }
+        );
     }
 
     [Fact]
@@ -156,12 +186,15 @@ public sealed class ThroughTheLocatorTargetTests
             """<label><input type="checkbox" id="box" onclick="event.preventDefault()">Locked</label>""",
             async session =>
             {
-                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("checkbox", "Locked").CheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() =>
+                    session.Screen.GetByRole("checkbox", "Locked").CheckAsync()
+                );
                 var error = Assert.IsType<EngineException>(failure.InnerException);
                 Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Equal("check clicked the control but its checked state did not change", error.Message);
-            });
+            }
+        );
     }
 
     [Fact]
@@ -171,12 +204,15 @@ public sealed class ThroughTheLocatorTargetTests
             CountClicks + """<label><input type="radio" name="plan" id="pro" checked>Pro</label>""",
             async session =>
             {
-                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("radio", "Pro").UncheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() =>
+                    session.Screen.GetByRole("radio", "Pro").UncheckAsync()
+                );
                 var error = Assert.IsType<EngineException>(failure.InnerException);
                 Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Equal(0, await session.Browser.EvaluateAsync<int>("() => window.clicks"));
-            });
+            }
+        );
     }
 
     [Fact]
@@ -190,8 +226,14 @@ public sealed class ThroughTheLocatorTargetTests
             async session =>
             {
                 await session.Screen.GetByRole("radio", "Pro").UncheckAsync();
-                Assert.Equal("false", await session.Browser.EvaluateAsync<string>("() => document.getElementById('pro').getAttribute('aria-checked')"));
-            });
+                Assert.Equal(
+                    "false",
+                    await session.Browser.EvaluateAsync<string>(
+                        "() => document.getElementById('pro').getAttribute('aria-checked')"
+                    )
+                );
+            }
+        );
     }
 
     [Fact]
@@ -201,24 +243,27 @@ public sealed class ThroughTheLocatorTargetTests
             """<div role="radio" id="pro" aria-checked="true" tabindex="0">Pro</div>""",
             async session =>
             {
-                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("radio", "Pro").UncheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() =>
+                    session.Screen.GetByRole("radio", "Pro").UncheckAsync()
+                );
                 var error = Assert.IsType<EngineException>(failure.InnerException);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Contains("another radio in its group", error.Message);
-            });
+            }
+        );
     }
 
     [Fact]
     public async Task Refuses_a_control_that_cannot_be_checked()
     {
-        await RunWithScreenAsync(
-            """<button id="go">Go</button>""",
-            async session =>
-            {
-                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("button", "Go").CheckAsync());
-                var error = Assert.IsType<EngineException>(failure.InnerException);
-                Assert.Equal("ACTION_FAILED", failure.Code);
-                Assert.Equal("NOT_ACTIONABLE", error.Code);
-            });
+        await RunWithScreenAsync("""<button id="go">Go</button>""", async session =>
+        {
+            var failure = await Assert.ThrowsAsync<TestException>(() =>
+                session.Screen.GetByRole("button", "Go").CheckAsync()
+            );
+            var error = Assert.IsType<EngineException>(failure.InnerException);
+            Assert.Equal("ACTION_FAILED", failure.Code);
+            Assert.Equal("NOT_ACTIONABLE", error.Code);
+        });
     }
 }

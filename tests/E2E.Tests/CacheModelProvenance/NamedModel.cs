@@ -9,5 +9,6 @@ internal sealed class NamedModel(IAgentModel inner, string name) : IAgentModel
 {
     public string Name => name;
 
-    public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) => inner.CompleteAsync(request, cancellationToken);
+    public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) =>
+        inner.CompleteAsync(request, cancellationToken);
 }

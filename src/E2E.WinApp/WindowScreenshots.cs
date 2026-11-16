@@ -17,7 +17,9 @@ public static class WindowScreenshots
         ArgumentNullException.ThrowIfNull(masks);
         if (shot.Bgra.Length != shot.Width * shot.Height * 4)
         {
-            throw new InvalidDataException($"the capture has {shot.Bgra.Length} bytes for {shot.Width}x{shot.Height}; expected four per pixel");
+            throw new InvalidDataException(
+                $"the capture has {shot.Bgra.Length} bytes for {shot.Width}x{shot.Height}; expected four per pixel"
+            );
         }
 
         var rgba = ToRgba(shot);

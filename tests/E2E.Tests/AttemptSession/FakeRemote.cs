@@ -31,7 +31,9 @@ public class Fake<T> : DispatchProxy
             return member(args ?? []);
         }
 
-        return targetMethod.Name.StartsWith("add_", StringComparison.Ordinal) || targetMethod.Name.StartsWith("remove_", StringComparison.Ordinal)
+        return
+            targetMethod.Name.StartsWith("add_", StringComparison.Ordinal)
+            || targetMethod.Name.StartsWith("remove_", StringComparison.Ordinal)
             ? null
             : throw new NotSupportedException(typeof(T).Name + "." + targetMethod.Name);
     }
@@ -61,9 +63,14 @@ internal sealed class FakeRemote
         sessionFake.Members["SendAsync"] = _ =>
         {
             Interlocked.Increment(ref SendCalls);
-            return response ?? Task.FromResult<JsonElement?>(Json(identity is null
-                ? """{"browserContextIds":[]}"""
-                : $$"""{"browserContextIds":[],"defaultBrowserContextId":"{{identity}}"}"""));
+            return response
+                ?? Task.FromResult<JsonElement?>(
+                    Json(
+                        identity is null
+                            ? """{"browserContextIds":[]}"""
+                            : $$"""{"browserContextIds":[],"defaultBrowserContextId":"{{identity}}"}"""
+                    )
+                );
         };
         sessionFake.Members["DetachAsync"] = _ => Task.CompletedTask;
 
@@ -97,7 +104,8 @@ internal sealed class FakeRemote
     /// <summary>What <c>AddInitScriptAsync</c> hands back: a handle that removes the script.</summary>
     public static IAsyncDisposable Registration { get; } = new NoRegistration();
 
-    public static FakeRemote Create(string? identity = null, Task<JsonElement?>? response = null) => new(identity, response);
+    public static FakeRemote Create(string? identity = null, Task<JsonElement?>? response = null) =>
+        new(identity, response);
 
     /// <summary>Stands in for the Playwright driver, which a fake remote never talks to.</summary>
     public static Task<IPlaywright> Playwright()
@@ -143,7 +151,8 @@ internal sealed class FakeTarget
         sessionFake.Members["SendAsync"] = _ =>
         {
             Interlocked.Increment(ref SendCalls);
-            return response ?? Task.FromResult<JsonElement?>(FakeRemote.Json($$$"""{"targetInfo":{"targetId":"{{{id}}}"}}"""));
+            return response
+                ?? Task.FromResult<JsonElement?>(FakeRemote.Json($$$"""{"targetInfo":{"targetId":"{{{id}}}"}}"""));
         };
         sessionFake.Members["DetachAsync"] = _ => Task.CompletedTask;
         var (context, contextFake) = Fake<IBrowserContext>.New();

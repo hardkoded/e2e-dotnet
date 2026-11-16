@@ -10,13 +10,21 @@ namespace E2E.Tests.SchemaFixtures;
 /// </summary>
 public sealed class SchemaFixturesTests
 {
-    private static string[] Schemas => [.. Directory.GetFiles(ReportSchema.Root, "*.schema.json").Select(file => Path.GetFileName(file)[..^".schema.json".Length])];
+    private static string[] Schemas =>
+        [
+            .. Directory
+                .GetFiles(ReportSchema.Root, "*.schema.json")
+                .Select(file => Path.GetFileName(file)[..^".schema.json".Length]),
+        ];
 
     [Fact]
     public void Ships_a_schema_for_every_fixture_pair()
     {
-        var fixtures = Directory.GetFiles(ReportSchema.SchemaPath("fixtures"))
-            .Select(file => System.Text.RegularExpressions.Regex.Replace(Path.GetFileName(file), @"\.(valid|invalid)\.json\z", ""));
+        var fixtures = Directory
+            .GetFiles(ReportSchema.SchemaPath("fixtures"))
+            .Select(file =>
+                System.Text.RegularExpressions.Regex.Replace(Path.GetFileName(file), @"\.(valid|invalid)\.json\z", "")
+            );
 
         Assert.Equal(Schemas.Order(), fixtures.Distinct().Order());
     }
@@ -28,13 +36,18 @@ public sealed class SchemaFixturesTests
     {
         const string shipped = @"..\..\schema\*.schema.json";
         var project = System.Xml.Linq.XDocument.Load(Path.Combine(ReportSchema.Root, "..", "src", "E2E", "E2E.csproj"));
-        var packed = project.Descendants("None")
-            .Where(item => (string?)item.Attribute("Pack") == "true" && (string?)item.Attribute("PackagePath") == "schema")
+        var packed = project
+            .Descendants("None")
+            .Where(item =>
+                (string?)item.Attribute("Pack") == "true" && (string?)item.Attribute("PackagePath") == "schema"
+            )
             .Select(item => (string?)item.Attribute("Include"))
             .ToList();
 
         Assert.Contains(shipped, packed);
-        var matched = Directory.GetFiles(ReportSchema.Root, shipped[(shipped.LastIndexOf('\\') + 1)..]).Select(file => Path.GetFileName(file)[..^".schema.json".Length]);
+        var matched = Directory
+            .GetFiles(ReportSchema.Root, shipped[(shipped.LastIndexOf('\\') + 1)..])
+            .Select(file => Path.GetFileName(file)[..^".schema.json".Length]);
         Assert.Equal(Schemas.Order(), matched.Order());
         Assert.DoesNotContain(matched, name => name.Contains("fixture", StringComparison.Ordinal));
     }

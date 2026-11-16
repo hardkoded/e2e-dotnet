@@ -14,17 +14,20 @@ namespace E2E.Tests.AgentModelRefusal;
 /// </summary>
 public sealed class ModelRefusalTests
 {
-    private static ModelResponse Refusal() => new() { FinishReason = ModelResponse.ContentFilter, RawFinishReason = "refusal" };
+    private static ModelResponse Refusal() =>
+        new() { FinishReason = ModelResponse.ContentFilter, RawFinishReason = "refusal" };
 
     private static async Task<E2ESession> StartAsync(IAgentModel model) =>
-        await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(new DocumentWorld().Map("/", page => page.Paragraph("page content"))),
-            Model = model,
-            BaseUrl = "https://todos.test",
-            TestTitle = "refusal",
-            CacheEnabled = false,
-        });
+        await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(new DocumentWorld().Map("/", page => page.Paragraph("page content"))),
+                Model = model,
+                BaseUrl = "https://todos.test",
+                TestTitle = "refusal",
+                CacheEnabled = false,
+            }
+        );
 
     [Theory]
     [InlineData(true)]
@@ -35,9 +38,11 @@ public sealed class ModelRefusalTests
         await using var session = await StartAsync(model);
         await session.App.OpenAsync("/");
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => structured
-            ? session.Agent.ExtractAsync<Token>("extract target token")
-            : session.Agent.AssertAsync("the page shows the target token"));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            structured
+                ? session.Agent.ExtractAsync<Token>("extract target token")
+                : session.Agent.AssertAsync("the page shows the target token")
+        );
         session.Complete(error);
 
         Assert.Equal("MODEL_REFUSED", error.Code);

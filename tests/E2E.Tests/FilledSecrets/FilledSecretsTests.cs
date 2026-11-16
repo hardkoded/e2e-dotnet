@@ -28,7 +28,10 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
     [Fact]
     public void Passes_every_test()
     {
-        Assert.True(run.Failures.IsEmpty, string.Join('\n', run.Failures.Select(failure => failure.Key + ": " + failure.Value)));
+        Assert.True(
+            run.Failures.IsEmpty,
+            string.Join('\n', run.Failures.Select(failure => failure.Key + ": " + failure.Value))
+        );
         Assert.Equal(FilledSecretsRun.Titles.Count, run.Reports.Count);
     }
 
@@ -66,8 +69,14 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
         var download = attempt.Artifacts.First(artifact => artifact.Kind == ArtifactKind.Download);
         Assert.Equal(ArtifactRedaction.Incomplete, download.Redaction);
         Assert.Equal("text/csv", download.MediaType);
-        Assert.Equal("id,total\n1,42\n", File.ReadAllText(Path.Combine(run.ResultsDir, download.Path!), new UTF8Encoding(false)));
-        Assert.Equal(ArtifactRedaction.Incomplete, run.Store.Puts.First(stored => stored.Path == download.Path).Redaction);
+        Assert.Equal(
+            "id,total\n1,42\n",
+            File.ReadAllText(Path.Combine(run.ResultsDir, download.Path!), new UTF8Encoding(false))
+        );
+        Assert.Equal(
+            ArtifactRedaction.Incomplete,
+            run.Store.Puts.First(stored => stored.Path == download.Path).Redaction
+        );
     }
 
     [Fact]
@@ -91,13 +100,18 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
                 Assert.Equal("tap", tap.Kind);
                 Assert.Equal("button", tap.Role);
                 Assert.Equal("Increment", tap.Name);
-            });
+            }
+        );
     }
 
     [Fact]
     public void Leaves_the_plaintext_nowhere_under_e2e_in_the_report_or_in_what_the_store_received()
     {
-        Assert.DoesNotContain(FilledSecretsRun.Secret, JsonSerializer.Serialize(run.Reports.Values.ToArray()), StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            FilledSecretsRun.Secret,
+            JsonSerializer.Serialize(run.Reports.Values.ToArray()),
+            StringComparison.Ordinal
+        );
         var plaintext = Encoding.UTF8.GetBytes(FilledSecretsRun.Secret);
         foreach (var put in run.Store.Puts)
         {
@@ -105,7 +119,10 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
         }
 
         var written = Directory.EnumerateFiles(run.E2eDir, "*", SearchOption.AllDirectories).ToList();
-        Assert.Equal(FilledSecretsRun.Titles.Count, written.Count(file => file.EndsWith("trace.md", StringComparison.Ordinal)));
+        Assert.Equal(
+            FilledSecretsRun.Titles.Count,
+            written.Count(file => file.EndsWith("trace.md", StringComparison.Ordinal))
+        );
         foreach (var file in written)
         {
             Assert.False(File.ReadAllBytes(file).AsSpan().IndexOf(plaintext) >= 0, file);
@@ -149,7 +166,12 @@ public sealed class FilledSecretsRun : IAsyncLifetime
     public IReadOnlyList<CacheEntry> CacheEntries()
     {
         var directory = Path.Combine(E2eDir, "cache");
-        return [.. Directory.EnumerateFiles(directory, "*.json", SearchOption.AllDirectories).Select(file => JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), JsonDefaults.Options)!)];
+        return
+        [
+            .. Directory
+                .EnumerateFiles(directory, "*.json", SearchOption.AllDirectories)
+                .Select(file => JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), JsonDefaults.Options)!),
+        ];
     }
 
     public async Task InitializeAsync()
@@ -174,35 +196,46 @@ public sealed class FilledSecretsRun : IAsyncLifetime
         var executor = new TestExecutor("secret-filler", async (context, token) =>
         {
             var observation = await context.ObserveAsync(new ExecutorObserveOptions { Tree = true }, token);
-            ExecutorNode Find(Func<ExecutorNode, bool> match) => ExecutorTree.FindNode(observation.Tree, match) ?? throw new InvalidOperationException("no node matched");
+            ExecutorNode Find(Func<ExecutorNode, bool> match) =>
+                ExecutorTree.FindNode(observation.Tree, match)
+                ?? throw new InvalidOperationException("no node matched");
 
             // Declared secrets are keyed by the credential's name, not the param's.
-            await context.Actions.TypeSecretAsync(new ExecutorTarget(Find(node => node.States.Secure).Id), "member.password", token);
+            await context.Actions.TypeSecretAsync(
+                new ExecutorTarget(Find(node => node.States.Secure).Id),
+                "member.password",
+                token
+            );
 
             // A secure field never shows its value, so the fill alone leaves nothing a replay could check; the counter is the step's
             // visible effect, which makes it recordable.
-            await context.Actions.TapAsync(new ExecutorTarget(Find(node => node.Role == "button" && node.Name == "Increment").Id), token);
+            await context.Actions.TapAsync(
+                new ExecutorTarget(Find(node => node.Role == "button" && node.Name == "Increment").Id),
+                token
+            );
             return Passed("filled");
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = executor,
-            BaseUrl = _site!.Url,
-            ProjectRoot = _project,
-            ResultsDirectory = ResultsDir,
-            Cache = new FileStepCache(Path.Combine(E2eDir, "cache")),
-            CacheMode = CacheMode.ReadWrite,
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = executor,
+                BaseUrl = _site!.Url,
+                ProjectRoot = _project,
+                ResultsDirectory = ResultsDir,
+                Cache = new FileStepCache(Path.Combine(E2eDir, "cache")),
+                CacheMode = CacheMode.ReadWrite,
 
-            // A page for every test, passing ones too, so the scan reads each step's screen and log.
-            Trace = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
-            ArtifactStore = Store,
-            TestFile = typeof(FilledSecretsTests).FullName,
-            TestTitle = title,
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(30),
-            TestTimeout = TimeSpan.FromSeconds(60),
-        });
+                // A page for every test, passing ones too, so the scan reads each step's screen and log.
+                Trace = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+                ArtifactStore = Store,
+                TestFile = typeof(FilledSecretsTests).FullName,
+                TestTitle = title,
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            }
+        );
         Exception? failure = null;
         try
         {
@@ -238,7 +271,10 @@ public sealed class FilledSecretsRun : IAsyncLifetime
                 break;
             case "fills through the executor":
                 await app.OpenAsync();
-                await session.Agent.ActAsync("enter the password", new ActOptions { Params = new Dictionary<string, object?> { ["password"] = password } });
+                await session.Agent.ActAsync(
+                    "enter the password",
+                    new ActOptions { Params = new Dictionary<string, object?> { ["password"] = password } }
+                );
                 await Expect.That(screen.GetByLabel("Password")).ToBeVisibleAsync();
                 break;
             case "fills nothing":
@@ -248,11 +284,15 @@ public sealed class FilledSecretsRun : IAsyncLifetime
             case "downloads after a fill":
                 await app.OpenAsync("/exports");
                 await screen.GetByLabel("Export key").FillAsync(password);
-                await session.Browser.WaitForDownloadAsync(() => screen.GetByRole("link", "Download export").TapAsync());
+                await session.Browser.WaitForDownloadAsync(() =>
+                    screen.GetByRole("link", "Download export").TapAsync()
+                );
                 break;
             case "downloads without a fill":
                 await app.OpenAsync("/downloads");
-                await session.Browser.WaitForDownloadAsync(() => screen.GetByRole("link", "Download report").TapAsync());
+                await session.Browser.WaitForDownloadAsync(() =>
+                    screen.GetByRole("link", "Download report").TapAsync()
+                );
                 break;
             case "fills a visible field":
                 await app.OpenAsync();

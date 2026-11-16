@@ -27,7 +27,10 @@ public sealed class TheSessionAppLogRouteTests
         route.Push(null);
         route.Navigated("  ");
         var heard = new List<string>();
-        route.Route((appEvent, _) => heard.Add(appEvent is AppEvent.Log log ? log.Entry.Text : $"↪ {((AppEvent.Navigation)appEvent).Line}"));
+        route.Route(
+            (appEvent, _) =>
+                heard.Add(appEvent is AppEvent.Log log ? log.Entry.Text : $"↪ {((AppEvent.Navigation)appEvent).Line}")
+        );
         route.Push(new AppLogEntry(AppLogSource.Network, AppLogLevel.Warning, "late"));
 
         Assert.Equal(["boom", "↪ navigated to /login", "late"], heard);

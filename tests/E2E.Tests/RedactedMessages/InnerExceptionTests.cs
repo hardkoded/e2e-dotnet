@@ -16,7 +16,11 @@ public sealed class InnerExceptionTests
     [Fact]
     public void Redacts_each_message_of_a_cause_chain_and_keeps_the_types_and_codes()
     {
-        var cause = new EngineException("NOT_ACTIONABLE", "node " + Secret + " is covered", new InvalidOperationException("page said " + Secret));
+        var cause = new EngineException(
+            "NOT_ACTIONABLE",
+            "node " + Secret + " is covered",
+            new InvalidOperationException("page said " + Secret)
+        );
 
         var failure = ErrorRedaction.Failure("ASSERTION_FAILED", "failed on " + Secret, cause, Redact);
 

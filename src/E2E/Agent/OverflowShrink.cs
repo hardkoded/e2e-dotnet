@@ -29,7 +29,10 @@ internal static partial class OverflowShrink
 
     public static List<ModelMessage> ShrinkForOverflow(IReadOnlyList<ModelMessage> messages)
     {
-        var stale = messages.Count(message => message.Role is "user" or "tool" && message.Content is { } text && FullScreenPattern().IsMatch(text)) - ScreenPreserveCount;
+        var stale =
+            messages.Count(message =>
+                message.Role is "user" or "tool" && message.Content is { } text && FullScreenPattern().IsMatch(text)
+            ) - ScreenPreserveCount;
         var shrunk = new List<ModelMessage>(messages.Count);
         foreach (var message in messages)
         {
@@ -52,16 +55,20 @@ internal static partial class OverflowShrink
     }
 
     /// <summary>Characters of text a history carries, for the account of a shrink.</summary>
-    public static int TextChars(IEnumerable<ModelMessage> messages) => messages.Sum(message => message.Content?.Length ?? 0);
+    public static int TextChars(IEnumerable<ModelMessage> messages) =>
+        messages.Sum(message => message.Content?.Length ?? 0);
 
     /// <summary>Everything before the screen, then the notice in place of the tree.</summary>
     internal static string ElideScreen(string text)
     {
         var at = FullScreenPattern().Match(text).Index;
         var head = at <= 0 ? text.Split('\n', 2)[0] : text[..at].TrimEnd();
-        return head + (text[at..].StartsWith("Screen (", StringComparison.Ordinal)
-            ? "\n[earlier screen elided; the newest \"Screen\" describes the screen]"
-            : "\n[earlier screen elided; the newest \"Current screen\" plus the changes after it describe the screen]");
+        return head
+            + (
+                text[at..].StartsWith("Screen (", StringComparison.Ordinal)
+                    ? "\n[earlier screen elided; the newest \"Screen\" describes the screen]"
+                    : "\n[earlier screen elided; the newest \"Current screen\" plus the changes after it describe the screen]"
+            );
     }
 
     private static string Clip(string text)
@@ -73,18 +80,21 @@ internal static partial class OverflowShrink
 
         // Never end the head on half of a surrogate pair.
         var keep = char.IsHighSurrogate(text[TextClipChars - 1]) ? TextClipChars - 1 : TextClipChars;
-        return text[..keep] + "\n[" + (text.Length - keep).ToString(CultureInfo.InvariantCulture)
+        return text[..keep]
+            + "\n["
+            + (text.Length - keep).ToString(CultureInfo.InvariantCulture)
             + " more characters cut: the request exceeded the model's context window; observe again for what is missing]";
     }
 
-    private static ModelMessage With(ModelMessage message, string? content) => new()
-    {
-        Role = message.Role,
-        Content = content,
-        ToolCalls = message.ToolCalls,
-        ToolCallId = message.ToolCallId,
-        Name = message.Name,
-        ReasoningItems = message.ReasoningItems,
-        Images = message.Images,
-    };
+    private static ModelMessage With(ModelMessage message, string? content) =>
+        new()
+        {
+            Role = message.Role,
+            Content = content,
+            ToolCalls = message.ToolCalls,
+            ToolCallId = message.ToolCallId,
+            Name = message.Name,
+            ReasoningItems = message.ReasoningItems,
+            Images = message.Images,
+        };
 }

@@ -74,10 +74,17 @@ internal static class ImageOps
     {
         var colorType = bytes[25];
         var interlaced = bytes[28] == 1;
-        var channels = colorType switch { 0 => 1, 2 => 3, 4 => 2, 6 => 4, _ => throw new InvalidDataException($"unsupported PNG color type {colorType}") };
+        var channels = colorType switch
+        {
+            0 => 1,
+            2 => 3,
+            4 => 2,
+            6 => 4,
+            _ => throw new InvalidDataException($"unsupported PNG color type {colorType}"),
+        };
         using var idat = new MemoryStream();
         byte[]? transparent = null;
-        for (var at = 8; at + 12 <= bytes.Length;)
+        for (var at = 8; at + 12 <= bytes.Length; )
         {
             var declared = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
             if (declared > bytes.Length - at - 12)
@@ -100,12 +107,24 @@ internal static class ImageOps
         }
 
         var passes = interlaced
-            ? new (int X, int Y, int DX, int DY)[] { (0, 0, 8, 8), (4, 0, 8, 8), (0, 4, 4, 8), (2, 0, 4, 4), (0, 2, 2, 4), (1, 0, 2, 2), (0, 1, 1, 2) }
+            ? new (int X, int Y, int DX, int DY)[]
+            {
+                (0, 0, 8, 8),
+                (4, 0, 8, 8),
+                (0, 4, 4, 8),
+                (2, 0, 4, 4),
+                (0, 2, 2, 4),
+                (1, 0, 2, 2),
+                (0, 1, 1, 2),
+            }
             : [(0, 0, 1, 1)];
         var bytesPerPixel = channels * 2;
         var samples = new byte[(long)width * height * bytesPerPixel];
         idat.Position = 0;
-        using var inflated = new System.IO.Compression.ZLibStream(idat, System.IO.Compression.CompressionMode.Decompress);
+        using var inflated = new System.IO.Compression.ZLibStream(
+            idat,
+            System.IO.Compression.CompressionMode.Decompress
+        );
         foreach (var (x0, y0, dx, dy) in passes)
         {
             var passWidth = (width - x0 + dx - 1) / dx;
@@ -161,7 +180,9 @@ internal static class ImageOps
         {
             for (var channel = 0; channel < channels; channel++)
             {
-                wide[channel] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(samples.AsSpan((int)from + (channel * 2)));
+                wide[channel] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(
+                    samples.AsSpan((int)from + (channel * 2))
+                );
             }
 
             var to = pixel * 4;
@@ -189,7 +210,10 @@ internal static class ImageOps
 
         for (var channel = 0; channel < count; channel++)
         {
-            if (System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(transparent.AsSpan(channel * 2)) != pixel[channel])
+            if (
+                System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(transparent.AsSpan(channel * 2))
+                != pixel[channel]
+            )
             {
                 return false;
             }
@@ -225,7 +249,9 @@ internal static class ImageOps
         var toLeft = Math.Abs(estimate - left);
         var toUp = Math.Abs(estimate - up);
         var toUpLeft = Math.Abs(estimate - upLeft);
-        return toLeft <= toUp && toLeft <= toUpLeft ? left : toUp <= toUpLeft ? up : upLeft;
+        return toLeft <= toUp && toLeft <= toUpLeft ? left
+            : toUp <= toUpLeft ? up
+            : upLeft;
     }
 
     /// <summary>A 16-bit sample as an 8-bit one, rounded: upstream's <c>narrow</c> (<c>Math.round(sample * 255 / 65535)</c>).</summary>
@@ -260,12 +286,15 @@ internal static class ImageOps
     {
         if (image.Data.Length != (long)image.Width * image.Height * 4)
         {
-            throw new ArgumentException($"a {image.Width}x{image.Height} image is {(long)image.Width * image.Height * 4} bytes of RGBA, not {image.Data.Length}");
+            throw new ArgumentException(
+                $"a {image.Width}x{image.Height} image is {(long)image.Width * image.Height * 4} bytes of RGBA, not {image.Data.Length}"
+            );
         }
 
         var info = new SKImageInfo(image.Width, image.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var pixels = SKImage.FromPixelCopy(info, image.Data);
-        using var data = pixels?.Encode(SKEncodedImageFormat.Png, 100) ?? throw new InvalidOperationException("the image could not be encoded as a PNG");
+        using var data = pixels?.Encode(SKEncodedImageFormat.Png, 100)
+            ?? throw new InvalidOperationException("the image could not be encoded as a PNG");
         return data.ToArray();
     }
 
@@ -288,7 +317,10 @@ internal static class ImageOps
             {
                 var x0 = (int)Math.Floor(tx * xRatio);
                 var x1 = Math.Min(image.Width, Math.Max(x0 + 1, (int)Math.Floor((tx + 1) * xRatio)));
-                long r = 0, g = 0, b = 0, a = 0;
+                long r = 0,
+                    g = 0,
+                    b = 0,
+                    a = 0;
                 var count = 0;
                 for (var y = y0; y < y1; y++)
                 {
@@ -374,19 +406,34 @@ internal static class ImageOps
     {
         if (expected.Width != actual.Width || expected.Height != actual.Height)
         {
-            return new ImageComparison.SizeMismatch(new ImageBox(0, 0, expected.Width, expected.Height), new ImageBox(0, 0, actual.Width, actual.Height));
+            return new ImageComparison.SizeMismatch(
+                new ImageBox(0, 0, expected.Width, expected.Height),
+                new ImageBox(0, 0, actual.Width, actual.Height)
+            );
         }
 
         var diff = new byte[expected.Width * expected.Height * 4];
-        var diffPixels = PixelMatch.Count(expected.Data, actual.Data, diff, expected.Width, expected.Height, tolerance.Threshold);
+        var diffPixels = PixelMatch.Count(
+            expected.Data,
+            actual.Data,
+            diff,
+            expected.Width,
+            expected.Height,
+            tolerance.Threshold
+        );
         var total = expected.Width * expected.Height;
         double? byRatio = tolerance.MaxDiffPixelRatio is { } ratio ? total * ratio : null;
-        var allowed = tolerance.MaxDiffPixels is { } pixels && byRatio is { } share
-            ? Math.Min(pixels, share)
-            : tolerance.MaxDiffPixels ?? byRatio ?? 0;
+        var allowed =
+            tolerance.MaxDiffPixels is { } pixels && byRatio is { } share
+                ? Math.Min(pixels, share)
+                : tolerance.MaxDiffPixels ?? byRatio ?? 0;
         return diffPixels <= allowed
             ? new ImageComparison.Match(diffPixels)
-            : new ImageComparison.Pixels(diffPixels, total == 0 ? 0 : (double)diffPixels / total, new RgbaImage(expected.Width, expected.Height, diff));
+            : new ImageComparison.Pixels(
+                diffPixels,
+                total == 0 ? 0 : (double)diffPixels / total,
+                new RgbaImage(expected.Width, expected.Height, diff)
+            );
     }
 
     private static byte Average(long sum, int count) => (byte)RoundHalfUp((double)sum / count);

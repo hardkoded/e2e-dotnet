@@ -12,14 +12,24 @@ public sealed class E2eWebTests
     {
         var result = await RunAsync(["install"]);
         Assert.Equal(0, result.Code);
-        Assert.Equal([["install", "chromium"]], result.Calls);
+        Assert.Equal(
+            [
+                ["install", "chromium"],
+            ],
+            result.Calls
+        );
     }
 
     [Fact]
     public async Task Forwards_the_named_browsers_and_with_deps()
     {
         var result = await RunAsync(["install", "webkit", "--with-deps", "firefox"]);
-        Assert.Equal([["install", "--with-deps", "webkit", "firefox"]], result.Calls);
+        Assert.Equal(
+            [
+                ["install", "--with-deps", "webkit", "firefox"],
+            ],
+            result.Calls
+        );
     }
 
     [Fact]
@@ -36,7 +46,11 @@ public sealed class E2eWebTests
         var result = await RunAsync(args);
         Assert.Equal(0, result.Code);
         Assert.Empty(result.Calls);
-        Assert.Contains("Usage: e2e install [chromium|firefox|webkit ...] [--with-deps]", result.Stdout, StringComparison.Ordinal);
+        Assert.Contains(
+            "Usage: e2e install [chromium|firefox|webkit ...] [--with-deps]",
+            result.Stdout,
+            StringComparison.Ordinal
+        );
         Assert.Contains("dotnet e2e install", result.Stdout, StringComparison.Ordinal);
     }
 
@@ -52,16 +66,19 @@ public sealed class E2eWebTests
     }
 
     /// <summary>Runs <c>e2e</c> with recorded output and a fake Playwright CLI that exits with <paramref name="exitCode"/>.</summary>
-    private static async Task<(int Code, List<string[]> Calls, string Stdout, string Stderr)> RunAsync(string[] args, int exitCode = 0)
+    private static async Task<(int Code, List<string[]> Calls, string Stdout, string Stderr)> RunAsync(
+        string[] args,
+        int exitCode = 0
+    )
     {
         var calls = new List<string[]>();
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
         var code = await E2eWebCli.MainAsync(args[1..], new CliIo(stdout, stderr, forwarded =>
-        {
-            calls.Add(forwarded);
-            return exitCode;
-        }));
+            {
+                calls.Add(forwarded);
+                return exitCode;
+            }));
         return (code, calls, stdout.ToString(), stderr.ToString());
     }
 }

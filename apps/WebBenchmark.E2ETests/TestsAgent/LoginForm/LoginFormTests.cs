@@ -16,10 +16,17 @@ public sealed class LoginFormTests : TestsAgentTest
     {
         var account = Credentials.User("benchmark");
         await App.OpenAsync("/e/login-form");
-        await Agent.ActAsync("log in with the given credentials", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["email"] = account.Username, ["password"] = account.Password },
-        });
+        await Agent.ActAsync(
+            "log in with the given credentials",
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?>
+                {
+                    ["email"] = account.Username,
+                    ["password"] = account.Password,
+                },
+            }
+        );
         await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Logged in successfully");
     }
 }

@@ -10,14 +10,16 @@ public sealed class PlaceholderNamesTests(ChromiumPage chromium) : IClassFixture
     [Fact]
     public async Task Names_text_controls_by_placeholder_in_HTML_AAM_order_and_carries_the_attribute()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <input type="search" placeholder="Search products" data-testid="search">
             <textarea placeholder="Leave a note" data-testid="note"></textarea>
             <label for="email">Email</label><input id="email" type="email" placeholder="you@example.test">
             <input type="text" title="Promo code" placeholder="Enter code" data-testid="promo">
             <input type="text" aria-placeholder="Amount" data-testid="amount">
             <input type="checkbox" placeholder="Not a text control" data-testid="check">
-            """);
+            """
+        );
         var nodes = await chromium.CaptureAsync();
         var byTestId = nodes.Where(node => node.TestId is not null).ToDictionary(node => node.TestId!);
         var email = nodes.Single(node => node.Name == "Email");

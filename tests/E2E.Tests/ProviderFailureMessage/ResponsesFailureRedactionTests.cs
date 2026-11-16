@@ -13,7 +13,10 @@ namespace E2E.Tests.ProviderFailureMessage;
 public sealed class ResponsesFailureRedactionTests
 {
     [Theory]
-    [InlineData("text/event-stream", "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"bad field: hunter2\"}}}\n\n")]
+    [InlineData(
+        "text/event-stream",
+        "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"bad field: hunter2\"}}}\n\n"
+    )]
     [InlineData("application/json", "{\"error\":{\"message\":\"bad field: hunter2\"}}")]
     public async Task Redacts_secrets_in_a_failure_the_provider_answered_with_200(string contentType, string body)
     {
@@ -27,7 +30,9 @@ public sealed class ResponsesFailureRedactionTests
             Redactor = Redactor.For([("password", "hunter2")]),
         };
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(request, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            model.CompleteAsync(request, CancellationToken.None)
+        );
 
         Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
         Assert.Contains("<secret:password>", error.Message, StringComparison.Ordinal);
@@ -36,9 +41,17 @@ public sealed class ResponsesFailureRedactionTests
 
     private sealed class FixedHandler(string contentType, string body) : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, contentType) });
+            return Task.FromResult(
+                new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, contentType),
+                }
+            );
         }
     }
 }

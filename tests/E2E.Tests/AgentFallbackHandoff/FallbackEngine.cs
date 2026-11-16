@@ -73,17 +73,25 @@ internal sealed class FallbackEngine : IEngine
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(null, TimeSpan.FromSeconds(5), cancellationToken);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            ObserveAsync(null, TimeSpan.FromSeconds(5), cancellationToken);
 
-        public Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) =>
+        public Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) =>
             engine.Observe is { } observe
                 ? observe(options, timeout, cancellationToken)
                 : Task.FromResult(FallbackFixtures.TreeOf(FallbackFixtures.Save));
 
         public bool CanLocate => engine.Locate is not null;
 
-        public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult(engine.Locate?.Invoke(expression) ?? []);
+        public Task<IReadOnlyList<SemanticNode>> LocateAsync(
+            LocatorExpression expression,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(engine.Locate?.Invoke(expression) ?? []);
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
@@ -131,13 +139,24 @@ internal static class FallbackFixtures
     public static TraceViewport Viewport { get; } = new(2, 2);
 
     /// <summary>One button named Save, the node most screens here list.</summary>
-    public static SemanticNode Save { get; } = new() { Ref = "save", Role = "button", Name = "Save" };
+    public static SemanticNode Save { get; } =
+        new()
+        {
+            Ref = "save",
+            Role = "button",
+            Name = "Save",
+        };
 
     /// <summary>A tree look over the given nodes on the test viewport.</summary>
     public static Observation TreeOf(params SemanticNode[] nodes) => TreeAt("/", null, null, nodes);
 
     /// <summary>A look at a route, with the location the engine reports when it differs from the route, the pixels it takes (if any), and the nodes it lists.</summary>
-    public static Observation TreeAt(string route, string? location, EngineScreenshot? pixels, params SemanticNode[] nodes) =>
+    public static Observation TreeAt(
+        string route,
+        string? location,
+        EngineScreenshot? pixels,
+        params SemanticNode[] nodes
+    ) =>
         new()
         {
             Route = route,

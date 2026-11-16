@@ -44,13 +44,26 @@ internal static class NestedSessionRun
             var text = await output + await error;
             if (!File.Exists(xml))
             {
-                throw new InvalidOperationException($"The nested run of {fixture.Name} wrote no result (exit code {process.ExitCode}): {text}");
+                throw new InvalidOperationException(
+                    $"The nested run of {fixture.Name} wrote no result (exit code {process.ExitCode}): {text}"
+                );
             }
 
-            var results = XDocument.Load(xml).Descendants("test").ToDictionary(
-                test => (string)test.Attribute("method")!,
-                test => new NestedResult((string)test.Attribute("result")!, ((string?)test.Element("failure")?.Element("message") ?? string.Empty).Replace("\\\"", "\"", StringComparison.Ordinal)),
-                StringComparer.Ordinal);
+            var results = XDocument
+                .Load(xml)
+                .Descendants("test")
+                .ToDictionary(
+                    test => (string)test.Attribute("method")!,
+                    test => new NestedResult(
+                        (string)test.Attribute("result")!,
+                        ((string?)test.Element("failure")?.Element("message") ?? string.Empty).Replace(
+                            "\\\"",
+                            "\"",
+                            StringComparison.Ordinal
+                        )
+                    ),
+                    StringComparer.Ordinal
+                );
             return (results, text);
         }
         finally
@@ -71,7 +84,8 @@ public abstract class SessionFixtureBase : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -84,7 +98,14 @@ public abstract class SessionFixtureBase : E2ETest
     protected async Task SignInAsync(string value)
     {
         await App.OpenAsync("/browser");
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "account", Value = value, Url = await Browser.UrlAsync() }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "account",
+                Value = value,
+                Url = await Browser.UrlAsync(),
+            },
+        ]);
     }
 
     protected async Task<string?> SignedInAsync()
@@ -159,7 +180,8 @@ public sealed class FailingRestoreFixture : SessionFixtureBase
     private static StateSpyEngine Create()
     {
         var engine = new StateSpyEngine(new WebEngine(new WebEngineOptions()), failRestore: true);
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => Console.Out.WriteLine($"engine-sessions started={engine.Started} ended={engine.Ended}");
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+            Console.Out.WriteLine($"engine-sessions started={engine.Started} ended={engine.Ended}");
         return engine;
     }
 }

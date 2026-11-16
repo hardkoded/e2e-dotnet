@@ -53,7 +53,15 @@ public sealed partial class WebEngine
             var walk = new FrameWalk { Publish = false, Site = Site };
             var roots = await CollectAsync(page.MainFrame, walk, budget, framePath: []).ConfigureAwait(false);
             var url = page.Url;
-            return new Observation { Route = Routes.LocationOf(url), Location = url, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
+            return new Observation
+            {
+                Route = Routes.LocationOf(url),
+                Location = url,
+                Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(),
+                Truncated = walk.Truncated,
+                ScrollPosition = walk.Scroll,
+                Viewport = walk.Viewport,
+            };
         }
 
         /// <summary>
@@ -75,9 +83,16 @@ public sealed partial class WebEngine
                 await work().ConfigureAwait(false);
                 _trace?.TellEnvironment();
             }
-            catch (Exception cause) when (watch.Url is { } url && cause is not (E2EException or System.TimeoutException or OperationCanceledException))
+            catch (Exception cause)
+                when (watch.Url is { } url
+                    && cause is not (E2EException or System.TimeoutException or OperationCanceledException)
+                )
             {
-                throw new TestException("ACTION_FAILED", $"navigation failed: a route aborted the request for {url}: {WebErrors.Message(cause)}", cause);
+                throw new TestException(
+                    "ACTION_FAILED",
+                    $"navigation failed: a route aborted the request for {url}: {WebErrors.Message(cause)}",
+                    cause
+                );
             }
             finally
             {

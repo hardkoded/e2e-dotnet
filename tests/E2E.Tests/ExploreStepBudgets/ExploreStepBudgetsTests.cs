@@ -27,7 +27,11 @@ public sealed class ExploreStepBudgetsTests
     [Fact]
     public void Keeps_budgets_the_agent_sets_to_the_config_default_of_25()
     {
-        var config = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1", "maxSteps": 25, "maxModelCalls": 25 } } }""", Root, _ => null);
+        var config = E2EConfig.Parse(
+            """{ "agents": { "default": { "model": "gpt-4.1", "maxSteps": 25, "maxModelCalls": 25 } } }""",
+            Root,
+            _ => null
+        );
 
         var explorer = Explorer.WithStepBudgets(config.Agent.CreateOptions());
 
@@ -59,7 +63,11 @@ public sealed class ExploreStepBudgetsTests
     [Fact]
     public void Adds_the_signed_in_sentence_to_the_context_of_an_exploration_from_a_session()
     {
-        var config = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1", "context": "Be brief." } } }""", Root, _ => null);
+        var config = E2EConfig.Parse(
+            """{ "agents": { "default": { "model": "gpt-4.1", "context": "Be brief." } } }""",
+            Root,
+            _ => null
+        );
 
         var explorer = Explorer.WithStepBudgets(config.Agent.CreateOptions(), "admin");
         var plain = Explorer.WithStepBudgets(config.Agent.CreateOptions());

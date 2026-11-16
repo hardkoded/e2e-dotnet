@@ -21,7 +21,10 @@ public sealed class CanonicalJsonRfc8785Tests
         Assert.Equal("{\"a\":2,\"b\":1}", IdHelpers.CanonicalJson(new JsonObject { ["b"] = 1, ["a"] = 2 }));
 
         // U+E000 is one code unit above the surrogate pair of U+10000, which a code point order would put last.
-        Assert.Equal("{\"\ud800\udc00\":1,\"\ue000\":2}", IdHelpers.CanonicalJson(new JsonObject { ["\ue000"] = 2, ["\ud800\udc00"] = 1 }));
+        Assert.Equal(
+            "{\"\ud800\udc00\":1,\"\ue000\":2}",
+            IdHelpers.CanonicalJson(new JsonObject { ["\ue000"] = 2, ["\ud800\udc00"] = 1 })
+        );
     }
 
     [Fact]
@@ -55,13 +58,26 @@ public sealed class CanonicalJsonRfc8785Tests
     [Fact]
     public void Writes_an_integer_as_digits_whatever_its_type()
     {
-        Assert.Equal("[3,3,3,3]", IdHelpers.CanonicalJson(new JsonArray(JsonNumbers.Create(3), JsonNumbers.Create(3L), JsonNumbers.Create(3.0), JsonNumbers.Create(3m))));
+        Assert.Equal(
+            "[3,3,3,3]",
+            IdHelpers.CanonicalJson(
+                new JsonArray(
+                    JsonNumbers.Create(3),
+                    JsonNumbers.Create(3L),
+                    JsonNumbers.Create(3.0),
+                    JsonNumbers.Create(3m)
+                )
+            )
+        );
     }
 
     // No upstream it: a control character is escaped as JSON.stringify does, and a character above ASCII is not.
     [Fact]
     public void Escapes_a_string_as_JSON_stringify_does()
     {
-        Assert.Equal("\"a\\n\\u0001\\\"\\\\caf\u00e9/\"", IdHelpers.CanonicalJson(JsonNumbers.Create("a\n\u0001\"\\caf\u00e9/")));
+        Assert.Equal(
+            "\"a\\n\\u0001\\\"\\\\caf\u00e9/\"",
+            IdHelpers.CanonicalJson(JsonNumbers.Create("a\n\u0001\"\\caf\u00e9/"))
+        );
     }
 }

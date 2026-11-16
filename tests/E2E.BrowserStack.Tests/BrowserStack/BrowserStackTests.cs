@@ -16,19 +16,34 @@ public sealed class BrowserStackTests
 {
     private const string Root = "/project";
 
-    private static readonly Dictionary<string, string?> Env = new() { ["BROWSERSTACK_USERNAME"] = "ada", ["BROWSERSTACK_ACCESS_KEY"] = "bs-key", ["PATH"] = "/bin" };
+    private static readonly Dictionary<string, string?> Env = new()
+    {
+        ["BROWSERSTACK_USERNAME"] = "ada",
+        ["BROWSERSTACK_ACCESS_KEY"] = "bs-key",
+        ["PATH"] = "/bin",
+    };
 
-    private static readonly BrowserStackDevicesOptions Options = new() { Device = "Google Pixel 9", OsVersion = "16.0", App = "bs://APP0" };
+    private static readonly BrowserStackDevicesOptions Options = new()
+    {
+        Device = "Google Pixel 9",
+        OsVersion = "16.0",
+        App = "bs://APP0",
+    };
 
     private readonly FakeLeases _leases = new();
     private readonly FakeAppAutomate _api = new();
     private AgentDeviceLeaseOptions? _leaseOptions;
 
-    private BrowserStackDevices Provider(BrowserStackDevicesOptions options) => new(options, leaseOptions =>
-    {
-        _leaseOptions = leaseOptions;
-        return _leases;
-    }, _api.Client());
+    private BrowserStackDevices Provider(BrowserStackDevicesOptions options) =>
+        new(
+            options,
+            leaseOptions =>
+            {
+                _leaseOptions = leaseOptions;
+                return _leases;
+            },
+            _api.Client()
+        );
 
     private static DeviceRequest Request(
         MobilePlatform platform = MobilePlatform.Android,
@@ -38,7 +53,9 @@ public sealed class BrowserStackTests
         int slots = 2,
         string? appPath = null,
         IReadOnlyDictionary<string, string?>? env = null,
-        Action<string>? log = null) => new()
+        Action<string>? log = null
+    ) =>
+        new()
         {
             Platform = platform,
             RunId = runId,
@@ -53,7 +70,14 @@ public sealed class BrowserStackTests
             Log = log ?? (_ => { }),
         };
 
-    private static DeviceReleaseContext Context() => new() { RunId = "run-1", TargetName = "android", Env = Env, Log = _ => { } };
+    private static DeviceReleaseContext Context() =>
+        new()
+        {
+            RunId = "run-1",
+            TargetName = "android",
+            Env = Env,
+            Log = _ => { },
+        };
 
     private static ConfigurationException Invalid(Action create)
     {
@@ -82,7 +106,14 @@ public sealed class BrowserStackTests
 
         var (seen, leased) = Assert.Single(_leases.Acquired);
         Assert.Same(request, seen);
-        Assert.Equal(new Dictionary<string, string> { ["BROWSERSTACK_USERNAME"] = "ada", ["BROWSERSTACK_ACCESS_KEY"] = "bs-key" }, leased.Env);
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["BROWSERSTACK_USERNAME"] = "ada",
+                ["BROWSERSTACK_ACCESS_KEY"] = "bs-key",
+            },
+            leased.Env
+        );
         Assert.Equal("Google Pixel 9, android 16.0; session e2e-run-1-android-2 reserved", leased.Summary);
         Assert.Equal(
             new LeaseSelectors
@@ -94,7 +125,8 @@ public sealed class BrowserStackTests
                 ProviderBuild = "run-1",
                 ProviderSessionName = "e2e-run-1-android-2",
             },
-            leased.Selectors);
+            leased.Selectors
+        );
         await provider.ReleaseAsync(lease, Context(), CancellationToken.None);
         Assert.Same(lease, Assert.Single(_leases.Released));
     }
@@ -102,7 +134,17 @@ public sealed class BrowserStackTests
     [Fact]
     public async Task Leases_an_iOS_device_with_its_own_project_build_and_session_name()
     {
-        await Provider(new BrowserStackDevicesOptions { Device = "iPhone 16", OsVersion = "18", App = "bs://APP123", Project = "shop", Build = "nightly", SessionName = "checkout" })
+        await Provider(
+                new BrowserStackDevicesOptions
+                {
+                    Device = "iPhone 16",
+                    OsVersion = "18",
+                    App = "bs://APP123",
+                    Project = "shop",
+                    Build = "nightly",
+                    SessionName = "checkout",
+                }
+            )
             .AcquireAsync(Request(MobilePlatform.Ios), CancellationToken.None);
 
         Assert.Equal(
@@ -115,38 +157,61 @@ public sealed class BrowserStackTests
                 ProviderBuild = "nightly",
                 ProviderSessionName = "checkout-1",
             },
-            _leases.Selectors());
+            _leases.Selectors()
+        );
     }
 
     [Fact]
     public async Task Names_each_slots_session_after_the_run_the_target_and_the_slot_and_keeps_a_given_name_unique_per_slot()
     {
         var provider = Provider(Options);
-        await provider.AcquireAsync(Request(runId: "run-7", targetName: "pixel", slot: 0, slots: 3), CancellationToken.None);
-        await provider.AcquireAsync(Request(runId: "run-7", targetName: "pixel", slot: 2, slots: 3), CancellationToken.None);
-        await Provider(Options with { SessionName = "checkout" }).AcquireAsync(Request(slot: 2, slots: 3), CancellationToken.None);
-        await Provider(Options with { SessionName = "checkout" }).AcquireAsync(Request(slot: 0, slots: 1), CancellationToken.None);
+        await provider.AcquireAsync(
+            Request(runId: "run-7", targetName: "pixel", slot: 0, slots: 3),
+            CancellationToken.None
+        );
+        await provider.AcquireAsync(
+            Request(runId: "run-7", targetName: "pixel", slot: 2, slots: 3),
+            CancellationToken.None
+        );
+        await Provider(Options with { SessionName = "checkout" })
+            .AcquireAsync(Request(slot: 2, slots: 3), CancellationToken.None);
+        await Provider(Options with { SessionName = "checkout" })
+            .AcquireAsync(Request(slot: 0, slots: 1), CancellationToken.None);
 
-        Assert.Equal(["e2e-run-7-pixel-1", "e2e-run-7-pixel-3", "checkout-3", "checkout"], _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderSessionName!).ToArray());
+        Assert.Equal(
+            ["e2e-run-7-pixel-1", "e2e-run-7-pixel-3", "checkout-3", "checkout"],
+            _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderSessionName!).ToArray()
+        );
     }
 
     [Fact]
     public async Task Passes_the_device_features_to_the_allocation_and_the_worker_under_agent_devices_keys()
     {
-        var lease = await Provider(Options with
-        {
-            Orientation = BrowserStackOrientation.Landscape,
-            GeoLocation = "US",
-            Timezone = "New_York",
-            Language = "fr",
-            Locale = "fr_FR",
-            AppiumVersion = "2.16.2",
-        }).AcquireAsync(Request(), CancellationToken.None);
+        var lease = await Provider(
+                Options with
+                {
+                    Orientation = BrowserStackOrientation.Landscape,
+                    GeoLocation = "US",
+                    Timezone = "New_York",
+                    Language = "fr",
+                    Locale = "fr_FR",
+                    AppiumVersion = "2.16.2",
+                }
+            )
+            .AcquireAsync(Request(), CancellationToken.None);
 
         var selectors = _leases.Selectors();
         Assert.Equal(
             ("landscape", "US", "New_York", "fr", "fr_FR", "2.16.2"),
-            (selectors.ProviderDeviceOrientation, selectors.ProviderGeoLocation, selectors.ProviderTimezone, selectors.ProviderLanguage, selectors.ProviderLocale, selectors.ProviderAppiumVersion));
+            (
+                selectors.ProviderDeviceOrientation,
+                selectors.ProviderGeoLocation,
+                selectors.ProviderTimezone,
+                selectors.ProviderLanguage,
+                selectors.ProviderLocale,
+                selectors.ProviderAppiumVersion
+            )
+        );
         Assert.Equal("landscape", lease.Client!["providerDeviceOrientation"]!.GetValue<string>());
         Assert.Equal("fr_FR", lease.Client["providerLocale"]!.GetValue<string>());
         Assert.Equal("2.16.2", lease.Client["providerAppiumVersion"]!.GetValue<string>());
@@ -167,13 +232,26 @@ public sealed class BrowserStackTests
     [InlineData(null, null, "BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY are not set")]
     [InlineData("ada", null, "BROWSERSTACK_ACCESS_KEY is not set")]
     [InlineData("  ", "bs-key", "BROWSERSTACK_USERNAME is not set")]
-    public async Task Leases_nothing_without_credentials_in_the_runs_environment(string? username, string? accessKey, string message)
+    public async Task Leases_nothing_without_credentials_in_the_runs_environment(
+        string? username,
+        string? accessKey,
+        string message
+    )
     {
-        var env = new Dictionary<string, string?> { ["BROWSERSTACK_USERNAME"] = username, ["BROWSERSTACK_ACCESS_KEY"] = accessKey };
+        var env = new Dictionary<string, string?>
+        {
+            ["BROWSERSTACK_USERNAME"] = username,
+            ["BROWSERSTACK_ACCESS_KEY"] = accessKey,
+        };
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(Options).AcquireAsync(Request(env: env), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Provider(Options).AcquireAsync(Request(env: env), CancellationToken.None)
+        );
 
-        Assert.Equal($"{message}; set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY to your BrowserStack username and access key in the environment the tests start in", error.Message);
+        Assert.Equal(
+            $"{message}; set BROWSERSTACK_USERNAME and BROWSERSTACK_ACCESS_KEY to your BrowserStack username and access key in the environment the tests start in",
+            error.Message
+        );
         Assert.Empty(_leases.Acquired);
     }
 
@@ -181,7 +259,9 @@ public sealed class BrowserStackTests
     public async Task Refuses_the_targets_app_appPath_since_BrowserStack_installs_App()
     {
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Provider(Options).AcquireAsync(Request(appPath: Path.Combine(Root, "build", "app.apk")), CancellationToken.None));
+            Provider(Options)
+                .AcquireAsync(Request(appPath: Path.Combine(Root, "build", "app.apk")), CancellationToken.None)
+        );
 
         Assert.Equal("BrowserStack installs the app from `App`; leave the target's `app.appPath` out", error.Message);
         Assert.Empty(_leases.Acquired);
@@ -193,7 +273,9 @@ public sealed class BrowserStackTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Provider(Options).AcquireAsync(Request(), cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Provider(Options).AcquireAsync(Request(), cancelled.Token)
+        );
 
         Assert.Empty(_leases.Acquired);
     }
@@ -204,14 +286,18 @@ public sealed class BrowserStackTests
     [InlineData("App")]
     public void Requires_the_option_with_INVALID_CONFIG(string key)
     {
-        BrowserStackDevicesOptions With(string? value) => key switch
-        {
-            "Device" => Options with { Device = value! },
-            "OsVersion" => Options with { OsVersion = value! },
-            _ => Options with { App = value! },
-        };
+        BrowserStackDevicesOptions With(string? value) =>
+            key switch
+            {
+                "Device" => Options with { Device = value! },
+                "OsVersion" => Options with { OsVersion = value! },
+                _ => Options with { App = value! },
+            };
 
-        Assert.Equal($"BrowserStackDevices: `{key}` is required, as a non-empty string", Invalid(() => Provider(With(" "))).Message);
+        Assert.Equal(
+            $"BrowserStackDevices: `{key}` is required, as a non-empty string",
+            Invalid(() => Provider(With(" "))).Message
+        );
         Invalid(() => Provider(With(null)));
     }
 
@@ -244,7 +330,10 @@ public sealed class BrowserStackTests
             _ => Options with { CustomNetwork = " " },
         };
 
-        Assert.Equal($"BrowserStackDevices: `{key}` must be a non-empty string", Invalid(() => Provider(options)).Message);
+        Assert.Equal(
+            $"BrowserStackDevices: `{key}` must be a non-empty string",
+            Invalid(() => Provider(options)).Message
+        );
     }
 
     [Theory]
@@ -260,19 +349,25 @@ public sealed class BrowserStackTests
             _ => Options with { SessionName = " " },
         };
 
-        Assert.Equal($"BrowserStackDevices: `{key}` must be a non-empty string", Invalid(() => Provider(options)).Message);
+        Assert.Equal(
+            $"BrowserStackDevices: `{key}` must be a non-empty string",
+            Invalid(() => Provider(options)).Message
+        );
     }
 
     [Fact]
     public async Task Passes_a_network_profile_a_custom_network_and_noResignApp_on_iOS_under_agent_devices_keys()
     {
-        await Provider(Options with { NetworkProfile = "4g-lte-advanced-good" }).AcquireAsync(Request(), CancellationToken.None);
+        await Provider(Options with { NetworkProfile = "4g-lte-advanced-good" })
+            .AcquireAsync(Request(), CancellationToken.None);
         Assert.Equal("4g-lte-advanced-good", _leases.Selectors(0).ProviderNetworkProfile);
         await Provider(Options with { CustomNetwork = "1000" }).AcquireAsync(Request(), CancellationToken.None);
         Assert.Equal("1000", _leases.Selectors(1).ProviderCustomNetwork);
-        await Provider(Options with { NoResignApp = true }).AcquireAsync(Request(MobilePlatform.Ios), CancellationToken.None);
+        await Provider(Options with { NoResignApp = true })
+            .AcquireAsync(Request(MobilePlatform.Ios), CancellationToken.None);
         Assert.True(_leases.Selectors(2).ProviderNoResignApp);
-        await Provider(Options with { NoResignApp = false }).AcquireAsync(Request(MobilePlatform.Ios), CancellationToken.None);
+        await Provider(Options with { NoResignApp = false })
+            .AcquireAsync(Request(MobilePlatform.Ios), CancellationToken.None);
         Assert.Null(_leases.Selectors(3).ProviderNoResignApp);
         Assert.False(_leases.Selectors(3).ToJson().ContainsKey("providerNoResignApp"));
     }
@@ -280,7 +375,9 @@ public sealed class BrowserStackTests
     [Fact]
     public async Task Refuses_noResignApp_on_Android_before_any_daemon_starts()
     {
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => Provider(Options with { NoResignApp = true }).AcquireAsync(Request(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            Provider(Options with { NoResignApp = true }).AcquireAsync(Request(), CancellationToken.None)
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Equal("BrowserStackDevices: `NoResignApp` applies to iOS only", error.Message);
@@ -302,13 +399,19 @@ public sealed class BrowserStackTests
         var lines = new List<string>();
         var request = Request(log: lines.Add);
 
-        await Task.WhenAll(provider.AcquireAsync(request, CancellationToken.None), provider.AcquireAsync(Request(slot: 1), CancellationToken.None));
+        await Task.WhenAll(
+            provider.AcquireAsync(request, CancellationToken.None),
+            provider.AcquireAsync(Request(slot: 1), CancellationToken.None)
+        );
 
         var upload = Assert.Single(_api.Uploads);
         Assert.Equal("https://api-cloud.browserstack.com/app-automate/upload", upload.Url.AbsoluteUri);
         Assert.Equal($"Basic {Convert.ToBase64String("ada:bs-key"u8.ToArray())}", upload.Authorization);
         Assert.Contains("https://example.com/app.apk", upload.Body, StringComparison.Ordinal);
-        Assert.Equal(["bs://UPLOADED", "bs://UPLOADED"], [_leases.Selectors(0).ProviderApp!, _leases.Selectors(1).ProviderApp!]);
+        Assert.Equal(
+            ["bs://UPLOADED", "bs://UPLOADED"],
+            [_leases.Selectors(0).ProviderApp!, _leases.Selectors(1).ProviderApp!]
+        );
         Assert.Contains("uploaded the app URL as bs://UPLOADED", lines);
         Assert.DoesNotContain("example.com", string.Join('\n', lines), StringComparison.Ordinal);
     }
@@ -318,7 +421,10 @@ public sealed class BrowserStackTests
     {
         var provider = Provider(Options with { App = "https://example.com/app.apk" });
 
-        await provider.AcquireAsync(Request(log: _ => throw new InvalidOperationException("log closed")), CancellationToken.None);
+        await provider.AcquireAsync(
+            Request(log: _ => throw new InvalidOperationException("log closed")),
+            CancellationToken.None
+        );
 
         Assert.Equal("bs://UPLOADED", _leases.Selectors().ProviderApp);
     }
@@ -334,21 +440,46 @@ public sealed class BrowserStackTests
 
         var first = await provider.AcquireAsync(Request(runId: "run-1"), CancellationToken.None);
         await provider.ReleaseAsync(first, Context(), CancellationToken.None);
-        await Task.WhenAll(provider.AcquireAsync(Request(runId: "run-2"), CancellationToken.None), provider.AcquireAsync(Request(runId: "run-2", slot: 1), CancellationToken.None));
-        await provider.AcquireAsync(Request(runId: "run-2", env: new Dictionary<string, string?>(Env) { ["BROWSERSTACK_API_ENDPOINT"] = "https://eu.example.com/app-automate" }), CancellationToken.None);
-        await provider.AcquireAsync(Request(runId: "run-2", env: new Dictionary<string, string?>(Env) { ["BROWSERSTACK_USERNAME"] = "bob" }), CancellationToken.None);
+        await Task.WhenAll(
+            provider.AcquireAsync(Request(runId: "run-2"), CancellationToken.None),
+            provider.AcquireAsync(Request(runId: "run-2", slot: 1), CancellationToken.None)
+        );
+        await provider.AcquireAsync(
+            Request(
+                runId: "run-2",
+                env: new Dictionary<string, string?>(Env)
+                {
+                    ["BROWSERSTACK_API_ENDPOINT"] = "https://eu.example.com/app-automate",
+                }
+            ),
+            CancellationToken.None
+        );
+        await provider.AcquireAsync(
+            Request(runId: "run-2", env: new Dictionary<string, string?>(Env) { ["BROWSERSTACK_USERNAME"] = "bob" }),
+            CancellationToken.None
+        );
 
         Assert.Equal(4, _api.Uploads.Count());
-        Assert.Equal(["bs://RUN1", "bs://RUN2", "bs://RUN2", "bs://EU", "bs://BOB"], _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderApp!).ToArray());
+        Assert.Equal(
+            ["bs://RUN1", "bs://RUN2", "bs://RUN2", "bs://EU", "bs://BOB"],
+            _leases.Acquired.Select(call => call.Lease.Selectors!.ProviderApp!).ToArray()
+        );
     }
 
     [Fact]
     public async Task Leases_nothing_when_the_upload_fails_and_uploads_again_on_the_next_lease()
     {
         var provider = Provider(Options with { App = "https://example.com/app.apk" });
-        _api.Overrides.Enqueue(() => FakeAppAutomate.Json(new System.Text.Json.Nodes.JsonObject { ["message"] = "Invalid file" }, System.Net.HttpStatusCode.UnprocessableEntity));
+        _api.Overrides.Enqueue(() =>
+            FakeAppAutomate.Json(
+                new System.Text.Json.Nodes.JsonObject { ["message"] = "Invalid file" },
+                System.Net.HttpStatusCode.UnprocessableEntity
+            )
+        );
 
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.AcquireAsync(Request(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            provider.AcquireAsync(Request(), CancellationToken.None)
+        );
         Assert.Contains("HTTP 422 (Invalid file)", error.Message, StringComparison.Ordinal);
         Assert.Empty(_leases.Acquired);
 
@@ -365,7 +496,8 @@ public sealed class BrowserStackTests
         _api.OnUpload = async () => await cancelled.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Provider(Options with { App = "https://example.com/app.apk" }).AcquireAsync(Request(), cancelled.Token));
+            Provider(Options with { App = "https://example.com/app.apk" }).AcquireAsync(Request(), cancelled.Token)
+        );
 
         Assert.Empty(_leases.Acquired);
     }

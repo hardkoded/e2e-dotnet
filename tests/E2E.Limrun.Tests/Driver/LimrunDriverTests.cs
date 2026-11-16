@@ -37,7 +37,8 @@ public sealed class LimrunDriverTests
                 sessions.Add(named);
                 return client;
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal("com.example.app", binding.InstalledApp);
         Assert.Equal($"limrun:{platform.WireName()}:lease", binding.DeviceId);
@@ -46,10 +47,12 @@ public sealed class LimrunDriverTests
         Assert.Single(sessions.Distinct());
         JsonAssert.Args(
             $$"""{"tenant":"e2e","runId":"run","clientId":"worker-0","leaseBackend":"{{platform.WireName()}}-instance","leaseProvider":"limrun","retainOnClose":true}""",
-            client.LastArgs(DeviceMethods.LeasesAllocate));
+            client.LastArgs(DeviceMethods.LeasesAllocate)
+        );
         JsonAssert.Args(
             $$"""{"appPath":"/build","{{(platform == MobilePlatform.Ios ? "udid" : "serial")}}":"limrun:{{platform.WireName()}}:lease","app":"com.example.app","platform":"{{platform.WireName()}}"}""",
-            client.LastArgs(DeviceMethods.AppsInstall));
+            client.LastArgs(DeviceMethods.AppsInstall)
+        );
     }
 
     [Fact]
@@ -74,12 +77,14 @@ public sealed class LimrunDriverTests
                 created.Add((session, connection!.Client));
                 return client;
             },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         // Exact: the engine rejects a lease whose client names `session` or the daemon connection.
         JsonAssert.Args(
             """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
-            binding.Client);
+            binding.Client
+        );
         Assert.Equal("limrun:ios:lease", binding.DeviceId);
         Assert.Equal("com.example.app", binding.InstalledApp);
         Assert.Collection(
@@ -94,8 +99,10 @@ public sealed class LimrunDriverTests
                 Assert.Equal("e2e-lease-06e36932", worker.Session);
                 JsonAssert.Args(
                     """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun"}""",
-                    worker.Client);
-            });
+                    worker.Client
+                );
+            }
+        );
     }
 
     [Fact]
@@ -116,10 +123,12 @@ public sealed class LimrunDriverTests
         var binding = await LimrunDriver.AttachAsync(
             new LimrunDriverRequest("/daemon", "run", 3, MobilePlatform.Ios, null, null),
             (_, _) => client,
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         JsonAssert.Args(
             """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun","deviceKey":"key","clientId":"worker-3"}""",
-            binding.Client);
+            binding.Client
+        );
     }
 }

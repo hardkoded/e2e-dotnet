@@ -28,38 +28,57 @@ public sealed class StickyChrome : Component
             return VStack(Success("Terms accepted")).Padding(24);
         }
 
-        var sections = Enumerable.Range(1, SectionCount).Select(section => VStack(4,
-                BodyStrong($"Section {section}"),
-                Body($"Deterministic agreement paragraph {section} of {SectionCount}. Nothing in this section is actionable; it only adds scroll distance between the top of the screen and the accept button.").TextWrapping())
-            .WithKey(section.ToString()));
+        var sections = Enumerable
+            .Range(1, SectionCount)
+            .Select(section =>
+                VStack(
+                        4,
+                        BodyStrong($"Section {section}"),
+                        Body(
+                                $"Deterministic agreement paragraph {section} of {SectionCount}. Nothing in this section is actionable; it only adds scroll distance between the top of the screen and the accept button."
+                            )
+                            .TextWrapping()
+                    )
+                    .WithKey(section.ToString())
+            );
 
-        var content = ScrollView(VStack(16, [
-            Hint("Read the agreement, tap Accept terms at the bottom, then Continue."),
-            .. sections,
-            Button(accepted ? "Terms accepted ✓" : "Accept terms", () => setAccepted(true)).AutomationId("accept-terms"),
-        ]).Padding(24, 16, 24, 96));
+        var content = ScrollView(
+            VStack(
+                    16,
+                    [
+                        Hint("Read the agreement, tap Accept terms at the bottom, then Continue."),
+                        .. sections,
+                        Button(accepted ? "Terms accepted ✓" : "Accept terms", () => setAccepted(true))
+                            .AutomationId("accept-terms"),
+                    ]
+                )
+                .Padding(24, 16, 24, 96)
+        );
 
-        var footer = VStack(8,
-                When(decoyTapped && !accepted, () => Body("Accept the terms at the bottom first").Foreground("#b00020")),
+        var footer = VStack(
+                8,
+                When(decoyTapped && !accepted, () =>
+                    Body("Accept the terms at the bottom first").Foreground("#b00020")
+                ),
                 Button("Continue", () =>
-                {
-                    if (accepted)
                     {
-                        setDone(true);
-                    }
-                    else
-                    {
-                        setDecoyTapped(true);
-                    }
-                }).Opacity(accepted ? 1 : 0.5).HAlign(HorizontalAlignment.Stretch).AutomationId("continue-button"))
+                        if (accepted)
+                        {
+                            setDone(true);
+                        }
+                        else
+                        {
+                            setDecoyTapped(true);
+                        }
+                    })
+                    .Opacity(accepted ? 1 : 0.5)
+                    .HAlign(HorizontalAlignment.Stretch)
+                    .AutomationId("continue-button")
+            )
             .Padding(16)
             .Background(Theme.SolidBackground)
             .VAlign(VerticalAlignment.Bottom);
 
-        return Grid(
-            columns: [GridSize.Star()],
-            rows: [GridSize.Star()],
-            content,
-            footer);
+        return Grid(columns: [GridSize.Star()], rows: [GridSize.Star()], content, footer);
     }
 }

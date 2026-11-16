@@ -47,7 +47,11 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
     {
         if (Shots >= ShotsBeforeLoss)
         {
-            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this engine captures no more pixels", retryable: false);
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                "this engine captures no more pixels",
+                retryable: false
+            );
         }
 
         var shade = (byte)(40 * Interlocked.Increment(ref _shots) % 250);
@@ -67,11 +71,17 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
     {
         public string Route => session.Route;
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+        public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+            session.OpenAsync(url, cancellationToken);
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => session.ObserveAsync(cancellationToken);
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+            session.ObserveAsync(cancellationToken);
 
-        public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<Observation> ObserveAsync(
+            ObserveOptions? options,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        )
         {
             lock (engine.Looks)
             {
@@ -80,17 +90,26 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
 
             if (engine.TreeUnavailable && (options?.PixelFallback == true || engine.IgnoresPixelFallback))
             {
-                return new Observation { Route = session.Route, Roots = [], TreeUnavailable = true, Pixels = engine.WithholdPixels ? null : engine.Capture() };
+                return new Observation
+                {
+                    Route = session.Route,
+                    Roots = [],
+                    TreeUnavailable = true,
+                    Pixels = engine.WithholdPixels ? null : engine.Capture(),
+                };
             }
 
             return await session.ObserveAsync(options, timeout, cancellationToken).ConfigureAwait(false);
         }
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+            session.PerformAsync(node, action, cancellationToken);
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+        public Task PressAsync(string key, CancellationToken cancellationToken) =>
+            session.PressAsync(key, cancellationToken);
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
+            session.SwipeAsync(direction, cancellationToken);
 
         public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
 
@@ -98,7 +117,8 @@ internal sealed class PixelsEngine(IEngine inner) : IEngine
 
         public Task ClearStateAsync(CancellationToken cancellationToken) => session.ClearStateAsync(cancellationToken);
 
-        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => Task.FromResult(engine.Capture());
+        public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(engine.Capture());
 
         public ValueTask DisposeAsync() => session.DisposeAsync();
     }

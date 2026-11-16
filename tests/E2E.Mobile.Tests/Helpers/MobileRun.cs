@@ -15,20 +15,26 @@ namespace E2E.Mobile.Tests;
 internal static class MobileRun
 {
     /// <summary>Runs the tests on <paramref name="engine"/> in a throwaway project, and returns the run's outcome.</summary>
-    public static async Task<RunOutcome> RunAsync(IEngine engine, IReadOnlyList<InMemoryTest> tests, IReadOnlyDictionary<string, AgentOptions>? agents = null)
+    public static async Task<RunOutcome> RunAsync(
+        IEngine engine,
+        IReadOnlyList<InMemoryTest> tests,
+        IReadOnlyDictionary<string, AgentOptions>? agents = null
+    )
     {
         var project = Path.Combine(Path.GetTempPath(), "e2e-mobile-run", Guid.NewGuid().ToString("n"));
         Directory.CreateDirectory(project);
         try
         {
-            return await Runner.RunAsync(new RunOptions
-            {
-                Cwd = project,
-                Tests = new InMemoryTests("tests/mobile.e2e", tests),
-                Engine = engine,
-                Agents = agents,
-                Env = new Dictionary<string, string?> { ["CI"] = "" },
-            });
+            return await Runner.RunAsync(
+                new RunOptions
+                {
+                    Cwd = project,
+                    Tests = new InMemoryTests("tests/mobile.e2e", tests),
+                    Engine = engine,
+                    Agents = agents,
+                    Env = new Dictionary<string, string?> { ["CI"] = "" },
+                }
+            );
         }
         finally
         {

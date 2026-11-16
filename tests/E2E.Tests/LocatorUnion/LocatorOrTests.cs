@@ -16,8 +16,20 @@ public sealed class LocatorOrTests
 {
     private static readonly SemanticNode[] Tabs =
     [
-        new() { Ref = "discover", Role = "tab", Name = "Discover", Text = "Discover" },
-        new() { Ref = "odkrywaj", Role = "tab", Name = "Odkrywaj", Text = "Odkrywaj" },
+        new()
+        {
+            Ref = "discover",
+            Role = "tab",
+            Name = "Discover",
+            Text = "Discover",
+        },
+        new()
+        {
+            Ref = "odkrywaj",
+            Role = "tab",
+            Name = "Odkrywaj",
+            Text = "Odkrywaj",
+        },
     ];
 
     /// <summary>A screen over the two tabs, logging every expression it is asked to locate.</summary>
@@ -36,7 +48,8 @@ public sealed class LocatorOrTests
             {
                 expressions.Add(expression);
                 return Task.FromResult(LocatorResolver.Resolve(observation, expression));
-            });
+            }
+        );
         return (screen, expressions);
     }
 

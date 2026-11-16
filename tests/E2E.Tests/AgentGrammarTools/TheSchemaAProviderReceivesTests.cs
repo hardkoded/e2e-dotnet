@@ -14,12 +14,18 @@ public sealed class TheSchemaAProviderReceivesTests
 {
     private static IReadOnlyList<ModelTool> FullGrammar() =>
         AgentTools.GrammarToolDefinitions(
-            EngineCapabilities.Keyboard | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Resize | EngineCapabilities.Upload | EngineCapabilities.TapModifiers,
+            EngineCapabilities.Keyboard
+                | EngineCapabilities.Scroll
+                | EngineCapabilities.History
+                | EngineCapabilities.Resize
+                | EngineCapabilities.Upload
+                | EngineCapabilities.TapModifiers,
             null,
             EngineActionKinds.Locator,
             ["tap", "hover", "dragTo"],
             dismissKeyboard: true,
-            secrets: [new ExecutorSecret("admin", "password")]);
+            secrets: [new ExecutorSecret("admin", "password")]
+        );
 
     [Fact]
     public void Carries_additionalProperties_false_for_every_grammar_tool_and_complete_step_from_the_schema_itself()
@@ -27,7 +33,9 @@ public sealed class TheSchemaAProviderReceivesTests
         IEnumerable<ModelTool> tools = [.. FullGrammar(), AgentTools.CreateVerdictTool().Tool];
         foreach (var tool in tools)
         {
-            var closed = tool.Parameters.TryGetProperty("additionalProperties", out var additional) ? additional : (JsonElement?)null;
+            var closed = tool.Parameters.TryGetProperty("additionalProperties", out var additional)
+                ? additional
+                : (JsonElement?)null;
             Assert.True(closed?.ValueKind == JsonValueKind.False, tool.Name + " as sent");
         }
     }
@@ -36,7 +44,14 @@ public sealed class TheSchemaAProviderReceivesTests
     public void Sends_complete_step_as_the_plain_object_the_errorCode_rule_is_its_description_never_a_keyword_or_a_refinement()
     {
         var schema = AgentTools.CreateVerdictTool().Tool.Parameters;
-        Assert.Equal(["additionalProperties", "properties", "required", "type"], schema.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
-        Assert.Contains("a passed step carries none", schema.GetProperty("properties").GetProperty("errorCode").GetProperty("description").GetString(), StringComparison.Ordinal);
+        Assert.Equal(
+            ["additionalProperties", "properties", "required", "type"],
+            schema.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)
+        );
+        Assert.Contains(
+            "a passed step carries none",
+            schema.GetProperty("properties").GetProperty("errorCode").GetProperty("description").GetString(),
+            StringComparison.Ordinal
+        );
     }
 }

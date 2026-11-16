@@ -22,7 +22,10 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<input type='text' />"));
         await Browser.Locator("input").PressAsync("h");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').value"), Is.EqualTo("h"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').value"),
+            Is.EqualTo("h")
+        );
     }
 
     [Test]
@@ -44,32 +47,42 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
     [Test]
     public async Task Should_scroll_zero_sized_element_into_view()
     {
-        await Browser.GotoAsync(Content("""
-            <style>
-              html,body { margin: 0; padding: 0; }
-              ::-webkit-scrollbar { display: none; }
-              * { scrollbar-width: none; }
-            </style>
-            <div style="height: 2000px; text-align: center; border: 10px solid blue;">
-              <h1>SCROLL DOWN</h1>
-            </div>
-            <div id=lazyload style="font-size:75px; background-color: green;"></div>
-            <script>
-              const lazyLoadElement = document.querySelector('#lazyload');
-              const observer = new IntersectionObserver((entries) => {
-                if (entries.some(entry => entry.isIntersecting)) {
-                  lazyLoadElement.textContent = 'LAZY LOADED CONTENT';
-                  lazyLoadElement.style.height = '20px';
-                  observer.disconnect();
-                }
-              });
-              observer.observe(lazyLoadElement);
-            </script>
-            """));
-        Assert.That(await Browser.Locator("#lazyload").BoundingBoxAsync(), Is.EqualTo(new BoundingBox(0, 2020, 1280, 0)));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <style>
+                  html,body { margin: 0; padding: 0; }
+                  ::-webkit-scrollbar { display: none; }
+                  * { scrollbar-width: none; }
+                </style>
+                <div style="height: 2000px; text-align: center; border: 10px solid blue;">
+                  <h1>SCROLL DOWN</h1>
+                </div>
+                <div id=lazyload style="font-size:75px; background-color: green;"></div>
+                <script>
+                  const lazyLoadElement = document.querySelector('#lazyload');
+                  const observer = new IntersectionObserver((entries) => {
+                    if (entries.some(entry => entry.isIntersecting)) {
+                      lazyLoadElement.textContent = 'LAZY LOADED CONTENT';
+                      lazyLoadElement.style.height = '20px';
+                      observer.disconnect();
+                    }
+                  });
+                  observer.observe(lazyLoadElement);
+                </script>
+                """
+            )
+        );
+        Assert.That(
+            await Browser.Locator("#lazyload").BoundingBoxAsync(),
+            Is.EqualTo(new BoundingBox(0, 2020, 1280, 0))
+        );
         await Browser.Locator("#lazyload").ScrollIntoViewAsync();
         await Expect.That(Browser.Locator("#lazyload")).ToHaveTextAsync("LAZY LOADED CONTENT");
-        Assert.That(await Browser.Locator("#lazyload").BoundingBoxAsync(), Is.EqualTo(new BoundingBox(0, 720, 1280, 20)));
+        Assert.That(
+            await Browser.Locator("#lazyload").BoundingBoxAsync(),
+            Is.EqualTo(new BoundingBox(0, 720, 1280, 20))
+        );
     }
 
     [Test]
@@ -77,7 +90,10 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
     {
         await Browser.GotoAsync(Content("<input type='text' />"));
         await Browser.Locator("input").PressSequentiallyAsync("hello");
-        Assert.That(await Browser.EvaluateAsync<string>("() => document.querySelector('input').value"), Is.EqualTo("hello"));
+        Assert.That(
+            await Browser.EvaluateAsync<string>("() => document.querySelector('input').value"),
+            Is.EqualTo("hello")
+        );
     }
 
     [Test]
@@ -96,7 +112,9 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
         await Browser.GotoAsync(Content("<div></div>"));
         var locator = Browser.Locator("span");
         var promise = locator.WaitForAsync();
-        await Browser.EvaluateAsync<object>("() => { document.querySelector('div').innerHTML = '<span>target</span>'; }");
+        await Browser.EvaluateAsync<object>(
+            "() => { document.querySelector('div').innerHTML = '<span>target</span>'; }"
+        );
         await promise;
         await Expect.That(locator).ToHaveTextAsync("target");
     }
@@ -129,17 +147,21 @@ public sealed class LocatorMisc2Tests : PlaywrightTest
     [Test]
     public async Task Should_fill_programmatically_enabled_textarea()
     {
-        await Browser.GotoAsync(Content("""
-            <button>Enable</button>
-            <form>
-              <textarea id="text" disabled></textarea>
-            </form>
-            <script>
-              document.querySelector('button').addEventListener('click', () => {
-                document.querySelector('#text').disabled = false;
-              });
-            </script>
-            """));
+        await Browser.GotoAsync(
+            Content(
+                """
+                <button>Enable</button>
+                <form>
+                  <textarea id="text" disabled></textarea>
+                </form>
+                <script>
+                  document.querySelector('button').addEventListener('click', () => {
+                    document.querySelector('#text').disabled = false;
+                  });
+                </script>
+                """
+            )
+        );
         await Browser.Locator("button").ClickAsync();
         await Browser.Locator("#text").FillAsync("Hello");
         await Expect.That(Browser.Locator("#text")).ToHaveValueAsync("Hello");

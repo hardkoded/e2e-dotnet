@@ -48,7 +48,9 @@ public sealed class LifecycleTests
         Assert.NotNull(session.App);
         Assert.True(session.App!.Owned);
         Assert.Equal(Path.GetFullPath("bin/Desk.exe", Harness.Root), session.AppPath);
-        Assert.Contains(harness.AppLog, entry => entry.Text == "Desk.exe started" && entry.Source == AppLogSource.Console);
+        Assert.Contains(harness.AppLog, entry =>
+            entry.Text == "Desk.exe started" && entry.Source == AppLogSource.Console
+        );
     }
 
     [Fact]
@@ -90,8 +92,18 @@ public sealed class LifecycleTests
     public async Task An_attach_target_attaches_to_the_running_app_and_never_ends_it()
     {
         await using var harness = new Harness(Harness.Options(appPath: null, bundleId: "Notepad"));
-        harness.Driver.Attachable["Notepad"] = new LaunchedApp(777, FakeWindowDriver.MainHandle, "Notepad", Owned: false);
-        harness.Driver.Script(777, FakeWindowDriver.MainHandle, "Untitled - Notepad", RawElements.Window("Untitled - Notepad"));
+        harness.Driver.Attachable["Notepad"] = new LaunchedApp(
+            777,
+            FakeWindowDriver.MainHandle,
+            "Notepad",
+            Owned: false
+        );
+        harness.Driver.Script(
+            777,
+            FakeWindowDriver.MainHandle,
+            "Untitled - Notepad",
+            RawElements.Window("Untitled - Notepad")
+        );
         var session = await harness.StartAsync();
         await session.OpenAsync("", CancellationToken.None);
         Assert.Equal("attach Notepad", harness.Driver.Calls[0]);
@@ -142,7 +154,9 @@ public sealed class LifecycleTests
     {
         await using var harness = new Harness();
         var session = await harness.StartAsync();
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.OpenAsync("https://example.test/", CancellationToken.None));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            session.OpenAsync("https://example.test/", CancellationToken.None)
+        );
         Assert.Equal(EngineErrorCodes.UnsupportedCapability, error.Code);
         Assert.Empty(harness.Driver.Calls);
     }
@@ -151,7 +165,9 @@ public sealed class LifecycleTests
     public async Task A_target_without_an_app_cannot_open()
     {
         var engine = new WinAppEngine(Harness.Options(appPath: null, bundleId: null), () => new FakeWindowDriver());
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => engine.StartAsync(new EngineStartOptions(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            engine.StartAsync(new EngineStartOptions(), CancellationToken.None)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("needs app.appPath or app.bundleId", error.Message, StringComparison.Ordinal);
     }
@@ -160,7 +176,9 @@ public sealed class LifecycleTests
     public async Task A_base_url_on_a_windows_target_is_a_config_error()
     {
         var engine = new WinAppEngine(Harness.Options(), () => new FakeWindowDriver());
-        var error = await Assert.ThrowsAsync<ConfigurationException>(() => engine.StartAsync(new EngineStartOptions { BaseUrl = "https://x.test" }, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            engine.StartAsync(new EngineStartOptions { BaseUrl = "https://x.test" }, CancellationToken.None)
+        );
         Assert.Contains("app.url", error.Message, StringComparison.Ordinal);
     }
 
@@ -230,7 +248,11 @@ public sealed class LifecycleTests
     [Fact]
     public void Refuses_options_that_cannot_work()
     {
-        Assert.Throws<ConfigurationException>(() => new WinAppEngine(Harness.Options() with { SettleMilliseconds = -1 }, () => new FakeWindowDriver()));
-        Assert.Throws<ConfigurationException>(() => new WinAppEngine(Harness.Options() with { LaunchTimeout = TimeSpan.Zero }, () => new FakeWindowDriver()));
+        Assert.Throws<ConfigurationException>(() =>
+            new WinAppEngine(Harness.Options() with { SettleMilliseconds = -1 }, () => new FakeWindowDriver())
+        );
+        Assert.Throws<ConfigurationException>(() =>
+            new WinAppEngine(Harness.Options() with { LaunchTimeout = TimeSpan.Zero }, () => new FakeWindowDriver())
+        );
     }
 }

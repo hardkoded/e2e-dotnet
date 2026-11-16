@@ -20,17 +20,25 @@ internal static class Gesture
             Assert.Equal("touch", source["parameters"]!["pointerType"]!.GetValue<string>());
         }
 
-        return string.Join(" | ", source["actions"]!.AsArray().Select(step => step!["type"]!.GetValue<string>() switch
-        {
-            "pointerMove" => $"move {step["x"]},{step["y"]} ({step["duration"]}ms)",
-            "pointerDown" => "down",
-            "pointerUp" => "up",
-            "pause" => $"pause {step["duration"]}",
-            "keyDown" => $"key {Escape(step["value"]!.GetValue<string>())}",
-            "keyUp" => "release",
-            var other => other,
-        }));
+        return string.Join(
+            " | ",
+            source["actions"]!
+                .AsArray()
+                .Select(step =>
+                    step!["type"]!.GetValue<string>() switch
+                    {
+                        "pointerMove" => $"move {step["x"]},{step["y"]} ({step["duration"]}ms)",
+                        "pointerDown" => "down",
+                        "pointerUp" => "up",
+                        "pause" => $"pause {step["duration"]}",
+                        "keyDown" => $"key {Escape(step["value"]!.GetValue<string>())}",
+                        "keyUp" => "release",
+                        var other => other,
+                    }
+                )
+        );
     }
 
-    private static string Escape(string key) => key.Length == 1 && key[0] < ' ' || key[0] >= '' ? $"U+{(int)key[0]:X4}" : key;
+    private static string Escape(string key) =>
+        key.Length == 1 && key[0] < ' ' || key[0] >= '' ? $"U+{(int)key[0]:X4}" : key;
 }

@@ -16,7 +16,18 @@ public sealed class ParseKeyTests
     public void Rejects_non_printable_single_code_points_control_format_surrogate_separators()
     {
         // Code units are built from their numbers: a raw line separator or a lone surrogate in source would not survive the toolchain.
-        foreach (var key in new[] { Unit(0x0A), Unit(0x00), Unit(0x200B), Unit(0xD800), Unit(0x2028), Unit(0x7F), "Shift+" + Unit(0x09) })
+        foreach (
+            var key in new[]
+            {
+                Unit(0x0A),
+                Unit(0x00),
+                Unit(0x200B),
+                Unit(0xD800),
+                Unit(0x2028),
+                Unit(0x7F),
+                "Shift+" + Unit(0x09),
+            }
+        )
         {
             Assert.Null(KeyGrammar.ParseKey(key));
         }
@@ -45,7 +56,20 @@ public sealed class ParseKeyTests
     [Fact]
     public void Rejects_unknown_names_misspelt_or_repeated_modifiers_bare_modifiers_and_several_characters()
     {
-        foreach (var key in new[] { "", "Ctrl+a", "Enter+Shift", "Shift", "Shift+Shift+a", "ab", "enter", "Shift+", "Control+Shift" })
+        foreach (
+            var key in new[]
+            {
+                "",
+                "Ctrl+a",
+                "Enter+Shift",
+                "Shift",
+                "Shift+Shift+a",
+                "ab",
+                "enter",
+                "Shift+",
+                "Control+Shift",
+            }
+        )
         {
             Assert.Null(KeyGrammar.ParseKey(key));
         }

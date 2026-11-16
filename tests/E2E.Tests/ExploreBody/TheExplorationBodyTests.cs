@@ -10,7 +10,8 @@ using State = E2E.ExploreState;
 namespace E2E.Tests.ExploreBody;
 
 /// <summary>An agent that replays a script and records what the body asked. The C# shape of upstream's fixture objects.</summary>
-internal sealed class ScriptedExploreAgent(IEnumerable<object> plans, IEnumerable<ActOutcome>? acts = null) : IExploreAgent
+internal sealed class ScriptedExploreAgent(IEnumerable<object> plans, IEnumerable<ActOutcome>? acts = null)
+    : IExploreAgent
 {
     private readonly Queue<object> _plans = new(plans);
     private readonly Queue<ActOutcome> _acts = new(acts ?? []);
@@ -42,7 +43,14 @@ internal sealed class ScriptedExploreAgent(IEnumerable<object> plans, IEnumerabl
         }
 
         // Findings a real step would report through the tool land elsewhere.
-        return Task.FromResult(new ActResult { Summary = outcome.Summary!, ModelCalls = 3, Actions = 2 });
+        return Task.FromResult(
+            new ActResult
+            {
+                Summary = outcome.Summary!,
+                ModelCalls = 3,
+                Actions = 2,
+            }
+        );
     }
 
     public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
@@ -54,12 +62,23 @@ internal sealed class ScriptedExploreAgent(IEnumerable<object> plans, IEnumerabl
             throw new InvalidOperationException("unscripted planner call " + (PlanInstructions.Count));
         }
 
-        return Task.FromResult(answer switch
-        {
-            T asked => asked,
-            PlanAnswer plain when typeof(T) == typeof(SkippablePlanAnswer) => (T)(object)new SkippablePlanAnswer(Enum.Parse<SkippablePlanKind>(plain.Decision.ToString()), plain.Title, plain.Instruction, plain.Summary),
-            _ => throw new InvalidOperationException("the scripted answer " + answer + " is not one the grammar asked for, " + typeof(T).Name + " offers"),
-        });
+        return Task.FromResult(
+            answer switch
+            {
+                T asked => asked,
+                PlanAnswer plain when typeof(T) == typeof(SkippablePlanAnswer) => (T)
+                    (object)
+                        new SkippablePlanAnswer(
+                            Enum.Parse<SkippablePlanKind>(plain.Decision.ToString()),
+                            plain.Title,
+                            plain.Instruction,
+                            plain.Summary
+                        ),
+                _ => throw new InvalidOperationException(
+                    "the scripted answer " + answer + " is not one the grammar asked for, " + typeof(T).Name + " offers"
+                ),
+            }
+        );
     }
 }
 
@@ -88,13 +107,18 @@ public sealed class TheExplorationBodyTests
 
     private static Task RunAsync(ExploreBodyOptions options, IExploreAgent agent, List<string>? opened = null) =>
         Body.Create(options)(new ExploreFixtures(agent, _ =>
-        {
-            opened?.Add("/");
-            return Task.CompletedTask;
-        }), CancellationToken.None);
+            {
+                opened?.Add("/");
+                return Task.CompletedTask;
+            }), CancellationToken.None);
 
-    private static ExploreBodyOptions Options(State state, bool openApp = true, IReadOnlyDictionary<string, UserCredential>? credentials = null, TimeProvider? time = null, PlanChange? change = null) =>
-        new(state, StepTimeout, openApp, credentials, Time: time, Change: change);
+    private static ExploreBodyOptions Options(
+        State state,
+        bool openApp = true,
+        IReadOnlyDictionary<string, UserCredential>? credentials = null,
+        TimeProvider? time = null,
+        PlanChange? change = null
+    ) => new(state, StepTimeout, openApp, credentials, Time: time, Change: change);
 
     private static AgentException Blocked(string code, string message) => new(code, message, blocked: true);
 
@@ -103,16 +127,28 @@ public sealed class TheExplorationBodyTests
     {
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
-            [PlanScript.Step("Cart", "Add two items and open the cart"), PlanScript.Step("Checkout", "Pay for the cart"), PlanScript.Finish("Both flows work.")],
-            [ActOutcome.Passed("Cart holds two items"), ActOutcome.Passed("Paid")]);
+            [
+                PlanScript.Step("Cart", "Add two items and open the cart"),
+                PlanScript.Step("Checkout", "Pay for the cart"),
+                PlanScript.Finish("Both flows work."),
+            ],
+            [ActOutcome.Passed("Cart holds two items"), ActOutcome.Passed("Paid")]
+        );
         var opened = new List<string>();
         await RunAsync(Options(state), agent, opened);
         Assert.Equal(["/"], opened);
-        Assert.Equal(["Add two items and open the cart", "Pay for the cart"], agent.ActCalls.Select(call => call.Instruction));
+        Assert.Equal(
+            ["Add two items and open the cart", "Pay for the cart"],
+            agent.ActCalls.Select(call => call.Instruction)
+        );
         Assert.Equal(StepTimeout, agent.ActCalls[0].Timeout);
         Assert.Equal(
-            [("Cart", ReportExploreStepStatus.Passed, "Cart holds two items"), ("Checkout", ReportExploreStepStatus.Passed, "Paid")],
-            state.Steps.Select(step => (step.Title, step.Status, step.Summary)));
+            [
+                ("Cart", ReportExploreStepStatus.Passed, "Cart holds two items"),
+                ("Checkout", ReportExploreStepStatus.Passed, "Paid"),
+            ],
+            state.Steps.Select(step => (step.Title, step.Status, step.Summary))
+        );
         Assert.Equal("Both flows work.", state.Summary);
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
@@ -122,10 +158,21 @@ public sealed class TheExplorationBodyTests
     {
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
-            [PlanScript.Step("Pay", "Pay for the cart"), PlanScript.Step("Search", "Search for shoes"), PlanScript.Finish("Payment is broken.")],
-            [ActOutcome.Fails(new AgentException("ACTION_FAILED", "agent.act failed: the pay button does nothing")), ActOutcome.Passed("Search works")]);
+            [
+                PlanScript.Step("Pay", "Pay for the cart"),
+                PlanScript.Step("Search", "Search for shoes"),
+                PlanScript.Finish("Payment is broken."),
+            ],
+            [
+                ActOutcome.Fails(new AgentException("ACTION_FAILED", "agent.act failed: the pay button does nothing")),
+                ActOutcome.Passed("Search works"),
+            ]
+        );
         await RunAsync(Options(state), agent);
-        Assert.Equal([ReportExploreStepStatus.Failed, ReportExploreStepStatus.Passed], state.Steps.Select(step => step.Status));
+        Assert.Equal(
+            [ReportExploreStepStatus.Failed, ReportExploreStepStatus.Passed],
+            state.Steps.Select(step => step.Status)
+        );
         Assert.Equal("ACTION_FAILED", state.Steps[0].ErrorCode);
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
@@ -135,10 +182,21 @@ public sealed class TheExplorationBodyTests
     {
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
-            [PlanScript.Step("Long", "Tour every page"), PlanScript.Step("Slow", "Wait for the report"), PlanScript.Finish("Covered.")],
-            [ActOutcome.Fails(Blocked("STEP_BUDGET_EXHAUSTED", "agent.act blocked: out of actions")), ActOutcome.Fails(Blocked("STEP_TIMEOUT", "agent.act blocked: out of time"))]);
+            [
+                PlanScript.Step("Long", "Tour every page"),
+                PlanScript.Step("Slow", "Wait for the report"),
+                PlanScript.Finish("Covered."),
+            ],
+            [
+                ActOutcome.Fails(Blocked("STEP_BUDGET_EXHAUSTED", "agent.act blocked: out of actions")),
+                ActOutcome.Fails(Blocked("STEP_TIMEOUT", "agent.act blocked: out of time")),
+            ]
+        );
         await RunAsync(Options(state), agent);
-        Assert.Equal([ReportExploreStepStatus.Exhausted, ReportExploreStepStatus.Exhausted], state.Steps.Select(step => step.Status));
+        Assert.Equal(
+            [ReportExploreStepStatus.Exhausted, ReportExploreStepStatus.Exhausted],
+            state.Steps.Select(step => step.Status)
+        );
         Assert.Equal(0, state.ConsecutiveFailures());
     }
 
@@ -146,17 +204,27 @@ public sealed class TheExplorationBodyTests
     public async Task Asks_for_the_assessment_once_steps_keep_failing_and_records_why_it_stopped()
     {
         var state = new State("goal", new ExploreBudgets(8, TimeSpan.FromMilliseconds(600_000)));
-        var failing = Enumerable.Range(1, Body.ConsecutiveFailureLimit).Select(index => PlanScript.Step("Try " + index, "attempt " + index));
+        var failing = Enumerable
+            .Range(1, Body.ConsecutiveFailureLimit)
+            .Select(index => PlanScript.Step("Try " + index, "attempt " + index));
         var agent = new ScriptedExploreAgent(
             [.. failing, PlanScript.Finish("Nothing worked.")],
             [
                 ActOutcome.Fails(new AgentException("ACTION_FAILED", "failed once")),
                 ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "no credential")),
                 ActOutcome.Fails(new AgentException("ASSERTION_FAILED", "failed again")),
-            ]);
+            ]
+        );
         await RunAsync(Options(state), agent);
-        Assert.Equal([ReportExploreStepStatus.Failed, ReportExploreStepStatus.Blocked, ReportExploreStepStatus.Failed], state.Steps.Select(step => step.Status));
-        Assert.Contains("3 steps failed in a row without a finding; exploration is stuck", agent.PlanInstructions[^1], StringComparison.Ordinal);
+        Assert.Equal(
+            [ReportExploreStepStatus.Failed, ReportExploreStepStatus.Blocked, ReportExploreStepStatus.Failed],
+            state.Steps.Select(step => step.Status)
+        );
+        Assert.Contains(
+            "3 steps failed in a row without a finding; exploration is stuck",
+            agent.PlanInstructions[^1],
+            StringComparison.Ordinal
+        );
         Assert.Equal(ReportExploreEnded.Stuck, state.Ended);
         Assert.Equal("Nothing worked.", state.Summary);
     }
@@ -167,7 +235,8 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", new ExploreBudgets(1, TimeSpan.FromMilliseconds(600_000)));
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("One", "do the one thing"), PlanScript.Step("Two", "the model ignores the limit")],
-            [ActOutcome.Passed("done")]);
+            [ActOutcome.Passed("done")]
+        );
         await RunAsync(Options(state), agent);
         Assert.Single(agent.ActCalls);
         Assert.Contains("the step limit of 1 is reached", agent.PlanInstructions[^1], StringComparison.Ordinal);
@@ -182,7 +251,8 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", new ExploreBudgets(8, TimeSpan.FromMilliseconds(300_000)), clock);
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Tour", "tour the app"), PlanScript.Finish("Time is up.")],
-            [ActOutcome.Passed("toured")])
+            [ActOutcome.Passed("toured")]
+        )
         {
             // The step eats most of the clock.
             OnAct = () => clock.Advance(TimeSpan.FromMilliseconds(200_000)),
@@ -208,7 +278,9 @@ public sealed class TheExplorationBodyTests
         var agent = new SlowPlanner(clock, PlanScript.Step("Late", "too late to start"));
 
         // Nothing ran and nothing was found, so the body concludes blocked. The clock is what this test is about.
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state, openApp: false, time: clock), agent, opened));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(Options(state, openApp: false, time: clock), agent, opened)
+        );
         Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
         Assert.Empty(opened);
         Assert.Empty(agent.ActCalls);
@@ -224,12 +296,15 @@ public sealed class TheExplorationBodyTests
         var credentials = new Dictionary<string, UserCredential> { ["ada"] = new("ada@example.test", password) };
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Sign in", "sign in as ada"), PlanScript.Finish("Signed in fine.")],
-            [ActOutcome.Passed("signed in")]);
+            [ActOutcome.Passed("signed in")]
+        );
         await RunAsync(Options(state, credentials: credentials), agent);
         Assert.Contains("- ada (username: ada@example.test)", agent.PlanInstructions[0], StringComparison.Ordinal);
         Assert.DoesNotContain("bookworm", agent.PlanInstructions[0], StringComparison.Ordinal);
         var parameters = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(agent.ActParams[0]);
-        var carried = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(parameters["credentials"])["ada"]);
+        var carried = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(
+            Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(parameters["credentials"])["ada"]
+        );
         Assert.Equal("ada@example.test", carried["username"]);
         Assert.IsType<Secret>(carried["password"]);
         Assert.DoesNotContain("bookworm", ActParams.Projected(parameters)!.ToJsonString(), StringComparison.Ordinal);
@@ -242,12 +317,19 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", Budgets);
         for (var number = 1; number <= 60; number++)
         {
-            state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Finding " + number, "aligned", "off", ["look"]));
+            state.AddFinding(
+                new FindingInput(ReportExploreFindingKind.Warning, 2, "Finding " + number, "aligned", "off", ["look"])
+            );
         }
 
-        var agent = new ScriptedExploreAgent([PlanScript.Step("Cart", "open the cart"), PlanScript.Finish("Done.")], [ActOutcome.Passed("cart opened")]);
+        var agent = new ScriptedExploreAgent(
+            [PlanScript.Step("Cart", "open the cart"), PlanScript.Finish("Done.")],
+            [ActOutcome.Passed("cart opened")]
+        );
         await RunAsync(Options(state), agent);
-        var titles = Assert.IsAssignableFrom<IReadOnlyList<string>>(Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(agent.ActParams[0])["reportedFindings"]);
+        var titles = Assert.IsAssignableFrom<IReadOnlyList<string>>(
+            Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(agent.ActParams[0])["reportedFindings"]
+        );
         Assert.Equal(50, titles.Count);
         Assert.Equal("Finding 11", titles[0]);
         Assert.Equal("Finding 60", titles[^1]);
@@ -259,14 +341,30 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Cart", "open the cart"), PlanScript.Finish("Broken cart.")],
-            [ActOutcome.Passed("cart opened")]);
+            [ActOutcome.Passed("cart opened")]
+        );
 
         // The finding tool records findings during a step. Here they are seeded ahead of the run.
-        state.AddFinding(new FindingInput(ReportExploreFindingKind.Issue, 4, "Total shows $0.00", "a total", "$0.00", ["open the cart"]));
-        state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"]));
+        state.AddFinding(
+            new FindingInput(
+                ReportExploreFindingKind.Issue,
+                4,
+                "Total shows $0.00",
+                "a total",
+                "$0.00",
+                ["open the cart"]
+            )
+        );
+        state.AddFinding(
+            new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"])
+        );
         var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state), agent));
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Contains("exploration found 1 issue(s): [severity 4] Total shows $0.00", error.Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "exploration found 1 issue(s): [severity 4] Total shows $0.00",
+            error.Message,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -289,7 +387,11 @@ public sealed class TheExplorationBodyTests
         await RunAsync(Options(state, change: new PlanChange(true)), agent);
 
         Assert.Equal([true], agent.SkipOffered);
-        Assert.Contains("- \"skip\": only when no changed file can change what a user sees or does", agent.PlanInstructions[0], StringComparison.Ordinal);
+        Assert.Contains(
+            "- \"skip\": only when no changed file can change what a user sees or does",
+            agent.PlanInstructions[0],
+            StringComparison.Ordinal
+        );
         Assert.Empty(state.Steps);
         Assert.Equal(ReportExploreEnded.Skipped, state.Ended);
         Assert.Equal("Only README.md changed: documentation.", state.Summary);
@@ -298,11 +400,15 @@ public sealed class TheExplorationBodyTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Does_not_offer_the_skip_for_a_change_the_brief_does_not_show_in_full_or_a_run_with_no_change(bool hasChange)
+    public async Task Does_not_offer_the_skip_for_a_change_the_brief_does_not_show_in_full_or_a_run_with_no_change(
+        bool hasChange
+    )
     {
         var agent = new ScriptedExploreAgent([PlanScript.Finish("Nothing to explore here at all.")]);
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(new State("goal", Budgets), change: hasChange ? new PlanChange(false) : null), agent));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(Options(new State("goal", Budgets), change: hasChange ? new PlanChange(false) : null), agent)
+        );
 
         Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
         Assert.True(error.Blocked);
@@ -315,7 +421,8 @@ public sealed class TheExplorationBodyTests
     {
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Cart", "Open the cart"), PlanScript.Finish("The cart works as the change intends.")],
-            [ActOutcome.Passed("Opened")]);
+            [ActOutcome.Passed("Opened")]
+        );
 
         await RunAsync(Options(new State("goal", Budgets), change: new PlanChange(true)), agent);
 
@@ -328,7 +435,9 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", new ExploreBudgets(4, TimeSpan.FromMilliseconds(100_000)));
         var agent = new ScriptedExploreAgent([PlanScript.Finish("No time was left to explore.")]);
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state, change: new PlanChange(true)), agent));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(Options(state, change: new PlanChange(true)), agent)
+        );
 
         Assert.True(error.Blocked);
         Assert.Equal([false], agent.SkipOffered);
@@ -340,7 +449,9 @@ public sealed class TheExplorationBodyTests
     {
         var agent = new ScriptedExploreAgent([PlanScript.Finish("The app shows an error page; nothing is reachable.")]);
 
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(new State("goal", Budgets), change: new PlanChange(true)), agent));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(Options(new State("goal", Budgets), change: new PlanChange(true)), agent)
+        );
 
         Assert.Equal("AUTOMATION_UNSUPPORTED", error.Code);
         Assert.True(error.Blocked);
@@ -351,15 +462,28 @@ public sealed class TheExplorationBodyTests
     {
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
-            [PlanScript.Step("Account", "Open the account"), PlanScript.Step("Orders", "Open the orders"), PlanScript.Finish("Neither area was reachable.")],
-            [ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "Account needs a configured login")), ActOutcome.Fails(Blocked("ENVIRONMENT_UNAVAILABLE", "Orders service is down"))]);
-        state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"]));
+            [
+                PlanScript.Step("Account", "Open the account"),
+                PlanScript.Step("Orders", "Open the orders"),
+                PlanScript.Finish("Neither area was reachable."),
+            ],
+            [
+                ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "Account needs a configured login")),
+                ActOutcome.Fails(Blocked("ENVIRONMENT_UNAVAILABLE", "Orders service is down")),
+            ]
+        );
+        state.AddFinding(
+            new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"])
+        );
 
         var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state), agent));
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
         Assert.Contains("Account needs a configured login", error.Message, StringComparison.Ordinal);
-        Assert.Equal([ReportExploreStepStatus.Blocked, ReportExploreStepStatus.Blocked], state.Steps.Select(step => step.Status));
+        Assert.Equal(
+            [ReportExploreStepStatus.Blocked, ReportExploreStepStatus.Blocked],
+            state.Steps.Select(step => step.Status)
+        );
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
 
@@ -369,10 +493,18 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", Budgets);
         var outcome = ActOutcome.Fails(new AgentException("ACTION_FAILED", "Search could not complete"));
         var agent = new ScriptedExploreAgent(
-            [PlanScript.Step("Search", "Search the catalog"), PlanScript.Step("Account", "Open the account"), PlanScript.Finish("Search was explored; account needs a login.")],
-            [outcome, ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "No login configured"))]);
+            [
+                PlanScript.Step("Search", "Search the catalog"),
+                PlanScript.Step("Account", "Open the account"),
+                PlanScript.Finish("Search was explored; account needs a login."),
+            ],
+            [outcome, ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "No login configured"))]
+        );
         await RunAsync(Options(state), agent);
-        Assert.Equal([ReportExploreStepStatus.Failed, ReportExploreStepStatus.Blocked], state.Steps.Select(step => step.Status));
+        Assert.Equal(
+            [ReportExploreStepStatus.Failed, ReportExploreStepStatus.Blocked],
+            state.Steps.Select(step => step.Status)
+        );
     }
 
     [Fact]
@@ -381,8 +513,18 @@ public sealed class TheExplorationBodyTests
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Account", "Open the account"), PlanScript.Finish("Account was blocked.")],
-            [ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "No login configured"))]);
-        state.AddFinding(new FindingInput(ReportExploreFindingKind.Issue, 4, "Total shows $0.00", "a total", "$0.00", ["open the cart"]));
+            [ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "No login configured"))]
+        );
+        state.AddFinding(
+            new FindingInput(
+                ReportExploreFindingKind.Issue,
+                4,
+                "Total shows $0.00",
+                "a total",
+                "$0.00",
+                ["open the cart"]
+            )
+        );
         var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state), agent));
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.False(error.Blocked);
@@ -392,34 +534,49 @@ public sealed class TheExplorationBodyTests
     public async Task Falls_back_to_a_survey_when_the_first_plan_is_not_in_the_grammar_and_stops_on_a_later_one()
     {
         var first = new State("goal", Budgets);
-        await RunAsync(Options(first), new FailingPlanner(
-            [Invalid, PlanScript.Finish("Surveyed.")],
-            [ActOutcome.Passed("toured")]));
+        await RunAsync(
+            Options(first),
+            new FailingPlanner([Invalid, PlanScript.Finish("Surveyed.")], [ActOutcome.Passed("toured")])
+        );
         Assert.Equal(["Survey the app"], first.Steps.Select(step => step.Title));
         Assert.Equal(ReportExploreEnded.Finished, first.Ended);
 
         // One mid-run failure is covered by a continuation charter; a second in a row ends the exploration.
         var later = new State("goal", Budgets);
-        await RunAsync(Options(later), new FailingPlanner(
-            [PlanScript.Step("Cart", "open the cart"), Invalid, Invalid],
-            [ActOutcome.Passed("opened"), ActOutcome.Passed("opened")]));
+        await RunAsync(
+            Options(later),
+            new FailingPlanner(
+                [PlanScript.Step("Cart", "open the cart"), Invalid, Invalid],
+                [ActOutcome.Passed("opened"), ActOutcome.Passed("opened")]
+            )
+        );
         Assert.Equal(["Cart", "Continue exploring"], later.Steps.Select(step => step.Title));
         Assert.Equal(ReportExploreEnded.Aborted, later.Ended);
         Assert.Null(later.Summary);
 
         // A planner that recovers after one failure keeps going.
         var recovering = new State("goal", Budgets);
-        await RunAsync(Options(recovering), new FailingPlanner(
-            [PlanScript.Step("Cart", "open the cart"), Invalid, PlanScript.Step("Orders", "open orders"), PlanScript.Finish("Recovered and done.")],
-            [ActOutcome.Passed("ok"), ActOutcome.Passed("ok"), ActOutcome.Passed("ok")]));
+        await RunAsync(
+            Options(recovering),
+            new FailingPlanner(
+                [
+                    PlanScript.Step("Cart", "open the cart"),
+                    Invalid,
+                    PlanScript.Step("Orders", "open orders"),
+                    PlanScript.Finish("Recovered and done."),
+                ],
+                [ActOutcome.Passed("ok"), ActOutcome.Passed("ok"), ActOutcome.Passed("ok")]
+            )
+        );
         Assert.Equal(["Cart", "Continue exploring", "Orders"], recovering.Steps.Select(step => step.Title));
         Assert.Equal(ReportExploreEnded.Finished, recovering.Ended);
 
         // Asked to finish, the model answers outside the grammar: the run ends for its own reason, without an assessment.
         var closing = new State("goal", new ExploreBudgets(1, TimeSpan.FromMilliseconds(600_000)));
-        await RunAsync(Options(closing), new FailingPlanner(
-            [PlanScript.Step("Only", "the one step"), Invalid],
-            [ActOutcome.Passed("done")]));
+        await RunAsync(
+            Options(closing),
+            new FailingPlanner([PlanScript.Step("Only", "the one step"), Invalid], [ActOutcome.Passed("done")])
+        );
         Assert.Single(closing.Steps);
         Assert.Equal(ReportExploreEnded.StepLimit, closing.Ended);
         Assert.Null(closing.Summary);
@@ -429,9 +586,10 @@ public sealed class TheExplorationBodyTests
     public async Task Covers_a_planner_that_answers_not_found_like_one_outside_the_grammar()
     {
         var state = new State("goal", Budgets);
-        await RunAsync(Options(state), new FailingPlanner(
-            [NotFound, PlanScript.Finish("Surveyed.")],
-            [ActOutcome.Passed("toured")]));
+        await RunAsync(
+            Options(state),
+            new FailingPlanner([NotFound, PlanScript.Finish("Surveyed.")], [ActOutcome.Passed("toured")])
+        );
         Assert.Equal(["Survey the app"], state.Steps.Select(step => step.Title));
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
@@ -440,15 +598,23 @@ public sealed class TheExplorationBodyTests
     public async Task Surfaces_a_cancelled_step_and_a_planner_failure_as_the_run_error()
     {
         var cancelled = new State("goal", Budgets);
-        var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(
-            Options(cancelled),
-            new ScriptedExploreAgent([PlanScript.Step("Cart", "open the cart")], [ActOutcome.Fails(new AgentException("CANCELLED", "the step was cancelled"))])));
+        var error = await Assert.ThrowsAsync<AgentException>(() =>
+            RunAsync(
+                Options(cancelled),
+                new ScriptedExploreAgent(
+                    [PlanScript.Step("Cart", "open the cart")],
+                    [ActOutcome.Fails(new AgentException("CANCELLED", "the step was cancelled"))]
+                )
+            )
+        );
         Assert.Equal("CANCELLED", error.Code);
         Assert.Equal(ReportExploreStepStatus.Blocked, cancelled.Steps[0].Status);
         Assert.Equal(ReportExploreEnded.Aborted, cancelled.Ended);
 
         var broken = new State("goal", Budgets);
-        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync(Options(broken), new ScriptedExploreAgent([])));
+        var failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            RunAsync(Options(broken), new ScriptedExploreAgent([]))
+        );
         Assert.Matches("unscripted planner call", failure.Message);
         Assert.Equal(ReportExploreEnded.Aborted, broken.Ended);
     }
@@ -466,7 +632,9 @@ public sealed class TheExplorationBodyTests
                 throw new OperationCanceledException(cts.Token);
             },
         };
-        await Assert.ThrowsAsync<OperationCanceledException>(() => Body.Create(Options(state))(new ExploreFixtures(agent, _ => Task.CompletedTask), cts.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            Body.Create(Options(state))(new ExploreFixtures(agent, _ => Task.CompletedTask), cts.Token)
+        );
         var step = Assert.Single(state.Steps);
         Assert.Equal(ReportExploreStepStatus.Blocked, step.Status);
         Assert.Equal("CANCELLED", step.ErrorCode);
@@ -484,7 +652,14 @@ public sealed class TheExplorationBodyTests
         private readonly Queue<ActOutcome> _acts = new(acts);
 
         public Task<ActResult> ActAsync(string instruction, ActOptions? options, CancellationToken cancellationToken) =>
-            Task.FromResult(new ActResult { Summary = _acts.Dequeue().Summary!, ModelCalls = 1, Actions = 1 });
+            Task.FromResult(
+                new ActResult
+                {
+                    Summary = _acts.Dequeue().Summary!,
+                    ModelCalls = 1,
+                    Actions = 1,
+                }
+            );
 
         public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
         {
@@ -508,7 +683,14 @@ public sealed class TheExplorationBodyTests
         public Task<ActResult> ActAsync(string instruction, ActOptions? options, CancellationToken cancellationToken)
         {
             ActCalls.Add(instruction);
-            return Task.FromResult(new ActResult { Summary = "never", ModelCalls = 1, Actions = 1 });
+            return Task.FromResult(
+                new ActResult
+                {
+                    Summary = "never",
+                    ModelCalls = 1,
+                    Actions = 1,
+                }
+            );
         }
 
         public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)

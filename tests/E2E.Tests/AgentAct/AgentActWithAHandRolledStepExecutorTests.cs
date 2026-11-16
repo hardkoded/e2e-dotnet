@@ -20,20 +20,17 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
 
     /// <summary>Taps the Increment button, verifies the counter, and passes. No model.</summary>
     private static TestExecutor ScriptedExecutor() => new("scripted-executor", async (context, _) =>
-    {
-        var turnStartedAt = DateTimeOffset.UtcNow;
-        var observation = await context.ObserveAsync();
-        await context.Actions.TapAsync(TargetFor(observation.Text, "button \"Increment\""));
-        // Like a tool-using loop: the turn is reported after its tool ran.
-        context.Budgets.RecordModelCall(new ExecutorModelCall { StartedAt = turnStartedAt, DurationMs = 5 });
-        observation = await context.ObserveAsync();
-        return CounterShowsOne().IsMatch(observation.Text)
-            ? Passed("tapped Increment; the counter shows 1")
-            : Failed("the counter did not show 1 after one tap");
-    })
-    {
-        Version = "test",
-    };
+        {
+            var turnStartedAt = DateTimeOffset.UtcNow;
+            var observation = await context.ObserveAsync();
+            await context.Actions.TapAsync(TargetFor(observation.Text, "button \"Increment\""));
+            // Like a tool-using loop: the turn is reported after its tool ran.
+            context.Budgets.RecordModelCall(new ExecutorModelCall { StartedAt = turnStartedAt, DurationMs = 5 });
+            observation = await context.ObserveAsync();
+            return CounterShowsOne().IsMatch(observation.Text)
+                ? Passed("tapped Increment; the counter shows 1")
+                : Failed("the counter did not show 1 after one tap");
+        }) { Version = "test" };
 
     [Fact]
     public async Task Passes_the_test_through_the_socket_without_any_AI_SDK_involvement()
@@ -46,7 +43,8 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
                 await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("1");
             },
             CounterPage.World(),
-            executor: ScriptedExecutor());
+            executor: ScriptedExecutor()
+        );
 
         Assert.Null(result.Error);
     }
@@ -64,7 +62,8 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
             },
             CounterPage.World(),
             executor: ScriptedExecutor(),
-            report: report);
+            report: report
+        );
 
         Assert.Null(result.Error);
         Assert.Equal((1, 1), (act!.Actions, act.ModelCalls));
@@ -81,7 +80,10 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
 
         // Recorded after the tap, stamped with the executor's start: earlier in time than the engine event, later in the list.
         Assert.True(events.IndexOf(modelEvents[0]) > events.IndexOf(engineEvents[0]));
-        Assert.True(DateTimeOffset.Parse((string)modelEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture) <= DateTimeOffset.Parse((string)engineEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture));
+        Assert.True(
+            DateTimeOffset.Parse((string)modelEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture)
+                <= DateTimeOffset.Parse((string)engineEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture)
+        );
     }
 
     [GeneratedRegex("status \"Counter\" text=\"1\"")]

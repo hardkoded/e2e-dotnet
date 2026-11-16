@@ -9,7 +9,13 @@ using System.Net;
 namespace E2E.Cli.Tests.InitExamples;
 
 /// <summary>One entry of a test archive (upstream's <c>Entry</c>).</summary>
-internal sealed record ArchiveEntry(string Name, string Content = "", UnixFileMode Mode = (UnixFileMode)0b110_100_100, TarEntryType Type = TarEntryType.RegularFile, bool Gnu = false);
+internal sealed record ArchiveEntry(
+    string Name,
+    string Content = "",
+    UnixFileMode Mode = (UnixFileMode)0b110_100_100,
+    TarEntryType Type = TarEntryType.RegularFile,
+    bool Gnu = false
+);
 
 /// <summary>
 /// .NET-only helpers standing for the top of upstream's <c>init-examples.test.ts</c>: <c>tar</c>, <c>paxRecord</c>,
@@ -27,11 +33,22 @@ internal static class ExampleArchives
             {
                 TarEntry written = entry.Type switch
                 {
-                    TarEntryType.GlobalExtendedAttributes => new PaxGlobalExtendedAttributesTarEntry([new KeyValuePair<string, string>("comment", entry.Content)]),
-                    TarEntryType.SymbolicLink => new PaxTarEntry(TarEntryType.SymbolicLink, entry.Name) { LinkName = "elsewhere" },
+                    TarEntryType.GlobalExtendedAttributes => new PaxGlobalExtendedAttributesTarEntry([
+                        new KeyValuePair<string, string>("comment", entry.Content),
+                    ]),
+                    TarEntryType.SymbolicLink => new PaxTarEntry(TarEntryType.SymbolicLink, entry.Name)
+                    {
+                        LinkName = "elsewhere",
+                    },
                     TarEntryType.Directory => new PaxTarEntry(TarEntryType.Directory, entry.Name),
-                    _ when entry.Gnu => new GnuTarEntry(entry.Type, entry.Name) { DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(entry.Content)) },
-                    _ => new PaxTarEntry(entry.Type, entry.Name) { DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(entry.Content)) },
+                    _ when entry.Gnu => new GnuTarEntry(entry.Type, entry.Name)
+                    {
+                        DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(entry.Content)),
+                    },
+                    _ => new PaxTarEntry(entry.Type, entry.Name)
+                    {
+                        DataStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(entry.Content)),
+                    },
                 };
                 if (entry.Type != TarEntryType.GlobalExtendedAttributes)
                 {
@@ -58,30 +75,45 @@ internal static class ExampleArchives
     }
 
     /// <summary>A GitHub tarball of the <c>E2E.Sample</c> example as the codeload service serves it.</summary>
-    public static byte[] SampleTarball(string root = "e2e-dotnet-1.0.0") => Gzip(Tar(
-    [
-        new ArchiveEntry("pax_global_header", "0123456789abcdef0123456789abcdef01234567", Type: TarEntryType.GlobalExtendedAttributes),
-        new ArchiveEntry(root + "/", Type: TarEntryType.Directory),
-        new ArchiveEntry(root + "/src/readme.md", "not an example"),
-        new ArchiveEntry(root + "/samples/", Type: TarEntryType.Directory),
-        new ArchiveEntry(root + "/samples/E2E.Sample/", Type: TarEntryType.Directory),
-        new ArchiveEntry(
-            root + "/samples/E2E.Sample/E2E.Sample.csproj",
-            "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <RootNamespace>E2E.Sample</RootNamespace>\n    <IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n  </ItemGroup>\n  <ItemGroup>\n    <ProjectReference Include=\"..\\..\\src\\E2E\\E2E.csproj\" />\n    <ProjectReference Include=\"..\\..\\src\\E2E.NUnit\\E2E.NUnit.csproj\" />\n  </ItemGroup>\n</Project>\n"),
-        new ArchiveEntry(root + "/samples/E2E.Sample/e2e.config.json", "{}\n"),
-        new ArchiveEntry(root + "/samples/E2E.Sample/.gitignore", "bin/\n"),
-        new ArchiveEntry(root + "/samples/E2E.Sample/DaritenTests.cs", "// tests\n"),
-        new ArchiveEntry(root + "/samples/E2E.XUnit.V3.Sample/never.txt", "past the folder"),
-    ]));
+    public static byte[] SampleTarball(string root = "e2e-dotnet-1.0.0") =>
+        Gzip(
+            Tar([
+                new ArchiveEntry(
+                    "pax_global_header",
+                    "0123456789abcdef0123456789abcdef01234567",
+                    Type: TarEntryType.GlobalExtendedAttributes
+                ),
+                new ArchiveEntry(root + "/", Type: TarEntryType.Directory),
+                new ArchiveEntry(root + "/src/readme.md", "not an example"),
+                new ArchiveEntry(root + "/samples/", Type: TarEntryType.Directory),
+                new ArchiveEntry(root + "/samples/E2E.Sample/", Type: TarEntryType.Directory),
+                new ArchiveEntry(
+                    root + "/samples/E2E.Sample/E2E.Sample.csproj",
+                    "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <RootNamespace>E2E.Sample</RootNamespace>\n    <IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include=\"NUnit\" Version=\"5.0.0\" />\n  </ItemGroup>\n  <ItemGroup>\n    <ProjectReference Include=\"..\\..\\src\\E2E\\E2E.csproj\" />\n    <ProjectReference Include=\"..\\..\\src\\E2E.NUnit\\E2E.NUnit.csproj\" />\n  </ItemGroup>\n</Project>\n"
+                ),
+                new ArchiveEntry(root + "/samples/E2E.Sample/e2e.config.json", "{}\n"),
+                new ArchiveEntry(root + "/samples/E2E.Sample/.gitignore", "bin/\n"),
+                new ArchiveEntry(root + "/samples/E2E.Sample/DaritenTests.cs", "// tests\n"),
+                new ArchiveEntry(root + "/samples/E2E.XUnit.V3.Sample/never.txt", "past the folder"),
+            ])
+        );
 
     /// <summary>A handler that answers every request from a function and records the URLs asked (upstream's <c>vi.stubGlobal('fetch', ...)</c>).</summary>
-    public sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+    public sealed class StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond)
+        : HttpMessageHandler
     {
         public List<string> Urls { get; } = [];
 
-        public static StubHandler Serving(byte[] body) => new((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) }));
+        public static StubHandler Serving(byte[] body) =>
+            new(
+                (_, _) =>
+                    Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(body) })
+            );
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             Urls.Add(request.RequestUri!.ToString());
             return respond(request, cancellationToken);
@@ -115,9 +147,7 @@ internal static class ExampleArchives
             return read;
         }
 
-        public override void Flush()
-        {
-        }
+        public override void Flush() { }
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
@@ -145,7 +175,10 @@ internal static class ExampleArchives
             set => throw new NotSupportedException();
         }
 
-        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default
+        )
         {
             if (!_sent)
             {
@@ -161,9 +194,7 @@ internal static class ExampleArchives
 
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 
-        public override void Flush()
-        {
-        }
+        public override void Flush() { }
 
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 

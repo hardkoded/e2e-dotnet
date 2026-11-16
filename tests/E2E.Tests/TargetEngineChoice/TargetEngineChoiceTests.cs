@@ -13,7 +13,13 @@ public sealed class TargetEngineChoiceTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-target-engines-root");
 
-    private static TargetConfig Target(string platform) => new() { Name = "t", Platform = platform, App = new AppConfig { BundleId = "com.example.app" } };
+    private static TargetConfig Target(string platform) =>
+        new()
+        {
+            Name = "t",
+            Platform = platform,
+            App = new AppConfig { BundleId = "com.example.app" },
+        };
 
     private sealed class DeviceEngine(string platform) : IEngine
     {
@@ -23,15 +29,26 @@ public sealed class TargetEngineChoiceTests
 
         public EngineCapabilities Capabilities => EngineCapabilities.PinnedApp;
 
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     [Fact]
     public void Builds_a_web_engine_for_a_web_target_without_asking_for_a_device_engine()
     {
         // A web target opens app.url; a bundle id on it is refused at config load (see WebAndTheTargetAppTests).
-        var web = new TargetConfig { Name = "t", Platform = "web", App = new AppConfig { Url = "http://localhost:3000" } };
-        var engine = TargetEngines.Create(web, headless: true, mobile: _ => throw new InvalidOperationException("no device engine for web"), windows: _ => throw new InvalidOperationException("no Windows engine for web"));
+        var web = new TargetConfig
+        {
+            Name = "t",
+            Platform = "web",
+            App = new AppConfig { Url = "http://localhost:3000" },
+        };
+        var engine = TargetEngines.Create(
+            web,
+            headless: true,
+            mobile: _ => throw new InvalidOperationException("no device engine for web"),
+            windows: _ => throw new InvalidOperationException("no Windows engine for web")
+        );
         Assert.IsType<WebEngine>(engine);
     }
 
@@ -56,11 +73,16 @@ public sealed class TargetEngineChoiceTests
     {
         var target = Target("windows");
         TargetConfig? seen = null;
-        var engine = TargetEngines.Create(target, headless: null, mobile: _ => throw new InvalidOperationException("no device engine for windows"), windows: given =>
-        {
-            seen = given;
-            return new DeviceEngine("windows");
-        });
+        var engine = TargetEngines.Create(
+            target,
+            headless: null,
+            mobile: _ => throw new InvalidOperationException("no device engine for windows"),
+            windows: given =>
+            {
+                seen = given;
+                return new DeviceEngine("windows");
+            }
+        );
         Assert.Same(target, seen);
         Assert.Equal("windows", engine.Platform);
     }
@@ -72,14 +94,26 @@ public sealed class TargetEngineChoiceTests
         var device = new DeviceEngine("ios");
         Assert.True(TargetEngines.LaunchesPinnedApp(Target("ios"), device));
         Assert.True(TargetEngines.LaunchesPinnedApp(Target("windows"), new DeviceEngine("windows")));
-        Assert.False(TargetEngines.LaunchesPinnedApp(new TargetConfig { Name = "t", Platform = "ios", App = new AppConfig { Url = "https://app.test" } }, device));
+        Assert.False(
+            TargetEngines.LaunchesPinnedApp(
+                new TargetConfig
+                {
+                    Name = "t",
+                    Platform = "ios",
+                    App = new AppConfig { Url = "https://app.test" },
+                },
+                device
+            )
+        );
         Assert.False(TargetEngines.LaunchesPinnedApp(Target("web"), new WebEngine(true)));
     }
 
     [Fact]
     public void Refuses_a_device_target_when_the_host_has_no_device_engine()
     {
-        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("ios"), headless: null, mobile: null));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            TargetEngines.Create(Target("ios"), headless: null, mobile: null)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("has no device engine", error.Message, StringComparison.Ordinal);
     }
@@ -87,7 +121,9 @@ public sealed class TargetEngineChoiceTests
     [Fact]
     public void Refuses_a_windows_target_when_the_host_has_no_windows_engine()
     {
-        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("windows"), headless: null, mobile: _ => new DeviceEngine("ios"), windows: null));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            TargetEngines.Create(Target("windows"), headless: null, mobile: _ => new DeviceEngine("ios"), windows: null)
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("has no Windows app engine", error.Message, StringComparison.Ordinal);
     }
@@ -95,7 +131,14 @@ public sealed class TargetEngineChoiceTests
     [Fact]
     public void Refuses_a_platform_that_is_not_web_ios_android_or_windows()
     {
-        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("tvos"), headless: null, mobile: _ => new DeviceEngine("tvos"), windows: _ => new DeviceEngine("tvos")));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            TargetEngines.Create(
+                Target("tvos"),
+                headless: null,
+                mobile: _ => new DeviceEngine("tvos"),
+                windows: _ => new DeviceEngine("tvos")
+            )
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("the platform must be web, ios, android, or windows", error.Message, StringComparison.Ordinal);
     }
@@ -103,7 +146,13 @@ public sealed class TargetEngineChoiceTests
     [Fact]
     public void Still_rejects_an_engine_key_on_a_target()
     {
-        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "targets": [{ "platform": "ios", "engine": "mobile", "app": { "bundleId": "com.example.app" } }] }""", Root, _ => null));
+        var error = Assert.Throws<ConfigurationException>(() =>
+            E2EConfig.Parse(
+                """{ "targets": [{ "platform": "ios", "engine": "mobile", "app": { "bundleId": "com.example.app" } }] }""",
+                Root,
+                _ => null
+            )
+        );
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("\"engine\"", error.Message, StringComparison.Ordinal);
     }

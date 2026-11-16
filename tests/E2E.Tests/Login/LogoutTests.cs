@@ -12,10 +12,17 @@ public sealed class LogoutTests
     [Fact]
     public async Task Reports_whether_a_login_was_stored_and_removes_it()
     {
-        var store = new MemoryCredentialStore(new Dictionary<string, OAuthCredentials>
-        {
-            ["spacexai"] = new() { Access = "a", Refresh = "r", Expires = 0 },
-        });
+        var store = new MemoryCredentialStore(
+            new Dictionary<string, OAuthCredentials>
+            {
+                ["spacexai"] = new()
+                {
+                    Access = "a",
+                    Refresh = "r",
+                    Expires = 0,
+                },
+            }
+        );
 
         Assert.False(await OAuthProviders.LogoutAsync("openai", store));
         Assert.True(await OAuthProviders.LogoutAsync("spacexai", store));

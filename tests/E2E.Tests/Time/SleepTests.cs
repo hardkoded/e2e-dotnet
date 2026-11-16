@@ -33,7 +33,9 @@ public sealed class SleepTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => InternalTime.Sleep(TimeSpan.FromMilliseconds(10), new FakeTimeProvider(), cancelled.Token));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            InternalTime.Sleep(TimeSpan.FromMilliseconds(10), new FakeTimeProvider(), cancelled.Token)
+        );
         Assert.Equal("CANCELLED", error.Code);
     }
 

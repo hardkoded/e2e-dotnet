@@ -23,7 +23,10 @@ public sealed class DeviceTests : MobileAppTest
     [Test]
     public async Task Keeps_the_count_after_the_app_goes_to_the_background()
     {
-        Assume.That(!AttachesToRunningApp, "The DevFlow agent runs inside the app and cannot send it to the background.");
+        Assume.That(
+            !AttachesToRunningApp,
+            "The DevFlow agent runs inside the app and cannot send it to the background."
+        );
         await Screen.GetByTestId("increment").TapAsync();
         await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync("Count: 1");
 
@@ -51,10 +54,10 @@ public sealed class DeviceTests : MobileAppTest
         await Device.SetAppearanceAsync(Appearance.Dark);
         try
         {
-            await Agent.ActAsync("get the app to greet {name}", new ActOptions
-            {
-                Params = new Dictionary<string, object?> { ["name"] = "Linus" },
-            });
+            await Agent.ActAsync(
+                "get the app to greet {name}",
+                new ActOptions { Params = new Dictionary<string, object?> { ["name"] = "Linus" } }
+            );
 
             await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Linus!");
         }

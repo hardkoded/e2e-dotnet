@@ -13,12 +13,16 @@ namespace E2E.Tests.CheckActions;
 public sealed class AControlItsOwnLabelCoversInsideAFrameTests
 {
     [Fact]
-    public Task Checks_an_Element_Plus_radio_button() => RunWithScreenAsync(
-        "<p>Outer</p><iframe srcdoc=\"" + ElementPlusPage.Replace("\"", "&quot;", StringComparison.Ordinal) + "\"></iframe>",
-        async session =>
-        {
-            var locator = session.Browser.FrameLocator("iframe").Locator("#install");
-            await locator.CheckAsync();
-            Assert.True(await locator.IsCheckedAsync());
-        });
+    public Task Checks_an_Element_Plus_radio_button() =>
+        RunWithScreenAsync(
+            "<p>Outer</p><iframe srcdoc=\""
+                + ElementPlusPage.Replace("\"", "&quot;", StringComparison.Ordinal)
+                + "\"></iframe>",
+            async session =>
+            {
+                var locator = session.Browser.FrameLocator("iframe").Locator("#install");
+                await locator.CheckAsync();
+                Assert.True(await locator.IsCheckedAsync());
+            }
+        );
 }

@@ -17,14 +17,25 @@ namespace E2E.Tests.TraceReplay;
 public sealed class ReplayTraceTests
 {
     internal static RecordedAction Scroll(string? role, string? name, string direction, int? times) =>
-        new() { Kind = "scroll", Role = role, Name = name, Direction = direction, Times = times };
+        new()
+        {
+            Kind = "scroll",
+            Role = role,
+            Name = name,
+            Direction = direction,
+            Times = times,
+        };
 
     [Fact]
     public async Task Reads_the_start_capture_for_the_first_look_instead_of_observing_the_same_screen_again()
     {
         var host = MakeHost();
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade], new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) });
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [TapUpgrade],
+            new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) }
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -38,7 +49,12 @@ public sealed class ReplayTraceTests
         RecordedAction[] free =
         [
             new() { Kind = "navigate", Url = "/newsletter" },
-            new() { Kind = "typeText", Value = "a@b.c", Replace = false },
+            new()
+            {
+                Kind = "typeText",
+                Value = "a@b.c",
+                Replace = false,
+            },
             new() { Kind = "pressKey", Key = "Enter" },
         ];
         var asking = MakeHost();
@@ -59,11 +75,31 @@ public sealed class ReplayTraceTests
     public async Task Settles_each_look_as_far_as_the_previous_actions_policy_asks_held_still_after_a_tap_after_the_change_after_a_fill()
     {
         var host = MakeHost();
-        var typeText = new RecordedAction { Kind = "typeText", Value = "y", Replace = false };
-        var secret = new RecordedAction { Kind = "fill", Role = "textbox", Name = "Email", Value = "<secret:password>" };
-        var select = new RecordedAction { Kind = "select", Role = "textbox", Name = "Email", Value = "Pro" };
+        var typeText = new RecordedAction
+        {
+            Kind = "typeText",
+            Value = "y",
+            Replace = false,
+        };
+        var secret = new RecordedAction
+        {
+            Kind = "fill",
+            Role = "textbox",
+            Name = "Email",
+            Value = "<secret:password>",
+        };
+        var select = new RecordedAction
+        {
+            Kind = "select",
+            Role = "textbox",
+            Name = "Email",
+            Value = "Pro",
+        };
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail, TapUpgrade, typeText, TapUpgrade, secret, TapUpgrade, select, TapUpgrade]);
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [TapUpgrade, TypeEmail, TapUpgrade, typeText, TapUpgrade, secret, TapUpgrade, select, TapUpgrade]
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal(9, outcome.Executed);
@@ -71,14 +107,29 @@ public sealed class ReplayTraceTests
         // value only, and a typeText takes no look of its own, so the tap after it is the one that reads the first post-change
         // capture. A secret fill is masked out of the tree, so the look after it holds still: there is no change to wait for.
         Assert.Equal(
-            [SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.AfterChange, SettleMode.AfterChange, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill],
-            host.Looks);
+            [
+                SettleMode.HeldStill,
+                SettleMode.HeldStill,
+                SettleMode.AfterChange,
+                SettleMode.AfterChange,
+                SettleMode.HeldStill,
+                SettleMode.HeldStill,
+                SettleMode.HeldStill,
+                SettleMode.HeldStill,
+            ],
+            host.Looks
+        );
     }
 
     [Fact]
     public async Task Takes_one_look_per_repeat_of_a_folded_scroll_on_a_list()
     {
-        var list = new SemanticNode { Ref = "g1", Role = "group", Name = "Rows 1 to 12" };
+        var list = new SemanticNode
+        {
+            Ref = "g1",
+            Role = "group",
+            Name = "Rows 1 to 12",
+        };
         var host = MakeHost([list, Email]);
 
         var outcome = await Replay.ReplayTrace(host, [Scroll("group", "Rows 1 to 12", "down", 3)]);
@@ -107,7 +158,19 @@ public sealed class ReplayTraceTests
     [Fact]
     public async Task Names_the_rule_behind_a_run_time_value_gap_so_the_report_can_cite_it()
     {
-        var outcome = await Replay.ReplayTrace(MakeHost(), [TapUpgrade, new RecordedAction { Kind = "tool", Text = "type (run-time value)", Derived = DerivedReason.MintedToken }, TypeEmail]);
+        var outcome = await Replay.ReplayTrace(
+            MakeHost(),
+            [
+                TapUpgrade,
+                new RecordedAction
+                {
+                    Kind = "tool",
+                    Text = "type (run-time value)",
+                    Derived = DerivedReason.MintedToken,
+                },
+                TypeEmail,
+            ]
+        );
 
         Assert.False(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -121,7 +184,11 @@ public sealed class ReplayTraceTests
         var host = MakeHost();
         host.Capture = () => throw new EngineException("ACTION_FAILED", "the surface went away");
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail], new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) });
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [TapUpgrade, TypeEmail],
+            new ReplayOptions { Initial = Prepare(Screen([Upgrade, Email]), global::E2E.Internal.Redactor.None) }
+        );
 
         Assert.False(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -142,22 +209,84 @@ public sealed class ReplayTraceTests
         var outcome = await Replay.ReplayTrace(
             host,
             [
-                new RecordedAction { Kind = "hover", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "doubleTap", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "longPress", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "secondaryTap", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "scrollTo", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "uncheck", Role = target.Role, Name = target.Name },
-                new RecordedAction { Kind = "upload", Role = target.Role, Name = target.Name, Paths = ["fixtures/a.txt"] },
+                new RecordedAction
+                {
+                    Kind = "hover",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "doubleTap",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "longPress",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "secondaryTap",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "scrollTo",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "uncheck",
+                    Role = target.Role,
+                    Name = target.Name,
+                },
+                new RecordedAction
+                {
+                    Kind = "upload",
+                    Role = target.Role,
+                    Name = target.Name,
+                    Paths = ["fixtures/a.txt"],
+                },
                 new RecordedAction { Kind = "back" },
                 new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) },
-                new RecordedAction { Kind = "switchTab", Summary = "switch to tab 2", Tab = 1 },
-                new RecordedAction { Kind = "closeTab", Summary = "close tab 2", Tab = 1 },
-            ]);
+                new RecordedAction
+                {
+                    Kind = "switchTab",
+                    Summary = "switch to tab 2",
+                    Tab = 1,
+                },
+                new RecordedAction
+                {
+                    Kind = "closeTab",
+                    Summary = "close tab 2",
+                    Tab = 1,
+                },
+            ]
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal((11, 11), (outcome.Executed, outcome.Total));
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back", "resize", "switchTab", "closeTab"], host.Calls);
+        Assert.Equal(
+            [
+                "hover",
+                "doubleTap",
+                "longPress",
+                "secondaryTap",
+                "scrollTo",
+                "check",
+                "upload",
+                "back",
+                "resize",
+                "switchTab",
+                "closeTab",
+            ],
+            host.Calls
+        );
         Assert.Equal(new TraceViewport(390, 844), details[8]);
 
         // The trace counts tabs from 0, the grammar from 1.
@@ -177,7 +306,16 @@ public sealed class ReplayTraceTests
 
         var outcome = await Replay.ReplayTrace(
             host,
-            [new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "textbox", Name = "Email" } }]);
+            [
+                new RecordedAction
+                {
+                    Kind = "drag",
+                    Role = "button",
+                    Name = "Upgrade",
+                    Destination = new RecordedTarget { Role = "textbox", Name = "Email" },
+                },
+            ]
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -194,7 +332,16 @@ public sealed class ReplayTraceTests
 
         var outcome = await Replay.ReplayTrace(
             host,
-            [new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "textbox", Name = "Email" } }]);
+            [
+                new RecordedAction
+                {
+                    Kind = "drag",
+                    Role = "button",
+                    Name = "Upgrade",
+                    Destination = new RecordedTarget { Role = "textbox", Name = "Email" },
+                },
+            ]
+        );
 
         Assert.False(outcome.Completed);
         Assert.Equal(0, outcome.Executed);
@@ -206,7 +353,12 @@ public sealed class ReplayTraceTests
     public async Task Replays_a_bare_point_hover_through_hoverAt_on_the_recorded_viewport_only()
     {
         var host = MakeHost();
-        var hoverAt = new RecordedAction { Kind = "hoverAt", Point = new Point(300, 60), Viewport = Viewport };
+        var hoverAt = new RecordedAction
+        {
+            Kind = "hoverAt",
+            Point = new Point(300, 60),
+            Viewport = Viewport,
+        };
 
         var outcome = await Replay.ReplayTrace(host, [hoverAt]);
 
@@ -235,7 +387,12 @@ public sealed class ReplayTraceTests
     [Fact]
     public async Task Still_diverges_at_once_on_ambiguity_for_a_target_with_no_recorded_position()
     {
-        var twin = new SemanticNode { Ref = "n9", Role = "button", Name = "Upgrade" };
+        var twin = new SemanticNode
+        {
+            Ref = "n9",
+            Role = "button",
+            Name = "Upgrade",
+        };
         var host = MakeHost([Upgrade, twin, Email]);
 
         var outcome = await Replay.ReplayTrace(host, [TapUpgrade]);
@@ -252,7 +409,16 @@ public sealed class ReplayTraceTests
     {
         static SemanticNode Unnamed(string id) => new() { Ref = id, Role = "textbox" };
         // Unnamed twins are told apart by their place only inside a named container.
-        static SemanticNode[] Row(params SemanticNode[] fields) => [new() { Ref = "row", Role = "listitem", Name = "Shipping", Children = fields }];
+        static SemanticNode[] Row(params SemanticNode[] fields) =>
+            [
+                new()
+                {
+                    Ref = "row",
+                    Role = "listitem",
+                    Name = "Shipping",
+                    Children = fields,
+                },
+            ];
         var host = MakeHost(Row(Unnamed("a")));
         // The form finishes rendering on the third look; the wait is generous so a loaded machine cannot run it out first.
         host.ReplayTimeout = TimeSpan.FromSeconds(30);
@@ -266,7 +432,17 @@ public sealed class ReplayTraceTests
 
         var outcome = await Replay.ReplayTrace(
             host,
-            [new RecordedAction { Kind = "fill", Role = "textbox", Within = "Shipping", Position = new TracePosition { Index = 1, Of = 2 }, Value = "x" }]);
+            [
+                new RecordedAction
+                {
+                    Kind = "fill",
+                    Role = "textbox",
+                    Within = "Shipping",
+                    Position = new TracePosition { Index = 1, Of = 2 },
+                    Value = "x",
+                },
+            ]
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -278,12 +454,27 @@ public sealed class ReplayTraceTests
     [Fact]
     public async Task Relocates_by_semantic_identity_when_a_recorded_test_id_churned()
     {
-        var churned = new SemanticNode { Ref = "n5", Role = "button", Name = "Activate plan", TestId = "toggle-zz9-r4-0" };
+        var churned = new SemanticNode
+        {
+            Ref = "n5",
+            Role = "button",
+            Name = "Activate plan",
+            TestId = "toggle-zz9-r4-0",
+        };
         var host = MakeHost([churned, Email]);
 
         var outcome = await Replay.ReplayTrace(
             host,
-            [new RecordedAction { Kind = "tap", Role = "button", Name = "Activate plan", TestId = "toggle-aa1-r0-0" }]);
+            [
+                new RecordedAction
+                {
+                    Kind = "tap",
+                    Role = "button",
+                    Name = "Activate plan",
+                    TestId = "toggle-aa1-r0-0",
+                },
+            ]
+        );
 
         Assert.True(outcome.Completed);
         Assert.Equal(1, outcome.Executed);
@@ -293,13 +484,15 @@ public sealed class ReplayTraceTests
     [Fact]
     public async Task Absorbs_an_action_failure_as_divergence_never_as_a_step_failure()
     {
-        var host = MakeHost(onAction: (name, _) =>
-        {
-            if (name == "tap")
+        var host = MakeHost(
+            onAction: (name, _) =>
             {
-                throw new AgentException("ACTION_FAILED", "element detached");
+                if (name == "tap")
+                {
+                    throw new AgentException("ACTION_FAILED", "element detached");
+                }
             }
-        });
+        );
 
         var outcome = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade]);
 
@@ -311,13 +504,18 @@ public sealed class ReplayTraceTests
     [Fact]
     public async Task Surfaces_an_unknown_commit_state_as_action_uncertain_with_the_action_named()
     {
-        var host = MakeHost(onAction: (name, _) =>
-        {
-            if (name == "tap")
+        var host = MakeHost(
+            onAction: (name, _) =>
             {
-                throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
+                if (name == "tap")
+                {
+                    throw new EngineException(
+                        EngineErrorCodes.ActionMayHaveCommitted,
+                        "input may have reached the app"
+                    );
+                }
             }
-        });
+        );
 
         var outcome = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade]);
 

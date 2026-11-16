@@ -51,7 +51,8 @@ internal sealed record ResolvedApp(
     IReadOnlyList<string>? LaunchArguments,
     IReadOnlyDictionary<string, AppPermissionState>? Permissions,
     CommandConfig? Command,
-    string? ReadyUrl);
+    string? ReadyUrl
+);
 
 /// <summary>Per-target app resolution (upstream's <c>config/app.ts</c>): the declared <c>app</c> checked, then resolved on the port the run assigned when <c>app.url</c> asked for a free one.</summary>
 internal static partial class TargetApps
@@ -73,7 +74,9 @@ internal static partial class TargetApps
         }
 
         var tail = path.TrimStart('/');
-        return linkBase.EndsWith("://", StringComparison.Ordinal) ? linkBase + tail : linkBase.TrimEnd('/') + "/" + tail;
+        return linkBase.EndsWith("://", StringComparison.Ordinal)
+            ? linkBase + tail
+            : linkBase.TrimEnd('/') + "/" + tail;
     }
 
     /// <summary>
@@ -96,23 +99,37 @@ internal static partial class TargetApps
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                where + ".linkBase opens links in a device app, and engine " + (engine?.Name ?? "none") + " opens none; a browser target opens paths against app.url");
+                where
+                    + ".linkBase opens links in a device app, and engine "
+                    + (engine?.Name ?? "none")
+                    + " opens none; a browser target opens paths against app.url"
+            );
         }
 
         if (!Uri.TryCreate(linkBase.Trim(), UriKind.Absolute, out var url))
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must be an absolute URL such as https://shop.example.com or a scheme such as shopapp://");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where
+                    + ".linkBase must be an absolute URL such as https://shop.example.com or a scheme such as shopapp://"
+            );
         }
 
         if (RefusesLink(linkBase.Trim()))
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase names a refused scheme, " + url.Scheme + ":");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where + ".linkBase names a refused scheme, " + url.Scheme + ":"
+            );
         }
 
         // Checked on the raw string, which a path joins as written: the URL parser trims whitespace and drops an empty `?` or `#`.
         if (linkBase.AsSpan().IndexOfAny('?', '#') >= 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must have no query or fragment: a path joins its end");
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where + ".linkBase must have no query or fragment: a path joins its end"
+            );
         }
 
         if (!string.Equals(linkBase.Trim(), linkBase, StringComparison.Ordinal))
@@ -144,13 +161,24 @@ internal static partial class TargetApps
     {
         var where = "target \"" + targetName + "\"";
         var declaredBase = app.Url is null ? null : Urls.NormalizeBaseUrl(app.Url);
-        var portRequest = declaredBase is null || !Urls.RequestsFreePort(declaredBase) ? null : new PortRequest(new Uri(declaredBase.Href).Host, port);
-        var baseUrl = declaredBase is not null && portRequest?.Port is { } assigned ? Urls.WithPort(declaredBase, assigned) : declaredBase;
+        var portRequest =
+            declaredBase is null || !Urls.RequestsFreePort(declaredBase)
+                ? null
+                : new PortRequest(new Uri(declaredBase.Href).Host, port);
+        var baseUrl =
+            declaredBase is not null && portRequest?.Port is { } assigned
+                ? Urls.WithPort(declaredBase, assigned)
+                : declaredBase;
         int? appPort = baseUrl is null ? null : Urls.PortOf(baseUrl);
 
         if (app.Command is null && portRequest is not null)
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + " app.url asks for a free port (port 0), but nothing starts on it: add app.command to start the app there on " + PortToken);
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where
+                    + " app.url asks for a free port (port 0), but nothing starts on it: add app.command to start the app there on "
+                    + PortToken
+            );
         }
 
         var command = app.Command is null ? null : ExpandCommandPort(app.Command, where + " app.command", appPort);
@@ -163,13 +191,20 @@ internal static partial class TargetApps
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                where + " app.command.reuseExisting cannot find an app already running on a free port: port 0 is a new port every run; give the app a fixed port, or drop reuseExisting");
+                where
+                    + " app.command.reuseExisting cannot find an app already running on a free port: port 0 is a new port every run; give the app a fixed port, or drop reuseExisting"
+            );
         }
 
-        var readyUrl = app.ReadyUrl is null ? baseUrl?.Href : HttpUrl(ExpandPort(app.ReadyUrl, appPort, where + " app.readyUrl"), where + " app.readyUrl");
+        var readyUrl = app.ReadyUrl is null
+            ? baseUrl?.Href
+            : HttpUrl(ExpandPort(app.ReadyUrl, appPort, where + " app.readyUrl"), where + " app.readyUrl");
         if (command is not null && readyUrl is null)
         {
-            throw new ConfigurationException("APP_URL_REQUIRED", where + " declares app.command without a URL to poll: declare app.url or app.readyUrl beside it");
+            throw new ConfigurationException(
+                "APP_URL_REQUIRED",
+                where + " declares app.command without a URL to poll: declare app.url or app.readyUrl beside it"
+            );
         }
 
         var hostname = baseUrl is null ? null : new Uri(baseUrl.Href).Host;
@@ -178,14 +213,18 @@ internal static partial class TargetApps
             portRequest,
             hostname is null ? null : Urls.SiteOf(hostname),
             app.Environment ?? (hostname is not null && !Urls.IsImplicitTestHost(hostname) ? "production" : "test"),
-            app.Identity ?? (declaredBase is null ? null : declaredBase.Origin + declaredBase.BasePath) ?? app.BundleId ?? app.AppPath,
+            app.Identity
+                ?? (declaredBase is null ? null : declaredBase.Origin + declaredBase.BasePath)
+                ?? app.BundleId
+                ?? app.AppPath,
             app.BundleId,
             app.AppPath,
             app.LinkBase,
             app.LaunchArguments,
             app.Permissions,
             command,
-            command is null ? null : readyUrl);
+            command is null ? null : readyUrl
+        );
     }
 
     /// <summary>
@@ -195,7 +234,8 @@ internal static partial class TargetApps
     public static EngineAppDeclaration EngineAppDeclarationOf(AppConfig app)
     {
         ArgumentNullException.ThrowIfNull(app);
-        var site = app.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? Urls.SiteOf(uri.Host) : null;
+        var site =
+            app.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var uri) ? Urls.SiteOf(uri.Host) : null;
         return new EngineAppDeclaration
         {
             Url = app.Url,
@@ -216,7 +256,15 @@ internal static partial class TargetApps
     {
         ArgumentNullException.ThrowIfNull(app);
         var unassigned = app.PortRequest is { Port: null };
-        return new EngineAppInfo { Origin = unassigned ? null : app.Base?.Origin, Site = app.Site, BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments, Permissions = app.Permissions };
+        return new EngineAppInfo
+        {
+            Origin = unassigned ? null : app.Base?.Origin,
+            Site = app.Site,
+            BundleId = app.BundleId,
+            AppPath = app.AppPath,
+            LaunchArguments = app.LaunchArguments,
+            Permissions = app.Permissions,
+        };
     }
 
     /// <summary>
@@ -241,10 +289,25 @@ internal static partial class TargetApps
         Add("linkBase", app.LinkBase);
         Add("identity", app.Identity);
         Add("environment", app.Environment);
-        Add("launchArguments", app.LaunchArguments is null ? null : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]));
-        Add("permissions", app.Permissions is null
-            ? null
-            : new JsonObject(app.Permissions.Select(pair => KeyValuePair.Create(pair.Key, (JsonNode?)JsonValue.Create(pair.Value.ToString().ToLowerInvariant())))));
+        Add(
+            "launchArguments",
+            app.LaunchArguments is null
+                ? null
+                : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))])
+        );
+        Add(
+            "permissions",
+            app.Permissions is null
+                ? null
+                : new JsonObject(
+                    app.Permissions.Select(pair =>
+                        KeyValuePair.Create(
+                            pair.Key,
+                            (JsonNode?)JsonValue.Create(pair.Value.ToString().ToLowerInvariant())
+                        )
+                    )
+                )
+        );
         Add("command", app.Command is null ? null : Command.DigestCommand(app.Command));
         Add("readyUrl", app.ReadyUrl);
         return digest;
@@ -266,22 +329,32 @@ internal static partial class TargetApps
 
         return port is { } number
             ? value.Replace(PortToken, number.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
-            : throw new ConfigurationException("INVALID_CONFIG", label + " uses " + PortToken + ", but the target declares no url to take the port from");
+            : throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label + " uses " + PortToken + ", but the target declares no url to take the port from"
+            );
     }
 
     /// <summary>The command with <c>{port}</c> expanded in every <c>args</c> entry and <c>env</c> value.</summary>
-    private static CommandConfig ExpandCommandPort(CommandConfig command, string label, int? port) => new()
-    {
-        Executable = command.Executable,
-        Args = command.Args?.Select(arg => ExpandPort(arg, port, label + ".args")).ToList().AsReadOnly(),
-        Cwd = command.Cwd,
-        Env = command.Env is null
-            ? null
-            : new ReadOnlyDictionary<string, string>(command.Env.ToDictionary(pair => pair.Key, pair => ExpandPort(pair.Value, port, label + ".env." + pair.Key), StringComparer.Ordinal)),
-        InheritEnv = command.InheritEnv,
-        StartupTimeout = command.StartupTimeout,
-        ShutdownTimeout = command.ShutdownTimeout,
-        Log = command.Log,
-        ReuseExisting = command.ReuseExisting,
-    };
+    private static CommandConfig ExpandCommandPort(CommandConfig command, string label, int? port) =>
+        new()
+        {
+            Executable = command.Executable,
+            Args = command.Args?.Select(arg => ExpandPort(arg, port, label + ".args")).ToList().AsReadOnly(),
+            Cwd = command.Cwd,
+            Env = command.Env is null
+                ? null
+                : new ReadOnlyDictionary<string, string>(
+                    command.Env.ToDictionary(
+                        pair => pair.Key,
+                        pair => ExpandPort(pair.Value, port, label + ".env." + pair.Key),
+                        StringComparer.Ordinal
+                    )
+                ),
+            InheritEnv = command.InheritEnv,
+            StartupTimeout = command.StartupTimeout,
+            ShutdownTimeout = command.ShutdownTimeout,
+            Log = command.Log,
+            ReuseExisting = command.ReuseExisting,
+        };
 }

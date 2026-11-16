@@ -20,14 +20,17 @@ public sealed class RaceAbortTests
         await cancel.CancelAsync();
         var ran = false;
 
-        var error = await Assert.ThrowsAsync<EngineException>(() => Timing.RaceAbortAsync(
-            () =>
-            {
-                ran = true;
-                return Task.FromResult("ran");
-            },
-            cancel.Token,
-            "call"));
+        var error = await Assert.ThrowsAsync<EngineException>(() =>
+            Timing.RaceAbortAsync(
+                () =>
+                {
+                    ran = true;
+                    return Task.FromResult("ran");
+                },
+                cancel.Token,
+                "call"
+            )
+        );
 
         Assert.Equal("CANCELLED", error.Code);
         Assert.Equal("call cancelled", error.Message);

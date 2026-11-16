@@ -23,7 +23,11 @@ internal sealed class FakeEngine : IEngine
     public string Version => "1.0.0";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard | Also
+        EngineCapabilities.Observation
+        | EngineCapabilities.Actions
+        | EngineCapabilities.Location
+        | EngineCapabilities.Keyboard
+        | Also
         | (Device ? EngineCapabilities.PinnedApp : 0);
 
     /// <summary>
@@ -122,9 +126,10 @@ internal sealed class FakeEngine : IEngine
             var directory = Path.Combine(artifactsDir!, "video");
             Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "fake.webm"), "video");
-            return Task.FromResult<IReadOnlyList<VideoSegment>>([new VideoFile { Path = "video/fake.webm", StartedAt = DateTimeOffset.UtcNow.ToString("O") }]);
+            return Task.FromResult<IReadOnlyList<VideoSegment>>([
+                new VideoFile { Path = "video/fake.webm", StartedAt = DateTimeOffset.UtcNow.ToString("O") },
+            ]);
         }
-
 
         public IReadOnlyCollection<string> ActionKinds => engine.Kinds ?? EngineActionKinds.Locator;
 
@@ -170,36 +175,69 @@ internal sealed class FakeEngine : IEngine
                     throw new EngineException("APP_NOT_OPEN", "the app is not open");
                 }
 
-                return Task.FromResult(new Observation
-                {
-                    Route = Route,
-                    Roots = [new SemanticNode { Ref = "k-0", Role = "root", Children = [new SemanticNode { Ref = "k-1", Role = "button", Name = "Greet" }] }],
-                });
+                return Task.FromResult(
+                    new Observation
+                    {
+                        Route = Route,
+                        Roots =
+                        [
+                            new SemanticNode
+                            {
+                                Ref = "k-0",
+                                Role = "root",
+                                Children =
+                                [
+                                    new SemanticNode
+                                    {
+                                        Ref = "k-1",
+                                        Role = "button",
+                                        Name = "Greet",
+                                    },
+                                ],
+                            },
+                        ],
+                    }
+                );
             }
 
-            return Task.FromResult(new Observation
-            {
-                Route = Route,
-                Roots =
-                [
-                    new SemanticNode
-                    {
-                        Ref = "k-0",
-                        Role = "root",
-                        Children =
-                        [
-                            new SemanticNode { Ref = "k-1", Role = "button", Name = "Submit" },
-                            new SemanticNode { Ref = "k-2", Role = "textbox", Name = "Table" },
-                        ],
-                    },
-                ],
-            });
+            return Task.FromResult(
+                new Observation
+                {
+                    Route = Route,
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "k-0",
+                            Role = "root",
+                            Children =
+                            [
+                                new SemanticNode
+                                {
+                                    Ref = "k-1",
+                                    Role = "button",
+                                    Name = "Submit",
+                                },
+                                new SemanticNode
+                                {
+                                    Ref = "k-2",
+                                    Role = "textbox",
+                                    Name = "Table",
+                                },
+                            ],
+                        },
+                    ],
+                }
+            );
         }
 
         public bool CanLocate => engine.Locate is not null;
 
-        public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult(engine.Locate!(expression, timeout));
+        public Task<IReadOnlyList<SemanticNode>> LocateAsync(
+            LocatorExpression expression,
+            TimeSpan timeout,
+            CancellationToken cancellationToken
+        ) => Task.FromResult(engine.Locate!(expression, timeout));
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
@@ -219,6 +257,7 @@ internal sealed class FakeEngine : IEngine
             Interlocked.Increment(ref engine._disposed);
         }
 
-        private static string Routes(string url) => Uri.TryCreate(url, UriKind.Absolute, out var absolute) ? absolute.PathAndQuery : url;
+        private static string Routes(string url) =>
+            Uri.TryCreate(url, UriKind.Absolute, out var absolute) ? absolute.PathAndQuery : url;
     }
 }

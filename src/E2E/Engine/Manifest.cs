@@ -99,7 +99,12 @@ public sealed record EngineSpec
     /// Reads only the requested, allow-listed rendered properties of a node the engine minted, without changing app state; needs
     /// <see cref="Observe"/>. Throw a retryable <c>NODE_STALE</c> if the node no longer binds. The harness redacts the values.
     /// </summary>
-    public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle { get; init; }
+    public Func<
+        NodeRef,
+        IReadOnlyList<string>,
+        OperationContext,
+        Task<IReadOnlyDictionary<string, string>>
+    >? ReadStyle { get; init; }
 
     /// <summary>Resolves a query against the surface, returning the nodes it matches.</summary>
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate { get; init; }
@@ -207,7 +212,12 @@ public sealed class EngineHandle
 
     public Func<OperationContext, ObserveOptions?, Task<EngineSnapshot>>? Observe => Spec.Observe;
 
-    public Func<NodeRef, IReadOnlyList<string>, OperationContext, Task<IReadOnlyDictionary<string, string>>>? ReadStyle => Spec.ReadStyle;
+    public Func<
+        NodeRef,
+        IReadOnlyList<string>,
+        OperationContext,
+        Task<IReadOnlyDictionary<string, string>>
+    >? ReadStyle => Spec.ReadStyle;
 
     public Func<LocatorExpression, OperationContext, Task<IReadOnlyList<EngineNode>>>? Locate => Spec.Locate;
 
@@ -285,12 +295,18 @@ public static partial class EngineManifest
         var name = spec.Name;
         if (string.IsNullOrWhiteSpace(spec.Version))
         {
-            throw Invalid(name, "version must be a non-empty string; it is recorded in reports and keys saved sessions");
+            throw Invalid(
+                name,
+                "version must be a non-empty string; it is recorded in reports and keys saved sessions"
+            );
         }
 
         if (spec.SpiVersion != SpiVersion)
         {
-            throw Invalid(name, $"declares spiVersion {spec.SpiVersion?.ToString() ?? "undefined"}; this runner supports {SpiVersion}");
+            throw Invalid(
+                name,
+                $"declares spiVersion {spec.SpiVersion?.ToString() ?? "undefined"}; this runner supports {SpiVersion}"
+            );
         }
 
         if (spec.Platform is not null && string.IsNullOrWhiteSpace(spec.Platform))
@@ -300,7 +316,10 @@ public static partial class EngineManifest
 
         if (spec.Workers is { } workers && workers < 1)
         {
-            throw Invalid(name, "workers must be a positive safe integer: the most workers the engine serves per target");
+            throw Invalid(
+                name,
+                "workers must be a positive safe integer: the most workers the engine serves per target"
+            );
         }
 
         var capabilities = new HashSet<string>(StringComparer.Ordinal);
@@ -357,7 +376,10 @@ public static partial class EngineManifest
 
             if (spec.PointerActions is null)
             {
-                throw Invalid(name, "declares performAt without pointerActions: list the pointer action kinds the surface honors");
+                throw Invalid(
+                    name,
+                    "declares performAt without pointerActions: list the pointer action kinds the surface honors"
+                );
             }
 
             capabilities.Add("pointer");
@@ -369,7 +391,10 @@ public static partial class EngineManifest
 
         if (spec.TapModifiers == true && !capabilities.Contains("actions"))
         {
-            throw Invalid(name, "declares tapModifiers without perform: modifiers ride the tap actions perform receives");
+            throw Invalid(
+                name,
+                "declares tapModifiers without perform: modifiers ride the tap actions perform receives"
+            );
         }
 
         if (spec.Keyboard is not null && !capabilities.Contains("observation"))
@@ -378,8 +403,12 @@ public static partial class EngineManifest
         }
 
         // Declared kind lists are copied and checked, so the handle keeps the list the engine declared and nothing else.
-        var actions = spec.Actions is null ? null : DeclaredKinds(name, "actions", spec.Actions, EngineActionKinds.Locator);
-        var pointerActions = spec.PointerActions is null ? null : DeclaredKinds(name, "pointerActions", spec.PointerActions, EngineActionKinds.Pointer);
+        var actions = spec.Actions is null
+            ? null
+            : DeclaredKinds(name, "actions", spec.Actions, EngineActionKinds.Locator);
+        var pointerActions = spec.PointerActions is null
+            ? null
+            : DeclaredKinds(name, "pointerActions", spec.PointerActions, EngineActionKinds.Pointer);
         var declared = spec with { Actions = actions, PointerActions = pointerActions };
 
         if (spec.Fixtures is not null)
@@ -398,7 +427,10 @@ public static partial class EngineManifest
 
                 if (SessionControls.Contains(fixture))
                 {
-                    throw Invalid(name, $"fixture name \"{fixture}\" is a method of every @e2e-dev/core session ({string.Join(", ", SessionControls)}); name the fixture something else");
+                    throw Invalid(
+                        name,
+                        $"fixture name \"{fixture}\" is a method of every @e2e-dev/core session ({string.Join(", ", SessionControls)}); name the fixture something else"
+                    );
                 }
 
                 capabilities.Add(fixture);
@@ -463,7 +495,12 @@ public static partial class EngineManifest
     public static bool IsEngineHandle(object? value) => value is EngineHandle;
 
     /// <summary>Validates a declared kind list (<c>actions</c>, <c>pointerActions</c>): a non-empty list of known kinds, each once.</summary>
-    private static IReadOnlyList<string> DeclaredKinds(string name, string member, IReadOnlyList<string> value, IReadOnlyList<string> known)
+    private static IReadOnlyList<string> DeclaredKinds(
+        string name,
+        string member,
+        IReadOnlyList<string> value,
+        IReadOnlyList<string> known
+    )
     {
         if (value.Count == 0)
         {
@@ -475,7 +512,10 @@ public static partial class EngineManifest
         {
             if (!known.Contains(kind))
             {
-                throw Invalid(name, $"{member} names unknown kind \"{kind}\"; expected one of {string.Join(", ", known)}");
+                throw Invalid(
+                    name,
+                    $"{member} names unknown kind \"{kind}\"; expected one of {string.Join(", ", known)}"
+                );
             }
 
             if (!seen.Add(kind))
@@ -487,5 +527,6 @@ public static partial class EngineManifest
         return value.ToArray();
     }
 
-    private static ConfigurationException Invalid(string name, string detail) => new("INVALID_CONFIG", $"engine \"{name}\": {detail}");
+    private static ConfigurationException Invalid(string name, string detail) =>
+        new("INVALID_CONFIG", $"engine \"{name}\": {detail}");
 }

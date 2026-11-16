@@ -14,7 +14,11 @@ namespace E2E.Engine;
 public sealed partial class WebEngine
 {
     /// <summary>Where and how a session records video: the attempt's artifact directory, the provider's recording if any, and the screencast options.</summary>
-    private sealed record VideoSetup(string? ArtifactsDir, Func<CancellationToken, Task<LeaseRecording?>>? Record, WebScreencastOptions? Screencast);
+    private sealed record VideoSetup(
+        string? ArtifactsDir,
+        Func<CancellationToken, Task<LeaseRecording?>>? Record,
+        WebScreencastOptions? Screencast
+    );
 
     private VideoSetup VideoSetupOf(EngineStartOptions options, LeaseScope? lease) =>
         new(options.ArtifactsDir, lease?.Recorder(), _options.Screencast);
@@ -26,66 +30,76 @@ public sealed partial class WebEngine
         /// <summary>How the session records video. Null for a session started without an artifact directory.</summary>
         public VideoSetup? Video { get; init; }
 
-        public Task StartVideoAsync(CancellationToken cancellationToken) => StartVideoAsync(OperationContext.Test, cancellationToken);
+        public Task StartVideoAsync(CancellationToken cancellationToken) =>
+            StartVideoAsync(OperationContext.Test, cancellationToken);
 
         /// <summary>Upstream's <c>artifacts.startVideo</c> bounded by <paramref name="context"/>'s timeout.</summary>
-        public Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken) => GuardAsync("video", cancellationToken, async () =>
-        {
-            var budget = Budget("video", cancellationToken, context.Timeout);
-            var setup = Video;
-            var dir = setup?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "video needs the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
-            var token = linked.Token;
-            try
+        public Task StartVideoAsync(OperationContext context, CancellationToken cancellationToken) =>
+            GuardAsync("video", cancellationToken, async () =>
             {
-                // The page opens first, so a provider's recording of the browser starts on the attempt's own tab.
-                if (_page is null || _page.IsClosed)
+                var budget = Budget("video", cancellationToken, context.Timeout);
+                var setup = Video;
+                var dir = setup?.ArtifactsDir
+                    ?? throw new EngineException(
+                        EngineErrorCodes.InvalidState,
+                        "video needs the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir"
+                    );
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
+                var token = linked.Token;
+                try
                 {
-                    await budget.WithinAsync(NewPageAsync(RequireContext())).ConfigureAwait(false);
-                }
-
-                var page = Page;
-
-                // An attempt may start and stop more than once, never overlapping: the recorder the first start made records again.
-                if (_video is { } again)
-                {
-                    await budget.WithinAsync(again.ArmAsync(page, token)).ConfigureAwait(false);
-                    return;
-                }
-
-                if (setup.Record is { } record)
-                {
-                    var provided = new ProviderVideo(record, dir);
-                    await budget.WithinAsync(provided.ArmAsync(page, token)).ConfigureAwait(false);
-                    if (provided.IsRecording)
+                    // The page opens first, so a provider's recording of the browser starts on the attempt's own tab.
+                    if (_page is null || _page.IsClosed)
                     {
-                        _video = provided;
+                        await budget.WithinAsync(NewPageAsync(RequireContext())).ConfigureAwait(false);
+                    }
+
+                    var page = Page;
+
+                    // An attempt may start and stop more than once, never overlapping: the recorder the first start made records again.
+                    if (_video is { } again)
+                    {
+                        await budget.WithinAsync(again.ArmAsync(page, token)).ConfigureAwait(false);
                         return;
                     }
-                }
 
-                var screencast = new VideoRecorder(dir, setup.Screencast);
-                await budget.WithinAsync(screencast.ArmAsync(page, token)).ConfigureAwait(false);
-                _video = screencast;
-            }
-            catch (OperationCanceledException ex) when (token.IsCancellationRequested)
-            {
-                throw new EngineException(EngineErrorCodes.Cancelled, "video cancelled", retryable: false, ex);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-            {
-                throw WebErrors.Translate(ex, "video");
-            }
-        });
+                    if (setup.Record is { } record)
+                    {
+                        var provided = new ProviderVideo(record, dir);
+                        await budget.WithinAsync(provided.ArmAsync(page, token)).ConfigureAwait(false);
+                        if (provided.IsRecording)
+                        {
+                            _video = provided;
+                            return;
+                        }
+                    }
+
+                    var screencast = new VideoRecorder(dir, setup.Screencast);
+                    await budget.WithinAsync(screencast.ArmAsync(page, token)).ConfigureAwait(false);
+                    _video = screencast;
+                }
+                catch (OperationCanceledException ex) when (token.IsCancellationRequested)
+                {
+                    throw new EngineException(EngineErrorCodes.Cancelled, "video cancelled", retryable: false, ex);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    throw WebErrors.Translate(ex, "video");
+                }
+            });
 
         /// <summary>
         /// Collects this attempt's video, independently of a failed connection: a recording is stopped on its own, and a
         /// caller that gives up leaves a stop already under way to finish.
         /// </summary>
-        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) => StopVideoAsync(OperationContext.Test, cancellationToken);
+        public Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
+            StopVideoAsync(OperationContext.Test, cancellationToken);
 
         /// <summary>Upstream's <c>artifacts.stopVideo</c> bounded by <paramref name="context"/>'s timeout.</summary>
-        public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(OperationContext context, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(
+            OperationContext context,
+            CancellationToken cancellationToken
+        )
         {
             if (_video is not { } video)
             {
@@ -96,7 +110,9 @@ public sealed partial class WebEngine
 
             try
             {
-                return await budget.WithinAsync(video.StopAsync(cancellationToken).WaitAsync(cancellationToken)).ConfigureAwait(false);
+                return await budget
+                    .WithinAsync(video.StopAsync(cancellationToken).WaitAsync(cancellationToken))
+                    .ConfigureAwait(false);
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
@@ -129,7 +145,10 @@ public sealed partial class WebEngine
             }
 
             using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
-            await video.AbandonAsync(budget.Token).WaitAsync(budget.Token).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            await video
+                .AbandonAsync(budget.Token)
+                .WaitAsync(budget.Token)
+                .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
     }
 }

@@ -17,7 +17,15 @@ public sealed class PriceSortingTests : BenchmarkTest
     {
         var rows = Screen.GetByTestId("product-list").GetByRole("listitem");
         await Expect.That(rows).ToHaveCountAsync(5);
-        await Expect.That(rows).ToContainTextAsync(["Trail Backpack 24L", "Steel Water Bottle", "Merino Hiking Socks", "Camp Lantern", "Titanium Mug"]);
+        await Expect
+            .That(rows)
+            .ToContainTextAsync([
+                "Trail Backpack 24L",
+                "Steel Water Bottle",
+                "Merino Hiking Socks",
+                "Camp Lantern",
+                "Titanium Mug",
+            ]);
         await Expect.That(Screen.GetByTestId("product-backpack")).ToContainTextAsync("$120.00");
         await Expect.That(Screen.GetByTestId("product-backpack")).ToContainTextAsync("$49.00");
         await Expect.That(Screen.GetByTestId("product-bottle")).ToHaveTextAsync("Steel Water Bottle $25.00");
@@ -31,8 +39,15 @@ public sealed class PriceSortingTests : BenchmarkTest
         await Expect.That(sort).ToHaveValueAsync("price-asc");
         // Paid prices are socks 18, bottle 25, mug 12, lantern 54, backpack 49: a
         // correct sort opens with the $12 mug. The page sorts the struck prices.
-        await Expect.That(Screen.GetByTestId("product-list").GetByRole("listitem")).ToContainTextAsync(
-            ["Merino Hiking Socks", "Steel Water Bottle", "Titanium Mug", "Camp Lantern", "Trail Backpack 24L"]);
+        await Expect
+            .That(Screen.GetByTestId("product-list").GetByRole("listitem"))
+            .ToContainTextAsync([
+                "Merino Hiking Socks",
+                "Steel Water Bottle",
+                "Titanium Mug",
+                "Camp Lantern",
+                "Trail Backpack 24L",
+            ]);
     }
 
     [Test]
@@ -41,9 +56,18 @@ public sealed class PriceSortingTests : BenchmarkTest
         var sort = Screen.GetByLabel("Sort by");
         await sort.SelectOptionAsync(new SelectOption { Value = "price-desc" });
         await Expect.That(sort).ToHaveValueAsync("price-desc");
-        await Expect.That(Screen.GetByTestId("product-list").GetByRole("listitem")).ToContainTextAsync(
-            ["Trail Backpack 24L", "Camp Lantern", "Titanium Mug", "Steel Water Bottle", "Merino Hiking Socks"]);
+        await Expect
+            .That(Screen.GetByTestId("product-list").GetByRole("listitem"))
+            .ToContainTextAsync([
+                "Trail Backpack 24L",
+                "Camp Lantern",
+                "Titanium Mug",
+                "Steel Water Bottle",
+                "Merino Hiking Socks",
+            ]);
         await sort.SelectOptionAsync(new SelectOption { Value = "featured" });
-        await Expect.That(Screen.GetByTestId("product-list").GetByRole("listitem").First()).ToContainTextAsync("Trail Backpack 24L");
+        await Expect
+            .That(Screen.GetByTestId("product-list").GetByRole("listitem").First())
+            .ToContainTextAsync("Trail Backpack 24L");
     }
 }

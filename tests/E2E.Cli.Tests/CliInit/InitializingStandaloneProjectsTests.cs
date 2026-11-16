@@ -23,14 +23,24 @@ public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
     // Partial: the port has no npm and no npm cache. The installed e2e tool is stood in for by a shim on the PATH, as upstream links a .bin shim, and the server starts without network access.
     public async Task Partial_Starts_the_installed_MCP_server_from_the_generated_Codex_config_with_an_empty_npm_cache_offline()
     {
-        var code = await Program.RunAsync(["init", Dir, "--yes", "--mcp", ".codex/config.toml"], new StringWriter(), new StringWriter(), new StringReader(""), interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(
+            ["init", Dir, "--yes", "--mcp", ".codex/config.toml"],
+            new StringWriter(),
+            new StringWriter(),
+            new StringReader(""),
+            interactive: false,
+            CancellationToken.None
+        );
         Assert.Equal(0, code);
         // Linking the package alone does not create the executable an install provides.
         var bin = Directory.CreateDirectory(Path_("tool-bin")).FullName;
         var cli = Path.Combine(AppContext.BaseDirectory, "E2E.Cli.dll");
         if (OperatingSystem.IsWindows())
         {
-            await File.WriteAllTextAsync(Path.Combine(bin, "e2e.cmd"), "@dotnet \"" + cli + "\" %*" + Environment.NewLine);
+            await File.WriteAllTextAsync(
+                Path.Combine(bin, "e2e.cmd"),
+                "@dotnet \"" + cli + "\" %*" + Environment.NewLine
+            );
         }
         else
         {
@@ -41,47 +51,76 @@ public sealed class InitializingStandaloneProjectsTests : CliInitTestBase
 
         var server = CodexConfig.ReadCodexConfig(Read(".codex/config.toml"))["mcp_servers"]!["e2e"]!;
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{ "command": "e2e", "args": ["mcp"] }"""), server));
-        var transport = new StdioClientTransport(new StdioClientTransportOptions
-        {
-            Name = "init-codex-test",
-            // .NET looks a bare command up in this process's PATH, not the child's, so on POSIX the shim is named by its path.
-            Command = OperatingSystem.IsWindows() ? (string)server["command"]! : Path.Combine(bin, (string)server["command"]!),
-            Arguments = [.. server["args"]!.AsArray().Select(arg => (string)arg!)],
-            WorkingDirectory = Dir,
-            EnvironmentVariables = new Dictionary<string, string?>
+        var transport = new StdioClientTransport(
+            new StdioClientTransportOptions
             {
-                ["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"),
-                ["CI"] = "",
-                ["HTTP_PROXY"] = "http://127.0.0.1:9",
-                ["HTTPS_PROXY"] = "http://127.0.0.1:9",
-            },
-        });
+                Name = "init-codex-test",
+                // .NET looks a bare command up in this process's PATH, not the child's, so on POSIX the shim is named by its path.
+                Command = OperatingSystem.IsWindows()
+                    ? (string)server["command"]!
+                    : Path.Combine(bin, (string)server["command"]!),
+                Arguments = [.. server["args"]!.AsArray().Select(arg => (string)arg!)],
+                WorkingDirectory = Dir,
+                EnvironmentVariables = new Dictionary<string, string?>
+                {
+                    ["PATH"] = bin + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"),
+                    ["CI"] = "",
+                    ["HTTP_PROXY"] = "http://127.0.0.1:9",
+                    ["HTTPS_PROXY"] = "http://127.0.0.1:9",
+                },
+            }
+        );
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        await using var client = await McpClient.CreateAsync(transport, new McpClientOptions { ClientInfo = new Implementation { Name = "init-codex-test", Version = "1.0.0" } }, cancellationToken: timeout.Token);
-        Assert.Contains("open_session", (await client.ListToolsAsync(cancellationToken: timeout.Token)).Select(tool => tool.Name));
+        await using var client = await McpClient.CreateAsync(
+            transport,
+            new McpClientOptions
+            {
+                ClientInfo = new Implementation { Name = "init-codex-test", Version = "1.0.0" },
+            },
+            cancellationToken: timeout.Token
+        );
+        Assert.Contains(
+            "open_session",
+            (await client.ListToolsAsync(cancellationToken: timeout.Token)).Select(tool => tool.Name)
+        );
     }
 
     [Fact]
     // Partial: the process is the in-process command, not a spawned CLI, and the directory is an argument, not the working directory.
     public async Task Partial_Preserves_configured_MCP_server_settings_when_reinitializing_a_project()
     {
-        var original = new JsonObject
-        {
-            ["mcpServers"] = new JsonObject
+        var original =
+            new JsonObject
             {
-                ["e2e"] = new JsonObject
+                ["mcpServers"] = new JsonObject
                 {
-                    ["command"] = "e2e",
-                    ["args"] = new JsonArray("mcp"),
-                    ["env"] = new JsonObject { ["APP_ENV"] = "staging" },
-                    ["timeout"] = 30_000,
+                    ["e2e"] = new JsonObject
+                    {
+                        ["command"] = "e2e",
+                        ["args"] = new JsonArray("mcp"),
+                        ["env"] = new JsonObject { ["APP_ENV"] = "staging" },
+                        ["timeout"] = 30_000,
+                    },
+                    ["other"] = new JsonObject { ["command"] = "other" },
                 },
-                ["other"] = new JsonObject { ["command"] = "other" },
-            },
-            ["clientSetting"] = true,
-        }.ToJsonString(new JsonSerializerOptions { WriteIndented = true, IndentSize = 4, NewLine = "\n" }) + "\n";
+                ["clientSetting"] = true,
+            }.ToJsonString(
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    IndentSize = 4,
+                    NewLine = "\n",
+                }
+            ) + "\n";
         await File.WriteAllTextAsync(Path_(".mcp.json"), original);
-        var code = await Program.RunAsync(["init", Dir, "--yes"], new StringWriter(), new StringWriter(), new StringReader(""), interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(
+            ["init", Dir, "--yes"],
+            new StringWriter(),
+            new StringWriter(),
+            new StringReader(""),
+            interactive: false,
+            CancellationToken.None
+        );
         Assert.Equal(0, code);
         Assert.Equal(original, Read(".mcp.json"));
     }

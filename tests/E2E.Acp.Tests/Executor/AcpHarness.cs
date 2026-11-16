@@ -24,7 +24,13 @@ internal sealed class ScriptedAgent(IStepExecutor executor, string logFile)
         {
             using var stream = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var reader = new StreamReader(stream);
-            return [.. reader.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(line => JsonNode.Parse(line)!.AsObject())];
+            return
+            [
+                .. reader
+                    .ReadToEnd()
+                    .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(line => JsonNode.Parse(line)!.AsObject()),
+            ];
         }
         catch (IOException)
         {
@@ -32,14 +38,17 @@ internal sealed class ScriptedAgent(IStepExecutor executor, string logFile)
         }
     }
 
-    public IReadOnlyList<string> Prompts() => [.. Log().Where(entry => entry.ContainsKey("prompt")).Select(entry => entry["prompt"]!.GetValue<string>())];
+    public IReadOnlyList<string> Prompts() =>
+        [.. Log().Where(entry => entry.ContainsKey("prompt")).Select(entry => entry["prompt"]!.GetValue<string>())];
 
     public IReadOnlyList<JsonObject> Sessions() => [.. Log().Where(entry => entry.ContainsKey("session"))];
 
-    public IReadOnlyList<int> Pids() => [.. Log().Where(entry => entry.ContainsKey("pid")).Select(entry => entry["pid"]!.GetValue<int>())];
+    public IReadOnlyList<int> Pids() =>
+        [.. Log().Where(entry => entry.ContainsKey("pid")).Select(entry => entry["pid"]!.GetValue<int>())];
 
     /// <summary>The first tool result the agent logged for a call of <paramref name="tool"/>, as the text the agent read.</summary>
-    public string? ResultOf(string tool) => Log().FirstOrDefault(entry => entry["call"]?.GetValue<string>() == tool)?["result"]?.ToJsonString();
+    public string? ResultOf(string tool) =>
+        Log().FirstOrDefault(entry => entry["call"]?.GetValue<string>() == tool)?["result"]?.ToJsonString();
 }
 
 /// <summary>A page for the steps to act on: a field, a button that counts, and a button that stalls.</summary>
@@ -52,11 +61,11 @@ internal sealed class TodoPage
     public int Adds => Volatile.Read(ref _adds);
 
     public DocumentWorld World() => new DocumentWorld().Map("/", page =>
-    {
-        Title = page.Textbox("Title");
-        page.Button("Add", () => Interlocked.Increment(ref _adds));
-        page.Button("Slow", () => Thread.Sleep(300));
-    });
+        {
+            Title = page.Textbox("Title");
+            page.Button("Add", () => Interlocked.Increment(ref _adds));
+            page.Button("Slow", () => Thread.Sleep(300));
+        });
 }
 
 /// <summary>A local page for the web engine to open. Upstream's step context mocks the observation; the port opens a real page.</summary>
@@ -77,7 +86,9 @@ internal sealed class PixelSite : IDisposable
             probe.Start();
             var port = ((IPEndPoint)probe.LocalEndpoint).Port;
             probe.Stop();
-            var site = new PixelSite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
+            var site = new PixelSite(
+                "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/"
+            );
             site._listener.Prefixes.Add(site.Url);
             try
             {
@@ -128,7 +139,8 @@ internal sealed class PixelSite : IDisposable
 internal static class AcpHarness
 {
     /// <summary>The program that stands in for an agent. Its apphost lands beside the tests.</summary>
-    public static string AgentExecutable { get; } = Path.Combine(AppContext.BaseDirectory, "E2E.Acp.Tests.Agent" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+    public static string AgentExecutable { get; } =
+        Path.Combine(AppContext.BaseDirectory, "E2E.Acp.Tests.Agent" + (OperatingSystem.IsWindows() ? ".exe" : ""));
 
     /// <summary>The wait for something a child process does: it can start or answer seconds late on a busy machine.</summary>
     public static async Task EventuallyAsync(Action check)
@@ -161,16 +173,34 @@ internal static class AcpHarness
         }
     }
 
-    public static ScriptedAgent Scripted(string directory, object turns, AcpOptions? options = null, IReadOnlyDictionary<string, string>? env = null, string? command = null, IReadOnlyList<string>? args = null)
+    public static ScriptedAgent Scripted(
+        string directory,
+        object turns,
+        AcpOptions? options = null,
+        IReadOnlyDictionary<string, string>? env = null,
+        string? command = null,
+        IReadOnlyList<string>? args = null
+    )
     {
         var logFile = Path.Combine(directory, "agent-" + Guid.NewGuid().ToString("N") + ".jsonl");
-        var variables = new Dictionary<string, string> { ["ACP_SCRIPT"] = JsonSerializer.Serialize(turns), ["ACP_LOG"] = logFile };
+        var variables = new Dictionary<string, string>
+        {
+            ["ACP_SCRIPT"] = JsonSerializer.Serialize(turns),
+            ["ACP_LOG"] = logFile,
+        };
         foreach (var pair in env ?? new Dictionary<string, string>())
         {
             variables[pair.Key] = pair.Value;
         }
 
-        var executor = AcpExecutor.Create(command ?? AgentExecutable, args ?? [], (options ?? new AcpOptions()) with { Env = variables });
+        var executor = AcpExecutor.Create(
+            command ?? AgentExecutable,
+            args ?? [],
+            (options ?? new AcpOptions()) with
+            {
+                Env = variables,
+            }
+        );
         return new ScriptedAgent(executor, logFile);
     }
 
@@ -182,21 +212,24 @@ internal static class AcpHarness
         string? projectRoot = null,
         IReadOnlyDictionary<string, AgentOptions>? agents = null,
         IEngine? engine = null,
-        string baseUrl = "https://todos.test")
+        string baseUrl = "https://todos.test"
+    )
     {
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine ?? new DocumentEngine(world),
-            AgentExecutor = executor,
-            Agents = agents,
-            BaseUrl = baseUrl,
-            TestTitle = "acp",
-            CacheEnabled = false,
-            StepTimeout = TimeSpan.FromSeconds(60),
-            TestTimeout = TimeSpan.FromSeconds(120),
-            ProjectRoot = projectRoot ?? Path.GetTempPath(),
-            Debug = debug,
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine ?? new DocumentEngine(world),
+                AgentExecutor = executor,
+                Agents = agents,
+                BaseUrl = baseUrl,
+                TestTitle = "acp",
+                CacheEnabled = false,
+                StepTimeout = TimeSpan.FromSeconds(60),
+                TestTimeout = TimeSpan.FromSeconds(120),
+                ProjectRoot = projectRoot ?? Path.GetTempPath(),
+                Debug = debug,
+            }
+        );
         await session.App.OpenAsync("/");
         return session;
     }

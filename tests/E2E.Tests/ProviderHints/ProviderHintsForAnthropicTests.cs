@@ -19,7 +19,10 @@ public sealed class ProviderHintsForAnthropicTests
     {
         var handler = new RecordingHandler(AnthropicAnswer);
         using var http = new HttpClient(handler);
-        using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-haiku-4.5", ApiKey = "k" }, http);
+        using var model = new AnthropicModel(
+            new AnthropicModelOptions { Model = "claude-haiku-4.5", ApiKey = "k" },
+            http
+        );
         return await SendAsync(model, handler, request);
     }
 
@@ -31,14 +34,27 @@ public sealed class ProviderHintsForAnthropicTests
     [Fact]
     public void Partial_Recognizes_Claude_on_amazon_bedrock_anthropic_claude_opus_5_5()
     {
-        var reasoning = JsonDocument.Parse("""{ "reasoningText": { "text": "", "signature": "sig" } }""").RootElement.Clone();
+        var reasoning = JsonDocument
+            .Parse("""{ "reasoningText": { "text": "", "signature": "sig" } }""")
+            .RootElement.Clone();
         ModelMessage[] history =
         [
             new() { Role = "user", Content = "step" },
-            new() { Role = "assistant", Content = "ok", ReasoningItems = [reasoning] },
+            new()
+            {
+                Role = "assistant",
+                Content = "ok",
+                ReasoningItems = [reasoning],
+            },
         ];
-        using var claude = new BedrockModel(new BedrockModelOptions { Model = "eu.anthropic.claude-opus-5-5", ApiKey = "k" }, new HttpClient());
-        using var other = new BedrockModel(new BedrockModelOptions { Model = "amazon.nova-pro-v1:0", ApiKey = "k" }, new HttpClient());
+        using var claude = new BedrockModel(
+            new BedrockModelOptions { Model = "eu.anthropic.claude-opus-5-5", ApiKey = "k" },
+            new HttpClient()
+        );
+        using var other = new BedrockModel(
+            new BedrockModelOptions { Model = "amazon.nova-pro-v1:0", ApiKey = "k" },
+            new HttpClient()
+        );
 
         var after = E2E.ProviderHints.AfterEdit(claude, history, 0);
 
@@ -55,8 +71,16 @@ public sealed class ProviderHintsForAnthropicTests
         var plain = await BodyAsync(Request());
         var withOptions = await BodyAsync(Request(providerOptions: Options("anthropic", """{ "top_k": 5 }""")));
 
-        Assert.Equal(JsonNode.Parse("""[{ "type": "text", "text": "rules", "cache_control": { "type": "ephemeral" } }]""")!.ToJsonString(), plain["system"]!.ToJsonString());
-        Assert.Equal(["model", "max_tokens", "system", "messages", "tools", "tool_choice"], plain.Select(field => field.Key));
+        Assert.Equal(
+            JsonNode
+                .Parse("""[{ "type": "text", "text": "rules", "cache_control": { "type": "ephemeral" } }]""")!
+                .ToJsonString(),
+            plain["system"]!.ToJsonString()
+        );
+        Assert.Equal(
+            ["model", "max_tokens", "system", "messages", "tools", "tool_choice"],
+            plain.Select(field => field.Key)
+        );
         Assert.Equal(5, withOptions["top_k"]!.GetValue<int>());
         Assert.Equal(plain["system"]!.ToJsonString(), withOptions["system"]!.ToJsonString());
     }
@@ -68,21 +92,37 @@ public sealed class ProviderHintsForAnthropicTests
         var first = await BodyAsync(Request(markLatest: true));
         Assert.Equal("ephemeral", first["messages"]![0]!["content"]![0]!["cache_control"]!["type"]!.GetValue<string>());
 
-        var call = new ModelToolCall { Id = "c1", Name = "tap", Arguments = JsonDocument.Parse("{}").RootElement.Clone() };
-        var second = await BodyAsync(Request(
-            markLatest: true,
-            messages:
-            [
-                new ModelMessage { Role = "user", Content = "step" },
-                new ModelMessage { Role = "assistant", ToolCalls = [call] },
-                new ModelMessage { Role = "tool", ToolCallId = "c1", Name = "tap", Content = "ok" },
-            ]));
+        var call = new ModelToolCall
+        {
+            Id = "c1",
+            Name = "tap",
+            Arguments = JsonDocument.Parse("{}").RootElement.Clone(),
+        };
+        var second = await BodyAsync(
+            Request(
+                markLatest: true,
+                messages:
+                [
+                    new ModelMessage { Role = "user", Content = "step" },
+                    new ModelMessage { Role = "assistant", ToolCalls = [call] },
+                    new ModelMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = "c1",
+                        Name = "tap",
+                        Content = "ok",
+                    },
+                ]
+            )
+        );
 
         var messages = second["messages"]!.AsArray();
         Assert.Equal(3, messages.Count);
         Assert.Null(messages[0]!["content"]![0]!["cache_control"]);
         Assert.Null(messages[1]!["content"]![0]!["cache_control"]);
         Assert.Equal("ephemeral", messages[2]!["content"]![0]!["cache_control"]!["type"]!.GetValue<string>());
-        Assert.Single(messages.SelectMany(message => message!["content"]!.AsArray()), block => block!["cache_control"] is not null);
+        Assert.Single(messages.SelectMany(message => message!["content"]!.AsArray()), block =>
+            block!["cache_control"] is not null
+        );
     }
 }

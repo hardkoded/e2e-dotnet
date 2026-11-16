@@ -12,7 +12,10 @@ public sealed class SkipAfterFailureTests : IDisposable
 {
     private const string Token = "synthetic-skip-token-271828";
 
-    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-skip-reason-").FullName, "results");
+    private readonly string _results = Path.Combine(
+        Directory.CreateTempSubdirectory("e2e-skip-reason-").FullName,
+        "results"
+    );
 
     public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
@@ -28,24 +31,41 @@ public sealed class SkipAfterFailureTests : IDisposable
         var longReason = new string('é', 9000);
         var collection = HostTestFilters.Collect(
             [
-                new DiscoveredTest("static secret", "E2E.Tests.SkipAfterFailure", "Skipping", "static secret", [], $"blocked {Token}"),
-                new DiscoveredTest("long static", "E2E.Tests.SkipAfterFailure", "Skipping", "long static", [], longReason),
+                new DiscoveredTest(
+                    "static secret",
+                    "E2E.Tests.SkipAfterFailure",
+                    "Skipping",
+                    "static secret",
+                    [],
+                    $"blocked {Token}"
+                ),
+                new DiscoveredTest(
+                    "long static",
+                    "E2E.Tests.SkipAfterFailure",
+                    "Skipping",
+                    "long static",
+                    [],
+                    longReason
+                ),
             ],
             [],
             [("key", Token)],
-            out _);
+            out _
+        );
         var staticReasons = collection.Tests.Select(test => test.Options.SkipReason!).ToList();
 
         var runtimeReasons = new List<string>();
         foreach (var reason in new[] { $"blocked {Token}", longReason })
         {
-            var session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new E2E.Engine.DocumentEngine(new E2E.Engine.DocumentWorld()),
-                TestTitle = "runtime skip",
-                ResultsDirectory = _results,
-                ProjectRoot = _results,
-            });
+            var session = await E2ESession.StartAsync(
+                new E2ESessionOptions
+                {
+                    Engine = new E2E.Engine.DocumentEngine(new E2E.Engine.DocumentWorld()),
+                    TestTitle = "runtime skip",
+                    ResultsDirectory = _results,
+                    ProjectRoot = _results,
+                }
+            );
             session.Register("key", Token);
             session.Complete(new SkipException(reason));
             await session.DisposeAsync();

@@ -24,7 +24,9 @@ internal static class AppLines
         var lines = new List<string>();
         if (app.Base is { } appBase)
         {
-            lines.Add($"App: {appBase.Href}{(app.PortRequest?.Port is { } assigned ? $" (port {assigned}, assigned for the declared port 0)" : "")}.");
+            lines.Add(
+                $"App: {appBase.Href}{(app.PortRequest?.Port is { } assigned ? $" (port {assigned}, assigned for the declared port 0)" : "")}."
+            );
         }
         else if (launchesPinnedApp && (app.BundleId ?? app.AppPath) is { } pinned)
         {
@@ -33,7 +35,9 @@ internal static class AppLines
 
         if (app.Command is { } command && app.ReadyUrl is { } readyUrl)
         {
-            lines.Add($"Process: {DescribeCommand(command, readyUrl)} e2e starts no other app process for this session; a database or other service the app uses runs outside e2e.");
+            lines.Add(
+                $"Process: {DescribeCommand(command, readyUrl)} e2e starts no other app process for this session; a database or other service the app uses runs outside e2e."
+            );
         }
         else if (app.Base is not null)
         {

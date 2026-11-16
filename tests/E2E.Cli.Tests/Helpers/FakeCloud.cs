@@ -15,7 +15,10 @@ namespace E2E.Cli.Tests.Helpers;
 /// </summary>
 internal sealed class FakeCloud : IDeviceProvider, IDeviceClientSource
 {
-    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private int _acquired;
     private int _released;
@@ -35,13 +38,16 @@ internal sealed class FakeCloud : IDeviceProvider, IDeviceClientSource
     public Func<Task>? OnRelease { get; set; }
 
     /// <summary>The engine of a session on this provider, over the device the target names.</summary>
-    public MobileEngine Engine(TargetConfig target) => new(new MobileOptions
-    {
-        Platform = MobilePlatform.Ios,
-        TargetName = target.Name,
-        App = new MobileApp { BundleId = target.App.BundleId },
-        Provider = this,
-    });
+    public MobileEngine Engine(TargetConfig target) =>
+        new(
+            new MobileOptions
+            {
+                Platform = MobilePlatform.Ios,
+                TargetName = target.Name,
+                App = new MobileApp { BundleId = target.App.BundleId },
+                Provider = this,
+            }
+        );
 
     public Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken)
     {
@@ -55,7 +61,12 @@ internal sealed class FakeCloud : IDeviceProvider, IDeviceClientSource
                 await wait();
             }
 
-            return new DeviceLease { Id = "lease-secret-id", Daemon = new DeviceDaemon("https://cloud.example", "daemon-secret-token"), Device = "cloud-iphone" };
+            return new DeviceLease
+            {
+                Id = "lease-secret-id",
+                Daemon = new DeviceDaemon("https://cloud.example", "daemon-secret-token"),
+                Device = "cloud-iphone",
+            };
         }
     }
 
@@ -87,10 +98,33 @@ internal sealed class FakeCloud : IDeviceProvider, IDeviceClientSource
                 case DeviceMethods.CaptureSnapshot:
                     RawNode[] nodes =
                     [
-                        new() { Ref = "@e1", Index = 0, Depth = 0, Type = "application", Label = "Greeter", Rect = new Rect(0, 0, 390, 844) },
-                        new() { Ref = "@e2", Index = 1, ParentIndex = 0, Depth = 1, Type = "button", Label = "Greet", Rect = new Rect(0, 100, 390, 44) },
+                        new()
+                        {
+                            Ref = "@e1",
+                            Index = 0,
+                            Depth = 0,
+                            Type = "application",
+                            Label = "Greeter",
+                            Rect = new Rect(0, 0, 390, 844),
+                        },
+                        new()
+                        {
+                            Ref = "@e2",
+                            Index = 1,
+                            ParentIndex = 0,
+                            Depth = 1,
+                            Type = "button",
+                            Label = "Greet",
+                            Rect = new Rect(0, 100, 390, 44),
+                        },
                     ];
-                    return new JsonObject { ["nodes"] = JsonSerializer.SerializeToNode(nodes, Web), ["appName"] = "Greeter", ["appBundleId"] = "com.example.greeter", ["truncated"] = false };
+                    return new JsonObject
+                    {
+                        ["nodes"] = JsonSerializer.SerializeToNode(nodes, Web),
+                        ["appName"] = "Greeter",
+                        ["appBundleId"] = "com.example.greeter",
+                        ["truncated"] = false,
+                    };
                 case DeviceMethods.CaptureScreenshot:
                     return new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
                 default:

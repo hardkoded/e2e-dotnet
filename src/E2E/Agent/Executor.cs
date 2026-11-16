@@ -114,8 +114,10 @@ public class StepExecutorContext
     /// Captures one fresh, redacted observation. The text is always present; the tree and the pixels are opt-in, so an
     /// executor that renders its own view of the screen asks for exactly what it uses.
     /// </summary>
-    public virtual Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("This context does not observe.");
+    public virtual Task<ExecutorObservation> ObserveAsync(
+        ExecutorObserveOptions? options = null,
+        CancellationToken cancellationToken = default
+    ) => throw new NotSupportedException("This context does not observe.");
 
     /// <summary>
     /// Reads allow-listed rendered properties of a node in the newest observation (upstream's <c>read</c>). The result holds only the
@@ -123,33 +125,38 @@ public class StepExecutorContext
     /// observation listed, or fails with <c>LOCATOR_NOT_FOUND</c>. The default refuses with <c>POLICY_DENIED</c>, as upstream's tool context
     /// does for a host that cannot read (.NET-only: it keeps an executor context that does not override it compiling).
     /// </summary>
-    public virtual Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default) =>
-        Task.FromException<ExecutorReadResult>(new AgentException("POLICY_DENIED", "this tool host cannot read node properties", blocked: true));
+    public virtual Task<ExecutorReadResult> ReadAsync(
+        ExecutorTarget target,
+        ExecutorReadOptions options,
+        CancellationToken cancellationToken = default
+    ) =>
+        Task.FromException<ExecutorReadResult>(
+            new AgentException("POLICY_DENIED", "this tool host cannot read node properties", blocked: true)
+        );
 
     /// <summary>
     /// Attaches the executor's model transcript to the step. It is kept as a <c>log</c> artifact of the step (<c>transcript-&lt;step id&gt;.txt</c>)
     /// when the attempt keeps results, and dropped otherwise. The last call wins.
     /// </summary>
-    public virtual void AttachTranscript(string text)
-    {
-    }
+    public virtual void AttachTranscript(string text) { }
 
     /// <summary>
     /// Keeps a bounded record of the step's model turns on the step record: each turn's tool calls and what came back,
     /// clipped. The report shows the last turns under a failed step, so a reader sees what the model did and saw without the
     /// transcript. Call it as each turn ends; the last call wins.
     /// </summary>
-    public virtual void AttachTurns(IReadOnlyList<StepTurn> turns)
-    {
-    }
+    public virtual void AttachTurns(IReadOnlyList<StepTurn> turns) { }
 
     /// <summary>
     /// Keeps pixels the executor or one of its tools observed as a <c>screenshot</c> artifact of the step in progress, and
     /// returns the artifact's report id. The file is named by <paramref name="label"/> and lands in the attempt's results
     /// directory, and the report's artifact records it like every screenshot the runner takes. For a tool with evidence worth keeping.
     /// </summary>
-    public virtual Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) =>
-        throw new NotSupportedException("This context does not keep screenshots.");
+    public virtual Task<string> AttachScreenshotAsync(
+        ExecutorPixels pixels,
+        string label,
+        CancellationToken cancellationToken = default
+    ) => throw new NotSupportedException("This context does not keep screenshots.");
 }
 
 /// <summary>
@@ -355,7 +362,14 @@ public sealed class ExecutorNode
 /// <param name="Height">Height in image pixels.</param>
 /// <param name="Scale">Image pixels per viewport (CSS) pixel.</param>
 /// <param name="MaskedRegionCount">How many regions the engine covered.</param>
-public sealed record ExecutorPixels(byte[] Data, string MediaType, int Width, int Height, double Scale, int MaskedRegionCount);
+public sealed record ExecutorPixels(
+    byte[] Data,
+    string MediaType,
+    int Width,
+    int Height,
+    double Scale,
+    int MaskedRegionCount
+);
 
 /// <summary>A redacted, size-bounded observation an executor may show its model.</summary>
 /// <param name="Text">One node per line as <c>#id role "name" ...</c>, already secret-redacted.</param>
@@ -455,13 +469,15 @@ public interface IExecutorActions
     Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
 
     /// <summary>Taps one node, holding no keys.</summary>
-    Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => TapAsync(target, null, cancellationToken);
+    Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        TapAsync(target, null, cancellationToken);
 
     /// <summary>Double-taps one node. Takes the tap's <paramref name="options"/>.</summary>
     Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
 
     /// <summary>Double-taps one node, holding no keys.</summary>
-    Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => DoubleTapAsync(target, null, cancellationToken);
+    Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        DoubleTapAsync(target, null, cancellationToken);
 
     /// <summary>Holds one node pressed, as a touch long press does. Needs <see cref="ExecutorVerb.LongPress"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
     Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
@@ -473,7 +489,8 @@ public interface IExecutorActions
     Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
 
     /// <summary>Right-clicks one node, holding no keys.</summary>
-    Task SecondaryTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => SecondaryTapAsync(target, null, cancellationToken);
+    Task SecondaryTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        SecondaryTapAsync(target, null, cancellationToken);
 
     /// <summary>Moves the pointer over one node, as a hover that reveals a menu or a tooltip. Needs <see cref="ExecutorVerb.Hover"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
     Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
@@ -523,7 +540,9 @@ public interface IExecutorActions
     /// context written before the member compiling; the harness's own actions override it). Upstream's <c>dismissKeyboard</c>.
     /// </summary>
     Task DismissKeyboardAsync(CancellationToken cancellationToken = default) =>
-        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "dismissKeyboard is not supported by this executor context."));
+        Task.FromException(
+            new TestException("UNSUPPORTED_CAPABILITY", "dismissKeyboard is not supported by this executor context.")
+        );
 
     Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 
@@ -549,10 +568,20 @@ public interface IExecutorActions
     /// <paramref name="text"/> is inside the viewport. One action however many screens it takes, up to eight hundred. It
     /// gives up as <c>LOCATOR_NOT_FOUND</c> when the screen stops moving or the cap is reached.
     /// </summary>
-    Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default);
+    Task ScrollUntilAsync(
+        string text,
+        ScrollDirection direction,
+        ExecutorTarget? list = null,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>Scrolls <paramref name="list"/>, or the viewport when there is none, <paramref name="times"/> times.</summary>
-    Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default);
+    Task ScrollAsync(
+        ExecutorTarget? list,
+        ScrollDirection direction,
+        int times = 1,
+        CancellationToken cancellationToken = default
+    );
 
     /// <summary>Navigates to an http(s) URL or an app-relative path.</summary>
     Task NavigateAsync(string url, CancellationToken cancellationToken = default);
@@ -567,7 +596,9 @@ public interface IExecutorActions
     /// context written before the member compiling; the harness's own actions override it). Upstream's <c>resize</c>.
     /// </summary>
     Task ResizeAsync(TraceViewport size, CancellationToken cancellationToken = default) =>
-        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "resize is not supported by this executor context."));
+        Task.FromException(
+            new TestException("UNSUPPORTED_CAPABILITY", "resize is not supported by this executor context.")
+        );
 
     /// <summary>
     /// Shows another open tab, numbered from 1 in the order the tabs opened, as <see cref="ExecutorObservation.Tabs"/> counts them. Needs
@@ -575,7 +606,9 @@ public interface IExecutorActions
     /// (.NET-only: it keeps an executor context written before the member compiling; the harness's own actions override it). Upstream's <c>switchTab</c>.
     /// </summary>
     Task SwitchTabAsync(int tab, CancellationToken cancellationToken = default) =>
-        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "switchTab is not supported by this executor context."));
+        Task.FromException(
+            new TestException("UNSUPPORTED_CAPABILITY", "switchTab is not supported by this executor context.")
+        );
 
     /// <summary>
     /// Closes an open tab, numbered as <see cref="SwitchTabAsync"/> counts them. Closing the tab the screen shows shows the tab that opened it,
@@ -583,7 +616,9 @@ public interface IExecutorActions
     /// refuses with <c>UNSUPPORTED_CAPABILITY</c> (.NET-only, as for <see cref="SwitchTabAsync"/>). Upstream's <c>closeTab</c>.
     /// </summary>
     Task CloseTabAsync(int tab, CancellationToken cancellationToken = default) =>
-        Task.FromException(new TestException("UNSUPPORTED_CAPABILITY", "closeTab is not supported by this executor context."));
+        Task.FromException(
+            new TestException("UNSUPPORTED_CAPABILITY", "closeTab is not supported by this executor context.")
+        );
 
     /// <summary>
     /// Taps one viewport point, in the CSS pixels of the newest observation (<see cref="SemanticNode.Rect"/> space; a point read off
@@ -648,7 +683,13 @@ public sealed record PointTapResult(Point Point, ExecutorTarget? Target, string 
 /// <param name="Source">The listed, enabled control holding the start, dragged by id or at the point; null when none is listed there.</param>
 /// <param name="Destination">The listed, enabled control holding the end; null when none is listed there.</param>
 /// <param name="Summary">Prose for a model: what was dragged where, or what sits under the bare points.</param>
-public sealed record PointDragResult(Point From, Point To, ExecutorTarget? Source, ExecutorTarget? Destination, string Summary);
+public sealed record PointDragResult(
+    Point From,
+    Point To,
+    ExecutorTarget? Source,
+    ExecutorTarget? Destination,
+    string Summary
+);
 
 /// <summary>Step budgets, read and reported by the executor and enforced by the runtime.</summary>
 public interface IExecutorBudgets
@@ -720,7 +761,12 @@ public sealed class ExecutorModelCall
 /// replayed action whose input may have reached the app although it failed. The executor verifies the state before it
 /// tries anything like it again.
 /// </param>
-public sealed record ReplayedPrefix(IReadOnlyList<string> ReplayedActions, int TotalActions, ReplayHandOffReason StopReason, string? UncertainAction = null);
+public sealed record ReplayedPrefix(
+    IReadOnlyList<string> ReplayedActions,
+    int TotalActions,
+    ReplayHandOffReason StopReason,
+    string? UncertainAction = null
+);
 
 /// <summary>
 /// Upstream's <c>ReplayHandOffReason</c>, why a cached replay stopped before it finished its trace. <see cref="ActionBudget"/>
@@ -760,7 +806,8 @@ internal static class ReplayHandOffReasons
 
     public static string Name(ReplayHandOffReason reason) => Names.First(item => item.Reason == reason).Name;
 
-    public static ReplayHandOffReason Parse(string? name) => Names.First(item => string.Equals(item.Name, name, StringComparison.Ordinal)).Reason;
+    public static ReplayHandOffReason Parse(string? name) =>
+        Names.First(item => string.Equals(item.Name, name, StringComparison.Ordinal)).Reason;
 }
 
 /// <summary>
@@ -788,56 +835,63 @@ public static class StepExecutors
     /// The codes only the runtime may assign. An executor can carry one it was given, in a hard-stop error the context raised,
     /// but cannot invent one: the runtime rejects a runtime code it did not record.
     /// </summary>
-    public static IReadOnlySet<string> RuntimeCodes { get; } = new HashSet<string>(["STEP_BUDGET_EXHAUSTED", "STEP_TIMEOUT", "CANCELLED"], StringComparer.Ordinal);
+    public static IReadOnlySet<string> RuntimeCodes { get; } =
+        new HashSet<string>(["STEP_BUDGET_EXHAUSTED", "STEP_TIMEOUT", "CANCELLED"], StringComparer.Ordinal);
 
     /// <summary>
     /// The codes a <see cref="StepVerdictStatus.Blocked"/> verdict may carry: credentials, the environment, seed data, and test
     /// setup have outside owners, and <c>automation</c> means the executor ran out of room. Every other code describes the app
     /// and belongs to a failed verdict.
     /// </summary>
-    public static IReadOnlySet<string> BlockableCodes { get; } = new HashSet<string>(
-        [
-            "AUTH_CREDENTIAL_UNAVAILABLE",
-            "AUTH_CREDENTIAL_INVALID",
-            "SECRET_UNAVAILABLE",
-            "ENVIRONMENT_UNAVAILABLE",
-            "APP_UNREACHABLE",
-            "APP_ALREADY_RUNNING",
-            "SEED_DATA_MISSING",
-            "TEST_SETUP_FAILED",
-            "APP_NOT_OPEN",
-            "POLICY_DENIED",
-            "MODEL_UNAVAILABLE",
-            "AUTOMATION_UNSUPPORTED",
-            "STEP_BUDGET_EXHAUSTED",
-            "STEP_TIMEOUT",
-            "CONTEXT_OVERFLOW",
-            "MODEL_REFUSED",
-        ],
-        StringComparer.Ordinal);
+    public static IReadOnlySet<string> BlockableCodes { get; } =
+        new HashSet<string>(
+            [
+                "AUTH_CREDENTIAL_UNAVAILABLE",
+                "AUTH_CREDENTIAL_INVALID",
+                "SECRET_UNAVAILABLE",
+                "ENVIRONMENT_UNAVAILABLE",
+                "APP_UNREACHABLE",
+                "APP_ALREADY_RUNNING",
+                "SEED_DATA_MISSING",
+                "TEST_SETUP_FAILED",
+                "APP_NOT_OPEN",
+                "POLICY_DENIED",
+                "MODEL_UNAVAILABLE",
+                "AUTOMATION_UNSUPPORTED",
+                "STEP_BUDGET_EXHAUSTED",
+                "STEP_TIMEOUT",
+                "CONTEXT_OVERFLOW",
+                "MODEL_REFUSED",
+            ],
+            StringComparer.Ordinal
+        );
 
     /// <summary>Every code an agent step may end with. A verdict carries one of these or none.</summary>
-    internal static IReadOnlySet<string> AgentCodes { get; } = new HashSet<string>(
-        [
-            .. BlockableCodes,
-            "MODEL_PROVIDER_FAILED",
-            "CANCELLED",
-            "AUTHENTICATION_FAILED",
-            "MODEL_OUTPUT_INVALID",
-            "LOCATOR_NOT_FOUND",
-            "LOCATOR_AMBIGUOUS",
-            "ACTION_FAILED",
-            "STEP_NO_CONCLUSION",
-            "ASSERTION_FAILED",
-            "ASSERTION_INCONCLUSIVE",
-            "REPLAY_STALE",
-        ],
-        StringComparer.Ordinal);
+    internal static IReadOnlySet<string> AgentCodes { get; } =
+        new HashSet<string>(
+            [
+                .. BlockableCodes,
+                "MODEL_PROVIDER_FAILED",
+                "CANCELLED",
+                "AUTHENTICATION_FAILED",
+                "MODEL_OUTPUT_INVALID",
+                "LOCATOR_NOT_FOUND",
+                "LOCATOR_AMBIGUOUS",
+                "ACTION_FAILED",
+                "STEP_NO_CONCLUSION",
+                "ASSERTION_FAILED",
+                "ASSERTION_INCONCLUSIVE",
+                "REPLAY_STALE",
+            ],
+            StringComparer.Ordinal
+        );
 
     /// <summary>
     /// Whether an error is one of the runtime's own hard stops. Such an error is the step's truth wherever it lands, inside a
     /// tool call or a replayed action, and is surfaced untouched rather than absorbed as a divergence or an action failure.
     /// </summary>
     public static bool IsRuntimeHardStop(E2EException error) =>
-        error is AgentException { Code: "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "CANCELLED" } or EngineException { Code: EngineErrorCodes.Cancelled };
+        error
+            is AgentException { Code: "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "CANCELLED" }
+                or EngineException { Code: EngineErrorCodes.Cancelled };
 }

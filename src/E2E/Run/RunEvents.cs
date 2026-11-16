@@ -75,7 +75,9 @@ internal sealed partial class RunEventEmitter
                 {
                     // Several events may fail at one sink; the first names it, the rest find it quarantined.
                     _quarantined.Add(subscriber);
-                    Console.Error.WriteLine($"e2e: reporter \"{subscriber.Name}\" threw on {EventType(fact)}: {cause.Message}; ignoring it for the rest of the run");
+                    Console.Error.WriteLine(
+                        $"e2e: reporter \"{subscriber.Name}\" threw on {EventType(fact)}: {cause.Message}; ignoring it for the rest of the run"
+                    );
                 }
             }
         }
@@ -90,7 +92,9 @@ internal sealed partial class RunEventEmitter
         }
 
         var name = fact.GetType().Name;
-        return TypeWords().Replace(name.EndsWith("Event", StringComparison.Ordinal) ? name[..^"Event".Length] : name, "$1-$2").ToLowerInvariant();
+        return TypeWords()
+            .Replace(name.EndsWith("Event", StringComparison.Ordinal) ? name[..^"Event".Length] : name, "$1-$2")
+            .ToLowerInvariant();
     }
 
     [GeneratedRegex("([a-z])([A-Z])")]

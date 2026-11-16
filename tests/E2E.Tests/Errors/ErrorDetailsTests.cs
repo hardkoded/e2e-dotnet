@@ -16,13 +16,33 @@ public sealed class ErrorDetailsTests
     {
         var error = new TestException("ASSERTION_FAILED", "nope")
         {
-            Details = new ErrorDetails { Expected = "a", Observed = "b\u0007 red", Name = "", Locator = new string('x', 5000), Matches = 3 },
+            Details = new ErrorDetails
+            {
+                Expected = "a",
+                Observed = "b\u0007 red",
+                Name = "",
+                Locator = new string('x', 5000),
+                Matches = 3,
+            },
         };
 
         var serialized = ErrorSerializer.Serialize(error);
 
-        Assert.Equal(new ErrorDetails { Expected = "a", Observed = "b� red", Locator = new string('x', 2048), Matches = 3 }, serialized.Details);
-        Assert.Null(ErrorSerializer.Serialize(new TestException("ASSERTION_FAILED", "nope") { Details = new ErrorDetails { Name = "" } }).Details);
+        Assert.Equal(
+            new ErrorDetails
+            {
+                Expected = "a",
+                Observed = "b� red",
+                Locator = new string('x', 2048),
+                Matches = 3,
+            },
+            serialized.Details
+        );
+        Assert.Null(
+            ErrorSerializer
+                .Serialize(new TestException("ASSERTION_FAILED", "nope") { Details = new ErrorDetails { Name = "" } })
+                .Details
+        );
         Assert.Null(ErrorSerializer.Serialize(new TestException("ASSERTION_FAILED", "nope")).Details);
     }
 
@@ -31,7 +51,10 @@ public sealed class ErrorDetailsTests
     public void Redacts_secret_values_from_the_message_and_the_details_when_given_a_redactor()
     {
         static string Redact(string text) => text.Replace("hunter2", "<secret:password>", StringComparison.Ordinal);
-        var error = new TestException("ASSERTION_FAILED", "expected hunter2") { Details = new ErrorDetails { Observed = "value \"hunter2\"", Matches = 1 } };
+        var error = new TestException("ASSERTION_FAILED", "expected hunter2")
+        {
+            Details = new ErrorDetails { Observed = "value \"hunter2\"", Matches = 1 },
+        };
 
         var serialized = ErrorSerializer.Serialize(error, redact: Redact);
 

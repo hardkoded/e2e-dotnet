@@ -26,14 +26,17 @@ internal sealed class PointTapPages : IDisposable
     public static async Task<PointTapPages> StartAsync()
     {
         PointTapPages? pages = null;
-        var site = await TinySite.StartAsync(context => TinySite.RespondAsync(
-            context,
-            context.Request.Url!.AbsolutePath switch
-            {
-                "/canvas" => CanvasPages.Canvas,
-                "/repeats" => Repeats(pages!.Variant == "b"),
-                _ => CanvasPages.Home,
-            }));
+        var site = await TinySite.StartAsync(context =>
+            TinySite.RespondAsync(
+                context,
+                context.Request.Url!.AbsolutePath switch
+                {
+                    "/canvas" => CanvasPages.Canvas,
+                    "/repeats" => Repeats(pages!.Variant == "b"),
+                    _ => CanvasPages.Home,
+                }
+            )
+        );
         pages = new PointTapPages(site);
         return pages;
     }
@@ -43,7 +46,9 @@ internal sealed class PointTapPages : IDisposable
         var rows = string.Join(
             "\n",
             (reverse ? new[] { "C", "B", "A" } : ["A", "B", "C"]).Select(offer =>
-                $"    <li><span>Offer {offer}</span> <button name=\"reserve-{offer.ToLowerInvariant()}\" onclick=\"pick('{offer}')\">Reserve now</button></li>"));
+                $"    <li><span>Offer {offer}</span> <button name=\"reserve-{offer.ToLowerInvariant()}\" onclick=\"pick('{offer}')\">Reserve now</button></li>"
+            )
+        );
         return $$"""
             <!doctype html>
             <html>

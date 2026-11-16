@@ -16,17 +16,33 @@ public sealed class CodexLoginTests
 {
     private const string Issuer = "https://auth.test";
 
-    private static readonly string IdToken = FakeJwt.Of("""{"https://api.openai.com/auth":{"chatgpt_account_id":"acct_123"}}""");
+    private static readonly string IdToken = FakeJwt.Of(
+        """{"https://api.openai.com/auth":{"chatgpt_account_id":"acct_123"}}"""
+    );
 
-    private static readonly string AccessToken = FakeJwt.Of("""{"https://api.openai.com/auth":{"chatgpt_compute_residency":"eu"}}""");
+    private static readonly string AccessToken = FakeJwt.Of(
+        """{"https://api.openai.com/auth":{"chatgpt_compute_residency":"eu"}}"""
+    );
 
-    private static readonly string TokenReply = "{ \"access_token\": \"" + AccessToken + "\", \"refresh_token\": \"ref\", \"id_token\": \"" + IdToken + "\", \"expires_in\": 600 }";
+    private static readonly string TokenReply =
+        "{ \"access_token\": \""
+        + AccessToken
+        + "\", \"refresh_token\": \"ref\", \"id_token\": \""
+        + IdToken
+        + "\", \"expires_in\": 600 }";
 
     [Fact]
     public async Task Runs_the_browser_flow_PKCE_authorize_URL_local_callback_code_exchange_account_id_and_residency()
     {
-        var issuer = new FakeApi(request => (request.Uri.AbsolutePath == "/oauth/token" ? HttpStatusCode.OK : HttpStatusCode.NotFound, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), originator: "my-tool", issuer: Issuer, callbackPort: 0);
+        var issuer = new FakeApi(request =>
+            (request.Uri.AbsolutePath == "/oauth/token" ? HttpStatusCode.OK : HttpStatusCode.NotFound, TokenReply)
+        );
+        var provider = new CodexProvider(
+            new HttpClient(issuer),
+            originator: "my-tool",
+            issuer: Issuer,
+            callbackPort: 0
+        );
         Uri? authorize = null;
         Task<HttpResponseMessage>? browser = null;
 
@@ -41,7 +57,8 @@ public sealed class CodexLoginTests
                 OnPrompt = (_, _) => throw new InvalidOperationException("should not prompt"),
             },
             new OAuthLoginOptions(),
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal(HttpStatusCode.OK, (await browser!).StatusCode);
         Assert.Equal(Issuer + "/oauth/authorize", authorize!.GetLeftPart(UriPartial.Path));
@@ -49,12 +66,17 @@ public sealed class CodexLoginTests
         Assert.Equal("my-tool", query["originator"]);
         Assert.Equal("S256", query["code_challenge_method"]);
         Assert.Equal("app_EMoamEEZ73f0CkXaXp7hrann", query["client_id"]);
-        var exchange = HttpUtility.ParseQueryString(issuer.Requests.First(request => request.Uri.AbsolutePath == "/oauth/token").Body);
+        var exchange = HttpUtility.ParseQueryString(
+            issuer.Requests.First(request => request.Uri.AbsolutePath == "/oauth/token").Body
+        );
         Assert.Equal("authorization_code", exchange["grant_type"]);
         Assert.Equal("the-code", exchange["code"]);
         Assert.Matches("^[A-Za-z0-9_-]{43}$", exchange["code_verifier"]);
         Assert.Equal(query["redirect_uri"], exchange["redirect_uri"]);
-        Assert.Equal((AccessToken, "ref", "acct_123", "eu"), (credentials.Access, credentials.Refresh, credentials.Get("accountId"), credentials.Get("residency")));
+        Assert.Equal(
+            (AccessToken, "ref", "acct_123", "eu"),
+            (credentials.Access, credentials.Refresh, credentials.Get("accountId"), credentials.Get("residency"))
+        );
         Assert.True(credentials.Expires > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
     }
 
@@ -69,11 +91,13 @@ public sealed class CodexLoginTests
         var pending = provider.LoginAsync(
             new OAuthLoginCallbacks
             {
-                OnAuth = info => browser = BrowserReturns(info.Url, new() { ["code"] = "the-code", ["state"] = "$state" }),
+                OnAuth = info =>
+                    browser = BrowserReturns(info.Url, new() { ["code"] = "the-code", ["state"] = "$state" }),
                 OnPrompt = (_, _) => Task.FromResult(""),
             },
             new OAuthLoginOptions(),
-            cancellation.Token);
+            cancellation.Token
+        );
         await issuer.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
         await cancellation.CancelAsync();
 
@@ -86,19 +110,28 @@ public sealed class CodexLoginTests
     [Fact]
     public async Task Cancels_a_held_authorization_code_exchange_after_the_device_code_is_granted()
     {
-        var issuer = new HeldExchange(request => request.Uri.AbsolutePath switch
-        {
-            "/api/accounts/deviceauth/usercode" => (HttpStatusCode.OK, """{ "device_auth_id": "dev-1", "user_code": "LOCAL", "interval": "0.001" }"""),
-            "/api/accounts/deviceauth/token" => (HttpStatusCode.OK, """{ "authorization_code": "granted-code", "code_verifier": "verifier" }"""),
-            _ => (HttpStatusCode.NotFound, "{}"),
-        });
+        var issuer = new HeldExchange(request =>
+            request.Uri.AbsolutePath switch
+            {
+                "/api/accounts/deviceauth/usercode" => (
+                    HttpStatusCode.OK,
+                    """{ "device_auth_id": "dev-1", "user_code": "LOCAL", "interval": "0.001" }"""
+                ),
+                "/api/accounts/deviceauth/token" => (
+                    HttpStatusCode.OK,
+                    """{ "authorization_code": "granted-code", "code_verifier": "verifier" }"""
+                ),
+                _ => (HttpStatusCode.NotFound, "{}"),
+            }
+        );
         var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer);
         using var cancellation = new CancellationTokenSource();
 
         var pending = provider.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") },
             new OAuthLoginOptions { Device = true },
-            cancellation.Token);
+            cancellation.Token
+        );
         await issuer.Started.Task.WaitAsync(TimeSpan.FromSeconds(30));
         await cancellation.CancelAsync();
 
@@ -115,23 +148,44 @@ public sealed class CodexLoginTests
         var statuses = new List<HttpStatusCode>();
         Task? browser = null;
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => provider.LoginAsync(
-            new OAuthLoginCallbacks
-            {
-                OnAuth = info =>
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            provider.LoginAsync(
+                new OAuthLoginCallbacks
                 {
-                    // The bogus callbacks are answered before the decline, which closes the server behind them.
-                    browser = Task.Run(async () =>
+                    OnAuth = info =>
                     {
-                        statuses.Add((await BrowserReturns(info.Url, new() { ["code"] = "stolen", ["state"] = "not-ours" })).StatusCode);
-                        statuses.Add((await BrowserReturns(info.Url, new() { ["error"] = "x", ["state"] = "not-ours" })).StatusCode);
-                        statuses.Add((await BrowserReturns(info.Url, new() { ["error"] = "access_denied", ["state"] = "$state" })).StatusCode);
-                    });
+                        // The bogus callbacks are answered before the decline, which closes the server behind them.
+                        browser = Task.Run(async () =>
+                        {
+                            statuses.Add(
+                                (
+                                    await BrowserReturns(
+                                        info.Url,
+                                        new() { ["code"] = "stolen", ["state"] = "not-ours" }
+                                    )
+                                ).StatusCode
+                            );
+                            statuses.Add(
+                                (
+                                    await BrowserReturns(info.Url, new() { ["error"] = "x", ["state"] = "not-ours" })
+                                ).StatusCode
+                            );
+                            statuses.Add(
+                                (
+                                    await BrowserReturns(
+                                        info.Url,
+                                        new() { ["error"] = "access_denied", ["state"] = "$state" }
+                                    )
+                                ).StatusCode
+                            );
+                        });
+                    },
+                    OnPrompt = (_, _) => Task.FromResult(""),
                 },
-                OnPrompt = (_, _) => Task.FromResult(""),
-            },
-            new OAuthLoginOptions(),
-            CancellationToken.None));
+                new OAuthLoginOptions(),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(OAuthException.Cancelled, error.Code);
         await browser!;
@@ -150,9 +204,14 @@ public sealed class CodexLoginTests
         {
             var taken = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: squatted);
             var credentials = await taken.LoginAsync(
-                new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("http://localhost/auth/callback?code=pasted-code") },
+                new OAuthLoginCallbacks
+                {
+                    OnAuth = _ => { },
+                    OnPrompt = (_, _) => Task.FromResult("http://localhost/auth/callback?code=pasted-code"),
+                },
                 new OAuthLoginOptions(),
-                CancellationToken.None);
+                CancellationToken.None
+            );
             Assert.Equal(AccessToken, credentials.Access);
             Assert.Equal("pasted-code", HttpUtility.ParseQueryString(issuer.Requests.Last().Body)["code"]);
         }
@@ -162,11 +221,17 @@ public sealed class CodexLoginTests
         }
 
         // After the browser fails to return in time, the terminal asks for the URL instead of failing.
-        var slow = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0, loginTimeout: TimeSpan.FromMilliseconds(50));
+        var slow = new CodexProvider(
+            new HttpClient(issuer),
+            issuer: Issuer,
+            callbackPort: 0,
+            loginTimeout: TimeSpan.FromMilliseconds(50)
+        );
         var pasted = await slow.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("late-code") },
             new OAuthLoginOptions(),
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.Equal(AccessToken, pasted.Access);
         Assert.Equal("late-code", HttpUtility.ParseQueryString(issuer.Requests.Last().Body)["code"]);
     }
@@ -175,15 +240,29 @@ public sealed class CodexLoginTests
     public async Task Is_cancelled_at_once_by_an_already_aborted_signal_and_by_a_malformed_callback()
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
-        var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: 0, loginTimeout: TimeSpan.FromSeconds(60));
+        var provider = new CodexProvider(
+            new HttpClient(issuer),
+            issuer: Issuer,
+            callbackPort: 0,
+            loginTimeout: TimeSpan.FromSeconds(60)
+        );
         var quiet = new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") };
-        var aborted = await Assert.ThrowsAsync<OAuthException>(() => provider.LoginAsync(quiet, new OAuthLoginOptions(), new CancellationToken(canceled: true)));
+        var aborted = await Assert.ThrowsAsync<OAuthException>(() =>
+            provider.LoginAsync(quiet, new OAuthLoginOptions(), new CancellationToken(canceled: true))
+        );
         Assert.Equal(OAuthException.Cancelled, aborted.Code);
 
-        var malformed = await Assert.ThrowsAsync<OAuthException>(() => provider.LoginAsync(
-            new OAuthLoginCallbacks { OnAuth = info => _ = BrowserReturns(info.Url, new() { ["state"] = "$state" }), OnPrompt = (_, _) => Task.FromResult("") },
-            new OAuthLoginOptions(),
-            CancellationToken.None));
+        var malformed = await Assert.ThrowsAsync<OAuthException>(() =>
+            provider.LoginAsync(
+                new OAuthLoginCallbacks
+                {
+                    OnAuth = info => _ = BrowserReturns(info.Url, new() { ["state"] = "$state" }),
+                    OnPrompt = (_, _) => Task.FromResult(""),
+                },
+                new OAuthLoginOptions(),
+                CancellationToken.None
+            )
+        );
         Assert.Equal(OAuthException.FlowFailed, malformed.Code);
         Assert.Contains("invalid_callback", malformed.Message, StringComparison.Ordinal);
     }
@@ -197,10 +276,18 @@ public sealed class CodexLoginTests
             switch (request.Uri.AbsolutePath)
             {
                 case "/api/accounts/deviceauth/usercode":
-                    return (HttpStatusCode.OK, """{ "device_auth_id": "dev-1", "user_code": "ABCD-EFGH", "interval": "0.001" }""");
+                    return (
+                        HttpStatusCode.OK,
+                        """{ "device_auth_id": "dev-1", "user_code": "ABCD-EFGH", "interval": "0.001" }"""
+                    );
                 case "/api/accounts/deviceauth/token":
                     polls++;
-                    return polls < 3 ? (HttpStatusCode.Forbidden, "{}") : (HttpStatusCode.OK, """{ "authorization_code": "granted-code", "code_verifier": "verifier" }""");
+                    return polls < 3
+                        ? (HttpStatusCode.Forbidden, "{}")
+                        : (
+                            HttpStatusCode.OK,
+                            """{ "authorization_code": "granted-code", "code_verifier": "verifier" }"""
+                        );
                 case "/oauth/token":
                     var form = HttpUtility.ParseQueryString(request.Body);
                     Assert.Equal("granted-code", form["code"]);
@@ -217,7 +304,8 @@ public sealed class CodexLoginTests
         var credentials = await provider.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = info => shown = info, OnPrompt = (_, _) => Task.FromResult("") },
             new OAuthLoginOptions { Device = true },
-            CancellationToken.None);
+            CancellationToken.None
+        );
 
         Assert.Equal((Issuer + "/codex/device", "ABCD-EFGH"), (shown!.Url, shown.UserCode));
         Assert.Equal("acct_123", credentials.Get("accountId"));
@@ -226,7 +314,10 @@ public sealed class CodexLoginTests
     [Fact]
     public void Parses_every_form_the_user_may_paste()
     {
-        Assert.Equal(("abc", "st"), CodexProvider.ParseAuthorizationInput("http://localhost:1455/auth/callback?code=abc&state=st"));
+        Assert.Equal(
+            ("abc", "st"),
+            CodexProvider.ParseAuthorizationInput("http://localhost:1455/auth/callback?code=abc&state=st")
+        );
         Assert.Equal(("abc", "st"), CodexProvider.ParseAuthorizationInput("abc#st"));
         Assert.Equal(("abc", "st"), CodexProvider.ParseAuthorizationInput("code=abc&state=st"));
         Assert.Equal(("abc", (string?)null), CodexProvider.ParseAuthorizationInput("  abc "));
@@ -252,21 +343,34 @@ public sealed class CodexLoginTests
         });
         var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer);
         var renewed = await provider.RefreshAsync(
-            new OAuthCredentials { Access = "old", Refresh = "old-r", Expires = 0, Extra = new Dictionary<string, string> { ["accountId"] = "acct_123", ["residency"] = "eu" } },
-            CancellationToken.None);
-        Assert.Equal(("new", "old-r", "acct_123", "eu"), (renewed.Access, renewed.Refresh, renewed.Get("accountId"), renewed.Get("residency")));
+            new OAuthCredentials
+            {
+                Access = "old",
+                Refresh = "old-r",
+                Expires = 0,
+                Extra = new Dictionary<string, string> { ["accountId"] = "acct_123", ["residency"] = "eu" },
+            },
+            CancellationToken.None
+        );
+        Assert.Equal(
+            ("new", "old-r", "acct_123", "eu"),
+            (renewed.Access, renewed.Refresh, renewed.Get("accountId"), renewed.Get("residency"))
+        );
         Assert.True(renewed.Expires > DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
         reply = (HttpStatusCode.BadRequest, """{ "error": "invalid_grant" }""");
 
         // The provider names the failure alone; the handler that asked for the refresh appends the login command.
-        var error = await Assert.ThrowsAsync<OAuthException>(() => provider.RefreshAsync(renewed, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            provider.RefreshAsync(renewed, CancellationToken.None)
+        );
         Assert.Equal(OAuthException.LoginRequired, error.Code);
         Assert.Equal("ChatGPT token request failed (400: invalid_grant)", error.Message);
     }
 
     /// <summary>Answers like a <see cref="FakeApi"/>, but holds the token exchange until the caller gives up.</summary>
-    private sealed class HeldExchange(Func<FakeApi.Received, (HttpStatusCode Status, string Body)> answer) : HttpMessageHandler
+    private sealed class HeldExchange(Func<FakeApi.Received, (HttpStatusCode Status, string Body)> answer)
+        : HttpMessageHandler
     {
         private readonly FakeApi _api = new(answer);
 
@@ -274,7 +378,10 @@ public sealed class CodexLoginTests
 
         public ConcurrentQueue<FakeApi.Received> Requests => _api.Requests;
 
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken
+        )
         {
             if (request.RequestUri!.AbsolutePath != "/oauth/token")
             {

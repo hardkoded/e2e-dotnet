@@ -13,10 +13,12 @@ public sealed class PageLandedWithAStatusLineBesideTheListTests
     private static readonly string[] Eight = ["Row 1", "Row 2", "Row 3", "Row 4", "Row 5", "Row 6", "Row 7", "Row 8"];
 
     private static PageReading Listed(string status, params string[] texts) =>
-        Reading.ReadPage(IndexOf([
-            Node("status", role: "status", name: "Inbox", text: status, rect: new BoundingBox(0, 0, 300, 20)),
-            .. texts.Select((text, at) => Slot("r" + at, text, at, top: 40)),
-        ]));
+        Reading.ReadPage(
+            IndexOf([
+                Node("status", role: "status", name: "Inbox", text: status, rect: new BoundingBox(0, 0, 300, 20)),
+                .. texts.Select((text, at) => Slot("r" + at, text, at, top: 40)),
+            ])
+        );
 
     [Fact]
     public void Declines_a_stale_list_when_only_the_status_line_changed()

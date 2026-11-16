@@ -17,15 +17,19 @@ public sealed class EngineFixtureHostTests
     public async Task Hands_a_session_that_hosts_a_fixture_a_context_that_mints_locators_on_the_attempts_screen()
     {
         var engine = new HostingEngine(new DocumentEngine(BillingWorld.Create()));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = engine,
-            BaseUrl = "https://billing.test",
-            TestTitle = "fixture host",
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = engine,
+                BaseUrl = "https://billing.test",
+                TestTitle = "fixture host",
+            }
+        );
         await session.App.OpenAsync("/settings/billing");
         var context = Assert.IsType<EngineFixtureContext>(engine.Context);
-        var locator = context.Locator(LocatorExpression.ForRole("heading", TextMatch.FromString("Billing"), new RoleOptions()));
+        var locator = context.Locator(
+            LocatorExpression.ForRole("heading", TextMatch.FromString("Billing"), new RoleOptions())
+        );
         Assert.Equal(1, await locator.CountAsync());
         Assert.Throws<ArgumentNullException>(() => context.Locator(null!));
     }
@@ -48,13 +52,17 @@ public sealed class EngineFixtureHostTests
         {
             public string Route => session.Route;
 
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+            public Task OpenAsync(string url, CancellationToken cancellationToken) =>
+                session.OpenAsync(url, cancellationToken);
 
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => session.ObserveAsync(cancellationToken);
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
+                session.ObserveAsync(cancellationToken);
 
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                session.PerformAsync(node, action, cancellationToken);
 
-            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+            public Task PressAsync(string key, CancellationToken cancellationToken) =>
+                session.PressAsync(key, cancellationToken);
 
             public void CreateFixtures(EngineFixtureContext context) => engine.Context = context;
 

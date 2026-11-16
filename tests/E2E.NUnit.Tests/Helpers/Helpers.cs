@@ -38,7 +38,8 @@ internal static class Helpers
     }
 
     /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c>.</summary>
-    public static string CROSS => E2E.Playground.Testbed.Url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
+    public static string CROSS =>
+        E2E.Playground.Testbed.Url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal);
 
     /// <summary>What <paramref name="act"/> threw, or null when it did not throw (upstream's <c>failure</c>).</summary>
     public static async Task<Exception?> Failure(Func<Task> act)
@@ -56,7 +57,8 @@ internal static class Helpers
 
     /// <summary>Upstream's <c>boxOf</c>: the box a node paints, for pointer maths; a node without one is a test bug, not a pointer case.</summary>
     public static async Task<BoundingBox> BoxOf(Locator locator) =>
-        await locator.BoundingBoxAsync().ConfigureAwait(false) ?? throw new InvalidOperationException("node has no box");
+        await locator.BoundingBoxAsync().ConfigureAwait(false)
+        ?? throw new InvalidOperationException("node has no box");
 
     /// <summary>Upstream's <c>centerOf</c>: the center of a box, the point a finger would aim for.</summary>
     public static Point CenterOf(BoundingBox box) => new(box.X + (box.Width / 2), box.Y + (box.Height / 2));
@@ -67,7 +69,8 @@ internal static class Helpers
 
     /// <summary>A path that serves <paramref name="html"/> as a page, for Playwright's <c>page.setContent(html)</c>.</summary>
     public static string Content(string html) =>
-        "/content?html=" + Convert.ToBase64String(Encoding.UTF8.GetBytes(html)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        "/content?html="
+        + Convert.ToBase64String(Encoding.UTF8.GetBytes(html)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     /// <summary>
     /// An equality check for a body run by <see cref="ExpectedToFailAsync"/>. It throws: an NUnit assertion inside a test body is
@@ -91,7 +94,8 @@ internal static class Helpers
     }
 
     /// <summary>The absolute path of one of Playwright's test assets.</summary>
-    public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
+    public static string Asset(string name) =>
+        Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
 
     /// <summary>A promise with its resolver, for a route handler the test holds open. .NET-only, a test helper.</summary>
     public static TaskCompletionSource<T> Deferred<T>() => new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -100,7 +104,10 @@ internal static class Helpers
     public static TaskCompletionSource Deferred() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <summary>The request headers with <paramref name="set"/> added or replaced, for <c>{ ...route.request.headers, name: value }</c>. .NET-only, a test helper.</summary>
-    public static Dictionary<string, string> WithHeaders(IReadOnlyDictionary<string, string> headers, params (string Name, string Value)[] set)
+    public static Dictionary<string, string> WithHeaders(
+        IReadOnlyDictionary<string, string> headers,
+        params (string Name, string Value)[] set
+    )
     {
         var copy = new Dictionary<string, string>(headers, StringComparer.Ordinal);
         foreach (var (name, value) in set)
@@ -118,7 +125,10 @@ internal static class Helpers
         public string? Header(string name) => Headers.GetValueOrDefault(name);
 
         public static Served Parse(string json) =>
-            System.Text.Json.JsonSerializer.Deserialize<Served>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+            System.Text.Json.JsonSerializer.Deserialize<Served>(
+                json,
+                new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)
+            )!;
     }
 
     /// <summary>
@@ -154,7 +164,9 @@ internal static class Helpers
             return;
         }
 
-        Assert.Fail("UNEXPECTED_PASS: the test is marked as a known difference from Playwright, and it passed. Remove the marker.");
+        Assert.Fail(
+            "UNEXPECTED_PASS: the test is marked as a known difference from Playwright, and it passed. Remove the marker."
+        );
     }
 }
 
@@ -168,7 +180,8 @@ public abstract class PlaywrightTest : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 

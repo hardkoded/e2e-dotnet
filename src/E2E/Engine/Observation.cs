@@ -17,7 +17,15 @@ public static class ObservationLimits
 /// <summary>Boolean states a platform can report for one node.</summary>
 public sealed class NodeStates
 {
-    public bool Checked { get; init { field = value; CheckedReported = true; } }
+    public bool Checked
+    {
+        get;
+        init
+        {
+            field = value;
+            CheckedReported = true;
+        }
+    }
 
     /// <summary>
     /// The platform reported a checked state for the node, true or false. Setting <see cref="Checked"/> reports it; a node with none
@@ -119,7 +127,8 @@ public sealed class SemanticNode
     /// Platform attributes by name, what <c>getAttribute</c> and <c>toHaveAttribute</c> read.
     /// A secure field never reports its value.
     /// </summary>
-    public IReadOnlyDictionary<string, string> Attributes { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, string> Attributes { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>
     /// The whole <c>href</c> attribute. <see cref="Attributes"/> carries it reduced to origin and path, as upstream's tree does,
@@ -132,7 +141,10 @@ public sealed class SemanticNode
 
     /// <summary>Reads one attribute, the test-id attribute included.</summary>
     internal string? AttributeOf(string name) =>
-        name == "href" && WholeHref is not null ? WholeHref : Attributes.TryGetValue(name, out var value) ? value : name == TestIdAttribute ? TestId : null;
+        name == "href" && WholeHref is not null ? WholeHref
+        : Attributes.TryGetValue(name, out var value) ? value
+        : name == TestIdAttribute ? TestId
+        : null;
 
     /// <summary>Whether the node is a frame element, whose children are its own document's nodes. A query under another node stops at it.</summary>
     internal bool Frame { get; init; }

@@ -64,24 +64,26 @@ internal static partial class PlaywrightRoutes
                 await WriteAsync(response, FromBase64Url(query.GetValueOrDefault("html") ?? "")).ConfigureAwait(false);
                 return;
             case "/echo":
-                {
-                    var received = await BodyAsync(request).ConfigureAwait(false);
-                    response.ContentType = "application/json";
-                    response.AddHeader("access-control-allow-origin", "*");
-                    await WriteAsync(response, Echo(request, received)).ConfigureAwait(false);
-                    return;
-                }
+            {
+                var received = await BodyAsync(request).ConfigureAwait(false);
+                response.ContentType = "application/json";
+                response.AddHeader("access-control-allow-origin", "*");
+                await WriteAsync(response, Echo(request, received)).ConfigureAwait(false);
+                return;
+            }
 
             case "/status":
                 response.StatusCode = Number(query.GetValueOrDefault("code"), 200);
                 response.ContentType = "text/plain";
-                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "")).ConfigureAwait(false);
+                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? ""))
+                    .ConfigureAwait(false);
                 return;
             case "/slow":
                 await Task.Delay(Bounded(query.GetValueOrDefault("ms"), 1000, MaxDelayMs)).ConfigureAwait(false);
                 response.ContentType = query.GetValueOrDefault("type") ?? "text/plain";
                 response.AddHeader("access-control-allow-origin", "*");
-                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "slow")).ConfigureAwait(false);
+                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "slow"))
+                    .ConfigureAwait(false);
                 return;
             case "/never":
                 await HoldAsync().ConfigureAwait(false);
@@ -93,8 +95,12 @@ internal static partial class PlaywrightRoutes
                 return;
             case "/download":
                 response.ContentType = "application/octet-stream";
-                response.AddHeader("content-disposition", $"attachment{(query.TryGetValue("name", out var name) ? $"; filename={name}" : "")}");
-                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "Hello world")).ConfigureAwait(false);
+                response.AddHeader(
+                    "content-disposition",
+                    $"attachment{(query.TryGetValue("name", out var name) ? $"; filename={name}" : "")}"
+                );
+                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "Hello world"))
+                    .ConfigureAwait(false);
                 return;
             case "/set-cookie":
                 response.AddHeader("set-cookie", query.GetValueOrDefault("cookie") ?? "name=value");
@@ -104,134 +110,153 @@ internal static partial class PlaywrightRoutes
             case "/respond":
                 response.StatusCode = Number(query.GetValueOrDefault("status"), 200);
                 AddHeaders(response, query.GetValueOrDefault("headers") ?? "{}");
-                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? "")).ConfigureAwait(false);
+                await WriteAsync(response, Encoding.UTF8.GetBytes(query.GetValueOrDefault("body") ?? ""))
+                    .ConfigureAwait(false);
                 return;
             case "/cors-echo":
+            {
+                response.AddHeader("access-control-allow-origin", TrustedOrigin(request, port));
+                response.AddHeader("access-control-allow-credentials", "true");
+                response.AddHeader("access-control-allow-methods", "POST, GET, OPTIONS, DELETE");
+                response.AddHeader(
+                    "access-control-allow-headers",
+                    request.Headers["access-control-request-headers"] ?? "*"
+                );
+                if (request.HttpMethod == "OPTIONS" && query.ContainsKey("preflight"))
                 {
-                    response.AddHeader("access-control-allow-origin", TrustedOrigin(request, port));
-                    response.AddHeader("access-control-allow-credentials", "true");
-                    response.AddHeader("access-control-allow-methods", "POST, GET, OPTIONS, DELETE");
-                    response.AddHeader("access-control-allow-headers", request.Headers["access-control-request-headers"] ?? "*");
-                    if (request.HttpMethod == "OPTIONS" && query.ContainsKey("preflight"))
-                    {
-                        response.StatusCode = 204;
-                        return;
-                    }
-
-                    var received = await BodyAsync(request).ConfigureAwait(false);
-                    response.ContentType = "text/plain";
-                    await WriteAsync(response, Echo(request, received)).ConfigureAwait(false);
+                    response.StatusCode = 204;
                     return;
                 }
+
+                var received = await BodyAsync(request).ConfigureAwait(false);
+                response.ContentType = "text/plain";
+                await WriteAsync(response, Echo(request, received)).ConfigureAwait(false);
+                return;
+            }
 
             case "/bounce":
+            {
+                var options = request.HttpMethod == "OPTIONS";
+                if (!options)
                 {
-                    var options = request.HttpMethod == "OPTIONS";
-                    if (!options)
-                    {
-                        response.RedirectLocation = SameServer(query.GetValueOrDefault("to"), port);
-                    }
-
-                    response.AddHeader("access-control-allow-origin", TrustedOrigin(request, port));
-                    response.AddHeader("access-control-allow-credentials", "true");
-                    response.AddHeader("access-control-allow-headers", request.Headers["access-control-request-headers"] ?? "*");
-                    if (query.TryGetValue("cookie", out var cookie))
-                    {
-                        response.AddHeader("set-cookie", cookie);
-                    }
-
-                    response.StatusCode = options ? 204 : Number(query.GetValueOrDefault("status"), 302);
-                    return;
+                    response.RedirectLocation = SameServer(query.GetValueOrDefault("to"), port);
                 }
+
+                response.AddHeader("access-control-allow-origin", TrustedOrigin(request, port));
+                response.AddHeader("access-control-allow-credentials", "true");
+                response.AddHeader(
+                    "access-control-allow-headers",
+                    request.Headers["access-control-request-headers"] ?? "*"
+                );
+                if (query.TryGetValue("cookie", out var cookie))
+                {
+                    response.AddHeader("set-cookie", cookie);
+                }
+
+                response.StatusCode = options ? 204 : Number(query.GetValueOrDefault("status"), 302);
+                return;
+            }
 
             case "/count":
-                {
-                    var count = Counts.AddOrUpdate(query.GetValueOrDefault("key") ?? "", 1, (_, current) => current + 1);
-                    response.ContentType = "text/plain";
-                    await WriteAsync(response, Encoding.UTF8.GetBytes((count * 11).ToString(System.Globalization.CultureInfo.InvariantCulture))).ConfigureAwait(false);
-                    return;
-                }
+            {
+                var count = Counts.AddOrUpdate(query.GetValueOrDefault("key") ?? "", 1, (_, current) => current + 1);
+                response.ContentType = "text/plain";
+                await WriteAsync(
+                        response,
+                        Encoding.UTF8.GetBytes((count * 11).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    )
+                    .ConfigureAwait(false);
+                return;
+            }
 
             case "/options":
+            {
+                var log = Logs.GetOrAdd(query.GetValueOrDefault("key") ?? "", _ => []);
+                lock (log)
                 {
-                    var log = Logs.GetOrAdd(query.GetValueOrDefault("key") ?? "", _ => []);
-                    lock (log)
-                    {
-                        log.Add($"{request.HttpMethod}:{path}");
-                    }
-
-                    var options = request.HttpMethod == "OPTIONS";
-                    response.AddHeader("access-control-allow-origin", "*");
-                    if (options)
-                    {
-                        response.AddHeader("access-control-allow-methods", "POST, GET, OPTIONS, DELETE");
-                        response.AddHeader("access-control-allow-headers", "*");
-                        response.AddHeader("cache-control", "no-cache");
-                    }
-
-                    await WriteAsync(response, Encoding.UTF8.GetBytes(options ? "Hello" : "World")).ConfigureAwait(false);
-                    return;
+                    log.Add($"{request.HttpMethod}:{path}");
                 }
+
+                var options = request.HttpMethod == "OPTIONS";
+                response.AddHeader("access-control-allow-origin", "*");
+                if (options)
+                {
+                    response.AddHeader("access-control-allow-methods", "POST, GET, OPTIONS, DELETE");
+                    response.AddHeader("access-control-allow-headers", "*");
+                    response.AddHeader("cache-control", "no-cache");
+                }
+
+                await WriteAsync(response, Encoding.UTF8.GetBytes(options ? "Hello" : "World")).ConfigureAwait(false);
+                return;
+            }
 
             case "/options-log":
+            {
+                response.ContentType = "application/json";
+                var log = Logs.GetValueOrDefault(query.GetValueOrDefault("key") ?? "") ?? [];
+                string[] entries;
+                lock (log)
                 {
-                    response.ContentType = "application/json";
-                    var log = Logs.GetValueOrDefault(query.GetValueOrDefault("key") ?? "") ?? [];
-                    string[] entries;
-                    lock (log)
-                    {
-                        entries = [.. log];
-                    }
-
-                    await WriteAsync(response, JsonSerializer.SerializeToUtf8Bytes(entries)).ConfigureAwait(false);
-                    return;
+                    entries = [.. log];
                 }
+
+                await WriteAsync(response, JsonSerializer.SerializeToUtf8Bytes(entries)).ConfigureAwait(false);
+                return;
+            }
 
             case "/upload":
-                {
-                    var received = await BodyAsync(request).ConfigureAwait(false);
-                    response.ContentType = "text/plain";
-                    response.AddHeader("access-control-allow-origin", "*");
-                    await WriteAsync(response, JsonSerializer.SerializeToUtf8Bytes(Files(received, request.ContentType ?? ""))).ConfigureAwait(false);
-                    return;
-                }
+            {
+                var received = await BodyAsync(request).ConfigureAwait(false);
+                response.ContentType = "text/plain";
+                response.AddHeader("access-control-allow-origin", "*");
+                await WriteAsync(
+                        response,
+                        JsonSerializer.SerializeToUtf8Bytes(Files(received, request.ContentType ?? ""))
+                    )
+                    .ConfigureAwait(false);
+                return;
+            }
 
             case "/binary":
+            {
+                var data = new byte[Bounded(query.GetValueOrDefault("bytes"), 1 << 20, MaxBytes)];
+                for (var i = 0; i < data.Length; i++)
                 {
-                    var data = new byte[Bounded(query.GetValueOrDefault("bytes"), 1 << 20, MaxBytes)];
-                    for (var i = 0; i < data.Length; i++)
-                    {
-                        data[i] = (byte)(unchecked((uint)((i + 1) * 2654435761L)) >> 24);
-                    }
-
-                    response.ContentType = "application/zip";
-                    await WriteAsync(response, data).ConfigureAwait(false);
-                    return;
+                    data[i] = (byte)(unchecked((uint)((i + 1) * 2654435761L)) >> 24);
                 }
+
+                response.ContentType = "application/zip";
+                await WriteAsync(response, data).ConfigureAwait(false);
+                return;
+            }
 
             case "/download-stall":
-                {
-                    response.ContentType = "application/octet-stream";
-                    response.AddHeader("content-disposition", "attachment; filename=file.txt");
-                    response.SendChunked = true;
-                    await response.OutputStream.WriteAsync(Encoding.ASCII.GetBytes(new string('a', 4096) + "foo")).ConfigureAwait(false);
-                    await response.OutputStream.FlushAsync().ConfigureAwait(false);
-                    await HoldAsync().ConfigureAwait(false);
-                    response.Abort();
-                    return;
-                }
+            {
+                response.ContentType = "application/octet-stream";
+                response.AddHeader("content-disposition", "attachment; filename=file.txt");
+                response.SendChunked = true;
+                await response
+                    .OutputStream.WriteAsync(Encoding.ASCII.GetBytes(new string('a', 4096) + "foo"))
+                    .ConfigureAwait(false);
+                await response.OutputStream.FlushAsync().ConfigureAwait(false);
+                await HoldAsync().ConfigureAwait(false);
+                response.Abort();
+                return;
+            }
 
             case "/sse":
-                {
-                    response.ContentType = "text/event-stream";
-                    response.AddHeader("cache-control", "no-cache");
-                    response.SendChunked = true;
-                    await response.OutputStream.WriteAsync(Encoding.ASCII.GetBytes("data: hello\n\n")).ConfigureAwait(false);
-                    await response.OutputStream.FlushAsync().ConfigureAwait(false);
-                    await HoldAsync().ConfigureAwait(false);
-                    response.Abort();
-                    return;
-                }
+            {
+                response.ContentType = "text/event-stream";
+                response.AddHeader("cache-control", "no-cache");
+                response.SendChunked = true;
+                await response
+                    .OutputStream.WriteAsync(Encoding.ASCII.GetBytes("data: hello\n\n"))
+                    .ConfigureAwait(false);
+                await response.OutputStream.FlushAsync().ConfigureAwait(false);
+                await HoldAsync().ConfigureAwait(false);
+                response.Abort();
+                return;
+            }
         }
 
         var file = Path.GetFullPath(Path.Combine(Root, Uri.UnescapeDataString(path).TrimStart('/')));
@@ -274,9 +299,7 @@ internal static partial class PlaywrightRoutes
                 }
             }
         }
-        catch (Exception ex) when (ex is WebSocketException or OperationCanceledException)
-        {
-        }
+        catch (Exception ex) when (ex is WebSocketException or OperationCanceledException) { }
         finally
         {
             socket.Abort();
@@ -293,7 +316,12 @@ internal static partial class PlaywrightRoutes
         }
 
         var origin = new Uri($"http://127.0.0.1:{port}");
-        if (!Uri.TryCreate(origin, target, out var resolved) || resolved.Scheme != "http" || resolved.Port != port || resolved.Host is not ("127.0.0.1" or "localhost"))
+        if (
+            !Uri.TryCreate(origin, target, out var resolved)
+            || resolved.Scheme != "http"
+            || resolved.Port != port
+            || resolved.Host is not ("127.0.0.1" or "localhost")
+        )
         {
             return "/empty.html";
         }
@@ -313,7 +341,9 @@ internal static partial class PlaywrightRoutes
             return "null";
         }
 
-        return origin is not null && (origin == $"http://127.0.0.1:{port}" || origin == $"http://localhost:{port}") ? origin : $"http://127.0.0.1:{port}";
+        return origin is not null && (origin == $"http://127.0.0.1:{port}" || origin == $"http://localhost:{port}")
+            ? origin
+            : $"http://127.0.0.1:{port}";
     }
 
     /// <summary>The request as JSON: <c>{ method, headers, body, url }</c>.</summary>
@@ -328,7 +358,15 @@ internal static partial class PlaywrightRoutes
             }
         }
 
-        return JsonSerializer.SerializeToUtf8Bytes(new { method = request.HttpMethod, headers, body = Encoding.UTF8.GetString(body), url = request.RawUrl });
+        return JsonSerializer.SerializeToUtf8Bytes(
+            new
+            {
+                method = request.HttpMethod,
+                headers,
+                body = Encoding.UTF8.GetString(body),
+                url = request.RawUrl,
+            }
+        );
     }
 
     /// <summary>The headers of a JSON object, a header with an array value sent once for each item.</summary>
@@ -337,7 +375,8 @@ internal static partial class PlaywrightRoutes
         using var headers = JsonDocument.Parse(json);
         foreach (var header in headers.RootElement.EnumerateObject())
         {
-            JsonElement[] values = header.Value.ValueKind == JsonValueKind.Array ? [.. header.Value.EnumerateArray()] : [header.Value];
+            JsonElement[] values =
+                header.Value.ValueKind == JsonValueKind.Array ? [.. header.Value.EnumerateArray()] : [header.Value];
             foreach (var value in values)
             {
                 var text = value.ToString();
@@ -363,7 +402,7 @@ internal static partial class PlaywrightRoutes
         var files = new List<object>();
         var at = type.IndexOf("boundary=", StringComparison.Ordinal);
         var boundary = Encoding.UTF8.GetBytes("--" + (at >= 0 ? type[(at + "boundary=".Length)..] : ""));
-        for (var start = IndexOf(received, boundary, 0); start != -1;)
+        for (var start = IndexOf(received, boundary, 0); start != -1; )
         {
             var next = IndexOf(received, boundary, start + boundary.Length);
             if (next == -1)
@@ -375,14 +414,20 @@ internal static partial class PlaywrightRoutes
             var split = part.IndexOf("\r\n\r\n"u8);
             var head = Encoding.UTF8.GetString(part[..split]);
             var data = part[(split + 4)..];
-            files.Add(new
-            {
-                name = PartName().Match(head) is { Success: true } named ? named.Groups[1].Value : null,
-                filename = PartFilename().Match(head) is { Success: true } filename ? filename.Groups[1].Value : null,
-                mimetype = PartMimetype().Match(head) is { Success: true } mimetype ? mimetype.Groups[1].Value.Trim() : null,
-                size = data.Length,
-                base64 = data.Length <= 65536 ? Convert.ToBase64String(data) : null,
-            });
+            files.Add(
+                new
+                {
+                    name = PartName().Match(head) is { Success: true } named ? named.Groups[1].Value : null,
+                    filename = PartFilename().Match(head) is { Success: true } filename
+                        ? filename.Groups[1].Value
+                        : null,
+                    mimetype = PartMimetype().Match(head) is { Success: true } mimetype
+                        ? mimetype.Groups[1].Value.Trim()
+                        : null,
+                    size = data.Length,
+                    base64 = data.Length <= 65536 ? Convert.ToBase64String(data) : null,
+                }
+            );
             start = next;
         }
 
@@ -390,7 +435,9 @@ internal static partial class PlaywrightRoutes
     }
 
     private static int IndexOf(byte[] haystack, byte[] needle, int from) =>
-        from > haystack.Length ? -1 : haystack.AsSpan(from).IndexOf(needle) is var at and >= 0 ? from + at : -1;
+        from > haystack.Length ? -1
+        : haystack.AsSpan(from).IndexOf(needle) is var at and >= 0 ? from + at
+        : -1;
 
     [GeneratedRegex("name=\"([^\"]*)\"")]
     private static partial Regex PartName();
@@ -406,7 +453,15 @@ internal static partial class PlaywrightRoutes
         Math.Min(Math.Max(Number(value, fallback), 0), max);
 
     private static int Number(string? value, int fallback) =>
-        value is null ? fallback : int.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var number) ? number : 0;
+        value is null ? fallback
+        : int.TryParse(
+            value,
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var number
+        )
+            ? number
+        : 0;
 
     private static Dictionary<string, string> ParseQuery(string query)
     {
@@ -414,7 +469,10 @@ internal static partial class PlaywrightRoutes
         foreach (var pair in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var parts = pair.Split('=', 2);
-            values.TryAdd(Uri.UnescapeDataString(parts[0].Replace('+', ' ')), parts.Length > 1 ? Uri.UnescapeDataString(parts[1].Replace('+', ' ')) : "");
+            values.TryAdd(
+                Uri.UnescapeDataString(parts[0].Replace('+', ' ')),
+                parts.Length > 1 ? Uri.UnescapeDataString(parts[1].Replace('+', ' ')) : ""
+            );
         }
 
         return values;

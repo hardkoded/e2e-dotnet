@@ -15,7 +15,8 @@ public sealed class EngineErrorTests
     public void An_action_timeout_before_dispatch_is_not_actionable()
     {
         var cause = new System.TimeoutException(
-            "Timeout 5000ms exceeded.\nCall log:\n  - waiting for element to be visible, enabled and stable\n  - element is not enabled");
+            "Timeout 5000ms exceeded.\nCall log:\n  - waiting for element to be visible, enabled and stable\n  - element is not enabled"
+        );
 
         var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(cause, new LocatorAction.Tap()));
 
@@ -30,7 +31,8 @@ public sealed class EngineErrorTests
     public void An_action_timeout_after_dispatch_may_have_committed()
     {
         var cause = new System.TimeoutException(
-            "Timeout 5000ms exceeded.\nCall log:\n  - performing click action\n  - click action done\n  - waiting for scheduled navigations to finish");
+            "Timeout 5000ms exceeded.\nCall log:\n  - performing click action\n  - click action done\n  - waiting for scheduled navigations to finish"
+        );
 
         var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(cause, new LocatorAction.Tap()));
 
@@ -41,7 +43,12 @@ public sealed class EngineErrorTests
     [Fact]
     public void A_detached_element_is_a_retryable_stale_node()
     {
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("Element is not attached to the DOM"), new LocatorAction.Check()));
+        var error = Assert.IsType<EngineException>(
+            WebErrors.ClassifyAction(
+                new PlaywrightException("Element is not attached to the DOM"),
+                new LocatorAction.Check()
+            )
+        );
 
         Assert.Equal("NODE_STALE", error.Code);
         Assert.True(error.Retryable);
@@ -50,7 +57,12 @@ public sealed class EngineErrorTests
     [Fact]
     public void A_sensitive_fill_redacts_its_value_and_drops_the_cause()
     {
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("fill(\"hunter2\") failed"), new LocatorAction.Fill("hunter2", Sensitive: true)));
+        var error = Assert.IsType<EngineException>(
+            WebErrors.ClassifyAction(
+                new PlaywrightException("fill(\"hunter2\") failed"),
+                new LocatorAction.Fill("hunter2", Sensitive: true)
+            )
+        );
 
         Assert.Equal("ENGINE_FAILURE", error.Code);
         Assert.DoesNotContain("hunter2", error.Message, StringComparison.Ordinal);
@@ -61,11 +73,16 @@ public sealed class EngineErrorTests
     [Fact]
     public async Task Chromium_reports_engine_codes_instead_of_playwright_errors()
     {
-        using var site = await TinySite.StartAsync("""
+        using var site = await TinySite.StartAsync(
+            """
             <!DOCTYPE html>
             <html><body><button type="button" disabled>Save</button></body></html>
-            """);
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromMilliseconds(500) }, CancellationToken.None);
+            """
+        );
+        var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { ActionTimeout = TimeSpan.FromMilliseconds(500) },
+            CancellationToken.None
+        );
 
         await using (session)
         {
@@ -73,14 +90,20 @@ public sealed class EngineErrorTests
             var observation = await session.ObserveAsync(CancellationToken.None);
             var button = Flatten(observation.Roots).First(node => node.Role == "button");
 
-            var blocked = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, new LocatorAction.Tap(), CancellationToken.None));
+            var blocked = await Assert.ThrowsAsync<EngineException>(() =>
+                session.PerformAsync(button, new LocatorAction.Tap(), CancellationToken.None)
+            );
             Assert.Equal("NOT_ACTIONABLE", blocked.Code);
 
             var missing = new SemanticNode { Ref = "e9999", Role = "button" };
-            var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(missing, new LocatorAction.Tap(), CancellationToken.None));
+            var stale = await Assert.ThrowsAsync<EngineException>(() =>
+                session.PerformAsync(missing, new LocatorAction.Tap(), CancellationToken.None)
+            );
             Assert.Equal("NODE_STALE", stale.Code);
 
-            var unreachable = await Assert.ThrowsAsync<EngineException>(() => session.OpenAsync("http://127.0.0.1:1/", CancellationToken.None));
+            var unreachable = await Assert.ThrowsAsync<EngineException>(() =>
+                session.OpenAsync("http://127.0.0.1:1/", CancellationToken.None)
+            );
             Assert.Equal("ENGINE_FAILURE", unreachable.Code);
         }
     }

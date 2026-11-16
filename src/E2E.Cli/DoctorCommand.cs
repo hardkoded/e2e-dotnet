@@ -56,7 +56,8 @@ internal static class DoctorCommand
         string? cwd = null,
         Func<TargetConfig, bool, IEngine>? createEngine = null,
         IReadOnlyDictionary<string, string?>? env = null,
-        Func<AgentConfig, bool, IAgentModel?>? createModel = null)
+        Func<AgentConfig, bool, IAgentModel?>? createModel = null
+    )
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -74,36 +75,46 @@ internal static class DoctorCommand
             return 2;
         }
 
-        var report = await Doctor.RunAsync(
-            new DoctorOptions
-            {
-                Version = ModelHttp.PackageVersion(),
-                Cwd = cwd ?? Directory.GetCurrentDirectory(),
-                Env = env ?? ProcessEnvironment(),
-                Config = parsed.Config,
-                Targets = parsed.Targets,
-                Headed = parsed.Headed,
-                CheckModel = parsed.CheckModel,
-                CreateModel = createModel,
-                Notice = (target, line) => stderr.WriteLine(Format.Bounded("[" + target + "] " + line)),
-                CreateEngine = createEngine,
-            },
-            cancellationToken).ConfigureAwait(false);
+        var report = await Doctor
+            .RunAsync(
+                new DoctorOptions
+                {
+                    Version = ModelHttp.PackageVersion(),
+                    Cwd = cwd ?? Directory.GetCurrentDirectory(),
+                    Env = env ?? ProcessEnvironment(),
+                    Config = parsed.Config,
+                    Targets = parsed.Targets,
+                    Headed = parsed.Headed,
+                    CheckModel = parsed.CheckModel,
+                    CreateModel = createModel,
+                    Notice = (target, line) => stderr.WriteLine(Format.Bounded("[" + target + "] " + line)),
+                    CreateEngine = createEngine,
+                },
+                cancellationToken
+            )
+            .ConfigureAwait(false);
         if (parsed.Json)
         {
             await stdout.WriteAsync(report.ToJson() + "\n").ConfigureAwait(false);
         }
         else
         {
-            var colors = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
+            var colors = new Colors(
+                interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"))
+            );
             await stdout.WriteAsync(Doctor.FormatDoctorReport(report, colors)).ConfigureAwait(false);
         }
 
-        return cancellationToken.IsCancellationRequested ? 130 : report.Ok ? 0 : 2;
+        return cancellationToken.IsCancellationRequested ? 130
+            : report.Ok ? 0
+            : 2;
     }
 
     private static Dictionary<string, string?> ProcessEnvironment() =>
-        Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
+        Environment
+            .GetEnvironmentVariables()
+            .Cast<DictionaryEntry>()
+            .ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
 
     private static DoctorArgs Parse(IEnumerable<string> args)
     {
@@ -152,7 +163,11 @@ internal static class DoctorCommand
                     }
                     else
                     {
-                        return new DoctorArgs { Error = "option '" + name + (name == "--config" ? " <path>" : " <ids>") + "' argument missing" };
+                        return new DoctorArgs
+                        {
+                            Error =
+                                "option '" + name + (name == "--config" ? " <path>" : " <ids>") + "' argument missing",
+                        };
                     }
 
                     if (name == "--config")
@@ -165,7 +180,11 @@ internal static class DoctorCommand
                     }
                     else
                     {
-                        return new DoctorArgs { Error = "option '--target <ids>' argument '" + value + "' is invalid. name at least one target" };
+                        return new DoctorArgs
+                        {
+                            Error =
+                                "option '--target <ids>' argument '" + value + "' is invalid. name at least one target",
+                        };
                     }
 
                     break;
@@ -182,7 +201,13 @@ internal static class DoctorCommand
 
         if (positional > 0)
         {
-            return new DoctorArgs { Error = "too many arguments for 'doctor'. Expected 0 arguments but got " + positional.ToString(CultureInfo.InvariantCulture) + "." };
+            return new DoctorArgs
+            {
+                Error =
+                    "too many arguments for 'doctor'. Expected 0 arguments but got "
+                    + positional.ToString(CultureInfo.InvariantCulture)
+                    + ".",
+            };
         }
 
         result.Targets = targets;
@@ -190,7 +215,8 @@ internal static class DoctorCommand
     }
 
     /// <summary>The names in a comma-separated list, trimmed, without blanks (upstream's <c>parseNames</c>).</summary>
-    private static List<string> Names(string value) => [.. value.Split(',').Select(name => name.Trim()).Where(name => name.Length > 0)];
+    private static List<string> Names(string value) =>
+        [.. value.Split(',').Select(name => name.Trim()).Where(name => name.Length > 0)];
 
     private sealed class DoctorArgs
     {

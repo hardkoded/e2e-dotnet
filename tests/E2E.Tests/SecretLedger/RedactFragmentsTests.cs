@@ -23,17 +23,29 @@ public sealed class RedactFragmentsTests
     public void Rewrites_a_fragment_in_another_case_and_leaves_a_shorter_one()
     {
         var ledger = Ledger.Of(("apiKey", Value));
-        Assert.Equal("sel <secret:apiKey> end", ledger.RedactFragments("sel " + Value[5..45].ToUpperInvariant() + " end"));
+        Assert.Equal(
+            "sel <secret:apiKey> end",
+            ledger.RedactFragments("sel " + Value[5..45].ToUpperInvariant() + " end")
+        );
         Assert.Equal("a <secret:apiKey> b", ledger.RedactFragments("a " + Value[20..28].ToLowerInvariant() + " b"));
-        Assert.Equal("a " + Value[20..27].ToUpperInvariant() + " b", ledger.RedactFragments("a " + Value[20..27].ToUpperInvariant() + " b"));
+        Assert.Equal(
+            "a " + Value[20..27].ToUpperInvariant() + " b",
+            ledger.RedactFragments("a " + Value[20..27].ToUpperInvariant() + " b")
+        );
     }
 
     [Fact]
     public void Rewrites_whole_values_in_every_spelling_first_then_the_fragments_between_them_and_never_a_marker()
     {
         var ledger = Ledger.Of(("member", "pa\"ss-word-2718-xyz"));
-        Assert.Equal("{\"v\":\"<secret:member>\"} <secret:member>", ledger.RedactFragments("{\"v\":\"pa\\\"ss-word-2718-xyz\"} ss-word-2718"));
-        Assert.Equal("<secret:member> and <secret:member>", ledger.RedactFragments("<secret:member> and <secret:member>"));
+        Assert.Equal(
+            "{\"v\":\"<secret:member>\"} <secret:member>",
+            ledger.RedactFragments("{\"v\":\"pa\\\"ss-word-2718-xyz\"} ss-word-2718")
+        );
+        Assert.Equal(
+            "<secret:member> and <secret:member>",
+            ledger.RedactFragments("<secret:member> and <secret:member>")
+        );
     }
 
     [Fact]
@@ -45,9 +57,11 @@ public sealed class RedactFragmentsTests
             "xKeHYQKKYmUIHQUvbL7GD750SXH0WBXc",
             "S6zifhBTNEGyB9oJAIa5tz5ysBf2KeiK",
             "CWRxVgjsPQIi0i7ipQkTw1bSSj4Do4fN",
-            "-----END KEY-----");
+            "-----END KEY-----"
+        );
         var ledger = Ledger.Of(("k", value));
-        var diff = "@@ -2,3 +2,3 @@ xKeHYQKKYmUIHQUvbL7GD750SXH0WBXc\n S6zifhBTNEGyB9oJAIa5tz5ysBf2KeiK\n-CWRxVgjsPQIi0i7ipQkTw1bSSj4Do4fN\n+rotated\n other line\n";
+        var diff =
+            "@@ -2,3 +2,3 @@ xKeHYQKKYmUIHQUvbL7GD750SXH0WBXc\n S6zifhBTNEGyB9oJAIa5tz5ysBf2KeiK\n-CWRxVgjsPQIi0i7ipQkTw1bSSj4Do4fN\n+rotated\n other line\n";
         Assert.Equal("@@ -2,3 +2,3 @@ <secret:k>\n-<secret:k>\n+rotated\n other line\n", ledger.RedactFragments(diff));
     }
 
@@ -58,7 +72,10 @@ public sealed class RedactFragmentsTests
         var once = ledger.RedactFragments("note: bravo charlie\nbravo c\n");
         Assert.Equal("note: <secret:phrase>\n<secret:phrase>\n", once);
         Assert.Equal(once, ledger.RedactFragments(once));
-        Assert.Equal("<secret:k> <secret:k>", Ledger.Of(("k", "PQRSTUVW zzz abcdefghij")).RedactFragments("PQRSTUVW abcdefg"));
+        Assert.Equal(
+            "<secret:k> <secret:k>",
+            Ledger.Of(("k", "PQRSTUVW zzz abcdefghij")).RedactFragments("PQRSTUVW abcdefg")
+        );
     }
 
     [Fact]
@@ -116,11 +133,17 @@ public sealed class RedactFragmentsTests
     [Fact]
     public void Folds_a_fragment_as_whole_value_matching_does_keeping_every_index()
     {
-        var ledger = Ledger.Of(("turkish", "fragment-igloo-sigma-2718"), ("longS", "long-\u017fecret-\u017ftring-3141"));
+        var ledger = Ledger.Of(
+            ("turkish", "fragment-igloo-sigma-2718"),
+            ("longS", "long-\u017fecret-\u017ftring-3141")
+        );
         var turkish = "fragment-igloo-sigma-2718"[..20].ToUpper(System.Globalization.CultureInfo.GetCultureInfo("tr"));
         Assert.Contains("\u0130", turkish, StringComparison.Ordinal);
         Assert.Equal("x <secret:turkish> y", ledger.RedactFragments("x " + turkish + " y"));
-        Assert.Equal("x <secret:longS> y", ledger.RedactFragments("x " + "long-\u017fecret-\u017ftring-3141"[3..18].ToUpperInvariant() + " y"));
+        Assert.Equal(
+            "x <secret:longS> y",
+            ledger.RedactFragments("x " + "long-\u017fecret-\u017ftring-3141"[3..18].ToUpperInvariant() + " y")
+        );
     }
 
     [Fact]

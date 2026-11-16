@@ -22,16 +22,42 @@ public sealed class LocateQueryTests
         Assert.Equal("Screen.GetByText(\"sign\", exact: false)", text.Code);
         Assert.Equal("text", text.Query.Kind);
         Assert.False(text.Query.Exact);
-        Assert.Equal("Screen.GetByLabel(\"Email\")", SessionCatalog.LocateQuery(new LocateArgs { Label = "Email" }).Code);
-        Assert.Equal("Screen.GetByPlaceholder(\"you@example.test\")", SessionCatalog.LocateQuery(new LocateArgs { Placeholder = "you@example.test" }).Code);
-        Assert.Equal("Screen.GetByTestId(\"items\")", SessionCatalog.LocateQuery(new LocateArgs { TestId = "items" }).Code);
+        Assert.Equal(
+            "Screen.GetByLabel(\"Email\")",
+            SessionCatalog.LocateQuery(new LocateArgs { Label = "Email" }).Code
+        );
+        Assert.Equal(
+            "Screen.GetByPlaceholder(\"you@example.test\")",
+            SessionCatalog.LocateQuery(new LocateArgs { Placeholder = "you@example.test" }).Code
+        );
+        Assert.Equal(
+            "Screen.GetByTestId(\"items\")",
+            SessionCatalog.LocateQuery(new LocateArgs { TestId = "items" }).Code
+        );
     }
 
     [Fact]
     public void Rejects_zero_or_several_query_kinds_and_a_name_without_a_role()
     {
-        Assert.Matches("exactly one of role, text, label, placeholder, or testId", Assert.Throws<ConfigurationException>(() => SessionCatalog.LocateQuery(new LocateArgs())).Message);
-        Assert.Matches("exactly one", Assert.Throws<ConfigurationException>(() => SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Text = "Save" })).Message);
-        Assert.Matches("name only narrows a role query", Assert.Throws<ConfigurationException>(() => SessionCatalog.LocateQuery(new LocateArgs { Text = "Save", Name = "Save" })).Message);
+        Assert.Matches(
+            "exactly one of role, text, label, placeholder, or testId",
+            Assert.Throws<ConfigurationException>(() => SessionCatalog.LocateQuery(new LocateArgs())).Message
+        );
+        Assert.Matches(
+            "exactly one",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Text = "Save" })
+                )
+                .Message
+        );
+        Assert.Matches(
+            "name only narrows a role query",
+            Assert
+                .Throws<ConfigurationException>(() =>
+                    SessionCatalog.LocateQuery(new LocateArgs { Text = "Save", Name = "Save" })
+                )
+                .Message
+        );
     }
 }

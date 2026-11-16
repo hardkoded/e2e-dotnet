@@ -36,7 +36,12 @@ public sealed class SessionEventsTests : IDisposable
         var testId = E2E.Internal.Ids.TestId(File, [Title]);
         Assert.Equal(new TestStartedEvent(testId, "default", 0, Title, File, null, "document"), started);
         var finished = Assert.IsType<TestFinishedEvent>(facts[^1]).Result;
-        Assert.All(facts[1..^1], fact => Assert.Equal(new StepProgressEvent(testId, "default", 0, "document", ((StepProgressEvent)fact).Progress), fact));
+        Assert.All(facts[1..^1], fact =>
+            Assert.Equal(
+                new StepProgressEvent(testId, "default", 0, "document", ((StepProgressEvent)fact).Progress),
+                fact
+            )
+        );
         Assert.NotEmpty(facts[1..^1]);
         Assert.Equal([Title], finished.Test.TitlePath);
         Assert.Equal((testId, File, 0), (finished.Test.Id, finished.Test.File, finished.Test.DeclarationIndex));
@@ -55,17 +60,17 @@ public sealed class SessionEventsTests : IDisposable
         var finished = new List<RunEventResult>();
         var starts = 0;
         using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent =>
-        {
-            switch (runEvent.Fact)
             {
-                case TestStartedEvent:
-                    starts++;
-                    break;
-                case TestFinishedEvent done:
-                    finished.Add(done.Result);
-                    break;
-            }
-        }));
+                switch (runEvent.Fact)
+                {
+                    case TestStartedEvent:
+                        starts++;
+                        break;
+                    case TestFinishedEvent done:
+                        finished.Add(done.Result);
+                        break;
+                }
+            }));
 
         await using (var failing = await _kit.StartAsync(Title))
         {
@@ -78,7 +83,10 @@ public sealed class SessionEventsTests : IDisposable
         }
 
         Assert.Equal(2, starts);
-        Assert.Equal([Reports.ResultStatus.Failed, Reports.ResultStatus.Flaky], finished.Select(result => result.Status));
+        Assert.Equal(
+            [Reports.ResultStatus.Failed, Reports.ResultStatus.Flaky],
+            finished.Select(result => result.Status)
+        );
         Assert.Equal([1, 2], finished.Select(result => result.Attempts.Count));
     }
 

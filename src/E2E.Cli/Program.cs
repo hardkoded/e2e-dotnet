@@ -68,7 +68,15 @@ public static partial class Program
 
         try
         {
-            return await RunAsync(args, Console.Out, Console.Error, Console.In, !Console.IsInputRedirected && !Console.IsOutputRedirected, cancel.Token).ConfigureAwait(false);
+            return await RunAsync(
+                    args,
+                    Console.Out,
+                    Console.Error,
+                    Console.In,
+                    !Console.IsInputRedirected && !Console.IsOutputRedirected,
+                    cancel.Token
+                )
+                .ConfigureAwait(false);
         }
         catch (E2EException ex)
         {
@@ -78,11 +86,25 @@ public static partial class Program
     }
 
     /// <summary>Runs one command. The writers and reader are test seams.</summary>
-    public static Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken) =>
-        RunAsync(args, stdout, stderr, stdin, interactive, cancellationToken, cwd: null);
+    public static Task<int> RunAsync(
+        string[] args,
+        TextWriter stdout,
+        TextWriter stderr,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken
+    ) => RunAsync(args, stdout, stderr, stdin, interactive, cancellationToken, cwd: null);
 
     /// <summary>Runs one command. <paramref name="cwd"/> is the working directory <c>explore</c> searches for its config from; the process's by default.</summary>
-    internal static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken, string? cwd)
+    internal static async Task<int> RunAsync(
+        string[] args,
+        TextWriter stdout,
+        TextWriter stderr,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken,
+        string? cwd
+    )
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -100,12 +122,16 @@ public static partial class Program
 
         if (args[0] == "explore")
         {
-            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken, cwd).ConfigureAwait(false);
+            return await ExploreCommand
+                .RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken, cwd)
+                .ConfigureAwait(false);
         }
 
         if (args[0] == "doctor")
         {
-            return await DoctorCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, cancellationToken, cwd).ConfigureAwait(false);
+            return await DoctorCommand
+                .RunAsync(args.Skip(1), stdout, stderr, interactive, cancellationToken, cwd)
+                .ConfigureAwait(false);
         }
 
         if (args[0] == "cache")
@@ -115,12 +141,18 @@ public static partial class Program
 
         if (args[0] == "init")
         {
-            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive, cancellationToken).ConfigureAwait(false);
+            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (args[0] == "install")
         {
-            return await E2eWebCli.MainAsync(args[1..], new CliIo(stdout, stderr, forwarded => E2E.Engine.WebEngine.RunPlaywrightCli(forwarded))).ConfigureAwait(false);
+            return await E2eWebCli
+                .MainAsync(
+                    args[1..],
+                    new CliIo(stdout, stderr, forwarded => E2E.Engine.WebEngine.RunPlaywrightCli(forwarded))
+                )
+                .ConfigureAwait(false);
         }
 
         var (positional, flags) = Parse(args.Skip(1));
@@ -128,7 +160,8 @@ public static partial class Program
         switch (args[0])
         {
             case "login":
-                return await LoginAsync(provider, flags, stdout, stdin, interactive, cancellationToken).ConfigureAwait(false);
+                return await LoginAsync(provider, flags, stdout, stdin, interactive, cancellationToken)
+                    .ConfigureAwait(false);
             case "logout":
                 return await LogoutAsync(provider, stdout, stdin, interactive, cancellationToken).ConfigureAwait(false);
             case "models":
@@ -141,7 +174,14 @@ public static partial class Program
         }
     }
 
-    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    private static async Task<int> InitAsync(
+        List<string> args,
+        TextWriter stdout,
+        TextWriter stderr,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken
+    )
     {
         if (args.Contains("--help") || args.Contains("-h"))
         {
@@ -159,7 +199,19 @@ public static partial class Program
         var root = Path.GetFullPath(options.Directory ?? Environment.CurrentDirectory);
         try
         {
-            return (await Init.RunAsync(root, options with { Interactive = interactive, Prompts = new ConsolePrompts(stdin, stdout) }, stdout, cancellationToken).ConfigureAwait(false)).ExitCode;
+            return (
+                await Init.RunAsync(
+                        root,
+                        options with
+                        {
+                            Interactive = interactive,
+                            Prompts = new ConsolePrompts(stdin, stdout),
+                        },
+                        stdout,
+                        cancellationToken
+                    )
+                    .ConfigureAwait(false)
+            ).ExitCode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
@@ -168,10 +220,27 @@ public static partial class Program
         }
     }
 
-    private static async Task<int> LoginAsync(string? providerId, Dictionary<string, string?> flags, TextWriter stdout, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    private static async Task<int> LoginAsync(
+        string? providerId,
+        Dictionary<string, string?> flags,
+        TextWriter stdout,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken
+    )
     {
         var store = CredentialStores.Default();
-        var id = providerId ?? await PickAsync("Which subscription do you want to sign in to?", OAuthProviders.Ids, store, stdout, stdin, interactive, cancellationToken).ConfigureAwait(false);
+        var id = providerId
+            ?? await PickAsync(
+                    "Which subscription do you want to sign in to?",
+                    OAuthProviders.Ids,
+                    store,
+                    stdout,
+                    stdin,
+                    interactive,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         var provider = OAuthProviders.Get(id);
         var options = new OAuthLoginOptions
         {
@@ -187,7 +256,11 @@ public static partial class Program
                 // The URL gets a line of its own, with nothing before or after it on that line, so a line copy takes it whole.
                 if (interactive)
                 {
-                    stdout.WriteLine("Opening your browser. If it does not open, use this link" + (info.UserCode is null ? "" : " and enter the code") + ":");
+                    stdout.WriteLine(
+                        "Opening your browser. If it does not open, use this link"
+                            + (info.UserCode is null ? "" : " and enter the code")
+                            + ":"
+                    );
                 }
 
                 stdout.WriteLine(Clean(info.Url));
@@ -206,7 +279,10 @@ public static partial class Program
             {
                 if (!interactive)
                 {
-                    throw new OAuthException(OAuthException.Misconfigured, "the browser did not return and there is no terminal to paste the code into");
+                    throw new OAuthException(
+                        OAuthException.Misconfigured,
+                        "the browser did not return and there is no terminal to paste the code into"
+                    );
                 }
 
                 await stdout.WriteAsync(message + ": ").ConfigureAwait(false);
@@ -215,25 +291,48 @@ public static partial class Program
             OnProgress = message => stdout.WriteLine(message),
         };
 
-        var credentials = await OAuthProviders.LoginAsync(id, callbacks, options, store, cancellationToken).ConfigureAwait(false);
-        await stdout.WriteLineAsync(provider.Name + " login stored" + (credentials.Expires == 0 ? "." : "; the token refreshes itself.")).ConfigureAwait(false);
+        var credentials = await OAuthProviders
+            .LoginAsync(id, callbacks, options, store, cancellationToken)
+            .ConfigureAwait(false);
+        await stdout
+            .WriteLineAsync(
+                provider.Name + " login stored" + (credentials.Expires == 0 ? "." : "; the token refreshes itself.")
+            )
+            .ConfigureAwait(false);
         return 0;
     }
 
-    private static async Task<int> LogoutAsync(string? providerId, TextWriter stdout, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    private static async Task<int> LogoutAsync(
+        string? providerId,
+        TextWriter stdout,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken
+    )
     {
         var store = CredentialStores.Default();
         string id;
         if (providerId is null)
         {
-            var stored = (await store.ListAsync(cancellationToken).ConfigureAwait(false)).Where(OAuthProviders.Ids.Contains).ToList();
+            var stored = (await store.ListAsync(cancellationToken).ConfigureAwait(false))
+                .Where(OAuthProviders.Ids.Contains)
+                .ToList();
             if (stored.Count == 0)
             {
                 await stdout.WriteLineAsync("No logins stored.").ConfigureAwait(false);
                 return 0;
             }
 
-            id = await PickAsync("Which login do you want to forget?", stored, store, stdout, stdin, interactive, cancellationToken).ConfigureAwait(false);
+            id = await PickAsync(
+                    "Which login do you want to forget?",
+                    stored,
+                    store,
+                    stdout,
+                    stdin,
+                    interactive,
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         else
         {
@@ -242,22 +341,37 @@ public static partial class Program
 
         var name = OAuthProviders.Get(id).Name;
         var had = await OAuthProviders.LogoutAsync(id, store, cancellationToken).ConfigureAwait(false);
-        await stdout.WriteLineAsync(had ? "Signed out of " + name + "." : "No " + name + " login was stored.").ConfigureAwait(false);
+        await stdout
+            .WriteLineAsync(had ? "Signed out of " + name + "." : "No " + name + " login was stored.")
+            .ConfigureAwait(false);
         return 0;
     }
 
     /// <summary>One line per model: the id a config passes, the vendor's name for it, and what the vendor says about it.</summary>
-    private static async Task<int> ModelsAsync(string? providerId, TextWriter stdout, TextWriter stderr, CancellationToken cancellationToken)
+    private static async Task<int> ModelsAsync(
+        string? providerId,
+        TextWriter stdout,
+        TextWriter stderr,
+        CancellationToken cancellationToken
+    )
     {
         var store = CredentialStores.Default();
         IReadOnlyList<string> ids;
         if (providerId is null)
         {
             var stored = await store.ListAsync(cancellationToken).ConfigureAwait(false);
-            ids = OAuthProviders.Ids.Where(id => stored.Contains(id) || OAuthProviders.ApiKeyFor(OAuthProviders.Get(id)) is not null).ToList();
+            ids = OAuthProviders
+                .Ids.Where(id => stored.Contains(id) || OAuthProviders.ApiKeyFor(OAuthProviders.Get(id)) is not null)
+                .ToList();
             if (ids.Count == 0)
             {
-                throw new OAuthException(OAuthException.NotLoggedIn, "no login is stored; sign in with e2e login <" + string.Join('|', OAuthProviders.Ids) + ">" + ApiKeyHint());
+                throw new OAuthException(
+                    OAuthException.NotLoggedIn,
+                    "no login is stored; sign in with e2e login <"
+                        + string.Join('|', OAuthProviders.Ids)
+                        + ">"
+                        + ApiKeyHint()
+                );
             }
         }
         else
@@ -286,13 +400,28 @@ public static partial class Program
                 continue;
             }
 
-            var count = models.Count == 0 ? "no models listed" : models.Count.ToString(CultureInfo.InvariantCulture) + (models.Count == 1 ? " model" : " models");
+            var count =
+                models.Count == 0
+                    ? "no models listed"
+                    : models.Count.ToString(CultureInfo.InvariantCulture) + (models.Count == 1 ? " model" : " models");
             await stdout.WriteLineAsync(name + " (" + id + "): " + count).ConfigureAwait(false);
             var width = models.Count == 0 ? 0 : models.Max(model => Clean(model.Id).Length);
             foreach (var model in models)
             {
-                var rest = new[] { model.Name, model.Detail }.Where(part => !string.IsNullOrEmpty(part) && part != model.Id).Select(part => Clean(part!)).ToList();
-                await stdout.WriteLineAsync("  " + (rest.Count == 0 ? Clean(model.Id) : Clean(model.Id).PadRight(width) + "  " + string.Join("  ", rest))).ConfigureAwait(false);
+                var rest = new[] { model.Name, model.Detail }
+                    .Where(part => !string.IsNullOrEmpty(part) && part != model.Id)
+                    .Select(part => Clean(part!))
+                    .ToList();
+                await stdout
+                    .WriteLineAsync(
+                        "  "
+                            + (
+                                rest.Count == 0
+                                    ? Clean(model.Id)
+                                    : Clean(model.Id).PadRight(width) + "  " + string.Join("  ", rest)
+                            )
+                    )
+                    .ConfigureAwait(false);
             }
         }
 
@@ -312,7 +441,9 @@ public static partial class Program
         var text = Skill.ReadGuide(topic);
         if (text is null)
         {
-            await stderr.WriteLineAsync("unknown topic \"" + topic + "\"; topics: " + string.Join(", ", Skill.Topics())).ConfigureAwait(false);
+            await stderr
+                .WriteLineAsync("unknown topic \"" + topic + "\"; topics: " + string.Join(", ", Skill.Topics()))
+                .ConfigureAwait(false);
             return 2;
         }
 
@@ -321,7 +452,12 @@ public static partial class Program
     }
 
     /// <summary>Parses the flags of <c>e2e mcp</c> and serves. A bad command line exits 2.</summary>
-    private static async Task<int> McpAsync(IEnumerable<string> args, TextWriter stdout, TextWriter stderr, CancellationToken cancellationToken)
+    private static async Task<int> McpAsync(
+        IEnumerable<string> args,
+        TextWriter stdout,
+        TextWriter stderr,
+        CancellationToken cancellationToken
+    )
     {
         string? config = null;
         string? target = null;
@@ -342,7 +478,10 @@ public static partial class Program
                 }
             }
 
-            string? Value(string label) => eq >= 0 ? arg[(eq + 1)..] : e.MoveNext() ? e.Current : throw new ArgumentException("option '" + name + " " + label + "' argument missing");
+            string? Value(string label) =>
+                eq >= 0 ? arg[(eq + 1)..]
+                : e.MoveNext() ? e.Current
+                : throw new ArgumentException("option '" + name + " " + label + "' argument missing");
             try
             {
                 switch (name)
@@ -369,9 +508,19 @@ public static partial class Program
                     case "--max-sessions":
                         var value = Value("<n>");
                         var (min, max, _) = SessionHost.SessionBounds;
-                        maxSessions = int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed >= min && parsed <= max
-                            ? parsed
-                            : throw new ArgumentException("option '--max-sessions <n>' argument '" + value + "' is invalid. must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture));
+                        maxSessions =
+                            int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+                            && parsed >= min
+                            && parsed <= max
+                                ? parsed
+                                : throw new ArgumentException(
+                                    "option '--max-sessions <n>' argument '"
+                                        + value
+                                        + "' is invalid. must be an integer from "
+                                        + min.ToString(CultureInfo.InvariantCulture)
+                                        + " through "
+                                        + max.ToString(CultureInfo.InvariantCulture)
+                                );
                         break;
                     case var _ when arg.StartsWith('-'):
                         throw new ArgumentException("unknown option '" + arg + "'");
@@ -389,15 +538,35 @@ public static partial class Program
 
         if (positional > 0)
         {
-            await stderr.WriteLineAsync("error: too many arguments for 'mcp'. Expected 0 arguments but got " + positional.ToString(CultureInfo.InvariantCulture) + ".").ConfigureAwait(false);
+            await stderr
+                .WriteLineAsync(
+                    "error: too many arguments for 'mcp'. Expected 0 arguments but got "
+                        + positional.ToString(CultureInfo.InvariantCulture)
+                        + "."
+                )
+                .ConfigureAwait(false);
             return 2;
         }
 
-        var options = new McpCommandOptions { Config = config, Target = target, Headed = headed, MaxSessions = maxSessions };
+        var options = new McpCommandOptions
+        {
+            Config = config,
+            Target = target,
+            Headed = headed,
+            MaxSessions = maxSessions,
+        };
         return await McpCommand.RunAsync(options, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<string> PickAsync(string question, IReadOnlyList<string> ids, ICredentialStore store, TextWriter stdout, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    private static async Task<string> PickAsync(
+        string question,
+        IReadOnlyList<string> ids,
+        ICredentialStore store,
+        TextWriter stdout,
+        TextReader stdin,
+        bool interactive,
+        CancellationToken cancellationToken
+    )
     {
         if (!interactive)
         {
@@ -409,17 +578,33 @@ public static partial class Program
         for (var i = 0; i < ids.Count; i++)
         {
             var mark = stored.Contains(ids[i]) ? " (signed in)" : "";
-            await stdout.WriteLineAsync("  " + (i + 1).ToString(CultureInfo.InvariantCulture) + ") " + ids[i] + mark + ": " + OAuthProviders.Describe(ids[i])).ConfigureAwait(false);
+            await stdout
+                .WriteLineAsync(
+                    "  "
+                        + (i + 1).ToString(CultureInfo.InvariantCulture)
+                        + ") "
+                        + ids[i]
+                        + mark
+                        + ": "
+                        + OAuthProviders.Describe(ids[i])
+                )
+                .ConfigureAwait(false);
         }
 
         await stdout.WriteAsync("> ").ConfigureAwait(false);
         var answer = (await stdin.ReadLineAsync(cancellationToken).ConfigureAwait(false) ?? "").Trim();
-        if (int.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var choice) && choice >= 1 && choice <= ids.Count)
+        if (
+            int.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture, out var choice)
+            && choice >= 1
+            && choice <= ids.Count
+        )
         {
             return ids[choice - 1];
         }
 
-        return ids.Contains(answer) ? answer : throw new OAuthException(OAuthException.Cancelled, "the login was cancelled");
+        return ids.Contains(answer)
+            ? answer
+            : throw new OAuthException(OAuthException.Cancelled, "the login was cancelled");
     }
 
     private static (List<string> Positional, Dictionary<string, string?> Flags) Parse(IEnumerable<string> args)
@@ -444,7 +629,9 @@ public static partial class Program
             }
             else if (name is "client-id" or "enterprise-url")
             {
-                flags[name] = e.MoveNext() ? e.Current : throw new OAuthException(OAuthException.Misconfigured, "--" + name + " needs a value");
+                flags[name] = e.MoveNext()
+                    ? e.Current
+                    : throw new OAuthException(OAuthException.Misconfigured, "--" + name + " needs a value");
             }
             else
             {

@@ -26,10 +26,10 @@ public abstract class TodoMvcTest : E2ETest
     /// <summary>Asks the agent to add the todos in order, then checks that each one is listed.</summary>
     protected async Task AddTodosAsync(params string[] titles)
     {
-        await Agent.ActAsync("add these todos, in order: {titles}", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["titles"] = titles },
-        });
+        await Agent.ActAsync(
+            "add these todos, in order: {titles}",
+            new ActOptions { Params = new Dictionary<string, object?> { ["titles"] = titles } }
+        );
 
         foreach (var title in titles)
         {

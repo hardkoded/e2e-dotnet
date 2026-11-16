@@ -37,9 +37,14 @@ public sealed class LoopGuardsAndTranscriptsTests
             },
             world,
             model,
-            debug: true);
+            debug: true
+        );
 
-        Assert.Contains("stuck repeating the same tap", Assert.IsType<AgentException>(attempt.Error).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "stuck repeating the same tap",
+            Assert.IsType<AgentException>(attempt.Error).Message,
+            StringComparison.Ordinal
+        );
         // Five identical calls trip the stop; the forced turn concludes. Without the guard this
         // model would burn the whole 25-call budget.
         Assert.True(model.CallCount <= 8, "model calls: " + model.CallCount);

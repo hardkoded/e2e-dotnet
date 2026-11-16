@@ -71,18 +71,20 @@ public sealed class TheLookAfterScrollingToTextTests
                     return ModelResponses.Done("passed", "tapped the final row");
             }
         });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = model,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "reaches and taps the row",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = model,
+                BaseUrl = site.Url,
+                CacheEnabled = false,
+                TestTitle = "reaches and taps the row",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         Exception? error = null;
         try
         {

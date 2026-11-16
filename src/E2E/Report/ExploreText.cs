@@ -13,35 +13,41 @@ namespace E2E;
 internal static class ExploreText
 {
     /// <summary>Upstream's <c>SEVERITY_WORDS</c>: 5 is critical, 1 is trivial.</summary>
-    public static string SeverityWord(int severity) => severity switch
-    {
-        5 => "critical",
-        4 => "high",
-        3 => "medium",
-        2 => "low",
-        _ => "trivial",
-    };
+    public static string SeverityWord(int severity) =>
+        severity switch
+        {
+            5 => "critical",
+            4 => "high",
+            3 => "medium",
+            2 => "low",
+            _ => "trivial",
+        };
 
     /// <summary>Upstream's <c>ENDED_TEXT</c>.</summary>
-    public static string EndedText(ReportExploreEnded ended) => ended switch
-    {
-        ReportExploreEnded.Finished => "the agent covered the goal",
-        ReportExploreEnded.Skipped => "the change has nothing a user can see",
-        ReportExploreEnded.StepLimit => "the step limit was reached",
-        ReportExploreEnded.Time => "the time budget ran out",
-        ReportExploreEnded.Stuck => "steps kept failing",
-        _ => "the run was cut short",
-    };
+    public static string EndedText(ReportExploreEnded ended) =>
+        ended switch
+        {
+            ReportExploreEnded.Finished => "the agent covered the goal",
+            ReportExploreEnded.Skipped => "the change has nothing a user can see",
+            ReportExploreEnded.StepLimit => "the step limit was reached",
+            ReportExploreEnded.Time => "the time budget ran out",
+            ReportExploreEnded.Stuck => "steps kept failing",
+            _ => "the run was cut short",
+        };
 
     /// <summary>Issues before warnings, the most severe first, then in the order reported.</summary>
     public static IReadOnlyList<ReportExploreFinding> OrderFindings(IEnumerable<ReportExploreFinding> findings) =>
-        [.. findings
-            .OrderBy(finding => finding.Kind == ReportExploreFindingKind.Warning ? 1 : 0)
-            .ThenByDescending(finding => finding.Severity)
-            .ThenBy(finding => finding.Index)];
+        [
+            .. findings
+                .OrderBy(finding => finding.Kind == ReportExploreFindingKind.Warning ? 1 : 0)
+                .ThenByDescending(finding => finding.Severity)
+                .ThenBy(finding => finding.Index),
+        ];
 
     /// <summary>`3 passed`, `1 failed`, `2 ended at their limit`, `1 blocked` over the steps, zero counts left out, each with its status for coloring.</summary>
-    public static IReadOnlyList<(ReportExploreStepStatus Status, string Text)> StepCountParts(IEnumerable<ReportExploreStep> steps)
+    public static IReadOnlyList<(ReportExploreStepStatus Status, string Text)> StepCountParts(
+        IEnumerable<ReportExploreStep> steps
+    )
     {
         var counts = steps.GroupBy(step => step.Status).ToDictionary(group => group.Key, group => group.Count());
         List<(ReportExploreStepStatus, string)> parts = [];

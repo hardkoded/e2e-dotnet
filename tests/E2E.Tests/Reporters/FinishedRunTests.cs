@@ -24,7 +24,9 @@ public sealed class FinishedRunTests : IDisposable
     public async Task Maps_each_test_that_kept_a_trace_to_its_page_from_the_project_root()
     {
         await _kit.PassAsync("keeps a trace");
-        await using (var failing = await _kit.StartAsync("fails and keeps a trace", trace: RecordingMode.RetainOnFailure))
+        await using (
+            var failing = await _kit.StartAsync("fails and keeps a trace", trace: RecordingMode.RetainOnFailure)
+        )
         {
             failing.Complete(new TestException("TEST_FAILED", "nope"));
         }

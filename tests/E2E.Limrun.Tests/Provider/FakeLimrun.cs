@@ -25,19 +25,21 @@ internal sealed class FakeLimrun : HttpMessageHandler
 
     public static string IdOf(string resource) => resource == "ios_instances" ? "ios-test" : "android-test";
 
-    public static JsonObject Instance(string id, string state = "ready") => new()
-    {
-        ["metadata"] = new JsonObject { ["id"] = id },
-        ["status"] = new JsonObject
+    public static JsonObject Instance(string id, string state = "ready") =>
+        new()
         {
-            ["state"] = state,
-            ["apiUrl"] = "https://device.example",
-            ["token"] = "instance-secret",
-            ["adbWebSocketUrl"] = "wss://adb.example",
-        },
-    };
+            ["metadata"] = new JsonObject { ["id"] = id },
+            ["status"] = new JsonObject
+            {
+                ["state"] = state,
+                ["apiUrl"] = "https://device.example",
+                ["token"] = "instance-secret",
+                ["adbWebSocketUrl"] = "wss://adb.example",
+            },
+        };
 
-    public IEnumerable<LimrunCall> Of(string method, string resource) => Calls.Where(call => call.Method == method && call.Resource == resource);
+    public IEnumerable<LimrunCall> Of(string method, string resource) =>
+        Calls.Where(call => call.Method == method && call.Resource == resource);
 
     /// <summary>Answers the next <paramref name="method"/> request to <paramref name="resource"/> with this response, once.</summary>
     public void Script(string method, string resource, Func<HttpResponseMessage> response)
@@ -53,14 +55,27 @@ internal sealed class FakeLimrun : HttpMessageHandler
     public void ScriptInstance(string method, string resource, string state) =>
         Script(method, resource, () => Json(Instance(IdOf(resource), state)));
 
-    public static HttpResponseMessage Json(JsonObject body) => new(HttpStatusCode.OK) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
+    public static HttpResponseMessage Json(JsonObject body) =>
+        new(HttpStatusCode.OK) { Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json") };
 
-    public static HttpResponseMessage Status(HttpStatusCode status) => new(status) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+    public static HttpResponseMessage Status(HttpStatusCode status) =>
+        new(status) { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
-        var body = request.Content is null ? null : JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken))?.AsObject();
-        var call = new LimrunCall(request.Method.Method, request.RequestUri!, request.Headers.Authorization?.ToString(), body, cancellationToken.IsCancellationRequested);
+        var body = request.Content is null
+            ? null
+            : JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken))?.AsObject();
+        var call = new LimrunCall(
+            request.Method.Method,
+            request.RequestUri!,
+            request.Headers.Authorization?.ToString(),
+            body,
+            cancellationToken.IsCancellationRequested
+        );
         lock (Calls)
         {
             Calls.Add(call);
@@ -100,21 +115,36 @@ internal sealed class FakeLimrunHost : ILimrunHost
 
     public Queue<Exception> StopFailures { get; } = [];
 
-    public Task AssertAndroidToolsAsync(IReadOnlyDictionary<string, string?> environment, CancellationToken cancellationToken) =>
-        AndroidToolsFailure is null ? Task.CompletedTask : Task.FromException(AndroidToolsFailure);
+    public Task AssertAndroidToolsAsync(
+        IReadOnlyDictionary<string, string?> environment,
+        CancellationToken cancellationToken
+    ) => AndroidToolsFailure is null ? Task.CompletedTask : Task.FromException(AndroidToolsFailure);
 
-    public Task<LimrunBinding> StartDriverAsync(LimrunDriverRequest request, IReadOnlyDictionary<string, string?> environment, CancellationToken cancellationToken)
+    public Task<LimrunBinding> StartDriverAsync(
+        LimrunDriverRequest request,
+        IReadOnlyDictionary<string, string?> environment,
+        CancellationToken cancellationToken
+    )
     {
         lock (Started)
         {
             Started.Add((request, environment));
         }
 
-        return Task.FromResult(OnStart?.Invoke(request)
-            ?? new LimrunBinding(new JsonObject { ["stateDir"] = "/state", ["leaseId"] = "driver-lease" }, "limrun:ios:driver-lease"));
+        return Task.FromResult(
+            OnStart?.Invoke(request)
+                ?? new LimrunBinding(
+                    new JsonObject { ["stateDir"] = "/state", ["leaseId"] = "driver-lease" },
+                    "limrun:ios:driver-lease"
+                )
+        );
     }
 
-    public Task StopDriverAsync(string stateDirectory, IReadOnlyDictionary<string, string?> environment, CancellationToken cancellationToken)
+    public Task StopDriverAsync(
+        string stateDirectory,
+        IReadOnlyDictionary<string, string?> environment,
+        CancellationToken cancellationToken
+    )
     {
         lock (Stopped)
         {
@@ -124,7 +154,11 @@ internal sealed class FakeLimrunHost : ILimrunHost
         return StopFailures.Count > 0 ? Task.FromException(StopFailures.Dequeue()) : Task.CompletedTask;
     }
 
-    public Task<Func<Task>> StartHeartbeatAsync(LimrunBinding binding, Action<string> log, CancellationToken cancellationToken) =>
+    public Task<Func<Task>> StartHeartbeatAsync(
+        LimrunBinding binding,
+        Action<string> log,
+        CancellationToken cancellationToken
+    ) =>
         Task.FromResult<Func<Task>>(() =>
         {
             HeartbeatsStopped++;

@@ -23,7 +23,8 @@ internal sealed record ResolvedTestOptions(
     string? Session,
     IReadOnlyList<string> Agents,
     string? SkipReason,
-    bool Serial);
+    bool Serial
+);
 
 /// <summary>What a pair does (upstream's <c>disposition</c>): run it, report it skipped, or report it as unselected.</summary>
 internal enum Disposition
@@ -133,7 +134,10 @@ internal static class Selector
     private const int MaxNamedFiles = 3;
 
     /// <summary>Validates target IDs and selects targets once each, in config order (upstream's <c>selectTargets</c>).</summary>
-    public static IReadOnlyList<ResolvedTarget> SelectTargets(IReadOnlyList<ResolvedTarget> targets, IReadOnlyList<string>? targetIds)
+    public static IReadOnlyList<ResolvedTarget> SelectTargets(
+        IReadOnlyList<ResolvedTarget> targets,
+        IReadOnlyList<string>? targetIds
+    )
     {
         if (targetIds is null || targetIds.Count == 0)
         {
@@ -148,7 +152,8 @@ internal static class Selector
             {
                 throw new ConfigurationException(
                     "UNKNOWN_TARGET",
-                    $"unknown target ID \"{id}\"; the config declares {string.Join(", ", names.Select(name => $"\"{name}\""))}{Suggestions.DidYouMean(id, names)}");
+                    $"unknown target ID \"{id}\"; the config declares {string.Join(", ", names.Select(name => $"\"{name}\""))}{Suggestions.DidYouMean(id, names)}"
+                );
             }
         }
 
@@ -167,7 +172,8 @@ internal static class Selector
         ResolvedConfig config,
         SelectionFilters? filters = null,
         bool passWithNoTests = false,
-        string? noTestsHint = null)
+        string? noTestsHint = null
+    )
     {
         filters ??= new SelectionFilters();
         var tagMode = filters.TagMode ?? TagMode.Any;
@@ -177,17 +183,36 @@ internal static class Selector
         var focused = collection.Tests.Where(test => test.Mode == TestMode.Only && test.Selected).ToList();
         if (focused.Count > 0 && config.Ci)
         {
-            throw new ConfigurationException("ONLY_IN_CI", $".only is rejected in CI: {string.Join(", ", focused.Select(test => test.Id))}");
+            throw new ConfigurationException(
+                "ONLY_IN_CI",
+                $".only is rejected in CI: {string.Join(", ", focused.Select(test => test.Id))}"
+            );
         }
 
-        var optionsByTest = collection.Tests.ToDictionary(test => test.Id, test => test.Options, StringComparer.Ordinal);
-        var selectedFiles = new HashSet<string>(collection.Files.Where(file => file.Selected).Select(file => file.File), StringComparer.Ordinal);
+        var optionsByTest = collection.Tests.ToDictionary(
+            test => test.Id,
+            test => test.Options,
+            StringComparer.Ordinal
+        );
+        var selectedFiles = new HashSet<string>(
+            collection.Files.Where(file => file.Selected).Select(file => file.File),
+            StringComparer.Ordinal
+        );
 
         AssertSerialAgentsAgree(collection.Tests, optionsByTest);
         var sessionProducers = CollectSessionProducers(collection.Tests);
         var pairFilters = filters.LastFailed is null
             ? filters
-            : filters with { LastFailed = WithSetupConsumers(filters.LastFailed, collection.Tests, targets, optionsByTest, sessionProducers) };
+            : filters with
+            {
+                LastFailed = WithSetupConsumers(
+                    filters.LastFailed,
+                    collection.Tests,
+                    targets,
+                    optionsByTest,
+                    sessionProducers
+                ),
+            };
 
         // One pair per target, test, and agent the test runs as, in that order, so a persona sweep reports its variants side by side.
         var pairs = new List<TestTargetPair>();
@@ -208,26 +233,41 @@ internal static class Selector
 
         // The test filters judged the pairs this shard runs, serial groups already whole, so what they left out is taken from those, and a
         // group with a kept member comes back whole. The shard is cut before they decide, so shard machines agree on the cut whatever a filter answers.
-        var withExclusions = filters.Excluded is null ? withShard : ApplySerialClosure(ApplyExclusions(withShard, filters.Excluded));
+        var withExclusions = filters.Excluded is null
+            ? withShard
+            : ApplySerialClosure(ApplyExclusions(withShard, filters.Excluded));
         var withSessions = ApplySessionSelection(withExclusions, sessionProducers, collection.Uncollected);
 
-        if (!passWithNoTests && !withSessions.Any(pair => pair.Disposition == Disposition.Run && pair.Test.Kind == TestKind.Test))
+        if (
+            !passWithNoTests
+            && !withSessions.Any(pair => pair.Disposition == Disposition.Run && pair.Test.Kind == TestKind.Test)
+        )
         {
             throw new ConfigurationException(
                 "NO_TESTS",
-                $"{DescribeNoTests(collection, filters, withSessions)}; {noTestsHint ?? "pass --pass-with-no-tests to allow this"}");
+                $"{DescribeNoTests(collection, filters, withSessions)}; {noTestsHint ?? "pass --pass-with-no-tests to allow this"}"
+            );
         }
 
         return new Selection(
             withSessions,
-            [.. targets.Select(target => new TargetSelection(target, [.. withSessions.Where(pair => pair.Target.Name == target.Name)]))]);
+            [
+                .. targets.Select(target => new TargetSelection(
+                    target,
+                    [.. withSessions.Where(pair => pair.Target.Name == target.Name)]
+                )),
+            ]
+        );
     }
 
     /// <summary>
     /// A serial group runs as one unit per agent, so every member must run as the same agents; a member pinned elsewhere would leave its
     /// variant of the flow with a hole (upstream's <c>assertSerialAgentsAgree</c>).
     /// </summary>
-    private static void AssertSerialAgentsAgree(IReadOnlyList<CollectedTest> tests, IReadOnlyDictionary<string, ResolvedTestOptions> optionsByTest)
+    private static void AssertSerialAgentsAgree(
+        IReadOnlyList<CollectedTest> tests,
+        IReadOnlyDictionary<string, ResolvedTestOptions> optionsByTest
+    )
     {
         var agentsByGroup = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
         foreach (var test in tests)
@@ -251,7 +291,8 @@ internal static class Selector
 
             throw new ConfigurationException(
                 "COLLECTION_ERROR",
-                $"serial group \"{test.SerialRoot?.Title ?? test.SerialId}\" in {test.File} runs as agents [{string.Join(", ", groupAgents)}] but its member \"{test.Title}\" pins [{string.Join(", ", agents)}]; pin the agent on the serial describe and name another per call with {{ agent }}");
+                $"serial group \"{test.SerialRoot?.Title ?? test.SerialId}\" in {test.File} runs as agents [{string.Join(", ", groupAgents)}] but its member \"{test.Title}\" pins [{string.Join(", ", agents)}]; pin the agent on the serial describe and name another per call with {{ agent }}"
+            );
         }
     }
 
@@ -270,12 +311,16 @@ internal static class Selector
     private static string GrepText(CollectedTest test) => string.Join(' ', test.TitlePath);
 
     /// <summary>Whether any of the patterns matches the text; none given matches nothing, so callers guard for the filter being absent.</summary>
-    private static bool MatchesAny(IReadOnlyList<Regex> patterns, string text) => patterns.Any(pattern => pattern.IsMatch(text));
+    private static bool MatchesAny(IReadOnlyList<Regex> patterns, string text) =>
+        patterns.Any(pattern => pattern.IsMatch(text));
 
     /// <summary>The pattern-shaped filters, present only when they hold at least one pattern.</summary>
-    private static (IReadOnlyList<Regex>? Grep, IReadOnlyList<Regex>? GrepInvert) PatternFilters(SelectionFilters filters)
+    private static (IReadOnlyList<Regex>? Grep, IReadOnlyList<Regex>? GrepInvert) PatternFilters(
+        SelectionFilters filters
+    )
     {
-        static IReadOnlyList<Regex>? Present(IReadOnlyList<Regex>? patterns) => patterns is { Count: > 0 } ? patterns : null;
+        static IReadOnlyList<Regex>? Present(IReadOnlyList<Regex>? patterns) =>
+            patterns is { Count: > 0 } ? patterns : null;
         return (Present(filters.Grep), Present(filters.GrepInvert));
     }
 
@@ -290,7 +335,11 @@ internal static class Selector
     /// Why nothing is runnable: the collection has no test, or every collected test was filtered or skipped (upstream's
     /// <c>describeNoTests</c>, whose glob and positional branches have no port).
     /// </summary>
-    private static string DescribeNoTests(Collection collection, SelectionFilters filters, IReadOnlyList<TestTargetPair> pairs)
+    private static string DescribeNoTests(
+        Collection collection,
+        SelectionFilters filters,
+        IReadOnlyList<TestTargetPair> pairs
+    )
     {
         if (collection.Tests.Count == 0)
         {
@@ -313,16 +362,24 @@ internal static class Selector
         // Told once for the run, against every tag the suite declares, and applied only to the pairs the tag filter itself left out:
         // a test a positional or a `.only` excluded is not a tag mismatch.
         var declaredTags = pairs.SelectMany(pair => pair.Test.Tags).Distinct(StringComparer.Ordinal).ToList();
-        var tagFilter = filters.Tags is not { Count: > 0 } ? null : DescribeTagFilter(filters.Tags, filters.TagMode ?? TagMode.Any, declaredTags);
+        var tagFilter = filters.Tags is not { Count: > 0 }
+            ? null
+            : DescribeTagFilter(filters.Tags, filters.TagMode ?? TagMode.Any, declaredTags);
         var (grep, grepInvert) = PatternFilters(filters);
         var filterNames = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             [FilteredReason.Line] = DescribeLines(collection),
             [FilteredReason.Tags] = tagFilter,
-            [FilteredReason.ExcludedTag] = filters.ExcludeTags is null ? null : $"carry one of the excluded tags {NameTags(filters.ExcludeTags, declaredTags)}",
+            [FilteredReason.ExcludedTag] = filters.ExcludeTags is null
+                ? null
+                : $"carry one of the excluded tags {NameTags(filters.ExcludeTags, declaredTags)}",
             [FilteredReason.Grep] = grep is null ? null : $"have titles matching none of {string.Join(", ", grep)}",
-            [FilteredReason.GrepInvert] = grepInvert is null ? null : $"have titles matching {string.Join(", ", grepInvert)}",
-            [FilteredReason.LastFailed] = filters.LastFailed is null ? null : FilteredReason.LastFailed + (filters.LastFailed.Count == 0 ? ", which had no failures" : ""),
+            [FilteredReason.GrepInvert] = grepInvert is null
+                ? null
+                : $"have titles matching {string.Join(", ", grepInvert)}",
+            [FilteredReason.LastFailed] = filters.LastFailed is null
+                ? null
+                : FilteredReason.LastFailed + (filters.LastFailed.Count == 0 ? ", which had no failures" : ""),
             [FilteredReason.Shard] = filters.Shard is null ? null : DescribeShard(filters.Shard, pairs),
         };
         foreach (var pair in pairs)
@@ -366,7 +423,9 @@ internal static class Selector
     private static string DescribeShard(Shard shard, IReadOnlyList<TestTargetPair> pairs)
     {
         // Told after the cut, so the items are the running pairs and the ones the shard itself left out.
-        var items = ShardItems(pairs, pair => pair.Disposition == Disposition.Run || pair.Skip?.Reason == FilteredReason.Shard).Count;
+        var items = ShardItems(pairs, pair =>
+            pair.Disposition == Disposition.Run || pair.Skip?.Reason == FilteredReason.Shard
+        ).Count;
         return $"fall outside shard {shard.Index}/{shard.Total} ({items} {(items == 1 ? "test" : "tests")} split across {shard.Total} shards)";
     }
 
@@ -388,10 +447,13 @@ internal static class Selector
                 continue;
             }
 
-            var where = declared.Count == 0
-                ? "the file declares no test itself"
-                : $"declared at {(declared.Count == 1 ? "line" : "lines")} {string.Join(", ", declared)}";
-            missed.Add($"{string.Join(", ", misses.Select(line => $"{file.File}:{line}"))} {(misses.Count == 1 ? "names" : "name")} no test ({where})");
+            var where =
+                declared.Count == 0
+                    ? "the file declares no test itself"
+                    : $"declared at {(declared.Count == 1 ? "line" : "lines")} {string.Join(", ", declared)}";
+            missed.Add(
+                $"{string.Join(", ", misses.Select(line => $"{file.File}:{line}"))} {(misses.Count == 1 ? "names" : "name")} no test ({where})"
+            );
         }
 
         return missed.Count == 0 ? null : $"{FilteredReason.Line}: {string.Join("; ", missed)}";
@@ -406,16 +468,19 @@ internal static class Selector
 
     /// <summary>Filter tags as a list, each one no test declares marked, with the nearest declared tag when one is close.</summary>
     private static string NameTags(IReadOnlyList<string> tags, IReadOnlyList<string> declared) =>
-        string.Join(", ", tags.Select(tag =>
-        {
-            if (declared.Contains(tag))
+        string.Join(
+            ", ",
+            tags.Select(tag =>
             {
-                return tag;
-            }
+                if (declared.Contains(tag))
+                {
+                    return tag;
+                }
 
-            var note = Suggestions.SuggestionNote(tag, declared);
-            return tag + (note.Length == 0 ? " (no test declares it)" : note);
-        }));
+                var note = Suggestions.SuggestionNote(tag, declared);
+                return tag + (note.Length == 0 ? " (no test declares it)" : note);
+            })
+        );
 
     /// <summary>Maps each session name to its unique producer setup test (upstream's <c>collectSessionProducers</c>).</summary>
     private static Dictionary<string, CollectedTest> CollectSessionProducers(IReadOnlyList<CollectedTest> tests)
@@ -427,7 +492,10 @@ internal static class Selector
             {
                 if (producers.TryGetValue(session, out var existing))
                 {
-                    throw new ConfigurationException("COLLECTION_ERROR", $"session \"{session}\" has duplicate producers: {existing.Id} and {test.Id}");
+                    throw new ConfigurationException(
+                        "COLLECTION_ERROR",
+                        $"session \"{session}\" has duplicate producers: {existing.Id} and {test.Id}"
+                    );
                 }
 
                 producers[session] = test;
@@ -446,7 +514,8 @@ internal static class Selector
         IReadOnlyList<CollectedTest> tests,
         IReadOnlyList<ResolvedTarget> targets,
         IReadOnlyDictionary<string, ResolvedTestOptions> optionsByTest,
-        IReadOnlyDictionary<string, CollectedTest> sessionProducers)
+        IReadOnlyDictionary<string, CollectedTest> sessionProducers
+    )
     {
         var widened = new HashSet<string>(lastFailed, StringComparer.Ordinal);
         foreach (var target in targets)
@@ -459,7 +528,10 @@ internal static class Selector
                     continue;
                 }
 
-                if (optionsByTest[producer.Id].Agents.Any(agent => lastFailed.Contains(Ids.ResultId(producer.Id, target.Name, agent))))
+                if (
+                    optionsByTest[producer.Id]
+                        .Agents.Any(agent => lastFailed.Contains(Ids.ResultId(producer.Id, target.Name, agent)))
+                )
                 {
                     foreach (var agent in options.Agents)
                     {
@@ -480,10 +552,23 @@ internal static class Selector
         IReadOnlyList<CollectedTest> focused,
         IReadOnlySet<string> selectedFiles,
         SelectionFilters filters,
-        TagMode tagMode)
+        TagMode tagMode
+    )
     {
-        var pair = new TestTargetPair { Test = test, Target = target, Agent = agent, Options = options, Disposition = Disposition.Run };
-        TestTargetPair Filtered(string reason) => pair with { Disposition = Disposition.Filtered, Skip = new SkipInfo("filtered", reason) };
+        var pair = new TestTargetPair
+        {
+            Test = test,
+            Target = target,
+            Agent = agent,
+            Options = options,
+            Disposition = Disposition.Run,
+        };
+        TestTargetPair Filtered(string reason) =>
+            pair with
+            {
+                Disposition = Disposition.Filtered,
+                Skip = new SkipInfo("filtered", reason),
+            };
 
         if (test.Kind == TestKind.Test)
         {
@@ -520,7 +605,10 @@ internal static class Selector
                 return Filtered(FilteredReason.GrepInvert);
             }
 
-            if (filters.LastFailed is not null && !filters.LastFailed.Contains(Ids.ResultId(test.Id, target.Name, agent)))
+            if (
+                filters.LastFailed is not null
+                && !filters.LastFailed.Contains(Ids.ResultId(test.Id, target.Name, agent))
+            )
             {
                 return Filtered(FilteredReason.LastFailed);
             }
@@ -531,20 +619,28 @@ internal static class Selector
             return pair with
             {
                 Disposition = Disposition.Filtered,
-                Skip = new SkipInfo("platform-unavailable", $"test declares platforms [{string.Join(", ", options.Platforms)}]"),
+                Skip = new SkipInfo(
+                    "platform-unavailable",
+                    $"test declares platforms [{string.Join(", ", options.Platforms)}]"
+                ),
             };
         }
 
         // Targets are graded from the engine's declared capability set and the kind of app the target declares.
         var capabilities = target.Engine?.Capabilities;
         var kinds = AppKinds(target);
-        var missing = options.Requires.Where(capability => capabilities?.Contains(capability) != true && !kinds.Contains(capability)).ToList();
+        var missing = options
+            .Requires.Where(capability => capabilities?.Contains(capability) != true && !kinds.Contains(capability))
+            .ToList();
         if (missing.Count > 0)
         {
             return pair with
             {
                 Disposition = Disposition.Skip,
-                Skip = new SkipInfo("capability-unavailable", $"engine lacks required capabilities: {string.Join(", ", missing)}"),
+                Skip = new SkipInfo(
+                    "capability-unavailable",
+                    $"engine lacks required capabilities: {string.Join(", ", missing)}"
+                ),
             };
         }
 
@@ -560,18 +656,29 @@ internal static class Selector
     /// Every pair the selection would run of a test the <paramref name="excluded"/> filters left out, reported as left out by the filter
     /// that named it. Skipped and filtered pairs keep their own reason: a filter only takes away what runs (upstream's <c>applyExclusions</c>).
     /// </summary>
-    private static List<TestTargetPair> ApplyExclusions(IReadOnlyList<TestTargetPair> pairs, IReadOnlyDictionary<string, TestExclusion> excluded) =>
-    [
-        .. pairs.Select(pair =>
-        {
-            if (pair.Disposition != Disposition.Run || pair.Test.Kind != TestKind.Test || !excluded.TryGetValue(pair.Test.Id, out var left))
+    private static List<TestTargetPair> ApplyExclusions(
+        IReadOnlyList<TestTargetPair> pairs,
+        IReadOnlyDictionary<string, TestExclusion> excluded
+    ) =>
+        [
+            .. pairs.Select(pair =>
             {
-                return pair;
-            }
+                if (
+                    pair.Disposition != Disposition.Run
+                    || pair.Test.Kind != TestKind.Test
+                    || !excluded.TryGetValue(pair.Test.Id, out var left)
+                )
+                {
+                    return pair;
+                }
 
-            return pair with { Disposition = Disposition.Filtered, Skip = new SkipInfo("filtered", left.Reason, Filter: left.Filter) };
-        }),
-    ];
+                return pair with
+                {
+                    Disposition = Disposition.Filtered,
+                    Skip = new SkipInfo("filtered", left.Reason, Filter: left.Filter),
+                };
+            }),
+        ];
 
     private static List<TestTargetPair> ApplySerialClosure(IReadOnlyList<TestTargetPair> pairs)
     {
@@ -579,7 +686,8 @@ internal static class Selector
         static string UnitOf(TestTargetPair pair) => $"{pair.Target.Name}::{pair.Agent}::{pair.Test.SerialId}";
         var selectedSerialUnits = new HashSet<string>(
             pairs.Where(pair => pair.Disposition == Disposition.Run && pair.Test.SerialId is not null).Select(UnitOf),
-            StringComparer.Ordinal);
+            StringComparer.Ordinal
+        );
         return
         [
             .. pairs.Select(pair =>
@@ -589,7 +697,13 @@ internal static class Selector
                     return pair;
                 }
 
-                return pair.Disposition == Disposition.Filtered && pair.Skip?.Cause == "filtered" ? pair with { Disposition = Disposition.Run, Skip = null } : pair;
+                return pair.Disposition == Disposition.Filtered && pair.Skip?.Cause == "filtered"
+                    ? pair with
+                    {
+                        Disposition = Disposition.Run,
+                        Skip = null,
+                    }
+                    : pair;
             }),
         ];
     }
@@ -598,7 +712,10 @@ internal static class Selector
     /// What a shard is cut from: the ordinary pairs <paramref name="included"/> (the runnable ones, at the cut), a serial group counting
     /// once per target and agent so it is never split, in report order. The key doubles as the pair's item id (upstream's <c>shardItems</c>).
     /// </summary>
-    private static List<string> ShardItems(IReadOnlyList<TestTargetPair> pairs, Func<TestTargetPair, bool>? included = null)
+    private static List<string> ShardItems(
+        IReadOnlyList<TestTargetPair> pairs,
+        Func<TestTargetPair, bool>? included = null
+    )
     {
         included ??= pair => pair.Disposition == Disposition.Run;
         var items = new List<string>();
@@ -620,7 +737,8 @@ internal static class Selector
         return items;
     }
 
-    private static string ShardItem(TestTargetPair pair) => $"{pair.Target.Name}::{pair.Agent}::{pair.Test.SerialId ?? pair.Test.Id}";
+    private static string ShardItem(TestTargetPair pair) =>
+        $"{pair.Target.Name}::{pair.Agent}::{pair.Test.SerialId ?? pair.Test.Id}";
 
     /// <summary>
     /// Keeps the shard's contiguous slice of the items and leaves the rest unselected. Contiguous rather than dealt round-robin so a
@@ -652,7 +770,15 @@ internal static class Selector
             else
             {
                 previousKept = kept.Contains(ShardItem(pair));
-                result.Add(previousKept ? pair : pair with { Disposition = Disposition.Filtered, Skip = new SkipInfo("filtered", FilteredReason.Shard) });
+                result.Add(
+                    previousKept
+                        ? pair
+                        : pair with
+                        {
+                            Disposition = Disposition.Filtered,
+                            Skip = new SkipInfo("filtered", FilteredReason.Shard),
+                        }
+                );
             }
         }
 
@@ -662,7 +788,8 @@ internal static class Selector
     private static List<TestTargetPair> ApplySessionSelection(
         IReadOnlyList<TestTargetPair> pairs,
         IReadOnlyDictionary<string, CollectedTest> sessionProducers,
-        IReadOnlyList<UncollectedFile> uncollected)
+        IReadOnlyList<UncollectedFile> uncollected
+    )
     {
         // Each needed setup, by target and producer, with the sessions a selected test consumes from it.
         var neededSetups = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
@@ -676,16 +803,19 @@ internal static class Selector
             if (!sessionProducers.TryGetValue(session, out var producer))
             {
                 // The setup may be in a file a narrowed run could not collect; its error is then the cause.
-                var cause = uncollected.Count == 0
-                    ? ""
-                    : $"; it may be declared in a file that failed to collect: {NameFiles([.. uncollected.Select(entry => $"{entry.File} ({entry.Reason})")])}";
+                var cause =
+                    uncollected.Count == 0
+                        ? ""
+                        : $"; it may be declared in a file that failed to collect: {NameFiles([.. uncollected.Select(entry => $"{entry.File} ({entry.Reason})")])}";
                 var declared = sessionProducers.Keys.ToList();
-                var known = declared.Count == 0
-                    ? "; no collected setup test declares a session"
-                    : $"; setup tests declare {string.Join(", ", declared.Select(name => $"\"{name}\""))}{Suggestions.DidYouMean(session, declared)}";
+                var known =
+                    declared.Count == 0
+                        ? "; no collected setup test declares a session"
+                        : $"; setup tests declare {string.Join(", ", declared.Select(name => $"\"{name}\""))}{Suggestions.DidYouMean(session, declared)}";
                 throw new ConfigurationException(
                     "COLLECTION_ERROR",
-                    $"test \"{string.Join(" > ", pair.Test.TitlePath)}\" in {pair.Test.File} consumes session \"{session}\" but no setup test produces it{known}{cause}");
+                    $"test \"{string.Join(" > ", pair.Test.TitlePath)}\" in {pair.Test.File} consumes session \"{session}\" but no setup test produces it{known}{cause}"
+                );
             }
 
             var key = $"{pair.Target.Name}::{producer.Id}";
@@ -700,7 +830,10 @@ internal static class Selector
         var result = new List<TestTargetPair>(pairs.Count);
         foreach (var pair in pairs)
         {
-            if (pair.Test.Kind != TestKind.Setup || !neededSetups.TryGetValue($"{pair.Target.Name}::{pair.Test.Id}", out var sessions))
+            if (
+                pair.Test.Kind != TestKind.Setup
+                || !neededSetups.TryGetValue($"{pair.Target.Name}::{pair.Test.Id}", out var sessions)
+            )
             {
                 result.Add(pair);
                 continue;
@@ -712,7 +845,8 @@ internal static class Selector
             {
                 throw new ConfigurationException(
                     "COLLECTION_ERROR",
-                    $"setup test {pair.Test.Id} is required by a session consumer but cannot run on target \"{pair.Target.Name}\": {pair.Skip?.Reason ?? ""}");
+                    $"setup test {pair.Test.Id} is required by a session consumer but cannot run on target \"{pair.Target.Name}\": {pair.Skip?.Reason ?? ""}"
+                );
             }
 
             // Saving and restoring a session ride the engine's state capability; refused here, before the setup runs its login only to fail at save.
@@ -720,7 +854,8 @@ internal static class Selector
             {
                 throw new ConfigurationException(
                     "COLLECTION_ERROR",
-                    $"setup test {pair.Test.Id} saves session {string.Join(", ", sessions.Select(name => $"\"{name}\""))} for a selected test, but target \"{pair.Target.Name}\" cannot save or restore a session: engine {engine.Name}, as configured, has no state capability");
+                    $"setup test {pair.Test.Id} saves session {string.Join(", ", sessions.Select(name => $"\"{name}\""))} for a selected test, but target \"{pair.Target.Name}\" cannot save or restore a session: engine {engine.Name}, as configured, has no state capability"
+                );
             }
 
             result.Add(pair with { Disposition = Disposition.Run, Skip = null });
@@ -733,6 +868,10 @@ internal static class Selector
     private static List<string> AppKinds(ResolvedTarget target)
     {
         var (url, bundleId, appPath) = (target.App.Url, target.App.BundleId, target.App.AppPath);
-        return [.. (url is null ? [] : new[] { "browser" }), .. (bundleId is null && appPath is null ? [] : new[] { "native-app" })];
+        return
+        [
+            .. (url is null ? [] : new[] { "browser" }),
+            .. (bundleId is null && appPath is null ? [] : new[] { "native-app" }),
+        ];
     }
 }

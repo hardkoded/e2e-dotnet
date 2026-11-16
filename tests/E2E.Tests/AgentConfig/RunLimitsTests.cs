@@ -16,7 +16,8 @@ public sealed class RunLimitsTests
         var config = Parse(
             """
             { "agents": { "default": { "maxObservationBytes": 4096, "maxInputTokens": 200000 }, "ux": { "maxObservationBytes": 65536, "maxInputTokens": 8000 } } }
-            """);
+            """
+        );
 
         var limits = Limits(config);
 
@@ -24,15 +25,26 @@ public sealed class RunLimitsTests
         Assert.Equal(200_000, limits.MaxModelTokensPerCall);
         Assert.Equal(8_192, limits.MaxLedgerBytes);
         // The implicit default agent counts too.
-        Assert.Equal(64_000, Limits(Parse("""{ "agents": { "ux": { "maxInputTokens": 8000 } } }""")).MaxModelTokensPerCall);
+        Assert.Equal(
+            64_000,
+            Limits(Parse("""{ "agents": { "ux": { "maxInputTokens": 8000 } } }""")).MaxModelTokensPerCall
+        );
     }
 
     [Fact]
     public void Rejects_the_removed_limits_key_naming_each_replacement()
     {
-        Assert.StartsWith("limits was removed: set maxInputTokens on each agent", Invalid("""{ "limits": { "maxModelTokensPerCall": 1000 } }"""), StringComparison.Ordinal);
+        Assert.StartsWith(
+            "limits was removed: set maxInputTokens on each agent",
+            Invalid("""{ "limits": { "maxModelTokensPerCall": 1000 } }"""),
+            StringComparison.Ordinal
+        );
         Assert.StartsWith("limits was removed: ", Invalid("""{ "limits": {} }"""), StringComparison.Ordinal);
-        Assert.StartsWith("agents.default.limits was removed: set maxInputTokens", Invalid("""{ "agents": { "default": { "limits": {} } } }"""), StringComparison.Ordinal);
+        Assert.StartsWith(
+            "agents.default.limits was removed: set maxInputTokens",
+            Invalid("""{ "agents": { "default": { "limits": {} } } }"""),
+            StringComparison.Ordinal
+        );
     }
 
     private static ReportLimits Limits(E2EConfig config) =>

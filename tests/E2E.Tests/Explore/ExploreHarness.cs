@@ -42,17 +42,31 @@ internal sealed class ExploreModel
             }
 
             var answer = plan(request.Messages[0].Content ?? "");
-            return ModelResponses.Call("extract", new { data = new { decision = answer.Decision, title = answer.Title, instruction = answer.Instruction, summary = answer.Summary } });
+            return ModelResponses.Call(
+                "extract",
+                new
+                {
+                    data = new
+                    {
+                        decision = answer.Decision,
+                        title = answer.Title,
+                        instruction = answer.Instruction,
+                        summary = answer.Summary,
+                    },
+                }
+            );
         });
     }
 
     public ScriptedModel Model { get; }
 
     /// <summary>The planner's calls.</summary>
-    public IEnumerable<ModelRequest> PlannerCalls => Model.Requests.Where(request => request.Tools.All(tool => tool.Name != "tap"));
+    public IEnumerable<ModelRequest> PlannerCalls =>
+        Model.Requests.Where(request => request.Tools.All(tool => tool.Name != "tap"));
 
     /// <summary>The explorer's turns.</summary>
-    public IEnumerable<ModelRequest> LoopCalls => Model.Requests.Where(request => request.Tools.Any(tool => tool.Name == "tap"));
+    public IEnumerable<ModelRequest> LoopCalls =>
+        Model.Requests.Where(request => request.Tools.Any(tool => tool.Name == "tap"));
 
     public static PlanAnswer Step(string title, string instruction) => new(PlanKind.Step, title, instruction, "");
 
@@ -61,20 +75,23 @@ internal sealed class ExploreModel
     /// <summary>The planner's answer that a change has nothing a user can see (upstream's <c>{ decision: 'skip', summary }</c>).</summary>
     public static PlanReply Skip(string summary) => new("skip", "", "", summary);
 
-    public static ModelResponse Done(string status, string summary, string? code = null) => ModelResponses.Done(status, summary, code);
+    public static ModelResponse Done(string status, string summary, string? code = null) =>
+        ModelResponses.Done(status, summary, code);
 
-    public static ModelResponse ReportFinding(object input) => ModelResponses.Call(ExploreExecutor.FindingToolName, input);
+    public static ModelResponse ReportFinding(object input) =>
+        ModelResponses.Call(ExploreExecutor.FindingToolName, input);
 
     /// <summary>The finding the scripted explorer reports on the home page.</summary>
-    public static object CounterFinding(string? title = null, string kind = "issue", int severity = 3) => new
-    {
-        title = title ?? "Counter starts at 0 with no label of what it counts",
-        kind,
-        severity,
-        expected = "The counter says what it counts",
-        actual = "output \"Counter\" reads 0",
-        reproduction = new[] { "Open the home page", "Look at the counter next to Increment" },
-    };
+    public static object CounterFinding(string? title = null, string kind = "issue", int severity = 3) =>
+        new
+        {
+            title = title ?? "Counter starts at 0 with no label of what it counts",
+            kind,
+            severity,
+            expected = "The counter says what it counts",
+            actual = "output \"Counter\" reads 0",
+            reproduction = new[] { "Open the home page", "Look at the counter next to Increment" },
+        };
 }
 
 internal static class ExploreHarness
@@ -90,9 +107,17 @@ internal static class ExploreHarness
 
     /// <summary>The config of a project with one web target, and the extra top-level keys <paramref name="more"/> names.</summary>
     public static E2EConfig Config(string root, string? more = null) =>
-        E2EConfig.Parse("{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \"" + Url + "\" } }]" + (more is null ? "" : ", " + more) + " }", root);
+        E2EConfig.Parse(
+            "{ \"targets\": [{ \"name\": \"web\", \"platform\": \"web\", \"app\": { \"url\": \""
+                + Url
+                + "\" } }]"
+                + (more is null ? "" : ", " + more)
+                + " }",
+            root
+        );
 
-    public static IEngine Engine(DocumentWorld? world = null) => new ScreenshotEngine(world ?? CounterPage.World(), _ => ScreenshotEngine.Png());
+    public static IEngine Engine(DocumentWorld? world = null) =>
+        new ScreenshotEngine(world ?? CounterPage.World(), _ => ScreenshotEngine.Png());
 
     /// <summary>The options of a run against the counter page whose default agent is <paramref name="model"/>.</summary>
     public static ExploreOptions Options(
@@ -112,12 +137,14 @@ internal static class ExploreHarness
         RecordingMode? trace = null,
         RecordingMode? video = null,
         bool aiTrace = false,
-        TimeSpan? timeout = null) =>
+        TimeSpan? timeout = null
+    ) =>
         new()
         {
             Cwd = root,
             RawConfig = config ?? Config(root, "\"actionTimeout\": 10000"),
-            Agents = agents ?? new Dictionary<string, AgentOptions> { ["default"] = agent ?? new AgentOptions { Model = model } },
+            Agents = agents
+                ?? new Dictionary<string, AgentOptions> { ["default"] = agent ?? new AgentOptions { Model = model } },
             Engine = engine ?? Engine(),
             Goal = goal,
             ChangedSince = changedSince,
@@ -134,9 +161,16 @@ internal static class ExploreHarness
 
     /// <summary>Every file the run kept under the project's results directory.</summary>
     public static IEnumerable<string> Files(string root) =>
-        Directory.Exists(Path.Combine(root, ".e2e")) ? Directory.EnumerateFiles(Path.Combine(root, ".e2e"), "*", SearchOption.AllDirectories) : [];
+        Directory.Exists(Path.Combine(root, ".e2e"))
+            ? Directory.EnumerateFiles(Path.Combine(root, ".e2e"), "*", SearchOption.AllDirectories)
+            : [];
 
     /// <summary>The system prompts and messages every request carried, as one text.</summary>
     public static string Everything(IEnumerable<ModelRequest> requests) =>
-        string.Join('\n', requests.Select(request => request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))));
+        string.Join(
+            '\n',
+            requests.Select(request =>
+                request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content))
+            )
+        );
 }

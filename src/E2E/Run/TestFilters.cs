@@ -13,7 +13,10 @@ internal sealed record TestExclusion(string Filter, string Reason);
 internal sealed record FilterDecision(string Name, int Candidates, string? Note = null, FilterOutcome? Outcome = null);
 
 /// <summary>What the filters decided: every test they left out, by test id, and one decision per filter that ran (upstream's <c>AppliedTestFilters</c>).</summary>
-internal sealed record AppliedTestFilters(IReadOnlyDictionary<string, TestExclusion> Excluded, IReadOnlyList<FilterDecision> Decisions);
+internal sealed record AppliedTestFilters(
+    IReadOnlyDictionary<string, TestExclusion> Excluded,
+    IReadOnlyList<FilterDecision> Decisions
+);
 
 /// <summary>How one filter call ended (upstream's <c>FilterCall</c>): with its answer, checked; or thrown, refused, or abandoned past the deadline, with the note that says so.</summary>
 internal sealed record FilterCall
@@ -88,7 +91,11 @@ internal sealed class FilterSelectionOptions
 }
 
 /// <summary>A selection once the test filters had their say, the report's record of them, and the change they judged; no change when the config has no filter (upstream's <c>FilteredSelection</c>).</summary>
-internal sealed record FilteredSelection(Selection Selection, IReadOnlyList<ReportFilter> Records, ReportChanges? Changes);
+internal sealed record FilteredSelection(
+    Selection Selection,
+    IReadOnlyList<ReportFilter> Records,
+    ReportChanges? Changes
+);
 
 /// <summary>Test filters: what they are given, calling them, and what they decided (upstream's <c>run/test-filters.ts</c>).</summary>
 internal static class TestFilters
@@ -115,7 +122,12 @@ internal static class TestFilters
     /// </summary>
     public static async Task<FilteredSelection> FilterSelection(Selection first, FilterSelectionOptions options)
     {
-        var (config, collection, selectionFilters, notice) = (options.Config, options.Collection, options.SelectionFilters, options.Notice);
+        var (config, collection, selectionFilters, notice) = (
+            options.Config,
+            options.Collection,
+            options.SelectionFilters,
+            options.Notice
+        );
         if (config.Filters.Count == 0)
         {
             if (!options.CancellationToken.IsCancellationRequested)
@@ -135,7 +147,10 @@ internal static class TestFilters
 
         if (selectionFilters.LastFailed is not null)
         {
-            return Skip(new ReportChanges(Skipped: "--last-failed"), "--last-failed: the tests the last run owes run without filters");
+            return Skip(
+                new ReportChanges(Skipped: "--last-failed"),
+                "--last-failed: the tests the last run owes run without filters"
+            );
         }
 
         var candidates = FilterCandidates(first);
@@ -146,29 +161,64 @@ internal static class TestFilters
 
         // Spelled as on disk, as `Changes.Root` is, so a filter can join the two.
         var projectRoot = Paths.OnDiskPath(config.ProjectRoot);
-        var changes = await Changes.FindChangesAsync(new ChangeOptions { Cwd = projectRoot, ChangedSince = options.ChangedSince, CancellationToken = options.CancellationToken }).ConfigureAwait(false);
+        var changes = await Changes
+            .FindChangesAsync(
+                new ChangeOptions
+                {
+                    Cwd = projectRoot,
+                    ChangedSince = options.ChangedSince,
+                    CancellationToken = options.CancellationToken,
+                }
+            )
+            .ConfigureAwait(false);
         if (changes.Files.Count == 0)
         {
-            return Skip(new ReportChanges(changes.Base, 0, $"no files changed since {ReportFormat.ShortCommit(changes.Base)}"));
+            return Skip(
+                new ReportChanges(changes.Base, 0, $"no files changed since {ReportFormat.ShortCommit(changes.Base)}")
+            );
         }
 
-        notice($"judging {MarkdownText.Plural(changes.Files.Count, "file")} changed since {ReportFormat.ShortCommit(changes.Base)}");
-        var applied = await ApplyTestFilters(config.Filters, candidates, new TestFilterScope
-        {
-            ProjectRoot = projectRoot,
-            Changes = changes,
-            ConfigFile = config.ConfigPath is null ? null : RepoConfigFile(config.ConfigPath, changes.Root),
-            Secrets = config.AllSecrets,
-            CollectedIds = new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal),
-            Timeout = options.Timeout ?? FilterTimeout,
-            CancellationToken = options.CancellationToken,
-            Notice = notice,
-            Step = options.Step ?? ((_, work) => work()),
-        }).ConfigureAwait(false);
-        var selection = Selector.Select(collection, config, selectionFilters with { Excluded = applied.Excluded }, passWithNoTests: true);
+        notice(
+            $"judging {MarkdownText.Plural(changes.Files.Count, "file")} changed since {ReportFormat.ShortCommit(changes.Base)}"
+        );
+        var applied = await ApplyTestFilters(
+                config.Filters,
+                candidates,
+                new TestFilterScope
+                {
+                    ProjectRoot = projectRoot,
+                    Changes = changes,
+                    ConfigFile = config.ConfigPath is null ? null : RepoConfigFile(config.ConfigPath, changes.Root),
+                    Secrets = config.AllSecrets,
+                    CollectedIds = new HashSet<string>(
+                        collection.Tests.Select(test => test.Id),
+                        StringComparer.Ordinal
+                    ),
+                    Timeout = options.Timeout ?? FilterTimeout,
+                    CancellationToken = options.CancellationToken,
+                    Notice = notice,
+                    Step = options.Step ?? ((_, work) => work()),
+                }
+            )
+            .ConfigureAwait(false);
+        var selection = Selector.Select(
+            collection,
+            config,
+            selectionFilters with
+            {
+                Excluded = applied.Excluded,
+            },
+            passWithNoTests: true
+        );
         var records = FilterRecords(
             applied.Decisions,
-            selection.Pairs.Select(pair => (pair.Test.Id, pair.Skip is null ? null : new ReportSkip(pair.Skip.Cause, pair.Skip.Reason, pair.Skip.Filter))));
+            selection.Pairs.Select(pair =>
+                (
+                    pair.Test.Id,
+                    pair.Skip is null ? null : new ReportSkip(pair.Skip.Cause, pair.Skip.Reason, pair.Skip.Filter)
+                )
+            )
+        );
         foreach (var record in records)
         {
             if (FilterSummary(record) is { } summary)
@@ -197,7 +247,11 @@ internal static class TestFilters
         }
 
         var tests = new Dictionary<string, (CollectedTest Test, string? SetupFile)>(StringComparer.Ordinal);
-        foreach (var (test, options, disposition) in selection.Pairs.Select(pair => (pair.Test, pair.Options, pair.Disposition)))
+        foreach (
+            var (test, options, disposition) in selection.Pairs.Select(pair =>
+                (pair.Test, pair.Options, pair.Disposition)
+            )
+        )
         {
             if (test.Kind != TestKind.Test || disposition != Disposition.Run || tests.ContainsKey(test.Id))
             {
@@ -209,9 +263,15 @@ internal static class TestFilters
 
         return
         [
-            .. tests.Values
-                .OrderBy(entry => entry.Test, Comparer<CollectedTest>.Create(BuildReport.CompareTests))
-                .Select(entry => new TestFilterCandidate(entry.Test.Id, entry.Test.File, [.. entry.Test.TitlePath], [.. entry.Test.Tags], entry.SetupFile)),
+            .. tests
+                .Values.OrderBy(entry => entry.Test, Comparer<CollectedTest>.Create(BuildReport.CompareTests))
+                .Select(entry => new TestFilterCandidate(
+                    entry.Test.Id,
+                    entry.Test.File,
+                    [.. entry.Test.TitlePath],
+                    [.. entry.Test.Tags],
+                    entry.SetupFile
+                )),
         ];
     }
 
@@ -222,8 +282,19 @@ internal static class TestFilters
     /// </summary>
     public static string? RepoConfigFile(string configPath, string root)
     {
-        var relative = Path.GetRelativePath(root, Path.Combine(Paths.OnDiskPath(Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ""), Path.GetFileName(configPath)));
-        if (relative.Length == 0 || relative == "." || Path.IsPathRooted(relative) || relative.Split(Path.DirectorySeparatorChar)[0] == "..")
+        var relative = Path.GetRelativePath(
+            root,
+            Path.Combine(
+                Paths.OnDiskPath(Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ""),
+                Path.GetFileName(configPath)
+            )
+        );
+        if (
+            relative.Length == 0
+            || relative == "."
+            || Path.IsPathRooted(relative)
+            || relative.Split(Path.DirectorySeparatorChar)[0] == ".."
+        )
         {
             return null;
         }
@@ -237,7 +308,11 @@ internal static class TestFilters
     /// warns and the next filter is called on every test it was given. Reasons, notes, log lines, and what a refused answer quotes are
     /// redacted and cut before anything prints or records them.
     /// </summary>
-    public static async Task<AppliedTestFilters> ApplyTestFilters(IReadOnlyList<ITestFilter> filters, IReadOnlyList<TestFilterCandidate> candidates, TestFilterScope scope)
+    public static async Task<AppliedTestFilters> ApplyTestFilters(
+        IReadOnlyList<ITestFilter> filters,
+        IReadOnlyList<TestFilterCandidate> candidates,
+        TestFilterScope scope
+    )
     {
         var excluded = new Dictionary<string, TestExclusion>(StringComparer.Ordinal);
         var order = new List<string>();
@@ -285,13 +360,20 @@ internal static class TestFilters
     /// throw does. Past <c>scope.Timeout</c> the call is abandoned with its token cancelled. An interrupt abandons the call and surfaces as a
     /// cancellation, whatever the filter does next. The filter's <c>Log</c> does nothing once the call has ended.
     /// </summary>
-    private static async Task<FilterCall> CallFilter(ITestFilter filter, IReadOnlyList<TestFilterCandidate> input, TestFilterScope scope)
+    private static async Task<FilterCall> CallFilter(
+        ITestFilter filter,
+        IReadOnlyList<TestFilterCandidate> input,
+        TestFilterScope scope
+    )
     {
         var name = filter.Name;
         var redactor = Redactor.For(scope.Secrets);
         if (scope.CancellationToken.IsCancellationRequested)
         {
-            throw new OperationCanceledException($"interrupted while filter {JsonQuote.Of(name)} ran", scope.CancellationToken);
+            throw new OperationCanceledException(
+                $"interrupted while filter {JsonQuote.Of(name)} ran",
+                scope.CancellationToken
+            );
         }
 
         var budget = Time.BudgetText((long)scope.Timeout.TotalMilliseconds);
@@ -317,42 +399,59 @@ internal static class TestFilters
 
         // A call that leaves nothing out, its note ending in the detail, so a long one is what the cut shortens.
         FilterCall Failed(string problem, Exception detail) =>
-            new() { Outcome = FilterOutcome.Failed, Note = Cut($"{problem}, so it leaves nothing out: {redactor.Redact(ErrorMessage(detail))}") };
+            new()
+            {
+                Outcome = FilterOutcome.Failed,
+                Note = Cut($"{problem}, so it leaves nothing out: {redactor.Redact(ErrorMessage(detail))}"),
+            };
 
         try
         {
-            return await scope.Step(name, async () =>
-            {
-                TestFilterResult? raw;
-                try
+            return await scope
+                .Step(name, async () =>
                 {
-                    raw = await WithAbort(Task.Run(() => filter.FilterAsync(input, context)), signal).ConfigureAwait(false);
-                }
-                catch (Exception cause)
-                {
-                    if (scope.CancellationToken.IsCancellationRequested)
+                    TestFilterResult? raw;
+                    try
                     {
-                        throw;
+                        raw = await WithAbort(Task.Run(() => filter.FilterAsync(input, context)), signal)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception cause)
+                    {
+                        if (scope.CancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+
+                        return deadline.IsCancellationRequested
+                            ? new FilterCall
+                            {
+                                Outcome = FilterOutcome.TimedOut,
+                                Note = Cut($"did not finish within {budget}, so it leaves nothing out"),
+                            }
+                            : Failed("failed", cause);
                     }
 
-                    return deadline.IsCancellationRequested
-                        ? new FilterCall { Outcome = FilterOutcome.TimedOut, Note = Cut($"did not finish within {budget}, so it leaves nothing out") }
-                        : Failed("failed", cause);
-                }
-
-                try
-                {
-                    return new FilterCall { Result = CheckedResultOf(raw, input, scope.CollectedIds, redactor.Redact) };
-                }
-                catch (Exception cause) when (cause is not OperationCanceledException)
-                {
-                    return Failed("returned an invalid result", cause);
-                }
-            }).ConfigureAwait(false);
+                    try
+                    {
+                        return new FilterCall
+                        {
+                            Result = CheckedResultOf(raw, input, scope.CollectedIds, redactor.Redact),
+                        };
+                    }
+                    catch (Exception cause) when (cause is not OperationCanceledException)
+                    {
+                        return Failed("returned an invalid result", cause);
+                    }
+                })
+                .ConfigureAwait(false);
         }
         catch (Exception) when (scope.CancellationToken.IsCancellationRequested)
         {
-            throw new OperationCanceledException($"interrupted while filter {JsonQuote.Of(name)} ran", scope.CancellationToken);
+            throw new OperationCanceledException(
+                $"interrupted while filter {JsonQuote.Of(name)} ran",
+                scope.CancellationToken
+            );
         }
         finally
         {
@@ -364,7 +463,10 @@ internal static class TestFilters
     private static async Task<T> WithAbort<T>(Task<T> task, CancellationToken token)
     {
         // Whatever the abandoned call throws later is nobody's to see.
-        _ = task.ContinueWith(finished => finished.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+        _ = task.ContinueWith(
+            finished => finished.Exception,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously
+        );
         var cancelled = new TaskCompletionSource();
         using var registration = token.Register(() => cancelled.TrySetResult());
         if (await Task.WhenAny(task, cancelled.Task).ConfigureAwait(false) != task)
@@ -380,10 +482,22 @@ internal static class TestFilters
     /// filter's word, so a test it named that came back with its serial group is not counted (upstream's <c>filterRecords</c>, which reads a
     /// <c>Selection</c>; the port reads the skip of each result).
     /// </summary>
-    public static IReadOnlyList<ReportFilter> FilterRecords(IReadOnlyList<FilterDecision> decisions, IEnumerable<(string TestId, ReportSkip? Skip)> results)
+    public static IReadOnlyList<ReportFilter> FilterRecords(
+        IReadOnlyList<FilterDecision> decisions,
+        IEnumerable<(string TestId, ReportSkip? Skip)> results
+    )
     {
         var leftOut = LeftOut.LeftOutTests(results.Select(result => (result.TestId, result.Skip?.Filter)));
-        return [.. decisions.Select(decision => new ReportFilter(decision.Name, decision.Candidates, leftOut.GetValueOrDefault(decision.Name), decision.Note, decision.Outcome))];
+        return
+        [
+            .. decisions.Select(decision => new ReportFilter(
+                decision.Name,
+                decision.Candidates,
+                leftOut.GetValueOrDefault(decision.Name),
+                decision.Note,
+                decision.Outcome
+            )),
+        ];
     }
 
     /// <summary>
@@ -405,20 +519,27 @@ internal static class TestFilters
     private static string Cut(string text) => ReportFormat.Ellipsize(TextRules.Collapse(text), MaxFilterText);
 
     /// <summary>A key or test id a filter chose, as an error quotes it: redacted, then at most 200 code points.</summary>
-    private static string Quoted(string text, Func<string, string> redact) => JsonQuote.Of(ReportFormat.Ellipsize(redact(text), MaxQuoted));
+    private static string Quoted(string text, Func<string, string> redact) =>
+        JsonQuote.Of(ReportFormat.Ellipsize(redact(text), MaxQuoted));
 
     /// <summary>A value as a refusal names it (upstream's <c>describeValue</c>).</summary>
     private static string Describe(string? value) => value is null ? "null" : JsonQuote.Of(value);
 
     /// <summary>What <paramref name="error"/> says, as upstream's <c>errorMessage</c> reads a thrown value.</summary>
-    private static string ErrorMessage(Exception error) => string.IsNullOrEmpty(error.Message) ? error.GetType().Name : error.Message;
+    private static string ErrorMessage(Exception error) =>
+        string.IsNullOrEmpty(error.Message) ? error.GetType().Name : error.Message;
 
     /// <summary>
     /// Checks a filter's answer: a <see cref="TestFilterResult"/>, every excluded id a collected test with a non-empty reason. An id of a
     /// collected test the filter was not given, such as a setup test or one <c>--shard</c> or an earlier filter left out, is ignored: that
     /// test's fate is settled. Anything else is refused rather than guessed at, and the filter leaves nothing out.
     /// </summary>
-    private static CheckedResult CheckedResultOf(TestFilterResult? raw, IReadOnlyList<TestFilterCandidate> input, IReadOnlySet<string> collectedIds, Func<string, string> redact)
+    private static CheckedResult CheckedResultOf(
+        TestFilterResult? raw,
+        IReadOnlyList<TestFilterCandidate> input,
+        IReadOnlySet<string> collectedIds,
+        Func<string, string> redact
+    )
     {
         if (raw is null)
         {
@@ -435,23 +556,33 @@ internal static class TestFilters
         var stranger = entries.FirstOrDefault(entry => !ids.Contains(entry.Key) && !collectedIds.Contains(entry.Key));
         if (stranger.Key is not null)
         {
-            throw new InvalidOperationException($"exclude names {Quoted(stranger.Key, redact)}, which no collected test has; exclude takes test.id");
+            throw new InvalidOperationException(
+                $"exclude names {Quoted(stranger.Key, redact)}, which no collected test has; exclude takes test.id"
+            );
         }
 
         var unexplained = entries.FirstOrDefault(entry => string.IsNullOrWhiteSpace(entry.Value));
         if (unexplained.Key is not null)
         {
-            throw new InvalidOperationException($"the reason for {Quoted(unexplained.Key, redact)} must be a non-empty string, got {Describe(unexplained.Value)}");
+            throw new InvalidOperationException(
+                $"the reason for {Quoted(unexplained.Key, redact)} must be a non-empty string, got {Describe(unexplained.Value)}"
+            );
         }
 
         var kept = Cut(redact(raw.Note ?? ""));
         return new CheckedResult(
-            [.. entries.Where(entry => ids.Contains(entry.Key)).Select(entry => KeyValuePair.Create(entry.Key, Cut(redact(entry.Value))))],
-            kept.Length == 0 ? null : kept);
+            [
+                .. entries
+                    .Where(entry => ids.Contains(entry.Key))
+                    .Select(entry => KeyValuePair.Create(entry.Key, Cut(redact(entry.Value)))),
+            ],
+            kept.Length == 0 ? null : kept
+        );
     }
 
     /// <summary>A dictionary that enumerates in the order its keys were first set, as a JavaScript <c>Map</c> does.</summary>
-    private sealed class OrderedExclusions(List<string> order, Dictionary<string, TestExclusion> values) : IReadOnlyDictionary<string, TestExclusion>
+    private sealed class OrderedExclusions(List<string> order, Dictionary<string, TestExclusion> values)
+        : IReadOnlyDictionary<string, TestExclusion>
     {
         public IEnumerable<string> Keys => order;
 
@@ -465,7 +596,8 @@ internal static class TestFilters
 
         public bool TryGetValue(string key, out TestExclusion value) => values.TryGetValue(key, out value!);
 
-        public IEnumerator<KeyValuePair<string, TestExclusion>> GetEnumerator() => order.Select(key => KeyValuePair.Create(key, values[key])).GetEnumerator();
+        public IEnumerator<KeyValuePair<string, TestExclusion>> GetEnumerator() =>
+            order.Select(key => KeyValuePair.Create(key, values[key])).GetEnumerator();
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }

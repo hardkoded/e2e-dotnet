@@ -18,7 +18,9 @@ public sealed class WithTimeoutTests
     [Fact]
     public async Task Partial_Returns_the_resolved_value_and_clears_the_timer()
     {
-        var value = await InternalTime.WithTimeout(Task.FromResult(7), TimeSpan.FromSeconds(1), () => new InvalidOperationException("unused"));
+        var value = await InternalTime.WithTimeout(Task.FromResult(7), TimeSpan.FromSeconds(1), () =>
+            new InvalidOperationException("unused")
+        );
 
         Assert.Equal(7, value);
     }
@@ -29,7 +31,10 @@ public sealed class WithTimeoutTests
         var never = new TaskCompletionSource<int>();
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            InternalTime.WithTimeout(never.Task, TimeSpan.FromMilliseconds(250), () => new InvalidOperationException("too slow")));
+            InternalTime.WithTimeout(never.Task, TimeSpan.FromMilliseconds(250), () =>
+                new InvalidOperationException("too slow")
+            )
+        );
         Assert.Equal("too slow", error.Message);
     }
 }

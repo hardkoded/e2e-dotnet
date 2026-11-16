@@ -39,7 +39,8 @@ internal sealed record BuildReportOptions
     public IReadOnlyList<ReportError> RunErrors { get; init; } = [];
 
     /// <summary>What each target's engine declares, by target name. A target missing here reads as having no engine.</summary>
-    public IReadOnlyDictionary<string, TargetProvenance> TargetProvenance { get; init; } = new Dictionary<string, TargetProvenance>();
+    public IReadOnlyDictionary<string, TargetProvenance> TargetProvenance { get; init; } =
+        new Dictionary<string, TargetProvenance>();
 
     /// <summary>The exploration record of an exploration run; null for a test run.</summary>
     public ReportExplore? Explore { get; init; }
@@ -107,9 +108,17 @@ internal static class BuildReport
 
         return new TargetProvenance(
             new ReportEngine(name, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
-            [.. Enum.GetValues<EngineCapabilities>().Where(each => each is not (EngineCapabilities.None or EngineCapabilities.State) && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
+            [
+                .. Enum.GetValues<EngineCapabilities>()
+                    .Where(each =>
+                        each is not (EngineCapabilities.None or EngineCapabilities.State) && capabilities.HasFlag(each)
+                    )
+                    .Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..])
+                    .Order(StringComparer.Ordinal),
+            ],
             artifacts,
-            capabilities.HasFlag(EngineCapabilities.State));
+            capabilities.HasFlag(EngineCapabilities.State)
+        );
     }
 
     /// <summary>
@@ -140,7 +149,13 @@ internal static class BuildReport
     /// <summary>The run's counts from its results; the status counts are over the selected ones (upstream's <c>computeSummary</c>).</summary>
     public static ReportSummary ComputeSummary(IReadOnlyList<ReportResult> results)
     {
-        int selected = 0, executed = 0, passed = 0, failed = 0, interrupted = 0, flaky = 0, skipped = 0;
+        int selected = 0,
+            executed = 0,
+            passed = 0,
+            failed = 0,
+            interrupted = 0,
+            flaky = 0,
+            skipped = 0;
         foreach (var result in results)
         {
             if (result.Attempts.Count > 0)
@@ -183,7 +198,11 @@ internal static class BuildReport
     /// run failed, and so does any run-level error: it is its own fact about the run, not a blocked step. Derivation requires positive
     /// evidence, never absence of it (upstream's <c>deriveRunStatus</c>, without serial groups and <c>failOnSkippedFailure</c>).
     /// </summary>
-    public static ReportRunStatus DeriveRunStatus(ReportRunStatus status, IReadOnlyList<ReportResult> results, IReadOnlyList<ReportError> runErrors)
+    public static ReportRunStatus DeriveRunStatus(
+        ReportRunStatus status,
+        IReadOnlyList<ReportResult> results,
+        IReadOnlyList<ReportError> runErrors
+    )
     {
         if (status is not (ReportRunStatus.Failed or ReportRunStatus.Error) || runErrors.Count > 0)
         {
@@ -199,7 +218,10 @@ internal static class BuildReport
             }
 
             sawFailure = true;
-            if (result.Attempts.LastOrDefault()?.Error?.Code is not { } code || !StepExecutors.BlockableCodes.Contains(code))
+            if (
+                result.Attempts.LastOrDefault()?.Error?.Code is not { } code
+                || !StepExecutors.BlockableCodes.Contains(code)
+            )
             {
                 return status;
             }
@@ -211,8 +233,15 @@ internal static class BuildReport
     /// <summary>Aggregates what the run used against its limits (upstream's <c>computeUsage</c>).</summary>
     public static ReportUsage ComputeUsage(IReadOnlyList<ReportResult> results, int discovered)
     {
-        int maxContext = 0, maxLedger = 0, maxObservation = 0, downloads = 0, maxModelCalls = 0, maxActionSteps = 0;
-        long artifactBytes = 0, modelTokens = 0, events = 0;
+        int maxContext = 0,
+            maxLedger = 0,
+            maxObservation = 0,
+            downloads = 0,
+            maxModelCalls = 0,
+            maxActionSteps = 0;
+        long artifactBytes = 0,
+            modelTokens = 0,
+            events = 0;
         long? cachedTokens = null;
         var cost = 0.0;
         var costSeen = false;
@@ -283,14 +312,28 @@ internal static class BuildReport
     // The origin as a URL spells it: scheme, host, and a port the scheme does not imply, with no credentials. Only a web origin has one.
     internal static string? BaseOrigin(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https"
-            ? parsed.Scheme + "://" + (parsed.HostNameType == UriHostNameType.IPv6 ? "[" + parsed.IdnHost + "]" : parsed.IdnHost) + (parsed.IsDefaultPort ? "" : ":" + parsed.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            ? parsed.Scheme
+                + "://"
+                + (parsed.HostNameType == UriHostNameType.IPv6 ? "[" + parsed.IdnHost + "]" : parsed.IdnHost)
+                + (
+                    parsed.IsDefaultPort
+                        ? ""
+                        : ":" + parsed.Port.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                )
             : null;
 
     /// <summary>Builds the report document of a run (upstream's <c>buildReport</c>).</summary>
     public static Report1Document Build(BuildReportOptions options)
     {
-        var targets = options.Targets
-            .Select((target, index) => SerializeTarget(target, index, options.TargetProvenance.TryGetValue(target.Name, out var found) ? found : DescribeTarget(null)))
+        var targets = options
+            .Targets.Select(
+                (target, index) =>
+                    SerializeTarget(
+                        target,
+                        index,
+                        options.TargetProvenance.TryGetValue(target.Name, out var found) ? found : DescribeTarget(null)
+                    )
+            )
             .ToList();
         foreach (var described in options.ReportTargets.Where(each => targets.All(known => known.Id != each.Id)))
         {
@@ -304,34 +347,59 @@ internal static class BuildReport
         }
 
         // Report order is completion-time independent.
-        var results = options.Results
-            .OrderBy(result => result.File, StringComparer.Ordinal)
+        var results = options
+            .Results.OrderBy(result => result.File, StringComparer.Ordinal)
             .ThenBy(result => result.DeclarationIndex)
             .ThenBy(result => targetIndex.GetValueOrDefault(result.TargetId))
-
             // The port declares no index for a test, so ties keep apart by what is left of the declaration, not by completion order.
             .ThenBy(result => result.Source.Line)
             .ThenBy(result => string.Join('\u001f', result.TitlePath), StringComparer.Ordinal)
             .ThenBy(result => result.Id, StringComparer.Ordinal)
-            .Select(result => result with { Platform = result.Platform.Length > 0 ? result.Platform : targets.FirstOrDefault(target => target.Id == result.TargetId)?.Platform ?? "unknown", Source = ProjectSource(options.ProjectRoot, result.Source.File == "unknown" ? null : result.Source, result.File) ?? new SourceLocation(result.File, 1, 1) })
+            .Select(result =>
+                result with
+                {
+                    Platform =
+                        result.Platform.Length > 0
+                            ? result.Platform
+                            : targets.FirstOrDefault(target => target.Id == result.TargetId)?.Platform ?? "unknown",
+                    Source = ProjectSource(
+                        options.ProjectRoot,
+                        result.Source.File == "unknown" ? null : result.Source,
+                        result.File
+                    ) ?? new SourceLocation(result.File, 1, 1),
+                }
+            )
             .ToList();
         var summary = ComputeSummary(options.Results);
-        return new Report1Document(new ReportRun(options.RunId, ModelHttp.PackageVersion(), targets, results, options.Explore)
-        {
-            Status = DeriveRunStatus(options.Status, options.Results, options.RunErrors),
-            ExitCode = options.ExitCode,
-            StartedAt = options.StartedAt,
-            Project = options.Config is { ConfigDigest.Length: 64 } config ? ReportProject.Unknown with { ConfigDigest = config.ConfigDigest } : ReportProject.Unknown,
-            FinishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow,
-            Environment = new ReportEnvironment(options.Ci, false, OperatingSystemName() + " " + OsRelease(), ArchitectureName(), RuntimeInformation.FrameworkDescription),
-            Vcs = options.Vcs,
-            Errors = options.RunErrors,
-            Summary = summary,
-            Limits = options.Limits ?? ReportLimits.Default,
-            Usage = ComputeUsage(options.Results, summary.Discovered),
-            Changes = options.Changes,
-            Filters = options.Filters,
-        });
+        return new Report1Document(
+            new ReportRun(options.RunId, ModelHttp.PackageVersion(), targets, results, options.Explore)
+            {
+                Status = DeriveRunStatus(options.Status, options.Results, options.RunErrors),
+                ExitCode = options.ExitCode,
+                StartedAt = options.StartedAt,
+                Project = options.Config is { ConfigDigest.Length: 64 } config
+                    ? ReportProject.Unknown with
+                    {
+                        ConfigDigest = config.ConfigDigest,
+                    }
+                    : ReportProject.Unknown,
+                FinishedAt = options.FinishedAt ?? DateTimeOffset.UtcNow,
+                Environment = new ReportEnvironment(
+                    options.Ci,
+                    false,
+                    OperatingSystemName() + " " + OsRelease(),
+                    ArchitectureName(),
+                    RuntimeInformation.FrameworkDescription
+                ),
+                Vcs = options.Vcs,
+                Errors = options.RunErrors,
+                Summary = summary,
+                Limits = options.Limits ?? ReportLimits.Default,
+                Usage = ComputeUsage(options.Results, summary.Discovered),
+                Changes = options.Changes,
+                Filters = options.Filters,
+            }
+        );
     }
 
     private static string OsRelease()
@@ -343,12 +411,13 @@ internal static class BuildReport
     private static string OperatingSystemName() => ScreenshotContext.OperatingSystemName();
 
     // Node's os.arch() spelling.
-    private static string ArchitectureName() => RuntimeInformation.ProcessArchitecture switch
-    {
-        Architecture.X64 => "x64",
-        Architecture.X86 => "ia32",
-        Architecture.Arm64 => "arm64",
-        Architecture.Arm => "arm",
-        var other => other.ToString().ToLowerInvariant(),
-    };
+    private static string ArchitectureName() =>
+        RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.X86 => "ia32",
+            Architecture.Arm64 => "arm64",
+            Architecture.Arm => "arm",
+            var other => other.ToString().ToLowerInvariant(),
+        };
 }

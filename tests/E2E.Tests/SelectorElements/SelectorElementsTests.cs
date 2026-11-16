@@ -81,7 +81,14 @@ public sealed class SelectorElementsTests
         await RunAsync(async session =>
         {
             Assert.Equal(1, await session.Browser.FrameLocator("#box").Locator("#in-frame").CountAsync());
-            Assert.Equal(1, await session.Browser.FrameLocator("#box").Locator("#in-frame").GetByRole("link", "Inside link").CountAsync());
+            Assert.Equal(
+                1,
+                await session
+                    .Browser.FrameLocator("#box")
+                    .Locator("#in-frame")
+                    .GetByRole("link", "Inside link")
+                    .CountAsync()
+            );
             var wrapper = session.Browser.Locator("div.inner");
             await Expect.That(wrapper).ToBeVisibleAsync();
             await wrapper.TapAsync();
@@ -91,26 +98,32 @@ public sealed class SelectorElementsTests
     [Fact]
     public async Task Reaches_an_unlisted_element_past_the_node_cap()
     {
-        await RunAsync(async session =>
-        {
-            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap i.tail").CountAsync());
-            Assert.Equal(1, await session.Browser.Locator("div.tail-wrap").CountAsync());
-        }, "/crowded", "Crowded");
+        await RunAsync(
+            async session =>
+            {
+                Assert.Equal(1, await session.Browser.Locator("div.tail-wrap i.tail").CountAsync());
+                Assert.Equal(1, await session.Browser.Locator("div.tail-wrap").CountAsync());
+            },
+            "/crowded",
+            "Crowded"
+        );
     }
 
     private static async Task RunAsync(Func<E2ESession, Task> body, string path = "/wrappers", string? ready = null)
     {
         using var site = await WebPlatform.FixtureApp.StartAsync();
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
-            BaseUrl = site.Url,
-            TestTitle = "selector elements",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                BaseUrl = site.Url,
+                TestTitle = "selector elements",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await session.App.OpenAsync(path);
         if (ready is null)
         {

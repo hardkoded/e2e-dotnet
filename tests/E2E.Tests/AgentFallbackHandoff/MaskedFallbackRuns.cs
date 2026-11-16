@@ -4,7 +4,6 @@
 
 using E2E.Engine;
 
-
 namespace E2E.Tests.AgentFallbackHandoff;
 
 /// <summary>
@@ -43,20 +42,25 @@ public sealed class MaskedFallbackRuns : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        Outcomes[VisionJudgment] = await RunAsync(session => session.Agent.AssertAsync("the screenshot shows the result", new AssertOptions { Vision = VisionMode.On }));
-        Outcomes[TreeOnlyJudgment] = await RunAsync(session => session.Agent.AssertAsync("nothing is visible", new AssertOptions { Vision = VisionMode.Off }));
-        Outcomes[ActAfterFill] = await RunAsync(
-            async session =>
-            {
-                await session.Screen.GetByRole("textbox").FillAsync(Secret.Create("memberPassword", Password));
-                await session.Agent.ActAsync("read the screenshot");
-            });
-        Outcomes[JudgmentAfterFill] = await RunAsync(
-            async session =>
-            {
-                await session.Screen.GetByRole("textbox").FillAsync(Secret.Create("memberPassword", Password));
-                await session.Agent.AssertAsync("the screenshot shows the result", new AssertOptions { Vision = VisionMode.On });
-            });
+        Outcomes[VisionJudgment] = await RunAsync(session =>
+            session.Agent.AssertAsync("the screenshot shows the result", new AssertOptions { Vision = VisionMode.On })
+        );
+        Outcomes[TreeOnlyJudgment] = await RunAsync(session =>
+            session.Agent.AssertAsync("nothing is visible", new AssertOptions { Vision = VisionMode.Off })
+        );
+        Outcomes[ActAfterFill] = await RunAsync(async session =>
+        {
+            await session.Screen.GetByRole("textbox").FillAsync(Secret.Create("memberPassword", Password));
+            await session.Agent.ActAsync("read the screenshot");
+        });
+        Outcomes[JudgmentAfterFill] = await RunAsync(async session =>
+        {
+            await session.Screen.GetByRole("textbox").FillAsync(Secret.Create("memberPassword", Password));
+            await session.Agent.AssertAsync(
+                "the screenshot shows the result",
+                new AssertOptions { Vision = VisionMode.On }
+            );
+        });
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -67,7 +71,16 @@ public sealed class MaskedFallbackRuns : IAsyncLifetime
         var engine = new FallbackEngine
         {
             LocatorKinds = ["fill"],
-            Locate = _ => [new SemanticNode { Ref = "password", Role = "textbox", InputPurpose = "password", States = new NodeStates { Secure = true } }],
+            Locate = _ =>
+                [
+                    new SemanticNode
+                    {
+                        Ref = "password",
+                        Role = "textbox",
+                        InputPurpose = "password",
+                        States = new NodeStates { Secure = true },
+                    },
+                ],
             Perform = (_, _) => secretFilled = true,
             Observe = (options, _, _) =>
             {
@@ -84,6 +97,14 @@ public sealed class MaskedFallbackRuns : IAsyncLifetime
                 return Task.FromResult(FallbackFixtures.PixelSnapshot(1));
             },
         };
-        return await FallbackRun.RunAsync(new FallbackSetup { Engine = engine, Model = Loop, Judge = Judge }, body);
+        return await FallbackRun.RunAsync(
+            new FallbackSetup
+            {
+                Engine = engine,
+                Model = Loop,
+                Judge = Judge,
+            },
+            body
+        );
     }
 }

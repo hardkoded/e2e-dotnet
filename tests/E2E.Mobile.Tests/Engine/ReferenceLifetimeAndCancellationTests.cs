@@ -23,7 +23,9 @@ public sealed class ReferenceLifetimeAndCancellationTests
             newest = (await session.LocateAsync(expression, TimeSpan.FromSeconds(5), CancellationToken.None))[0];
         }
 
-        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(oldest, new LocatorAction.Tap(), CancellationToken.None));
+        var stale = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(oldest, new LocatorAction.Tap(), CancellationToken.None)
+        );
         Assert.Equal("NODE_STALE", stale.Code);
         await session.PerformAsync(newest, new LocatorAction.Tap(), CancellationToken.None);
         await session.PerformAsync(observation, new LocatorAction.Tap(), CancellationToken.None);
@@ -49,9 +51,18 @@ public sealed class ReferenceLifetimeAndCancellationTests
         var before = h.Fake.Calls.Count;
         using var aborted = new CancellationTokenSource();
         await aborted.CancelAsync();
-        var home = await Assert.ThrowsAsync<EngineException>(() => session.CommandAsync("home", DeviceMethods.CommandHome, new System.Text.Json.Nodes.JsonObject(), aborted.Token));
+        var home = await Assert.ThrowsAsync<EngineException>(() =>
+            session.CommandAsync(
+                "home",
+                DeviceMethods.CommandHome,
+                new System.Text.Json.Nodes.JsonObject(),
+                aborted.Token
+            )
+        );
         Assert.Equal("CANCELLED", home.Code);
-        var tap = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(node, new LocatorAction.Tap(), aborted.Token));
+        var tap = await Assert.ThrowsAsync<EngineException>(() =>
+            session.PerformAsync(node, new LocatorAction.Tap(), aborted.Token)
+        );
         Assert.Equal("CANCELLED", tap.Code);
         Assert.Equal(before, h.Fake.Calls.Count);
     }

@@ -23,17 +23,21 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
             var second = page.Heading("Second view");
             second.Hidden = true;
             DocumentElement? next = null;
-            next = page.Button("Continue", () => _ = Task.Delay(700).ContinueWith(
-                _ =>
-                {
-                    next!.Hidden = true;
-                    second.Hidden = false;
-                },
-                TaskScheduler.Default));
+            next = page.Button("Continue", () => _ = Task.Delay(700)
+                    .ContinueWith(
+                        _ =>
+                        {
+                            next!.Hidden = true;
+                            second.Hidden = false;
+                        },
+                        TaskScheduler.Default
+                    ));
         });
-        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
-            ? ModelResponses.Done("passed", "the second view is showing")
-            : ModelResponses.Tap("button", "Continue"));
+        var model = new ScriptedModel(request =>
+            request.Messages.Any(message => message.Role == "tool")
+                ? ModelResponses.Done("passed", "the second view is showing")
+                : ModelResponses.Tap("button", "Continue")
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -42,7 +46,8 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
                 await Expect.That(ctx.Screen.GetByRole("heading", "Second view")).ToBeVisibleAsync();
             },
             world,
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
         // Two turns: the tap and the verdict. The tap's own result already shows the view that arrived 700 ms after the click.
@@ -56,13 +61,16 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
     public async Task Runs_the_actions_of_one_turn_in_order()
     {
         ActResult? act = null;
-        var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
-        {
-            0 => CounterPage.Batch(
-                ModelResponses.Fill("textbox", "Email", "ada@example.test"),
-                ModelResponses.Fill("textbox", "Focus target", "hello")),
-            _ => ModelResponses.Done("passed", "both fields hold their values"),
-        });
+        var model = new ScriptedModel(request =>
+            request.Messages.Count(message => message.Role == "tool") switch
+            {
+                0 => CounterPage.Batch(
+                    ModelResponses.Fill("textbox", "Email", "ada@example.test"),
+                    ModelResponses.Fill("textbox", "Focus target", "hello")
+                ),
+                _ => ModelResponses.Done("passed", "both fields hold their values"),
+            }
+        );
         var result = await RunAsync(
             async ctx =>
             {
@@ -72,7 +80,8 @@ public sealed class TheDefaultAgentReadsActionResultsAfterTheirEffectTests
                 await Expect.That(ctx.Screen.GetByLabel("Focus target")).ToHaveValueAsync("hello");
             },
             CounterPage.World(),
-            model);
+            model
+        );
 
         Assert.Null(result.Error);
         var results = CounterPage.ToolResults(model);

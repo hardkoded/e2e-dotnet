@@ -15,29 +15,47 @@ namespace E2E.Tests.LocatorEngine;
 /// </summary>
 public sealed class LocatorEngineResolveRetryContractTests
 {
-    private static Screen ScreenOver(Func<Observation> observe, Action onObserve) => new(
-        _ =>
-        {
-            onObserve();
-            return Task.FromResult(observe());
-        },
-        (_, _, _) => Task.CompletedTask,
-        () => CancellationToken.None,
-        () => { },
-        TimeSpan.FromMilliseconds(350),
-        TimeSpan.FromMilliseconds(350));
+    private static Screen ScreenOver(Func<Observation> observe, Action onObserve) =>
+        new(
+            _ =>
+            {
+                onObserve();
+                return Task.FromResult(observe());
+            },
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(350),
+            TimeSpan.FromMilliseconds(350)
+        );
 
     [Fact]
     public async Task Fails_ambiguous_matches_immediately_with_LOCATOR_AMBIGUOUS()
     {
         var observations = 0;
         var screen = ScreenOver(
-            () => new Observation
-            {
-                Route = "/",
-                Roots = [new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" }, new SemanticNode { Ref = "node-2", Role = "button", Name = "Submit" }],
-            },
-            () => observations++);
+            () =>
+                new Observation
+                {
+                    Route = "/",
+                    Roots =
+                    [
+                        new SemanticNode
+                        {
+                            Ref = "node-1",
+                            Role = "button",
+                            Name = "Submit",
+                        },
+                        new SemanticNode
+                        {
+                            Ref = "node-2",
+                            Role = "button",
+                            Name = "Submit",
+                        },
+                    ],
+                },
+            () => observations++
+        );
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
 
@@ -57,10 +75,20 @@ public sealed class LocatorEngineResolveRetryContractTests
         Assert.True(observations > 1);
     }
 
-    private static readonly SemanticNode Match = new() { Ref = "node-1", Role = "button", Name = "Submit" };
+    private static readonly SemanticNode Match = new()
+    {
+        Ref = "node-1",
+        Role = "button",
+        Name = "Submit",
+    };
 
     /// <summary>A screen whose engine resolves each locate with the next script entry, given the budget of that locate.</summary>
-    private static Screen LocatingScreen(List<Func<TimeSpan, Task<IReadOnlyList<SemanticNode>>>> script, List<TimeSpan> budgets, TimeSpan? actionTimeout = null, TimeProvider? clock = null)
+    private static Screen LocatingScreen(
+        List<Func<TimeSpan, Task<IReadOnlyList<SemanticNode>>>> script,
+        List<TimeSpan> budgets,
+        TimeSpan? actionTimeout = null,
+        TimeProvider? clock = null
+    )
     {
         var next = 0;
         return new Screen(
@@ -75,7 +103,8 @@ public sealed class LocatorEngineResolveRetryContractTests
             {
                 budgets.Add(budget);
                 return script[Math.Min(next++, script.Count - 1)](budget);
-            });
+            }
+        );
     }
 
     [Fact]
@@ -86,11 +115,20 @@ public sealed class LocatorEngineResolveRetryContractTests
         var calls = 0;
         var screen = LocatingScreen(
             [
-                budget => { calls++; return SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(100), [], budget); },
-                budget => { calls++; return SlowLocate.HangAsync(clock, budget); },
+                budget =>
+                {
+                    calls++;
+                    return SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(100), [], budget);
+                },
+                budget =>
+                {
+                    calls++;
+                    return SlowLocate.HangAsync(clock, budget);
+                },
             ],
             [],
-            clock: clock);
+            clock: clock
+        );
         var deadline = new Deadline(TimeSpan.FromMilliseconds(2_000), screen.Clock);
 
         var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
@@ -113,7 +151,8 @@ public sealed class LocatorEngineResolveRetryContractTests
                 budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [Match], budget),
             ],
             budgets,
-            clock: clock);
+            clock: clock
+        );
         var deadline = new Deadline(TimeSpan.FromMilliseconds(400), screen.Clock);
 
         var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
@@ -140,7 +179,8 @@ public sealed class LocatorEngineResolveRetryContractTests
                 budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
             ],
             budgets,
-            clock: clock);
+            clock: clock
+        );
         var deadline = new Deadline(TimeSpan.FromMilliseconds(400), screen.Clock);
 
         var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
@@ -156,8 +196,15 @@ public sealed class LocatorEngineResolveRetryContractTests
     public async Task Gives_each_retry_of_a_resolve_what_is_left_of_its_budget_not_the_whole_budget_again()
     {
         var budgets = new List<TimeSpan>();
-        var stale = () => Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: true));
-        var screen = LocatingScreen([_ => stale(), _ => stale(), _ => Task.FromResult<IReadOnlyList<SemanticNode>>([Match])], budgets, TimeSpan.FromMilliseconds(1_000));
+        var stale = () =>
+            Task.FromException<IReadOnlyList<SemanticNode>>(
+                new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: true)
+            );
+        var screen = LocatingScreen(
+            [_ => stale(), _ => stale(), _ => Task.FromResult<IReadOnlyList<SemanticNode>>([Match])],
+            budgets,
+            TimeSpan.FromMilliseconds(1_000)
+        );
 
         await screen.GetByRole("button").ResolveAsync(CancellationToken.None);
 
@@ -171,9 +218,17 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Retries_retryable_frame_misses_until_the_engine_recovers()
     {
-        var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.Frame, ScriptedLocatorEngine.Stale, ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node)]);
+        var scripted = ScriptedLocatorEngine.Make([
+            ScriptedLocatorEngine.Frame,
+            ScriptedLocatorEngine.Stale,
+            ScriptedLocatorEngine.Nodes(ScriptedLocatorEngine.Node),
+        ]);
 
-        var node = await scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, scripted.Engine.DeadlineFor(), CancellationToken.None);
+        var node = await scripted.Engine.ResolveExactlyOneAsync(
+            ScriptedLocatorEngine.Expression,
+            scripted.Engine.DeadlineFor(),
+            CancellationToken.None
+        );
 
         Assert.Equal(ScriptedLocatorEngine.Node.Ref, node.Ref);
         Assert.Equal(3, scripted.Resolves);
@@ -185,7 +240,13 @@ public sealed class LocatorEngineResolveRetryContractTests
         var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.Failure]);
         var engine = scripted.Engine;
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(() => engine.ResolveNowAsync(ScriptedLocatorEngine.Expression, CancellationToken.None, engine.Reads(engine.DeadlineFor())));
+        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
+            engine.ResolveNowAsync(
+                ScriptedLocatorEngine.Expression,
+                CancellationToken.None,
+                engine.Reads(engine.DeadlineFor())
+            )
+        );
 
         var classified = ErrorSerializer.Classify(error);
         Assert.Equal("infrastructure", classified.Category);
@@ -196,10 +257,19 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Gives_up_on_persistent_retryable_errors_at_the_deadline_with_the_translated_error()
     {
-        var scripted = ScriptedLocatorEngine.Make(Enumerable.Repeat(ScriptedLocatorEngine.Stale, 50), actionTimeout: TimeSpan.FromMilliseconds(350));
+        var scripted = ScriptedLocatorEngine.Make(
+            Enumerable.Repeat(ScriptedLocatorEngine.Stale, 50),
+            actionTimeout: TimeSpan.FromMilliseconds(350)
+        );
         var engine = scripted.Engine;
 
-        var error = await Assert.ThrowsAnyAsync<Exception>(() => engine.ResolveNowAsync(ScriptedLocatorEngine.Expression, CancellationToken.None, engine.Reads(engine.DeadlineFor())));
+        var error = await Assert.ThrowsAnyAsync<Exception>(() =>
+            engine.ResolveNowAsync(
+                ScriptedLocatorEngine.Expression,
+                CancellationToken.None,
+                engine.Reads(engine.DeadlineFor())
+            )
+        );
 
         var classified = ErrorSerializer.Classify(error);
         Assert.Equal("test", classified.Category);
@@ -210,10 +280,15 @@ public sealed class LocatorEngineResolveRetryContractTests
     public async Task Reports_a_resolve_the_deadline_cut_off_after_one_that_matched_nothing_as_LOCATOR_NOT_FOUND()
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(350), TimeProvider.System);
-        ResolveStep cut = _ => deadline.Remaining(DateTimeOffset.UtcNow) < TimeSpan.FromMilliseconds(50) ? ScriptedLocatorEngine.TimedOut(_) : ScriptedLocatorEngine.Nodes()(_);
+        ResolveStep cut = _ =>
+            deadline.Remaining(DateTimeOffset.UtcNow) < TimeSpan.FromMilliseconds(50)
+                ? ScriptedLocatorEngine.TimedOut(_)
+                : ScriptedLocatorEngine.Nodes()(_);
         var scripted = ScriptedLocatorEngine.Make(Enumerable.Repeat(cut, 50));
 
-        var error = await Assert.ThrowsAsync<TestException>(() => scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, deadline, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, deadline, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         var cause = Assert.IsType<TestException>(error.InnerException);
@@ -225,10 +300,15 @@ public sealed class LocatorEngineResolveRetryContractTests
     public async Task Ends_a_frame_wait_the_deadline_cut_off_on_the_missing_frame_as_LOCATOR_NOT_FOUND()
     {
         var deadline = new Deadline(TimeSpan.FromMilliseconds(350), TimeProvider.System);
-        ResolveStep cut = _ => deadline.Remaining(DateTimeOffset.UtcNow) < TimeSpan.FromMilliseconds(50) ? ScriptedLocatorEngine.TimedOut(_) : ScriptedLocatorEngine.Frame(_);
+        ResolveStep cut = _ =>
+            deadline.Remaining(DateTimeOffset.UtcNow) < TimeSpan.FromMilliseconds(50)
+                ? ScriptedLocatorEngine.TimedOut(_)
+                : ScriptedLocatorEngine.Frame(_);
         var scripted = ScriptedLocatorEngine.Make(Enumerable.Repeat(cut, 50));
 
-        var error = await Assert.ThrowsAsync<TestException>(() => scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, deadline, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, deadline, CancellationToken.None)
+        );
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Contains("frame missing", error.Message, StringComparison.Ordinal);
@@ -239,7 +319,13 @@ public sealed class LocatorEngineResolveRetryContractTests
     {
         var scripted = ScriptedLocatorEngine.Make([ScriptedLocatorEngine.TimedOut]);
 
-        var error = await Assert.ThrowsAsync<TestException>(() => scripted.Engine.ResolveExactlyOneAsync(ScriptedLocatorEngine.Expression, new Deadline(TimeSpan.Zero, TimeProvider.System), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            scripted.Engine.ResolveExactlyOneAsync(
+                ScriptedLocatorEngine.Expression,
+                new Deadline(TimeSpan.Zero, TimeProvider.System),
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal("ACTION_FAILED", error.Code);
     }

@@ -32,7 +32,14 @@ internal sealed class ListedNodesOnlyEngine(string actionKind, SemanticNode[] ro
         public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(new Observation { Route = Route, Roots = roots, Viewport = new TraceViewport(1280, 720) });
+            Task.FromResult(
+                new Observation
+                {
+                    Route = Route,
+                    Roots = roots,
+                    Viewport = new TraceViewport(1280, 720),
+                }
+            );
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {

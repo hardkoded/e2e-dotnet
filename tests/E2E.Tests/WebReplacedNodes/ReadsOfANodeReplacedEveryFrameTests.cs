@@ -86,7 +86,15 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
     {
         await RunAsync("/replaced", async session =>
         {
-            Assert.Equal(new Dictionary<string, int> { ["testId"] = 0, ["label"] = 0, ["displayValue"] = 0 }, await HiddenReadsAsync(Fields(session.Screen), Reads));
+            Assert.Equal(
+                new Dictionary<string, int>
+                {
+                    ["testId"] = 0,
+                    ["label"] = 0,
+                    ["displayValue"] = 0,
+                },
+                await HiddenReadsAsync(Fields(session.Screen), Reads)
+            );
         });
     }
 
@@ -96,7 +104,15 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
         await RunAsync("/replaced", async session =>
         {
             var hidden = await StarvedAsync(() => HiddenReadsAsync(Fields(session.Screen), 3));
-            Assert.Equal(new Dictionary<string, int> { ["testId"] = 0, ["label"] = 0, ["displayValue"] = 0 }, hidden);
+            Assert.Equal(
+                new Dictionary<string, int>
+                {
+                    ["testId"] = 0,
+                    ["label"] = 0,
+                    ["displayValue"] = 0,
+                },
+                hidden
+            );
         });
     }
 
@@ -110,7 +126,10 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
                 ["label"] = session.Screen.GetByLabel("City", exact: true),
                 ["displayValue"] = session.Screen.GetByDisplayValue("paris"),
             };
-            Assert.Equal(new Dictionary<string, int> { ["label"] = 0, ["displayValue"] = 0 }, await HiddenReadsAsync(city, Reads));
+            Assert.Equal(
+                new Dictionary<string, int> { ["label"] = 0, ["displayValue"] = 0 },
+                await HiddenReadsAsync(city, Reads)
+            );
         });
     }
 
@@ -120,8 +139,13 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
     [InlineData("displayValue")]
     public async Task Fails_toBeHidden_on_the_live_field_by(string kind)
     {
-        var error = Assert.IsType<TestException>(await Record.ExceptionAsync(() => RunAsync("/replaced", session =>
-            Expect.That(Fields(session.Screen)[kind]).ToBeHiddenAsync(TimeSpan.FromMilliseconds(500)))));
+        var error = Assert.IsType<TestException>(
+            await Record.ExceptionAsync(() =>
+                RunAsync("/replaced", session =>
+                    Expect.That(Fields(session.Screen)[kind]).ToBeHiddenAsync(TimeSpan.FromMilliseconds(500))
+                )
+            )
+        );
         Assert.Equal("ASSERTION_FAILED", error.Code);
     }
 
@@ -130,7 +154,11 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
     {
         await RunAsync("/replaced-crowd", async session =>
         {
-            Locator[] city = [session.Screen.GetByLabel("City", exact: true), session.Screen.GetByDisplayValue("paris")];
+            Locator[] city =
+            [
+                session.Screen.GetByLabel("City", exact: true),
+                session.Screen.GetByDisplayValue("paris"),
+            ];
             for (var round = 0; round < 5; round++)
             {
                 foreach (var field in city)
@@ -140,7 +168,13 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
                 }
             }
 
-            foreach (var absent in new[] { session.Screen.GetByLabel("Nickname", exact: true), session.Screen.GetByDisplayValue("ada") })
+            foreach (
+                var absent in new[]
+                {
+                    session.Screen.GetByLabel("Nickname", exact: true),
+                    session.Screen.GetByDisplayValue("ada"),
+                }
+            )
             {
                 await Expect.That(absent).ToBeHiddenAsync(TimeSpan.FromSeconds(1));
             }
@@ -223,17 +257,21 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
     // Opens one page of the fixture and runs the body in a session of its own. A failure of the body reaches the caller.
     private static async Task RunAsync(string path, Func<E2ESession, Task> body)
     {
-        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, path == "/replaced" ? Replaced : ReplacedCrowd));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
-            BaseUrl = site.Url,
-            TestTitle = "replaced nodes",
-            ActionTimeout = TimeSpan.FromSeconds(5),
-            AssertionTimeout = TimeSpan.FromSeconds(4),
-            TestTimeout = TimeSpan.FromSeconds(90),
-        });
+        using var site = await TinySite.StartAsync(context =>
+            TinySite.RespondAsync(context, path == "/replaced" ? Replaced : ReplacedCrowd)
+        );
+        await using var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                BaseUrl = site.Url,
+                TestTitle = "replaced nodes",
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                AssertionTimeout = TimeSpan.FromSeconds(4),
+                TestTimeout = TimeSpan.FromSeconds(90),
+            }
+        );
         await session.App.OpenAsync(path);
         try
         {

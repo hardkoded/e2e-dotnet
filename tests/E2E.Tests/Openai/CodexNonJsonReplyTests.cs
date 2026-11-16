@@ -19,15 +19,20 @@ public sealed class CodexNonJsonReplyTests
     [InlineData("/api/accounts/deviceauth/token")]
     public async Task Device_login_fails_with_FLOW_FAILED_when_a_200_reply_is_not_JSON(string brokenPath)
     {
-        var issuer = new FakeApi(request => request.Uri.AbsolutePath == brokenPath
-            ? (HttpStatusCode.OK, "<html>captive portal</html>")
-            : (HttpStatusCode.OK, """{ "device_auth_id": "dev-1", "user_code": "ABCD", "interval": "0.001" }"""));
+        var issuer = new FakeApi(request =>
+            request.Uri.AbsolutePath == brokenPath
+                ? (HttpStatusCode.OK, "<html>captive portal</html>")
+                : (HttpStatusCode.OK, """{ "device_auth_id": "dev-1", "user_code": "ABCD", "interval": "0.001" }""")
+        );
         var provider = new CodexProvider(new HttpClient(issuer), issuer: Issuer);
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => provider.LoginAsync(
-            new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") },
-            new OAuthLoginOptions { Device = true },
-            CancellationToken.None));
+        var error = await Assert.ThrowsAsync<OAuthException>(() =>
+            provider.LoginAsync(
+                new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") },
+                new OAuthLoginOptions { Device = true },
+                CancellationToken.None
+            )
+        );
 
         Assert.Equal(OAuthException.FlowFailed, error.Code);
     }

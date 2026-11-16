@@ -24,11 +24,15 @@ public sealed class WebBasicAuthTests
     [Fact]
     public void Rejects_a_missing_or_colon_bearing_username_and_a_non_string_password()
     {
-        var missing = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("", "x") }));
+        var missing = Assert.Throws<EngineException>(() =>
+            new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("", "x") })
+        );
         Assert.Equal("INVALID_CONFIG", missing.Code);
         Assert.Contains("non-empty username", missing.Message, StringComparison.Ordinal);
 
-        var colon = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada:x", "x") }));
+        var colon = Assert.Throws<EngineException>(() =>
+            new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("ada:x", "x") })
+        );
         Assert.Equal("INVALID_CONFIG", colon.Code);
         Assert.Contains("\":\"", colon.Message, StringComparison.Ordinal);
     }

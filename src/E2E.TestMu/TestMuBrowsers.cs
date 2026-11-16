@@ -43,16 +43,19 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         var name = Dashboard.DefaultSessionName(request);
         // The id is the session's name: the access key is in the endpoint, and the id is printed in progress lines.
         var capabilities = Capabilities(request, name, user, accessKey);
-        return Task.FromResult(new BrowserLease
-        {
-            Id = name,
-            Protocol = BrowserProtocol.Playwright,
-            CdpEndpoint = $"{Endpoint}?capabilities={Uri.EscapeDataString(capabilities.ToJsonString())}",
-        });
+        return Task.FromResult(
+            new BrowserLease
+            {
+                Id = name,
+                Protocol = BrowserProtocol.Playwright,
+                CdpEndpoint = $"{Endpoint}?capabilities={Uri.EscapeDataString(capabilities.ToJsonString())}",
+            }
+        );
     }
 
     /// <summary>Nothing to call: the grid ends a session when the engine closes its connection.</summary>
-    public Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 
     private JsonObject Capabilities(BrowserRequest request, string name, string user, string accessKey)
     {
@@ -105,7 +108,8 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
             {
                 value?.ToJsonString();
             }
-            catch (Exception error) when (error is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
+            catch (Exception error)
+                when (error is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
             {
                 // A JsonValue can wrap a custom object that JSON cannot encode.
                 throw Invalid($"`Capabilities[\"{key}\"]` cannot be encoded as JSON: {error.Message}");
@@ -126,18 +130,30 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         var reserved = ReservedCapabilities.Where(key => capabilities?.ContainsKey(key) == true).ToArray();
         if (reserved.Length > 0)
         {
-            throw Invalid($"`Capabilities` cannot set {string.Join(", ", reserved.Select(key => $"`{key}`"))}; the provider names each session, and reads LT_USERNAME and LT_ACCESS_KEY from the environment");
+            throw Invalid(
+                $"`Capabilities` cannot set {string.Join(", ", reserved.Select(key => $"`{key}`"))}; the provider names each session, and reads LT_USERNAME and LT_ACCESS_KEY from the environment"
+            );
         }
 
-        if (capabilities is not null
+        if (
+            capabilities is not null
             && capabilities.TryGetValue("browserOptions", out var browserOptions)
-            && !(browserOptions is JsonArray flags && flags.All(flag => flag is JsonValue value && value.TryGetValue<string>(out _))))
+            && !(
+                browserOptions is JsonArray flags
+                && flags.All(flag => flag is JsonValue value && value.TryGetValue<string>(out _))
+            )
+        )
         {
             throw Invalid("`Capabilities[\"browserOptions\"]` must be an array of strings");
         }
 
         // A copy, so the caller cannot add a reserved entry to its own dictionary after the check.
-        return capabilities is null ? options : options with { Capabilities = capabilities.ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone()) };
+        return capabilities is null
+            ? options
+            : options with
+            {
+                Capabilities = capabilities.ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone()),
+            };
     }
 
     /// <summary>A <see cref="JsonNode"/> cannot hold a cycle, a map, or a date. Only a NaN or an infinity has no JSON form.</summary>
@@ -145,8 +161,9 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
     {
         switch (node)
         {
-            case JsonValue value when (value.TryGetValue<double>(out var number) && !double.IsFinite(number))
-                || (value.TryGetValue<float>(out var single) && !float.IsFinite(single)):
+            case JsonValue value
+                when (value.TryGetValue<double>(out var number) && !double.IsFinite(number))
+                    || (value.TryGetValue<float>(out var single) && !float.IsFinite(single)):
                 throw Invalid($"`{path}` contains a non-finite number");
             case JsonObject obj:
                 foreach (var (key, child) in obj)
@@ -165,7 +182,8 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         }
     }
 
-    private static ConfigurationException Invalid(string message) => new("INVALID_CONFIG", $"TestMuBrowsers: {message}");
+    private static ConfigurationException Invalid(string message) =>
+        new("INVALID_CONFIG", $"TestMuBrowsers: {message}");
 
     private static void Set(JsonObject target, string key, bool? value)
     {

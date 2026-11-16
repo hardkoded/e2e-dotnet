@@ -31,15 +31,24 @@ public static class Timing
 
     /// <inheritdoc cref="RaceAbortAsync{T}(Func{Task{T}}, CancellationToken, string)"/>
     public static Task RaceAbortAsync(Func<Task> work, CancellationToken cancellationToken, string label) =>
-        RaceAbortAsync(async () =>
-        {
-            await work().ConfigureAwait(false);
-            return true;
-        }, cancellationToken, label);
+        RaceAbortAsync(
+            async () =>
+            {
+                await work().ConfigureAwait(false);
+                return true;
+            },
+            cancellationToken,
+            label
+        );
 
     private static EngineException Abandoned(Task work, string label)
     {
-        _ = work.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        _ = work.ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default
+        );
         return Cancelled(label);
     }
 

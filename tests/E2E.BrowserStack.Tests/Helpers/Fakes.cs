@@ -19,7 +19,11 @@ internal sealed class FakeLeases : IAgentDeviceLeases
 
     public List<DeviceLease> Released { get; } = [];
 
-    public Task<DeviceLease> AcquireAsync(DeviceRequest request, AgentDeviceLeaseRequest lease, CancellationToken cancellationToken)
+    public Task<DeviceLease> AcquireAsync(
+        DeviceRequest request,
+        AgentDeviceLeaseRequest lease,
+        CancellationToken cancellationToken
+    )
     {
         Acquired.Add((request, lease));
         return Task.FromResult(new DeviceLease { Id = $"lease-{++_leases}", Client = lease.Selectors!.ToJson() });
@@ -58,14 +62,20 @@ internal sealed class FakeAppAutomate : HttpMessageHandler
 
     public HttpClient Client() => new(this) { Timeout = Timeout.InfiniteTimeSpan };
 
-    public IEnumerable<Call> Uploads => Calls.Where(call => call.Url.AbsolutePath.EndsWith("/upload", StringComparison.Ordinal));
+    public IEnumerable<Call> Uploads =>
+        Calls.Where(call => call.Url.AbsolutePath.EndsWith("/upload", StringComparison.Ordinal));
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
         lock (Calls)
         {
-            Calls.Add(new Call(request.RequestUri!, request.Method.Method, request.Headers.Authorization?.ToString(), body));
+            Calls.Add(
+                new Call(request.RequestUri!, request.Method.Method, request.Headers.Authorization?.ToString(), body)
+            );
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +100,9 @@ internal sealed class FakeAppAutomate : HttpMessageHandler
             return Json(Page(Builds, url));
         }
 
-        var build = System.Text.RegularExpressions.Regex.Match(url.AbsolutePath, "/builds/([^/]+)/sessions\\.json$").Groups[1];
+        var build = System
+            .Text.RegularExpressions.Regex.Match(url.AbsolutePath, "/builds/([^/]+)/sessions\\.json$")
+            .Groups[1];
         if (build.Success)
         {
             return Json(Page(Sessions.GetValueOrDefault(build.Value) ?? [], url));

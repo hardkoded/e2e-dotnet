@@ -21,14 +21,19 @@ public sealed class HomeList : Component
         var examples = Examples.All;
         var rows = (examples.Count + 1) / 2;
 
-        return ScrollView(Grid(
-            columns: [GridSize.Star(), GridSize.Star()],
-            rows: [.. Enumerable.Repeat(GridSize.Px(RowHeight), rows)],
-            [.. examples.Select((example, index) => Row(nav, example).Grid(row: index / 2, column: index % 2))]));
+        return ScrollView(
+            Grid(
+                columns: [GridSize.Star(), GridSize.Star()],
+                rows: [.. Enumerable.Repeat(GridSize.Px(RowHeight), rows)],
+                [.. examples.Select((example, index) => Row(nav, example).Grid(row: index / 2, column: index % 2))]
+            )
+        );
     }
 
     private static Element Row(NavigationHandle<string> nav, Example example) =>
-        Button(TextBlock(example.Name).SemiBold().FontSize(13).TextWrapping().MaxLines(2), () => nav.Navigate(example.Name))
+        Button(TextBlock(example.Name).SemiBold().FontSize(13).TextWrapping().MaxLines(2), () =>
+                nav.Navigate(example.Name)
+            )
             .AutomationId(example.Name)
             .AutomationName($"{example.Name}. {example.Description}")
             .Height(RowHeight)

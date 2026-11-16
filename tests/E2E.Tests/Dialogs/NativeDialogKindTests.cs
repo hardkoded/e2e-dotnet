@@ -19,11 +19,15 @@ public sealed class NativeDialogKindTests
         var router = new DialogRouter();
         var native = new FakeNativeDialog("same message", kind);
         var seen = new List<DialogType>();
-        router.Add((DialogHandler)(async dialog =>
-        {
-            seen.Add(dialog.Type);
-            await dialog.DismissAsync();
-        }));
+        router.Add(
+            (DialogHandler)(
+                async dialog =>
+                {
+                    seen.Add(dialog.Type);
+                    await dialog.DismissAsync();
+                }
+            )
+        );
         await router.DispatchAsync(native);
         Assert.Equal([expected], seen);
         Assert.Equal(1, native.Dismisses);

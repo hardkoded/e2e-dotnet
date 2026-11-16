@@ -25,7 +25,10 @@ public sealed class ASecretValuePassedAsAPlainStringTests
 
     private const string Marker = "<secret:probe>";
 
-    private static readonly JsonSerializerOptions Relaxed = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+    private static readonly JsonSerializerOptions Relaxed = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>
     /// Partial: the port has no runner, so no run id of the shape <c>file::suite::title</c>, and its session names one title where
@@ -74,7 +77,10 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         using var run = await RunAsync(async session =>
         {
             await session.App.OpenAsync("/");
-            await session.Agent.ActAsync("paste the key into the focus target", new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("probe", Value) } });
+            await session.Agent.ActAsync(
+                "paste the key into the focus target",
+                new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("probe", Value) } }
+            );
             await Expect.That(session.Screen.GetByLabel("Focus target")).ToHaveValueAsync(Value);
         });
 
@@ -93,7 +99,8 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         using var run = await RunAsync(FailingScenario);
 
         Assert.DoesNotContain(Value, JsonSerializer.Serialize(run.Report, Relaxed), StringComparison.Ordinal);
-        var names = Directory.EnumerateFileSystemEntries(run.ResultsDirectory, "*", SearchOption.AllDirectories)
+        var names = Directory
+            .EnumerateFileSystemEntries(run.ResultsDirectory, "*", SearchOption.AllDirectories)
             .Select(entry => Path.GetRelativePath(run.ResultsDirectory, entry).Replace('\\', '/'))
             .ToList();
         Assert.Contains(names, name => name.EndsWith("trace.md", StringComparison.Ordinal));
@@ -103,9 +110,14 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         }
 
         var standard = Convert.ToBase64String(Encoding.UTF8.GetBytes(Value));
-        var forms = new[] { Value, standard, standard.TrimEnd('=').Replace('+', '-').Replace('/', '_') }.Select(form => form.ToLowerInvariant()).ToList();
-        foreach (var file in Directory.EnumerateFiles(run.ResultsDirectory, "*", SearchOption.AllDirectories)
-            .Where(file => TextExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase)))
+        var forms = new[] { Value, standard, standard.TrimEnd('=').Replace('+', '-').Replace('/', '_') }
+            .Select(form => form.ToLowerInvariant())
+            .ToList();
+        foreach (
+            var file in Directory
+                .EnumerateFiles(run.ResultsDirectory, "*", SearchOption.AllDirectories)
+                .Where(file => TextExtensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
+        )
         {
             var text = File.ReadAllText(file).ToLowerInvariant();
             foreach (var form in forms)
@@ -118,17 +130,31 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     private static async Task FailingScenario(E2ESession session)
     {
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("paste the key into the focus target", new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("probe", Value) } });
+        await session.Agent.ActAsync(
+            "paste the key into the focus target",
+            new ActOptions { Params = new Dictionary<string, object?> { ["key"] = Secret.Create("probe", Value) } }
+        );
         await session.Screen.GetByLabel("Focus target").FillAsync(Value);
         await session.Agent.ActAsync(
             $"inspect {Value} with {{note}}",
-            new ActOptions { Params = new Dictionary<string, object?> { ["note"] = Value, [$"key {Value}"] = new[] { Value } } });
-        await Expect.That(session.Screen.GetByText($"missing {Value}")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500));
+            new ActOptions
+            {
+                Params = new Dictionary<string, object?> { ["note"] = Value, [$"key {Value}"] = new[] { Value } },
+            }
+        );
+        await Expect
+            .That(session.Screen.GetByText($"missing {Value}"))
+            .ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500));
     }
 
     private static readonly string[] TextExtensions = [".md", ".json", ".jsonl", ".txt", ".xml", ".html", ".log"];
 
-    private sealed record Run(Report Report, string ResultsDirectory, List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)> Inputs, string? Failure) : IDisposable
+    private sealed record Run(
+        Report Report,
+        string ResultsDirectory,
+        List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)> Inputs,
+        string? Failure
+    ) : IDisposable
     {
         public void Dispose()
         {
@@ -136,9 +162,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             {
                 Directory.Delete(Path.GetDirectoryName(ResultsDirectory)!, recursive: true);
             }
-            catch (IOException)
-            {
-            }
+            catch (IOException) { }
         }
     }
 
@@ -147,32 +171,44 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         var inputs = new List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)>();
         var recording = new TestExecutor("recording", async (context, _) =>
         {
-            inputs.Add((context.Step.Instruction, JsonSerializer.Serialize(context.Step.Params, Relaxed), context.AgentContext, [.. context.Attempt.TitlePath]));
+            inputs.Add(
+                (
+                    context.Step.Instruction,
+                    JsonSerializer.Serialize(context.Step.Params, Relaxed),
+                    context.AgentContext,
+                    [.. context.Attempt.TitlePath]
+                )
+            );
             if (context.Step.Secrets.Count > 0)
             {
                 var observation = await context.ObserveAsync();
-                await context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Focus target\""), context.Step.Secrets[0].Name);
+                await context.Actions.TypeSecretAsync(
+                    TargetFor(observation.Text, "textbox \"Focus target\""),
+                    context.Step.Secrets[0].Name
+                );
             }
 
             return Passed("done");
-        })
-        {
-            Version = "1",
-            Cache = ExecutorCache.Off,
-        };
-        var results = Path.Combine(Path.GetTempPath(), "e2e-plain-string-secrets-" + Guid.NewGuid().ToString("N"), "results");
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(AgentAct.CounterPage.World()),
-            AgentExecutor = recording,
-            AgentContext = "context " + Value,
-            BaseUrl = "https://counter.test",
-            TestTitle = "suite " + Value + " > title holds " + Value,
-            TestFile = "PlainStringSecrets",
-            ResultsDirectory = results,
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            CacheEnabled = false,
-        });
+        }) { Version = "1", Cache = ExecutorCache.Off };
+        var results = Path.Combine(
+            Path.GetTempPath(),
+            "e2e-plain-string-secrets-" + Guid.NewGuid().ToString("N"),
+            "results"
+        );
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(AgentAct.CounterPage.World()),
+                AgentExecutor = recording,
+                AgentContext = "context " + Value,
+                BaseUrl = "https://counter.test",
+                TestTitle = "suite " + Value + " > title holds " + Value,
+                TestFile = "PlainStringSecrets",
+                ResultsDirectory = results,
+                AssertionTimeout = TimeSpan.FromSeconds(2),
+                CacheEnabled = false,
+            }
+        );
         string? failure = null;
         try
         {
@@ -192,6 +228,11 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             await session.DisposeAsync();
         }
 
-        return new Run(session.Report() ?? throw new InvalidOperationException("the session left no report: " + failure), results, inputs, failure);
+        return new Run(
+            session.Report() ?? throw new InvalidOperationException("the session left no report: " + failure),
+            results,
+            inputs,
+            failure
+        );
     }
 }

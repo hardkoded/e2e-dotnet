@@ -26,7 +26,8 @@ public static class Subscriptions
                 ApiKey = "oauth",
                 PromptCacheHints = false,
             },
-            Client(provider, store));
+            Client(provider, store)
+        );
     }
 
     /// <summary>
@@ -42,8 +43,15 @@ public static class Subscriptions
     public static OpenAiCompatibleModel Grok(string model, ICredentialStore? store = null)
     {
         return new OpenAiCompatibleModel(
-            new OpenAiCompatibleModelOptions { Model = model, BaseUrl = XaiProvider.ApiUrl, Provider = "xai", ApiKey = "oauth" },
-            Client(new XaiProvider(), store));
+            new OpenAiCompatibleModelOptions
+            {
+                Model = model,
+                BaseUrl = XaiProvider.ApiUrl,
+                Provider = "xai",
+                ApiKey = "oauth",
+            },
+            Client(new XaiProvider(), store)
+        );
     }
 
     /// <summary>
@@ -56,16 +64,29 @@ public static class Subscriptions
         return OpenCodeConsole(model, store, new OpenCodeConsoleProvider(), inner: null);
     }
 
-    internal static OpenCodeConsoleModel OpenCodeConsole(string model, ICredentialStore? store, OpenCodeConsoleProvider provider, HttpMessageHandler? inner)
+    internal static OpenCodeConsoleModel OpenCodeConsole(
+        string model,
+        ICredentialStore? store,
+        OpenCodeConsoleProvider provider,
+        HttpMessageHandler? inner
+    )
     {
         var (source, hint) = OAuthProviders.CredentialSource(provider, store);
         return new OpenCodeConsoleModel(model, provider, Client(provider, source, hint, inner));
     }
 
     /// <summary>An <see cref="HttpClient"/> that carries <paramref name="provider"/>'s stored login on every request.</summary>
-    public static HttpClient Client(IOAuthProvider provider, ICredentialStore? store = null, string? loginHint = null, HttpMessageHandler? inner = null)
+    public static HttpClient Client(
+        IOAuthProvider provider,
+        ICredentialStore? store = null,
+        string? loginHint = null,
+        HttpMessageHandler? inner = null
+    )
     {
-        return new HttpClient(new OAuthHandler(provider, store ?? CredentialStores.Default(), loginHint, inner)) { Timeout = ModelHttp.Timeout };
+        return new HttpClient(new OAuthHandler(provider, store ?? CredentialStores.Default(), loginHint, inner))
+        {
+            Timeout = ModelHttp.Timeout,
+        };
     }
 }
 
@@ -92,7 +113,10 @@ public static class OAuthProviders
             "github-copilot" => new CopilotProvider(),
             "opencode-console" => new OpenCodeConsoleProvider(),
             "spacexai" => new XaiProvider(),
-            _ => throw new OAuthException(OAuthException.Misconfigured, "unknown provider \"" + id + "\"; expected one of " + string.Join(", ", Ids)),
+            _ => throw new OAuthException(
+                OAuthException.Misconfigured,
+                "unknown provider \"" + id + "\"; expected one of " + string.Join(", ", Ids)
+            ),
         };
     }
 
@@ -117,7 +141,10 @@ public static class OAuthProviders
     /// key, so a malformed <c>E2E_OAUTH_CREDENTIALS</c> does not block the key. The hint names the remedy for the
     /// credential actually read.
     /// </summary>
-    public static (ICredentialStore Store, string LoginHint) CredentialSource(IOAuthProvider provider, ICredentialStore? store = null)
+    public static (ICredentialStore Store, string LoginHint) CredentialSource(
+        IOAuthProvider provider,
+        ICredentialStore? store = null
+    )
     {
         var apiKey = ApiKeyFor(provider);
         if (apiKey is null)
@@ -126,8 +153,19 @@ public static class OAuthProviders
         }
 
         return (
-            new EnvironmentCredentialStore(new JsonObject { [provider.Id] = new OAuthCredentials { Access = apiKey, Refresh = "", Expires = 0 }.ToJson() }.ToJsonString()),
-            "check " + provider.ApiKeyEnv);
+            new EnvironmentCredentialStore(
+                new JsonObject
+                {
+                    [provider.Id] = new OAuthCredentials
+                    {
+                        Access = apiKey,
+                        Refresh = "",
+                        Expires = 0,
+                    }.ToJson(),
+                }.ToJsonString()
+            ),
+            "check " + provider.ApiKeyEnv
+        );
     }
 
     /// <summary>A short description of each subscription, for pickers and help.</summary>
@@ -149,7 +187,8 @@ public static class OAuthProviders
         OAuthLoginCallbacks callbacks,
         OAuthLoginOptions? options = null,
         ICredentialStore? store = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default
+    )
     {
         return await LoginAsync(Get(providerId), callbacks, options, store, cancellationToken).ConfigureAwait(false);
     }
@@ -159,7 +198,8 @@ public static class OAuthProviders
         OAuthLoginCallbacks callbacks,
         OAuthLoginOptions? options,
         ICredentialStore? store,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         store ??= CredentialStores.Default();
         if (store is EnvironmentCredentialStore environment)
@@ -167,13 +207,19 @@ public static class OAuthProviders
             environment.AssertWritable();
         }
 
-        var credentials = await provider.LoginAsync(callbacks, options ?? new OAuthLoginOptions(), cancellationToken).ConfigureAwait(false);
+        var credentials = await provider
+            .LoginAsync(callbacks, options ?? new OAuthLoginOptions(), cancellationToken)
+            .ConfigureAwait(false);
         await store.SetAsync(provider.Id, credentials, cancellationToken).ConfigureAwait(false);
         return credentials;
     }
 
     /// <summary>Forgets the stored login. True when one was stored.</summary>
-    public static async Task<bool> LogoutAsync(string providerId, ICredentialStore? store = null, CancellationToken cancellationToken = default)
+    public static async Task<bool> LogoutAsync(
+        string providerId,
+        ICredentialStore? store = null,
+        CancellationToken cancellationToken = default
+    )
     {
         var provider = Get(providerId);
         store ??= CredentialStores.Default();
@@ -190,12 +236,21 @@ public static class OAuthProviders
     /// The models <paramref name="providerId"/>'s credential serves: its API key when set, as its model constructor reads it,
     /// else the stored login; <see cref="OAuthException.NotLoggedIn"/> without either.
     /// </summary>
-    public static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(string providerId, ICredentialStore? store = null, CancellationToken cancellationToken = default)
+    public static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        string providerId,
+        ICredentialStore? store = null,
+        CancellationToken cancellationToken = default
+    )
     {
         return await ListModelsAsync(Get(providerId), store, inner: null, cancellationToken).ConfigureAwait(false);
     }
 
-    internal static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(IOAuthProvider provider, ICredentialStore? store, HttpMessageHandler? inner, CancellationToken cancellationToken)
+    internal static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        IOAuthProvider provider,
+        ICredentialStore? store,
+        HttpMessageHandler? inner,
+        CancellationToken cancellationToken
+    )
     {
         var (source, hint) = CredentialSource(provider, store);
         using var http = Subscriptions.Client(provider, source, hint, inner);

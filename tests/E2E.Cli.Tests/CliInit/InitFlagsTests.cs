@@ -28,7 +28,9 @@ public sealed class InitFlagsTests : CliInitTestBase
     [InlineData("--example", "TodoMvc", "--gateway", "none")]
     [InlineData("--example", "TodoMvc", "--framework", "xunit")]
     [InlineData("--example", "TodoMvc", "--framework", "tunit")]
-    public void Rejects_an_unknown_example_or_framework_and_an_example_beside_the_flags_it_brings_its_own_files_for(params string[] args)
+    public void Rejects_an_unknown_example_or_framework_and_an_example_beside_the_flags_it_brings_its_own_files_for(
+        params string[] args
+    )
     {
         var (options, error) = InitFlags.Parse(args);
         Assert.Null(options);
@@ -58,13 +60,19 @@ public sealed class InitFlagsTests : CliInitTestBase
     public void Lists_every_example_and_framework_in_the_usage()
     {
         Assert.All(Examples.All, example => Assert.Contains(example.Id, InitFlags.Usage, StringComparison.Ordinal));
-        Assert.All(Frameworks.All, framework => Assert.Contains(framework.Id, InitFlags.Usage, StringComparison.Ordinal));
+        Assert.All(Frameworks.All, framework =>
+            Assert.Contains(framework.Id, InitFlags.Usage, StringComparison.Ordinal)
+        );
     }
 
     [Fact]
     public void Merges_a_repeated_list_flag_and_drops_duplicates()
     {
-        var (options, error) = InitFlags.Parse(["--skills", ".agents/skills", "--skills=.claude/skills,.agents/skills"]);
+        var (options, error) = InitFlags.Parse([
+            "--skills",
+            ".agents/skills",
+            "--skills=.claude/skills,.agents/skills",
+        ]);
         Assert.Null(error);
         Assert.Equal([".agents/skills", ".claude/skills"], options!.Skills);
     }
@@ -78,7 +86,10 @@ public sealed class InitFlagsTests : CliInitTestBase
 
         (options, error) = InitFlags.Parse(["--mcp", "claude"]);
         Assert.Null(options);
-        Assert.Equal("error: --mcp: unknown MCP config file \"claude\"; expected .mcp.json, .cursor/mcp.json, .codex/config.toml, none", error);
+        Assert.Equal(
+            "error: --mcp: unknown MCP config file \"claude\"; expected .mcp.json, .cursor/mcp.json, .codex/config.toml, none",
+            error
+        );
     }
 
     [Fact]
@@ -95,9 +106,22 @@ public sealed class InitFlagsTests : CliInitTestBase
     [Fact]
     public async Task Repairs_an_MCP_entry_in_place_keeping_the_order_of_servers_and_keys()
     {
-        const string original = "{\n  \"clientSetting\": true,\n  \"mcpServers\": {\n    \"a\": { \"command\": \"a\" },\n    \"e2e\": { \"command\": \"npx\", \"args\": [\"e2e\", \"mcp\"], \"env\": { \"K\": \"v\" } },\n    \"z\": { \"command\": \"z\" }\n  },\n  \"last\": 1\n}\n";
+        const string original =
+            "{\n  \"clientSetting\": true,\n  \"mcpServers\": {\n    \"a\": { \"command\": \"a\" },\n    \"e2e\": { \"command\": \"npx\", \"args\": [\"e2e\", \"mcp\"], \"env\": { \"K\": \"v\" } },\n    \"z\": { \"command\": \"z\" }\n  },\n  \"last\": 1\n}\n";
         await File.WriteAllTextAsync(Path_(".mcp.json"), original);
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Mcp = [".mcp.json"], Skills = [] })).ExitCode);
+        Assert.Equal(
+            0,
+            (
+                await RunInitAsync(
+                    new InitOptions
+                    {
+                        Yes = true,
+                        Mcp = [".mcp.json"],
+                        Skills = [],
+                    }
+                )
+            ).ExitCode
+        );
         var json = Json(".mcp.json").AsObject();
         Assert.Equal(["clientSetting", "mcpServers", "last"], json.Select(pair => pair.Key));
         var servers = json["mcpServers"]!.AsObject();

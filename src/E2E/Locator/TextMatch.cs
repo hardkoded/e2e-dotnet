@@ -82,7 +82,9 @@ public sealed class TextMatch
         }
 
         var options = fold ? Pattern.Options | RegexOptions.IgnoreCase : Pattern.Options & ~RegexOptions.IgnoreCase;
-        return options == Pattern.Options ? this : new TextMatch(null, new Regex(Pattern.ToString(), options, Pattern.MatchTimeout));
+        return options == Pattern.Options
+            ? this
+            : new TextMatch(null, new Regex(Pattern.ToString(), options, Pattern.MatchTimeout));
     }
 
     /// <summary>The match as an expectation failure prints it.</summary>
@@ -105,7 +107,10 @@ public sealed class TextMatch
     {
         if (Pattern is null && string.IsNullOrWhiteSpace(Text))
         {
-            throw new ArgumentException("The value cannot be an empty string or composed entirely of whitespace.", paramName);
+            throw new ArgumentException(
+                "The value cannot be an empty string or composed entirely of whitespace.",
+                paramName
+            );
         }
     }
 }

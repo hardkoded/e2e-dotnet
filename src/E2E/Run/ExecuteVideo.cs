@@ -48,10 +48,12 @@ internal sealed class ExecuteVideo
         if (options.Video.Source is RecordingSource.Target or RecordingSource.Test)
         {
             var target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName;
-            var setBy = options.Video.Source == RecordingSource.Test ? $"test \"{options.TestTitle}\" sets" : "the target sets";
+            var setBy =
+                options.Video.Source == RecordingSource.Test ? $"test \"{options.TestTitle}\" sets" : "the target sets";
             throw new ConfigurationException(
                 "UNSUPPORTED_ARTIFACT",
-                $"target \"{target}\" (engine {options.Engine.Platform}) cannot record video, and {setBy} video: '{RecordingModes.Name(options.Video.Mode)}'");
+                $"target \"{target}\" (engine {options.Engine.Platform}) cannot record video, and {setBy} video: '{RecordingModes.Name(options.Video.Mode)}'"
+            );
         }
 
         return null;
@@ -61,7 +63,13 @@ internal sealed class ExecuteVideo
     /// Starts the video within the launch timeout. A required video's failure fails the start; a default one's is dropped.
     /// A cancel of <paramref name="cancellationToken"/> is never dropped.
     /// </summary>
-    public static async Task<ExecuteVideo?> StartAsync(VideoRecording? recording, SessionRecordings recordings, string artifactsDir, TimeSpan launchTimeout, CancellationToken cancellationToken)
+    public static async Task<ExecuteVideo?> StartAsync(
+        VideoRecording? recording,
+        SessionRecordings recordings,
+        string artifactsDir,
+        TimeSpan launchTimeout,
+        CancellationToken cancellationToken
+    )
     {
         if (recording is null)
         {
@@ -79,28 +87,43 @@ internal sealed class ExecuteVideo
             await recordings.StartAttemptVideoAsync(launchTimeout, launch.Token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt goes on without one.
-        catch (Exception) when (recording.Policy == VideoPolicy.BestEffort && !cancellationToken.IsCancellationRequested)
+        catch (Exception)
+            when (recording.Policy == VideoPolicy.BestEffort && !cancellationToken.IsCancellationRequested)
 #pragma warning restore CA1031
         {
             return null;
         }
-        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout }) && launch.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
+            when ((
+                    ex is OperationCanceledException
+                    || ex is EngineException { Code: EngineErrorCodes.Cancelled or EngineErrorCodes.OperationTimeout }
+                )
+                && launch.IsCancellationRequested
+                && !cancellationToken.IsCancellationRequested
+            )
         {
-            throw new EngineException("ENVIRONMENT_UNAVAILABLE", "The video did not start within the launch timeout (" + launchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
+            throw new EngineException(
+                "ENVIRONMENT_UNAVAILABLE",
+                "The video did not start within the launch timeout ("
+                    + launchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " ms).",
+                ex
+            );
         }
 
         return new ExecuteVideo(recording, recordings, artifactsDir);
     }
 
     /// <summary>How a final attempt ended, from the error the framework reports for it.</summary>
-    public static AttemptStatus StatusOf(Exception? error) => error switch
-    {
-        null => AttemptStatus.Passed,
-        SkipException => AttemptStatus.Skipped,
-        OperationCanceledException => AttemptStatus.Interrupted,
-        E2EException { Code: "TEST_TIMEOUT" } => AttemptStatus.TimedOut,
-        _ => AttemptStatus.Failed,
-    };
+    public static AttemptStatus StatusOf(Exception? error) =>
+        error switch
+        {
+            null => AttemptStatus.Passed,
+            SkipException => AttemptStatus.Skipped,
+            OperationCanceledException => AttemptStatus.Interrupted,
+            E2EException { Code: "TEST_TIMEOUT" } => AttemptStatus.TimedOut,
+            _ => AttemptStatus.Failed,
+        };
 
     /// <summary>The segments the attempt keeps, set by <see cref="StopAsync"/> even when it then throws.</summary>
     public IReadOnlyList<VideoSegment> Kept { get; private set; } = [];
@@ -130,7 +153,12 @@ internal sealed class ExecuteVideo
                 {
                     // An engine's path is its own word: only a file inside the attempt's directory is ours to delete.
                     var full = Path.GetFullPath(Path.Combine(_artifactsDir, file.Path));
-                    if (full.StartsWith(Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    if (
+                        full.StartsWith(
+                            Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar,
+                            StringComparison.Ordinal
+                        )
+                    )
                     {
                         File.Delete(full);
                     }
@@ -144,8 +172,7 @@ internal sealed class ExecuteVideo
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt reports none.
         catch (Exception) when (_recording.Policy == VideoPolicy.BestEffort)
 #pragma warning restore CA1031
-        {
-        }
+        { }
     }
 
     /// <summary>
@@ -155,19 +182,34 @@ internal sealed class ExecuteVideo
     /// </summary>
     // An engine's path is its own word: only a file inside the attempt's directory is ours to register.
     private bool InsideAttemptDir(string path) =>
-        Path.GetFullPath(Path.Combine(_artifactsDir, path)).StartsWith(Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        Path.GetFullPath(Path.Combine(_artifactsDir, path))
+            .StartsWith(Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     private void Register(IReadOnlyList<VideoSegment> segments, IArtifactSink? sink)
     {
-        var rejected = segments.OfType<VideoLink>().Where(link => ProviderRecordings.HostedVideoUrl(link.Url) is null).ToList();
+        var rejected = segments
+            .OfType<VideoLink>()
+            .Where(link => ProviderRecordings.HostedVideoUrl(link.Url) is null)
+            .ToList();
         Kept = [.. segments.Where(segment => segment is not VideoLink link || !rejected.Contains(link))];
         foreach (var segment in Kept)
         {
-            var startedAt = DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : (DateTimeOffset?)null;
+            var startedAt = DateTimeOffset.TryParse(
+                segment.StartedAt,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal,
+                out var parsed
+            )
+                ? parsed
+                : (DateTimeOffset?)null;
             switch (segment)
             {
                 case VideoFile file when sink is not null && InsideAttemptDir(file.Path):
-                    sink.Register(E2E.Reports.ArtifactKind.Video, file.Path.Replace(Path.DirectorySeparatorChar, '/'), new ArtifactRegistration { StartedAt = startedAt });
+                    sink.Register(
+                        E2E.Reports.ArtifactKind.Video,
+                        file.Path.Replace(Path.DirectorySeparatorChar, '/'),
+                        new ArtifactRegistration { StartedAt = startedAt }
+                    );
                     break;
                 case VideoLink link:
                     sink?.Link(link.Url, new ArtifactLink(link.MediaType, startedAt ?? DateTimeOffset.UtcNow));
@@ -177,7 +219,12 @@ internal sealed class ExecuteVideo
 
         if (rejected.Count > 0)
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + string.Join(", ", rejected.Select(link => $"\"{link.Url}\"")), retryable: false);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                "the engine returned a video link that is not an http(s) URL: "
+                    + string.Join(", ", rejected.Select(link => $"\"{link.Url}\"")),
+                retryable: false
+            );
         }
     }
 }

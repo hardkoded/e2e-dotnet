@@ -67,15 +67,22 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
     [Fact]
     public async Task Keeps_an_embedded_controls_value_out_of_the_getByLabel_match_and_a_secure_fields_value_out_of_every_name()
     {
-        await chromium.Page.SetContentAsync("""
+        await chromium.Page.SetContentAsync(
+            """
             <label for="qty">Qty <input value="5"> items</label><input id="qty" data-testid="label-for">
             <button data-testid="secure">Unlock <input type="password" value="hunter2"> now</button>
             <label for="pin">PIN <input type="password" value="hunter2"> field</label><input id="pin" data-testid="secure-label">
-            """);
+            """
+        );
         var nodes = await chromium.CaptureAsync();
         // Not ported: the label text upstream reads apart from the name (`labels` is ["Qty items"]); the
         // port has no label text, and its getByLabel matches the accessible name.
-        Assert.Equal("label-for", await chromium.Page.GetByLabel("Qty items", new PageGetByLabelOptions { Exact = true }).GetAttributeAsync("data-testid"));
+        Assert.Equal(
+            "label-for",
+            await chromium
+                .Page.GetByLabel("Qty items", new PageGetByLabelOptions { Exact = true })
+                .GetAttributeAsync("data-testid")
+        );
         Assert.Equal("Unlock now", nodes.Single(node => node.TestId == "secure").Name);
         Assert.Equal("PIN field", nodes.Single(node => node.TestId == "secure-label").Name);
         Assert.DoesNotContain("hunter2", JsonSerializer.Serialize(nodes), StringComparison.Ordinal);
@@ -86,7 +93,8 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
     [Fact]
     public async Task Names_a_control_from_its_descendants_the_way_the_role_selector_does_aria_label_alt_content_then_title()
     {
-        await AssertNamesAsync($$"""
+        await AssertNamesAsync(
+            $$"""
             <button data-testid="img"><img src="{{Pixel}}" alt="Search"></button>
             <button data-testid="svg"><svg aria-label="Close" width="10" height="10"></svg></button>
             <button data-testid="nested"><span><img src="{{Pixel}}" alt="Deep"></span></button>
@@ -111,13 +119,15 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
                 ("hidden", "button", "Kept"),
                 ("link", "link", "Home"),
                 ("image-input", "button", "Go"),
-            ]);
+            ]
+        );
     }
 
     [Fact]
     public async Task Reads_aria_labelledby_before_aria_label_and_either_before_a_label_element()
     {
-        await AssertNamesAsync($$"""
+        await AssertNamesAsync(
+            $$"""
             <span id="heading">Shipping address</span>
             <input aria-labelledby="heading" aria-label="Address" data-testid="referenced">
             <label for="named">Label text</label><input id="named" aria-label="Aria text" data-testid="labelled">
@@ -129,13 +139,21 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
                 ("labelled", "textbox", "Aria text"),
                 ("two-references", "button", "First Pic"),
             ],
-            async playwright => Assert.Equal(0, await playwright.Page.GetByRole(AriaRole.Textbox, new PageGetByRoleOptions { Name = "Address", Exact = true }).CountAsync()));
+            async playwright =>
+                Assert.Equal(
+                    0,
+                    await playwright
+                        .Page.GetByRole(AriaRole.Textbox, new PageGetByRoleOptions { Name = "Address", Exact = true })
+                        .CountAsync()
+                )
+        );
     }
 
     [Fact]
     public async Task Reads_a_referenced_target_whole_when_it_is_hidden_by_its_own_aria_label_and_drops_hidden_parts_of_a_shown_one()
     {
-        await AssertNamesAsync("""
+        await AssertNamesAsync(
+            """
             <button aria-labelledby="l1" aria-label="Delete" data-testid="hidden-reference"><span id="l1" hidden>Delete account</span></button>
             <button aria-labelledby="l2" aria-label="Delete" data-testid="aria-hidden-reference"><span id="l2" aria-hidden="true">Remove account</span></button>
             <button aria-labelledby="l3" data-testid="nested-hidden-reference">x</button>
@@ -155,13 +173,15 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
                 ("labelled-reference", "button", "Own label"),
                 // An aria-hidden ancestor hides the target as its own attribute would, so it is read whole.
                 ("aria-hidden-ancestor-reference", "button", "Label gone"),
-            ]);
+            ]
+        );
     }
 
     [Fact]
     public async Task Resolves_an_aria_labelledby_id_in_the_elements_own_shadow_tree_not_the_document()
     {
-        await AssertNamesAsync("""
+        await AssertNamesAsync(
+            """
             <span id="l">Outside</span>
             <x-host></x-host>
             <script>
@@ -169,13 +189,15 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
               root.innerHTML = '<span id="l">Inside</span><button aria-labelledby="l" data-testid="inside">x</button>';
             </script>
             """,
-            [("inside", "button", "Inside")]);
+            [("inside", "button", "Inside")]
+        );
     }
 
     [Fact]
     public async Task Follows_a_descendant_reference_in_a_name_from_content_once_per_element_and_never_from_inside_another()
     {
-        await AssertNamesAsync("""
+        await AssertNamesAsync(
+            """
             <button data-testid="svg-reference"><svg aria-labelledby="t1" width="10" height="10"><title id="t1">Close</title></svg>Icon</button>
             <button data-testid="block-svg-reference"><svg aria-labelledby="t2" style="display:block" width="10" height="10"><title id="t2">Close</title></svg>Icon</button>
             <button data-testid="svg-title"><svg width="10" height="10"><title>Svg title</title></svg></button>
@@ -199,7 +221,8 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
                 ("ancestor-reference", "button", "AB"),
                 ("self-reference", "button", "Self"),
                 ("nested-reference", "button", "Ref text"),
-            ]);
+            ]
+        );
     }
 
     [Fact]
@@ -227,7 +250,8 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
               document.querySelector('x-action').attachShadow({ mode: 'closed' }).innerHTML = '<b>[</b><slot></slot><b>]</b>';
             </script>
             """;
-        await AssertNamesAsync(html,
+        await AssertNamesAsync(
+            html,
             [
                 ("checkbox", "checkbox", "Remember me"),
                 ("radio", "radio", "Monthly"),
@@ -244,25 +268,36 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
                 ("submit-default", "button", "Submit"),
                 ("plain", "button", "Plain"),
                 ("submit-value", "button", "Send"),
-            ]);
+            ]
+        );
 
         // A closed root's slot lists its assigned nodes while the light child's `assignedSlot` reads null
         // from outside, so the slotted text is read once, at the slot. Playwright's role selector cannot
         // see a closed root and names the host "Save", so there is no locator to compare against.
         var nodes = await CaptureByTestIdAsync();
-        Assert.True(nodes["closed-slotted-button"].Role == "button" && nodes["closed-slotted-button"].Name == "[ Save ]", nodes["closed-slotted-button"].Name);
+        Assert.True(
+            nodes["closed-slotted-button"].Role == "button" && nodes["closed-slotted-button"].Name == "[ Save ]",
+            nodes["closed-slotted-button"].Name
+        );
     }
 
     // Sets the page's content, then checks the tree's role and name for each case and the one element
     // Playwright's role selector resolves for that role and exact name (upstream's locatedTestId) on the same
     // page. `more` reads further from that page.
-    private async Task AssertNamesAsync(string body, (string TestId, string Role, string Name)[] cases, Func<ChromiumPage, Task>? more = null)
+    private async Task AssertNamesAsync(
+        string body,
+        (string TestId, string Role, string Name)[] cases,
+        Func<ChromiumPage, Task>? more = null
+    )
     {
         await chromium.Page.SetContentAsync(body);
         var nodes = await CaptureByTestIdAsync();
         foreach (var (testId, role, name) in cases)
         {
-            Assert.True(nodes.TryGetValue(testId, out var node) && node.Role == role && node.Name == name, $"{testId}: {node?.Role} \"{node?.Name}\"");
+            Assert.True(
+                nodes.TryGetValue(testId, out var node) && node.Role == role && node.Name == name,
+                $"{testId}: {node?.Role} \"{node?.Name}\""
+            );
             Assert.Equal(testId, await LocatedTestIdAsync(role, name));
         }
 
@@ -274,7 +309,12 @@ public sealed class NamesFromContentAndPrecedenceTests(ChromiumPage chromium) : 
 
     // The test id of the one element Playwright's role selector resolves for this role and exact name.
     private Task<string?> LocatedTestIdAsync(string role, string name) =>
-        chromium.Page.GetByRole(Enum.Parse<AriaRole>(role, ignoreCase: true), new PageGetByRoleOptions { Name = name, Exact = true }).GetAttributeAsync("data-testid");
+        chromium
+            .Page.GetByRole(
+                Enum.Parse<AriaRole>(role, ignoreCase: true),
+                new PageGetByRoleOptions { Name = name, Exact = true }
+            )
+            .GetAttributeAsync("data-testid");
 
     private async Task<Dictionary<string, ReadNode>> CaptureByTestIdAsync() =>
         (await chromium.CaptureAsync()).Where(node => node.TestId is not null).ToDictionary(node => node.TestId!);

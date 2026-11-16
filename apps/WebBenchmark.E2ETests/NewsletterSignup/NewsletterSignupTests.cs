@@ -21,8 +21,9 @@ public sealed class NewsletterSignupTests : BenchmarkTest
         await Expect.That(Screen.GetByTestId("success-message")).Not.ToBeVisibleAsync();
         await Expect.That(Screen.GetByTestId("error-message")).Not.ToBeVisibleAsync();
         await Expect.That(email).ToHaveValueAsync("maria.novak@example.com");
-        await Expect.Poll(async () => string.Join('\n', await consoleErrors())).ToMatchAsync(
-            Does.Contain("Cannot read properties of undefined (reading 'subscribe')"));
+        await Expect
+            .Poll(async () => string.Join('\n', await consoleErrors()))
+            .ToMatchAsync(Does.Contain("Cannot read properties of undefined (reading 'subscribe')"));
     }
 
     /// <summary>
@@ -32,7 +33,8 @@ public sealed class NewsletterSignupTests : BenchmarkTest
     /// </summary>
     private async Task<Func<Task<string[]>>> CaptureConsoleErrorsAsync()
     {
-        await Browser.EvaluateAsync<object>("""
+        await Browser.EvaluateAsync<object>(
+            """
             () => {
               const errors = [];
               window.e2eConsoleErrors = errors;
@@ -43,7 +45,8 @@ public sealed class NewsletterSignupTests : BenchmarkTest
               };
               return null;
             }
-            """);
+            """
+        );
         return async () => await Browser.EvaluateAsync<string[]>("() => window.e2eConsoleErrors ?? []") ?? [];
     }
 }

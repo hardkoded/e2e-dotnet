@@ -35,6 +35,11 @@ public sealed class DerivedReasonWireTests
     [InlineData("1")]
     public void A_rule_upstream_lacks_makes_the_action_unreadable(string derived)
     {
-        Assert.ThrowsAny<JsonException>(() => JsonSerializer.Deserialize<RecordedAction>("{\"kind\":\"tool\",\"derived\":" + derived + "}", JsonDefaults.Options));
+        Assert.ThrowsAny<JsonException>(() =>
+            JsonSerializer.Deserialize<RecordedAction>(
+                "{\"kind\":\"tool\",\"derived\":" + derived + "}",
+                JsonDefaults.Options
+            )
+        );
     }
 }

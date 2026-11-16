@@ -14,7 +14,8 @@ namespace E2E.Tests.OpenSession;
 /// </summary>
 public sealed class HostOpenSessionTests : IDisposable
 {
-    private const string Config = """{ "trace": "on", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""";
+    private const string Config =
+        """{ "trace": "on", "targets": [{ "name": "kiosk", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""";
 
     private static readonly IReadOnlyDictionary<string, string?> NoEnv = new Dictionary<string, string?>();
 
@@ -35,12 +36,14 @@ public sealed class HostOpenSessionTests : IDisposable
     /// <summary>Retains hosts so an assertion failure cannot leave a published session behind.</summary>
     private async Task<E2EHost> OpenAsync(HostFakeEngine engine, OpenHostOptions? options = null)
     {
-        var host = await E2EHost.OpenAsync((options ?? new OpenHostOptions()) with
-        {
-            Cwd = _dir,
-            Env = NoEnv,
-            EngineFactory = _ => engine,
-        });
+        var host = await E2EHost.OpenAsync(
+            (options ?? new OpenHostOptions()) with
+            {
+                Cwd = _dir,
+                Env = NoEnv,
+                EngineFactory = _ => engine,
+            }
+        );
         _hosts.Add(host);
         return host;
     }
@@ -59,7 +62,9 @@ public sealed class HostOpenSessionTests : IDisposable
         var fake = new HostFakeEngine();
         var progress = new List<Reports.StepProgress>();
         var host = await OpenAsync(fake);
-        var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "home screen", OnStep = progress.Add });
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "home screen", OnStep = progress.Add }
+        );
         Assert.Equal("kiosk", session.Target);
         Assert.Equal("web", session.Fixtures.Platform);
         Assert.Equal(host.RunId, session.RunId);
@@ -99,9 +104,14 @@ public sealed class HostOpenSessionTests : IDisposable
             },
         };
         var host = await OpenAsync(fake);
-        var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "cancel a click", Timeout = TimeSpan.FromSeconds(30) });
+        var session = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "cancel a click", Timeout = TimeSpan.FromSeconds(30) }
+        );
         var click = session.Fixtures.Screen.GetByRole("button", "Submit").TapAsync();
-        var settled = click.ContinueWith(task => task.IsCompletedSuccessfully ? "resolved" : "rejected", TaskScheduler.Default);
+        var settled = click.ContinueWith(
+            task => task.IsCompletedSuccessfully ? "resolved" : "rejected",
+            TaskScheduler.Default
+        );
         await performing.Task.WaitAsync(TimeSpan.FromSeconds(10));
         var failures = await session.CloseAsync();
         Assert.Equal("rejected", await settled.WaitAsync(TimeSpan.FromSeconds(10)));
@@ -109,7 +119,9 @@ public sealed class HostOpenSessionTests : IDisposable
         Assert.Equal(1, fake.Disposes);
 
         // A step nobody awaited is a test outcome, not an unclean worker: the host opens the next session.
-        await using var next = await host.OpenSessionAsync(new OpenSessionOptions { Name = "after the abandoned step" });
+        await using var next = await host.OpenSessionAsync(
+            new OpenSessionOptions { Name = "after the abandoned step" }
+        );
         Assert.Equal("kiosk", next.Target);
         await host.CloseAsync();
     }
@@ -119,11 +131,18 @@ public sealed class HostOpenSessionTests : IDisposable
     public async Task Partial_Returns_cleanup_failures_from_close_and_throws_them_from_session_disposal()
     {
         WriteConfig();
-        var fake = new HostFakeEngine { OnDispose = () => Task.FromException(new InvalidOperationException("device stuck")) };
+        var fake = new HostFakeEngine
+        {
+            OnDispose = () => Task.FromException(new InvalidOperationException("device stuck")),
+        };
         var host = await OpenAsync(fake);
         var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "cleanup failure" });
         var failures = await session.CloseAsync();
-        Assert.Contains("device stuck", string.Join(',', failures.Select(failure => failure.Message)), StringComparison.Ordinal);
+        Assert.Contains(
+            "device stuck",
+            string.Join(',', failures.Select(failure => failure.Message)),
+            StringComparison.Ordinal
+        );
         Assert.Same(failures, await session.CloseAsync());
 
         var disposed = await Assert.ThrowsAsync<AggregateException>(async () =>
@@ -133,7 +152,9 @@ public sealed class HostOpenSessionTests : IDisposable
         });
         Assert.NotEmpty(disposed.InnerExceptions);
         Assert.Equal((1, 1), (fake.Starts, fake.Disposes));
-        var unsafeReuse = await Assert.ThrowsAsync<EngineException>(() => host.OpenSessionAsync(new OpenSessionOptions { Name = "unsafe reuse" }));
+        var unsafeReuse = await Assert.ThrowsAsync<EngineException>(() =>
+            host.OpenSessionAsync(new OpenSessionOptions { Name = "unsafe reuse" })
+        );
         Assert.Equal("WORKER_PROTOCOL", unsafeReuse.Code);
     }
 
@@ -160,7 +181,8 @@ public sealed class HostOpenSessionTests : IDisposable
     {
         File.WriteAllText(
             Path.Combine(_dir, E2EConfig.FileName),
-            """{ "targets": [{ "name": "one", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }, { "name": "two", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""");
+            """{ "targets": [{ "name": "one", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }, { "name": "two", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }"""
+        );
         var built = new List<string>();
         var one = new HostFakeEngine();
         var two = new HostFakeEngine();
@@ -170,13 +192,40 @@ public sealed class HostOpenSessionTests : IDisposable
             return target.Name == "one" ? one : two;
         }
 
-        var required = await Assert.ThrowsAsync<ConfigurationException>(() => E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, EngineFactory = Build }));
+        var required = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            E2EHost.OpenAsync(
+                new OpenHostOptions
+                {
+                    Cwd = _dir,
+                    Env = NoEnv,
+                    EngineFactory = Build,
+                }
+            )
+        );
         Assert.Equal("TARGET_REQUIRED", required.Code);
-        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, Target = "three", EngineFactory = Build }));
+        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            E2EHost.OpenAsync(
+                new OpenHostOptions
+                {
+                    Cwd = _dir,
+                    Env = NoEnv,
+                    Target = "three",
+                    EngineFactory = Build,
+                }
+            )
+        );
         Assert.Equal("UNKNOWN_TARGET", unknown.Code);
         Assert.Empty(built);
 
-        var host = await E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, Target = "two", EngineFactory = Build });
+        var host = await E2EHost.OpenAsync(
+            new OpenHostOptions
+            {
+                Cwd = _dir,
+                Env = NoEnv,
+                Target = "two",
+                EngineFactory = Build,
+            }
+        );
         _hosts.Add(host);
         await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "second target" });
         Assert.Equal("two", session.Target);

@@ -18,7 +18,14 @@ namespace E2E;
 /// <param name="Title">The test's title.</param>
 /// <param name="Tags">The categories or traits of the test, its class, and its enclosing classes.</param>
 /// <param name="SkipReason">Why the test is skipped outright (<c>[Ignore]</c>); null when it is not.</param>
-internal sealed record DiscoveredTest(string Key, string Namespace, string TypeName, string Title, IReadOnlyList<string> Tags, string? SkipReason = null);
+internal sealed record DiscoveredTest(
+    string Key,
+    string Namespace,
+    string TypeName,
+    string Title,
+    IReadOnlyList<string> Tags,
+    string? SkipReason = null
+);
 
 /// <summary>
 /// What the filters decided for a run (.NET-only): the tests left out with their reasons, for each test to skip itself, and the report's
@@ -38,7 +45,8 @@ internal sealed record HostSelection(
     ReportChanges? Changes,
     PreviousRun? Previous = null,
     RerunCollection? Collected = null,
-    string? RerunDir = null);
+    string? RerunDir = null
+);
 
 /// <summary>
 /// Wires the test filters into a framework adapter's run (upstream's host applies <c>filterSelection</c> after <c>select</c>; .NET-only
@@ -50,19 +58,31 @@ internal static class HostTestFilters
     /// <summary>The environment variable that names the base ref when the host gives none (<c>--changed-since</c>).</summary>
     public const string ChangedSinceVariable = "E2E_CHANGED_SINCE";
 
-    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", "node_modules", ".git", ".vs", ".e2e" };
+    private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "bin",
+        "obj",
+        "node_modules",
+        ".git",
+        ".vs",
+        ".e2e",
+    };
 
     /// <summary>The environment variable that asks for a <c>--last-failed</c> rerun when the host does not (<c>1</c> or <c>true</c>).</summary>
     public const string LastFailedVariable = "E2E_LAST_FAILED";
 
     /// <summary>Whether the run is a <c>--last-failed</c> rerun: <paramref name="configured"/>, else <c>E2E_LAST_FAILED</c> set to <c>1</c> or <c>true</c>.</summary>
     public static bool ResolveLastFailed(bool configured, Func<string, string?>? environment = null) =>
-        configured || (environment ?? Environment.GetEnvironmentVariable)(LastFailedVariable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+        configured
+        || (environment ?? Environment.GetEnvironmentVariable)(LastFailedVariable)?.Trim() is { } value
+            && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The base ref to measure the change from: <paramref name="configured"/>, else <c>E2E_CHANGED_SINCE</c>; null when neither is set.</summary>
     public static string? ResolveChangedSince(string? configured, Func<string, string?>? environment = null)
     {
-        var value = string.IsNullOrWhiteSpace(configured) ? (environment ?? Environment.GetEnvironmentVariable)(ChangedSinceVariable) : configured;
+        var value = string.IsNullOrWhiteSpace(configured)
+            ? (environment ?? Environment.GetEnvironmentVariable)(ChangedSinceVariable)
+            : configured;
         return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
@@ -79,7 +99,8 @@ internal static class HostTestFilters
         IReadOnlyList<DiscoveredTest> discovered,
         Action<string> notice,
         CancellationToken cancellationToken,
-        bool lastFailed = false)
+        bool lastFailed = false
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(filters);
@@ -96,24 +117,41 @@ internal static class HostTestFilters
 
         // With no filter nothing judges a file, so the tree is not walked.
         var files = filters.Count == 0 ? [] : SourceFiles(config.ProjectRoot);
-        var collection = Collect(discovered, files, config.AllSecrets.Select(secret => (secret.Name, secret.Value)).ToList(), out var keys);
+        var collection = Collect(
+            discovered,
+            files,
+            config.AllSecrets.Select(secret => (secret.Name, secret.Value)).ToList(),
+            out var keys
+        );
 
         // The previous run's report is read where this run will write its own, before anything replaces it; no report is NO_LAST_RUN.
-        var previous = lastFailed ? await LastRun.ReadPreviousRunAsync(ReportFile.PathFor(OutputLayout.Of(config.Output).Results), cancellationToken).ConfigureAwait(false) : null;
-        var selectionFilters = new SelectionFilters { LastFailed = previous is null ? null : LastRun.LastFailedIds(previous.Report) };
+        var previous = lastFailed
+            ? await LastRun
+                .ReadPreviousRunAsync(ReportFile.PathFor(OutputLayout.Of(config.Output).Results), cancellationToken)
+                .ConfigureAwait(false)
+            : null;
+        var selectionFilters = new SelectionFilters
+        {
+            LastFailed = previous is null ? null : LastRun.LastFailedIds(previous.Report),
+        };
         var first = Selector.Select(collection, resolved, selectionFilters, passWithNoTests: true);
         var filtered = changedSince is null
             ? new FilteredSelection(first, [], null)
-            : await TestFilters.FilterSelection(first, new FilterSelectionOptions
-            {
-                Config = resolved,
-                ChangedSince = changedSince,
-                CancellationToken = cancellationToken,
-                Notice = Say,
-                Collection = collection,
-                SelectionFilters = selectionFilters,
-                Step = FilterStepAsync,
-            }).ConfigureAwait(false);
+            : await TestFilters
+                .FilterSelection(
+                    first,
+                    new FilterSelectionOptions
+                    {
+                        Config = resolved,
+                        ChangedSince = changedSince,
+                        CancellationToken = cancellationToken,
+                        Notice = Say,
+                        Collection = collection,
+                        SelectionFilters = selectionFilters,
+                        Step = FilterStepAsync,
+                    }
+                )
+                .ConfigureAwait(false);
 
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
         var results = new List<ReportResult>();
@@ -130,7 +168,9 @@ internal static class HostTestFilters
         if (previous is not null)
         {
             var resultsRoot = OutputLayout.Of(config.Output).Results;
-            await ArtifactPaths.PruneArtifactsAsync(resultsRoot, LastRun.ReportArtifactPaths(previous.Report), cancellationToken).ConfigureAwait(false);
+            await ArtifactPaths
+                .PruneArtifactsAsync(resultsRoot, LastRun.ReportArtifactPaths(previous.Report), cancellationToken)
+                .ConfigureAwait(false);
             rerunDir = await ArtifactPaths.NextRerunDirAsync(resultsRoot).ConfigureAwait(false);
         }
 
@@ -140,8 +180,14 @@ internal static class HostTestFilters
             filtered.Records,
             filtered.Changes,
             previous,
-            previous is null ? null : new RerunCollection(new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal)),
-            rerunDir);
+            previous is null
+                ? null
+                : new RerunCollection(
+                    new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal),
+                    new HashSet<string>(StringComparer.Ordinal)
+                ),
+            rerunDir
+        );
     }
 
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
@@ -151,36 +197,49 @@ internal static class HostTestFilters
         RunEvents.Emit(new SetupEvent(step, SetupState.Started));
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var call = await work().ConfigureAwait(false);
-        RunEvents.Emit(new SetupEvent(
-            step,
-            SetupState.Finished,
-            (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
-            call.Outcome switch { FilterOutcome.Failed => SetupOutcome.Failed, FilterOutcome.TimedOut => SetupOutcome.TimedOut, _ => null }));
+        RunEvents.Emit(
+            new SetupEvent(
+                step,
+                SetupState.Finished,
+                (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+                call.Outcome switch
+                {
+                    FilterOutcome.Failed => SetupOutcome.Failed,
+                    FilterOutcome.TimedOut => SetupOutcome.TimedOut,
+                    _ => null,
+                }
+            )
+        );
         return call;
     }
 
     // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.
-    private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) => new()
-    {
-        // The id its executed row gets (class as the file, method as the title), so a fold finds both as one test.
-        Id = AttemptReport.ResultId(test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)], test.Title),
-        TestId = test.Id,
-        File = test.File,
-        TitlePath = test.TitlePath,
-        DeclarationIndex = test.DeclarationIndex,
-        TargetId = target.Name,
-        Platform = target.Platform,
-        Tags = test.Tags,
-        Selected = false,
-        Status = ResultStatus.Skipped,
-        Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter),
-    };
+    private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) =>
+        new()
+        {
+            // The id its executed row gets (class as the file, method as the title), so a fold finds both as one test.
+            Id = AttemptReport.ResultId(test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)], test.Title),
+            TestId = test.Id,
+            File = test.File,
+            TitlePath = test.TitlePath,
+            DeclarationIndex = test.DeclarationIndex,
+            TargetId = target.Name,
+            Platform = target.Platform,
+            Tags = test.Tags,
+            Selected = false,
+            Status = ResultStatus.Skipped,
+            Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter),
+        };
 
     /// <summary>
     /// Puts what the filters decided into the run's <c>report.json</c> (<c>run.changes</c>, <c>run.filters</c>, and a skipped result per test
     /// left out), so the reporters can say so. Nothing is written when no filter had a say. The report is a courtesy: a failure is one line on stderr.
     /// </summary>
-    public static async Task WriteReportAsync(E2EConfig config, HostSelection selection, CancellationToken cancellationToken)
+    public static async Task WriteReportAsync(
+        E2EConfig config,
+        HostSelection selection,
+        CancellationToken cancellationToken
+    )
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(selection);
@@ -191,22 +250,47 @@ internal static class HostTestFilters
 
         try
         {
-            var target = new ReportTarget(config.Target.Name, 0, config.Target.Platform, BuildReport.DescribeTarget(null));
-            await ReportFile.WriteLeftOutAsync(selection, target, config.ProjectRoot, OutputLayout.Of(config.Output).Results, Resolve(config, []), cancellationToken).ConfigureAwait(false);
+            var target = new ReportTarget(
+                config.Target.Name,
+                0,
+                config.Target.Platform,
+                BuildReport.DescribeTarget(null)
+            );
+            await ReportFile
+                .WriteLeftOutAsync(
+                    selection,
+                    target,
+                    config.ProjectRoot,
+                    OutputLayout.Of(config.Output).Results,
+                    Resolve(config, []),
+                    cancellationToken
+                )
+                .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for the tests the filters left out: " + ex.Message);
+            Console.Error.WriteLine(
+                "[e2e] could not write " + ReportFile.FileName + " for the tests the filters left out: " + ex.Message
+            );
         }
     }
 
     /// <summary>A one-target <see cref="ResolvedConfig"/> from the loaded config (.NET-only: the port has no resolver). <paramref name="agents"/> are the agents built in code, which the digest takes in place of the file's <c>agents</c>; <paramref name="target"/> is the one a session runs on, where the config declares several (default <see cref="E2EConfig.Target"/>).</summary>
-    internal static ResolvedConfig Resolve(E2EConfig config, IReadOnlyList<ITestFilter> filters, IReadOnlyDictionary<string, AgentOptions>? agents = null, TargetConfig? target = null)
+    internal static ResolvedConfig Resolve(
+        E2EConfig config,
+        IReadOnlyList<ITestFilter> filters,
+        IReadOnlyDictionary<string, AgentOptions>? agents = null,
+        TargetConfig? target = null
+    )
     {
         ResolvedTarget[] targets = [ResolvedConfig.ResolveTarget(target ?? config.Target)];
 
         // Upstream's resolve checks every target's engine secrets at load, so a typo fails before a run starts, even in a target the run does not use.
-        ResolvedConfig.CheckEngineSecrets([.. config.Targets.Select(ResolvedConfig.ResolveTarget)], config.Secrets, config.Credentials);
+        ResolvedConfig.CheckEngineSecrets(
+            [.. config.Targets.Select(ResolvedConfig.ResolveTarget)],
+            config.Secrets,
+            config.Credentials
+        );
         return new()
         {
             ProjectRoot = config.ProjectRoot,
@@ -241,7 +325,12 @@ internal static class HostTestFilters
         return title;
     }
 
-    internal static Collection Collect(IReadOnlyList<DiscoveredTest> discovered, IReadOnlyList<string> sourceFiles, IReadOnlyList<(string Name, string Value)> secrets, out Dictionary<string, string> keys)
+    internal static Collection Collect(
+        IReadOnlyList<DiscoveredTest> discovered,
+        IReadOnlyList<string> sourceFiles,
+        IReadOnlyList<(string Name, string Value)> secrets,
+        out Dictionary<string, string> keys
+    )
     {
         keys = new Dictionary<string, string>(StringComparer.Ordinal);
         var tests = new List<CollectedTest>();
@@ -253,22 +342,49 @@ internal static class HostTestFilters
             _ = RegisteredTitle(test.Title, secrets);
 
             // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
-            var id = Ids.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, [test.Title]);
+            var id = Ids.TestId(
+                test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName,
+                [test.Title]
+            );
             keys[id] = test.Key;
-            tests.Add(new CollectedTest
-            {
-                Kind = TestKind.Test,
-                Title = test.Title,
-                TitlePath = [test.TypeName, test.Title],
-                DeclarationIndex = tests.Count,
-                Tags = [.. test.Tags.Distinct(StringComparer.Ordinal)],
-                File = file,
-                Id = id,
-                Options = new ResolvedTestOptions(null, [], null, ["default"], test.SkipReason is null ? null : TextRules.TruncateUtf8(TextRules.SanitizeText(Redactor.For(secrets).Redact(test.SkipReason)), TextRules.MaxSkipReasonBytes), false),
-            });
+            tests.Add(
+                new CollectedTest
+                {
+                    Kind = TestKind.Test,
+                    Title = test.Title,
+                    TitlePath = [test.TypeName, test.Title],
+                    DeclarationIndex = tests.Count,
+                    Tags = [.. test.Tags.Distinct(StringComparer.Ordinal)],
+                    File = file,
+                    Id = id,
+                    Options = new ResolvedTestOptions(
+                        null,
+                        [],
+                        null,
+                        ["default"],
+                        test.SkipReason is null
+                            ? null
+                            : TextRules.TruncateUtf8(
+                                TextRules.SanitizeText(Redactor.For(secrets).Redact(test.SkipReason)),
+                                TextRules.MaxSkipReasonBytes
+                            ),
+                        false
+                    ),
+                }
+            );
         }
 
-        return new Collection { Files = [.. tests.Select(test => test.File).Distinct(StringComparer.Ordinal).Select(file => new CollectedFile { File = file })], Tests = tests };
+        return new Collection
+        {
+            Files =
+            [
+                .. tests
+                    .Select(test => test.File)
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(file => new CollectedFile { File = file }),
+            ],
+            Tests = tests,
+        };
     }
 
     /// <summary>
@@ -284,11 +400,17 @@ internal static class HostTestFilters
         var name = outer + ".cs";
         var parts = test.Namespace.Split('.', StringSplitOptions.RemoveEmptyEntries);
         var best = (File: (string?)null, Score: -1);
-        foreach (var file in sourceFiles.Where(file => string.Equals(Path.GetFileName(file), name, StringComparison.Ordinal)))
+        foreach (
+            var file in sourceFiles.Where(file => string.Equals(Path.GetFileName(file), name, StringComparison.Ordinal))
+        )
         {
             var folders = file.Split('/')[..^1];
             var score = 0;
-            while (score < parts.Length && score < folders.Length && string.Equals(folders[^(score + 1)], parts[^(score + 1)], StringComparison.Ordinal))
+            while (
+                score < parts.Length
+                && score < folders.Length
+                && string.Equals(folders[^(score + 1)], parts[^(score + 1)], StringComparison.Ordinal)
+            )
             {
                 score++;
             }
@@ -320,7 +442,14 @@ internal static class HostTestFilters
                 found.Add(Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/'));
             }
 
-            foreach (var child in Directory.EnumerateDirectories(directory).Where(child => !IgnoredDirectories.Contains(Path.GetFileName(child)) && !new DirectoryInfo(child).Attributes.HasFlag(FileAttributes.ReparsePoint)))
+            foreach (
+                var child in Directory
+                    .EnumerateDirectories(directory)
+                    .Where(child =>
+                        !IgnoredDirectories.Contains(Path.GetFileName(child))
+                        && !new DirectoryInfo(child).Attributes.HasFlag(FileAttributes.ReparsePoint)
+                    )
+            )
             {
                 pending.Push(child);
             }

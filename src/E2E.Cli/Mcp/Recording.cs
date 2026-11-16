@@ -11,7 +11,14 @@ using E2E.Engine;
 namespace E2E.Cli.Mcp;
 
 /// <summary>A recording that stopped: its files in order, and how long it ran (upstream's <c>FinishedRecording</c>).</summary>
-internal sealed record FinishedRecording(int Index, string? Name, IReadOnlyList<string> Files, DateTimeOffset StartedAt, TimeSpan Duration, bool Tainted);
+internal sealed record FinishedRecording(
+    int Index,
+    string? Name,
+    IReadOnlyList<string> Files,
+    DateTimeOffset StartedAt,
+    TimeSpan Duration,
+    bool Tainted
+);
 
 /// <summary>
 /// Video recordings of a live session (upstream's <c>mcp/recording.ts</c>). A session does not record by itself: the coding agent starts
@@ -25,7 +32,8 @@ internal sealed partial class SessionRecorder(
     string attemptDir,
     string outDir,
     TimeSpan timeout,
-    Func<bool> tainted) : IDisposable
+    Func<bool> tainted
+) : IDisposable
 {
     private readonly SemaphoreSlim _queue = new(1, 1);
     private ActiveRecording? _active;
@@ -60,7 +68,8 @@ internal sealed partial class SessionRecorder(
                 _active = new ActiveRecording(++_count, name, DateTimeOffset.UtcNow);
                 return $"{Describe(_active.Index, _active.Name)} started. Act as usual; stop_recording saves the video, and close_session saves one still running.";
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     /// <summary>
     /// Stops the running recording and moves its files out of the attempt directory; null when nothing records. A stop or a move that fails
@@ -87,11 +96,28 @@ internal sealed partial class SessionRecorder(
 
                 var files = active.Segments.Select((segment, position) => Keep(active, segment, position)).ToList();
                 _active = null;
-                var startedAt = active.Segments.Count > 0 && DateTimeOffset.TryParse(active.Segments[0].StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var first) ? first : active.StartedAt;
+                var startedAt =
+                    active.Segments.Count > 0
+                    && DateTimeOffset.TryParse(
+                        active.Segments[0].StartedAt,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal,
+                        out var first
+                    )
+                        ? first
+                        : active.StartedAt;
                 var duration = active.StoppedAt - startedAt;
-                return new FinishedRecording(active.Index, active.Name, files, startedAt, duration < TimeSpan.Zero ? TimeSpan.Zero : duration, tainted());
+                return new FinishedRecording(
+                    active.Index,
+                    active.Name,
+                    files,
+                    startedAt,
+                    duration < TimeSpan.Zero ? TimeSpan.Zero : duration,
+                    tainted()
+                );
             },
-            cancellationToken);
+            cancellationToken
+        );
 
     public void Dispose() => _queue.Dispose();
 
@@ -99,20 +125,27 @@ internal sealed partial class SessionRecorder(
     public static string Describe(FinishedRecording recording)
     {
         ArgumentNullException.ThrowIfNull(recording);
-        var lines = new List<string> { $"{Describe(recording.Index, recording.Name)} stopped after {recording.Duration.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s." };
+        var lines = new List<string>
+        {
+            $"{Describe(recording.Index, recording.Name)} stopped after {recording.Duration.TotalSeconds.ToString("0.0", CultureInfo.InvariantCulture)} s.",
+        };
         if (recording.Files.Count == 0)
         {
             lines.Add("The engine wrote no video: nothing was shown while it ran.");
         }
         else if (recording.Files.Count > 1)
         {
-            lines.Add($"{recording.Files.Count.ToString(CultureInfo.InvariantCulture)} files, one per page the surface showed; they play in this order:");
+            lines.Add(
+                $"{recording.Files.Count.ToString(CultureInfo.InvariantCulture)} files, one per page the surface showed; they play in this order:"
+            );
         }
 
         lines.AddRange(recording.Files.Select(file => "- " + file));
         if (recording.Tainted && recording.Files.Count > 0)
         {
-            lines.Add("A secret was filled in this session and videos are not masked: check it is not on screen before sharing.");
+            lines.Add(
+                "A secret was filled in this session and videos are not masked: check it is not on screen before sharing."
+            );
         }
 
         return string.Join('\n', lines);
@@ -120,44 +153,78 @@ internal sealed partial class SessionRecorder(
 
     /// <summary>The session's <c>start_recording</c> and <c>stop_recording</c> tools (upstream's <c>recordingTools</c>).</summary>
     public IReadOnlyList<KeyValuePair<string, CatalogTool>> Tools() =>
-    [
-        new("start_recording", new CatalogTool
-        {
-            Description = "Start recording a video of the app, for a person to watch: a demo for a pull request, or evidence of a bug. Everything on screen until stop_recording is in it, unmasked. One recording at a time; start and stop as many as you need.",
-            InputSchema = JsonSerializer.SerializeToElement(new JsonObject
-            {
-                ["type"] = "object",
-                ["properties"] = new JsonObject
+        [
+            new(
+                "start_recording",
+                new CatalogTool
                 {
-                    ["name"] = new JsonObject { ["type"] = "string", ["pattern"] = "^[A-Za-z0-9][A-Za-z0-9_-]*$", ["maxLength"] = 64, ["description"] = "Short name for the file, e.g. \"checkout-flow\"" },
-                },
-                ["additionalProperties"] = false,
-            }),
-            Execute = async (args, token) =>
-            {
-                var name = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("name", out var given) && given.ValueKind == JsonValueKind.String ? given.GetString() : null;
-                if (name is not null && (name.Length > 64 || !ValidName().IsMatch(name)))
-                {
-                    // The argument check ignores a schema's pattern, so the name is checked here, worded as the call's own argument errors are.
-                    throw new ConfigurationException("INVALID_ARGUMENT", "call start_recording: name: letters, digits, \"-\", and \"_\" only, starting with a letter or digit, up to 64; tools {tool: \"start_recording\"} shows its arguments");
+                    Description =
+                        "Start recording a video of the app, for a person to watch: a demo for a pull request, or evidence of a bug. Everything on screen until stop_recording is in it, unmasked. One recording at a time; start and stop as many as you need.",
+                    InputSchema = JsonSerializer.SerializeToElement(
+                        new JsonObject
+                        {
+                            ["type"] = "object",
+                            ["properties"] = new JsonObject
+                            {
+                                ["name"] = new JsonObject
+                                {
+                                    ["type"] = "string",
+                                    ["pattern"] = "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+                                    ["maxLength"] = 64,
+                                    ["description"] = "Short name for the file, e.g. \"checkout-flow\"",
+                                },
+                            },
+                            ["additionalProperties"] = false,
+                        }
+                    ),
+                    Execute = async (args, token) =>
+                    {
+                        var name =
+                            args.ValueKind == JsonValueKind.Object
+                            && args.TryGetProperty("name", out var given)
+                            && given.ValueKind == JsonValueKind.String
+                                ? given.GetString()
+                                : null;
+                        if (name is not null && (name.Length > 64 || !ValidName().IsMatch(name)))
+                        {
+                            // The argument check ignores a schema's pattern, so the name is checked here, worded as the call's own argument errors are.
+                            throw new ConfigurationException(
+                                "INVALID_ARGUMENT",
+                                "call start_recording: name: letters, digits, \"-\", and \"_\" only, starting with a letter or digit, up to 64; tools {tool: \"start_recording\"} shows its arguments"
+                            );
+                        }
+
+                        return await StartAsync(name, token).ConfigureAwait(false);
+                    },
                 }
+            ),
+            new(
+                "stop_recording",
+                new CatalogTool
+                {
+                    Description =
+                        "Stop the running recording and save it: returns the absolute path of each video file, ready to attach to a pull request.",
+                    InputSchema = JsonSerializer.SerializeToElement(
+                        new
+                        {
+                            type = "object",
+                            properties = new { },
+                            additionalProperties = false,
+                        }
+                    ),
+                    Execute = async (_, token) =>
+                    {
+                        var recording = await StopAsync(token).ConfigureAwait(false);
+                        return recording is null
+                            ? "Nothing is recording; start_recording starts a recording."
+                            : Describe(recording);
+                    },
+                }
+            ),
+        ];
 
-                return await StartAsync(name, token).ConfigureAwait(false);
-            },
-        }),
-        new("stop_recording", new CatalogTool
-        {
-            Description = "Stop the running recording and save it: returns the absolute path of each video file, ready to attach to a pull request.",
-            InputSchema = JsonSerializer.SerializeToElement(new { type = "object", properties = new { }, additionalProperties = false }),
-            Execute = async (_, token) =>
-            {
-                var recording = await StopAsync(token).ConfigureAwait(false);
-                return recording is null ? "Nothing is recording; start_recording starts a recording." : Describe(recording);
-            },
-        }),
-    ];
-
-    private static string Describe(int index, string? name) => $"Recording {index.ToString(CultureInfo.InvariantCulture)}" + (name is null ? "" : $" \"{name}\"");
+    private static string Describe(int index, string? name) =>
+        $"Recording {index.ToString(CultureInfo.InvariantCulture)}" + (name is null ? "" : $" \"{name}\"");
 
     /// <summary>Runs <paramref name="body"/> after every call before it has settled.</summary>
     private async Task<T> SerialAsync<T>(Func<Task<T>> body, CancellationToken cancellationToken)
@@ -189,11 +256,24 @@ internal sealed partial class SessionRecorder(
         if (segment is VideoLink link)
         {
             return ProviderRecordings.HostedVideoUrl(link.Url)
-                ?? throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + JsonSerializer.Serialize(link.Url), retryable: false);
+                ?? throw new EngineException(
+                    EngineErrorCodes.EngineFailure,
+                    "the engine returned a video link that is not an http(s) URL: "
+                        + JsonSerializer.Serialize(link.Url),
+                    retryable: false
+                );
         }
 
         var file = (VideoFile)segment;
-        var stem = string.Join('-', new[] { recording.Index.ToString(CultureInfo.InvariantCulture), recording.Name, position == 0 ? null : "part" + (position + 1).ToString(CultureInfo.InvariantCulture) }.Where(part => part is not null));
+        var stem = string.Join(
+            '-',
+            new[]
+            {
+                recording.Index.ToString(CultureInfo.InvariantCulture),
+                recording.Name,
+                position == 0 ? null : "part" + (position + 1).ToString(CultureInfo.InvariantCulture),
+            }.Where(part => part is not null)
+        );
         var destination = Path.Combine(outDir, stem + Path.GetExtension(file.Path));
 
         // .NET-only hardening: an engine's path is its own word, so only a file inside the attempt's directory is ours to move.
@@ -201,7 +281,11 @@ internal sealed partial class SessionRecorder(
         var source = Path.GetFullPath(Path.Combine(directory, file.Path));
         if (!source.StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
         {
-            throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video outside the attempt's directory: " + JsonSerializer.Serialize(file.Path), retryable: false);
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                "the engine returned a video outside the attempt's directory: " + JsonSerializer.Serialize(file.Path),
+                retryable: false
+            );
         }
 
         if (!File.Exists(source) && File.Exists(destination))

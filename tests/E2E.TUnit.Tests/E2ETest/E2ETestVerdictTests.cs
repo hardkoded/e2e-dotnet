@@ -24,11 +24,12 @@ public sealed class ExpectedVerdictAttribute(Type error, string? part = null) : 
     public ValueTask OnTestEnd(TUnitContext context)
     {
         var verdict = ((E2E.TUnit.E2ETest)context.Metadata.TestDetails.ClassInstance).CompletedWith;
-        var wrong = verdict is null || !error.IsInstanceOfType(verdict)
-            ? $"The session was completed with {verdict?.GetType().Name ?? "no error"}, not {error.Name}."
+        var wrong =
+            verdict is null || !error.IsInstanceOfType(verdict)
+                ? $"The session was completed with {verdict?.GetType().Name ?? "no error"}, not {error.Name}."
             : part is not null && !verdict.Message.Contains(part, StringComparison.Ordinal)
                 ? $"The verdict \"{verdict.Message}\" does not hold \"{part}\"."
-                : null;
+            : null;
         if (wrong is null)
         {
             context.Execution.OverrideResult(TestState.Passed, "the session was completed as expected");
@@ -86,7 +87,9 @@ public sealed class SoftEvidenceFixture : SessionFixtureBase
     public async Task Soft_failure_then_the_body_returns()
     {
         await App.OpenAsync("/browser");
-        await Expect.Soft(Screen.GetByLabel("Loads")).ToHaveTextAsync("the count", timeout: TimeSpan.FromMilliseconds(200));
+        await Expect
+            .Soft(Screen.GetByLabel("Loads"))
+            .ToHaveTextAsync("the count", timeout: TimeSpan.FromMilliseconds(200));
     }
 
     [After(HookType.Test)]

@@ -12,7 +12,10 @@ namespace E2E.Tests.Fetch;
 /// <summary>An in-memory store: the tests' way to hand a login to a handler without a file.</summary>
 internal sealed class MemoryCredentialStore(Dictionary<string, OAuthCredentials>? initial = null) : ICredentialStore
 {
-    private readonly ConcurrentDictionary<string, OAuthCredentials> _entries = new(initial ?? [], StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, OAuthCredentials> _entries = new(
+        initial ?? [],
+        StringComparer.Ordinal
+    );
 
     public Task<OAuthCredentials?> GetAsync(string providerId, CancellationToken cancellationToken = default) =>
         Task.FromResult(_entries.TryGetValue(providerId, out var credentials) ? credentials : null);
@@ -39,8 +42,11 @@ internal sealed class RotatingProvider : IOAuthProvider
 
     public string Name => "Test";
 
-    public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken) =>
-        Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
+    public Task<OAuthCredentials> LoginAsync(
+        OAuthLoginCallbacks callbacks,
+        OAuthLoginOptions options,
+        CancellationToken cancellationToken
+    ) => Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
 
     public async Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
     {
@@ -49,7 +55,10 @@ internal sealed class RotatingProvider : IOAuthProvider
         {
             if (Refreshes.Contains(credentials.Refresh))
             {
-                throw new OAuthException(OAuthException.LoginRequired, "refresh token " + credentials.Refresh + " was already used");
+                throw new OAuthException(
+                    OAuthException.LoginRequired,
+                    "refresh token " + credentials.Refresh + " was already used"
+                );
             }
 
             Refreshes.Add(credentials.Refresh);
@@ -57,13 +66,24 @@ internal sealed class RotatingProvider : IOAuthProvider
         }
 
         await Task.Delay(20, cancellationToken);
-        return new OAuthCredentials { Access = "fresh-" + n, Refresh = "rt-" + n, Expires = Later() };
+        return new OAuthCredentials
+        {
+            Access = "fresh-" + n,
+            Refresh = "rt-" + n,
+            Expires = Later(),
+        };
     }
 
-    public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task PrepareAsync(
+        HttpRequestMessage request,
+        OAuthCredentials credentials,
+        CancellationToken cancellationToken
+    ) => Task.CompletedTask;
 
-    public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
+    public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(
+        HttpClient http,
+        CancellationToken cancellationToken
+    ) => Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
 
     public static long Later() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 3_600_000;
 
@@ -78,12 +98,20 @@ internal sealed class FakeApi(Func<FakeApi.Received, (HttpStatusCode Status, str
     /// <summary>The answer this API gives a request, without recording it.</summary>
     public (HttpStatusCode Status, string Body) Respond(Received request) => answer(request);
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken
+    )
     {
         var received = new Received(
             request.RequestUri!,
-            request.Headers.NonValidated.ToDictionary(header => header.Key.ToLowerInvariant(), header => header.Value.ToString(), StringComparer.Ordinal),
-            request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
+            request.Headers.NonValidated.ToDictionary(
+                header => header.Key.ToLowerInvariant(),
+                header => header.Value.ToString(),
+                StringComparer.Ordinal
+            ),
+            request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)
+        );
         Requests.Enqueue(received);
         var (status, body) = answer(received);
         return new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
@@ -101,5 +129,9 @@ internal static class FakeJwt
     public static string Of(string payload) => Part("""{"alg":"none"}""") + "." + Part(payload) + ".sig";
 
     private static string Part(string json) =>
-        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        Convert
+            .ToBase64String(System.Text.Encoding.UTF8.GetBytes(json))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
 }

@@ -27,16 +27,13 @@ public sealed class ToolPixelsTests
             ["default"] = new AgentOptions { Model = model, Tools = MobileTools.Create(engine) },
         };
 
-        var outcome = await MobileRun.RunAsync(
-            engine,
-            [
-                new InMemoryTest("keep pixels", async session =>
+        var outcome = await MobileRun.RunAsync(engine, [new InMemoryTest("keep pixels", async session =>
                 {
-                    await session.Context.Screen.GetByRole("textbox", name: "Password").FillAsync(Secret.Create("audit.password", "synthetic-device-secret"));
+                    await session
+                        .Context.Screen.GetByRole("textbox", name: "Password")
+                        .FillAsync(Secret.Create("audit.password", "synthetic-device-secret"));
                     await session.Context.Agent.ActAsync("inspect the pixels");
-                }),
-            ],
-            agents);
+                })], agents);
 
         Assert.Equal(RunStatus.Passed, outcome.Status);
         Assert.Contains("open_app", offered);

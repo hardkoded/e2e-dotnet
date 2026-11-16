@@ -17,7 +17,8 @@ public sealed class BrowserFixtureTests : E2ETest
     private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
         """{ "cache": { "mode": "off" } }""",
         AppContext.BaseDirectory,
-        _ => null);
+        _ => null
+    );
 
     protected override E2EConfig Config => FixtureConfig;
 
@@ -82,7 +83,14 @@ public sealed class BrowserFixtureTests : E2ETest
     {
         await Expect.That(Screen.GetByLabel("Cookies")).ToHaveTextAsync("no cookies");
 
-        await Browser.SetCookiesAsync([new BrowserCookie { Name = "theme", Value = "dark", Url = await Browser.UrlAsync() }]);
+        await Browser.SetCookiesAsync([
+            new BrowserCookie
+            {
+                Name = "theme",
+                Value = "dark",
+                Url = await Browser.UrlAsync(),
+            },
+        ]);
         await Browser.ReloadAsync();
         await Expect.That(Screen.GetByLabel("Cookies")).ToContainTextAsync("theme=dark");
         var theme = (await Browser.CookiesAsync()).FirstOrDefault(cookie => cookie.Name == "theme");

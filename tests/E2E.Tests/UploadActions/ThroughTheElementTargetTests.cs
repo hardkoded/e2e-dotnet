@@ -22,13 +22,15 @@ public sealed class ThroughTheElementTargetTests
     [Fact]
     public async Task Sets_a_file_input_directly()
     {
-        await RunAsync(
-            $"""<input id="avatar" type="file" aria-label="Avatar">{CountClicks}""",
-            async session =>
-            {
-                await session.PerformAsync(await FindByNameAsync(session, "Avatar"), new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None);
-                Assert.Equal("avatar.png|0", await EvaluateAsync<string>(session, State));
-            });
+        await RunAsync($"""<input id="avatar" type="file" aria-label="Avatar">{CountClicks}""", async session =>
+        {
+            await session.PerformAsync(
+                await FindByNameAsync(session, "Avatar"),
+                new LocatorAction.SetInputFiles([AvatarFile]),
+                CancellationToken.None
+            );
+            Assert.Equal("avatar.png|0", await EvaluateAsync<string>(session, State));
+        });
     }
 
     [Fact]
@@ -38,9 +40,14 @@ public sealed class ThroughTheElementTargetTests
             $"""<label id="pick" for="avatar"><span data-testid="pick">Choose avatar</span></label><input id="avatar" type="file" hidden>{CountClicks}""",
             async session =>
             {
-                await session.PerformAsync(await FindByTestIdAsync(session, "pick"), new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None);
+                await session.PerformAsync(
+                    await FindByTestIdAsync(session, "pick"),
+                    new LocatorAction.SetInputFiles([AvatarFile]),
+                    CancellationToken.None
+                );
                 Assert.Equal("avatar.png|0", await EvaluateAsync<string>(session, State));
-            });
+            }
+        );
     }
 
     [Fact]
@@ -53,9 +60,14 @@ public sealed class ThroughTheElementTargetTests
             """,
             async session =>
             {
-                await session.PerformAsync(await FindByNameAsync(session, "Choose avatar"), new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None);
+                await session.PerformAsync(
+                    await FindByNameAsync(session, "Choose avatar"),
+                    new LocatorAction.SetInputFiles([AvatarFile]),
+                    CancellationToken.None
+                );
                 Assert.Equal("avatar.png", await FilesAsync(session));
-            });
+            }
+        );
     }
 
     [Fact]
@@ -66,35 +78,48 @@ public sealed class ThroughTheElementTargetTests
             async session =>
             {
                 var pick = await FindByNameAsync(session, "Choose avatar");
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(pick, new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None));
+                var error = await Assert.ThrowsAsync<EngineException>(() =>
+                    session.PerformAsync(pick, new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None)
+                );
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
                 Assert.Equal("", await FilesAsync(session));
-            });
+            }
+        );
     }
 
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Clears_a_file_input_or_a_button_over_a_hidden_input_with_an_empty_list_and_fires_input_and_change(bool button)
+    public async Task Clears_a_file_input_or_a_button_over_a_hidden_input_with_an_empty_list_and_fires_input_and_change(
+        bool button
+    )
     {
         await RunAsync(
-            (button
-                ? """<button id="pick" type="button" onclick="document.getElementById('avatar').click()">Choose avatar</button><input id="avatar" type="file" hidden>"""
-                : """<input id="avatar" type="file" aria-label="Avatar">""") + CountClicks,
+            (
+                button
+                    ? """<button id="pick" type="button" onclick="document.getElementById('avatar').click()">Choose avatar</button><input id="avatar" type="file" hidden>"""
+                    : """<input id="avatar" type="file" aria-label="Avatar">"""
+            ) + CountClicks,
             async session =>
             {
                 var target = await FindByNameAsync(session, button ? "Choose avatar" : "Avatar");
-                await session.PerformAsync(target, new LocatorAction.SetInputFiles([AvatarFile]), CancellationToken.None);
+                await session.PerformAsync(
+                    target,
+                    new LocatorAction.SetInputFiles([AvatarFile]),
+                    CancellationToken.None
+                );
                 await EvaluateAsync<string>(session, ListenForInputAndChange);
                 await session.PerformAsync(target, new LocatorAction.SetInputFiles([]), CancellationToken.None);
                 Assert.Equal("", await FilesAsync(session));
                 Assert.Equal("input,change", await EvaluateAsync<string>(session, "() => window.events.join(',')"));
-            });
+            }
+        );
     }
 
     /// <summary>The names of the files the input holds.</summary>
-    private static async Task<string> FilesAsync(IEngineSession session) => (await EvaluateAsync<string>(session, State)).Split('|')[0];
+    private static async Task<string> FilesAsync(IEngineSession session) =>
+        (await EvaluateAsync<string>(session, State)).Split('|')[0];
 
     /// <summary>The element inside a label: the observation lists it as a node of its own, where the label is not one.</summary>
     private static async Task<SemanticNode> FindByTestIdAsync(IEngineSession session, string testId)

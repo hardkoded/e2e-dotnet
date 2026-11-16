@@ -25,18 +25,15 @@ public sealed class InstrumentPhaseTests
                     await Phases.InstrumentPhaseAsync(
                         new PhaseHost(steps, DebugTrace.Off),
                         new PhaseSpec(StepEventKind.Engine, Phases.Action, "tap"),
-                        () => Task.FromException<int>(new EngineException("NOT_ACTIONABLE", "observe: NOT_ACTIONABLE")));
+                        () => Task.FromException<int>(new EngineException("NOT_ACTIONABLE", "observe: NOT_ACTIONABLE"))
+                    );
                 }
-                catch (EngineException)
-                {
-                }
+                catch (EngineException) { }
 
                 throw new InvalidOperationException("end the step");
             });
         }
-        catch (InvalidOperationException)
-        {
-        }
+        catch (InvalidOperationException) { }
 
         var step = steps.All()[0];
         var failed = Assert.Single(step.Events, candidate => candidate.Kind == StepEventKind.Engine);

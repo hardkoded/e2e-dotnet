@@ -24,7 +24,16 @@ public sealed class ToolCallsOutsideTheVocabularyTests
 
             return text.Contains("Invalid input for tool tap", StringComparison.Ordinal)
                 ? ModelResponses.Tap("button", "Increment")
-                : ModelResponses.Call("tap", new { role = "button", name = "Increment", force = true, selector = "#increment" });
+                : ModelResponses.Call(
+                    "tap",
+                    new
+                    {
+                        role = "button",
+                        name = "Increment",
+                        force = true,
+                        selector = "#increment",
+                    }
+                );
         });
         await using var session = await StartAsync(model);
         await session.App.OpenAsync("/");
@@ -59,7 +68,16 @@ public sealed class ToolCallsOutsideTheVocabularyTests
                 ? ModelResponses.Done("passed", "the counter shows 1")
                 : CounterPage.Batch(
                     ModelResponses.Tap("button", "Increment"),
-                    ModelResponses.Call("tap", new { role = "button", name = "Increment", force = true }));
+                    ModelResponses.Call(
+                        "tap",
+                        new
+                        {
+                            role = "button",
+                            name = "Increment",
+                            force = true,
+                        }
+                    )
+                );
         });
         await using var session = await StartAsync(model);
         await session.App.OpenAsync("/");
@@ -68,10 +86,16 @@ public sealed class ToolCallsOutsideTheVocabularyTests
 
         // One turn, two results: the plain tap ran and reported the change; the decorated one never did.
         Assert.Equal(2, model.CallCount);
-        var results = model.Requests[1].Messages.Where(message => message is { Role: "tool", Name: "tap" }).Select(message => message.Content ?? "").ToList();
+        var results = model
+            .Requests[1]
+            .Messages.Where(message => message is { Role: "tool", Name: "tap" })
+            .Select(message => message.Content ?? "")
+            .ToList();
         Assert.Equal(2, results.Count);
         var ran = Assert.Single(results, text => text.Contains("Tapped", StringComparison.Ordinal));
-        var refused = Assert.Single(results, text => text.Contains("Invalid input for tool tap", StringComparison.Ordinal));
+        var refused = Assert.Single(results, text =>
+            text.Contains("Invalid input for tool tap", StringComparison.Ordinal)
+        );
         Assert.Matches("changed .*\"Counter\".*1", ran);
         Assert.Contains("\"force\"", refused, StringComparison.Ordinal);
         Assert.Equal((1, 2), (act.Actions, act.ModelCalls));
@@ -102,7 +126,10 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
         var verdictTurn = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[^1];
         Assert.StartsWith("complete_step(", Assert.Single(verdictTurn.Calls), StringComparison.Ordinal);
-        Assert.Equal("[complete_step] Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.", verdictTurn.Outcome);
+        Assert.Equal(
+            "[complete_step] Step concluded as passed; the errorCode ACTION_FAILED you sent does not apply to a passed verdict and was ignored.",
+            verdictTurn.Outcome
+        );
     }
 
     [Fact]
@@ -132,7 +159,11 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         Assert.Equal(3, model.CallCount);
         Assert.Equal((1, 3), (act.Actions, act.ModelCalls));
         await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("1");
-        Assert.Contains("[click] " + refusal, Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[0].Outcome, StringComparison.Ordinal);
+        Assert.Contains(
+            "[click] " + refusal,
+            Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns)[0].Outcome,
+            StringComparison.Ordinal
+        );
     }
 
     [Fact]
@@ -147,28 +178,45 @@ public sealed class ToolCallsOutsideTheVocabularyTests
             }
 
             // A different undeclared value every turn, so only the failure streak can stop this, never the repeat guard.
-            return ModelResponses.Call("tap", new { role = "button", name = "Increment", attempt = ++turn });
+            return ModelResponses.Call(
+                "tap",
+                new
+                {
+                    role = "button",
+                    name = "Increment",
+                    attempt = ++turn,
+                }
+            );
         });
         await using var session = await StartAsync(model);
         await session.App.OpenAsync("/");
 
-        var error = await Assert.ThrowsAnyAsync<E2EException>(() => session.Agent.ActAsync("increment the counter once"));
+        var error = await Assert.ThrowsAnyAsync<E2EException>(() =>
+            session.Agent.ActAsync("increment the counter once")
+        );
 
         Assert.Contains("could not get a call past the schema", error.Message, StringComparison.Ordinal);
         // Three refusals warn, five force the verdict; a model this stuck never reaches the turn budget.
         Assert.True(model.CallCount <= 8, "model calls: " + model.CallCount);
-        Assert.Contains(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("failed in a row", StringComparison.Ordinal) == true));
+        Assert.Contains(model.Requests, request =>
+            request.Messages.Any(message =>
+                message.Content?.Contains("failed in a row", StringComparison.Ordinal) == true
+            )
+        );
         Assert.Equal(["complete_step"], model.Requests[^1].Tools.Select(tool => tool.Name));
     }
 
-    private static StepRecord AgentStep(E2ESession session) => session.StepRecords.Single(step => step.Api == "agent.act");
+    private static StepRecord AgentStep(E2ESession session) =>
+        session.StepRecords.Single(step => step.Api == "agent.act");
 
     private static Task<E2ESession> StartAsync(IAgentModel model) =>
-        E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(CounterPage.World()),
-            Model = model,
-            BaseUrl = "https://counter.test",
-            TestTitle = "vocabulary",
-        });
+        E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new DocumentEngine(CounterPage.World()),
+                Model = model,
+                BaseUrl = "https://counter.test",
+                TestTitle = "vocabulary",
+            }
+        );
 }

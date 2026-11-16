@@ -29,8 +29,12 @@ internal static class Reading
     /// <paramref name="scope"/>, the list being paged, only its descendants count. The port keeps the raw nodes, so the
     /// <paramref name="redactor"/> is applied to each field as it is read (see <see cref="RedactField"/>).
     /// </summary>
-    public static SemanticNode? NodeReading(Observation observation, string text, Redactor redactor, SemanticNode? scope = null) =>
-        Innermost(scope is null ? observation.Roots : scope.Children, text, redactor);
+    public static SemanticNode? NodeReading(
+        Observation observation,
+        string text,
+        Redactor redactor,
+        SemanticNode? scope = null
+    ) => Innermost(scope is null ? observation.Roots : scope.Children, text, redactor);
 
     /// <summary>
     /// What a screen reads and where, for telling a page that moved from one that did not. Name and text both count: a
@@ -61,7 +65,10 @@ internal static class Reading
 
     // Whether two pages read the same lines, clock-like values masked.
     private static bool SameLines(PageReading before, PageReading after) =>
-        before.Lines.Count == after.Lines.Count && before.Lines.Zip(after.Lines).All(pair => string.Equals(pair.First.Masked, pair.Second.Masked, StringComparison.Ordinal));
+        before.Lines.Count == after.Lines.Count
+        && before
+            .Lines.Zip(after.Lines)
+            .All(pair => string.Equals(pair.First.Masked, pair.Second.Masked, StringComparison.Ordinal));
 
     /// <summary>
     /// How many clock-like values changing at once are a list turning over and not clocks ticking: one clock ticks beside a
@@ -153,7 +160,8 @@ internal static class Reading
             return false;
         }
 
-        return NewLines(before, after) >= Math.Max(LandedMinNewLines, (int)Math.Ceiling(after.Lines.Count * LandedNewShare));
+        return NewLines(before, after)
+            >= Math.Max(LandedMinNewLines, (int)Math.Ceiling(after.Lines.Count * LandedNewShare));
     }
 
     private static SemanticNode? Innermost(IReadOnlyList<SemanticNode> nodes, string text, Redactor redactor)
@@ -171,7 +179,10 @@ internal static class Reading
                 return inner;
             }
 
-            if (TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false))
+            if (
+                TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false)
+                || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false)
+            )
             {
                 return node;
             }

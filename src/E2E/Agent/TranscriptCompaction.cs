@@ -35,30 +35,43 @@ internal static class TranscriptCompaction
     /// </summary>
     internal const int ScreenshotElideBatch = 3;
 
-    internal const string ScreenshotElidedNotice = "[earlier screenshot elided; the newest screenshots show the current screen]";
+    internal const string ScreenshotElidedNotice =
+        "[earlier screenshot elided; the newest screenshots show the current screen]";
 
     /// <summary>
     /// Elides full screens the transcript no longer needs: every full screen but the newest is reduced to its lead and a notice, once the
     /// stale screens together outgrow <paramref name="keepStaleBytes"/>. Returns the input list unchanged when nothing qualifies.
     /// </summary>
-    public static IReadOnlyList<ModelMessage> CompactScreenHistory(IReadOnlyList<ModelMessage> messages, int keepStaleBytes = KeepStaleScreenBytes)
+    public static IReadOnlyList<ModelMessage> CompactScreenHistory(
+        IReadOnlyList<ModelMessage> messages,
+        int keepStaleBytes = KeepStaleScreenBytes
+    )
     {
         ArgumentNullException.ThrowIfNull(messages);
         var screens = messages.Where(CarriesScreen).ToList();
         var stale = screens.Count - FullScreenPreserveCount;
-        if (stale <= 0 || screens.Take(stale).Sum(message => Encoding.UTF8.GetByteCount(message.Content!)) <= keepStaleBytes)
+        if (
+            stale <= 0
+            || screens.Take(stale).Sum(message => Encoding.UTF8.GetByteCount(message.Content!)) <= keepStaleBytes
+        )
         {
             return messages;
         }
 
-        return Rewrite(messages, stale, CarriesScreen, message => With(message, OverflowShrink.ElideScreen(message.Content!), message.Images));
+        return Rewrite(messages, stale, CarriesScreen, message =>
+            With(message, OverflowShrink.ElideScreen(message.Content!), message.Images)
+        );
     }
 
     /// <summary>
     /// Elides screenshots the transcript no longer needs: every image but the newest <paramref name="preserve"/> becomes a one-line notice
     /// in its message, once <paramref name="batch"/> stale images have piled up. Returns the input list unchanged when nothing qualifies.
     /// </summary>
-    public static IReadOnlyList<ModelMessage> CompactScreenshotHistory(IReadOnlyList<ModelMessage> messages, int preserve = ScreenshotPreserveCount, int batch = ScreenshotElideBatch)
+    public static IReadOnlyList<ModelMessage> CompactScreenshotHistory(
+        IReadOnlyList<ModelMessage> messages,
+        int preserve = ScreenshotPreserveCount,
+        int batch = ScreenshotElideBatch
+    )
     {
         ArgumentNullException.ThrowIfNull(messages);
         var stale = messages.Sum(ImageCount) - preserve;
@@ -82,7 +95,10 @@ internal static class TranscriptCompaction
             var elide = Math.Min(count, remaining);
             remaining -= elide;
             var kept = message.Images!.Skip(elide).ToList();
-            var content = string.Join("\n", new[] { message.Content }.Where(text => !string.IsNullOrEmpty(text)).Append(ScreenshotElidedNotice));
+            var content = string.Join(
+                "\n",
+                new[] { message.Content }.Where(text => !string.IsNullOrEmpty(text)).Append(ScreenshotElidedNotice)
+            );
             next.Add(With(message, content, kept.Count == 0 ? null : kept));
         }
 
@@ -90,12 +106,20 @@ internal static class TranscriptCompaction
     }
 
     private static bool CarriesScreen(ModelMessage message) =>
-        message.Role is "user" or "tool" && message.Content is { } text && OverflowShrink.FullScreenPattern().IsMatch(text);
+        message.Role is "user" or "tool"
+        && message.Content is { } text
+        && OverflowShrink.FullScreenPattern().IsMatch(text);
 
-    private static int ImageCount(ModelMessage message) => string.Equals(message.Role, "user", StringComparison.Ordinal) ? message.Images?.Count ?? 0 : 0;
+    private static int ImageCount(ModelMessage message) =>
+        string.Equals(message.Role, "user", StringComparison.Ordinal) ? message.Images?.Count ?? 0 : 0;
 
     // Rewrites the oldest `count` messages that qualify and leaves every other message untouched, by identity.
-    private static List<ModelMessage> Rewrite(IReadOnlyList<ModelMessage> messages, int count, Func<ModelMessage, bool> qualifies, Func<ModelMessage, ModelMessage> rewrite)
+    private static List<ModelMessage> Rewrite(
+        IReadOnlyList<ModelMessage> messages,
+        int count,
+        Func<ModelMessage, bool> qualifies,
+        Func<ModelMessage, ModelMessage> rewrite
+    )
     {
         var remaining = count;
         var next = new List<ModelMessage>(messages.Count);
@@ -115,14 +139,15 @@ internal static class TranscriptCompaction
         return next;
     }
 
-    private static ModelMessage With(ModelMessage message, string? content, IReadOnlyList<ModelImage>? images) => new()
-    {
-        Role = message.Role,
-        Content = content,
-        ToolCalls = message.ToolCalls,
-        ToolCallId = message.ToolCallId,
-        Name = message.Name,
-        ReasoningItems = message.ReasoningItems,
-        Images = images,
-    };
+    private static ModelMessage With(ModelMessage message, string? content, IReadOnlyList<ModelImage>? images) =>
+        new()
+        {
+            Role = message.Role,
+            Content = content,
+            ToolCalls = message.ToolCalls,
+            ToolCallId = message.ToolCallId,
+            Name = message.Name,
+            ReasoningItems = message.ReasoningItems,
+            Images = images,
+        };
 }

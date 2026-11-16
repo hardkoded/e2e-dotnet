@@ -42,11 +42,19 @@ internal static class Ledger
     /// input, and carrying nothing that names runner internals.
     /// </summary>
     public static IReadOnlyList<PriorStep> ProjectPriorSteps(IEnumerable<StepRecord> records) =>
-        [.. records.Select(step =>
-        {
-            var replayed = step.Cache is { Mode: "self-finalized" };
-            return new PriorStep(step.Api, BoundedText(step.Label), step.Status, step.Explanation is null ? null : BoundedText(HandoffOf(step, replayed)), replayed);
-        })];
+        [
+            .. records.Select(step =>
+            {
+                var replayed = step.Cache is { Mode: "self-finalized" };
+                return new PriorStep(
+                    step.Api,
+                    BoundedText(step.Label),
+                    step.Status,
+                    step.Explanation is null ? null : BoundedText(HandoffOf(step, replayed)),
+                    replayed
+                );
+            }),
+        ];
 
     /// <summary>
     /// Serializes prior steps as prompt context: newest entries first until the byte budget is reached, then emitted chronologically
@@ -88,12 +96,25 @@ internal static class Ledger
         return replayed ? StepTraceSession.RecordedVerdictOf(explanation) : explanation;
     }
 
-    private static string BoundedText(string text) => TextRules.TruncateUtf8(TextRules.SanitizeText(text), MaxPriorStepFieldBytes);
+    private static string BoundedText(string text) =>
+        TextRules.TruncateUtf8(TextRules.SanitizeText(text), MaxPriorStepFieldBytes);
 
     private static string FormatEntry(PriorStep step, int position)
     {
         var label = TextRules.TruncateUtf8(step.Label, MaxLabelBytes);
-        var head = position.ToString(CultureInfo.InvariantCulture) + ". " + step.Api + " " + StepNames.Of(step.Status) + (label.Length == 0 ? "" : " :: " + label);
-        return step.Explanation is null ? head : head + "\n   " + (step.Replayed ? "recorded in an earlier run" : "observed") + ": " + TextRules.TruncateUtf8(step.Explanation, MaxHandoffBytes);
+        var head =
+            position.ToString(CultureInfo.InvariantCulture)
+            + ". "
+            + step.Api
+            + " "
+            + StepNames.Of(step.Status)
+            + (label.Length == 0 ? "" : " :: " + label);
+        return step.Explanation is null
+            ? head
+            : head
+                + "\n   "
+                + (step.Replayed ? "recorded in an earlier run" : "observed")
+                + ": "
+                + TextRules.TruncateUtf8(step.Explanation, MaxHandoffBytes);
     }
 }

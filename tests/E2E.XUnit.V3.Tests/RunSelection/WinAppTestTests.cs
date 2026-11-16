@@ -10,9 +10,7 @@ namespace E2E.XUnit.V3.Tests.RunSelection;
 public sealed class LeftOutWinAppFixture : WinAppTest
 {
     [Fact(Skip = "only found by reflection")]
-    public void Windows_test_is_left_out()
-    {
-    }
+    public void Windows_test_is_left_out() { }
 }
 
 /// <summary>
@@ -26,7 +24,12 @@ public sealed class WinAppTestTests
     public async Task Skips_a_windows_test_the_filters_left_out_before_the_app_opens()
     {
         var method = Xunit.TestContext.Current.Test!.TestCase.TestMethodName!;
-        E2E.XUnit.V3.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutWinAppFixture).FullName}.{method}"] = "login.cs did not change" });
+        E2E.XUnit.V3.RunSelection.Set(
+            new Dictionary<string, string>
+            {
+                [$"{typeof(LeftOutWinAppFixture).FullName}.{method}"] = "login.cs did not change",
+            }
+        );
         try
         {
             // The xUnit assertions drop an exception that skips a test, so it is caught by hand.
@@ -52,7 +55,10 @@ public sealed class WinAppTestTests
     [Fact]
     public void Finds_the_tests_of_a_windows_fixture()
     {
-        var found = E2E.XUnit.V3.RunSelection.Discover([typeof(LeftOutWinAppFixture)], typeof(LeftOutWinAppFixture).Assembly);
+        var found = E2E.XUnit.V3.RunSelection.Discover(
+            [typeof(LeftOutWinAppFixture)],
+            typeof(LeftOutWinAppFixture).Assembly
+        );
 
         Assert.Equal([nameof(LeftOutWinAppFixture.Windows_test_is_left_out)], found.Select(test => test.Title));
     }

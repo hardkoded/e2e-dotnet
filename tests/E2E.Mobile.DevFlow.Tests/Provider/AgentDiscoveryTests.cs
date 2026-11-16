@@ -11,7 +11,9 @@ public sealed class AgentDiscoveryTests
     /// <summary>Long enough that the deadline cannot run out before the first try reaches the fake agent, even on a loaded machine.</summary>
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(1);
 
-    private static (AgentDiscovery Discovery, DevFlowAgentClient Client, FakeAgent Agent) Over(Action<FakeAgent>? betweenTries = null)
+    private static (AgentDiscovery Discovery, DevFlowAgentClient Client, FakeAgent Agent) Over(
+        Action<FakeAgent>? betweenTries = null
+    )
     {
         var agent = new FakeAgent();
         var options = new DevFlowAgentsOptions();
@@ -33,7 +35,9 @@ public sealed class AgentDiscoveryTests
         var (discovery, client, agent) = Over();
         _ = agent.ScriptHang("GET", "/api/v1/agent/status");
 
-        var error = await Assert.ThrowsAsync<DevFlowAgentException>(() => discovery.WaitForStatusAsync(client, Deadline, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<DevFlowAgentException>(() =>
+            discovery.WaitForStatusAsync(client, Deadline, CancellationToken.None)
+        );
 
         Assert.Equal("timeout", error.Code);
         Assert.Contains("did not answer within", error.Message, StringComparison.Ordinal);
@@ -44,10 +48,14 @@ public sealed class AgentDiscoveryTests
     public async Task A_deadline_that_cancels_a_try_after_a_refused_one_is_unreachable()
     {
         // The wait between the two tries turns the agent from refusing to hanging, so the deadline cancels the second try.
-        var (discovery, client, agent) = Over(betweenTries: agent => _ = agent.ScriptHang("GET", "/api/v1/agent/status"));
+        var (discovery, client, agent) = Over(betweenTries: agent =>
+            _ = agent.ScriptHang("GET", "/api/v1/agent/status")
+        );
         agent.ScriptRefused("GET", "/api/v1/agent/status");
 
-        var error = await Assert.ThrowsAsync<DevFlowAgentException>(() => discovery.WaitForStatusAsync(client, Deadline, CancellationToken.None));
+        var error = await Assert.ThrowsAsync<DevFlowAgentException>(() =>
+            discovery.WaitForStatusAsync(client, Deadline, CancellationToken.None)
+        );
 
         Assert.Equal("unreachable", error.Code);
         Assert.Contains("could not be reached", error.Message, StringComparison.Ordinal);

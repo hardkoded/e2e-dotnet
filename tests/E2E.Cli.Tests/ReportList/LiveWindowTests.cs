@@ -23,7 +23,21 @@ public sealed partial class LiveWindowTests
     private static int Painted(string chunk) => chunk.Split('\n').Length - 1;
 
     private static StepProgressEvent ModelTurn(string testId, long count = 100) =>
-        Step(testId, new StepProgress { Phase = StepProgressPhase.Event, Api = "agent.act", Event = new StepEvent { Kind = StepEventKind.Model, StartedAt = DateTimeOffset.UnixEpoch, DurationMs = 10, Count = count } });
+        Step(
+            testId,
+            new StepProgress
+            {
+                Phase = StepProgressPhase.Event,
+                Api = "agent.act",
+                Event = new StepEvent
+                {
+                    Kind = StepEventKind.Model,
+                    StartedAt = DateTimeOffset.UnixEpoch,
+                    DurationMs = 10,
+                    Count = count,
+                },
+            }
+        );
 
     [Fact]
     public void Shows_a_running_file_and_test_on_start_and_erases_the_window_before_a_result_prints()
@@ -56,7 +70,9 @@ public sealed partial class LiveWindowTests
         const string label = "add two todos named \"Buy milk\" and \"Walk the dog\", then mark the first one as done";
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.Start, label)));
         reporter.Handle(Step("t1", AgentStep(StepProgressPhase.End, label)));
-        var row = Frame(output.Chunks[^1]).Split('\n').First(line => line.Contains("agent.act", StringComparison.Ordinal));
+        var row = Frame(output.Chunks[^1])
+            .Split('\n')
+            .First(line => line.Contains("agent.act", StringComparison.Ordinal));
         Assert.True(row.Length <= 78);
         Assert.Matches(@"^ {7}✓ agent\.act ""add two todos .*…"" 4\.20s · 3 model calls$", row);
     }
@@ -72,11 +88,42 @@ public sealed partial class LiveWindowTests
         reporter.Handle(RunStarted(model: "custom/日本語エージェント"));
         reporter.Handle(Plan(("tests/a.e2e.ts", 2)));
         static StepRecord WithModel(string id, string provider, string model, int calls) =>
-            AgentStepRecord("do it", model: new StepModelInfo { Provider = provider, Model = model, Calls = calls, InputTokens = 1_000, OutputTokens = 100 });
+            AgentStepRecord(
+                "do it",
+                model: new StepModelInfo
+                {
+                    Provider = provider,
+                    Model = model,
+                    Calls = calls,
+                    InputTokens = 1_000,
+                    OutputTokens = 100,
+                }
+            );
         reporter.Handle(TestStarted("t1", "acts", "chromium", "tests/a.e2e.ts"));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "t1", title: ["suite", "acts"], file: "tests/a.e2e.ts", attempts: [Attempt([WithModel("s1", "custom", "日本語エージェント", 2)])])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "t1",
+                    title: ["suite", "acts"],
+                    file: "tests/a.e2e.ts",
+                    attempts: [Attempt([WithModel("s1", "custom", "日本語エージェント", 2)])]
+                )
+            )
+        );
         reporter.Handle(TestStarted("t2", "judges", "chromium", "tests/a.e2e.ts"));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "t2", title: ["suite", "judges"], declarationIndex: 1, file: "tests/a.e2e.ts", attempts: [Attempt([WithModel("s2", "typesafe-ai", "jev", 1)])])));
+        reporter.Handle(
+            Finished(
+                Result(
+                    ResultStatus.Passed,
+                    id: "t2",
+                    title: ["suite", "judges"],
+                    declarationIndex: 1,
+                    file: "tests/a.e2e.ts",
+                    attempts: [Attempt([WithModel("s2", "typesafe-ai", "jev", 1)])]
+                )
+            )
+        );
         var frame = output.Chunks[^1];
         var row = Frame(frame).Split('\n').First(line => line.TrimStart().StartsWith("AI ", StringComparison.Ordinal));
         Assert.Matches(@"^ {9}AI {2}2\.2k tokens · 3 model calls · .*…$", row);
@@ -98,17 +145,43 @@ public sealed partial class LiveWindowTests
         var reporter = Live(output);
         reporter.Handle(RunStarted());
         reporter.Handle(Plan(("tests/flow.e2e.ts", 1)));
-        int SummaryRow(string chunk) => Array.FindIndex(Frame(chunk).Split('\n'), line => line.StartsWith(" Test Files", StringComparison.Ordinal));
+        int SummaryRow(string chunk) =>
+            Array.FindIndex(Frame(chunk).Split('\n'), line => line.StartsWith(" Test Files", StringComparison.Ordinal));
         var before = SummaryRow(output.Chunks[^1]);
         reporter.Handle(TestStarted("t1", "checkout", "chromium", "tests/flow.e2e.ts"));
-        reporter.Handle(Step("t1", new StepProgress { Phase = StepProgressPhase.Start, Kind = StepKind.Agent, Api = "agent.act", Label = "pay" }));
+        reporter.Handle(
+            Step(
+                "t1",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.Start,
+                    Kind = StepKind.Agent,
+                    Api = "agent.act",
+                    Label = "pay",
+                }
+            )
+        );
         for (var i = 0; i < 4; i++)
         {
             reporter.Handle(ModelTurn("t1"));
         }
 
         var during = SummaryRow(output.Chunks[^1]);
-        reporter.Handle(Step("t1", new StepProgress { Phase = StepProgressPhase.End, Kind = StepKind.Agent, Api = "agent.act", Label = "pay", Status = StepStatus.Passed, DurationMs = 40, ModelCalls = 4 }));
+        reporter.Handle(
+            Step(
+                "t1",
+                new StepProgress
+                {
+                    Phase = StepProgressPhase.End,
+                    Kind = StepKind.Agent,
+                    Api = "agent.act",
+                    Label = "pay",
+                    Status = StepStatus.Passed,
+                    DurationMs = 40,
+                    ModelCalls = 4,
+                }
+            )
+        );
         var after = SummaryRow(output.Chunks[^1]);
         Assert.True(before > 5);
         Assert.Equal(before, during);
@@ -149,7 +222,10 @@ public sealed partial class LiveWindowTests
     public void Stays_silent_for_output_sinks_without_a_raw_channel()
     {
         var output = new ListReporterKit.Capture();
-        var reporter = new global::E2E.Cli.Report.ListReporter(output, new ListReporterOptions { Live = true, Colors = false });
+        var reporter = new global::E2E.Cli.Report.ListReporter(
+            output,
+            new ListReporterOptions { Live = true, Colors = false }
+        );
         reporter.Handle(TestStarted("t1", "signs in", "chromium"));
         Assert.Empty(output.Lines);
     }
@@ -180,7 +256,8 @@ public sealed partial class LiveWindowTests
                 "stdout | |chromium|",
                 "no pair",
             ],
-            output.Lines.Skip(output.Lines.IndexOf("stdout | |chromium| tests/case.e2e.ts > signs in")));
+            output.Lines.Skip(output.Lines.IndexOf("stdout | |chromium| tests/case.e2e.ts > signs in"))
+        );
     }
 
     [Fact]
@@ -191,10 +268,17 @@ public sealed partial class LiveWindowTests
         reporter.Handle(RunStarted());
         reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
         reporter.Handle(TestStarted("t1", "signs in", "chromium"));
-        void Write(string text) => reporter.Handle(new OutputEvent("chromium", new OutputPair("t1", "default", 0), OutputStream.Stdout, text));
+        void Write(string text) =>
+            reporter.Handle(new OutputEvent("chromium", new OutputPair("t1", "default", 0), OutputStream.Stdout, text));
         Write("progress ");
         Write("50%\nnext");
-        Assert.Equal(["progress 50%"], output.Lines.Where(line => line.StartsWith("progress", StringComparison.Ordinal) || line.StartsWith("next", StringComparison.Ordinal)));
+        Assert.Equal(
+            ["progress 50%"],
+            output.Lines.Where(line =>
+                line.StartsWith("progress", StringComparison.Ordinal)
+                || line.StartsWith("next", StringComparison.Ordinal)
+            )
+        );
         reporter.Handle(Finished(Result(ResultStatus.Passed, title: ["signs in"], id: "t1")));
         var from = output.Lines.IndexOf("next");
         Assert.True(from > -1);
@@ -242,7 +326,8 @@ public sealed partial class LiveWindowTests
                 "stdout | runner",
                 "unfinished",
             ],
-            output.Lines.Skip(at).Take(8));
+            output.Lines.Skip(at).Take(8)
+        );
     }
 
     [Fact]
@@ -315,7 +400,18 @@ public sealed partial class LiveWindowTests
         foreach (var id in new[] { "a", "b", "c", "d" })
         {
             reporter.Handle(TestStarted(id, $"test {id}", "chromium", "tests/a.e2e.ts"));
-            reporter.Handle(Step(id, new StepProgress { Phase = StepProgressPhase.Start, Kind = StepKind.Agent, Api = "agent.act", Label = $"step {id}" }));
+            reporter.Handle(
+                Step(
+                    id,
+                    new StepProgress
+                    {
+                        Phase = StepProgressPhase.Start,
+                        Kind = StepKind.Agent,
+                        Api = "agent.act",
+                        Label = $"step {id}",
+                    }
+                )
+            );
             for (var i = 0; i < 5; i++)
             {
                 reporter.Handle(ModelTurn(id));
@@ -323,7 +419,13 @@ public sealed partial class LiveWindowTests
         }
 
         Assert.True(output.Chunks.Max(Painted) <= 7);
-        Assert.True(output.Chunks.Max(chunk => EraseRows().Match(chunk) is { Success: true } erase ? int.Parse(erase.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) : 0) <= 7);
+        Assert.True(
+            output.Chunks.Max(chunk =>
+                EraseRows().Match(chunk) is { Success: true } erase
+                    ? int.Parse(erase.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture)
+                    : 0
+            ) <= 7
+        );
         Assert.Contains("more running", output.Chunks[^1], StringComparison.Ordinal);
     }
 

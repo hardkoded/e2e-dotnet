@@ -25,10 +25,9 @@ public sealed class AgentTool
         JsonObject inputSchema,
         bool mutates,
         Func<JsonObject, CancellationToken, Task<string>> executeAsync,
-        IReadOnlyList<string>? platforms = null)
-        : this(description, inputSchema, mutates, Ignoring(executeAsync), platforms)
-    {
-    }
+        IReadOnlyList<string>? platforms = null
+    )
+        : this(description, inputSchema, mutates, Ignoring(executeAsync), platforms) { }
 
     /// <summary>
     /// A tool that reaches the harness through <see cref="AgentToolContext"/>: upstream's <c>getToolContext</c>. It can look at
@@ -44,14 +43,18 @@ public sealed class AgentTool
         JsonObject inputSchema,
         bool mutates,
         Func<JsonObject, AgentToolContext, CancellationToken, Task<string>> executeAsync,
-        IReadOnlyList<string>? platforms = null)
+        IReadOnlyList<string>? platforms = null
+    )
     {
         ArgumentNullException.ThrowIfNull(description);
         ArgumentNullException.ThrowIfNull(inputSchema);
         ArgumentNullException.ThrowIfNull(executeAsync);
         if (platforms is not null && (platforms.Count == 0 || platforms.Any(string.IsNullOrEmpty)))
         {
-            throw new TestException("INVALID_ARGUMENT", "platforms must be a non-empty list of platform names when present");
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                "platforms must be a non-empty list of platform names when present"
+            );
         }
 
         Description = description;
@@ -74,14 +77,18 @@ public sealed class AgentTool
     public IReadOnlyList<string>? Platforms { get; }
 
     /// <summary>Runs the tool with no step around it. A tool that reads its <see cref="AgentToolContext"/> fails there.</summary>
-    public Func<JsonObject, CancellationToken, Task<string>> ExecuteAsync => (input, cancellationToken) => _run(input, AgentToolContext.Unavailable, cancellationToken);
+    public Func<JsonObject, CancellationToken, Task<string>> ExecuteAsync =>
+        (input, cancellationToken) => _run(input, AgentToolContext.Unavailable, cancellationToken);
 
     /// <summary>True when the tool is offered on <paramref name="platform"/>.</summary>
     public bool AppliesTo(string platform) => Platforms is null || Platforms.Contains(platform, StringComparer.Ordinal);
 
-    internal Task<string> RunAsync(JsonObject input, AgentToolContext context, CancellationToken cancellationToken) => _run(input, context, cancellationToken);
+    internal Task<string> RunAsync(JsonObject input, AgentToolContext context, CancellationToken cancellationToken) =>
+        _run(input, context, cancellationToken);
 
-    private static Func<JsonObject, AgentToolContext, CancellationToken, Task<string>> Ignoring(Func<JsonObject, CancellationToken, Task<string>> executeAsync)
+    private static Func<JsonObject, AgentToolContext, CancellationToken, Task<string>> Ignoring(
+        Func<JsonObject, CancellationToken, Task<string>> executeAsync
+    )
     {
         ArgumentNullException.ThrowIfNull(executeAsync);
         return (input, _, cancellationToken) => executeAsync(input, cancellationToken);
@@ -106,19 +113,24 @@ public sealed class AgentToolContext
         _mutates = mutates;
     }
 
-    private AgentToolContext()
-    {
-    }
+    private AgentToolContext() { }
 
     /// <summary>The context of a tool run outside a step: every call fails.</summary>
     internal static AgentToolContext Unavailable { get; } = new();
 
     /// <summary>Upstream's <c>observe</c>. A mutating tool is refused with <c>POLICY_DENIED</c>.</summary>
-    public Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<ExecutorObservation> ObserveAsync(
+        ExecutorObserveOptions? options = null,
+        CancellationToken cancellationToken = default
+    )
     {
         if (_mutates)
         {
-            throw new AgentException("POLICY_DENIED", "only read-only tools may request observations; observe in a separate tool call", blocked: true);
+            throw new AgentException(
+                "POLICY_DENIED",
+                "only read-only tools may request observations; observe in a separate tool call",
+                blocked: true
+            );
         }
 
         return Context.ObserveAsync(options, cancellationToken);
@@ -128,20 +140,33 @@ public sealed class AgentToolContext
     /// Upstream's <c>read</c>: reads allow-listed computed styles of a node in the newest observation, with no action slot. A mutating tool
     /// is refused with <c>POLICY_DENIED</c>, and so is an engine that cannot read (the mobile engine).
     /// </summary>
-    public Task<ExecutorReadResult> ReadAsync(ExecutorTarget target, ExecutorReadOptions options, CancellationToken cancellationToken = default)
+    public Task<ExecutorReadResult> ReadAsync(
+        ExecutorTarget target,
+        ExecutorReadOptions options,
+        CancellationToken cancellationToken = default
+    )
     {
         if (_mutates)
         {
-            return Task.FromException<ExecutorReadResult>(new AgentException("POLICY_DENIED", "only read-only tools may read node properties", blocked: true));
+            return Task.FromException<ExecutorReadResult>(
+                new AgentException("POLICY_DENIED", "only read-only tools may read node properties", blocked: true)
+            );
         }
 
         return Context.ReadAsync(target, options, cancellationToken);
     }
 
     /// <summary>Upstream's <c>attachScreenshot</c>: keeps pixels the tool saw as a screenshot of the step, and returns where it landed.</summary>
-    public Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) =>
-        Context.AttachScreenshotAsync(pixels, label, cancellationToken);
+    public Task<string> AttachScreenshotAsync(
+        ExecutorPixels pixels,
+        string label,
+        CancellationToken cancellationToken = default
+    ) => Context.AttachScreenshotAsync(pixels, label, cancellationToken);
 
     private StepExecutorContext Context =>
-        _context ?? throw new TestException("INVALID_ARGUMENT", "this tool needs the observation context the built-in agent supplies");
+        _context
+        ?? throw new TestException(
+            "INVALID_ARGUMENT",
+            "this tool needs the observation context the built-in agent supplies"
+        );
 }

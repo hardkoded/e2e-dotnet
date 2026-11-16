@@ -12,7 +12,12 @@ namespace E2E.Tests.AgentConfig;
 // the same id on another provider, has no port: a model here is its name alone.
 public sealed class OneCanonicalModelTests
 {
-    private static TestExecutor Brain(IAgentModel? model = null) => new("custom-brain", (_, _) => throw new InvalidOperationException("not called")) { Version = "1", Model = model };
+    private static TestExecutor Brain(IAgentModel? model = null) =>
+        new("custom-brain", (_, _) => throw new InvalidOperationException("not called"))
+        {
+            Version = "1",
+            Model = model,
+        };
 
     [Fact]
     public void Uses_the_model_a_custom_executor_brought_for_the_judgment_tier_too()
@@ -30,7 +35,10 @@ public sealed class OneCanonicalModelTests
     {
         var model = new NamedModel("gpt-5.4-mini");
 
-        var agent = ResolvedAgent.From("default", new AgentOptions { Executor = Brain(model), Model = new NamedModel("gpt-5.4-mini") });
+        var agent = ResolvedAgent.From(
+            "default",
+            new AgentOptions { Executor = Brain(model), Model = new NamedModel("gpt-5.4-mini") }
+        );
 
         Assert.Same(model, agent.Model);
     }
@@ -39,10 +47,17 @@ public sealed class OneCanonicalModelTests
     public void Rejects_an_entry_model_and_an_executor_model_that_differ()
     {
         var error = Assert.Throws<ConfigurationException>(() =>
-            ResolvedAgent.From("default", new AgentOptions { Executor = Brain(new NamedModel("gpt-5.4-mini")), Model = new NamedModel("gpt-5.4") }));
+            ResolvedAgent.From(
+                "default",
+                new AgentOptions { Executor = Brain(new NamedModel("gpt-5.4-mini")), Model = new NamedModel("gpt-5.4") }
+            )
+        );
 
         Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Equal("agents.default.model (gpt-5.4) and the executor's own model (gpt-5.4-mini) differ; configure the model in one place", error.Message);
+        Assert.Equal(
+            "agents.default.model (gpt-5.4) and the executor's own model (gpt-5.4-mini) differ; configure the model in one place",
+            error.Message
+        );
     }
 
     [Fact]

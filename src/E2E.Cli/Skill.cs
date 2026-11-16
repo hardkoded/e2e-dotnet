@@ -35,7 +35,10 @@ internal static partial class Skill
     public static IReadOnlyList<string> Topics()
     {
         return ReadFiles()
-            .Where(file => file.Relative.StartsWith(TopicPrefix, StringComparison.Ordinal) && file.Relative.EndsWith(".md", StringComparison.Ordinal))
+            .Where(file =>
+                file.Relative.StartsWith(TopicPrefix, StringComparison.Ordinal)
+                && file.Relative.EndsWith(".md", StringComparison.Ordinal)
+            )
             .Select(file => file.Relative[TopicPrefix.Length..^".md".Length])
             .Where(topic => !topic.Contains('/', StringComparison.Ordinal))
             .ToList();
@@ -51,14 +54,20 @@ internal static partial class Skill
             return skill is null ? null : Frontmatter().Replace(skill.Content, "", 1);
         }
 
-        return Topics().Contains(topic) ? files.First(file => file.Relative == TopicPrefix + topic + ".md").Content : null;
+        return Topics().Contains(topic)
+            ? files.First(file => file.Relative == TopicPrefix + topic + ".md").Content
+            : null;
     }
 
     private static IReadOnlyList<SkillFile> Load()
     {
         var assembly = typeof(Skill).Assembly;
         var files = new List<SkillFile>();
-        foreach (var resource in assembly.GetManifestResourceNames().Where(name => name.StartsWith(ResourcePrefix, StringComparison.Ordinal)))
+        foreach (
+            var resource in assembly
+                .GetManifestResourceNames()
+                .Where(name => name.StartsWith(ResourcePrefix, StringComparison.Ordinal))
+        )
         {
             using var stream = assembly.GetManifestResourceStream(resource)!;
             using var reader = new StreamReader(stream);

@@ -67,14 +67,16 @@ internal sealed class TraceCacheStatePages : IDisposable
     public static async Task<TraceCacheStatePages> StartAsync()
     {
         TraceCacheStatePages? pages = null;
-        var site = await TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
-        {
-            "/storage" => TinySite.RespondAsync(context, Storage),
-            "/row-fields" => TinySite.RespondAsync(context, RowFields),
-            "/todos" => TinySite.RespondAsync(context, pages!.RenderTodos()),
-            "/api/todos" when context.Request.HttpMethod == "POST" => pages!.AddTodoAsync(context),
-            _ => NotFoundAsync(context),
-        });
+        var site = await TinySite.StartAsync(context =>
+            context.Request.Url!.AbsolutePath switch
+            {
+                "/storage" => TinySite.RespondAsync(context, Storage),
+                "/row-fields" => TinySite.RespondAsync(context, RowFields),
+                "/todos" => TinySite.RespondAsync(context, pages!.RenderTodos()),
+                "/api/todos" when context.Request.HttpMethod == "POST" => pages!.AddTodoAsync(context),
+                _ => NotFoundAsync(context),
+            }
+        );
         pages = new TraceCacheStatePages(site);
         return pages;
     }
@@ -83,7 +85,10 @@ internal sealed class TraceCacheStatePages : IDisposable
     public async Task SeedTodoAsync(string todo)
     {
         using var client = new HttpClient();
-        using var response = await client.PostAsync(new Uri(new Uri(Url), "/api/todos"), new StringContent(todo, Encoding.UTF8));
+        using var response = await client.PostAsync(
+            new Uri(new Uri(Url), "/api/todos"),
+            new StringContent(todo, Encoding.UTF8)
+        );
         response.EnsureSuccessStatusCode();
     }
 

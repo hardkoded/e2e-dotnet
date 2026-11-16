@@ -42,7 +42,10 @@ public sealed class RoutesTests
     [InlineData("JavaScript:alert(1)")]
     public void Forbidden_schemes_are_denied(string url)
     {
-        Assert.Equal("POLICY_DENIED", Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve("http://h/", url)).Code);
+        Assert.Equal(
+            "POLICY_DENIED",
+            Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve("http://h/", url)).Code
+        );
         Assert.Equal("POLICY_DENIED", Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve(null, url)).Code);
     }
 }

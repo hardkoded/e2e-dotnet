@@ -7,9 +7,7 @@ namespace E2E.Engine;
 /// <summary>A deterministic action <see cref="IEngineSession.PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> carries out on one node.</summary>
 public abstract record LocatorAction
 {
-    private LocatorAction()
-    {
-    }
+    private LocatorAction() { }
 
     /// <summary>A tap. <paramref name="Modifiers"/> are held for the click, and only an engine that declares <see cref="EngineCapabilities.TapModifiers"/> receives them.</summary>
     public sealed record Tap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
@@ -40,9 +38,7 @@ public abstract record LocatorAction
     public sealed record Select(string? Text, SelectOption? Option = null) : LocatorAction
     {
         public Select(SelectOption option)
-            : this(null, option)
-        {
-        }
+            : this(null, option) { }
     }
 
     /// <summary>

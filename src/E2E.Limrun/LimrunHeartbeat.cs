@@ -24,24 +24,37 @@ internal static class LimrunHeartbeat
         DeviceClientFactory connect,
         Action<string> log,
         Func<TimeSpan, CancellationToken, Task> delay,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         // The lease's own stateDir selects the local daemon, whatever remote daemon the environment names.
         var leaseId = binding.Client["leaseId"] is JsonValue value && value.TryGetValue<string>(out var id) ? id : null;
-        var stateDirectory = binding.Client["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) ? path : null;
+        var stateDirectory =
+            binding.Client["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path)
+                ? path
+                : null;
         if (string.IsNullOrEmpty(stateDirectory) || string.IsNullOrEmpty(leaseId))
         {
             throw new InvalidOperationException("Limrun driver returned no agent-device state directory or lease id");
         }
 
-        var client = connect(LimrunSessions.LeaseSession(stateDirectory), new DeviceConnection { Client = binding.Client });
+        var client = connect(
+            LimrunSessions.LeaseSession(stateDirectory),
+            new DeviceConnection { Client = binding.Client }
+        );
         var stopping = new CancellationTokenSource();
 
         async Task BeatAsync(CancellationToken outer)
         {
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(outer, stopping.Token);
             linked.CancelAfter(BeatTimeout);
-            await client.CallAsync(DeviceMethods.LeasesHeartbeat, DeviceArgs.Of(("leaseId", leaseId), ("ttlMs", TtlMilliseconds)), linked.Token).ConfigureAwait(false);
+            await client
+                .CallAsync(
+                    DeviceMethods.LeasesHeartbeat,
+                    DeviceArgs.Of(("leaseId", leaseId), ("ttlMs", TtlMilliseconds)),
+                    linked.Token
+                )
+                .ConfigureAwait(false);
         }
 
         try

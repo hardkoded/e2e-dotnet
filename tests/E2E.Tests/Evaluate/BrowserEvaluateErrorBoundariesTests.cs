@@ -43,7 +43,11 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         {
             var error = rejection.StartsWith("Target", StringComparison.Ordinal)
                 ? await EvaluateWhileAsync(session, () => WebEngine.SurfaceOf(session.Engine)!.Page().CloseAsync())
-                : await Assert.ThrowsAsync<EngineException>(() => session.Browser.EvaluateAsync<object>("() => { location.href = 'about:blank'; return new Promise(() => { }); }"));
+                : await Assert.ThrowsAsync<EngineException>(() =>
+                    session.Browser.EvaluateAsync<object>(
+                        "() => { location.href = 'about:blank'; return new Promise(() => { }); }"
+                    )
+                );
             Assert.Equal("ENGINE_FAILURE", error.Code);
             Assert.Contains(rejection, error.Message, StringComparison.Ordinal);
         });
@@ -56,7 +60,9 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         {
             // Upstream calls the bare surface; a recorded step maps the engine error onto ACTION_FAILED.
             session.Browser.Steps = null;
-            var error = await Assert.ThrowsAsync<EngineException>(() => session.Browser.EvaluateAsync<object>("() => new Promise(() => { })"));
+            var error = await Assert.ThrowsAsync<EngineException>(() =>
+                session.Browser.EvaluateAsync<object>("() => new Promise(() => { })")
+            );
             Assert.Equal("OPERATION_TIMEOUT", error.Code);
         });
     }
@@ -69,7 +75,9 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         await AttemptAsync(async session =>
         {
             var surface = WebEngine.SurfaceOf(session.Engine)!;
-            var error = await EvaluateWhileAsync(session, () => target == "page" ? surface.Page().CloseAsync() : surface.Context().CloseAsync());
+            var error = await EvaluateWhileAsync(session, () =>
+                target == "page" ? surface.Page().CloseAsync() : surface.Context().CloseAsync()
+            );
             Assert.Equal("ENGINE_FAILURE", error.Code);
         });
     }
@@ -79,8 +87,13 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     {
         await AttemptAsync(async session =>
         {
-            Assert.Equal(new Counter(5), await session.Browser.EvaluateAsync<Counter>("value => ({ count: value.count + 1 })", new { count = 4 }));
-            var data = await session.Browser.EvaluateAsync<Outcome>("async () => ({ success: false, message: \"ordinary data\" })");
+            Assert.Equal(
+                new Counter(5),
+                await session.Browser.EvaluateAsync<Counter>("value => ({ count: value.count + 1 })", new { count = 4 })
+            );
+            var data = await session.Browser.EvaluateAsync<Outcome>(
+                "async () => ({ success: false, message: \"ordinary data\" })"
+            );
             Assert.Equal(new Outcome(false, "ordinary data"), data);
             Assert.Equal(0, await session.Browser.EvaluateAsync<int>("function () { return arguments.length; }"));
             Assert.Equal(1, await session.Browser.EvaluateAsync<int>("function () { return arguments.length; }", null));
@@ -94,7 +107,12 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         {
             Assert.Equal("Cart", await session.Browser.EvaluateAsync<string>("document.title"));
             Assert.Equal("Cart", await session.Browser.EvaluateAsync<string>("(() => document.title)()"));
-            Assert.Equal("ok", await session.Browser.EvaluateAsync<string>("""fetch("data:text/plain,ok").then((response) => response.text())"""));
+            Assert.Equal(
+                "ok",
+                await session.Browser.EvaluateAsync<string>(
+                    """fetch("data:text/plain,ok").then((response) => response.text())"""
+                )
+            );
             Assert.Equal("Cart", await session.Browser.EvaluateAsync<string>("(name) => document[name]", "title"));
         });
     }
@@ -104,16 +122,30 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     {
         await AttemptAsync(async session =>
         {
-            var infinity = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<double>("() => Infinity"));
+            var infinity = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.EvaluateAsync<double>("() => Infinity")
+            );
             Assert.Equal("INVALID_ARGUMENT", infinity.Code);
-            var syntax = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("() => {"));
+            var syntax = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.EvaluateAsync<object>("() => {")
+            );
             Assert.Equal("EVALUATE_FAILED", syntax.Code);
-            var withArgument = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("() => {", null));
+            var withArgument = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.EvaluateAsync<object>("() => {", null)
+            );
             Assert.Equal("EVALUATE_FAILED", withArgument.Code);
             await AssertInvalidAsync(session, "() => new Date()", "evaluate result must be JSON-safe");
-            await AssertInvalidAsync(session, """() => { try { document.querySelector("!!"); } catch (error) { return error; } }""", "evaluate result must be JSON-safe");
+            await AssertInvalidAsync(
+                session,
+                """() => { try { document.querySelector("!!"); } catch (error) { return error; } }""",
+                "evaluate result must be JSON-safe"
+            );
             await AssertInvalidAsync(session, "() => ({ missing: undefined })", null);
-            await AssertInvalidAsync(session, "() => { const cart = {}; cart.self = cart; return cart; }", "evaluate result contains a cycle");
+            await AssertInvalidAsync(
+                session,
+                "() => { const cart = {}; cart.self = cart; return cart; }",
+                "evaluate result contains a cycle"
+            );
         });
     }
 
@@ -123,16 +155,30 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         await AttemptAsync(async session =>
         {
             await SetContentAsync(session, "<div></div>");
-            await AssertInvalidAsync(session, """() => document.querySelector("div").getBoundingClientRect()""", "evaluate result must be JSON-safe");
+            await AssertInvalidAsync(
+                session,
+                """() => document.querySelector("div").getBoundingClientRect()""",
+                "evaluate result must be JSON-safe"
+            );
             await AssertInvalidAsync(session, "() => document.body", null);
-            var box = await session.Browser.EvaluateAsync<Dictionary<string, double>>("""() => document.querySelector("div").getBoundingClientRect().toJSON()""");
+            var box = await session.Browser.EvaluateAsync<Dictionary<string, double>>(
+                """() => document.querySelector("div").getBoundingClientRect().toJSON()"""
+            );
             Assert.True(box!.ContainsKey("width"));
             Assert.Equal(
                 [new Item("a"), new Item("a")],
-                (await session.Browser.EvaluateAsync<Item[]>("""() => { const item = { sku: "a" }; return [item, item]; }"""))!);
+                (
+                    await session.Browser.EvaluateAsync<Item[]>(
+                        """() => { const item = { sku: "a" }; return [item, item]; }"""
+                    )
+                )!
+            );
             Assert.Equal(
                 "quote \" line\n\u2028 \ud83d\ude00 lone \ud800",
-                await session.Browser.EvaluateAsync<string>("""() => "quote \" line\n\u2028 \ud83d\ude00 lone \ud800" """));
+                await session.Browser.EvaluateAsync<string>(
+                    """() => "quote \" line\n\u2028 \ud83d\ude00 lone \ud800" """
+                )
+            );
         });
     }
 
@@ -142,9 +188,13 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     {
         await AttemptAsync(async session =>
         {
-            var basket = await session.Browser.EvaluateAsync<Dictionary<string, string[]>>("""() => ({ items: ["a\ud800", "\\ b"] })""");
+            var basket = await session.Browser.EvaluateAsync<Dictionary<string, string[]>>(
+                """() => ({ items: ["a\ud800", "\\ b"] })"""
+            );
             Assert.Equal(["a\ud800", "\\ b"], basket!["items"]);
-            var thrown = await Assert.ThrowsAsync<TestException>(() => session.Browser.EvaluateAsync<object>("""() => { throw new Error("bad \ud800"); }"""));
+            var thrown = await Assert.ThrowsAsync<TestException>(() =>
+                session.Browser.EvaluateAsync<object>("""() => { throw new Error("bad \ud800"); }""")
+            );
             Assert.Equal("EVALUATE_FAILED", thrown.Code);
             Assert.Contains("bad \ud800", thrown.Message);
         });
@@ -156,7 +206,8 @@ public sealed class BrowserEvaluateErrorBoundariesTests
         await AttemptAsync(async session =>
         {
             var result = await session.Browser.EvaluateAsync<Basket>(
-                "() => { delete window.Array; window.Map = 1; window.JSON = 1; window.Object = 1; window.String = 1; return { items: [1, \"two\"], ok: true }; }");
+                "() => { delete window.Array; window.Map = 1; window.JSON = 1; window.Object = 1; window.String = 1; return { items: [1, \"two\"], ok: true }; }"
+            );
             Assert.True(result!.Ok);
             Assert.Equal(2, result.Items.Length);
         });
@@ -180,7 +231,10 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     {
         await AttemptAsync(async session =>
         {
-            await SetContentAsync(session, "<script>delete window.Array; delete window.JSON; delete Object.prototype.__proto__;</script>");
+            await SetContentAsync(
+                session,
+                "<script>delete window.Array; delete window.JSON; delete Object.prototype.__proto__;</script>"
+            );
             var basket = await session.Browser.EvaluateAsync<Basket>("(n) => ({ items: [n, 'two'], ok: true })", 1);
             Assert.Equal(2, basket!.Items.Length);
             var pair = await session.Browser.EvaluateAsync<int[]>("() => [1, 2]");
@@ -206,7 +260,10 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     private static async Task<E2EException> EvaluateWhileAsync(E2ESession session, Func<Task> close)
     {
         var started = new TaskCompletionSource();
-        await WebEngine.SurfaceOf(session.Engine)!.Page().ExposeFunctionAsync("__e2eReady", () => started.TrySetResult());
+        await WebEngine
+            .SurfaceOf(session.Engine)!
+            .Page()
+            .ExposeFunctionAsync("__e2eReady", () => started.TrySetResult());
         var pending = session.Browser.EvaluateAsync<object>(Hang);
         await started.Task;
         await close();
@@ -216,16 +273,18 @@ public sealed class BrowserEvaluateErrorBoundariesTests
     private static async Task AttemptAsync(Func<E2ESession, Task> body)
     {
         using var site = await TinySite.StartAsync("<!doctype html><title>Cart</title><h1>Cart</h1>");
-        var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(new WebEngineOptions { Headless = true }),
-            BaseUrl = site.Url,
-            TestTitle = "browser.evaluate error boundaries",
-            AssertionTimeout = TimeSpan.FromSeconds(5),
-            ActionTimeout = TimeSpan.FromSeconds(1),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
+        var session = await E2ESession.StartAsync(
+            new E2ESessionOptions
+            {
+                Engine = new WebEngine(new WebEngineOptions { Headless = true }),
+                BaseUrl = site.Url,
+                TestTitle = "browser.evaluate error boundaries",
+                AssertionTimeout = TimeSpan.FromSeconds(5),
+                ActionTimeout = TimeSpan.FromSeconds(1),
+                StepTimeout = TimeSpan.FromSeconds(20),
+                TestTimeout = TimeSpan.FromSeconds(30),
+            }
+        );
         await using (session)
         {
             Exception? error = null;

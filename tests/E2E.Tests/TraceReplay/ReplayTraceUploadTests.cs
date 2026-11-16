@@ -12,7 +12,14 @@ namespace E2E.Tests.TraceReplay;
 /// </summary>
 public sealed class ReplayTraceUploadTests
 {
-    private static RecordedAction Upload { get; } = new() { Kind = "upload", Role = "button", Name = "Upgrade", Paths = ["fixtures/a.txt"] };
+    private static RecordedAction Upload { get; } =
+        new()
+        {
+            Kind = "upload",
+            Role = "button",
+            Name = "Upgrade",
+            Paths = ["fixtures/a.txt"],
+        };
 
     [Fact]
     public async Task Authorizes_a_replayed_upload_before_it_takes_the_slot_and_runs_the_hook()
