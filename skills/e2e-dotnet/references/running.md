@@ -5,6 +5,7 @@
 - Commands
 - The replay cache
 - Output
+- Microsoft.Testing.Platform
 - Exit codes
 - Continuous integration
 - Test filters
@@ -58,7 +59,7 @@ example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `--debug` is `E2E_DEBUG=1` (or `true`) for a test run. Each test writes its phase timings and
 a table of its agent steps to stderr when it ends, and keeps its executor
 transcripts. Run with
-`--logger "console;verbosity=detailed"` to see them (topic `debugging`).
+`--logger "console;verbosity=detailed"` (on MTP, `--output Detailed`) to see them (topic `debugging`).
 
 `--ai-trace` is `E2E_AI_TRACE=1` (or `true`) for a test run. Each test records every model
 call, and the test process writes them to `.e2e/ai-trace-<process id>.json`
@@ -153,9 +154,52 @@ passing ones included, whatever the `trace` mode, and is written again after eac
 attempt, so a run that stops early leaves the attempts so far. Its `run.status`
 and `run.finishedAt` are those of the attempts so far until the last one ends.
 Processes that share an output directory overwrite one another's report.
-Use the test runner's loggers, such as
+Use the test runner's own reporters. On VSTest (NUnit and xUnit v3 by default):
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or
-`--logger "console;verbosity=detailed"`.
+`--logger "console;verbosity=detailed"`. On Microsoft.Testing.Platform (MTP;
+TUnit always): `dotnet test --report-trx --report-trx-filename e2e.trx` or
+`--output Detailed`. `--results-directory <dir>` picks where the `.trx` goes
+(section "Microsoft.Testing.Platform").
+
+## Microsoft.Testing.Platform
+
+MTP is the runner TUnit uses. NUnit and xUnit v3 can run on it too. The VSTest
+`--logger` and `--filter` options do not exist on MTP, so a command in these
+docs has an MTP form:
+
+| Need | VSTest | MTP |
+| --- | --- | --- |
+| TRX file | `--logger "trx;LogFileName=e2e.trx"` | `--report-trx --report-trx-filename e2e.trx` |
+| Detailed console output | `--logger "console;verbosity=detailed"` | `--output Detailed` |
+| Pick a test | `--filter "FullyQualifiedName~Class"` | NUnit: the same `--filter`. xUnit v3: `--filter-class "*.Class"`, `--filter-method`. TUnit: `--treenode-filter` |
+
+Turn MTP on for `dotnet test` (.NET 10 SDK or later) in a `global.json` next to
+the solution:
+
+```json
+{
+  "test": { "runner": "Microsoft.Testing.Platform" }
+}
+```
+
+This is all or nothing. Every test project under that `global.json` must run on
+MTP. A VSTest project fails with `All projects must use that test runner`. From
+.NET 11 the environment variable `DOTNET_TEST_RUNNER=Microsoft.Testing.Platform`
+does the same for one run. Then set each project up:
+
+- NUnit: `<OutputType>Exe</OutputType>` and
+  `<EnableNUnitRunner>true</EnableNUnitRunner>`, with `NUnit3TestAdapter` 5.0 or later (6.3.0 worked on SDK 10 and 11; 5.0.0 worked on SDK 11 only).
+- xUnit v3: replace the `xunit.v3.mtp-off` package with `xunit.v3`. The project
+  already has `<OutputType>Exe</OutputType>`.
+- TUnit: nothing more. It includes the TRX reporter.
+- NUnit and xUnit v3 need the TRX reporter for `--report-trx`:
+  `dotnet add package Microsoft.Testing.Extensions.TrxReport`. Keep its version
+  at or above the `Microsoft.Testing.Platform` version the runner brings, or the
+  run fails with a `TypeLoadException`.
+
+The .NET Conf 2026 talk "Bringing dotnet run, test, and watch to .NET MAUI"
+recommends MTP for the .NET 11 device test templates (`dotnet new androidtest`,
+`iostest`). A MAUI project that uses them may already have it on.
 
 ## Exit codes
 
@@ -200,13 +244,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
       - run: dotnet build -c Release
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.csproj', '**/Directory.Packages.props', '**/Directory.Build.props') }}
-      - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
+      # Use your test project's target framework in the path.
+      - run: pwsh MyApp.E2E/bin/Release/net11.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
+      # On MTP: dotnet test -c Release --no-build --report-trx --report-trx-filename e2e.trx
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"
         env:
           E2E_SKIP_BROWSER_INSTALL: '1'

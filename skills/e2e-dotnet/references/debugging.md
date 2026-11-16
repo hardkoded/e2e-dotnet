@@ -62,7 +62,8 @@ MCP: the run already saw every screen up to the failure.
 
 For more than the page tells, read `.e2e/report.json` ("For scripts") or use the
 test runner's own output, such as
-`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
+`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger. On MTP the forms are
+`--output Detailed` and `--report-trx` (topic `running`).
 To see the screen the agent reads, call `await screen.DebugAsync()` in the test,
 or `await screen.TreeAsync()` to get the text. To see where a slow test spends its time, set `E2E_DEBUG=1`
 ("Timings and transcripts"). To see what the page did, record it
@@ -359,7 +360,8 @@ the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 ## Timings and transcripts
 
 `--debug` is the variable `E2E_DEBUG=1` (or `true`) for a test run (`e2e explore --debug` is the flag itself), for example
-`E2E_DEBUG=1 dotnet test --logger "console;verbosity=detailed"`. A fixture can
+`E2E_DEBUG=1 dotnet test --logger "console;verbosity=detailed"` (on MTP,
+`E2E_DEBUG=1 dotnet test --output Detailed`). A fixture can
 override the `Debug` property instead. Each test then writes a table of its
 phase timings to stderr when it ends, slowest phase first:
 

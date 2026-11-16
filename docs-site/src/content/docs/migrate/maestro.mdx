@@ -43,7 +43,7 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | `--exclude-tags` | `dotnet test --filter "TestCategory!=smoke"` |
 | `env` and `${VAR}` | constants in the test, and `Params` in a goal: `Agent.ActAsync("sign in as {email}", new ActOptions { Params = ... })` |
 | `MAESTRO_*` variables | `Environment.GetEnvironmentVariable`; a password or token goes under `credentials` or `secrets`, which the model never sees, see [Authentication](/features/signing-in/) |
-| `--format junit`, `--output` | the `dotnet test` loggers, such as `--logger trx`, or a JUnit logger package |
+| `--format junit`, `--output` | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
 | `--format html` | Not yet. Each failed test gets a `trace.md` page under `.e2e/results/` |
 | `properties` (JUnit `<property>`) | Not yet |
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |

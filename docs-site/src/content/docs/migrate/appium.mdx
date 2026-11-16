@@ -258,7 +258,7 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | `specFileRetries`, Mocha `retries` | NUnit `[Retry(n)]`, where `n` counts total attempts (two Mocha retries are `[Retry(3)]`) and a retry reruns the method, not the file; xUnit v3 has no retry attribute |
 | Mocha `--grep`, tags in titles | `dotnet test --filter "FullyQualifiedName~Name"`, or `[Category("smoke")]` (NUnit) and `--filter "TestCategory=smoke"` |
 | `before`, `beforeEach` hooks | `[OneTimeSetUp]`, `[SetUp]` (NUnit); the constructor and `InitializeAsync` (xUnit v3) |
-| JUnit, Allure, spec reporters | the `dotnet test` loggers, such as `--logger trx`, or a JUnit logger package |
+| JUnit, Allure, spec reporters | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
 | Appium Inspector | `Screen.DebugAsync()`, or `e2e mcp` for a coding agent's live session, see [Coding agents](/coding-agents/) |
 
 ## Permissions and deep links
