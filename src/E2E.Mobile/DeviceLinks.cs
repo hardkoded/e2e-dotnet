@@ -28,8 +28,6 @@ public static partial class DeviceLinks
 
     private static readonly Dictionary<string, int> DefaultPorts = new() { ["http"] = 80, ["https"] = 443, ["ftp"] = 21, ["ws"] = 80, ["wss"] = 443 };
 
-    private static readonly HashSet<string> ForbiddenProtocols = ["file:", "data:", "javascript:", "view-source:", "blob:", "filesystem:"];
-
     /// <summary>
     /// What agent-device opens as a URL instead of resolving as an app: a <c>scheme:rest</c> string with
     /// no whitespace. Every string the device would route as a link matches; a display name with a space
@@ -201,7 +199,7 @@ public static partial class DeviceLinks
 
     private static void DenyForbiddenScheme(string protocol)
     {
-        if (ForbiddenProtocols.Contains(protocol))
+        if (E2E.Internal.Urls.IsRefusedLinkScheme(protocol))
         {
             throw new ConfigurationException("POLICY_DENIED", $"forbidden URL scheme: {protocol}");
         }

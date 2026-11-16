@@ -419,6 +419,19 @@ internal sealed record StepRecorderOptions
 
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }
+
+    /// <summary>
+    /// Throws a failed step's error classified and redacted, as its record keeps it: a program with no report around it reads the thrown
+    /// error itself, so it must carry a code, and an engine's message quotes the screen. Off in a run, whose report classifies and redacts.
+    /// Upstream's <c>redactThrown</c>.
+    /// </summary>
+    public bool RedactThrown { get; init; }
+
+    /// <summary>
+    /// How many finished steps the recorder keeps, oldest dropped first. A run keeps them all for its report; a program's session has no
+    /// report and may take millions of steps. Step indexes go on counting. Null keeps every step. Upstream's <c>retainSteps</c>.
+    /// </summary>
+    public int? RetainSteps { get; init; }
 }
 
 /// <summary>A step's events, safe to append to while another thread reads: a read sees the events as of that moment.</summary>

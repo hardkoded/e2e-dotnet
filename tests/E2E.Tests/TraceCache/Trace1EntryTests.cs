@@ -124,6 +124,20 @@ public sealed class Trace1EntryTests
         Assert.Equal(JsonSerializer.Serialize(actions, EntryJson), JsonSerializer.Serialize(read.Actions, EntryJson));
     }
 
+    [Fact]
+    public void Round_trips_a_space_press_a_single_character_is_a_key_whitespace_included()
+    {
+        RecordedAction[] actions =
+        [
+            new() { Kind = "press", Role = "checkbox", Name = "Remember me", Key = " " },
+            new() { Kind = "pressKey", Key = " " },
+        ];
+
+        var read = RoundTrip(Entry(actions));
+
+        Assert.Equal(JsonSerializer.Serialize(actions, EntryJson), JsonSerializer.Serialize(read.Actions, EntryJson));
+    }
+
     /// <summary>Partial port of "round-trips the postcondition: end path and end anchors": the port stores the end route, and the anchors are <c>appeared</c>.</summary>
     [Fact]
     public void Round_trips_the_end_route_and_the_appeared_anchors()

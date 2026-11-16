@@ -280,7 +280,24 @@ public sealed class E2ESession : IAsyncDisposable
         try
         {
             // The saved session restores before the video starts, and the values its saving session learned join the ledger the attempt starts with.
-            if (options.Sessions?.Restore is { } restoring)
+            if (options.State is { } restoredState)
+            {
+                if ((options.Engine.Capabilities & EngineCapabilities.State) == 0)
+                {
+                    throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{(string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName)}\" has no engine state capability for session restore");
+                }
+
+                // Bounded by the launch timeout, as upstream's launch step 'restoring the session' is.
+                using var restoreBudget = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
+                if (Bounded(options.LaunchTimeout))
+                {
+                    restoreBudget.CancelAfter(options.LaunchTimeout);
+                }
+
+                ledger.AddRange(restoredState.Secrets.Where(secret => !ledger.Contains(secret)));
+                await engine.RestoreStateAsync(restoredState.State, OperationContext.Test, restoreBudget.Token).ConfigureAwait(false);
+            }
+            else if (options.Sessions?.Restore is { } restoring)
             {
                 if ((options.Engine.Capabilities & EngineCapabilities.State) == 0)
                 {
@@ -358,6 +375,8 @@ public sealed class E2ESession : IAsyncDisposable
                 TestFile = options.TestFile,
                 TestMethod = options.TestMethod,
                 ProjectRoot = projectRoot,
+                RedactThrown = options.RedactThrown,
+                RetainSteps = options.RetainSteps,
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
@@ -497,6 +516,27 @@ public sealed class E2ESession : IAsyncDisposable
 
         var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
         staging.Stage(name, state, _scope.Learned());
+    }
+
+    /// <summary>
+    /// Captures the engine's state and the secret values this session learned, in memory. What an <c>@e2e-dev/core</c> session's
+    /// <c>saveState()</c> reads off the attempt. Fails with <c>UNSUPPORTED_CAPABILITY</c> on an engine with no state capability.
+    /// </summary>
+    internal async Task<SavedSession> CaptureStateAsync(CancellationToken cancellationToken = default)
+    {
+        if ((_scope.EngineCapabilities & EngineCapabilities.State) == 0)
+        {
+            throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"engine {_scope.EngineName} has no state capability, so a session on it cannot be saved");
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
+        if (Bounded(_scope.ActionTimeout))
+        {
+            linked.CancelAfter(_scope.ActionTimeout);
+        }
+
+        var state = await _engine.CaptureStateAsync(OperationContext.Test, linked.Token).ConfigureAwait(false);
+        return new SavedSession(state, _scope.Learned());
     }
 
     /// <summary>
@@ -1296,6 +1336,15 @@ public sealed class E2ESession : IAsyncDisposable
 public sealed class E2ESessionOptions
 {
     public required IEngine Engine { get; init; }
+
+    /// <summary>Throws a failed step's error classified and redacted, for a program with no report around it. Upstream's <c>redactThrown</c> of <c>StandaloneSessionOptions</c>.</summary>
+    internal bool RedactThrown { get; init; }
+
+    /// <summary>How many finished steps the session keeps, for a program whose session has no report. Upstream's <c>retainSteps</c> of <c>StandaloneSessionOptions</c>.</summary>
+    internal int? RetainSteps { get; init; }
+
+    /// <summary>A state an earlier session captured, restored at launch. Upstream's <c>state</c> of <c>StandaloneSessionOptions</c>.</summary>
+    internal SavedSession? State { get; init; }
 
     /// <summary>The config's accounts, which <see cref="E2E.Credentials.User"/> resolves while the session runs. A fixture passes <c>Config.Credentials</c>.</summary>
     internal IReadOnlyDictionary<string, ResolvedCredential>? Credentials { get; init; }

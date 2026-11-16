@@ -83,6 +83,7 @@ export default defineConfig({
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
                         { label: "Exploring", slug: "docs/explore" },
+                        { label: "Driving without a test runner", slug: "docs/core" },
                         { label: "Bug bashes", slug: "docs/bug-bash" },
                         { label: "e2e doctor", slug: "docs/doctor" },
                         { label: "Soft assertions & evidence", slug: "features/assertions" },

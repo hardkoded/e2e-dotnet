@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -51,10 +52,37 @@ internal sealed record ResolvedApp(
     string? ReadyUrl);
 
 /// <summary>Per-target app resolution (upstream's <c>config/app.ts</c>): the declared <c>app</c> checked, then resolved on the port the run assigned when <c>app.url</c> asked for a free one.</summary>
-internal static class TargetApps
+internal static partial class TargetApps
 {
     /// <summary>The token a command or a readiness URL writes where the app's port goes.</summary>
     private const string PortToken = "{port}";
+
+    /// <summary>
+    /// The link <c>app.open(path)</c> opens on a target with a link base: an absolute link as given, else the path joined to the base with one slash,
+    /// none after a bare scheme (<c>shopapp://</c> and <c>/orders/42</c> join to <c>shopapp://orders/42</c>). Upstream's <c>joinLink</c>.
+    /// </summary>
+    public static string JoinLink(string linkBase, string path)
+    {
+        ArgumentNullException.ThrowIfNull(linkBase);
+        ArgumentNullException.ThrowIfNull(path);
+        if (LinkScheme().IsMatch(path))
+        {
+            return path;
+        }
+
+        var tail = path.TrimStart('/');
+        return linkBase.EndsWith("://", StringComparison.Ordinal) ? linkBase + tail : linkBase.TrimEnd('/') + "/" + tail;
+    }
+
+    /// <summary>Whether a link names a refused scheme (see <see cref="Urls.IsRefusedLinkScheme"/>); one that does not parse is refused too. Upstream's <c>refusesLink</c>.</summary>
+    public static bool RefusesLink(string link)
+    {
+        ArgumentNullException.ThrowIfNull(link);
+        return !Uri.TryCreate(link, UriKind.Absolute, out var url) || Urls.IsRefusedLinkScheme(url.Scheme + ":");
+    }
+
+    [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9+.-]*:")]
+    private static partial Regex LinkScheme();
 
     /// <summary>
     /// Resolves one target's app from its declaration. <paramref name="port"/> is the free port the run assigned to a URL declared with

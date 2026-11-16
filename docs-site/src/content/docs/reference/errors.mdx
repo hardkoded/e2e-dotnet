@@ -51,7 +51,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | --- | --- | --- | ---: |
 | `AUTH_CREDENTIAL_UNAVAILABLE` | A `Secret` or `Credentials.User(name)` names a credential the config does not declare, or `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` is not set, or the password's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `AUTH_CREDENTIAL_INVALID` | The application rejected a configured credential (blocked: credentials) | configuration | 2 |
-| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
+| `SECRET_UNAVAILABLE` | A `Secret` or `Secrets.Get` names a secret the config does not declare, `Host.Secret(name)` names a secret that was not passed to `Launch.LaunchAsync`, or the secret's provider returned no string of at least 6 characters (code points) | configuration | 2 |
 | `ENVIRONMENT_UNAVAILABLE` | The environment under test is down or unreachable beyond the app itself (blocked: environment) | infrastructure | 3 |
 | `SEED_DATA_MISSING` | Data the step depends on does not exist in the environment (blocked: seed_data) | configuration | 2 |
 | `TEST_SETUP_FAILED` | Test prerequisites outside the product failed to arrange (blocked: test_setup) | configuration | 2 |
@@ -84,9 +84,9 @@ These come from the saved sessions of `SaveSessionAsync` and `[E2ESession]` (see
 
 | Code | When it happens | Class | Exit |
 | --- | --- | --- | ---: |
-| `SESSION_MISMATCH` | A stored session does not match the current run, target, engine, platform, or app identity | configuration | 2 |
-| `SESSION_EXPIRED` | A stored session is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | configuration or test | 2 or 1 |
-| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt | configuration | 2 |
+| `SESSION_MISMATCH` | A stored session, or a `SessionState` given to `Host.NewSessionAsync`, does not match the current run, target, engine, platform, or app identity | configuration | 2 |
+| `SESSION_EXPIRED` | A stored session, or an imported or restored `SessionState`, is past its expiry at restore time (configuration, exit 2), or a setup test saved state whose expiry is not after its creation (test, exit 1) | configuration or test | 2 or 1 |
+| `SESSION_INVALID` | A stored session failed authentication, or its file is corrupt; or a `SessionState.ImportAsync` document is not `session-state-1` or failed authentication under the key | configuration | 2 |
 | `SESSION_UNAVAILABLE` | A test requires a session no selected setup test produced | configuration | 2 |
 | `SESSION_CONTRACT` | A setup test saved a session twice, saved an undeclared name, or finished without saving a declared one | test | 1 |
 
