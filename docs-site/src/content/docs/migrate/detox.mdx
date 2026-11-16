@@ -12,14 +12,14 @@ e2e tests a React Native app on a simulator or emulator with your normal debug o
 ```text
 Migrate this project's Detox tests to e2e, one spec at a time. Docs: the "From Detox" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/detox.mdx).
 
-1. Read the migration guide. It maps Detox config and calls to e2e.
+1. Read the migration guide. It maps Detox config and calls to e2e, and lists what e2e doesn't have yet.
 2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Run `e2e init <directory> --yes --engine mobile` (add `--framework xunit` for xUnit v3). It creates the project with E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3) and an example test.
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port .detoxrc.js into e2e.config.json with the guide's config table: one target per platform, with app.bundleId and app.appPath.
 6. Run `e2e doctor` and fix what it reports.
 7. List the Detox specs and ask me which one to move first. Suggest a flow that needs frequent maintenance.
-8. Rewrite that spec as a test class that derives from MobileAppTest. Map each element(by.*) call to Screen with the guide. Replace each waitFor with an assertion that has a timeout. Where the guide says "Not yet" or "No equivalent", use the workaround it gives, or leave that spec in Detox and tell me why.
+8. Rewrite that spec as a test class that derives from MobileAppTest. Map each element(by.*) call to Screen with the guide. Replace each waitFor with an assertion that has a timeout. Check each Detox call in that spec against "What e2e doesn't have yet". Use the "Use today" or "Use instead" entry, or leave the spec in Detox and say why.
 9. Keep the final assertions deterministic, with Expect.That. Where a run of scripted interactions breaks often, propose an Agent.ActAsync goal for it instead.
 10. Run the new class on a booted simulator with `dotnet test --filter` and fix it until it passes. Keep the Detox spec until I confirm it can go.
 11. Summarize which tests moved, which stayed in Detox, and why.
@@ -98,7 +98,7 @@ public sealed class LoginTests : MobileAppTest
 
 ## Map each Detox call
 
-"Not yet" marks a call e2e doesn't have today, and "No equivalent" one it leaves out on purpose.
+Calls the port lacks are under [What e2e doesn't have yet](#what-e2e-doesnt-have-yet).
 
 | Detox | e2e |
 | --- | --- |
@@ -113,14 +113,9 @@ public sealed class LoginTests : MobileAppTest
 | `.typeText(t)`, `.replaceText(t)` | `.FillAsync(t)` replaces the content |
 | `.clearText()` | `.ClearAsync()` |
 | `.tapReturnKey()` | `.PressAsync("Enter")` |
-| `.tapBackspaceKey()` | Not yet. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device. `.FillAsync(t)` with the shorter text replaces the value and sends no Backspace, so keep a test that depends on the key in Detox |
 | `.swipe('up', 'fast')` | `.SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`: Detox names the finger's direction, e2e the content's |
 | `.scroll(200, 'down')` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `Locator.SwipeAsync` on the scroll view. It does not keep the 200-point distance: for a test that scrolls to reach a control, use `list.ScrollUntilVisibleAsync(target)`; check a distance-sensitive test on your device before dropping the Detox call |
 | `waitFor(el).toBeVisible().whileElement(list).scroll(...)` | `list.ScrollUntilVisibleAsync(el)`, with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` when Detox scrolls up |
-| `list.scrollTo('bottom')` | `list.ScrollUntilVisibleAsync(lastRow)`; for `'top'`, `list.ScrollUntilVisibleAsync(firstRow, new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up })` |
-| `.adjustSliderToPosition()` | Not yet. Drag with `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })`, the points taken from the slider's `.BoundingBoxAsync()`; on Android, `.TapAsync(new TapOptions { Position = ... })` on the track also works |
-| `.setDatePickerDate()` | Not yet |
-| `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, and `.GetAttributeAsync("placeholder")`, the only attribute a device node has |
 | `waitFor(el).toBeVisible().withTimeout(ms)` | `await Expect.That(el).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(ms))` |
 | `expect(el).toBeVisible()`, `.toExist()` | `.ToBeVisibleAsync()` for visibility; `.ToHaveCountAsync(1)` for existence |
 | `expect(el).not.toBeVisible()` | `.ToBeHiddenAsync()` |
@@ -133,26 +128,72 @@ public sealed class LoginTests : MobileAppTest
 | `device.launchApp({ newInstance: false })` | `Device.OpenAppAsync(id)` without `Relaunch` |
 | `device.launchApp({ url })`, `device.openURL({ url })` | `Device.OpenLinkAsync(url)` |
 | `device.terminateApp()` | `Device.CloseAppAsync()` |
-| `device.uninstallApp()` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.AppsUninstall, ...)` with `app` set to the id removes it, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` installs with no data (not on TestMu) |
-| `device.resetContentAndSettings()` | Not yet. `App.ClearStateAsync()` resets the app; on iOS, `Device.ClearKeychainAsync()` clears the simulator keychain for every app |
-| `device.reloadReactNative()` | No equivalent. `App.RestartAsync()` is the nearest |
 | `device.sendToHome()`, `device.pressBack()` | `Device.HomeAsync()`, `Device.BackAsync()` |
 | `device.setLocation(lat, lon)` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
 | `device.setOrientation('landscape')` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
 | `device.setBiometricEnrollment(true)` | `Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true)` |
 | `device.matchFace()`, `device.unmatchFace()` | `Device.SetBiometricsAsync(BiometricSensor.FaceId, BiometricResult.Match)` or `NonMatch` |
-| `device.setStatusBar` | No equivalent. The device engine's masked screenshot holds the status bar fixed, except on TestMu and .NET MAUI DevFlow, which show the real one |
-| `device.setURLBlacklist` | No equivalent |
-| `device.shake()`, `device.sendUserNotification()` | Not yet |
-| `device.disableSynchronization()` | No equivalent. Actions wait and assertions retry |
 | `device.takeScreenshot()` | `App.ScreenshotAsync("label")`, secure fields masked |
 | `device.takeScreenshot()` compared with an image snapshot library | `Expect.That(Screen).ToHaveScreenshotAsync("name.png")`. The port documents it for the web engine only and has no device run of it, so keep the Detox comparison until you have checked it on your device |
 | `:ios:` / `:android:` in a test name | `Assume.That` on the platform, such as `E2E_MOBILE_PLATFORM`, or a separate run per platform |
 | `device.getPlatform()` | the `Platform` property of `MobileAppTest`, `MobilePlatform.Ios` or `Android` |
 
-Two things differ from Detox:
+## What e2e doesn't have yet
 
-- Actions and single-node reads and assertions need one match. Several fail with `LOCATOR_AMBIGUOUS`. Narrow with `Filter(...)`, `First()`, or `Nth(n)`.
+Planned is on the roadmap, and Not yet has no date. Not planned is left out on purpose. Use the workaround, or keep the spec in Detox.
+
+### Planned
+
+| Detox | Use today |
+| --- | --- |
+| `beforeAll` that launches the app | `App.OpenAsync()` in `[SetUp]`; `MobileAppTest` already launches the app fresh before each test |
+| `by.id('x').and(by.text('y'))` | `.Filter(...)`, or `Device.Locator("id=x label=\"y\"")` |
+| `system.element(by.system.label('Allow'))` | `Device.AlertAsync(AlertAction.Accept)` or `Dismiss`, or `app.permissions` so no prompt shows |
+| `.longPressAndDrag()`, `.swipe()` offset, `.multiTap(3)` | `.DragToAsync(target)`, `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })`, repeated `.TapAsync()` |
+| `.scrollTo('bottom')` | `list.ScrollUntilVisibleAsync(lastRow)`, or the first row with `new ScrollUntilVisibleOptions { Direction = ScrollDirection.Up }` |
+| `.tapBackspaceKey()` | `.FillAsync(t)` with the shorter text. `.PressAsync("Backspace")` is `UNSUPPORTED_CAPABILITY` on a device |
+| `.setDatePickerDate()`, `.setColumnToValue()`, `.adjustSliderToPosition()` | An `Agent.ActAsync` goal, or a drag with `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` on a slider, the points taken from `.BoundingBoxAsync()` |
+| `.getAttributes()` | One call per field: `.TextContentAsync()`, `.InputValueAsync()`, `.IsEnabledAsync()`, `.IsVisibleAsync()`, `.IsCheckedAsync()`, `.BoundingBoxAsync()`, `.GetAttributeAsync("placeholder")` |
+| `permissions` for names and values beyond `PermissionState.Grant`, `Deny`, `Reset` | Tap the prompt's button, or `Device.AlertAsync(AlertAction.Accept)` |
+| `device.sendUserNotification()`, `device.uninstallApp()` | `Device.UnstableRaw.Client.CallAsync(...)`, see [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| `launchApp({ languageAndLocale })` | On iOS, `app.launchArguments` of `["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]`, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language) |
+| Jest `globalSetup`, `globalTeardown` | Start dependencies before the run, or in a framework-level one-time setup |
+| `device.reverseTcpPort()` | Run `adb reverse` in a CI step |
+| `device.shake()` | - |
+| `launchArgs` as one key-value map | `["-key", "value"]` on iOS, `["--es", "key", "value"]` on Android |
+| `device.setStatusBar()` | `xcrun simctl status_bar`. The masked screenshot holds the status bar fixed, except on TestMu and .NET MAUI DevFlow |
+
+### Not yet
+
+| Detox | Use today |
+| --- | --- |
+| `.pinch()` | The raw client has no pinch. Keep the test in Detox |
+| `.toBeVisible(50)`, and the 75% default | `.ToBeVisibleAsync()` checks the platform's flag, not the area. Compare `.BoundingBoxAsync()` |
+| `web.element(by.web.cssSelector('x'))` | The WebView's accessibility text and labels, or an `Agent.ActAsync` goal |
+| `device.resetContentAndSettings()` | `App.ClearStateAsync()`, plus `Device.ClearKeychainAsync()` on iOS, which clears the simulator keychain for every app |
+| `device: { type, os }`, `headless`, `bootArgs` | Create and boot the device in a CI step |
+| `device.takeScreenshot()` compared with an image snapshot library | `Expect.That(Screen).ToHaveScreenshotAsync("name.png")` is documented for the web engine only, with no device run. Keep the Detox comparison until you have checked it on your device |
+| `:ios:` / `:android:` in a test name | `Assume.That` on `Platform`, or a separate run per platform. The port has no per-test platform option |
+
+### Not planned
+
+| Detox | Use instead |
+| --- | --- |
+| `device.reloadReactNative()` | `App.RestartAsync()`. A reload needs the Detox framework in the app |
+| `device.disableSynchronization()`, `enableSynchronization()` | Delete the calls. There is no synchronization to switch off |
+| `device.setURLBlacklist()` | Delete the call. Network activity never blocks an action |
+| `behavior.init.reinstallApp` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]`, then `App.OpenAsync()` in the test |
+| `--reuse` | Omit `app.appPath` (and unset `E2E_MOBILE_APP_PATH`) and keep `app.bundleId` set for the preinstalled app. With `app.appPath` set, `MobileAppTest` installs the build once per run, replacing the installed binary |
+| `apps.<name>.build`, `detox build` | Your normal build, before `dotnet test` |
+| `.scroll()` by an exact offset | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` |
+| `by.type('RCTImageView')` | `Device.Locator("role=image")`, or a `testID` |
+| Jest reporters, Allure | The framework's reporters, or the TRX or JUnit logger of `dotnet test` |
+
+## What differs on purpose
+
+- e2e doesn't wait for the app to be idle. Actions wait and assertions retry. For a control that is still arriving, raise `MobileOptions.TransitionMilliseconds`; for agent actions, `SettleMilliseconds`.
+- `MobileAppTest` installs the build once per run. Call `Device.InstallAppAsync()` for anything else.
+- Locators are strict. An action or single-node assertion on several matches fails with `LOCATOR_AMBIGUOUS`. Narrow with `Filter(...)`, `First()`, or `Nth(n)`.
 - A device has no saved sessions. Sign in inside the test or in `[SetUp]`. See [Mobile](/get-started/mobile/).
 
 ## Next

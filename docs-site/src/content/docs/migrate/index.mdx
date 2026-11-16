@@ -3,7 +3,7 @@ title: Migrating to e2e
 description: Move a Playwright .NET, Selenium .NET, Cypress, Appium, Detox, Maestro, or TesterArmy suite to e2e one test at a time.
 ---
 
-This page ports upstream's migration overview (`docs/migrate/index.mdx` in tester-army/e2e at `a016b3e4`, from tester-army/e2e#1441 and #1597). A migration guide maps one test runner's config, API, and commands to e2e. It also marks what e2e does not have yet, with a workaround where there is one. A test with no workaround stays in the old runner. Keep the old suite installed while you move one test at a time, so both suites stay green.
+This page ports upstream's migration overview (`docs/migrate/index.mdx` in tester-army/e2e at `a016b3e4`, from tester-army/e2e#1441 and #1597). A migration guide maps one test runner's config, API, and commands to e2e. It also lists what e2e does not have yet: what is planned, what has no date, and what e2e leaves out on purpose, with a workaround where there is one. A test with no workaround stays in the old runner. Keep the old suite installed while you move one test at a time, so both suites stay green.
 
 ## Pick your runner
 
@@ -58,7 +58,7 @@ WebdriverIO for the web has no guide. Map its WebDriver calls with the [Selenium
 
 ## What the port does not have
 
-Upstream's guides name `e2e run`, `e2e list`, `e2e feedback`, `e2e.config.ts`, and a TypeScript project. The port has none of them. The guides here use `dotnet test`, `e2e.config.json`, and C#. Each guide lists the rest as `missing` or `by design`. [COMPATIBILITY.md](/compatibility/#migration-guides) names every difference.
+Upstream's guides name `e2e run`, `e2e list`, `e2e feedback`, `e2e.config.ts`, and a TypeScript project. The port has none of them. The guides here use `dotnet test`, `e2e.config.json`, and C#. Each guide lists the rest under "What e2e doesn't have yet". [COMPATIBILITY.md](/compatibility/#migration-guides) names every difference.
 
 ## Next
 

@@ -9,7 +9,7 @@ import { Aside } from '@astrojs/starlight/components';
 
 ## Drive a browser
 
-`Launch.LaunchAsync` prepares an engine and returns a `Host`. A `Session` is one isolated browser context on that host, and it holds `Screen`, `App`, `Platform`, and `Browser`.
+`Launch.LaunchAsync` prepares an engine and returns a `Host`. A `Session` is one isolated browser context on that host, and it holds `Screen`, `App`, `Platform`, and `Browser`. An engine that contributes fixtures (`IEngine<TFixtures>`, such as `MobileEngine` with `MobileFixtures`) makes `LaunchAsync` return a `Host<TFixtures>` whose sessions are `Session<TFixtures>`: `session.Fixtures.Device` is the device fixture. `WebEngine` is one too (`WebFixtures`): `session.Fixtures.Browser` is the browser fixture, and `session.Fixtures.App` is a `WebApp`, the `App` with `BaseUrl` always set, since a web target always declares `app.url`.
 
 ```csharp
 using E2E;

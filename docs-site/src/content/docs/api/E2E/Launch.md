@@ -52,3 +52,32 @@ opens sessions on it. Each launch needs its own engine instance.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;Host&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Launch_LaunchAsync__1_E2E_Engine_IEngine___0__E2E_LaunchOptions_System_Threading_CancellationToken_"></a>
+
+### `LaunchAsync<TFixtures>(IEngine<TFixtures>, LaunchOptions?, CancellationToken)`
+
+
+```csharp
+public static Task<Host<TFixtures>> LaunchAsync<TFixtures>(IEngine<TFixtures> engine, LaunchOptions? options = null, CancellationToken cancellationToken = default) where TFixtures : class
+```
+
+
+Launches an engine that contributes fixtures (`IEngine&lt;T&gt;`), so each session of the host holds them as `Fixtures`.
+Upstream's `launch<Fixtures>`.
+
+**Type parameters**
+
+| Name | Description |
+| --- | --- |
+| `TFixtures` |  |
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `engine` | `IEngine&lt;TFixtures&gt;` |  |
+| `options` | [LaunchOptions](/api/E2E/LaunchOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;Host&lt;TFixtures&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)

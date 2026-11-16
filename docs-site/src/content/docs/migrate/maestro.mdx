@@ -12,14 +12,14 @@ e2e replaces Maestro's YAML flows with C# tests. Each command becomes an awaited
 ```text
 Migrate this project's Maestro flows to e2e, one flow at a time. Docs: the "From Maestro" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/maestro.mdx).
 
-1. Read the migration guide. It maps Maestro config and commands to e2e.
+1. Read the migration guide. It maps the Maestro config options and commands e2e has, and lists what e2e does not have yet with what to use today.
 2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Run `e2e init <directory> --yes --engine mobile` (add `--framework xunit` for xUnit v3). It creates the project with E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3) and an example test.
 3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
 4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
 5. Port the flows' appId into the target's app.bundleId and the build path into app.appPath, with the guide's config table.
 6. Run `e2e doctor` and fix what it reports.
 7. List the flow files and ask me which one to move first. Suggest a flow whose optional steps and runFlow branches often need updating.
-8. Rewrite that flow as a test class that derives from MobileAppTest, one awaited call per command, with the guide's tables. Apply "Rewrite selectors" to every selector. Where the guide says "Not yet" or "No equivalent", use the workaround it gives, or leave that flow in Maestro and tell me why.
+8. Rewrite that flow as a test class that derives from MobileAppTest, one awaited call per command, with the guide's tables. Follow the guide's "Rewrite selectors" and "What differs on purpose" sections: e2e matches the whole string, fails on several matches, and grants no permission the config does not name. Check "What e2e doesn't have yet" before you port a flow: for a command listed there, use its "Use today" workaround, or leave that flow in Maestro and tell me why.
 9. Keep the final assertions deterministic, with Expect.That. Where a run of commands breaks often, propose an Agent.ActAsync goal for it instead.
 10. Run the new class on a booted simulator with `dotnet test --filter` and fix it until it passes. Keep the Maestro flow until I confirm it can go.
 11. Summarize which flows moved, which stayed in Maestro, and why.
@@ -34,23 +34,16 @@ Set up a target with the [mobile guide](/get-started/mobile/) and a model with t
 | Maestro | e2e |
 | --- | --- |
 | `appId` at the top of every flow | `app.bundleId` on the target, the app `MobileAppTest` launches before each test |
-| a different `appId` per flow, or a second one mid-flow | `Device.OpenAppAsync(id)` inside the test, or separate app-specific configs and runs. The agent's `open_app` tool switches apps inside a goal, see [Mobile](/get-started/mobile/) |
-| `--platform ios` | `platform` on the target, or `E2E_MOBILE_PLATFORM`. The port runs one device target |
-| `--device` | `MobileOptions.Device`, or `E2E_MOBILE_DEVICE`: a UDID, or a name only one simulator has |
-| `.maestro/config.yaml` `flows` | the test project's own tests; `dotnet test` collects the classes in the project |
-| `flows: ['!helper.yaml']` | a helper that is not a test method, or a class that is not collected |
-| `tags` and `--include-tags` | `[Category("smoke")]` (NUnit) or `[Trait("TestCategory", "smoke")]` (xUnit); `dotnet test --filter "TestCategory=smoke"` |
-| `--exclude-tags` | `dotnet test --filter "TestCategory!=smoke"` |
+| a different `appId` per flow, or a second one mid-flow | `Device.OpenAppAsync(id)` in the test, or one config per app |
+| `--platform`, `--device` | `platform` on the target (or `E2E_MOBILE_PLATFORM`) and `MobileOptions.Device` (or `E2E_MOBILE_DEVICE`): a UDID, or a name only one simulator has. The port runs one device target |
+| `.maestro/config.yaml` `flows`, `'!helper.yaml'` | the test project's own tests; `dotnet test` collects the classes in the project. A helper is a method that is not a test, or a class that is not collected |
+| `tags`, `--include-tags`, `--exclude-tags` | `[Category("smoke")]` (NUnit) or `[Trait("TestCategory", "smoke")]` (xUnit); `dotnet test --filter "TestCategory=smoke"`, `"TestCategory!=smoke"` |
 | `env` and `${VAR}` | constants in the test, and `Params` in a goal: `Agent.ActAsync("sign in as {email}", new ActOptions { Params = ... })` |
 | `MAESTRO_*` variables | `Environment.GetEnvironmentVariable`; a password or token goes under `credentials` or `secrets`, which the model never sees, see [Authentication](/features/signing-in/) |
-| `--format junit`, `--output` | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
-| `--format html` | Not yet. Each failed test gets a `trace.md` page under `.e2e/results/` |
-| `properties` (JUnit `<property>`) | Not yet |
+| `--format junit` | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
 | `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
-| `maestro record` | `E2E_VIDEO=on dotnet test`, one MP4 of the device per attempt, or `video` in the config |
-| `maestro test -c`, Maestro Studio | Not yet. `e2e mcp` gives a coding agent a live session on the device, see [Coding agents](/coding-agents/) |
-| `maestro hierarchy` | Not yet. `await Device.UnstableRaw.Client.CallAsync(DeviceMethods.CaptureSnapshot, new JsonObject(), CancellationToken.None)` (`DeviceMethods` is in `E2E.Mobile`, `JsonObject` in `System.Text.Json.Nodes`) returns agent-device's node tree as a `JsonNode`, the call the engine's own snapshot makes, see [`UnstableRaw`](/get-started/mobile/#3-write-a-test) and [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes); `Device.Locator(selector)` takes agent-device selectors for nodes `Screen` cannot name |
-| Maestro Cloud | your CI |
+| `maestro record` | `E2E_VIDEO=on dotnet test`, one MP4 of the device per attempt, or a hosted provider's own recording |
+| `maestro hierarchy` | `await Screen.DebugAsync()` in a test prints the screen's tree; `Screen.TreeAsync()` returns it |
 
 ## Rewrite one flow
 
@@ -98,109 +91,108 @@ For xUnit v3, use `E2E.Mobile.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "
 
 ## Map each command
 
-Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `Expect.That(locator)` run on every target. "Not yet" marks a command e2e doesn't have today, and "No equivalent" one it leaves out on purpose.
+Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `Expect.That(locator)` run on every target. The reference pages hold the signatures.
 
-### App lifecycle
+### App and device
 
 | Maestro | e2e |
 | --- | --- |
 | `launchApp` | `MobileAppTest` launches the target's `app.bundleId` fresh before each test; `App.OpenAsync()` launches it again |
-| `launchApp: { clearState: true }`, `clearState` | `App.ClearStateAsync()` |
+| `clearState`, `launchApp: { clearState: true }` | `App.ClearStateAsync()` |
 | `launchApp: { stopApp: false }` | `Device.OpenAppAsync(id)` without `Relaunch` |
-| `launchApp: { arguments }` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch; a list of strings, not a map |
-| `launchApp: { permissions }` | `app.permissions` on the target, set before every fresh launch, or `OpenAppOptions.Permissions` for one launch; `PermissionState.Grant`, `Deny`, `Reset` for `allow`, `deny`, `unset`; no `all`, nothing is granted unless named |
-| `stopApp`, `killApp` | `Device.CloseAppAsync()` |
-| `stopApp`, then `launchApp` | `App.RestartAsync()` |
-| `clearKeychain` | `Device.ClearKeychainAsync()`, the whole simulator's keychain; iOS only |
-| `openLink` | `Device.OpenLinkAsync(url, app)`; on iOS the link opens into `app`, default the pinned app |
-| `addMedia` | Not yet. Add the photo from the host before `App.OpenAsync()`: `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID) on an iOS simulator; Android is unchecked. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
-| `back` | `App.BackAsync()`, or `Device.BackAsync()` |
+| `launchApp: { arguments }` | `app.launchArguments` on the target, a list of strings, not a map; `OpenAppOptions.LaunchArguments` for one launch |
+| `launchApp: { permissions }`, `setPermissions` | `app.permissions` on the target, or `OpenAppOptions.Permissions` for one launch; `PermissionState.Grant`, `Deny`, `Reset` for `allow`, `deny`, `unset`. `Device.SetPermissionAsync(permission, PermissionState.Grant)` before the app launches, one permission per call. A permission or state outside `DevicePermission` and `PermissionState` (a cast number) throws `INVALID_ARGUMENT` before any device command. A name read from outside the code can go in as a string: `Device.SetPermissionAsync("camera", "grant")` takes the wire names, and a misspelled one is refused with a `did you mean` hint before any device command |
+| `stopApp`, `killApp` | `Device.CloseAppAsync()`, a force stop; `App.RestartAsync()` to stop the app and launch it again |
+| `clearKeychain`, `openLink`, `setLocation`, `setAirplaneMode`, `setOrientation`, `setClipboard` | the same on `Device`, such as `Device.OpenLinkAsync(url, app)`; on iOS the link opens into `app`, default the pinned app. `ClearKeychainAsync()` is iOS simulator only, `SetAirplaneModeAsync(true)` Android only. `SetLocationAsync(new Coordinates(latitude, longitude))`, `SetOrientationAsync(DeviceOrientation.LandscapeLeft)`; `Device.ClipboardAsync()` reads the clipboard, and neither works on an Android build with no clipboard shell command. For `travel`, loop `Device.SetLocationAsync` |
+| `back`, `pressKey: Home`, `hideKeyboard`, `setDarkMode` | `App.BackAsync()` or `Device.BackAsync()`, `Device.HomeAsync()`, `Device.DismissKeyboardAsync()`, `Device.SetAppearanceAsync(Appearance.Dark)` |
+| platform-specific selectors | `Device.Locator("role=text label=\"...\"")`, agent-device's selector terms |
 
-### Taps and input
+### Taps, input, and swipes
 
 | Maestro | e2e |
 | --- | --- |
-| `tapOn: "Text"` | `Screen.GetByText("Text").TapAsync()`; exact, see [Rewrite selectors](#rewrite-selectors) |
-| `tapOn: { id: x }` | `Screen.GetByTestId("x").TapAsync()` |
-| `tapOn: { text, index: 2 }` | `.Nth(2)` |
-| `tapOn: { below: "Email" }`, `above`, `leftOf`, `rightOf`, `containsDescendants` | No equivalent, see [Rewrite selectors](#rewrite-selectors) |
+| `tapOn: "Text"`, `tapOn: { id: x }` | `Screen.GetByText("Text").TapAsync()`, `Screen.GetByTestId("x").TapAsync()`, see [Rewrite selectors](#rewrite-selectors) |
+| `index: 2`, `containsDescendants`, `childOf` | `.Nth(2)`, `.Filter(has: other)`, `parent.GetByText("Text")` |
 | `tapOn: { point: "x,y" }` | `Screen.TapAtAsync(new Point(x, y))`, in device points: convert a percentage point (`50%,50%`) with the screen size first; inside a node, `.TapAsync(new TapOptions { Position = new Point(x, y) })` |
 | `retryTapIfNoChange`, `waitToSettleTimeoutMs` | `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds`, engine-wide; no per-call knob |
 | `doubleTapOn`, `longPressOn` | `.DoubleTapAsync()`, `.LongPressAsync(new LongPressOptions { Duration = ... })` |
-| `inputText` | `Screen.GetByTestId("field").FillAsync("text")` |
+| `inputText`, `eraseText`, `pressKey: Enter` after a `tapOn` | `.FillAsync("text")`, `.ClearAsync()`, `.PressAsync("Enter")` on the field's locator |
 | `inputRandomEmail`, `inputRandomText`, `faker` | `Values.Unique(...)` around a value in `Params`, so the cache still replays; any .NET faker library for the rest |
-| `eraseText` | `.ClearAsync()` |
-| `hideKeyboard` | `Device.DismissKeyboardAsync()` |
-| `pressKey: Enter` | `.PressAsync("Enter")` on the field |
-| `pressKey: Home`, `back` | `Device.HomeAsync()`, `Device.BackAsync()` |
-| `pressKey: lock`, `power`, `volume up`, `volume down` | Not yet. `Device.UnstableRaw.Client.CallAsync(DeviceMethods.CommandHardwareButton, ...)` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"` presses one (no `lock`); on iOS only the volume keys, on a physical device, not a simulator. See [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
-| TV remote keys | Not yet |
 | `copyTextFrom`, `pasteText` | `await locator.TextContentAsync()`, then `.FillAsync(text)` |
-| `setClipboard` | `Device.SetClipboardAsync(text)`; `Device.ClipboardAsync()` reads it. Neither works on an Android build with no clipboard shell command |
-| `label: "..."` on a command | Not yet. Every `Screen`, `Device`, and `Agent` call is a report step named by the call |
+| `swipe: { direction: UP }`, `scroll` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `locator.SwipeAsync(...)` inside one node. Maestro names the finger's direction, e2e the content's |
+| `swipe: { start, end }`, `scrollUntilVisible` | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })` in device points, `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction = ... })` |
 
-### Gestures
-
-| Maestro | e2e |
-| --- | --- |
-| `swipe: { direction: UP }` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })`, or `locator.SwipeAsync(...)` inside one node. Maestro names the finger's direction, e2e the content's |
-| `swipe: { start, end }` | `Screen.SwipeAsync(new SwipePathOptions { From = new Point(x1, y1), To = new Point(x2, y2) })`, the two endpoints in device points |
-| `scroll` | `Screen.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down })` |
-| `scrollUntilVisible: { element }` | `Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction = ... })` |
-| `waitForAnimationToEnd` | an assertion on the settled state; `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds` for the engine |
-
-### Assertions and waits
+### Assertions and flows
 
 | Maestro | e2e |
 | --- | --- |
-| `assertVisible`, `assertNotVisible` | `await Expect.That(locator).ToBeVisibleAsync()`, `.ToBeHiddenAsync()` |
-| `assertVisible: { text, enabled: true }` | `.ToBeVisibleAsync()` and `.ToBeEnabledAsync()` |
-| `assertVisible: { checked, selected, focused }` | `.ToBeCheckedAsync()`, `.ToBeSelectedAsync()`, `.ToBeFocusedAsync()` |
+| `assertVisible`, `assertNotVisible`, `extendedWaitUntil` | `await Expect.That(locator).ToBeVisibleAsync(timeout: ...)`, `.ToBeHiddenAsync()` |
+| `assertVisible: { enabled, checked, selected, focused }` | `.ToBeVisibleAsync()`, then `.ToBeEnabledAsync()`, `.ToBeCheckedAsync()`, `.ToBeSelectedAsync()`, or `.ToBeFocusedAsync()` |
 | `assertTrue: ${...}` | `Assert.That(value, Is.True)`, or `Expect.Poll(read)` for a value that is still changing |
-| `extendedWaitUntil: { visible, timeout }` | `.ToBeVisibleAsync(timeout: ...)` |
 | `assertScreenshot: { path, thresholdPercentage }` | `Expect.That(Screen).ToHaveScreenshotAsync(name, new ScreenshotOptions { MaxDiffPixelRatio = ... })`. The port documents it for the web engine only and has no device run of it, so keep the Maestro assertion until you have checked it on your device |
-| `assertDarkMode`, `assertLightMode` | Not yet. Assert on a themed control |
-| `retry: { maxRetries, commands }` | `Expect.Poll` for a value, NUnit `[Retry]` for the flow |
-| `takeScreenshot` | `App.ScreenshotAsync("label")`, secure fields masked |
-
-### Device
-
-| Maestro | e2e |
-| --- | --- |
-| `setLocation` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
-| `travel: { points }` | `Device.SetLocationAsync` in a loop |
-| `setAirplaneMode`, `toggleAirplaneMode` | `Device.SetAirplaneModeAsync(true)` or `false`, the state you want; `true` is Android only |
-| `setDarkMode`, `toggleDarkMode` | `Device.SetAppearanceAsync(Appearance.Dark)` or `Appearance.Light` |
-| `setOrientation` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
-| `setPermissions` | `Device.SetPermissionAsync(permission, PermissionState.Grant)`, one permission per call, on the target's app, which need not be running; call it before the app launches. A permission or state outside `DevicePermission` and `PermissionState` (a cast number) throws `INVALID_ARGUMENT` before any device command. A name read from outside the code can go in as a string: `Device.SetPermissionAsync("camera", "grant")` takes the wire names, and a misspelled one is refused with a `did you mean` hint before any device command |
-| platform-specific selectors | `Device.Locator("role=text label=\"...\"")`, agent-device's selector terms |
-
-### AI commands and flow control
-
-| Maestro | e2e |
-| --- | --- |
-| `assertWithAI`, `assertNoDefectsWithAI` | `Agent.AssertAsync("...")`, `Agent.AssertAsync("...", new AssertOptions { Vision = VisionMode.On })` |
-| `extractTextWithAI` | `Agent.ExtractAsync<T>("...")`; the type is the schema |
-| `runFlow: file.yaml` | a method on the test class or a base class |
+| `takeScreenshot`, `startRecording`, `stopRecording` | `App.ScreenshotAsync("label")`, `App.StartRecordingAsync(new RecordingOptions { Name = "..." })`, `App.StopRecordingAsync()` |
+| `assertWithAI`, `assertNoDefectsWithAI`, `extractTextWithAI` | `Agent.AssertAsync("...", new AssertOptions { Vision = VisionMode.On })`, `Agent.ExtractAsync<T>("...")`; the type is the schema |
+| `runFlow: file.yaml`, `onFlowStart`, `onFlowComplete` | a method on the test class or a base class; `[SetUp]`, `[TearDown]` (NUnit), `InitializeAsync`, `DisposeAsync` (xUnit v3) |
 | `runFlow: { when: { visible } }` | `if (await locator.IsVisibleAsync()) { ... }`, see [Rewrite selectors](#rewrite-selectors) |
-| `optional: true` on a command | the same `IsVisibleAsync()` check |
-| `repeat: { times: n }`, `repeat: { while }` | a `for` or `while` loop |
-| `runScript`, `evalScript`, `${output.x}` | C# in the test |
-| `http.get`, `http.post`, `json()` | `HttpClient` |
-| `onFlowStart`, `onFlowComplete` | `[SetUp]`, `[TearDown]` (NUnit), `InitializeAsync`, `DisposeAsync` (xUnit v3) |
-| `startRecording`, `stopRecording` | `App.StartRecordingAsync(new RecordingOptions { Name = "..." })`, `App.StopRecordingAsync()` |
+| `repeat`, `runScript`, `evalScript`, `${output.x}`, `http.get` | C# in the test: loops, variables, and `HttpClient` |
 
 ## Rewrite selectors
 
-Four differences from Maestro's selectors cause most edits.
+- Maestro reads text and id as case-insensitive regular expressions. `GetByText` and `GetByTestId` match the whole string, case included. Write `GetByText(new Regex("^mute account$", RegexOptions.IgnoreCase))`, or `exact: false` for a substring of text.
+- Maestro taps the first of several matches. e2e fails with `LOCATOR_AMBIGUOUS`, so add `.First()` when the first match is what you mean.
+- `IsVisibleAsync()` replaces `optional` and `runFlow: { when }`. It reads the screen one time and doesn't wait. It fails on several matches, so add `Visible = true` or `.First()` when a hidden twin may exist.
+- `below`, `above`, `leftOf`, and `rightOf` have no port, see [Not planned](#not-planned). `Filter(has:)` and chaining match nothing on a plain React Native `View` on iOS, see [Known device limitations](/get-started/mobile/#known-device-limitations).
 
-- Maestro reads text and id as case-insensitive regular expressions, so `tapOn: ".*Save.*"` matches any text with Save in it, and `"Mute Account"` matches `Mute account`. `GetByText` and `GetByTestId` match the whole string, case included. Write `GetByText(new Regex("^mute account$", RegexOptions.IgnoreCase))` or `GetByTestId(new Regex("^row-"))` for a pattern, or `exact: false` for a case-insensitive substring of text.
-- Maestro taps the first of several matches. e2e fails with `LOCATOR_AMBIGUOUS`, so write `.First()` when the first match is what you mean.
-- `IsVisibleAsync()`, the check that replaces `optional` and `runFlow: { when }`, is `false` on zero matches and `LOCATOR_AMBIGUOUS` on several. Add `Visible = true` to the query or `.First()` when a hidden twin may exist.
-- `below`, `above`, `leftOf`, `rightOf`, and `containsDescendants` have no port. e2e has `Filter(has:, hasText:)` and chaining for structure, and nothing spatial. Use `GetByLabel`, a test id, or a goal: `Agent.ActAsync("enter {email} in the email field", ...)` finds the field.
+## What e2e doesn't have yet
+
+Planned is on the roadmap, and Not yet has no date. Not planned is left out on purpose.
+
+### Planned
+
+| Maestro | Use today |
+| --- | --- |
+| `permissions: { all }`, the grant-all default, names such as `bluetooth` and `storage` | Name each permission in `app.permissions`, or accept the prompt with `Device.AlertAsync(AlertAction.Accept)` |
+| `point: "50%,50%"`, percent `start` and `end` on `swipe` | Compute pixels from a full-screen node's `BoundingBoxAsync()` |
+| `inputText` and `pressKey: Enter` with no field, `eraseText: N`, `pressKey: backspace`, `tab` | `FillAsync` or `PressAsync` on the field's locator; `FillAsync` a shortened `InputValueAsync()` to erase; tap the next field for Tab |
+| `addMedia` | On an iOS simulator, `xcrun simctl addmedia` on `Device.UnstableRaw.DeviceId` (the simulator's UDID) before `App.OpenAsync()`; Android is unchecked. `OpenAsync` restarts the app, so import the media before the flow navigates to the picker, or navigate back to it afterwards. See [Photos for a picker test](/get-started/mobile/#photos-for-a-picker-test) |
+| `label` on a command | `-`. The call names each step |
+| `scrollUntilVisible: { centerElement, visibilityPercentage }` | No exact match. After it resolves, read `BoundingBoxAsync()`, then `Screen.SwipeAsync` with `Momentum.Slow` if the node is off center |
+| Device logs and crash reports beside a failure | `adb logcat` or `xcrun simctl spawn <udid> log stream`, collected in a `[SetUp]` or `InitializeAsync` |
+| `maestro hierarchy` as a terminal command | A one-line test that calls `Screen.DebugAsync()` |
+| `--device-locale` | `app.launchArguments` of `-AppleLanguages (de) -AppleLocale de_DE` on iOS, see [Run the app in another language](/get-started/mobile/#run-the-app-in-another-language); on Android, set the device language before the run |
+| Maestro Cloud | Your CI with a [hosted device provider](/get-started/mobile/#hosted-devices) |
+| `pressKey: lock`, `power`, `volume up`, `volume down` | `Device.UnstableRaw.Client.CallAsync(DeviceMethods.CommandHardwareButton, ...)` with `button` set to `"power"`, `"volume-up"`, or `"volume-down"` (no `lock`): power and volume on Android, volume on a physical iPhone. See [what the raw client takes](/get-started/mobile/#what-the-raw-client-takes) |
+| JUnit `properties`, `--format html`, a JUnit path with `--output` | Ids in categories or the title; each failed test gets a `trace.md` page under `.e2e/results/`; copy the logger's output after the run |
+| `--shards`, `--shard-split` | The framework's parallelism on one machine; the port has no `--shard` |
+| `--device` on the command line | `E2E_MOBILE_DEVICE` |
+
+### Not yet
+
+| Maestro | Use today |
+| --- | --- |
+| `optional: true` | `if (await locator.IsVisibleAsync())` or try/catch; the report shows no warning |
+| `executionOrder` | One test method that calls each flow as a method; the port has no `describe` option for serial order |
+| `retry: { maxRetries, commands }` | A `for` loop with try/catch; `Expect.Poll` for a value, NUnit `[Retry]` for the whole test (xUnit v3 has none) |
+| Android process death with `killApp` | `Device.HomeAsync()`, then `adb shell am kill <package>`, then `Device.OpenAppAsync(id)` |
+| `assertDarkMode`, `assertLightMode` | Assert on a themed control |
+| `maestro test -c` | `e2e mcp` gives a coding agent a live session on the device, see [Coding agents](/coding-agents/); the port has no `--watch` |
+| TV remote keys | `-` |
+
+### Not planned
+
+| Maestro | Use instead |
+| --- | --- |
+| Text and id as regex, first match wins | A `Regex` and `.First()`, see [Rewrite selectors](#rewrite-selectors) |
+| `retryTapIfNoChange` | Assert the result, then tap again in the test. A blind second tap can fire a control twice |
+| `waitToSettleTimeoutMs` | An assertion with its own `timeout` after the action; that assertion is the wait |
+| `toggleAirplaneMode`, `toggleDarkMode` | Set the state you want: `Device.SetAirplaneModeAsync(true)`, `Device.SetAppearanceAsync(Appearance.Dark)` |
+| Maestro Studio | A coding agent over `e2e mcp`, or `Screen.DebugAsync()` |
+| `waitForAnimationToEnd` | `await Expect.That(locator).ToBeVisibleAsync()` on what the animation ends with; `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds` for the engine |
+| `below`, `above`, `leftOf`, `rightOf` | `GetByLabel`, a test id, `Filter(has:)` on a shared container, or an `Agent.ActAsync` goal |
 
 ## What differs on purpose
 
+- Maestro grants every permission when it launches the app. e2e grants none unless you name it, so a ported flow meets system prompts Maestro never showed. Name each one in `app.permissions`, with `grant`, `deny`, and `reset` for Maestro's `allow`, `deny`, and `unset`.
 - Tests get no agent-device client. Every call goes through `Screen`, `App`, `Device`, or the agent, so e2e records and redacts it. `Device.UnstableRaw` is the unstable exception: its calls are not steps, so the report and trace leave them out, the agent cache does not replay them, nothing redacts their arguments, and nothing waits for the screen to settle after one.
 - A device has no saved sessions. Sign in inside the test or in `[SetUp]`.
 

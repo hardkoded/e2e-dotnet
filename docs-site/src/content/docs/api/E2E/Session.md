@@ -15,7 +15,7 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class Session : IAsyncDisposable
+public class Session : IAsyncDisposable
 ```
 
 
@@ -25,6 +25,8 @@ One isolated session: a browser context, or the app on a device. Holds [Screen](
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
+
+**Derived:** [Session&lt;TFixtures&gt;](/api/E2E/Session-1/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Core/Launch.cs)
 

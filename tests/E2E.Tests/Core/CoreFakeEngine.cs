@@ -13,7 +13,7 @@ namespace E2E.Tests.Core;
 /// the <c>restoredStates</c>, <c>inits</c>, <c>attemptsStarted</c> and <c>disposes</c> counts the core tests read, and the <c>device</c> and <c>links</c> options:
 /// a device engine pins an app and relaunches it, and one with links opens them, as <c>session.openLink</c> does.
 /// </summary>
-internal sealed class CoreFakeEngine : IEngine
+internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
 {
     private readonly List<EngineState> _restored = [];
     private readonly List<(SemanticNode Node, LocatorAction Action)> _performed = [];
@@ -80,6 +80,9 @@ internal sealed class CoreFakeEngine : IEngine
     public string Version => "1";
 
     public EngineCapabilities Capabilities { get; }
+
+    /// <summary>Contributes the <c>gadget</c> fixture. Upstream's <c>fixtures: true</c>.</summary>
+    public CoreFakeFixtures CreateFixtures(IEngineSession session, E2E.Session controls) => new("gadget on " + Platform);
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -187,3 +190,6 @@ internal sealed class CoreFakeEngine : IEngine
         }
     }
 }
+
+/// <summary>What the fake engine contributes to a session: upstream's <c>gadget</c> fixture.</summary>
+internal sealed record CoreFakeFixtures(string Gadget);
