@@ -182,7 +182,8 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `device.reloadReactNative()` | `App.RestartAsync()`. A reload needs the Detox framework in the app |
 | `device.disableSynchronization()`, `enableSynchronization()` | Delete the calls. There is no synchronization to switch off |
 | `device.setURLBlacklist()` | Delete the call. Network activity never blocks an action |
-| `behavior.init.reinstallApp`, `--reuse` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]`, then `App.OpenAsync()` in the test |
+| `behavior.init.reinstallApp` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]`, then `App.OpenAsync()` in the test |
+| `--reuse` | Skip the reinstall call. `Reinstall = true` is the opposite of reusing the installed app |
 | `apps.<name>.build`, `detox build` | Your normal build, before `dotnet test` |
 | `.scroll()` by an exact offset | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` |
 | `by.type('RCTImageView')` | `Device.Locator("role=image")`, or a `testID` |
