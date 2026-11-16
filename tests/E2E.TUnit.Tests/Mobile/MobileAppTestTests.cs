@@ -27,8 +27,8 @@ public sealed class LeftOutMobileFixture : E2E.Mobile.TUnit.MobileAppTest
 
 /// <summary>
 /// .NET-only (upstream has no mobile adapter): <see cref="E2E.Mobile.TUnit.MobileAppTest"/> derives from <see cref="E2E.TUnit.E2ETest"/>, so a
-/// mobile test the filters left out is skipped, and it is skipped before the run leases a hosted device. A hosted run leases its device
-/// when the engine is created, before the app is installed. No device is available in this project, so the install and the launch
+/// mobile test the filters left out is skipped, and it is skipped before the run makes its shared hosted engine. A hosted run makes that engine
+/// when the engine is created, before the app is installed; the run fixture leases the device when it prepares the engine. No device is available in this project, so the install and the launch
 /// need a run on a simulator or emulator, which the sample tests cover.
 /// </summary>
 public sealed class MobileAppTestTests
@@ -53,10 +53,10 @@ public sealed class MobileAppTestTests
 
     [Test]
     [NotInParallel("E2E_MOBILE_PROVIDER")]
-    public async Task Leases_the_hosted_device_when_the_engine_is_created()
+    public async Task Makes_the_shared_hosted_engine_when_the_engine_is_created()
     {
         var provider = Environment.GetEnvironmentVariable("E2E_MOBILE_PROVIDER");
-        // A provider the lease rejects: an engine that reached the lease fails with that error.
+        // A provider the host rejects: an engine that reached the host fails with that error.
         Environment.SetEnvironmentVariable("E2E_MOBILE_PROVIDER", "not-a-provider");
         try
         {

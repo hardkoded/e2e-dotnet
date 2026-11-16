@@ -53,8 +53,11 @@ public abstract class MobileAppTest : E2ETest
     protected override TimeSpan StepTimeout => TimeSpan.FromSeconds(90);
 
     [OneTimeSetUp]
-    public async Task LeaseMobileDeviceAsync() =>
-        await MobileAppHost.LeaseAsync(CreateMobileOptions, ProjectRoot, global::NUnit.Framework.TestContext.Progress.WriteLine, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken);
+    public Task LeaseMobileDeviceAsync()
+    {
+        MobileAppHost.ShareEngine(CreateMobileOptions);
+        return Task.CompletedTask;
+    }
 
     [SetUp]
     public async Task InstallAndOpenAppAsync() =>
