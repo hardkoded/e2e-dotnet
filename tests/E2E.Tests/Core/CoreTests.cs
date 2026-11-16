@@ -101,21 +101,36 @@ public sealed class CoreTests : IAsyncLifetime
         await session.CloseAsync();
     }
 
-    // Partial: the port keeps no "the session is closed" error for an operation on a closed session. Checked: the error an operation throws is
-    // classified and carries no secret.
     [Fact]
-    public async Task Partial_Redacts_a_secret_from_the_error_an_operation_throws()
+    public async Task Says_a_closed_session_is_closed_and_redacts_a_secret_from_the_error_an_operation_throws()
     {
-        var fake = new CoreFakeEngine { OnNavigate = url => url.EndsWith("/broken", StringComparison.Ordinal) ? new InvalidOperationException("the page printed hunter2-secret and stopped") : null };
+        var fake = new CoreFakeEngine(scene:
+        [
+            new SemanticNode { Ref = "add", Role = "button", Name = "Add to cart" },
+            new SemanticNode { Ref = "price", Role = "text", Name = "Price", Text = "$9", TestId = "sale-price" },
+        ])
+        {
+            OnNavigate = url => url.EndsWith("/broken", StringComparison.Ordinal) ? new InvalidOperationException("the page printed hunter2-secret and stopped") : null,
+        };
         var opened = await HostOf(fake, new LaunchOptions { App = FakeApp, Secrets = new Dictionary<string, string> { ["SHOP_PASSWORD"] = "hunter2-secret" } });
         var session = await opened.NewSessionAsync();
 
         var failure = await Assert.ThrowsAnyAsync<E2EException>(() => session.App.OpenAsync("/broken"));
 
+        // Whatever an engine throws reaches the program with a code.
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("the page printed", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("hunter2-secret", failure.ToString(), StringComparison.Ordinal);
         await session.CloseAsync();
+
+        var tap = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByRole("button", "Add to cart").TapAsync());
+        Assert.Equal("CANCELLED", tap.Code);
+        Assert.Contains("the session is closed", tap.Message, StringComparison.Ordinal);
+        Assert.Equal("CANCELLED", (await Assert.ThrowsAnyAsync<E2EException>(() => session.App.OpenAsync("/"))).Code);
+        // A read reaches the engine with no step around it, and says the same.
+        var count = await Assert.ThrowsAnyAsync<E2EException>(() => session.Screen.GetByTestId("sale-price").CountAsync());
+        Assert.Equal("CANCELLED", count.Code);
+        Assert.Equal("the session is closed", count.Message);
     }
 
     [Fact]

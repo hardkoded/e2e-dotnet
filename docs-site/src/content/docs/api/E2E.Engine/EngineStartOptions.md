@@ -167,6 +167,21 @@ fails the attempt for it.
 
 **Value:** [Action&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
+<a id="E2E_Engine_EngineStartOptions_Headed_"></a>
+<a id="E2E_Engine_EngineStartOptions_Headed"></a>
+
+### Headed
+
+
+```csharp
+public bool Headed { get; init; }
+```
+
+
+Whether the run asked for a visible surface (`--headed`). .NET-only place: upstream hands it to `init` ([Headed](/api/E2E.Engine/EngineInitInfo/#E2E_Engine_EngineInitInfo_Headed)), which the port does not call per worker, so a session start carries it.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments_"></a>
 <a id="E2E_Engine_EngineStartOptions_LaunchArguments"></a>
 

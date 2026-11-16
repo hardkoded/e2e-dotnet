@@ -30,6 +30,9 @@ internal sealed record StandaloneHostOptions
 
     /// <summary>The run's id, when the host belongs to a hosted run. Null mints one.</summary>
     public string? RunId { get; init; }
+
+    /// <summary>Whether the engine shows its surface, a browser window; <c>--headed</c>. Upstream's <c>headed</c>.</summary>
+    public bool Headed { get; init; }
 }
 
 /// <summary>One attempt on a standalone host. Upstream's <c>StandaloneAttempt</c> (<c>run/standalone-attempt.ts</c>), over the port's session.</summary>
@@ -241,7 +244,7 @@ internal sealed class StandaloneHost
             _options.Engine,
             _options.TargetName,
             1,
-            new PrepareScope { RunId = _runId, ProjectRoot = _options.ProjectRoot, Env = _env, Notice = Notice },
+            new PrepareScope { RunId = _runId, ProjectRoot = _options.ProjectRoot, Env = _env, Notice = Notice, Headed = _options.Headed },
             _signal).ConfigureAwait(false);
         if (prepared is not null)
         {

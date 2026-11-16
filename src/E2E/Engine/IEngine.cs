@@ -129,6 +129,12 @@ public sealed class EngineStartOptions
     /// <summary>The target's name, for the errors an engine raises about its <c>app</c>. Upstream's <c>EngineInitContext.targetName</c>.</summary>
     public string? TargetName { get; init; }
 
+    /// <summary>
+    /// Whether the run asked for a visible surface (<c>--headed</c>). .NET-only place: upstream hands it to <c>init</c> (<see cref="EngineInitInfo.Headed"/>),
+    /// which the port does not call per worker, so a session start carries it.
+    /// </summary>
+    public bool Headed { get; init; }
+
     /// <summary>The installed app to launch, as the target declared it (upstream's <c>EngineAppInfo.bundleId</c>). Unset for a target without one.</summary>
     public string? BundleId { get; init; }
 
@@ -633,6 +639,9 @@ public sealed record EnginePrepareInfo
     /// </summary>
     public string? ProjectRoot { get; init; }
 
+    /// <summary>Whether the run would show for a visible surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
+    public bool Headed { get; init; }
+
     /// <summary>
     /// Reports one line of progress. A run streams it as a notice to the reporter; the standalone host of <c>e2e explore</c> and
     /// <c>e2e mcp</c> has no reporter, so it drops the line.
@@ -793,6 +802,9 @@ public sealed record EngineInitInfo
 
     /// <summary>The run's environment with what prepare left in it.</summary>
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
+
+    /// <summary>Whether the run asked for a visible surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
+    public bool Headed { get; init; }
 
     public required Action<string> Log { get; init; }
 }

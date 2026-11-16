@@ -62,7 +62,7 @@ The codes an agent step may end with, from upstream's `AGENT_CODE_TABLE`. `block
 | `APP_ALREADY_RUNNING` | The ready URL answered before the target's app command was spawned | infrastructure | 3 |
 | `BROWSER_INSTALL_FAILED` | Browser provisioning failed: the first-launch Playwright install exited non-zero. The message names the exit code | infrastructure | 3 |
 | `MODEL_PROVIDER_FAILED` | Provider transport failure (network error, 5xx, rate limit, or no response within 120 s) after the adapter's transport retries | infrastructure | 3 |
-| `CANCELLED` | The runner cancelled the operation without a process signal | infrastructure | 3 |
+| `CANCELLED` | The runner cancelled the operation without a process signal. In a core `Host`, an operation a token aborted, or one on a closed session | infrastructure | 3 |
 | `MODEL_OUTPUT_INVALID` | Structured output still failed validation after the repair budget was spent | test | 1 |
 | `APP_NOT_OPEN` | An operation needed an open app: `App.OpenAsync()` had not run, or the engine reported invalid state | test | 1 |
 | `LOCATOR_NOT_FOUND` | No matching node within the deadline, or an agent action refers to a node that is no longer available | test | 1 |

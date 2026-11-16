@@ -604,6 +604,8 @@ public async Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken 
 
 ### Contributed fixtures
 
+A fixture name may not shadow a universal fixture (`agent`, `app`, `screen`, `platform`, `session`), nor take the name of a method of every core session (`close`, `saveState`, `setDefaultTimeout`): `EngineManifest.DefineEngine` refuses either with `INVALID_CONFIG`.
+
 Upstream lets an engine contribute named surfaces to the test fixtures through `fixtures`, built by `EngineFixtureFactory` functions given an `EngineFixtureContext` and recorded through `context.fixture(name, surface, operations)`. The port's seam is smaller:
 
 - A session that implements `IEngineFixtureHost` receives its `EngineFixtureContext` through `CreateFixtures(context)` once per attempt, after it starts.

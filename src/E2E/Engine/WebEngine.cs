@@ -502,7 +502,7 @@ public sealed partial class WebEngine : IEngine
 
             if (connect is null)
             {
-                await EnsureBrowserAsync(_options.BrowserName, !_headless, cancellationToken).ConfigureAwait(false);
+                await EnsureBrowserAsync(_options.BrowserName, options.Headed || !_headless, cancellationToken).ConfigureAwait(false);
             }
 
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
@@ -553,7 +553,7 @@ public sealed partial class WebEngine : IEngine
                 }
                 else
                 {
-                    browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
+                    browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless && !options.Headed }).ConfigureAwait(false);
                 }
 
                 session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, origins, options.Permissions), url => ConfiguredHeadersFor(url, origins), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir, Site = SiteOf(app) };

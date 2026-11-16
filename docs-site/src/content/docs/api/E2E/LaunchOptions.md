@@ -90,6 +90,21 @@ The environment the engine reads; default the process environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_LaunchOptions_Headed_"></a>
+<a id="E2E_LaunchOptions_Headed"></a>
+
+### Headed
+
+
+```csharp
+public bool Headed { get; init; }
+```
+
+
+Shows the browser window; default false. Devices ignore it. Upstream's `headed`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_LaunchOptions_OnNotice_"></a>
 <a id="E2E_LaunchOptions_OnNotice"></a>
 

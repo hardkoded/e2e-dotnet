@@ -107,7 +107,7 @@ public sealed class E2EHost : IAsyncDisposable
     /// free function: C# has none, so the type it returns owns it.
     /// </summary>
     public static Task<E2EHost> OpenAsync(OpenHostOptions? options = null, CancellationToken cancellationToken = default) =>
-        OpenSession.RedactOpening(() => OpenWorkerAsync(options ?? new OpenHostOptions(), cancellationToken));
+        OpeningRedaction.RedactOpening(() => OpenWorkerAsync(options ?? new OpenHostOptions(), cancellationToken));
 
     /// <summary>Loads the selected target and opens its worker behind the redacted public boundary. Upstream's <c>openHostWorker</c>.</summary>
     private static async Task<E2EHost> OpenWorkerAsync(OpenHostOptions options, CancellationToken cancellationToken)
@@ -159,7 +159,7 @@ public sealed class E2EHost : IAsyncDisposable
     public Task<E2ESession> OpenSessionAsync(OpenSessionOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return OpenSession.RedactOpening(async () =>
+        return OpeningRedaction.RedactOpening(async () =>
         {
             if (string.IsNullOrWhiteSpace(options.Name))
             {
@@ -288,26 +288,6 @@ internal static class OpenSession
     private static readonly HashSet<(string Name, string Value)> Known = [];
     private static Redactor _redactor = Redactor.None;
 
-    /// <summary>Opening errors go straight to the external runner, never through a report writer. Upstream's <c>redactOpening</c>.</summary>
-    public static async Task<T> RedactOpening<T>(Func<Task<T>> open)
-    {
-        try
-        {
-            return await open().ConfigureAwait(false);
-        }
-        catch (Exception cause) when (cause is not OperationCanceledException)
-        {
-            // Arbitrary engine causes can carry non-text secret data; only the sanitized record crosses out. The stack and the inner exception stay behind.
-            var safe = ErrorSerializer.Serialize(cause, null, Redact);
-            throw safe.Category switch
-            {
-                "configuration" => new ConfigurationException(safe.Code, safe.Message),
-                "infrastructure" => new EngineException(safe.Code, safe.Message, safe.Retryable),
-                _ => new E2EException(safe.Code, safe.Message) { Details = safe.Details },
-            };
-        }
-    }
-
     /// <summary>Makes the config's secrets known to the process before the first engine call, so an opening failure is redacted like any text. Upstream's <c>registerStaticSecrets</c>.</summary>
     public static void RegisterStaticSecrets(IEnumerable<Secret> secrets)
     {
@@ -379,7 +359,8 @@ internal static class OpenSession
         }
     }
 
-    private static string Redact(string text)
+    /// <summary>Replaces the process's known secret values in <paramref name="text"/>. Upstream's <c>processSecrets.redact</c> (<c>run/secrecy.ts</c>).</summary>
+    internal static string Redact(string text)
     {
         Redactor redactor;
         lock (Gate)

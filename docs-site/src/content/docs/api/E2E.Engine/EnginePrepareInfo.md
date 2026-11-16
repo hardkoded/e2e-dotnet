@@ -47,6 +47,21 @@ environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_Engine_EnginePrepareInfo_Headed_"></a>
+<a id="E2E_Engine_EnginePrepareInfo_Headed"></a>
+
+### Headed
+
+
+```csharp
+public bool Headed { get; init; }
+```
+
+
+Whether the run would show the surface (`--headed`). Upstream's `headed`.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_EnginePrepareInfo_Log_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_Log"></a>
 
