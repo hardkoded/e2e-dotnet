@@ -639,7 +639,7 @@ public sealed record EnginePrepareInfo
     /// </summary>
     public string? ProjectRoot { get; init; }
 
-    /// <summary>Whether the run would show for a visible surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
+    /// <summary>Whether the run would show the surface (<c>--headed</c>). Upstream's <c>headed</c>.</summary>
     public bool Headed { get; init; }
 
     /// <summary>

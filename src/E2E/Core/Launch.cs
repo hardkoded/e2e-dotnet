@@ -338,9 +338,9 @@ public sealed class Host : IAsyncDisposable
         TestTimeout = System.Threading.Timeout.InfiniteTimeSpan,
         ActionTimeout = _timeout ?? E2EDefaults.ActionTimeout,
         AssertionTimeout = _timeout ?? E2EDefaults.AssertionTimeout,
-        // No report stands between an operation's error and the program, so the error itself is classified and redacted.
         Headed = _headed,
         Closed = () => new EngineException(EngineErrorCodes.Cancelled, "the session is closed"),
+        // No report stands between an operation's error and the program, so the error itself is classified and redacted.
         RedactThrown = true,
         RetainSteps = Launch.RetainedSteps,
         State = restored,
