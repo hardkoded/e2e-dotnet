@@ -105,7 +105,14 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The attempt's step timeline as the report tells it. Upstream's <c>steps()</c>, which returns <c>StepRecord[]</c>.</summary>
     public IReadOnlyList<E2E.Reports.ReportStep> Steps() => [.. StepRecords.Select(StepProgressWire.Public)];
 
+    /// <summary>The attempt's step timeline, which a program's agent reads the verified steps off (upstream's <c>attempt.steps</c>).</summary>
+    internal StepRecorder Recorder => _scope.Steps;
+
+    /// <summary>The attempt's scope, which a program's agent runs over (upstream's <c>attempt.agentRuntime</c>).</summary>
+    internal AttemptScope Scope => _scope;
+
     /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
+
     internal IReadOnlyList<StepRecord> StepRecords => _scope.Steps.All();
 
     /// <summary>The hook steps run in from now on; null for the test body (upstream's <c>enter</c>). A test framework's hook methods name theirs themselves.</summary>
@@ -1238,11 +1245,15 @@ public sealed class E2ESession : IAsyncDisposable
     /// recorded or replayed is evicted, unless <paramref name="preserve"/> says the failure implicates nothing.
     /// Returns what became of each step's recording, by step index.
     /// </summary>
-    internal static IReadOnlyDictionary<int, CacheWrite> Flush(IStepCache cache, IEnumerable<PendingAct> acts, bool preserve)
+    internal static IReadOnlyDictionary<int, CacheWrite> Flush(IStepCache cache, IEnumerable<PendingAct> acts, bool preserve) => Flush(cache, acts, _ => preserve);
+
+    /// <summary>As <see cref="Flush(IStepCache, IEnumerable{PendingAct}, bool)"/>, with <paramref name="preserveOf"/> decided per act: a program's session settles each failure it went on after separately.</summary>
+    internal static IReadOnlyDictionary<int, CacheWrite> Flush(IStepCache cache, IEnumerable<PendingAct> acts, Func<PendingAct, bool> preserveOf)
     {
         var outcomes = new Dictionary<int, CacheWrite>();
         foreach (var act in acts)
         {
+            var preserve = preserveOf(act);
             var recorded = act.Completed && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision;
             var outcome = act.Decided;
             try

@@ -15,13 +15,15 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class ActOptions
+public class ActOptions
 ```
 
 
 Values passed into one `ActAsync` goal. Put fresh data in [Unique(string)](/api/E2E/Values/#E2E_Values_Unique_System_String_).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+
+**Derived:** [CachingActOptions](/api/E2E/CachingActOptions/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 

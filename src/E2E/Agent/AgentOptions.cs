@@ -12,7 +12,7 @@ namespace E2E;
 /// One named agent, as upstream <c>agents.&lt;name&gt;</c>. Each entry starts from the built-in
 /// defaults; no agent inherits another's values. A call picks one with its <c>Agent</c> option.
 /// </summary>
-public sealed class AgentOptions
+public class AgentOptions
 {
     /// <summary>
     /// The model behind <c>act</c>. There is no implicit default. A custom <see cref="Executor"/> that brought a model of its

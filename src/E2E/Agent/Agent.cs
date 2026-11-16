@@ -71,14 +71,29 @@ public sealed partial class Agent
     /// <summary>The looks of the newest act.</summary>
     internal ObservationFeed Feed => _feed;
 
-    internal Agent(AttemptScope scope)
+    // The agent a program created over a core session, which brings its own configuration and replay cache; null for a test's agent.
+    private readonly CoreAgentBinding? _binding;
+
+    internal Agent(AttemptScope scope, CoreAgentBinding? binding = null)
     {
         _scope = scope;
+        _binding = binding;
         _feed = new ObservationFeed(scope.Session, TimeProvider.System) { Scope = scope };
     }
 
-    public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default) =>
-        _scope.Track(RunActStepAsync(instruction, options, cancellationToken));
+    // Upstream's `select` of the agent context: the agent a call runs as. A core agent is the one it was created with.
+    private ResolvedAgent Select(string? name) => _binding is null ? _scope.Select(name) : _binding.Select(name);
+
+    public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        // A test's agent has no cache of its own to name: a recording is keyed by the test, so CachingActOptions belongs to a core agent.
+        if (options is CachingActOptions)
+        {
+            throw new TestException("INVALID_ARGUMENT", "CachingActOptions (CacheKey, Cache) is for an agent created with CoreAgents.CreateAgent; pass ActOptions");
+        }
+
+        return _scope.Track(RunActStepAsync(instruction, options, cancellationToken));
+    }
 
     public Task AssertAsync(string statement, AssertOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -88,7 +103,7 @@ public sealed partial class Agent
             throw new TestException("INVALID_ARGUMENT", "assert budgets require Explore = true");
         }
 
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         // The brain that plans the flows judges the assertions too, so a custom executor takes the assert. So does an exploring one:
         // the judgment tier below looks once.
         if (agent.Executor is not null || options?.Explore == true)
@@ -114,7 +129,7 @@ public sealed partial class Agent
     private async Task WaitForStepAsync(string statement, WaitForOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         var parameters = JudgmentParams(options?.Params, "agent.waitFor");
         await StepAsync("agent.waitFor", statement, agent, verifies: true, () => WaitForCoreAsync(statement, parameters, options, cancellationToken)).ConfigureAwait(false);
     }
@@ -122,7 +137,7 @@ public sealed partial class Agent
     private async Task WaitForCoreAsync(string statement, string? parameters, WaitForOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         var interval = Interval(options?.Interval);
         var timeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
         var maxCalls = Budget(options?.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
@@ -223,14 +238,14 @@ public sealed partial class Agent
     private async Task<T> ExtractStepAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         return await StepAsync("agent.extract", instruction, agent, verifies: false, () => ExtractCoreAsync<T>(instruction, options, cancellationToken)).ConfigureAwait(false);
     }
 
     private async Task<T> ExtractCoreAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
-        var agent = _scope.Select(options?.Agent);
+        var agent = Select(options?.Agent);
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
         var extractTimeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
         var guard = Guard("agent.extract", cancellationToken, extractTimeout);
@@ -1055,7 +1070,7 @@ public sealed partial class Agent
 }
 
 /// <summary>Values passed into one <see cref="Agent.ActAsync"/> goal. Put fresh data in <see cref="Values.Unique"/>.</summary>
-public sealed class ActOptions
+public class ActOptions
 {
     public IReadOnlyDictionary<string, object?>? Params { get; init; }
 
@@ -1337,7 +1352,6 @@ internal static class Vision
 
 internal sealed class AttemptScope : ISecretFillRuntime
 {
-    private readonly Dictionary<string, Func<TraceCallSignature, int>> _callIndexers = new(StringComparer.Ordinal);
     private readonly List<Secret> _secrets = [];
     private readonly List<(string Name, string Value)> _registered = [];
     private Built? _redactor;
@@ -1735,29 +1749,29 @@ internal sealed class AttemptScope : ISecretFillRuntime
     public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex, out TraceKeyContext context)
     {
         // The key reads the agent context as the model does, with the secrets known so far redacted.
-        var identity = new CacheAgentIdentity(agent.Name, agent.Context is null ? null : Redactor.Redact(agent.Context));
-        var signature = Identity.TraceCallSignature(Identity.ActKind, instruction, CacheKeys.Project(parameters));
-
-        // One occurrence count per agent: the agent is part of the key, so another agent's call of the same instruction must not
-        // renumber this one's. Folded like the key folds it: no context is the empty one.
-        var agentKey = Ids.CanonicalJson(new JsonArray(identity.Name, identity.Context ?? ""));
-        if (!_callIndexers.TryGetValue(agentKey, out var indexer))
-        {
-            _callIndexers[agentKey] = indexer = Identity.CreateCallIndexer();
-        }
-
-        callIndex = indexer(signature);
-        var key = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
-            Identity.ProjectIdentity(CacheProjectId),
-            TestTitle,
-            new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, AppIdentity),
-            signature,
-            callIndex,
-            identity,
-            CacheKeys.ReplayPolicyVersion));
-        context = Identity.KeyContext(key);
-        return Identity.TraceCacheKeyHash(key);
+        var claimed = Claimer()(instruction, parameters, IdentityOf(agent));
+        callIndex = claimed.CallIndex;
+        context = claimed.Context;
+        return claimed.Key;
     }
+
+    /// <summary>The agent as a key sees it: its name and its context as the model reads it, with the secrets known so far redacted.</summary>
+    internal CacheAgentIdentity IdentityOf(ResolvedAgent agent) => new(agent.Name, agent.Context is null ? null : Redactor.Redact(agent.Context));
+
+    private Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey>? _claimKey;
+
+    private Func<string, IReadOnlyDictionary<string, object?>?, CacheAgentIdentity, ClaimedTraceKey> Claimer() =>
+        LazyInitializer.EnsureInitialized(ref _claimKey, () => CacheContexts.KeyClaimer(CacheProjectId, TestTitle, new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, AppIdentity)))!;
+
+    /// <summary>The cache context of one act of this attempt, or null when its cache is off: the store and mode the attempt resolved, and its key claims.</summary>
+    internal AgentCacheContext? ActCache() =>
+        CacheEnabled && Cache is { } store
+            ? new AgentCacheContext(CacheWrite ? CacheMode.ReadWrite : CacheMode.ReadOnly, store, ReplayEligible, CacheStrict ? new AgentCacheStrict(StrictAdvice) : null)
+            {
+                TestId = TestTitle,
+                ClaimKey = Claimer(),
+            }
+            : null;
 
     /// <summary>
     /// Upstream's <c>strict.advice</c> of <c>AgentCacheContext</c> (<c>cache/context.ts</c>), built by <c>CacheContexts.CreateAgentCacheContext</c>:

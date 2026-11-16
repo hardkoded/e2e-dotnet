@@ -91,8 +91,9 @@ public class Session : IAsyncDisposable
     private readonly Action _onClosed;
     private readonly Lazy<Task> _closing;
 
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, Action onClosed)
+    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed)
     {
+        Internals = internals;
         _attempt = attempt;
         _session = attempt.Session;
         _identity = identity;
@@ -116,6 +117,9 @@ public class Session : IAsyncDisposable
     internal IEngineSession EngineSession => Engine.EngineSession.Unwrap(_session.Engine);
 
     internal E2ESession E2E => _session;
+
+    /// <summary>What <see cref="CoreAgents.CreateAgent"/> reads off the session; see <see cref="SessionInternals"/>.</summary>
+    internal SessionInternals Internals { get; }
 
     /// <summary>Captures the session's state (cookies, storage, app data) in memory. Persist it only with <see cref="SessionState.ExportAsync"/>. Upstream's <c>saveState</c>.</summary>
     public Task<SessionState> SaveStateAsync(CancellationToken cancellationToken = default) =>
@@ -147,10 +151,29 @@ public class Session : IAsyncDisposable
 
     private async Task CloseOnceAsync()
     {
-        IReadOnlyList<Exception> errors;
+        // The closers run in order, before the attempt ends: an agent settles its replay cache here.
+        var errors = new List<Exception>();
+        foreach (var closer in Internals.Closers)
+        {
+            try
+            {
+                await closer().ConfigureAwait(false);
+            }
+            catch (Exception cause)
+            {
+                // Whatever a closer throws, a cancellation included, is reported after the attempt is closed.
+                errors.Add(cause);
+            }
+        }
+
         try
         {
-            errors = await _attempt.CloseAsync().ConfigureAwait(false);
+            errors.AddRange(await _attempt.CloseAsync().ConfigureAwait(false));
+        }
+        catch (Exception cause) when (errors.Count > 0)
+        {
+            // What the closers found is reported with the failure of the attempt's own close.
+            errors.Add(cause);
         }
         finally
         {
@@ -170,8 +193,8 @@ public class Session : IAsyncDisposable
 public sealed class Session<TFixtures> : Session
     where TFixtures : class
 {
-    internal Session(StandaloneAttempt attempt, StateIdentity identity, Action onClosed, Func<IEngineSession, Session, TFixtures> fixtures)
-        : base(attempt, identity, onClosed) =>
+    internal Session(StandaloneAttempt attempt, StateIdentity identity, SessionInternals internals, Action onClosed, Func<IEngineSession, Session, TFixtures> fixtures)
+        : base(attempt, identity, internals, onClosed) =>
         Fixtures = fixtures(EngineSession, this);
 
     /// <summary>What the engine contributes beside <see cref="Session.Screen"/>, <see cref="Session.App"/>, and <see cref="Session.Platform"/>.</summary>
@@ -192,14 +215,14 @@ public sealed class Host : IAsyncDisposable
     private readonly TimeSpan? _timeout;
     private readonly LaunchApp? _app;
     private readonly bool _headed;
-    private readonly Func<StandaloneAttempt, StateIdentity, Action, Session> _newSession;
+    private readonly Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session> _newSession;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
     private Session? _open;
 
-    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession = null)
+    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession = null)
     {
-        _newSession = newSession ?? ((attempt, sessionIdentity, onClosed) => new Session(attempt, sessionIdentity, onClosed));
+        _newSession = newSession ?? ((attempt, sessionIdentity, internals, onClosed) => new Session(attempt, sessionIdentity, internals, onClosed));
         _headed = headed;
         _app = app;
         _host = host;
@@ -241,10 +264,12 @@ public sealed class Host : IAsyncDisposable
             }
 
             var restored = options?.State is { } state ? SessionState.RestoredStateFor(state, _identity) : null;
-            var attempt = await _host.OpenAttemptAsync(SessionOptions(restored), cancellationToken, hosted: true).ConfigureAwait(false);
+            var failures = new FailureWatch();
+            var attempt = await _host.OpenAttemptAsync(SessionOptions(restored, failures), cancellationToken, hosted: true).ConfigureAwait(false);
             try
             {
-                var session = _newSession(attempt, _identity, () => Release(attempt));
+                failures.Watch(attempt.Session.Recorder);
+                var session = _newSession(attempt, _identity, new SessionInternals(attempt, _projectRoot, failures), () => Release(attempt));
                 if (_timeout is { } timeout)
                 {
                     session.SetDefaultTimeout(timeout);
@@ -337,7 +362,7 @@ public sealed class Host : IAsyncDisposable
         Launch.ThrowClosingErrors(errors, "closing the host");
     }
 
-    private E2ESessionOptions SessionOptions(SavedSession? restored) => new()
+    private E2ESessionOptions SessionOptions(SavedSession? restored, FailureWatch failures) => new()
     {
         Engine = _engine,
         TargetName = _target,
@@ -365,6 +390,7 @@ public sealed class Host : IAsyncDisposable
         // No report stands between an operation's error and the program, so the error itself is classified and redacted.
         RedactThrown = true,
         RetainSteps = Launch.RetainedSteps,
+        OnProgress = failures.OnProgress,
         State = restored,
     };
 
@@ -429,12 +455,12 @@ public static class Launch
         var host = await LaunchCoreAsync(
             engine,
             options,
-            (attempt, identity, onClosed) => new Session<TFixtures>(attempt, identity, onClosed, engine.CreateFixtures),
+            (attempt, identity, internals, onClosed) => new Session<TFixtures>(attempt, identity, internals, onClosed, engine.CreateFixtures),
             cancellationToken).ConfigureAwait(false);
         return new Host<TFixtures>(host);
     }
 
-    private static async Task<Host> LaunchCoreAsync(IEngine engine, LaunchOptions? options, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession, CancellationToken cancellationToken)
+    private static async Task<Host> LaunchCoreAsync(IEngine engine, LaunchOptions? options, Func<StandaloneAttempt, StateIdentity, SessionInternals, Action, Session>? newSession, CancellationToken cancellationToken)
     {
         if (engine is null)
         {
