@@ -200,7 +200,6 @@ Calls on `Device` run only on a device. Calls on `Screen`, `App`, `Agent`, and `
 | Mocha `--grep`, tags in titles | `dotnet test --filter "FullyQualifiedName~Name"`, or `[Category("smoke")]` (NUnit) and `--filter "TestCategory=smoke"` |
 | `before`, `beforeEach` hooks | `[OneTimeSetUp]`, `[SetUp]` (NUnit); the constructor and `InitializeAsync` (xUnit v3) |
 | JUnit, Allure, spec reporters | the `dotnet test` loggers, such as `--logger trx` (`--report-trx` on Microsoft.Testing.Platform; see [Testing frameworks](/testing-frameworks/#vstest-and-microsofttestingplatform)), or a JUnit logger package |
-| An HTML report | Not yet. The port has no `htmlReporter()`. Use a `dotnet test` logger such as `--logger html` |
 
 ## Permissions and deep links
 
