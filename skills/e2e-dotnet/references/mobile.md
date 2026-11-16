@@ -283,7 +283,10 @@ var provider = new DevFlowAgents(new DevFlowAgentsOptions { AppName = "MobileApp
 Launch the Debug build of the app on a simulator or emulator yourself, then run the tests. The provider finds the agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
 
 ```bash
-dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64 -t:Run
+# In one terminal: build, install, and launch the app, and leave it running.
+# Run it from the project folder: from another folder, `--project` fails with MT0069.
+(cd samples/MobileApp && dotnet run -f net11.0-ios --device <UDID>)
+# `dotnet run -f net11.0-ios --list-devices` lists the ids. In another terminal:
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
 
