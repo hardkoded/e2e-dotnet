@@ -2,12 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Collections;
-
 namespace E2E.Mobile;
 
 /// <summary>
-/// What <c>MobileAppTest</c> of each test framework shares: the options of the engine, the one hosted device a run leases,
+/// What <c>MobileAppTest</c> of each test framework shares: the options of the engine, the one hosted engine a run shares,
 /// and the install of the build. Compiled into <c>E2E.Mobile.NUnit</c> and <c>E2E.Mobile.XUnit.V3</c>. There is no upstream
 /// counterpart: the framework adapters are .NET-only.
 /// </summary>
@@ -15,15 +13,23 @@ internal static class MobileAppHost
 {
     // The device keeps the build between tests, so only the first test of the run installs it.
     private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static bool s_installed;
-    private static bool s_leased;
-    private static MobileEngine? s_engine;
-    private static Dictionary<string, string?> s_env = [];
-    private static string s_runId = "";
-    private static string s_target = "";
-    private static Action<string> s_log = _ => { };
 
-    /// <summary>The engine that owns the leased device, or null when the tests drive a local one.</summary>
+    // Guards s_engine and AttachesToRunningApp; Gate above guards s_installed.
+    private static readonly Lock EngineLock = new();
+    private static bool s_installed;
+    private static MobileEngine? s_engine;
+
+    /// <summary>The next <see cref="ShareEngine"/> starts from no shared engine. .NET-only: a test of the host runs in a process that other tests share.</summary>
+    internal static void Reset()
+    {
+        lock (EngineLock)
+        {
+            s_engine = null;
+            AttachesToRunningApp = false;
+        }
+    }
+
+    /// <summary>The engine whose hosted device the run shares, or null when the tests drive a local one.</summary>
     internal static MobileEngine? Engine => s_engine;
 
     /// <summary>True when the tests attach to an app that is already running (the DevFlow agent): there is no build to install and no relaunch.</summary>
@@ -69,11 +75,13 @@ internal static class MobileAppHost
     };
 
     /// <summary>
-    /// With <c>E2E_MOBILE_PROVIDER=limrun</c> or <c>devflow</c>, leases one hosted device for the whole run, once, and releases it
-    /// when the process ends. Every test shares the engine, and so the device. Without the variable (or with <c>local</c>) it does
-    /// nothing, and each test makes its own engine.
+    /// With <c>E2E_MOBILE_PROVIDER=limrun</c> or <c>devflow</c>, makes the one engine of the run, whose hosted device every test shares. It
+    /// leases nothing itself: the run fixture prepares a shared engine once per process (<c>HostRun.Prepared</c>), which leases the device, and
+    /// finishes it when the process ends. A second prepare here would claim the device again under another run id: the DevFlow agent refuses
+    /// it as another host's lease, and a Limrun device would be leased twice. Without the variable (or with <c>local</c>) it does nothing, and
+    /// each test makes its own engine.
     /// </summary>
-    internal static async Task LeaseAsync(Func<IDeviceProvider?, MobileOptions> options, string projectRoot, Action<string> log, CancellationToken cancellationToken)
+    internal static void ShareEngine(Func<IDeviceProvider?, MobileOptions> options)
     {
         var name = Environment.GetEnvironmentVariable("E2E_MOBILE_PROVIDER")?.ToLowerInvariant();
         if (name is null or "" or "local")
@@ -81,49 +89,18 @@ internal static class MobileAppHost
             return;
         }
 
-        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        lock (EngineLock)
         {
-            if (s_leased)
+            if (s_engine is not null)
             {
                 return;
             }
 
             var provider = HostedDeviceProviders.Create(name, Environment.GetEnvironmentVariable)
                 ?? throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}.");
-            var mobile = options(provider);
-            var engine = new MobileEngine(mobile);
-            var env = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
-            var runId = Guid.NewGuid().ToString("N")[..12];
-            try
-            {
-                await engine.PrepareAsync(
-                    new MobilePrepareInfo { RunId = runId, TargetName = mobile.TargetName, ProjectRoot = projectRoot, Slots = 1, Env = env, App = mobile.App, Log = log },
-                    cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                // Release what prepare got to, and let the failure of prepare reach the user, not a failure of the release.
-                try
-                {
-                    await engine.FinishAsync(new MobileFinishInfo { RunId = runId, TargetName = mobile.TargetName, Env = env, Log = log }, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception cleanup)
-                {
-                    log($"Releasing the hosted device failed: {cleanup.Message}");
-                }
-
-                throw;
-            }
-
+            var engine = new MobileEngine(options(provider));
             AttachesToRunningApp = name == "devflow";
-            (s_engine, s_env, s_runId, s_target, s_log, s_leased) = (engine, env, runId, mobile.TargetName, log, true);
-            // The adapters have no hook that runs after the last test, so the process end releases the device.
-            AppDomain.CurrentDomain.ProcessExit += (_, _) => ReleaseAsync().Wait(TimeSpan.FromMinutes(2));
-        }
-        finally
-        {
-            Gate.Release();
+            s_engine = engine;
         }
     }
 
@@ -157,28 +134,5 @@ internal static class MobileAppHost
 
         // The core App.OpenAsync takes a URL. A device target launches the app through the device fixture.
         await device.OpenAppAsync(appId, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async Task ReleaseAsync()
-    {
-        if (s_engine is { } engine)
-        {
-            s_engine = null;
-            try
-            {
-                await engine.FinishAsync(new MobileFinishInfo { RunId = s_runId, TargetName = s_target, Env = s_env, Log = s_log }, CancellationToken.None).ConfigureAwait(false);
-            }
-            catch (Exception failure)
-            {
-                // The test host may be gone at process exit, and its log with it.
-                try
-                {
-                    s_log($"Releasing the hosted device failed: {failure.Message}");
-                }
-                catch (Exception)
-                {
-                }
-            }
-        }
     }
 }

@@ -46,9 +46,8 @@ public abstract class MobileAppTest : E2ETest
     /// <summary>The hosted device the run leased, or a <see cref="MobileEngine"/> for the local device.</summary>
     protected override IEngine CreateEngine()
     {
-        // TUnit runs the base class hooks before the derived ones, and the base hook creates the engine. So the lease happens here.
-        var cancellationToken = SessionStartToken;
-        Task.Run(() => MobileAppHost.LeaseAsync(CreateMobileOptions, ProjectRoot, Console.WriteLine, cancellationToken), cancellationToken).GetAwaiter().GetResult();
+        // TUnit runs the base class hooks before the derived ones, and the base hook creates the engine. So the shared engine is made here.
+        MobileAppHost.ShareEngine(CreateMobileOptions);
         return _engine = MobileAppHost.Engine ?? new MobileEngine(CreateMobileOptions(provider: null));
     }
 

@@ -403,7 +403,7 @@ public sealed class E2ESession : IAsyncDisposable
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
-            var app = new App(engine, baseUrl, () => budget.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, SinkOf = () => scope.Artifacts?.Sink };
+            var app = new App(engine, baseUrl, () => budget.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName, options.LinkBase) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, SinkOf = () => scope.Artifacts?.Sink };
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => budget.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
@@ -1417,6 +1417,9 @@ public sealed class E2ESessionOptions
 
     /// <summary>The target's <c>app.bundleId</c>, handed to the engine as <see cref="EngineStartOptions.BundleId"/>.</summary>
     public string? BundleId { get; init; }
+
+    /// <summary>The target's <c>app.linkBase</c>, which <c>App.OpenAsync(path)</c> joins a path to on a device. It applies only to a pinned app with no <see cref="BaseUrl"/>; with a base URL a path resolves against that URL.</summary>
+    public string? LinkBase { get; init; }
 
     /// <summary>The target's <c>app.appPath</c>, handed to the engine as <see cref="EngineStartOptions.AppPath"/>.</summary>
     public string? AppPath { get; init; }

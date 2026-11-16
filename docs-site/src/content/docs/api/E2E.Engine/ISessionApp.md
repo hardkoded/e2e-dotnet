@@ -90,6 +90,28 @@ Opens the app at one resolved URL.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_ISessionApp_OpenLinkAsync_"></a>
+<a id="E2E_Engine_ISessionApp_OpenLinkAsync_System_String_E2E_Engine_OperationContext_"></a>
+
+### OpenLinkAsync(string, OperationContext)
+
+
+```csharp
+Task OpenLinkAsync(string url, OperationContext operation)
+```
+
+
+Opens one checked link in the app under test.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `url` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `operation` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_ISessionApp_ResetAsync_"></a>
 <a id="E2E_Engine_ISessionApp_ResetAsync_E2E_Engine_OperationContext_"></a>
 

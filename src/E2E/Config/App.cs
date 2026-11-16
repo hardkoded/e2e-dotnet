@@ -34,6 +34,7 @@ internal sealed record PortRequest(string Host, int? Port);
 /// </param>
 /// <param name="BundleId"><c>app.bundleId</c>.</param>
 /// <param name="AppPath"><c>app.appPath</c>.</param>
+/// <param name="LinkBase">The link base <c>App.OpenAsync(path)</c> joins on a device target; see <see cref="AppConfig.LinkBase"/>.</param>
 /// <param name="LaunchArguments"><c>app.launchArguments</c>.</param>
 /// <param name="Permissions"><c>app.permissions</c>.</param>
 /// <param name="Command"><c>app.command</c> with <c>{port}</c> expanded to the port the app is served on.</param>
@@ -46,6 +47,7 @@ internal sealed record ResolvedApp(
     string? Identity,
     string? BundleId,
     string? AppPath,
+    string? LinkBase,
     IReadOnlyList<string>? LaunchArguments,
     IReadOnlyDictionary<string, AppPermissionState>? Permissions,
     CommandConfig? Command,
@@ -72,6 +74,53 @@ internal static partial class TargetApps
 
         var tail = path.TrimStart('/');
         return linkBase.EndsWith("://", StringComparison.Ordinal) ? linkBase + tail : linkBase.TrimEnd('/') + "/" + tail;
+    }
+
+    /// <summary>
+    /// Checks <c>app.linkBase</c>: an absolute URL, or a bare custom scheme (<c>shopapp://</c>), with no query or fragment for a path to land after, on
+    /// an engine that opens links. The message never echoes the value: it may carry a token. Upstream's <c>checkLinkBase</c>.
+    /// </summary>
+    public static string? CheckLinkBase(string? linkBase, IEngine? engine, string where)
+    {
+        if (linkBase is null)
+        {
+            return null;
+        }
+
+        if (linkBase.Length == 0)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must be a non-empty string");
+        }
+
+        if (engine is null || (engine.Capabilities & EngineCapabilities.OpenLink) == 0)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                where + ".linkBase opens links in a device app, and engine " + (engine?.Name ?? "none") + " opens none; a browser target opens paths against app.url");
+        }
+
+        if (!Uri.TryCreate(linkBase.Trim(), UriKind.Absolute, out var url))
+        {
+            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must be an absolute URL such as https://shop.example.com or a scheme such as shopapp://");
+        }
+
+        if (RefusesLink(linkBase.Trim()))
+        {
+            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase names a refused scheme, " + url.Scheme + ":");
+        }
+
+        // Checked on the raw string, which a path joins as written: the URL parser trims whitespace and drops an empty `?` or `#`.
+        if (linkBase.AsSpan().IndexOfAny('?', '#') >= 0)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must have no query or fragment: a path joins its end");
+        }
+
+        if (!string.Equals(linkBase.Trim(), linkBase, StringComparison.Ordinal))
+        {
+            throw new ConfigurationException("INVALID_CONFIG", where + ".linkBase must have no surrounding whitespace");
+        }
+
+        return linkBase;
     }
 
     /// <summary>Whether a link names a refused scheme (see <see cref="Urls.IsRefusedLinkScheme"/>); one that does not parse is refused too. Upstream's <c>refusesLink</c>.</summary>
@@ -132,6 +181,7 @@ internal static partial class TargetApps
             app.Identity ?? (declaredBase is null ? null : declaredBase.Origin + declaredBase.BasePath) ?? app.BundleId ?? app.AppPath,
             app.BundleId,
             app.AppPath,
+            app.LinkBase,
             app.LaunchArguments,
             app.Permissions,
             command,
@@ -188,6 +238,7 @@ internal static partial class TargetApps
         Add("url", app.Url);
         Add("bundleId", app.BundleId);
         Add("appPath", app.AppPath);
+        Add("linkBase", app.LinkBase);
         Add("identity", app.Identity);
         Add("environment", app.Environment);
         Add("launchArguments", app.LaunchArguments is null ? null : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]));

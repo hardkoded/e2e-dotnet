@@ -19,6 +19,11 @@ public sealed record LaunchApp
     /// <summary>The build a device installs.</summary>
     public string? AppPath { get; init; }
 
+    /// <summary>
+    /// The base <c>App.OpenAsync(path)</c> joins a path to on a device; see <see cref="AppConfig.LinkBase"/>. The engine must open links, as the device engine does.
+    /// </summary>
+    public string? LinkBase { get; init; }
+
     /// <summary>The stable identity a saved state is bound to; see <see cref="AppConfig.Identity"/>.</summary>
     public string? Identity { get; init; }
 
@@ -325,6 +330,7 @@ public sealed class Host : IAsyncDisposable
         BaseUrl = _app?.Url,
         BundleId = _app?.BundleId,
         AppPath = _app?.AppPath,
+        LinkBase = _app?.LinkBase,
         LaunchArguments = _app?.LaunchArguments,
         Permissions = _app?.Permissions,
         TestTitle = "core",
@@ -392,9 +398,10 @@ public static class Launch
                 {
                     var target = engine.Platform;
                     var app = options.App;
+                    TargetApps.CheckLinkBase(app?.LinkBase, engine, "target \"" + target + "\" app");
                     var resolved = TargetApps.ResolveTargetApp(
                         target,
-                        new AppConfig { Url = app?.Url, BundleId = app?.BundleId, AppPath = app?.AppPath, Identity = app?.Identity, LaunchArguments = app?.LaunchArguments, Permissions = app?.Permissions },
+                        new AppConfig { Url = app?.Url, BundleId = app?.BundleId, AppPath = app?.AppPath, LinkBase = app?.LinkBase, Identity = app?.Identity, LaunchArguments = app?.LaunchArguments, Permissions = app?.Permissions },
                         projectRoot);
                     var identity = new StateIdentity(
                         engine.Name,

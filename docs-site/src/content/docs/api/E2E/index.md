@@ -99,7 +99,11 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of GotoAsync. |
 | [GrammarToolsOptions](/api/E2E/GrammarToolsOptions/) | What CreateGrammarTools runs a tool body under (upstream's GrammarToolOptions). |
+| [Host](/api/E2E/Host/) | One engine instance, initialized: the owner of the sessions opened on it, one at a time. Upstream's Host (core/launch.ts). |
 | [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/) | A hoverAt the step dispatched. Mobile engines have no hoverAt. |
+| [Launch](/api/E2E/Launch/) | launch from @e2e-dev/core: drive a browser or a device from plain code, with no test runner, config file, or report. A host is one worker on one engine instance: it prepares the engine, initializes it, and opens sessions on it one at a time. Parallel work is more hosts. Upstream's core/launch.ts. |
+| [LaunchApp](/api/E2E/LaunchApp/) | The app a host drives: what app.open() opens on a browser, or launches on a device. Upstream's LaunchApp (core/launch.ts), a pick of the target's app. |
+| [LaunchOptions](/api/E2E/LaunchOptions/) | What LaunchAsync is given. Upstream's LaunchOptions (core/launch.ts). |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
@@ -116,6 +120,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
 | [ModelToolChoice](/api/E2E/ModelToolChoice/) | The AI SDK's ToolChoice: auto lets the model answer in prose or call any offered tool, required makes it call some tool, and a named tool makes it call that one. Each provider sends its own form of it (Anthropic's any, Bedrock's any, OpenAI's required, Gemini's ANY). |
 | [ModelWarning](/api/E2E/ModelWarning/) | One of upstream's call warnings (CallWarning): the provider changed the request instead of failing it. A provider that sends auto in place of the forced tool choice it was asked for says so with Type unsupported and Feature toolChoice. |
+| [NewSessionOptions](/api/E2E/NewSessionOptions/) | What NewSessionAsync is given. Upstream's NewSessionOptions (core/launch.ts). |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |
 | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
@@ -155,6 +160,9 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2E_SECRET_{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |
 | [SelectOption](/api/E2E/SelectOption/) | One option of a select-like control, named by exactly one of its Label, its Value, or its Index. Upstream's SelectOption object forms { label }, { value }, and { index }; the plain string form is SelectOptionAsync. A select takes one option per call. |
+| [Session](/api/E2E/Session/) | One isolated session: a browser context, or the app on a device. Holds Screen, App, Platform, and Browser. Upstream's Session and SessionControls (core/launch.ts), over the port's E2ESession. |
+| [SessionState](/api/E2E/SessionState/) | What a session's SaveStateAsync captures (the engine's cookies, storage, or app data), held in memory. Upstream's SessionState (core/state.ts). It leaves the process only encrypted, under a key the caller holds, as a session-state-1 document; there is no plaintext export. Pass it to NewSessionAsync to start a session from it, on a host of the same engine, platform, and app. |
+| [SessionStateKeyOptions](/api/E2E/SessionStateKeyOptions/) | The options of ExportAsync(SessionStateKeyOptions) and ImportAsync: the AES-256-GCM key, 32 bytes the caller keeps. Upstream's SessionStateKeyOptions. |
 | [SkipException](/api/E2E/SkipException/) | Thrown by Skip when a test stops early and is reported skipped. |
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as LOCATOR_AMBIGUOUS, still throws. |

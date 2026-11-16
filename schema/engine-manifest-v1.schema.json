@@ -53,6 +53,7 @@
           "artifacts/startVideo",
           "artifacts/stopVideo",
           "session/open",
+          "session/openLink",
           "session/back",
           "session/resize",
           "session/switchTab",

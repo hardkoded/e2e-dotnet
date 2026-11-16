@@ -538,6 +538,31 @@ Task OpenAsync(string url, CancellationToken cancellationToken)
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Engine_IEngineSession_OpenLinkAsync_"></a>
+<a id="E2E_Engine_IEngineSession_OpenLinkAsync_System_String_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
+
+### OpenLinkAsync(string, OperationContext, CancellationToken)
+
+
+```csharp
+Task OpenLinkAsync(string url, OperationContext context, CancellationToken cancellationToken)
+```
+
+
+Opens a link in the app under test, as a deep link or a universal link would: `App.OpenAsync(path)` on a target that declares
+`app.linkBase` lands here with the link joined and its scheme checked. Engines that declare [OpenLink](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_OpenLink)
+implement it. Upstream's `session.openLink`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `url` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+| `context` | [OperationContext](/api/E2E.Engine/OperationContext/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Engine_IEngineSession_PerformAsync_"></a>
 <a id="E2E_Engine_IEngineSession_PerformAsync_E2E_Engine_SemanticNode_E2E_Engine_LocatorAction_E2E_Engine_OperationContext_System_Threading_CancellationToken_"></a>
 
