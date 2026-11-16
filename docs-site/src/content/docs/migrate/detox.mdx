@@ -183,7 +183,7 @@ Planned is on the roadmap, and Not yet has no date. Not planned is left out on p
 | `device.disableSynchronization()`, `enableSynchronization()` | Delete the calls. There is no synchronization to switch off |
 | `device.setURLBlacklist()` | Delete the call. Network activity never blocks an action |
 | `behavior.init.reinstallApp` | `Device.InstallAppAsync(options: new InstallAppOptions { Reinstall = true })` in `[SetUp]`, then `App.OpenAsync()` in the test |
-| `--reuse` | Skip the reinstall call. `Reinstall = true` is the opposite of reusing the installed app |
+| `--reuse` | Omit `app.appPath` (and unset `E2E_MOBILE_APP_PATH`) and keep `app.bundleId` set for the preinstalled app. With `app.appPath` set, `MobileAppTest` installs the build once per run, replacing the installed binary |
 | `apps.<name>.build`, `detox build` | Your normal build, before `dotnet test` |
 | `.scroll()` by an exact offset | `Screen.SwipeAsync(new SwipePathOptions { From = ..., To = ... })` |
 | `by.type('RCTImageView')` | `Device.Locator("role=image")`, or a `testID` |
