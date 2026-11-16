@@ -453,7 +453,7 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
+    public async Task Partial_Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
     {
         var agent = Scripted(_directory, Turns([Pass], [Pass]));
         var world = new TodoPage().World();
@@ -504,7 +504,7 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
+    public async Task Partial_Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
     {
         var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
         var world = new TodoPage().World();
