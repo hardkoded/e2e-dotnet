@@ -16,6 +16,7 @@ using System.Text;
 //   serve-hold <port>              serves; on SIGTERM it writes `stopping` to the working directory, then exits 0 once `release-stop` exists there
 //   serve-receipt <port> <file> <dir>  serves; on SIGTERM it writes {"projectExists":<whether dir exists>} to the file 100 ms later and exits 0
 //   wrap <pidFile> <mode> <arg>... starts `<mode> <arg>...` as a child, writes its pid to the file, and exits 0 on SIGTERM, staying up until then
+//   signal-host <dir> <fail-close> <listens>  launches a host and a session on a fake engine, prints READY, and waits to be signalled; the engine writes `disposed` to the directory
 //   idle                           stays up and answers nothing
 //   exit <code>                    exits with the code
 //   chatter <code>                 prints a line to stdout and one to stderr, then exits with the code
@@ -54,6 +55,8 @@ switch (args[0])
         return await ServeReceipt(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2], args[3]);
     case "wrap":
         return await Wrap(args[1], args.Skip(2).ToArray());
+    case "signal-host":
+        return await SignalHost(args[1], args[2] == "fail-close", args[3] == "listens");
     case "idle":
         await Task.Delay(Timeout.Infinite);
         return 0;
@@ -209,4 +212,51 @@ static async Task<int> Wrap(string pidFile, string[] childArgs)
     });
     await Task.Delay(Timeout.Infinite);
     return 0;
+}
+
+static async Task<int> SignalHost(string dir, bool failClose, bool listens)
+{
+    // A browser driver listens for a hangup to close its browsers, and its listener stays after they are closed.
+    using var engineListener = PosixSignalRegistration.Create(PosixSignal.SIGHUP, _ => { });
+    // A program that listens for the signal itself decides when it ends: here it never does.
+    using var programListener = listens ? PosixSignalRegistration.Create(PosixSignal.SIGHUP, context => context.Cancel = true) : null;
+    var host = await E2E.Launch.LaunchAsync(
+        new SignalEngine(Path.Combine(dir, "disposed"), failClose),
+        new E2E.LaunchOptions { App = new E2E.LaunchApp { Url = "http://127.0.0.1:4500" }, Cwd = dir, Env = new Dictionary<string, string?>() });
+    await host.NewSessionAsync();
+    Console.Out.WriteLine("READY");
+    Console.Out.Flush();
+    await Task.Delay(Timeout.Infinite);
+    return 0;
+}
+
+internal sealed class SignalEngine(string marker, bool failClose) : E2E.Engine.IEngine
+{
+    public string Platform => "fake";
+
+    public string Version => "1";
+
+    public E2E.Engine.EngineCapabilities Capabilities => E2E.Engine.EngineCapabilities.Observation | E2E.Engine.EngineCapabilities.Actions;
+
+    public Task<E2E.Engine.IEngineSession> StartAsync(E2E.Engine.EngineStartOptions options, CancellationToken cancellationToken) =>
+        Task.FromResult<E2E.Engine.IEngineSession>(new SignalSession(marker, failClose));
+
+    private sealed class SignalSession(string marker, bool failClose) : E2E.Engine.IEngineSession
+    {
+        public string Route => "/";
+
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<E2E.Engine.Observation> ObserveAsync(CancellationToken cancellationToken) => Task.FromResult(new E2E.Engine.Observation { Route = "/", Roots = [] });
+
+        public Task PerformAsync(E2E.Engine.SemanticNode node, E2E.Engine.LocatorAction action, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task PressAsync(string key, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public ValueTask DisposeAsync()
+        {
+            File.WriteAllText(marker, "disposed");
+            return failClose ? throw new InvalidOperationException("the device would not let go") : ValueTask.CompletedTask;
+        }
+    }
 }

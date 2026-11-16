@@ -60,6 +60,12 @@ public sealed record LaunchOptions
     /// <summary>The environment the engine reads; default the process environment.</summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
+    /// <summary>
+    /// Closes the host on SIGINT, SIGTERM, and SIGHUP, so the browsers and devices it launched do not outlive the program; the signal is raised again
+    /// afterwards unless the program listens for it itself. Default <c>true</c>. A closing that fails is said on stderr. Upstream's <c>handleSignals</c>.
+    /// </summary>
+    public bool HandleSignals { get; init; } = true;
+
     /// <summary>Progress outside operations: provisioning, downloads, device leases. Must not throw.</summary>
     public Action<string>? OnNotice { get; init; }
 }
@@ -165,6 +171,7 @@ public sealed class Host : IAsyncDisposable
     private readonly LaunchApp? _app;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
+    private Action _unregister = () => { };
     private Session? _open;
 
     internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app)
@@ -198,6 +205,8 @@ public sealed class Host : IAsyncDisposable
 
         return E2E.Secret.Create(name, value);
     }
+
+    internal void CloseOnSignals() => _unregister = Signals.CloseOnSignals(CloseAsync);
 
     /// <summary>Opens a session. One at a time: the previous one must be closed.</summary>
     public Task<Session> NewSessionAsync(NewSessionOptions? options = null, CancellationToken cancellationToken = default) =>
@@ -258,6 +267,7 @@ public sealed class Host : IAsyncDisposable
 
     private async Task CloseOnceAsync()
     {
+        _unregister();
         var errors = new List<Exception>();
         Session? open;
         lock (_gate)
@@ -401,7 +411,13 @@ public static class Launch
                         CancellationToken = cancellationToken,
                         Notice = options.OnNotice is { } notice ? (_, message) => OpenSession.Notify(notice, message) : null,
                     }).ConfigureAwait(false);
-                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app);
+                    var opened = new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app);
+                    if (options.HandleSignals)
+                    {
+                        opened.CloseOnSignals();
+                    }
+
+                    return opened;
                 }
                 catch
                 {

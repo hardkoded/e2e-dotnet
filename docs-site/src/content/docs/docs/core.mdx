@@ -34,6 +34,7 @@ foreach (var sku in new[] { "A-1001", "B-2040" })
 | Sessions | One session at a time on a host. Close it before `NewSessionAsync()`. For parallel work, launch more hosts. |
 | Timeouts | An action, a wait, or a read gets 30 seconds. `App.OpenAsync()` and `App.RestartAsync()` get 120 seconds. `LaunchOptions.Timeout` or `session.SetDefaultTimeout(timeout)` sets one value for all of them, for the operations that start from then on. There is no session deadline. |
 | Cancellation | The token passed to `LaunchAsync` and `NewSessionAsync` stops what is running. |
+| Ctrl-C | The host closes on SIGINT, SIGTERM, and SIGHUP, so its browser or device session does not stay behind. Then the program ends by the signal, unless it listens for the signal itself (`PosixSignalRegistration`), which then sees it again and decides. Turn it off with `LaunchOptions.HandleSignals = false`. A close that fails is said on stderr first. |
 | Files | Screenshots and downloads go to a temp directory that is deleted when the host closes. Set `ArtifactsDir` to keep them; a relative path resolves from `Cwd`. |
 | Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
 

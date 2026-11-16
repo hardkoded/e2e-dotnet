@@ -5,4 +5,8 @@
     <RootNamespace>E2E.Tests.App</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- signal-host: launches a host on a fake engine. -->
+    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+  </ItemGroup>
 </Project>
