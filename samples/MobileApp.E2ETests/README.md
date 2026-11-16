@@ -13,7 +13,7 @@ All tests are in the `RealModel` and `Device` categories. They need a device, so
 
 - macOS with Xcode and an iOS simulator runtime, or an Android emulator (set `E2E_MOBILE_PLATFORM=android`).
 - Node 22.12 or newer. `MobileEngine` starts [agent-device](https://github.com/callstack/agent-device) through `npx`, and agent-device drives the device. Check the setup once with `npx --yes agent-device@0.21.36 doctor`.
-- The MAUI workload: `dotnet workload install maui`.
+- The MAUI workloads: `dotnet workload restore samples/MobileApp/MobileApp.csproj` (or `dotnet workload install maui`).
 - A model login for the agent tests: `dotnet run --project src/E2E.Cli -- login github-copilot`, or an API key in `e2e.config.json`.
 
 ## Build the app
@@ -23,6 +23,27 @@ dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64
 ```
 
 This writes `samples/MobileApp/bin/Debug/net11.0-ios/iossimulator-arm64/MobileApp.app`, the path the tests install by default. The Android path was not run. To try it, build `-f net11.0-android -t:SignAndroidPackage`, boot an emulator, and run the tests with `E2E_MOBILE_PLATFORM=android`. Also set `E2E_MOBILE_APP_PATH` to the `.apk`: `e2e.config.json` holds the iOS build path only.
+
+### Build, install, and launch with `dotnet run`
+
+.NET 11 builds, installs, and launches the app in one command. List the devices, then run the app on one:
+
+```bash
+(cd samples/MobileApp && dotnet run -f net11.0-ios --list-devices)
+(cd samples/MobileApp && dotnet run -f net11.0-ios --device <UDID>)
+```
+
+`--list-devices` prints each device's id, name, and state. `dotnet run --device` stays attached and streams the app's log until you press Ctrl+C. Run it from the project folder. With `--project samples/MobileApp` from another folder, SDK 11.0.100 builds the app and then fails with `MT0069: The app directory 'bin/Debug/...' does not exist`, because it looks for the app relative to the current folder.
+
+The id is the simulator UDID, and it is the value `E2E_MOBILE_DEVICE` takes, so pass one value to both:
+
+```bash
+E2E_MOBILE_DEVICE=<UDID> dotnet test samples/MobileApp.E2ETests
+```
+
+`dotnet run` writes the build to the path above, so it also replaces a stale build. In the default mode the tests install and launch the app themselves: press Ctrl+C once the app is up. The DevFlow mode below needs the app to keep running.
+
+For Android, the same command with `-f net11.0-android` and the serial from `adb devices` as `--device` should build, install, and launch the app, and `E2E_MOBILE_DEVICE` takes the same serial. This was not run: this machine has no Android SDK. DevFlow mode needs no `E2E_MOBILE_APP_PATH`, because `dotnet run` has already installed the app. The other modes still need it, set to the `.apk`, because `e2e.config.json` holds the iOS path only.
 
 The app is not in `E2E.slnx`. A machine without the MAUI workload could not build it, and CI (Linux) has none. The test project is in `E2E.slnx`, because it is plain .NET and builds anywhere.
 
@@ -79,7 +100,9 @@ On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` f
 The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent (`builder.AddMauiDevFlowAgent()` in `MauiProgram.cs`). With `E2E_MOBILE_PROVIDER=devflow`, the tests drive the app through that agent instead of agent-device: no Node, and the MAUI visual tree with every `AutomationId`. The tests attach to a running app, so launch it first:
 
 ```bash
-dotnet build samples/MobileApp -f net11.0-ios -r iossimulator-arm64 -t:Run
+# In one terminal: build, install, and launch the app, and leave it running.
+(cd samples/MobileApp && dotnet run -f net11.0-ios --device <UDID>)
+# In another terminal:
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
 
