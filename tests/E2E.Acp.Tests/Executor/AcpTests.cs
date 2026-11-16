@@ -442,12 +442,16 @@ public sealed class AcpTests : IDisposable
         var agent = Scripted(_directory, Turns([Pass]));
         var world = new TodoPage().World();
         var engine = new HookedEngine(new DocumentEngine(world));
-        await using var session = await StartAsync(agent.Executor, world, engine: engine);
+        // The grammar tools drive a context the runtime opened, so the step's context is the one a session hands an executor.
+        var capture = new CapturingExecutor();
+        await using var session = await StartAsync(capture, world, engine: engine);
+        await session.Agent.ActAsync("add a todo");
+        var step = capture.Context!;
         var before = engine.Observations;
         using var abort = new CancellationTokenSource();
         await abort.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.Agent.ActAsync("add a todo", null, abort.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => agent.Executor.RunStepAsync(step, abort.Token));
 
         Assert.Equal(before, engine.Observations);
     }
@@ -768,5 +772,19 @@ public sealed class AcpTests : IDisposable
     {
         session.Complete();
         return string.Join('\n', Directory.GetFiles(root, "transcript-*.txt", SearchOption.AllDirectories).Select(File.ReadAllText));
+    }
+
+    /// <summary>An executor that passes every step and keeps the context it was given.</summary>
+    private sealed class CapturingExecutor : IStepExecutor
+    {
+        public string Name => "capture";
+
+        public StepExecutorContext? Context { get; private set; }
+
+        public Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
+        {
+            Context = context;
+            return Task.FromResult(new StepVerdict(StepVerdictStatus.Passed, "added"));
+        }
     }
 }
