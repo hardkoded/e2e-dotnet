@@ -238,6 +238,7 @@ internal static partial class TargetApps
         Add("url", app.Url);
         Add("bundleId", app.BundleId);
         Add("appPath", app.AppPath);
+        Add("linkBase", app.LinkBase);
         Add("identity", app.Identity);
         Add("environment", app.Environment);
         Add("launchArguments", app.LaunchArguments is null ? null : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]));

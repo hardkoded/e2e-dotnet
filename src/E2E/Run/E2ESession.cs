@@ -1402,7 +1402,7 @@ public sealed class E2ESessionOptions
     /// <summary>The target's <c>app.bundleId</c>, handed to the engine as <see cref="EngineStartOptions.BundleId"/>.</summary>
     public string? BundleId { get; init; }
 
-    /// <summary>The target's <c>app.linkBase</c>, which <c>App.OpenAsync(path)</c> joins a path to on a device.</summary>
+    /// <summary>The target's <c>app.linkBase</c>, which <c>App.OpenAsync(path)</c> joins a path to on a device. It applies only to a pinned app with no <see cref="BaseUrl"/>; with a base URL a path resolves against that URL.</summary>
     public string? LinkBase { get; init; }
 
     /// <summary>The target's <c>app.appPath</c>, handed to the engine as <see cref="EngineStartOptions.AppPath"/>.</summary>

@@ -18,6 +18,7 @@ internal static class TargetEngines
         ArgumentNullException.ThrowIfNull(target);
         if (target.Engine is { } held)
         {
+            TargetApps.CheckLinkBase(target.App.LinkBase, held, $"target \"{target.Name}\" app");
             return held;
         }
 

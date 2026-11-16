@@ -121,6 +121,7 @@ public sealed class E2EHost : IAsyncDisposable
             OpenSession.RegisterStaticSecrets(config.AllSecrets);
             var declared = SelectTarget.Select(config.Targets, options.Target, "pass `Target` to E2EHost.OpenAsync");
             var engine = options.EngineFactory?.Invoke(declared) ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
+            TargetApps.CheckLinkBase(declared.App.LinkBase, engine, $"target \"{declared.Name}\" app");
             Action<string>? notice = options.OnNotice is { } onNotice ? line => OpenSession.Notify(onNotice, declared.Name, line) : null;
 
             // The target's app command starts before the host opens, and the URL is on the port it was started on.
