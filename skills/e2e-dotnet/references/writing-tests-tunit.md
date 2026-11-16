@@ -237,4 +237,4 @@ no `global.json`.
 `WinAppTest`. Both derive from `E2E.TUnit.E2ETest`, and topics `mobile` and
 `windows` cover their members. TUnit runs base-class hooks first, so each one
 installs or opens the app in its own `[Before(Test)]` hook after the session
-starts, and `MobileAppTest` leases a hosted device when the engine is created.
+starts, and `MobileAppTest` makes the shared hosted engine when the engine is created.
