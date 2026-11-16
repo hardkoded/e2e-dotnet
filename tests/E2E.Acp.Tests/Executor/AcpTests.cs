@@ -437,7 +437,7 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Does_not_read_the_screen_for_an_already_aborted_step()
+    public async Task Partial_Does_not_read_the_screen_for_an_already_aborted_step()
     {
         var agent = Scripted(_directory, Turns([Pass]));
         var world = new TodoPage().World();
