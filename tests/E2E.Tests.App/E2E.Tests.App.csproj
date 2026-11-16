@@ -5,4 +5,9 @@
     <RootNamespace>E2E.Tests.App</RootNamespace>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+    <!-- The fake engine of the core tests, which the signal tests launch in this program. -->
+    <Compile Include="..\E2E.Tests\Core\CoreFakeEngine.cs" Link="CoreFakeEngine.cs" />
+  </ItemGroup>
 </Project>

@@ -63,6 +63,12 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
     /// <summary>Throws when a session captures its state.</summary>
     public Func<Exception?>? OnCapture { get; init; }
 
+    /// <summary>Runs when the engine's session is disposed, the engine's own dispose. Upstream's <c>onDispose</c>.</summary>
+    public Action? OnDispose { get; init; }
+
+    /// <summary>Throws when a session ends, which closing the host then reports. Upstream's <c>onEndAttempt</c>.</summary>
+    public Func<Exception?>? OnEndAttempt { get; init; }
+
     public IReadOnlyList<SemanticNode> Scene { get; }
 
     public int Starts => Volatile.Read(ref _starts);
@@ -168,7 +174,8 @@ internal sealed class CoreFakeEngine : IEngine<CoreFakeFixtures>
         public ValueTask DisposeAsync()
         {
             Interlocked.Increment(ref owner._disposes);
-            return ValueTask.CompletedTask;
+            owner.OnDispose?.Invoke();
+            return owner.OnEndAttempt?.Invoke() is { } failure ? ValueTask.FromException(failure) : ValueTask.CompletedTask;
         }
     }
 }

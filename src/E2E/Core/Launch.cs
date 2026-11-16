@@ -57,6 +57,12 @@ public sealed record LaunchOptions
     public TimeSpan? Timeout { get; init; }
 
     /// <summary>
+    /// Closes the host on SIGINT, SIGTERM, and SIGHUP, so its browser or device session does not stay behind, then lets the signal end the program, unless
+    /// the program listens for it itself (a <see cref="System.Runtime.InteropServices.PosixSignalRegistration"/> that cancels the signal). Default true. Upstream's <c>handleSignals</c>.
+    /// </summary>
+    public bool HandleSignals { get; init; } = true;
+
+    /// <summary>
     /// Where screenshots, downloads, and recordings are written, from <see cref="Cwd"/>. Default: a fresh directory under the system temp directory,
     /// deleted when the host closes.
     /// </summary>
@@ -195,9 +201,10 @@ public sealed class Host : IAsyncDisposable
     private readonly Func<StandaloneAttempt, StateIdentity, Action, Session> _newSession;
     private readonly Lock _gate = new();
     private readonly Lazy<Task> _closing;
+    private readonly Action? _unregisterSignals;
     private Session? _open;
 
-    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession = null)
+    internal Host(StandaloneHost host, IEngine engine, string target, string projectRoot, string output, bool ownsArtifacts, IReadOnlyDictionary<string, string> secrets, StateIdentity identity, TimeSpan? timeout, LaunchApp? app, bool headed, bool handleSignals, Func<StandaloneAttempt, StateIdentity, Action, Session>? newSession = null)
     {
         _newSession = newSession ?? ((attempt, sessionIdentity, onClosed) => new Session(attempt, sessionIdentity, onClosed));
         _headed = headed;
@@ -212,6 +219,7 @@ public sealed class Host : IAsyncDisposable
         _identity = identity;
         _timeout = timeout;
         _closing = new Lazy<Task>(CloseOnceAsync);
+        _unregisterSignals = handleSignals ? Signals.CloseOnSignals(CloseAsync) : null;
     }
 
     /// <summary>The engine's platform label: <c>web</c>, <c>ios</c>, <c>android</c>, or an engine's own string.</summary>
@@ -290,6 +298,7 @@ public sealed class Host : IAsyncDisposable
 
     private async Task CloseOnceAsync()
     {
+        _unregisterSignals?.Invoke();
         var errors = new List<Exception>();
         Session? open;
         lock (_gate)
@@ -484,7 +493,7 @@ public static class Launch
                         Headed = options.Headed,
                         Notice = options.OnNotice is { } notice ? (_, message) => OpenSession.Notify(notice, message) : null,
                     }).ConfigureAwait(false);
-                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed, newSession);
+                    return new Host(worker, engine, target, projectRoot, output, ownsArtifacts, secrets, identity, options.Timeout, app, options.Headed, options.HandleSignals, newSession);
                 }
                 catch
                 {

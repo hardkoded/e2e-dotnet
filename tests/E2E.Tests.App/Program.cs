@@ -22,6 +22,9 @@ using System.Text;
 //   leak <token>                   prints the token to stderr three ways (whole, split across two writes, no newline), then "printed" to stdout
 //   print <code|stay> <line>...    prints each line to stdout, then exits with the code or stays up
 //   print-template <template>      prints the template with ${NAME} replaced by that environment variable, then stays up
+//   core-signals <marker> <fail-close|-> <listens|->  launches a host on the fake engine of the core tests with a session open, prints READY, and stays up;
+//                                  the engine writes `disposed` to the marker when it is disposed; `fail-close` makes ending a session throw; `listens` registers a
+//                                  SIGHUP listener of the program that cancels the signal
 //   write-env <file>               writes the environment, one NAME=VALUE per line, to the file, then exits
 if (args.Length == 0)
 {
@@ -96,6 +99,8 @@ switch (args[0])
         Console.Out.Flush();
         await Task.Delay(Timeout.Infinite);
         return 0;
+    case "core-signals":
+        return await CoreSignals(args[1], args[2] == "fail-close", args[3] == "listens");
     case "write-env":
         var lines = new List<string>();
         foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
@@ -207,6 +212,23 @@ static async Task<int> Wrap(string pidFile, string[] childArgs)
         context.Cancel = true;
         Environment.Exit(0);
     });
+    await Task.Delay(Timeout.Infinite);
+    return 0;
+}
+
+static async Task<int> CoreSignals(string marker, bool failClose, bool listens)
+{
+    var engine = new E2E.Tests.Core.CoreFakeEngine
+    {
+        OnDispose = () => File.WriteAllText(marker, "disposed"),
+        OnEndAttempt = failClose ? () => new InvalidOperationException("the device would not let go") : null,
+    };
+    await using var host = await E2E.Launch.LaunchAsync(engine, new E2E.LaunchOptions { Cwd = Path.GetDirectoryName(marker) });
+    await using var session = await host.NewSessionAsync();
+    // A program that listens for the signal itself decides when it ends: here it never does.
+    using var listener = listens ? PosixSignalRegistration.Create(PosixSignal.SIGHUP, context => context.Cancel = true) : null;
+    Console.Out.WriteLine("READY");
+    Console.Out.Flush();
     await Task.Delay(Timeout.Infinite);
     return 0;
 }
