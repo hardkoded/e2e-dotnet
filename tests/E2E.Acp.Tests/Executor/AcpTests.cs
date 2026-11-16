@@ -453,7 +453,7 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
+    public async Task Ends_a_cancelled_step_without_waiting_for_its_opening_screen()
     {
         var agent = Scripted(_directory, Turns([Pass], [Pass]));
         var world = new TodoPage().World();
@@ -463,13 +463,12 @@ public sealed class AcpTests : IDisposable
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var before = engine.Observations;
         engine.Hold = release.Task;
-        using var abort = new CancellationTokenSource();
-        var run = session.Agent.ActAsync("add a todo", null, abort.Token);
+        var run = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
         try
         {
             await EventuallyAsync(() => Assert.True(engine.Observations > before));
-            await abort.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.WaitAsync(TimeSpan.FromSeconds(1)));
+            var reason = await Assert.ThrowsAsync<AgentException>(() => run.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal("STEP_TIMEOUT", reason.Code);
             Assert.Single(agent.Prompts());
             engine.Hold = null;
             var result = await session.Agent.ActAsync("add a todo");
@@ -504,27 +503,24 @@ public sealed class AcpTests : IDisposable
     }
 
     [Fact]
-    public async Task Partial_Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
+    public async Task Preserves_cancellation_while_waiting_for_the_previous_turn_to_stop()
     {
         var agent = Scripted(_directory, Turns([new { ignoreCancel = true }], [Pass]));
         var world = new TodoPage().World();
         var engine = new HookedEngine(new DocumentEngine(world));
         await using var session = await StartAsync(agent.Executor, world, engine: engine);
-        using var first = new CancellationTokenSource();
-        var run = session.Agent.ActAsync("add a todo", null, first.Token);
+        var run = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromSeconds(1) });
         await EventuallyAsync(() => Assert.Single(agent.Prompts()));
-        await first.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        var firstError = await Assert.ThrowsAsync<AgentException>(() => run);
+        Assert.Equal("STEP_TIMEOUT", firstError.Code);
         // The agent logs the cancel after the step already ended: wait for it, or that write races the teardown.
         await EventuallyAsync(() => Assert.Contains(agent.Log(), entry => entry.ContainsKey("cancelled")));
 
         var before = engine.Observations;
-        using var second = new CancellationTokenSource();
-        var next = session.Agent.ActAsync("add a todo", null, second.Token);
-        await Task.Yield();
-        await second.CancelAsync();
+        var next = session.Agent.ActAsync("add a todo", new ActOptions { Timeout = TimeSpan.FromMilliseconds(500) });
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => next);
+        var reason = await Assert.ThrowsAsync<AgentException>(() => next);
+        Assert.Equal("STEP_TIMEOUT", reason.Code);
         Assert.Equal(before, engine.Observations);
         Assert.Single(agent.Prompts());
     }
