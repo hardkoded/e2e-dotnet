@@ -185,8 +185,8 @@ Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, Cancellati
 Releases every lease of the run and target the provider still holds open, and resolves to their ids. Called once
 per target from finish, in the runner, after every worker exited and the leases prepare made were released:
 whatever it finds is a lease a worker acquired (a per-attempt browser, a replacement) and never gave back,
-because the worker died before it could. Find them by what acquire tagged them with at the service: the run id
-and the target.
+because the worker died before it could. Find them by service tags or a shared journal scoped to the run id and
+target.
 
 **Parameters**
 

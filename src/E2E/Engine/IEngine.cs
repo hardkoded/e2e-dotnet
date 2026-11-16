@@ -121,6 +121,18 @@ public interface IEngineFixtureHost
     void CreateFixtures(EngineFixtureContext context);
 }
 
+/// <summary>
+/// An engine that contributes fixtures to the sessions opened on it, which <see cref="Launch.LaunchAsync{TFixtures}"/> types a host and its sessions by.
+/// Upstream's <c>EngineHandle&lt;Fixtures&gt;</c> (<c>defineEngine&lt;Fixtures&gt;</c>).
+/// </summary>
+/// <typeparam name="TFixtures">What a session on this engine holds beside <c>Screen</c> and <c>App</c>, such as <c>Device</c> on a mobile engine.</typeparam>
+public interface IEngine<out TFixtures> : IEngine
+    where TFixtures : class
+{
+    /// <summary>The fixtures of one session, over the engine's own <paramref name="session"/>.</summary>
+    TFixtures CreateFixtures(IEngineSession session);
+}
+
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
 public sealed class EngineStartOptions
 {

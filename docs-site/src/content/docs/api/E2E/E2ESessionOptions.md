@@ -424,7 +424,7 @@ public string? LinkBase { get; init; }
 ```
 
 
-The target's `app.linkBase`, which `App.OpenAsync(path)` joins a path to on a device. It applies only to a pinned app with no [BaseUrl](/api/E2E/E2ESessionOptions/#E2E_E2ESessionOptions_BaseUrl); with a base URL a path resolves against that URL.
+The target's `app.linkBase`, which `App.OpenAsync(path)` joins a path to on a device. It applies only to a pinned app with no [BaseUrl](#E2E_E2ESessionOptions_BaseUrl); with a base URL a path resolves against that URL.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

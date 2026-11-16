@@ -15,7 +15,7 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class Session : IAsyncDisposable
+public class Session : IAsyncDisposable
 ```
 
 
@@ -25,6 +25,8 @@ One isolated session: a browser context, or the app on a device. Holds [Screen](
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
+
+**Derived:** [Session&lt;TFixtures&gt;](/api/E2E/Session-1/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Core/Launch.cs)
 
@@ -142,3 +144,23 @@ Captures the session's state (cookies, storage, app data) in memory. Persist it 
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;SessionState&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+<a id="E2E_Session_SetDefaultTimeout_"></a>
+<a id="E2E_Session_SetDefaultTimeout_System_TimeSpan_"></a>
+
+### SetDefaultTimeout(TimeSpan)
+
+
+```csharp
+public void SetDefaultTimeout(TimeSpan timeout)
+```
+
+
+The default timeout of operations started from now on: actions, waits, reads, and app opens and restarts. A running operation keeps the
+deadline it started with. Throws `INVALID_ARGUMENT` unless &lt;code class="paramref"&gt;timeout&lt;/code&gt; is positive and finite. Upstream's `setDefaultTimeout`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
