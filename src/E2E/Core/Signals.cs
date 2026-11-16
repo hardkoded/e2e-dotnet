@@ -44,7 +44,11 @@ internal static class Signals
             {
                 // A registration that could not be made leaves nothing behind: no closer for a host never returned, no half-installed set.
                 Closers.Remove(close);
-                Uninstall();
+                if (Closers.Count == 0)
+                {
+                    Uninstall();
+                }
+
                 throw;
             }
         }
@@ -85,7 +89,7 @@ internal static class Signals
         {
             try
             {
-                // The process ends right after, so a close that failed is said on stderr or nowhere; its message is already redacted.
+                // The process ends right after, so a close that failed is said on stderr or nowhere.
                 var pending = closers.Select(async close =>
                 {
                     try
@@ -206,6 +210,12 @@ internal static class Signals
             {
                 // The platform has no such signal; the others still close the host.
             }
+        }
+
+        if (s_registrations.Count == 0)
+        {
+            s_registrations = null;
+            throw new PlatformNotSupportedException("The platform supports none of SIGINT, SIGTERM, or SIGHUP; pass HandleSignals = false.");
         }
     }
 
