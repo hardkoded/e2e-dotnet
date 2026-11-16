@@ -74,21 +74,20 @@ internal static class Signals
         _ = Task.Run(async () =>
         {
             // The process ends right after, so a close that failed is said on stderr or nowhere; its message is already redacted.
-            await Task.WhenAll(closers.Select(close => CloseAsync(close, signal))).ConfigureAwait(false);
+            var pending = closers.Select(async close =>
+            {
+                try
+                {
+                    await close().ConfigureAwait(false);
+                }
+                catch (Exception cause)
+                {
+                    await Console.Error.WriteAsync($"E2E: closing a host on {signal} failed: {cause.Message}\n").ConfigureAwait(false);
+                }
+            });
+            await Task.WhenAll(pending).ConfigureAwait(false);
             Raise(signal);
         });
-    }
-
-    private static async Task CloseAsync(Func<Task> close, PosixSignal signal)
-    {
-        try
-        {
-            await close().ConfigureAwait(false);
-        }
-        catch (Exception cause)
-        {
-            await Console.Error.WriteAsync($"E2E: closing a host on {signal} failed: {cause.Message}\n").ConfigureAwait(false);
-        }
     }
 
     private static void Raise(PosixSignal signal)
