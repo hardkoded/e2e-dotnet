@@ -42,8 +42,9 @@ public sealed record LaunchOptions
     public IReadOnlyDictionary<string, string>? Secrets { get; init; }
 
     /// <summary>
-    /// Default timeout of one operation: an action, a wait, a read. Without it an action gets 30 seconds. An agent step has its own, <c>ActAsync</c>'s
-    /// timeout. There is no session deadline.
+    /// Default timeout of one operation: an action, a wait, a read, and <c>App.OpenAsync</c> or <c>App.RestartAsync</c>. Without it an action, a wait,
+    /// or a read gets 30 seconds, and an app open or restart 120 seconds. A session changes it with <see cref="Session.SetDefaultTimeout"/>. An agent
+    /// step has its own, <c>ActAsync</c>'s timeout. There is no session deadline.
     /// </summary>
     public TimeSpan? Timeout { get; init; }
 
@@ -112,6 +113,20 @@ public sealed class Session : IAsyncDisposable
             var saved = await _session.CaptureStateAsync(cancellationToken).ConfigureAwait(false);
             return SessionState.Captured(_identity, saved.State, saved.Secrets);
         });
+
+    /// <summary>
+    /// The default timeout of operations started from now on: actions, waits, reads, and app opens and restarts. A running operation keeps the
+    /// deadline it started with. Throws <c>INVALID_ARGUMENT</c> unless <paramref name="timeout"/> is positive and finite. Upstream's <c>setDefaultTimeout</c>.
+    /// </summary>
+    public void SetDefaultTimeout(TimeSpan timeout)
+    {
+        if (timeout <= TimeSpan.Zero || timeout == System.Threading.Timeout.InfiniteTimeSpan)
+        {
+            throw new TestException("INVALID_ARGUMENT", "setDefaultTimeout takes a positive, finite time span");
+        }
+
+        _session.SetDefaultTimeouts(timeout);
+    }
 
     /// <summary>Ends the session. Idempotent. Throws an <see cref="AggregateException"/> of the failures closing found, such as a cleanup that did not finish. Upstream's <c>close</c>.</summary>
     public Task CloseAsync() => _closing.Value;
@@ -198,6 +213,10 @@ public sealed class Host : IAsyncDisposable
             try
             {
                 var session = new Session(attempt, _identity, () => Release(attempt));
+                if (_timeout is { } timeout)
+                {
+                    session.SetDefaultTimeout(timeout);
+                }
 
                 // What a program configured is known to the session from the start: the agent fills it by name, and every output redacts it.
                 attempt.Session.Remember(_secrets.Select(pair => E2E.Secret.Create(pair.Key, pair.Value)));

@@ -1556,7 +1556,7 @@ internal sealed class AttemptScope : ISecretFillRuntime
 
     public int Attempt { get; init; } = 1;
 
-    public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
+    public TimeSpan ActionTimeout { get; set; } = E2EDefaults.ActionTimeout;
 
     public TimeSpan ReplayTimeout { get; init; } = E2EDefaults.ReplayTimeout;
 

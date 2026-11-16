@@ -32,13 +32,13 @@ foreach (var sku in new[] { "A-1001", "B-2040" })
 | --- | --- |
 | Ownership | Each `LaunchAsync` takes its own engine instance. A second host on the same instance fails with `WORKER_PROTOCOL`. |
 | Sessions | One session at a time on a host. Close it before `NewSessionAsync()`. For parallel work, launch more hosts. |
-| Timeouts | An action, a wait, or a read gets `LaunchOptions.Timeout`, 30 seconds by default. There is no session deadline. |
+| Timeouts | An action, a wait, or a read gets 30 seconds. `App.OpenAsync()` and `App.RestartAsync()` get 120 seconds. `LaunchOptions.Timeout` or `session.SetDefaultTimeout(timeout)` sets one value for all of them, for the operations that start from then on. There is no session deadline. |
 | Cancellation | The token passed to `LaunchAsync` and `NewSessionAsync` stops what is running. |
 | Files | Screenshots and downloads go to a temp directory that is deleted when the host closes. Set `ArtifactsDir` to keep them; a relative path resolves from `Cwd`. |
 | Closing | `CloseAsync` is idempotent and throws an `AggregateException` of the failures closing found. |
 
 <Aside type="note">
-Not ported yet: `setDefaultTimeout`, the longer open and restart timeout, closing the host on SIGINT, SIGTERM, and SIGHUP, `app.linkBase` for `App.OpenAsync(path)` on a device, and `createAgent`. A web engine shows its window through its own options, not a `Headed` launch option. Issues [#1674](https://github.com/hardkoded/e2e-dotnet/issues/1674), [#1675](https://github.com/hardkoded/e2e-dotnet/issues/1675), [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676), [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677), and [#1678](https://github.com/hardkoded/e2e-dotnet/issues/1678) track them.
+Not ported yet: closing the host on SIGINT, SIGTERM, and SIGHUP, `app.linkBase` for `App.OpenAsync(path)` on a device, and `createAgent`. A web engine shows its window through its own options, not a `Headed` launch option. Issues [#1675](https://github.com/hardkoded/e2e-dotnet/issues/1675), [#1676](https://github.com/hardkoded/e2e-dotnet/issues/1676), [#1677](https://github.com/hardkoded/e2e-dotnet/issues/1677), and [#1678](https://github.com/hardkoded/e2e-dotnet/issues/1678) track them.
 </Aside>
 
 ## Keep a signed-in state
