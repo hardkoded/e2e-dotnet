@@ -1,0 +1,5 @@
+# Commits that only reformat code. `git blame` skips them when run with
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs`. GitHub skips them already.
+
+# Format codebase with CSharpier
+eaacd7b0a690886a276bb48409e6a715ddff5e33
