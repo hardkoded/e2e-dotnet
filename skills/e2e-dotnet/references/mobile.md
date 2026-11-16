@@ -303,8 +303,6 @@ Edit the app. When `dotnet watch` prints `C# and Razor changes applied` (it prin
 
 Hot reload does not reset the app. It is the same process, so the screen, the typed text, and the counters stay as the last test left them, and the next test starts from that state. A test that needs a clean start must navigate there itself, or you restart `dotnet watch`. The device tests that background or relaunch the app stay inconclusive, as above.
 
-`dotnet test` can also run on a device in .NET 11 (`dotnet new androidtest`, `iostest`). Those tests are white-box C# tests inside the app's runtime. e2e drives the app from outside, so the two complement each other.
-
 `e2e explore` and `e2e mcp` also run with `E2E_MOBILE_PROVIDER=devflow`. Their first launch of the pinned app attaches to the running app instead of relaunching it, and the session holds the agent's mutation lease until it closes.
 
 Limits of the preview: the tests attach to the running app, so `Device.InstallAppAsync()`, `OpenAppAsync` with `Relaunch`, `OpenLinkAsync`, `HomeAsync`, `AlertAsync`, permissions, and orientation fail with `UNSUPPORTED_CAPABILITY`. Open the app without `Relaunch`. `SetAppearanceAsync` changes the app's theme, not the device's. The agent exists only in Debug builds. On Android, forward the agent's port first (`adb forward tcp:<port> tcp:<port>`), and `adb reverse tcp:19223 tcp:19223` before the app starts if a broker runs.
