@@ -13,9 +13,21 @@ internal static class MobileAppHost
 {
     // The device keeps the build between tests, so only the first test of the run installs it.
     private static readonly SemaphoreSlim Gate = new(1, 1);
+
+    // Guards s_engine and AttachesToRunningApp; Gate above guards s_installed.
     private static readonly Lock EngineLock = new();
     private static bool s_installed;
     private static MobileEngine? s_engine;
+
+    /// <summary>The next <see cref="ShareEngine"/> starts from no shared engine. .NET-only: a test of the host runs in a process that other tests share.</summary>
+    internal static void Reset()
+    {
+        lock (EngineLock)
+        {
+            s_engine = null;
+            AttachesToRunningApp = false;
+        }
+    }
 
     /// <summary>The engine whose hosted device the run shares, or null when the tests drive a local one.</summary>
     internal static MobileEngine? Engine => s_engine;
@@ -86,8 +98,9 @@ internal static class MobileAppHost
 
             var provider = HostedDeviceProviders.Create(name, Environment.GetEnvironmentVariable)
                 ?? throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}.");
+            var engine = new MobileEngine(options(provider));
             AttachesToRunningApp = name == "devflow";
-            s_engine = new MobileEngine(options(provider));
+            s_engine = engine;
         }
     }
 

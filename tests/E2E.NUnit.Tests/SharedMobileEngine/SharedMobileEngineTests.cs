@@ -24,6 +24,7 @@ public sealed class SharedMobileEngineTests
         var port = ((IPEndPoint)agent.LocalEndpoint).Port;
         var provider = Environment.GetEnvironmentVariable("E2E_MOBILE_PROVIDER");
         var devflowPort = Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT");
+        MobileAppHost.Reset();
         Environment.SetEnvironmentVariable("E2E_MOBILE_PROVIDER", "devflow");
         Environment.SetEnvironmentVariable("E2E_DEVFLOW_PORT", port.ToString());
         try
@@ -39,10 +40,12 @@ public sealed class SharedMobileEngineTests
 
             Assert.That(MobileAppHost.Engine, Is.Not.Null);
             Assert.That(MobileAppHost.AttachesToRunningApp, Is.True);
+            await Task.Delay(300);
             Assert.That(agent.Pending(), Is.False, "the host reached the DevFlow agent");
         }
         finally
         {
+            MobileAppHost.Reset();
             Environment.SetEnvironmentVariable("E2E_MOBILE_PROVIDER", provider);
             Environment.SetEnvironmentVariable("E2E_DEVFLOW_PORT", devflowPort);
         }

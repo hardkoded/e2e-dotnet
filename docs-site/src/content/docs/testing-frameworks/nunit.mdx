@@ -203,7 +203,7 @@ dotnet add package E2E.Mobile.NUnit      # MobileAppTest, in E2E.Mobile.NUnit
 dotnet add package E2E.WinApp.NUnit      # WinAppTest, in E2E.WinApp.NUnit
 ```
 
-`MobileAppTest` leases the device once per run in `[OneTimeSetUp]`. For a Windows project, put `[assembly: NonParallelizable]` in the project, so one window is in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
+`MobileAppTest` makes one shared engine for a hosted run in `[OneTimeSetUp]`, and the run leases the device when the first test starts. For a Windows project, put `[assembly: NonParallelizable]` in the project, so one window is in the foreground at a time. The steps are on the [Mobile](/get-started/mobile/), [.NET MAUI](/get-started/maui/), and [Windows](/get-started/windows/) pages.
 
 ## 7. Next
 

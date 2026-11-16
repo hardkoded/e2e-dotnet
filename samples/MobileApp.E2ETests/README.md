@@ -89,7 +89,7 @@ E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/Mobile
 
 `e2e.config.json` declares the app in `targets[0]` (platform, bundle id, and build path). The tests derive from `E2E.Mobile.NUnit.MobileAppTest`, which builds a `MobileEngine` from it, installs the build once per run, and launches the app fresh before each test. The settings that are not about the device, such as the agent, the model, and the cache, also come from the config.
 
-On a hosted run, `MobileAppTest` leases the device once and every test shares it. The local run is unchanged: each test makes its own engine.
+On a hosted run, every test shares one device, which the run leases once when the first test starts. The local run is unchanged: each test makes its own engine.
 
 A device target has no URL, so a test does not call `App.OpenAsync()`. The base class launches the app with `Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true })`. A test reaches the `Device` fixture through the engine's active session.
 
