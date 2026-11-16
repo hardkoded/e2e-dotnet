@@ -45,7 +45,7 @@ Not ported yet: closing the host on SIGINT, SIGTERM, and SIGHUP. Issue [#1677](h
 
 ## Let the agent act
 
-`CoreAgents.CreateAgent(session, options)` puts an agent over one session. Its `ActAsync`, `AssertAsync`, `WaitForAsync`, and `ExtractAsync` work as they do in a [test](/reference/agent).
+`CoreAgents.CreateAgent(session, options)` puts an agent over one session. Its `ActAsync`, `AssertAsync`, `WaitForAsync`, and `ExtractAsync` work as they do in a test.
 
 ```csharp
 await using var shop = await Launch.LaunchAsync(new WebEngine(), new LaunchOptions { App = new LaunchApp { Url = "https://shop.example.com" } });
@@ -84,7 +84,7 @@ else
 record Order(int Total);
 ```
 
-`CreateAgentOptions` takes the options of an [`agents` entry](/reference/config#agents) (`AgentOptions`), such as `Model`, `Judge`, `MaxSteps`, and `Context`, plus `Cache`. There is no default model: an agent without one fails its first call with `MODEL_UNAVAILABLE`. An `ActAsync` step has its own timeout, 120000 ms: set it per call with `Timeout`. A call takes no `Agent` option: it is `INVALID_ARGUMENT`, so create another agent for another configuration. A session that did not come from `Host.NewSessionAsync` is `INVALID_ARGUMENT` too.
+`CreateAgentOptions` takes the options of an `agents` entry (`AgentOptions`), such as `Model`, `Judge`, `MaxSteps`, and `Context`, plus `Cache`. There is no default model: an agent without one fails its first call with `MODEL_UNAVAILABLE`. An `ActAsync` step has its own timeout, 120000 ms: set it per call with `Timeout`. A call takes no `Agent` option: it is `INVALID_ARGUMENT`, so create another agent for another configuration. A session that did not come from `Host.NewSessionAsync` is `INVALID_ARGUMENT` too.
 
 ### Replay recorded steps
 
@@ -92,7 +92,7 @@ With `Cache`, `ActAsync` records each flow and replays it on the next run with n
 
 A recording is keyed by the `CacheKey`, the instruction, its params, the app, and how many times the session made the same call. Pass a value that changes between runs as a param: a value the agent reads off the screen is decided by the model again on each run.
 
-A recording is saved when the session closes, or its host does, and only when a check passed after the step, such as `Locator.WaitForAsync()`, `AssertAsync`, or `WaitForAsync`. When an agent step fails, the recordings not yet confirmed at that moment are dropped. A failure of your own code's locator call, such as a `WaitForAsync` that ran out, drops nothing. A step that fails only because no model answered (`MODEL_UNAVAILABLE`, `MODEL_PROVIDER_FAILED`) leaves the recordings as they are. Read [Replay cache](/cache) for how a replay checks the screen and hands off to the model.
+A recording is saved when the session closes, or its host does, and only when a check passed after the step, such as `Locator.WaitForAsync()`, `AssertAsync`, or `WaitForAsync`. When an agent step fails, the recordings not yet confirmed at that moment are dropped. A failure of your own code's locator call, such as a `WaitForAsync` that ran out, drops nothing. A step that fails only because no model answered (`MODEL_UNAVAILABLE`, `MODEL_PROVIDER_FAILED`) leaves the recordings as they are. Read [Replay cache](/features/caching/) for how a replay checks the screen and hands off to the model.
 
 | Option | Default | Meaning |
 | --- | --- | --- |

@@ -159,8 +159,9 @@ public class Session : IAsyncDisposable
             {
                 await closer().ConfigureAwait(false);
             }
-            catch (Exception cause) when (cause is not OperationCanceledException)
+            catch (Exception cause)
             {
+                // Whatever a closer throws, a cancellation included, is reported after the attempt is closed.
                 errors.Add(cause);
             }
         }
