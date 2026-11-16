@@ -948,7 +948,7 @@ What the context holds:
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
 on any other hard stop. An executor that ignores it still cannot outlive the
-clock: a second after the stop, the runtime settles the step without it.
+clock: a second after the stop, the runtime settles the step without it. The ACP executor returns as soon as the token ends, before it reads the opening screen or while that read runs; the read does not hold the cancel.
 
 The verdict is `Passed`, `Failed`, or `Blocked` with a summary. A blocked
 verdict needs a code from `StepExecutors.BlockableCodes`, and a passed one has

@@ -13,11 +13,22 @@ namespace E2E.Acp.Tests.Executor;
 internal sealed class HookedEngine(IEngine inner) : IEngine
 {
     private int _observations;
+    private Task? _hold;
 
     /// <summary>Runs on the observation that follows <see cref="After"/> others, before it answers.</summary>
     public Action? OnObserve { get; set; }
 
     public int After { get; set; }
+
+    /// <summary>When set, the observations that follow it wait for it before they answer: upstream's <c>ctx.observe</c> mock that holds the screen.</summary>
+    public Task? Hold
+    {
+        get => Volatile.Read(ref _hold);
+        set => Volatile.Write(ref _hold, value);
+    }
+
+    /// <summary>How many observations the engine took.</summary>
+    public int Observations => Volatile.Read(ref _observations);
 
     public string Platform => inner.Platform;
 
@@ -40,7 +51,7 @@ internal sealed class HookedEngine(IEngine inner) : IEngine
 
         public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+        public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
             if (Interlocked.Increment(ref engine._observations) > engine.After && engine.OnObserve is { } hook)
             {
@@ -48,7 +59,12 @@ internal sealed class HookedEngine(IEngine inner) : IEngine
                 hook();
             }
 
-            return inner.ObserveAsync(cancellationToken);
+            if (engine.Hold is { } hold)
+            {
+                await hold.ConfigureAwait(false);
+            }
+
+            return await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
